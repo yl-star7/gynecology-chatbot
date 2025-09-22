@@ -1,26 +1,705 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
+@custom-variant dark (&:is(.dark *));
+
+/* Maternal Health Design System - CSS Custom Properties */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Primary Colors - Warm Coral/Rose */
+  --primary-50: #fef7f0;
+  --primary-100: #feeee0;
+  --primary-200: #fdd9c1;
+  --primary-300: #fbbf9a;
+  --primary-400: #f7a072;
+  --primary-500: #f28b5c;
+  --primary-600: #e16947;
+  --primary-700: #c54d34;
+  --primary-800: #9e3f2a;
+  --primary-900: #7f3521;
+
+  /* Secondary Colors - Soft Lavender */
+  --secondary-50: #faf8ff;
+  --secondary-100: #f3eff7;
+  --secondary-200: #e9dff0;
+  --secondary-300: #d6c2e0;
+  --secondary-400: #c39eca;
+  --secondary-500: #a67fb5;
+  --secondary-600: #8b5fa3;
+  --secondary-700: #704a85;
+  --secondary-800: #573a69;
+  --secondary-900: #462d54;
+
+  /* Accent Colors - Mint Green */
+  --accent-light: #a7f3d0;
+  --accent-default: #6ee7b7;
+  --accent-dark: #34d399;
+
+  /* Semantic Colors */
+  --success-light: #86efac;
+  --success-default: #4ade80;
+  --success-dark: #22c55e;
+
+  --warning-light: #fed7aa;
+  --warning-default: #fb923c;
+  --warning-dark: #ea580c;
+
+  --info-light: #bfdbfe;
+  --info-default: #60a5fa;
+  --info-dark: #3b82f6;
+
+  --error-light: #fca5a5;
+  --error-default: #ef4444;
+  --error-dark: #dc2626;
+
+  /* Neutral Colors - Warm Beige/Cream */
+  --neutral-50: #fefefe;
+  --neutral-100: #fefdfb;
+  --neutral-200: #faf7f2;
+  --neutral-300: #f2ede4;
+  --neutral-400: #e4dcc9;
+  --neutral-500: #d1c5a7;
+  --neutral-600: #b8a888;
+  --neutral-700: #8d7f65;
+  --neutral-800: #6b6149;
+  --neutral-900: #4a4232;
+  --neutral-950: #2d251b;
+
+  /* Theme Variables */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: #ffffff;
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.625rem;
+
+  /* Shadows */
+  --shadow-primary: 0 10px 25px -5px rgb(242 139 92 / 0.1), 0 4px 6px -4px rgb(242 139 92 / 0.1);
+  --shadow-secondary: 0 10px 25px -5px rgb(166 127 181 / 0.1), 0 4px 6px -4px rgb(166 127 181 / 0.1);
+  --shadow-accent: 0 10px 25px -5px rgb(110 231 183 / 0.1), 0 4px 6px -4px rgb(110 231 183 / 0.1);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --card: var(--neutral-900);
+    --card-foreground: var(--neutral-200);
+    --popover: var(--neutral-950);
+    --popover-foreground: var(--neutral-100);
+    --secondary: var(--secondary-800);
+    --secondary-foreground: var(--secondary-200);
+    --muted: var(--neutral-800);
+    --muted-foreground: var(--neutral-400);
+    --border: var(--neutral-700);
+    --input: var(--neutral-800);
   }
 }
 
+/* Base Styles */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Custom Animations for Maternal UI */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes gentlePulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes gentleBounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Utility Classes for Maternal Design */
+.animate-slide-in-right {
+  animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-gentle-pulse {
+  animation: gentlePulse 2s infinite;
+}
+
+.animate-gentle-bounce {
+  animation: gentleBounce 1s infinite;
+}
+
+.animate-slide-up-fade {
+  animation: slideUpFade 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Gradient Classes */
+.bg-maternal-gradient {
+  background: linear-gradient(135deg, var(--primary-50) 0%, var(--secondary-50) 100%);
+}
+
+.bg-chat-gradient {
+  background: linear-gradient(135deg, var(--neutral-50) 0%, var(--primary-50) 100%);
+}
+
+.bg-primary-gradient {
+  background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-400) 100%);
+}
+
+.bg-secondary-gradient {
+  background: linear-gradient(135deg, var(--secondary-500) 0%, var(--secondary-400) 100%);
+}
+
+.bg-accent-gradient {
+  background: linear-gradient(135deg, var(--accent-default) 0%, var(--accent-light) 100%);
+}
+
+/* Shadow Classes */
+.shadow-maternal {
+  box-shadow: var(--shadow-primary);
+}
+
+.shadow-secondary-maternal {
+  box-shadow: var(--shadow-secondary);
+}
+
+.shadow-accent-maternal {
+  box-shadow: var(--shadow-accent);
+}
+
+/* Focus Styles for Accessibility */
+.focus-visible:focus {
+  outline: 2px solid var(--primary-500);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* Enhanced Safe Area for Mobile - Support for all devices */
+:root {
+  /* Safe area inset variables for easier access */
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+}
+
+/* Padding safe area classes */
+.pt-safe {
+  padding-top: max(1rem, var(--safe-area-inset-top));
+}
+
+.pb-safe {
+  padding-bottom: max(1rem, var(--safe-area-inset-bottom));
+}
+
+.pl-safe {
+  padding-left: max(1rem, var(--safe-area-inset-left));
+}
+
+.pr-safe {
+  padding-right: max(1rem, var(--safe-area-inset-right));
+}
+
+.px-safe {
+  padding-left: max(1rem, var(--safe-area-inset-left));
+  padding-right: max(1rem, var(--safe-area-inset-right));
+}
+
+.py-safe {
+  padding-top: max(1rem, var(--safe-area-inset-top));
+  padding-bottom: max(1rem, var(--safe-area-inset-bottom));
+}
+
+.p-safe {
+  padding-top: max(1rem, var(--safe-area-inset-top));
+  padding-bottom: max(1rem, var(--safe-area-inset-bottom));
+  padding-left: max(1rem, var(--safe-area-inset-left));
+  padding-right: max(1rem, var(--safe-area-inset-right));
+}
+
+/* Margin safe area classes */
+.mt-safe {
+  margin-top: var(--safe-area-inset-top);
+}
+
+.mb-safe {
+  margin-bottom: var(--safe-area-inset-bottom);
+}
+
+.ml-safe {
+  margin-left: var(--safe-area-inset-left);
+}
+
+.mr-safe {
+  margin-right: var(--safe-area-inset-right);
+}
+
+.mx-safe {
+  margin-left: var(--safe-area-inset-left);
+  margin-right: var(--safe-area-inset-right);
+}
+
+.my-safe {
+  margin-top: var(--safe-area-inset-top);
+  margin-bottom: var(--safe-area-inset-bottom);
+}
+
+/* Position-based safe area classes */
+.top-safe {
+  top: var(--safe-area-inset-top);
+}
+
+.bottom-safe {
+  bottom: var(--safe-area-inset-bottom);
+}
+
+.left-safe {
+  left: var(--safe-area-inset-left);
+}
+
+.right-safe {
+  right: var(--safe-area-inset-right);
+}
+
+/* Height adjustments for safe area */
+.h-screen-safe {
+  height: calc(100vh - var(--safe-area-inset-top) - var(--safe-area-inset-bottom));
+}
+
+.min-h-screen-safe {
+  min-height: calc(100vh - var(--safe-area-inset-top) - var(--safe-area-inset-bottom));
+}
+
+.max-h-screen-safe {
+  max-height: calc(100vh - var(--safe-area-inset-top) - var(--safe-area-inset-bottom));
+}
+
+/* Full viewport with safe area support */
+.h-dvh-safe {
+  height: calc(100dvh - var(--safe-area-inset-top) - var(--safe-area-inset-bottom));
+}
+
+.min-h-dvh-safe {
+  min-height: calc(100dvh - var(--safe-area-inset-top) - var(--safe-area-inset-bottom));
+}
+
+/* Inset utilities - for precise control */
+.inset-safe {
+  top: var(--safe-area-inset-top);
+  bottom: var(--safe-area-inset-bottom);
+  left: var(--safe-area-inset-left);
+  right: var(--safe-area-inset-right);
+}
+
+.inset-x-safe {
+  left: var(--safe-area-inset-left);
+  right: var(--safe-area-inset-right);
+}
+
+.inset-y-safe {
+  top: var(--safe-area-inset-top);
+  bottom: var(--safe-area-inset-bottom);
+}
+
+/* Maternal-specific utility classes */
+.text-maternal-primary {
+  color: var(--primary-600);
+}
+
+.text-maternal-secondary {
+  color: var(--secondary-600);
+}
+
+.border-maternal-primary {
+  border-color: var(--primary-300);
+}
+
+.border-maternal-secondary {
+  border-color: var(--secondary-300);
+}
+
+/* Touch Target Optimization for Pregnancy (considering finger swelling) */
+.touch-target-sm {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.5rem;
+}
+
+.touch-target {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0.75rem;
+}
+
+.touch-target-lg {
+  min-width: 56px;
+  min-height: 56px;
+  padding: 1rem;
+}
+
+.touch-target-xl {
+  min-width: 64px;
+  min-height: 64px;
+  padding: 1.25rem;
+}
+
+/* Interactive elements should be easily tapable */
+button,
+[role="button"],
+a,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Larger touch targets for mobile */
+@media (max-width: 768px) {
+  button,
+  [role="button"],
+  a:not(.text-link),
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    min-height: 48px;
+    min-width: 48px;
+    padding: 0.75rem;
+  }
+
+  /* Extra large for critical actions */
+  .btn-primary,
+  .btn-submit {
+    min-height: 56px;
+    min-width: 56px;
+    padding: 1rem;
+  }
+}
+
+/* Spacing for touch-friendly interfaces */
+.touch-spacing-sm > * + * {
+  margin-top: 0.5rem;
+}
+
+.touch-spacing > * + * {
+  margin-top: 0.75rem;
+}
+
+.touch-spacing-lg > * + * {
+  margin-top: 1rem;
+}
+
+/* Maternal-friendly form controls */
+.form-control-maternal {
+  min-height: 48px;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border-radius: 0.75rem;
+  border: 2px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+.form-control-maternal:focus {
+  border-color: var(--primary-500);
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(242 139 92 / 0.1);
+}
+
+/* Accessibility improvements for expectant mothers */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Maternal-friendly font sizing */
+.font-small {
+  font-size: 14px;
+}
+
+.font-small .text-base {
+  font-size: 14px;
+}
+
+.font-small .text-lg {
+  font-size: 16px;
+}
+
+.font-small .text-xl {
+  font-size: 18px;
+}
+
+.font-medium {
+  font-size: 16px;
+}
+
+.font-medium .text-base {
+  font-size: 16px;
+}
+
+.font-medium .text-lg {
+  font-size: 18px;
+}
+
+.font-medium .text-xl {
+  font-size: 20px;
+}
+
+.font-large {
+  font-size: 18px;
+}
+
+.font-large .text-base {
+  font-size: 18px;
+}
+
+.font-large .text-lg {
+  font-size: 20px;
+}
+
+.font-large .text-xl {
+  font-size: 24px;
+}
+
+.font-xl {
+  font-size: 20px;
+}
+
+.font-xl .text-base {
+  font-size: 20px;
+}
+
+.font-xl .text-lg {
+  font-size: 24px;
+}
+
+.font-xl .text-xl {
+  font-size: 28px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --primary-500: #c54d34;
+    --secondary-500: #704a85;
+    --border: var(--neutral-600);
+  }
+}
+
+.high-contrast {
+  --primary-500: #c54d34;
+  --secondary-500: #704a85;
+  --border: var(--neutral-600);
+  --background: #ffffff;
+  --foreground: #000000;
+}
+
+.high-contrast.dark {
+  --background: #000000;
+  --foreground: #ffffff;
+  --border: var(--neutral-400);
+}
+
+/* Reduced motion support */
+.reduce-motion *,
+.reduce-motion ::before,
+.reduce-motion ::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

@@ -1,0 +1,70 @@
+# RAGFlow API 전용 설정 (부인과 챗봇용)
+host_address: "0.0.0.0"
+host_port: 9380
+
+# 데이터베이스 설정
+database:
+  name: "ragflow"
+  user: "root"
+  password: "infiniflow"
+  host: "mysql"
+  port: 3306
+
+# Redis 설정
+redis:
+  host: "redis"
+  port: 6379
+  password: ""
+  db: 1
+
+# MinIO 객체 스토리지 설정
+minio:
+  user: "root"
+  password: "password"
+  host: "minio:9000"
+  secure: false
+
+# Elasticsearch 설정
+elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  max_body_size: 134217728
+
+# LLM 설정 (Gemini 사용)
+llm:
+  - llm_name: "gemini-pro"
+    model_type: "chat"
+    llm_factory: "VolcEngine"
+    api_key: "${GEMINI_API_KEY}"  # 환경변수에서 가져옴
+    base_url: "https://generativelanguage.googleapis.com/v1beta"
+    max_tokens: 4096
+    temperature: 0.7
+
+# 임베딩 모델 설정
+embedding:
+  - embedding_model_name: "text-embedding-ada-002"
+    embedding_factory: "OpenAI"
+    api_key: "${OPENAI_API_KEY}"
+    base_url: "https://api.openai.com/v1"
+
+# 의료 문서 파싱 설정
+document_parser:
+  chunk_size: 512
+  chunk_overlap: 50
+  enable_table_parsing: true
+  enable_image_parsing: true
+
+# API 보안 설정
+security:
+  jwt_secret: "your-secret-key-here"
+  api_key_required: false  # 초기 테스트용
+
+# 로깅 설정
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# 의료 전용 설정
+medical_settings:
+  citation_required: true  # 출처 표시 필수
+  confidence_threshold: 0.7  # 신뢰도 임계값
+  max_search_results: 5  # 최대 검색 결과 수

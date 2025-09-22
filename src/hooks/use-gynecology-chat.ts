@@ -1,0 +1,195 @@
+import { useChat } from './use-custom-chat';
+import { useState, useCallback } from 'react';
+import type { ChatContext, MedicalWarning, RAGSource } from '@/types/chat';
+import { createRAGFlowClient, type RAGSearchResult } from '@/lib/ragflow-client';
+
+export interface UseGynecologyChatOptions {
+  conversationId?: string;
+  context?: ChatContext;
+  onWarning?: (warnings: MedicalWarning[]) => void;
+  onSources?: (sources: RAGSource[]) => void;
+}
+
+export function useGynecologyChat(options?: UseGynecologyChatOptions) {
+  const [warnings, setWarnings] = useState<MedicalWarning[]>([]);
+  const [sources, setSources] = useState<RAGSource[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [ragResults, setRagResults] = useState<RAGSearchResult[]>([]);
+
+  const ragClient = createRAGFlowClient();
+
+  const chat = useChat({
+    api: '/api/chat',
+    body: {
+      conversationId: options?.conversationId,
+      context: options?.context,
+      stream: true,
+    },
+    onResponse: (response) => {
+      const warningsHeader = response.headers.get('X-Medical-Warnings');
+      const sourcesHeader = response.headers.get('X-RAG-Sources');
+      const suggestionsHeader = response.headers.get('X-Suggestions');
+
+      if (warningsHeader) {
+        try {
+          const parsedWarnings = JSON.parse(warningsHeader);
+          setWarnings(parsedWarnings);
+          options?.onWarning?.(parsedWarnings);
+        } catch (error) {
+          console.error('Failed to parse warnings:', error);
+        }
+      }
+
+      if (sourcesHeader) {
+        try {
+          const parsedSources = JSON.parse(sourcesHeader);
+          setSources(parsedSources);
+          options?.onSources?.(parsedSources);
+        } catch (error) {
+          console.error('Failed to parse sources:', error);
+        }
+      }
+
+      if (suggestionsHeader) {
+        try {
+          const parsedSuggestions = JSON.parse(suggestionsHeader);
+          setSuggestions(parsedSuggestions);
+        } catch (error) {
+          console.error('Failed to parse suggestions:', error);
+        }
+      }
+    },
+    onError: (error) => {
+      console.error('Chat error:', error);
+      const errorWarning: MedicalWarning = {
+        severity: 'warning',
+        message: '응답을 생성하는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+        action: '문제가 계속되면 고객 지원팀에 문의하세요.',
+      };
+      setWarnings([errorWarning]);
+      options?.onWarning?.([errorWarning]);
+    },
+  });
+
+  const sendSuggestion = useCallback(
+    (suggestion: string) => {
+      chat.append({
+        role: 'user',
+        content: suggestion,
+      });
+    },
+    [chat]
+  );
+
+  const searchMedicalDocuments = useCallback(
+    async (query: string) => {
+      try {
+        const response = await ragClient.search({
+          query,
+          top_k: 5,
+          include_citations: true,
+          confidence_threshold: 0.7
+        });
+
+        setRagResults(response.results);
+
+        // RAG 결과를 RAGSource 형태로 변환
+        const convertedSources: RAGSource[] = response.results.map(result => ({
+          title: result.source,
+          content: result.content,
+          url: `#document-${result.source}`,
+          relevanceScore: result.confidence,
+          category: result.category || 'general',
+          citation: result.citation
+        }));
+
+        setSources(convertedSources);
+        options?.onSources?.(convertedSources);
+
+        return response;
+      } catch (error) {
+        console.error('RAG 검색 오류:', error);
+        const warningMessage: MedicalWarning = {
+          severity: 'warning',
+          message: '의료 문서 검색 중 오류가 발생했습니다.',
+          action: '네트워크 연결을 확인하고 다시 시도해주세요.'
+        };
+        setWarnings([warningMessage]);
+        options?.onWarning?.([warningMessage]);
+        return null;
+      }
+    },
+    [ragClient, options]
+  );
+
+  const hasUrgentWarning = useCallback(() => {
+    return warnings.some(w => w.severity === 'urgent');
+  }, [warnings]);
+
+  const getFormattedSources = useCallback(() => {
+    return sources.map(source => ({
+      title: source.title,
+      summary: source.content.substring(0, 200) + '...',
+      url: source.url,
+      relevance: Math.round(source.relevanceScore * 100),
+      category: source.category,
+    }));
+  }, [sources]);
+
+  return {
+    messages: chat.messages,
+    input: chat.input,
+    handleInputChange: chat.handleInputChange,
+    handleSubmit: chat.handleSubmit,
+    setInput: chat.setInput,
+    isLoading: chat.isLoading,
+    error: chat.error,
+    reload: chat.reload,
+    stop: chat.stop,
+    setMessages: chat.setMessages,
+    append: chat.append,
+    sendSuggestion,
+    searchMedicalDocuments,
+    warnings,
+    sources,
+    suggestions,
+    ragResults,
+    hasUrgentWarning,
+    getFormattedSources,
+  };
+}
+
+export const PRESET_PROMPTS = {
+  pregnancy: {
+    firstTrimester: [
+      '임신 초기 증상은 어떤 것들이 있나요?',
+      '임신 초기에 먹으면 안 되는 음식이 있나요?',
+      '입덧을 완화하는 방법을 알려주세요',
+    ],
+    secondTrimester: [
+      '태동은 언제부터 느낄 수 있나요?',
+      '임신 중기 검사는 어떤 것들이 있나요?',
+      '임신 중 운동은 어떻게 하는 것이 좋나요?',
+    ],
+    thirdTrimester: [
+      '출산 신호는 어떤 것들이 있나요?',
+      '진통이 시작되면 언제 병원에 가야 하나요?',
+      '제왕절개 후 회복 과정이 궁금해요',
+    ],
+  },
+  generalHealth: [
+    '생리불순의 원인과 치료법을 알려주세요',
+    '자궁경부암 검사는 언제 받아야 하나요?',
+    '난소낭종이 발견되었는데 치료가 필요한가요?',
+  ],
+  fertility: [
+    '임신 준비 중인데 어떤 검사를 받아야 하나요?',
+    '배란일 계산 방법을 알려주세요',
+    '난임 검사는 언제부터 시작해야 하나요?',
+  ],
+  menopause: [
+    '갱년기 증상은 어떤 것들이 있나요?',
+    '호르몬 대체 요법의 장단점을 알려주세요',
+    '갱년기에 좋은 운동과 식단을 추천해주세요',
+  ],
+};
