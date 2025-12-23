@@ -191,6 +191,12 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   handler satisfies RouteHandlerConfig<"/api/push/register">
 }
 
+// Validate ../../src/app/api/push/send/route.ts
+{
+  const handler = {} as typeof import("../../src/app/api/push/send/route.js")
+  handler satisfies RouteHandlerConfig<"/api/push/send">
+}
+
 // Validate ../../src/app/api/rag/ingest/route.ts
 {
   const handler = {} as typeof import("../../src/app/api/rag/ingest/route.js")

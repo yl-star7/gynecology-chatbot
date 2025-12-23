@@ -106,7 +106,7 @@ export async function getProactiveTargets(): Promise<ProactiveTarget[]> {
  */
 export async function scheduleProactiveMessage(
     userId: string,
-    triggerType: "daily_check" | "milestone" | "symptom_follow_up",
+    triggerTypeId: "daily_check" | "weekly_milestone" | "symptom_follow_up" | "checkup_reminder",
     messageContent: string,
     scheduledAt: Date = new Date()
 ): Promise<string | null> {
@@ -116,7 +116,7 @@ export async function scheduleProactiveMessage(
         .from("proactive_conversations")
         .insert({
             user_id: userId,
-            trigger_type: triggerType,
+            trigger_type_id: triggerTypeId,
             scheduled_at: scheduledAt.toISOString(),
             message_content: messageContent,
             status: "pending",
