@@ -107,22 +107,10 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   handler satisfies RouteHandlerConfig<"/api/auth/kakao">
 }
 
-// Validate ../../src/app/api/auth/login/route.ts
-{
-  const handler = {} as typeof import("../../src/app/api/auth/login/route.js")
-  handler satisfies RouteHandlerConfig<"/api/auth/login">
-}
-
 // Validate ../../src/app/api/auth/logout/route.ts
 {
   const handler = {} as typeof import("../../src/app/api/auth/logout/route.js")
   handler satisfies RouteHandlerConfig<"/api/auth/logout">
-}
-
-// Validate ../../src/app/api/auth/register/route.ts
-{
-  const handler = {} as typeof import("../../src/app/api/auth/register/route.js")
-  handler satisfies RouteHandlerConfig<"/api/auth/register">
 }
 
 // Validate ../../src/app/api/chat/route.ts

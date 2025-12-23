@@ -1,221 +1,15 @@
 import { createClient } from './supabase-client'
 import { getServerClient } from './supabase-server'
-import type { 
-  User, 
-  AuthResponse, 
-  LoginCredentials, 
-  RegisterCredentials,
-  UserPreferences 
+import type {
+  User,
+  UserPreferences
 } from '@/types/user'
-import { validateEmail, validatePassword } from './utils'
 
-// Client-side authentication functions
+/**
+ * Kakao-centric Authentication Helper
+ * Simplified to remove email/password logic as per PRD
+ */
 export const authClient = {
-  /**
-   * Sign up a new user
-   */
-  async signUp(credentials: RegisterCredentials): Promise<AuthResponse> {
-    try {
-      const { email, password, fullName, phoneNumber, dateOfBirth } = credentials
-
-      // Validate input
-      if (!validateEmail(email)) {
-        return { user: null, session: null, error: '유효하지 않은 이메일 형식입니다' }
-      }
-
-      const isValidPassword = validatePassword(password)
-      if (!isValidPassword) {
-        return { 
-          user: null, 
-          session: null, 
-          error: 'Password must be at least 8 characters with uppercase, lowercase, and number' 
-        }
-      }
-
-      if (!fullName?.trim()) {
-        return { user: null, session: null, error: '이름을 입력해주세요' }
-      }
-
-      const supabase = createClient()
-      
-      // Sign up user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            phone_number: phoneNumber,
-            date_of_birth: dateOfBirth?.toISOString(),
-          }
-        }
-      })
-
-      if (authError) {
-        return { user: null, session: null, error: authError.message }
-      }
-
-      if (!authData.user) {
-        return { user: null, session: null, error: '회원가입에 실패했습니다' }
-      }
-
-      // Create user profile
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          email: authData.user.email!,
-          full_name: fullName,
-          phone_number: phoneNumber,
-          date_of_birth: dateOfBirth?.toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          preferences: {
-            language: 'ko' as const,
-            fontSize: 'medium' as const,
-            highContrast: false,
-            voiceEnabled: false,
-            notificationsEnabled: true,
-            theme: 'light' as const,
-          }
-        })
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError)
-        // Don't return error here as the user was successfully created
-      }
-
-      const user: User = {
-        id: authData.user.id,
-        email: authData.user.email!,
-        fullName,
-        phoneNumber,
-        dateOfBirth,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        preferences: {
-          language: 'ko',
-          fontSize: 'medium',
-          highContrast: false,
-          voiceEnabled: false,
-          notificationsEnabled: true,
-          theme: 'light',
-        }
-      }
-
-      return { 
-        user, 
-        session: authData.session ? {
-          id: authData.session.access_token,
-          userId: authData.user.id,
-          accessToken: authData.session.access_token,
-          refreshToken: authData.session.refresh_token!,
-          expiresAt: new Date(authData.session.expires_at! * 1000)
-        } : null 
-      }
-    } catch (error) {
-      console.error('Sign up error:', error)
-      return { 
-        user: null, 
-        session: null, 
-        error: '회원가입 중 오류가 발생했습니다' 
-      }
-    }
-  },
-
-  /**
-   * Sign in user
-   */
-  async signIn(credentials: LoginCredentials): Promise<AuthResponse> {
-    try {
-      const { email, password } = credentials
-
-      if (!validateEmail(email)) {
-        return { user: null, session: null, error: '유효하지 않은 이메일 형식입니다' }
-      }
-
-      if (!password) {
-        return { user: null, session: null, error: '비밀번호를 입력해주세요' }
-      }
-
-      const supabase = createClient()
-      
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (authError) {
-        if (authError.message.includes('Invalid login credentials')) {
-          return { user: null, session: null, error: '이메일 또는 비밀번호가 올바르지 않습니다' }
-        }
-        return { user: null, session: null, error: authError.message }
-      }
-
-      if (!authData.user || !authData.session) {
-        return { user: null, session: null, error: '로그인에 실패했습니다' }
-      }
-
-      // Get user profile
-      const { data: profileData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single()
-
-      // Update last login time
-      await supabase
-        .from('users')
-        .update({ 
-          last_login_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', authData.user.id)
-
-      const user: User = {
-        id: authData.user.id,
-        email: authData.user.email!,
-        fullName: profileData?.full_name || undefined,
-        phoneNumber: profileData?.phone_number || undefined,
-        dateOfBirth: profileData?.date_of_birth ? new Date(profileData.date_of_birth) : undefined,
-        pregnancyWeek: profileData?.pregnancy_week || undefined,
-        dueDate: profileData?.due_date ? new Date(profileData.due_date) : undefined,
-        medicalHistory: profileData?.medical_history || undefined,
-        allergies: profileData?.allergies || undefined,
-        currentMedications: profileData?.current_medications || undefined,
-        createdAt: new Date(profileData?.created_at || Date.now()),
-        updatedAt: new Date(profileData?.updated_at || Date.now()),
-        lastLoginAt: new Date(),
-        preferences: (profileData?.preferences as unknown as UserPreferences) || {
-          language: 'ko',
-          fontSize: 'medium',
-          highContrast: false,
-          voiceEnabled: false,
-          notificationsEnabled: true,
-          theme: 'light',
-        }
-      }
-
-      return { 
-        user,
-        session: {
-          id: authData.session.access_token,
-          userId: authData.user.id,
-          accessToken: authData.session.access_token,
-          refreshToken: authData.session.refresh_token!,
-          expiresAt: new Date(authData.session.expires_at! * 1000)
-        }
-      }
-    } catch (error) {
-      console.error('Sign in error:', error)
-      return { 
-        user: null, 
-        session: null, 
-        error: '로그인 중 오류가 발생했습니다' 
-      }
-    }
-  },
-
   /**
    * Sign out user
    */
@@ -223,11 +17,11 @@ export const authClient = {
     try {
       const supabase = createClient()
       const { error } = await supabase.auth.signOut()
-      
+
       if (error) {
         return { error: error.message }
       }
-      
+
       return {}
     } catch (error) {
       console.error('Sign out error:', error)
@@ -247,7 +41,7 @@ export const authClient = {
         return null
       }
 
-      // Get user profile
+      // Get user profile from our public.users table
       const { data: profileData } = await supabase
         .from('users')
         .select('*')
@@ -295,7 +89,7 @@ export const authClient = {
   async updateProfile(userId: string, updates: Partial<User>): Promise<{ user?: User; error?: string }> {
     try {
       const supabase = createClient()
-      
+
       const updateData: Record<string, unknown> = {
         updated_at: new Date().toISOString()
       }
@@ -346,57 +140,6 @@ export const authClient = {
   },
 
   /**
-   * Reset password
-   */
-  async resetPassword(email: string): Promise<{ error?: string }> {
-    try {
-      if (!validateEmail(email)) {
-        return { error: '유효하지 않은 이메일 형식입니다' }
-      }
-
-      const supabase = createClient()
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback`
-      })
-
-      if (error) {
-        return { error: error.message }
-      }
-
-      return {}
-    } catch (error) {
-      console.error('Reset password error:', error)
-      return { error: '비밀번호 재설정 중 오류가 발생했습니다' }
-    }
-  },
-
-  /**
-   * Update password
-   */
-  async updatePassword(newPassword: string): Promise<{ error?: string }> {
-    try {
-      const isValidPassword = validatePassword(newPassword)
-      if (!isValidPassword) {
-        return { error: 'Password must be at least 8 characters with uppercase, lowercase, and number' }
-      }
-
-      const supabase = createClient()
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      })
-
-      if (error) {
-        return { error: error.message }
-      }
-
-      return {}
-    } catch (error) {
-      console.error('Update password error:', error)
-      return { error: '비밀번호 변경 중 오류가 발생했습니다' }
-    }
-  },
-
-  /**
    * Check if user is authenticated
    */
   async isAuthenticated(): Promise<boolean> {
@@ -415,9 +158,9 @@ export const authClient = {
    */
   onAuthStateChange(callback: (user: User | null) => void) {
     const supabase = createClient()
-    
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
+      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
         const user = await this.getUser()
         callback(user)
       } else if (event === 'SIGNED_OUT') {
@@ -429,7 +172,7 @@ export const authClient = {
   }
 }
 
-// Server-side authentication functions
+// Server-side authentication functions (for RSC / API Routes)
 export const authServer = {
   /**
    * Get current user on server
@@ -443,7 +186,6 @@ export const authServer = {
         return null
       }
 
-      // Get user profile
       const { data: profileData } = await supabase
         .from('users')
         .select('*')
@@ -500,7 +242,7 @@ export const authServer = {
   },
 
   /**
-   * Require authentication (throws if not authenticated)
+   * Require authentication
    */
   async requireAuth(): Promise<User> {
     const user = await this.getUser()

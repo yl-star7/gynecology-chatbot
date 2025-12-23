@@ -33,7 +33,7 @@ export default function LandingPage() {
       {/* 배경 장식 */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/4 right-1/6 w-96 h-96 bg-primary-200/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 left-1/6 w-72 h-72 bg-secondary-200/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}} />
+        <div className="absolute bottom-1/4 left-1/6 w-72 h-72 bg-secondary-200/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
       </div>
 
       <div className="relative z-10">
@@ -45,16 +45,11 @@ export default function LandingPage() {
             </div>
             <h1 className="text-xl font-semibold text-neutral-800">부인과 AI 챗봇</h1>
           </div>
-          
+
           <div className="flex items-center space-x-3">
             <Link href="/login">
-              <Button variant="outline">
-                로그인
-              </Button>
-            </Link>
-            <Link href="/register">
-              <Button>
-                시작하기
+              <Button className="rounded-full px-6">
+                로그인 / 시작하기
               </Button>
             </Link>
           </div>
@@ -68,30 +63,27 @@ export default function LandingPage() {
                 <Sparkles className="w-4 h-4 text-primary-500" />
                 <span className="text-sm font-medium text-primary-600">AI 기반 전문 상담</span>
               </div>
-              
+
               <h1 className="text-4xl lg:text-6xl font-bold text-neutral-800 mb-6 leading-tight">
                 부인과 전문의와 함께하는<br />
                 <span className="text-gradient bg-gradient-to-r from-primary-500 to-secondary-500 bg-clip-text text-transparent">
                   건강한 여성의 삶
                 </span>
               </h1>
-              
+
               <p className="text-xl text-neutral-600 leading-relaxed max-w-2xl mx-auto">
-                임신, 출산, 여성 건강에 대한 궁금증을 언제든지 전문의에게 물어보세요. 
+                임신, 출산, 여성 건강에 대한 궁금증을 언제든지 전문의에게 물어보세요.
                 안전하고 정확한 의료 정보를 제공합니다.
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-              <Link href="/register">
-                <Button size="lg" className="px-8 rounded-full transform transition-all duration-200 hover:scale-105">
-                  지금 상담 시작하기
+              <Link href="/login">
+                <Button size="lg" className="px-10 h-16 rounded-full transform transition-all duration-200 hover:scale-105 text-lg font-bold shadow-xl">
+                  🤱 카카오로 3초 만에 시작하기
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
               </Link>
-              <Button variant="secondary" size="lg" className="px-8 rounded-full">
-                서비스 둘러보기
-              </Button>
             </div>
 
             {/* 통계 */}
@@ -136,7 +128,7 @@ export default function LandingPage() {
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-center text-neutral-600 leading-relaxed">
-                    부인과 전문의의 지식을 기반으로 한 AI가 24시간 언제든지 정확하고 
+                    부인과 전문의의 지식을 기반으로 한 AI가 24시간 언제든지 정확하고
                     신뢰할 수 있는 의료 상담을 제공합니다.
                   </CardDescription>
                 </CardContent>
@@ -153,7 +145,7 @@ export default function LandingPage() {
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-center text-neutral-600 leading-relaxed">
-                    의료법과 개인정보보호법을 준수하여 모든 상담 내용은 
+                    의료법과 개인정보보호법을 준수하여 모든 상담 내용은
                     철저히 보호되며 익명으로 처리됩니다.
                   </CardDescription>
                 </CardContent>
@@ -170,7 +162,7 @@ export default function LandingPage() {
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-center text-neutral-600 leading-relaxed">
-                    임신 단계별 맞춤 정보와 주의사항을 제공하여 
+                    임신 단계별 맞춤 정보와 주의사항을 제공하여
                     건강한 임신과 출산을 위한 전문적인 가이드를 받을 수 있습니다.
                   </CardDescription>
                 </CardContent>
@@ -182,25 +174,20 @@ export default function LandingPage() {
         {/* CTA 섹션 */}
         <section className="py-16 px-6 lg:py-24 lg:px-8 bg-gradient-to-r from-primary-500 to-secondary-500 relative overflow-hidden">
           <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-          
+
           <div className="max-w-4xl mx-auto text-center relative z-10">
             <h2 className="text-3xl lg:text-4xl font-bold text-white mb-6">
               지금 바로 전문 상담을 시작해보세요
             </h2>
             <p className="text-xl text-white/90 mb-8 leading-relaxed">
-              임신, 출산, 여성 건강에 대한 모든 궁금증을 해결하고 
+              임신, 출산, 여성 건강에 대한 모든 궁금증을 해결하고
               안심할 수 있는 전문적인 답변을 받아보세요.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/register">
-                <Button size="lg" variant="secondary" className="px-8 rounded-full bg-white hover:bg-neutral-50 text-[#e16947] border-0 transform transition-all duration-200 hover:scale-105">
-                  무료로 시작하기
-                </Button>
-              </Link>
               <Link href="/login">
-                <Button size="lg" variant="outline" className="px-8 rounded-full border-2 border-white text-white bg-transparent hover:bg-white/10 transform transition-all duration-200 hover:scale-105">
-                  기존 계정으로 로그인
+                <Button size="lg" variant="secondary" className="px-10 h-16 rounded-full bg-white hover:bg-neutral-50 text-[#e16947] border-0 transform transition-all duration-200 hover:scale-105 text-lg font-bold shadow-xl">
+                  지금 바로 대화 시작하기
                 </Button>
               </Link>
             </div>
