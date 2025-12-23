@@ -47,18 +47,6 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 }
 
 
-// Validate ../../src/app/(auth)/login/page.tsx
-{
-  const handler = {} as typeof import("../../src/app/(auth)/login/page.js")
-  handler satisfies AppPageConfig<"/login">
-}
-
-// Validate ../../src/app/(auth)/register/page.tsx
-{
-  const handler = {} as typeof import("../../src/app/(auth)/register/page.js")
-  handler satisfies AppPageConfig<"/register">
-}
-
 // Validate ../../src/app/chat/[conversationId]/page.tsx
 {
   const handler = {} as typeof import("../../src/app/chat/[conversationId]/page.js")
@@ -69,6 +57,12 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 {
   const handler = {} as typeof import("../../src/app/chat/page.js")
   handler satisfies AppPageConfig<"/chat">
+}
+
+// Validate ../../src/app/login/page.tsx
+{
+  const handler = {} as typeof import("../../src/app/login/page.js")
+  handler satisfies AppPageConfig<"/login">
 }
 
 // Validate ../../src/app/new-chat/page.tsx
