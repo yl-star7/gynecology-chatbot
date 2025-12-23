@@ -170,7 +170,7 @@ ${persona?.emoji_enabled ? "이모지를 적절히 사용하세요." : ""}`;
     });
 
     // Return SSE stream
-    return result.toDataStreamResponse();
+    return result.toTextStreamResponse();
   } catch (error) {
     console.error("Chat API error:", error);
     return new Response(JSON.stringify({ error: "Chat failed" }), {

@@ -103,7 +103,14 @@ gynecology-chatbot/
 ### 채팅
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| POST | `/api/chat` | SSE 스트리밍 채팅 |
+| POST | `/api/chat` | SSE 스트리밍 채팅 (RAG + 페르소나) |
+
+### 대화
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/conversations` | 대화 목록 |
+| POST | `/api/conversations` | 새 대화 생성 |
+| GET | `/api/conversations/[id]/messages` | 대화 메시지 조회 |
 
 ### 페르소나
 | 메서드 | 경로 | 설명 |
@@ -135,6 +142,7 @@ gynecology-chatbot/
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | POST | `/api/push/register` | 푸시 토큰 등록 |
+| POST | `/api/push/send` | 푸시 알림 전송 (Edge Function용) |
 
 ---
 
