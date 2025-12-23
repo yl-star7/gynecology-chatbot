@@ -95,6 +95,12 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   handler satisfies AppPageConfig<"/profile">
 }
 
+// Validate ../../src/app/share/[token]/page.tsx
+{
+  const handler = {} as typeof import("../../src/app/share/[token]/page.js")
+  handler satisfies AppPageConfig<"/share/[token]">
+}
+
 // Validate ../../src/app/test-chat/page.tsx
 {
   const handler = {} as typeof import("../../src/app/test-chat/page.js")
@@ -237,6 +243,12 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 {
   const handler = {} as typeof import("../../src/app/api/user/profile/route.js")
   handler satisfies RouteHandlerConfig<"/api/user/profile">
+}
+
+// Validate ../../src/app/api/user/route.ts
+{
+  const handler = {} as typeof import("../../src/app/api/user/route.js")
+  handler satisfies RouteHandlerConfig<"/api/user">
 }
 
 // Validate ../../src/app/auth/callback/route.ts
