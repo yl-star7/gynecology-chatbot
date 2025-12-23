@@ -74,7 +74,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
       content: '',
       createdAt: new Date()
     }
-    
+
     setMessages(prev => [...prev, assistantMessage])
 
     try {
@@ -112,84 +112,35 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
       }
 
       let assistantContent = ''
-      let buffer = ''
 
       while (true) {
         const { done, value } = await reader.read()
-        
         if (done) break
 
         const chunk = decoder.decode(value, { stream: true })
-        buffer += chunk
-        
-        // Split by newlines and process complete lines
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || '' // Keep the last potentially incomplete line in buffer
+        assistantContent += chunk
 
-        for (const line of lines) {
-          if (line.trim() === '') continue
-          
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim()
-            
-            if (data === '[DONE]') {
-              break
-            }
-
-            try {
-              const parsed = JSON.parse(data)
-              
-              // Handle different response formats
-              if (parsed.type === 'text-delta' && parsed.textDelta) {
-                // AI SDK text delta format
-                assistantContent += parsed.textDelta
-              } else if (parsed.choices && parsed.choices[0]?.delta?.content) {
-                // OpenAI-style streaming format
-                assistantContent += parsed.choices[0].delta.content
-              } else if (parsed.content) {
-                // Simple content format
-                assistantContent += parsed.content
-              } else if (typeof parsed === 'string') {
-                // Plain string content
-                assistantContent += parsed
-              }
-
-              // Update the assistant message with accumulated content
-              setMessages(prev => 
-                prev.map(msg => 
-                  msg.id === assistantMessageId 
-                    ? { ...msg, content: assistantContent }
-                    : msg
-                )
-              )
-            } catch {
-              // If JSON parsing fails, treat as plain text if it doesn't look like SSE control
-              if (data.trim() && !data.startsWith('0:') && !data.startsWith('8:') && !data.startsWith('d:')) {
-                assistantContent += data
-                setMessages(prev => 
-                  prev.map(msg => 
-                    msg.id === assistantMessageId 
-                      ? { ...msg, content: assistantContent }
-                      : msg
-                  )
-                )
-              }
-            }
-          }
-        }
+        // Update the assistant message with accumulated content
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === assistantMessageId
+              ? { ...msg, content: assistantContent }
+              : msg
+          )
+        )
       }
 
       reader.releaseLock()
     } catch (error) {
       const err = error as Error
-      
+
       // Don't show error if request was aborted
       if (err.name !== 'AbortError') {
         setError(err)
         if (onError) {
           onError(err)
         }
-        
+
         // Remove the failed assistant message
         setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId))
       }
@@ -201,7 +152,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!input.trim() || isLoading) {
       return
     }

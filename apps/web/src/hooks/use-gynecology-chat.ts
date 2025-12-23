@@ -1,7 +1,6 @@
 import { useChat } from './use-custom-chat';
 import { useState, useCallback } from 'react';
 import type { ChatContext, MedicalWarning, RAGSource } from '@/types/chat';
-import { createRAGFlowClient, type RAGSearchResult } from '@/lib/ragflow-client';
 
 export interface UseGynecologyChatOptions {
   conversationId?: string;
@@ -14,50 +13,13 @@ export function useGynecologyChat(options?: UseGynecologyChatOptions) {
   const [warnings, setWarnings] = useState<MedicalWarning[]>([]);
   const [sources, setSources] = useState<RAGSource[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [ragResults, setRagResults] = useState<RAGSearchResult[]>([]);
-
-  const ragClient = createRAGFlowClient();
+  const [ragResults, setRagResults] = useState<any[]>([]);
 
   const chat = useChat({
     api: '/api/chat',
     body: {
       conversationId: options?.conversationId,
       context: options?.context,
-      stream: true,
-    },
-    onResponse: (response) => {
-      const warningsHeader = response.headers.get('X-Medical-Warnings');
-      const sourcesHeader = response.headers.get('X-RAG-Sources');
-      const suggestionsHeader = response.headers.get('X-Suggestions');
-
-      if (warningsHeader) {
-        try {
-          const parsedWarnings = JSON.parse(warningsHeader);
-          setWarnings(parsedWarnings);
-          options?.onWarning?.(parsedWarnings);
-        } catch (error) {
-          console.error('Failed to parse warnings:', error);
-        }
-      }
-
-      if (sourcesHeader) {
-        try {
-          const parsedSources = JSON.parse(sourcesHeader);
-          setSources(parsedSources);
-          options?.onSources?.(parsedSources);
-        } catch (error) {
-          console.error('Failed to parse sources:', error);
-        }
-      }
-
-      if (suggestionsHeader) {
-        try {
-          const parsedSuggestions = JSON.parse(suggestionsHeader);
-          setSuggestions(parsedSuggestions);
-        } catch (error) {
-          console.error('Failed to parse suggestions:', error);
-        }
-      }
     },
     onError: (error) => {
       console.error('Chat error:', error);
@@ -81,47 +43,6 @@ export function useGynecologyChat(options?: UseGynecologyChatOptions) {
     [chat]
   );
 
-  const searchMedicalDocuments = useCallback(
-    async (query: string) => {
-      try {
-        const response = await ragClient.search({
-          query,
-          top_k: 5,
-          include_citations: true,
-          confidence_threshold: 0.7
-        });
-
-        setRagResults(response.results);
-
-        // RAG 결과를 RAGSource 형태로 변환
-        const convertedSources: RAGSource[] = response.results.map(result => ({
-          title: result.source,
-          content: result.content,
-          url: `#document-${result.source}`,
-          relevanceScore: result.confidence,
-          category: result.category || 'general',
-          citation: result.citation
-        }));
-
-        setSources(convertedSources);
-        options?.onSources?.(convertedSources);
-
-        return response;
-      } catch (error) {
-        console.error('RAG 검색 오류:', error);
-        const warningMessage: MedicalWarning = {
-          severity: 'warning',
-          message: '의료 문서 검색 중 오류가 발생했습니다.',
-          action: '네트워크 연결을 확인하고 다시 시도해주세요.'
-        };
-        setWarnings([warningMessage]);
-        options?.onWarning?.([warningMessage]);
-        return null;
-      }
-    },
-    [ragClient, options]
-  );
-
   const hasUrgentWarning = useCallback(() => {
     return warnings.some(w => w.severity === 'urgent');
   }, [warnings]);
@@ -129,9 +50,9 @@ export function useGynecologyChat(options?: UseGynecologyChatOptions) {
   const getFormattedSources = useCallback(() => {
     return sources.map(source => ({
       title: source.title,
-      summary: source.content.substring(0, 200) + '...',
+      summary: (source.content || '').substring(0, 200) + '...',
       url: source.url,
-      relevance: Math.round(source.relevanceScore * 100),
+      relevance: Math.round((source.relevanceScore || 0) * 100),
       category: source.category,
     }));
   }, [sources]);
@@ -149,7 +70,6 @@ export function useGynecologyChat(options?: UseGynecologyChatOptions) {
     setMessages: chat.setMessages,
     append: chat.append,
     sendSuggestion,
-    searchMedicalDocuments,
     warnings,
     sources,
     suggestions,
