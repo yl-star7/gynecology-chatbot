@@ -140,14 +140,15 @@ model SavedMessage {
   @@map("saved_messages")
 }
 
-// ============ Survey Templates ============
+// ============ Survey Templates (Google Forms 스타일) ============
 model SurveyTemplate {
   id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   title             String   @db.VarChar(200)
   description       String?
   pregnancyWeekMin  Int?     @map("pregnancy_week_min")
   pregnancyWeekMax  Int?     @map("pregnancy_week_max")
-  questions         Json
+  formSchema        Json     @map("form_schema")  // Google Forms 스타일 YAML/JSON 스키마
+  schemaVersion     String   @default("1.0") @map("schema_version") @db.VarChar(20)
   isAiAssisted      Boolean  @default(false) @map("is_ai_assisted")
   aiFollowUpPrompt  String?  @map("ai_follow_up_prompt")
   isActive          Boolean  @default(true) @map("is_active")
@@ -158,6 +159,7 @@ model SurveyTemplate {
   responses SurveyResponse[]
 
   @@index([pregnancyWeekMin, pregnancyWeekMax])
+  @@index([isActive])
   @@map("survey_templates")
 }
 
@@ -166,7 +168,7 @@ model SurveyResponse {
   id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   userId               String    @map("user_id") @db.Uuid
   templateId           String    @map("template_id") @db.Uuid
-  responses            Json
+  responses            Json      // 질문 ID → 응답 매핑
   aiGeneratedQuestions Json?     @map("ai_generated_questions")
   pregnancyWeek        Int?      @map("pregnancy_week")
   completedAt          DateTime? @map("completed_at") @db.Timestamptz
@@ -181,24 +183,43 @@ model SurveyResponse {
   @@map("survey_responses")
 }
 
+// ============ Proactive Trigger Types (pg_cron 연동) ============
+model ProactiveTriggerType {
+  id             String   @id @db.VarChar(50)
+  name           String   @db.VarChar(100)
+  description    String?
+  cronExpression String   @map("cron_expression") @db.VarChar(50)  // pg_cron용 ("0 9 * * *")
+  messageTemplate String? @map("message_template")  // AI 생성 시 사용할 프롬프트
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  conversations ProactiveConversation[]
+
+  @@map("proactive_trigger_types")
+}
+
 // ============ Proactive Conversations ============
 model ProactiveConversation {
   id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   userId         String    @map("user_id") @db.Uuid
-  triggerType    String    @map("trigger_type") @db.VarChar(50)
+  triggerTypeId  String    @map("trigger_type_id") @db.VarChar(50)
   scheduledAt    DateTime  @map("scheduled_at") @db.Timestamptz
   sentAt         DateTime? @map("sent_at") @db.Timestamptz
   messageContent String    @map("message_content")
   conversationId String?   @map("conversation_id") @db.Uuid
-  status         String    @default("pending") @db.VarChar(20)
+  status         String    @default("pending") @db.VarChar(20)  // pending, sent, read, responded
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   // Relations
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  conversation Conversation? @relation(fields: [conversationId], references: [id])
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  triggerType  ProactiveTriggerType  @relation(fields: [triggerTypeId], references: [id])
+  conversation Conversation?         @relation(fields: [conversationId], references: [id])
 
   @@index([scheduledAt])
   @@index([userId, status])
+  @@index([triggerTypeId])
   @@map("proactive_conversations")
 }
 
