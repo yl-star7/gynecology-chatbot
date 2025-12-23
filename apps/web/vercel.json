@@ -1,0 +1,35 @@
+{
+    "$schema": "https://openapi.vercel.sh/vercel.json",
+    "framework": "nextjs",
+    "buildCommand": "cd ../.. && pnpm turbo build --filter=@gynecology-chatbot/web",
+    "outputDirectory": ".next",
+    "installCommand": "cd ../.. && pnpm install",
+    "regions": [
+        "hnd1"
+    ],
+    "headers": [
+        {
+            "source": "/api/(.*)",
+            "headers": [
+                {
+                    "key": "Access-Control-Allow-Origin",
+                    "value": "*"
+                },
+                {
+                    "key": "Access-Control-Allow-Methods",
+                    "value": "GET, POST, PUT, DELETE, OPTIONS"
+                },
+                {
+                    "key": "Access-Control-Allow-Headers",
+                    "value": "Content-Type, Authorization"
+                }
+            ]
+        }
+    ],
+    "crons": [
+        {
+            "path": "/api/cron/proactive-chat",
+            "schedule": "0 0 * * *"
+        }
+    ]
+}
