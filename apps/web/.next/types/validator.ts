@@ -131,6 +131,18 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   handler satisfies RouteHandlerConfig<"/api/chat">
 }
 
+// Validate ../../src/app/api/conversations/[id]/messages/route.ts
+{
+  const handler = {} as typeof import("../../src/app/api/conversations/[id]/messages/route.js")
+  handler satisfies RouteHandlerConfig<"/api/conversations/[id]/messages">
+}
+
+// Validate ../../src/app/api/conversations/route.ts
+{
+  const handler = {} as typeof import("../../src/app/api/conversations/route.js")
+  handler satisfies RouteHandlerConfig<"/api/conversations">
+}
+
 // Validate ../../src/app/api/medical-dictionary/faq/route.ts
 {
   const handler = {} as typeof import("../../src/app/api/medical-dictionary/faq/route.js")
