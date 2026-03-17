@@ -1,0 +1,13 @@
+{
+  "name": "gynecology-chat",
+  "provider": "flowise",
+  "description": "Primary chatflow for maternal nursing chatbot",
+  "status": "draft",
+  "externalFlowId": "replace-with-flowise-chatflow-id",
+  "version": 1,
+  "notes": [
+    "Export the real Flowise chatflow JSON here.",
+    "Keep the externalFlowId in sync with workflow_definitions.external_flow_id.",
+    "Use Git history as the source of truth for flow changes."
+  ]
+}
