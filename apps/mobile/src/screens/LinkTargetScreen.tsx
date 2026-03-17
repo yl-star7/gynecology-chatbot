@@ -1,0 +1,73 @@
+// @ts-nocheck
+import type { LinkTargetContent } from "@gynecology-chatbot/app-core";
+import { router } from "expo-router";
+import { useEffect, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useMobileServices } from "../core/MobileServicesProvider";
+import { palette } from "../theme";
+
+export function LinkTargetScreen({ target }: { target: string }) {
+  const services = useMobileServices();
+  const [content, setContent] = useState<LinkTargetContent | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    services.knowledgePort
+      .getLinkTarget(target)
+      .then((nextContent) => {
+        setContent(nextContent);
+      })
+      .catch((nextError) => {
+        setError(nextError instanceof Error ? nextError.message : "링크 콘텐츠를 불러오지 못했습니다.");
+      });
+  }, [services, target]);
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.title}>{content?.title ?? "콘텐츠를 불러오는 중입니다."}</Text>
+        <Text style={styles.body}>{error ?? content?.body ?? "앱 내부 콘텐츠를 조회하고 있습니다."}</Text>
+        <Pressable style={styles.button} onPress={() => router.replace("/(tabs)/home")}>
+          <Text style={styles.buttonLabel}>홈으로 돌아가기</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: palette.background,
+  },
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: "center",
+  },
+  title: {
+    fontSize: 30,
+    fontWeight: "700",
+    color: palette.ink,
+  },
+  body: {
+    marginTop: 14,
+    fontSize: 16,
+    lineHeight: 24,
+    color: palette.subInk,
+  },
+  button: {
+    marginTop: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: palette.accent,
+    alignSelf: "flex-start",
+  },
+  buttonLabel: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+});

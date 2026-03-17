@@ -1,47 +1,65 @@
+// @ts-nocheck
 import { Stack } from "expo-router";
 import { useEffect } from "react";
 import * as SplashScreen from "expo-splash-screen";
-import { usePushNotifications } from "../hooks/usePushNotifications";
 import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { usePushNotifications } from "../hooks/usePushNotifications";
+import { ChatSessionsProvider } from "../src/chat/store";
+import { MobileAppSessionProvider } from "../src/core/MobileAppSessionProvider";
+import { MobileServicesProvider } from "../src/core/MobileServicesProvider";
 
-// Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-    const { expoPushToken } = usePushNotifications();
+  const { expoPushToken } = usePushNotifications();
 
-    useEffect(() => {
-        SplashScreen.hideAsync();
-    }, []);
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
 
-    useEffect(() => {
-        if (expoPushToken) {
-            // Send token to backend when available
-            registerPushToken(expoPushToken);
-        }
-    }, [expoPushToken]);
+  useEffect(() => {
+    if (expoPushToken) {
+      registerPushToken(expoPushToken);
+    }
+  }, [expoPushToken]);
 
-    return (
-        <>
-            <StatusBar style="auto" />
+  return (
+    <SafeAreaProvider>
+      <MobileServicesProvider>
+        <MobileAppSessionProvider>
+          <ChatSessionsProvider>
+            <StatusBar style="dark" />
             <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="onboarding" />
+              <Stack.Screen name="index" />
+              <Stack.Screen name="auth/login" />
+              <Stack.Screen name="auth/set-password" />
+              <Stack.Screen name="auth/reset-password" />
+              <Stack.Screen name="onboarding/index" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="chat/[sessionId]" />
+              <Stack.Screen name="chat/link/[target]" />
             </Stack>
-        </>
-    );
+          </ChatSessionsProvider>
+        </MobileAppSessionProvider>
+      </MobileServicesProvider>
+    </SafeAreaProvider>
+  );
 }
 
 async function registerPushToken(token: string) {
-    try {
-        const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL || "https://your-app.vercel.app";
-        await fetch(`${WEB_URL}/api/push/register`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ pushToken: token }),
-            credentials: "include",
-        });
-    } catch (error) {
-        console.error("Failed to register push token:", error);
+  try {
+    const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+    if (!apiBaseUrl) {
+      return;
     }
+
+    await fetch(`${apiBaseUrl}/api/push/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pushToken: token }),
+    });
+  } catch (error) {
+    console.error(`Failed to register push token: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }

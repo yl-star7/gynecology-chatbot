@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
+import * as Linking from "expo-linking";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 
@@ -100,26 +101,32 @@ async function registerForPushNotificationsAsync(): Promise<string | undefined> 
         token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
         console.log("Expo push token:", token);
     } catch (error) {
-        console.error("Failed to get push token:", error);
+        console.error(`Failed to get push token: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     return token;
 }
 
 function handleNotificationResponse(data: Record<string, unknown>) {
-    // Handle notification tap based on type
+    if (typeof data.url === "string" && data.url) {
+        void Linking.openURL(data.url);
+        return;
+    }
+
+    if (typeof data.path === "string" && data.path) {
+        void Linking.openURL(`gynecology-chatbot://${String(data.path).replace(/^\//, "")}`);
+        return;
+    }
+
     switch (data.type) {
-        case "proactive_conversation":
-            // Navigate to chat
-            if (data.conversationId) {
-                // Will be handled by WebView navigation
-                console.log("Navigate to conversation:", data.conversationId);
+        case "proactive_session":
+            if (data.sessionId) {
+                void Linking.openURL(`gynecology-chatbot://chat/${String(data.sessionId)}`);
             }
             break;
         case "survey_reminder":
-            // Navigate to survey
             if (data.surveyId) {
-                console.log("Navigate to survey:", data.surveyId);
+                void Linking.openURL(`gynecology-chatbot://surveys/${String(data.surveyId)}`);
             }
             break;
         default:

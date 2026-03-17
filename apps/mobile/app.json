@@ -4,52 +4,29 @@
         "slug": "gynecology-chatbot",
         "version": "1.0.0",
         "orientation": "portrait",
-        "icon": "./assets/images/icon.png",
         "scheme": "gynecology-chatbot",
         "userInterfaceStyle": "automatic",
         "newArchEnabled": true,
-        "splash": {
-            "image": "./assets/images/splash-icon.png",
-            "resizeMode": "contain",
-            "backgroundColor": "#f28b5c"
-        },
         "ios": {
             "supportsTablet": true,
             "bundleIdentifier": "com.gynecology.chatbot",
             "buildNumber": "1",
-            "infoPlist": {
-                "NSCameraUsageDescription": "이미지 업로드를 위해 카메라 접근이 필요합니다.",
-                "NSPhotoLibraryUsageDescription": "이미지 업로드를 위해 사진 접근이 필요합니다."
-            }
+            "infoPlist": {}
         },
         "android": {
-            "adaptiveIcon": {
-                "foregroundImage": "./assets/images/adaptive-icon.png",
-                "backgroundColor": "#f28b5c"
-            },
             "package": "com.gynecology.chatbot",
-            "versionCode": 1,
-            "permissions": [
-                "android.permission.CAMERA",
-                "android.permission.READ_EXTERNAL_STORAGE"
-            ],
-            "googleServicesFile": "./google-services.json"
+            "versionCode": 1
         },
         "web": {
             "bundler": "metro",
-            "output": "static",
-            "favicon": "./assets/images/favicon.png"
+            "output": "single"
         },
         "plugins": [
             "expo-router",
             [
                 "expo-notifications",
                 {
-                    "icon": "./assets/images/notification-icon.png",
-                    "color": "#f28b5c",
-                    "sounds": [
-                        "./assets/sounds/notification.wav"
-                    ]
+                    "color": "#d76c57"
                 }
             ]
         ],
@@ -59,11 +36,7 @@
         "extra": {
             "router": {
                 "origin": false
-            },
-            "eas": {
-                "projectId": "your-project-id"
             }
-        },
-        "owner": "gynecology-chatbot"
+        }
     }
 }

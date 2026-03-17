@@ -1,11 +1,35 @@
 {
-    "compilerOptions": {
-        "strict": true,
-        "paths": {
-            "@/*": [
-                "./*"
-            ]
-        }
-    },
-    "extends": "expo/tsconfig.base"
+  "compilerOptions": {
+    "baseUrl": ".",
+    "strict": true,
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "types": [
+      "react"
+    ],
+    "typeRoots": [
+      "./node_modules/@types"
+    ],
+    "paths": {
+      "@gynecology-chatbot/app-core": [
+        "../../packages/app-core/src/index.ts"
+      ],
+      "@expo/vector-icons": [
+        "./node_modules/@expo/vector-icons"
+      ],
+      "expo-image-picker": [
+        "./node_modules/expo-image-picker"
+      ],
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "extends": "expo/tsconfig.base",
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
 }
