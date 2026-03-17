@@ -14,40 +14,44 @@ datasource db {
 
 // ============ Users ============
 model User {
-  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  email                String    @unique @db.VarChar(255)
-  fullName             String?   @map("full_name") @db.VarChar(100)
-  phoneNumber          String?   @map("phone_number") @db.VarChar(20)
-  dateOfBirth          DateTime? @map("date_of_birth") @db.Date
-  pregnancyWeek        Int?      @map("pregnancy_week")
-  dueDate              DateTime? @map("due_date") @db.Date
-  medicalHistory       String[]  @map("medical_history")
-  allergies            String[]
-  currentMedications   String[]  @map("current_medications")
-  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  lastLoginAt          DateTime? @map("last_login_at") @db.Timestamptz
-  preferences          Json      @default("{\"language\": \"ko\", \"fontSize\": \"medium\", \"highContrast\": false, \"voiceEnabled\": false, \"notificationsEnabled\": true, \"theme\": \"light\"}")
-  
+  id                 String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email              String    @unique @db.VarChar(255)
+  fullName           String?   @map("full_name") @db.VarChar(100)
+  phoneNumber        String?   @map("phone_number") @db.VarChar(20)
+  dateOfBirth        DateTime? @map("date_of_birth") @db.Date
+  pregnancyWeek      Int?      @map("pregnancy_week")
+  dueDate            DateTime? @map("due_date") @db.Date
+  medicalHistory     String[]  @map("medical_history")
+  allergies          String[]
+  currentMedications String[]  @map("current_medications")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  lastLoginAt        DateTime? @map("last_login_at") @db.Timestamptz
+  preferences        Json      @default("{\"language\": \"ko\", \"fontSize\": \"medium\", \"highContrast\": false, \"voiceEnabled\": false, \"notificationsEnabled\": true, \"theme\": \"light\"}")
+
   // New fields for extension
-  onboardingCompleted  Boolean   @default(false) @map("onboarding_completed")
-  onboardingData       Json      @default("{}") @map("onboarding_data")
-  aiPersonaId          String    @default("default") @map("ai_persona_id") @db.VarChar(50)
-  pushToken            String?   @map("push_token")
-  pushEnabled          Boolean   @default(true) @map("push_enabled")
-  kakaoId              String?   @map("kakao_id") @db.VarChar(100)
-  authProvider         String    @default("email") @map("auth_provider") @db.VarChar(20)
+  onboardingCompleted Boolean @default(false) @map("onboarding_completed")
+  onboardingData      Json    @default("{}") @map("onboarding_data")
+  aiPersonaId         String  @default("default") @map("ai_persona_id") @db.VarChar(50)
+  pushToken           String? @map("push_token")
+  pushEnabled         Boolean @default(true) @map("push_enabled")
+  kakaoId             String? @map("kakao_id") @db.VarChar(100)
+  authProvider        String  @default("phone") @map("auth_provider") @db.VarChar(20)
 
   // Relations
-  conversations         Conversation[]
-  savedMessages         SavedMessage[]
-  surveyResponses       SurveyResponse[]
+  conversations          Conversation[]
+  savedMessages          SavedMessage[]
+  surveyResponses        SurveyResponse[]
   proactiveConversations ProactiveConversation[]
-  userAnalytics         UserAnalytics?
+  userAnalytics          UserAnalytics?
+  calendarLogs           CalendarLog[]
+  sessionMemories        SessionMemory[]
 
   @@index([email])
+  @@index([phoneNumber])
   @@index([lastLoginAt])
   @@index([kakaoId])
+  @@index([authProvider])
   @@map("users")
 }
 
@@ -68,6 +72,7 @@ model Conversation {
   messages               Message[]
   savedMessages          SavedMessage[]
   proactiveConversations ProactiveConversation[]
+  sessionMemories        SessionMemory[]
 
   @@index([userId])
   @@index([lastMessageAt(sort: Desc)])
@@ -77,22 +82,23 @@ model Conversation {
 
 // ============ Messages ============
 model Message {
-  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  conversationId   String    @map("conversation_id") @db.Uuid
-  role             String    @db.VarChar(20)
-  content          String
-  metadata         Json      @default("{}")
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  tokensUsed       Int?      @map("tokens_used")
-  responseTimeMs   Int?      @map("response_time_ms")
-  ragSources       Json?     @map("rag_sources")
-  satisfactionRating Int?    @map("satisfaction_rating")
-  attachments      Json      @default("[]")
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  conversationId     String   @map("conversation_id") @db.Uuid
+  role               String   @db.VarChar(20)
+  content            String
+  metadata           Json     @default("{}")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  tokensUsed         Int?     @map("tokens_used")
+  responseTimeMs     Int?     @map("response_time_ms")
+  ragSources         Json?    @map("rag_sources")
+  satisfactionRating Int?     @map("satisfaction_rating")
+  attachments        Json     @default("[]")
 
   // Relations
   conversation  Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   savedMessages SavedMessage[]
+  calendarLogs  CalendarLog[]
 
   @@index([conversationId])
   @@index([createdAt(sort: Desc)])
@@ -142,18 +148,18 @@ model SavedMessage {
 
 // ============ Survey Templates (Google Forms 스타일) ============
 model SurveyTemplate {
-  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  title             String   @db.VarChar(200)
-  description       String?
-  pregnancyWeekMin  Int?     @map("pregnancy_week_min")
-  pregnancyWeekMax  Int?     @map("pregnancy_week_max")
-  formSchema        Json     @map("form_schema")  // Google Forms 스타일 YAML/JSON 스키마
-  schemaVersion     String   @default("1.0") @map("schema_version") @db.VarChar(20)
-  isAiAssisted      Boolean  @default(false) @map("is_ai_assisted")
-  aiFollowUpPrompt  String?  @map("ai_follow_up_prompt")
-  isActive          Boolean  @default(true) @map("is_active")
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  title            String   @db.VarChar(200)
+  description      String?
+  pregnancyWeekMin Int?     @map("pregnancy_week_min")
+  pregnancyWeekMax Int?     @map("pregnancy_week_max")
+  formSchema       Json     @map("form_schema") // Google Forms 스타일 YAML/JSON 스키마
+  schemaVersion    String   @default("1.0") @map("schema_version") @db.VarChar(20)
+  isAiAssisted     Boolean  @default(false) @map("is_ai_assisted")
+  aiFollowUpPrompt String?  @map("ai_follow_up_prompt")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
   responses SurveyResponse[]
@@ -168,7 +174,7 @@ model SurveyResponse {
   id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   userId               String    @map("user_id") @db.Uuid
   templateId           String    @map("template_id") @db.Uuid
-  responses            Json      // 질문 ID → 응답 매핑
+  responses            Json // 질문 ID → 응답 매핑
   aiGeneratedQuestions Json?     @map("ai_generated_questions")
   pregnancyWeek        Int?      @map("pregnancy_week")
   completedAt          DateTime? @map("completed_at") @db.Timestamptz
@@ -185,14 +191,14 @@ model SurveyResponse {
 
 // ============ Proactive Trigger Types (pg_cron 연동) ============
 model ProactiveTriggerType {
-  id             String   @id @db.VarChar(50)
-  name           String   @db.VarChar(100)
-  description    String?
-  cronExpression String   @map("cron_expression") @db.VarChar(50)  // pg_cron용 ("0 9 * * *")
-  messageTemplate String? @map("message_template")  // AI 생성 시 사용할 프롬프트
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id              String   @id @db.VarChar(50)
+  name            String   @db.VarChar(100)
+  description     String?
+  cronExpression  String?  @map("cron_expression") @db.VarChar(50) // pg_cron용 ("0 9 * * *")
+  messageTemplate String?  @map("message_template") // AI 생성 시 사용할 프롬프트
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
   conversations ProactiveConversation[]
@@ -209,13 +215,13 @@ model ProactiveConversation {
   sentAt         DateTime? @map("sent_at") @db.Timestamptz
   messageContent String    @map("message_content")
   conversationId String?   @map("conversation_id") @db.Uuid
-  status         String    @default("pending") @db.VarChar(20)  // pending, sent, read, responded
+  status         String    @default("pending") @db.VarChar(20) // pending, sent, read, responded
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   // Relations
-  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  triggerType  ProactiveTriggerType  @relation(fields: [triggerTypeId], references: [id])
-  conversation Conversation?         @relation(fields: [conversationId], references: [id])
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  triggerType  ProactiveTriggerType @relation(fields: [triggerTypeId], references: [id])
+  conversation Conversation?        @relation(fields: [conversationId], references: [id])
 
   @@index([scheduledAt])
   @@index([userId, status])
@@ -225,17 +231,21 @@ model ProactiveConversation {
 
 // ============ Pregnancy Documents (RAG) ============
 model PregnancyDocument {
-  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  title         String   @db.VarChar(500)
+  id            String                      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sourceId      String?                     @map("source_id") @db.Uuid
+  title         String                      @db.VarChar(500)
   content       String
-  pregnancyWeek Int?     @map("pregnancy_week")
-  category      String   @db.VarChar(100)
-  sourceFile    String?  @map("source_file") @db.VarChar(500)
+  pregnancyWeek Int?                        @map("pregnancy_week")
+  category      String                      @db.VarChar(100)
+  sourceFile    String?                     @map("source_file") @db.VarChar(500)
   embedding     Unsupported("vector(1536)")
-  metadata      Json     @default("{}")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  metadata      Json                        @default("{}")
+  createdAt     DateTime                    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
+  source DocumentSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@index([sourceId])
   @@index([pregnancyWeek])
   @@index([category])
   @@map("pregnancy_documents")
@@ -243,19 +253,19 @@ model PregnancyDocument {
 
 // ============ Medical Knowledge ============
 model MedicalKnowledge {
-  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  title           String   @db.VarChar(500)
+  id              String                       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  title           String                       @db.VarChar(500)
   content         String
-  category        String   @db.VarChar(100)
+  category        String                       @db.VarChar(100)
   tags            String[]
-  sourceUrl       String?  @map("source_url") @db.VarChar(1000)
-  sourceType      String   @map("source_type") @db.VarChar(50)
-  language        String   @default("ko") @db.VarChar(5)
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  version         String?  @db.VarChar(20)
+  sourceUrl       String?                      @map("source_url") @db.VarChar(1000)
+  sourceType      String                       @map("source_type") @db.VarChar(50)
+  language        String                       @default("ko") @db.VarChar(5)
+  createdAt       DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  version         String?                      @db.VarChar(20)
   embedding       Unsupported("vector(1536)")?
-  popularityScore Float    @default(0) @map("popularity_score") @db.Real
+  popularityScore Float                        @default(0) @map("popularity_score") @db.Real
 
   @@index([category])
   @@index([sourceType])
@@ -265,16 +275,16 @@ model MedicalKnowledge {
 
 // ============ User Analytics ============
 model UserAnalytics {
-  id                     String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId                 String    @unique @map("user_id") @db.Uuid
-  sessionCount           Int       @default(0) @map("session_count")
-  totalMessages          Int       @default(0) @map("total_messages")
-  averageSessionDuration Float     @default(0) @map("average_session_duration") @db.Real
-  mostAskedTopics        String[]  @map("most_asked_topics")
-  lastActiveAt           DateTime  @default(now()) @map("last_active_at") @db.Timestamptz
-  satisfactionRating     Float?    @map("satisfaction_rating") @db.Real
-  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt              DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                     String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId                 String   @unique @map("user_id") @db.Uuid
+  sessionCount           Int      @default(0) @map("session_count")
+  totalMessages          Int      @default(0) @map("total_messages")
+  averageSessionDuration Float    @default(0) @map("average_session_duration") @db.Real
+  mostAskedTopics        String[] @map("most_asked_topics")
+  lastActiveAt           DateTime @default(now()) @map("last_active_at") @db.Timestamptz
+  satisfactionRating     Float?   @map("satisfaction_rating") @db.Real
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -282,4 +292,124 @@ model UserAnalytics {
   @@index([userId])
   @@index([lastActiveAt(sort: Desc)])
   @@map("user_analytics")
+}
+
+// ============ Calendar Logs ============
+model CalendarLog {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  date       DateTime @db.Date
+  content    String
+  messageId  String?  @map("message_id") @db.Uuid
+  sourceType String   @default("chat_log") @map("source_type") @db.VarChar(20) // chat_log, symptom, ai_summary
+  imageUrl   String?  @map("image_url") @db.Text
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // Relations
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([date])
+  @@map("calendar_logs")
+}
+
+// ============ Workflow Definitions ============
+model WorkflowDefinition {
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name           String   @db.VarChar(120)
+  slug           String   @unique @db.VarChar(120)
+  description    String?
+  provider       String   @default("flowise") @db.VarChar(30)
+  externalFlowId String?  @map("external_flow_id") @db.VarChar(120)
+  status         String   @default("draft") @db.VarChar(20)
+  isActive       Boolean  @default(false) @map("is_active")
+  config         Json     @default("{}")
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  versions WorkflowVersion[]
+
+  @@index([provider, status])
+  @@map("workflow_definitions")
+}
+
+// ============ Workflow Versions ============
+model WorkflowVersion {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workflowId   String   @map("workflow_id") @db.Uuid
+  version      Int
+  definition   Json
+  gitPath      String?  @map("git_path") @db.VarChar(255)
+  gitCommitSha String?  @map("git_commit_sha") @db.VarChar(64)
+  isPublished  Boolean  @default(false) @map("is_published")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  workflow WorkflowDefinition @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, version])
+  @@index([workflowId, isPublished])
+  @@map("workflow_versions")
+}
+
+// ============ Document Sources ============
+model DocumentSource {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  title       String   @db.VarChar(255)
+  type        String   @default("docx") @db.VarChar(30)
+  storagePath String   @map("storage_path") @db.VarChar(500)
+  checksum    String?  @db.VarChar(128)
+  status      String   @default("draft") @db.VarChar(20)
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  documents  PregnancyDocument[]
+  ingestJobs DocumentIngestJob[]
+
+  @@index([type, status])
+  @@map("document_sources")
+}
+
+// ============ Document Ingest Jobs ============
+model DocumentIngestJob {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sourceId     String    @map("source_id") @db.Uuid
+  status       String    @default("pending") @db.VarChar(20)
+  chunkCount   Int       @default(0) @map("chunk_count")
+  errorMessage String?   @map("error_message")
+  metadata     Json      @default("{}")
+  startedAt    DateTime? @map("started_at") @db.Timestamptz
+  finishedAt   DateTime? @map("finished_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  source DocumentSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, status])
+  @@map("document_ingest_jobs")
+}
+
+// ============ Session Memories ============
+model SessionMemory {
+  id             String                       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId         String?                      @map("user_id") @db.Uuid
+  conversationId String                       @map("conversation_id") @db.Uuid
+  content        String
+  summary        String?
+  memoryType     String                       @default("conversation") @map("memory_type") @db.VarChar(30)
+  embedding      Unsupported("vector(1536)")?
+  metadata       Json                         @default("{}")
+  createdAt      DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@index([memoryType])
+  @@map("session_memories")
 }

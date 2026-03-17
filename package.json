@@ -5,15 +5,20 @@
   "packageManager": "pnpm@10.26.1",
   "scripts": {
     "dev": "turbo dev",
+    "dev:d": "SERVER_DATA_PROVIDER=docker ADMIN_DATA_PROVIDER=backend NEXT_PUBLIC_APP_URL=http://localhost:3005 EXPO_PUBLIC_API_BASE_URL=http://localhost:3005 EXPO_PUBLIC_WEB_URL=http://localhost:3005 NEXT_PUBLIC_DEV_USER_ID=local-user-demo EXPO_PUBLIC_DEV_USER_ID=local-user-demo DATABASE_URL=postgresql://schift:schift@localhost:5432/schift LOCAL_DB_SCHEMA=gynecology_local LOCAL_DEV_USER_PHONE_NUMBER=01012345678 LOCAL_DEV_USER_PASSWORD=test1234 LOCAL_DEV_USER_NAME=김수아 LOCAL_ADMIN_USER_ID=local-admin-1 LOCAL_ADMIN_PHONE_NUMBER=01099998888 LOCAL_ADMIN_PASSWORD=admin1234 LOCAL_ADMIN_NAME=운영자 ADMIN_ACTOR_USER_ID=local-admin-1 pnpm --filter @gynecology-chatbot/web exec next dev --turbopack -p 3005",
+    "dev:s": "SERVER_DATA_PROVIDER=supabase ADMIN_DATA_PROVIDER=backend NEXT_PUBLIC_APP_URL=http://localhost:3005 EXPO_PUBLIC_API_BASE_URL=http://localhost:3005 EXPO_PUBLIC_WEB_URL=http://localhost:3005 pnpm --filter @gynecology-chatbot/web exec next dev --turbopack -p 3005",
     "build": "turbo build",
     "lint": "turbo lint",
     "type-check": "turbo type-check",
     "test": "turbo test",
-    "clean": "turbo clean && rm -rf node_modules",
+    "clean": "turbo clean && rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/*/.next",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
     "prettier": "^3.4.2",
     "turbo": "^2.4.4"
+  },
+  "dependencies": {
+    "hwpx-ts": "^0.1.0"
   }
 }

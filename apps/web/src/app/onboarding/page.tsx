@@ -1,5 +1,11 @@
-import { OnboardingFlow } from "@/components/onboarding";
+import { MobileOnboardingView } from "@/components/mobile/MobileOnboardingView";
 
-export default function OnboardingPage() {
-    return <OnboardingFlow />;
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ userId?: string }>;
+}) {
+  const { userId } = await searchParams;
+
+  return <MobileOnboardingView userId={userId ?? null} />;
 }

@@ -25,7 +25,8 @@ jest.mock('next/navigation', () => ({
   },
 }));
 
-// Supabase 클라이언트 모킹
+// Supabase 클라이언트 모킹 (파일이 생기면 주석 해제)
+/*
 jest.mock('@/lib/supabase-client', () => ({
   createClient: () => ({
     auth: {
@@ -48,8 +49,11 @@ jest.mock('@/lib/supabase-client', () => ({
     })),
   }),
 }));
+*/
+
 
 // React Hot Toast 모킹
+/*
 jest.mock('react-hot-toast', () => ({
   __esModule: true,
   default: {
@@ -64,8 +68,10 @@ jest.mock('react-hot-toast', () => ({
   },
   Toaster: () => null,
 }));
+*/
 
 // Vercel AI SDK 모킹
+/*
 jest.mock('ai/react', () => ({
   useChat: () => ({
     messages: [],
@@ -76,6 +82,7 @@ jest.mock('ai/react', () => ({
     error: null,
   }),
 }));
+*/
 
 // Lucide React 아이콘 모킹
 jest.mock('lucide-react', () => {
@@ -84,31 +91,31 @@ jest.mock('lucide-react', () => {
     'Calendar', 'Shield', 'Users', 'ArrowRight', 'ArrowLeft', 'Edit3',
     'Save', 'LogOut', 'Trash2', 'Sparkles', 'Send', 'Menu', 'X'
   ];
-  
+
   const iconComponents = {};
   icons.forEach(icon => {
     iconComponents[icon] = ({ className, ...props }) => (
       React.createElement('svg', { 'data-testid': `${icon.toLowerCase()}-icon`, className, ...props })
     );
   });
-  
+
   return iconComponents;
 });
 
 // IntersectionObserver 모킹 (스크롤 관련 테스트용)
 global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
-  observe() {}
-  unobserve() {}
-  disconnect() {}
+  constructor() { }
+  observe() { }
+  unobserve() { }
+  disconnect() { }
 };
 
 // ResizeObserver 모킹
 global.ResizeObserver = class ResizeObserver {
-  constructor() {}
-  observe() {}
-  unobserve() {}
-  disconnect() {}
+  constructor() { }
+  observe() { }
+  unobserve() { }
+  disconnect() { }
 };
 
 // matchMedia 모킹 (반응형 디자인 테스트용)
@@ -131,6 +138,6 @@ process.env = {
   ...process.env,
   NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
-  NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
+  NEXT_PUBLIC_APP_URL: 'http://localhost:4000',
   NODE_ENV: 'test',
 };
