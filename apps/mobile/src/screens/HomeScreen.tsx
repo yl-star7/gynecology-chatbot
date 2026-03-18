@@ -1,10 +1,9 @@
 // @ts-nocheck
 import type { HomeViewData } from "@gynecology-chatbot/app-core";
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { useMobileServices } from "../core/MobileServicesProvider";
 import { palette } from "../theme";
 
@@ -47,7 +46,7 @@ export function HomeScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <MobileScreenFrame title="홈" showProfileButton showChatFab>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.eyebrow}>Gynecology Chatbot</Text>
         <Text style={styles.title}>
@@ -76,30 +75,21 @@ export function HomeScreen() {
         </View>
 
         <View style={styles.shortcutRow}>
-          <Pressable style={styles.shortcutCard} onPress={() => router.push("/(tabs)/notebook")}>
+          <Pressable style={styles.shortcutCard} onPress={() => router.push("/notebook")}>
             <Text style={styles.shortcutTitle}>임신수첩</Text>
             <Text style={styles.shortcutDescription}>저장 답변과 체크리스트</Text>
           </Pressable>
-          <Pressable style={styles.shortcutCard} onPress={() => router.push("/(tabs)/knowledge")}>
+          <Pressable style={styles.shortcutCard} onPress={() => router.push("/knowledge")}>
             <Text style={styles.shortcutTitle}>임신 지식</Text>
             <Text style={styles.shortcutDescription}>주차별 지식과 위험 신호</Text>
           </Pressable>
         </View>
       </ScrollView>
-
-      <Pressable style={styles.fab} onPress={() => router.push("/chat/new")} accessibilityLabel="채팅 열기">
-        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#ffffff" />
-        <Text style={styles.fabLabel}>Ham</Text>
-      </Pressable>
-    </SafeAreaView>
+    </MobileScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: palette.background,
-  },
   content: {
     padding: 20,
     paddingBottom: 120,
@@ -209,22 +199,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 14,
     color: palette.subInk,
-  },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 24,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: 999,
-    backgroundColor: palette.accent,
-  },
-  fabLabel: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "700",
   },
 });

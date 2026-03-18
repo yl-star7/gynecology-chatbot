@@ -15,7 +15,7 @@ export function OnboardingScreen() {
   async function handleComplete() {
     try {
       await completeOnboarding({ pregnancyWeekOrDueDate, tonePreference });
-      router.replace("/(tabs)/home");
+      router.replace("/home");
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "온보딩 저장에 실패했습니다.");
     }

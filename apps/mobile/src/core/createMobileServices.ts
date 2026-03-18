@@ -1,9 +1,27 @@
 import { MockMobileChatAdapter, MockMobileHomeAdapter } from "@gynecology-chatbot/app-core";
-import type { AuthPort, KnowledgePort, MobileChatPort, MobileHomePort, OnboardingPort } from "@gynecology-chatbot/app-core";
+import type {
+  AuthPort,
+  KnowledgePort,
+  MobileChatPort,
+  MobileHomePort,
+  MobileProfilePort,
+  OnboardingPort,
+} from "@gynecology-chatbot/app-core";
 import { createMobileApiClient } from "../api/mobileApi";
-import { ApiKnowledgeAdapter, ApiMobileAuthAdapter, ApiMobileChatAdapter, ApiMobileHomeAdapter, ApiOnboardingAdapter } from "./adapters/apiMobilePorts";
+import {
+  ApiKnowledgeAdapter,
+  ApiMobileAuthAdapter,
+  ApiMobileChatAdapter,
+  ApiMobileHomeAdapter,
+  ApiMobileProfileAdapter,
+  ApiOnboardingAdapter,
+} from "./adapters/apiMobilePorts";
 import { MockAuthPortAdapter, MockOnboardingPortAdapter } from "./adapters/mockMobileAuthPorts";
-import { readMockMobileRuntime } from "./mockMobileRuntime";
+import {
+  readMockMobileProfile,
+  readMockMobileRuntime,
+  updateMockMobileProfile,
+} from "./mockMobileRuntime";
 
 export interface MobileServices {
   authPort: AuthPort;
@@ -11,6 +29,7 @@ export interface MobileServices {
   homePort: MobileHomePort;
   chatPort: MobileChatPort;
   knowledgePort: KnowledgePort;
+  profilePort: MobileProfilePort;
 }
 
 export interface CreateMobileServicesOptions {
@@ -66,6 +85,7 @@ export function createMobileServices(options: CreateMobileServicesOptions = {}):
       homePort: new ApiMobileHomeAdapter(client),
       chatPort: new ApiMobileChatAdapter(client),
       knowledgePort: new ApiKnowledgeAdapter(client),
+      profilePort: new ApiMobileProfileAdapter(client),
     };
   }
 
@@ -79,6 +99,14 @@ export function createMobileServices(options: CreateMobileServicesOptions = {}):
     knowledgePort: {
       getLinkTarget(target: string, entityId?: string) {
         return chatPort.resolveLink(target, entityId);
+      },
+    },
+    profilePort: {
+      async getProfile() {
+        return readMockMobileProfile();
+      },
+      async updateProfile(input) {
+        return updateMockMobileProfile(input);
       },
     },
   };

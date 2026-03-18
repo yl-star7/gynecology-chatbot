@@ -1,23 +1,17 @@
 // @ts-nocheck
-import { StyleSheet, Text } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Redirect } from "expo-router";
+import { useMobileAppSession } from "../src/core/MobileAppSessionProvider";
 
-export default function Index() {
+export default function IndexRoute() {
+  const { currentUser } = useMobileAppSession();
+
+  if (!currentUser) {
+    return <Redirect href="/auth/login" />;
+  }
+
   return (
-    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
-      <Text style={styles.label}>index probe</Text>
-    </SafeAreaView>
+    <Redirect
+      href={currentUser.hasCompletedOnboarding ? "/home" : "/onboarding"}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-  },
-  label: {
-    margin: 24,
-    fontSize: 24,
-    color: "#111111",
-  },
-});

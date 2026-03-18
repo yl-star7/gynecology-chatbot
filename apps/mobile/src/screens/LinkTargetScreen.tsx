@@ -3,7 +3,7 @@ import type { LinkTargetContent } from "@gynecology-chatbot/app-core";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { useMobileServices } from "../core/MobileServicesProvider";
 import { palette } from "../theme";
 
@@ -24,23 +24,19 @@ export function LinkTargetScreen({ target }: { target: string }) {
   }, [services, target]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <MobileScreenFrame title="참고 콘텐츠" showProfileButton showChatFab>
       <View style={styles.container}>
         <Text style={styles.title}>{content?.title ?? "콘텐츠를 불러오는 중입니다."}</Text>
         <Text style={styles.body}>{error ?? content?.body ?? "앱 내부 콘텐츠를 조회하고 있습니다."}</Text>
-        <Pressable style={styles.button} onPress={() => router.replace("/(tabs)/home")}>
+        <Pressable style={styles.button} onPress={() => router.replace("/home")}>
           <Text style={styles.buttonLabel}>홈으로 돌아가기</Text>
         </Pressable>
       </View>
-    </SafeAreaView>
+    </MobileScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: palette.background,
-  },
   container: {
     flex: 1,
     padding: 24,

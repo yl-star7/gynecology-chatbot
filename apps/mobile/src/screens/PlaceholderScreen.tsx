@@ -1,25 +1,21 @@
 // @ts-nocheck
 import { StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { palette } from "../theme";
 
 export function PlaceholderScreen(props: { title: string; description: string }) {
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <MobileScreenFrame title={props.title} showProfileButton showChatFab>
       <View style={styles.container}>
         <Text style={styles.eyebrow}>준비 중</Text>
         <Text style={styles.title}>{props.title}</Text>
         <Text style={styles.description}>{props.description}</Text>
       </View>
-    </SafeAreaView>
+    </MobileScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: palette.background,
-  },
   container: {
     flex: 1,
     padding: 24,

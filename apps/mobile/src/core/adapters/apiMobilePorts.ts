@@ -1,4 +1,12 @@
-import type { AuthPort, KnowledgePort, MobileChatPort, MobileHomePort, OnboardingPort } from "@gynecology-chatbot/app-core";
+import type {
+  AuthPort,
+  KnowledgePort,
+  MobileChatPort,
+  MobileHomePort,
+  MobileProfileViewData,
+  MobileProfilePort,
+  OnboardingPort,
+} from "@gynecology-chatbot/app-core";
 import type { MobileApiClient } from "../../api/mobileApi";
 
 export class ApiMobileAuthAdapter implements AuthPort {
@@ -83,5 +91,28 @@ export class ApiKnowledgeAdapter implements KnowledgePort {
   async getLinkTarget(target: string, entityId?: string) {
     const payload = await this.client.fetchLinkTarget(target, entityId);
     return payload.content;
+  }
+}
+
+export class ApiMobileProfileAdapter implements MobileProfilePort {
+  constructor(private readonly client: MobileApiClient) {}
+
+  async getProfile() {
+    const payload = await this.client.fetchMobileProfile();
+    return payload.profile;
+  }
+
+  async updateProfile(input: {
+    userId: string;
+    displayName: string;
+    dueDate?: string | null;
+    tonePreference: string;
+    babyNickname?: string | null;
+    hospitalName?: string | null;
+    notificationTime?: string | null;
+    themeKey?: MobileProfileViewData["themeKey"];
+  }) {
+    const payload = await this.client.updateMobileProfile(input);
+    return payload.user;
   }
 }

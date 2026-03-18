@@ -4,6 +4,7 @@ import type {
   ChatSession,
   HomeViewData,
   LinkTargetContent,
+  MobileProfileViewData,
   OnboardingProfileInput,
   RecentChatSummary,
 } from "@gynecology-chatbot/app-core";
@@ -23,9 +24,20 @@ export interface MobileApiClient {
   requestPasswordReset(input: { phoneNumber: string }): Promise<{ ok: true }>;
   completeOnboarding(input: { userId: string } & OnboardingProfileInput): Promise<{ user: AuthenticatedUser }>;
   fetchHome(month?: string): Promise<{ home: HomeViewData }>;
+  fetchMobileProfile(): Promise<{ profile: MobileProfileViewData }>;
   fetchSessions(): Promise<{ sessions: RecentChatSummary[] }>;
   fetchSession(sessionId: string): Promise<{ session: ChatSession }>;
   fetchLinkTarget(target: string, entityId?: string): Promise<{ content: LinkTargetContent }>;
+  updateMobileProfile(input: {
+    userId: string;
+    displayName: string;
+    dueDate?: string | null;
+    tonePreference: string;
+    babyNickname?: string | null;
+    hospitalName?: string | null;
+    notificationTime?: string | null;
+    themeKey?: MobileProfileViewData["themeKey"];
+  }): Promise<{ user: AuthenticatedUser }>;
   sendChatMessage(input: {
     sessionId: string;
     text: string;
@@ -123,6 +135,13 @@ export function createMobileApiClient(options: MobileApiClientOptions = {}): Mob
       return parseJson<{ home: HomeViewData }>(response);
     },
 
+    async fetchMobileProfile() {
+      const response = await fetchImpl(
+        `${getApiBaseUrl()}/api/mobile/profile?userId=${encodeURIComponent(getUserId())}`,
+      );
+      return parseJson<{ profile: MobileProfileViewData }>(response);
+    },
+
     async fetchSessions() {
       const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/sessions?userId=${encodeURIComponent(getUserId())}`);
       return parseJson<{ sessions: RecentChatSummary[] }>(response);
@@ -139,6 +158,16 @@ export function createMobileApiClient(options: MobileApiClientOptions = {}): Mob
       const searchParams = new URLSearchParams({ target, ...(entityId ? { entityId } : {}) });
       const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/link?${searchParams.toString()}`);
       return parseJson<{ content: LinkTargetContent }>(response);
+    },
+
+    async updateMobileProfile(input) {
+      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/profile`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+
+      return parseJson<{ user: AuthenticatedUser }>(response);
     },
 
     async sendChatMessage(input) {
@@ -185,6 +214,10 @@ export function fetchHome(month?: string) {
   return defaultClient.fetchHome(month);
 }
 
+export function fetchMobileProfile() {
+  return defaultClient.fetchMobileProfile();
+}
+
 export function fetchSessions() {
   return defaultClient.fetchSessions();
 }
@@ -195,6 +228,19 @@ export function fetchSession(sessionId: string) {
 
 export function fetchLinkTarget(target: string, entityId?: string) {
   return defaultClient.fetchLinkTarget(target, entityId);
+}
+
+export function updateMobileProfile(input: {
+  userId: string;
+  displayName: string;
+  dueDate?: string | null;
+  tonePreference: string;
+  babyNickname?: string | null;
+  hospitalName?: string | null;
+  notificationTime?: string | null;
+  themeKey?: MobileProfileViewData["themeKey"];
+}) {
+  return defaultClient.updateMobileProfile(input);
 }
 
 export function sendChatMessage(input: {

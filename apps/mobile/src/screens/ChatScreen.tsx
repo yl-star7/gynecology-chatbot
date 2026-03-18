@@ -125,7 +125,7 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.replace("/(tabs)/home")} accessibilityLabel="홈으로 이동">
+        <Pressable onPress={() => router.replace("/home")} accessibilityLabel="홈으로 이동">
           <Ionicons name="arrow-back" size={24} color={palette.ink} />
         </Pressable>
         <Text style={styles.headerTitle}>{session.title}</Text>

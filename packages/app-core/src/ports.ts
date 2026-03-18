@@ -9,6 +9,7 @@ import type {
   ChatMessage,
   HomeViewData,
   LinkTargetContent,
+  MobileProfileViewData,
   OnboardingProfileInput,
   RecentChatSummary,
 } from "./domain";
@@ -54,6 +55,20 @@ export interface MobileChatPort {
   resolveLink(target: string, entityId?: string): Promise<LinkTargetContent>;
 }
 
+export interface MobileProfilePort {
+  getProfile(): Promise<MobileProfileViewData>;
+  updateProfile(input: {
+    userId: string;
+    displayName: string;
+    dueDate?: string | null;
+    tonePreference: string;
+    babyNickname?: string | null;
+    hospitalName?: string | null;
+    notificationTime?: string | null;
+    themeKey?: MobileProfileViewData["themeKey"];
+  }): Promise<AuthenticatedUser>;
+}
+
 export interface AdminDashboardPort {
   getDashboard(): Promise<AdminDashboardData>;
 }
@@ -61,11 +76,16 @@ export interface AdminDashboardPort {
 export interface AdminUserPort {
   listUsers(): Promise<AdminDashboardData["managedUsers"]>;
   updatePhoneNumber(input: {
+    actorId?: string;
     userId: string;
     phoneNumber: string;
     reason: string;
   }): Promise<void>;
-  resetPassword(input: { userId: string; reason: string }): Promise<void>;
+  resetPassword(input: {
+    actorId?: string;
+    userId: string;
+    reason: string;
+  }): Promise<void>;
 }
 
 export interface AdminContentPort {

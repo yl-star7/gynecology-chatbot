@@ -1,7 +1,7 @@
 import type { AuthenticatedUser, OnboardingProfileInput } from "@gynecology-chatbot/app-core";
 import { createContext, useContext, useMemo, useState } from "react";
 import { useMobileServices } from "./MobileServicesProvider";
-import { readMockMobileRuntime } from "./mockMobileRuntime";
+import { clearMockMobileCurrentUser, readMockMobileRuntime } from "./mockMobileRuntime";
 
 interface MobileAppSessionValue {
   currentUser: AuthenticatedUser | null;
@@ -9,6 +9,7 @@ interface MobileAppSessionValue {
   setPassword(input: { phoneNumber: string; verificationCode: string; password: string }): Promise<AuthenticatedUser>;
   requestPasswordReset(input: { phoneNumber: string }): Promise<void>;
   completeOnboarding(input: OnboardingProfileInput): Promise<AuthenticatedUser>;
+  signOut(): Promise<void>;
 }
 
 const MobileAppSessionContext = createContext<MobileAppSessionValue | null>(null);
@@ -44,6 +45,10 @@ export function MobileAppSessionProvider({ children }: { children: React.ReactNo
         const nextUser = await services.onboardingPort.completeProfile(input);
         setCurrentUser(nextUser);
         return nextUser;
+      },
+      async signOut() {
+        clearMockMobileCurrentUser();
+        setCurrentUser(null);
       },
     }),
     [currentUser, services],
