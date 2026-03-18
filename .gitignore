@@ -28,6 +28,10 @@ dist/
 package-lock.json
 .omx/
 artifacts/
+.playwright-cli/
+.superpowers/
+output/playwright/
+test-results/
 
 # env files
 .env*
@@ -43,3 +47,5 @@ next-env.d.ts
 # supabase
 .supabase
 supabase/functions/.temp
+supabase/.temp/
+supabase/migrations/drizzle/

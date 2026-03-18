@@ -6,3 +6,9 @@ out
 *.log
 .env*
 ! .env.example
+.playwright-cli
+.superpowers
+output/playwright
+test-results
+supabase/.temp
+supabase/migrations/drizzle
