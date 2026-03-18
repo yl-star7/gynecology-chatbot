@@ -102,7 +102,7 @@ export function MobileChatComposer({
           </button>
         </div>
 
-        <p className="px-1 text-xs leading-5 text-[var(--text-soft)]">
+        <p aria-live="polite" className="px-1 text-xs leading-5 text-[var(--text-soft)]">
           {error ??
             "응급 신호가 있거나 통증이 심하면 채팅보다 먼저 의료진 진료를 우선하세요."}
         </p>

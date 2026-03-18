@@ -487,15 +487,13 @@ export function AdminContentSection({
                           >
                             섹션 아래로
                           </button>
-                          {!section.id ? (
-                            <button
-                              className={styles.secondaryButton}
-                              type="button"
-                              onClick={() => onRemoveWeekSection(index)}
-                            >
-                              섹션 삭제
-                            </button>
-                          ) : null}
+                          <button
+                            className={styles.secondaryButton}
+                            type="button"
+                            onClick={() => onRemoveWeekSection(index)}
+                          >
+                            섹션 삭제
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -617,15 +615,13 @@ export function AdminContentSection({
                           >
                             에셋 아래로
                           </button>
-                          {!asset.id ? (
-                            <button
-                              className={styles.secondaryButton}
-                              type="button"
-                              onClick={() => onRemoveWeekAsset(index)}
-                            >
-                              에셋 삭제
-                            </button>
-                          ) : null}
+                          <button
+                            className={styles.secondaryButton}
+                            type="button"
+                            onClick={() => onRemoveWeekAsset(index)}
+                          >
+                            에셋 삭제
+                          </button>
                         </div>
                       </div>
                     </div>

@@ -785,6 +785,16 @@ export async function localSupabaseUpdate<T>(path: string, payload: object) {
   return result.rows as T;
 }
 
+export async function localSupabaseDelete<T>(path: string) {
+  await ensureLocalPostgresReady();
+  const db = getPool();
+  const { table, searchParams } = splitPath(path);
+  const { sql: whereSql, values } = buildWhereClause(searchParams);
+  const query = `DELETE FROM ${getQualifiedTable(table)}${whereSql} RETURNING *`;
+  const result = await db.query(query, values);
+  return result.rows as T;
+}
+
 export async function localSupabaseRpc<T>(
   fn: string,
   payload: Record<string, unknown>,

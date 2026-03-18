@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readAdminSessionUser } from "@/lib/admin/auth";
 import { embedPregnancyDocument } from "@/lib/mobile/rag";
 import { supabaseInsert } from "@/lib/mobile/supabase-rest";
 
 export async function POST(request: NextRequest) {
   try {
+    const admin = await readAdminSessionUser();
+    if (!admin) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const title = typeof body.title === "string" ? body.title.trim() : "";
     const content = typeof body.content === "string" ? body.content.trim() : "";

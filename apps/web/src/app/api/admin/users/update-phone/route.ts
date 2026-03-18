@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readAdminSessionUser } from "@/lib/admin/auth";
 import { createAdminServices } from "@/lib/admin/create-admin-services";
 
 export async function POST(request: NextRequest) {
   try {
+    const admin = await readAdminSessionUser();
+    if (!admin) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const userId = typeof body.userId === "string" ? body.userId : "";
     const phoneNumber = typeof body.phoneNumber === "string" ? body.phoneNumber.trim() : "";
@@ -13,7 +19,12 @@ export async function POST(request: NextRequest) {
     }
 
     const services = createAdminServices();
-    await services.adminUserPort.updatePhoneNumber({ userId, phoneNumber, reason });
+    await services.adminUserPort.updatePhoneNumber({
+      actorId: admin.id,
+      userId,
+      phoneNumber,
+      reason,
+    });
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("admin update phone route error", error);

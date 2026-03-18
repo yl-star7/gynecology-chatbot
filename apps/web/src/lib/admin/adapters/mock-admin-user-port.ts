@@ -9,11 +9,15 @@ export class MockAdminUserPortAdapter implements AdminUserPort {
     return dashboard.managedUsers;
   }
 
-  async updatePhoneNumber(): Promise<void> {
+  async updatePhoneNumber(
+    _input: Parameters<AdminUserPort["updatePhoneNumber"]>[0],
+  ): Promise<void> {
     return;
   }
 
-  async resetPassword(): Promise<void> {
+  async resetPassword(
+    _input: Parameters<AdminUserPort["resetPassword"]>[0],
+  ): Promise<void> {
     return;
   }
 }

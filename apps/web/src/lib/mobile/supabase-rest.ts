@@ -1,4 +1,5 @@
 import {
+  localSupabaseDelete,
   localSupabaseInsert,
   localSupabaseRpc,
   localSupabaseSelect,
@@ -122,6 +123,26 @@ export async function supabaseUpdate<T>(path: string, payload: object) {
 
   if (!response.ok) {
     throw new Error(`Supabase update failed: ${response.status}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+export async function supabaseDelete<T>(path: string) {
+  assertSelectedProviderConfig();
+  if (shouldUseLocalPostgres()) {
+    return localSupabaseDelete<T>(path);
+  }
+
+  const { url } = getConfig();
+  const response = await fetch(`${url}/rest/v1/${path}`, {
+    method: "DELETE",
+    headers: buildHeaders("return=representation"),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase delete failed: ${response.status}`);
   }
 
   return (await response.json()) as T;

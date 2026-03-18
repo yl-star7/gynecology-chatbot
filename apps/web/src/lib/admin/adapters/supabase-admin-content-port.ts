@@ -15,6 +15,7 @@ import {
   resolveServerDataProvider,
 } from "@/lib/server-data-provider";
 import {
+  supabaseDelete,
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
@@ -183,6 +184,32 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       status: input.status,
       updated_at: new Date().toISOString(),
     });
+
+    const nextSectionIds = new Set(
+      input.sections
+        .map((section) => section.id)
+        .filter((sectionId): sectionId is string => Boolean(sectionId)),
+    );
+    const nextAssetIds = new Set(
+      input.assets
+        .map((asset) => asset.id)
+        .filter((assetId): assetId is string => Boolean(assetId)),
+    );
+
+    const removedSectionIds = current.sections
+      .map((section) => section.id)
+      .filter((sectionId) => !nextSectionIds.has(sectionId));
+    const removedAssetIds = current.assets
+      .map((asset) => asset.id)
+      .filter((assetId) => !nextAssetIds.has(assetId));
+
+    for (const sectionId of removedSectionIds) {
+      await supabaseDelete(`pregnancy_week_sections?id=eq.${sectionId}`);
+    }
+
+    for (const assetId of removedAssetIds) {
+      await supabaseDelete(`pregnancy_week_assets?id=eq.${assetId}`);
+    }
 
     for (const section of input.sections) {
       const payload = {

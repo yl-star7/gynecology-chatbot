@@ -441,6 +441,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
   }
 
   async updatePhoneNumber(input: {
+    actorId?: string;
     userId: string;
     phoneNumber: string;
     reason: string;
@@ -460,7 +461,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     });
 
     await supabaseInsert("admin_audit_logs", {
-      admin_user_id: getAdminActorId(),
+      admin_user_id: input.actorId ?? getAdminActorId(),
       target_user_id: input.userId,
       action_type: "phone_change",
       entity_type: "user",
@@ -472,6 +473,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
   }
 
   async resetPassword(input: {
+    actorId?: string;
     userId: string;
     reason: string;
   }): Promise<void> {
@@ -485,7 +487,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     });
 
     await supabaseInsert("admin_audit_logs", {
-      admin_user_id: getAdminActorId(),
+      admin_user_id: input.actorId ?? getAdminActorId(),
       target_user_id: input.userId,
       action_type: "password_reset",
       entity_type: "user",

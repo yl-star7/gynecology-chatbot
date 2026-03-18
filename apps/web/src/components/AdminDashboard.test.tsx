@@ -322,18 +322,26 @@ describe("AdminDashboard", () => {
 
     fireEvent.click(sectionDownButton!);
     fireEvent.click(assetDownButton!);
+
+    expect(
+      screen.getAllByRole("button", { name: "섹션 삭제" }),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("button", { name: "에셋 삭제" }),
+    ).toHaveLength(2);
+
     fireEvent.click(screen.getByRole("button", { name: "섹션 추가" }));
     fireEvent.click(screen.getByRole("button", { name: "에셋 추가" }));
 
     expect(
       screen.getAllByRole("button", { name: "섹션 삭제" }),
-    ).toHaveLength(1);
+    ).toHaveLength(3);
     expect(
       screen.getAllByRole("button", { name: "에셋 삭제" }),
-    ).toHaveLength(1);
+    ).toHaveLength(3);
 
-    fireEvent.click(screen.getByRole("button", { name: "섹션 삭제" }));
-    fireEvent.click(screen.getByRole("button", { name: "에셋 삭제" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "섹션 삭제" })[2]);
+    fireEvent.click(screen.getAllByRole("button", { name: "에셋 삭제" })[2]);
 
     fireEvent.click(screen.getByRole("button", { name: "주차 저장" }));
 
@@ -400,5 +408,39 @@ describe("AdminDashboard", () => {
     expect(
       await screen.findByText("1주차 데이터를 저장했습니다."),
     ).toBeInTheDocument();
+  });
+
+  it("allows deleting persisted week sections and assets before saving", async () => {
+    render(
+      <AdminDashboard dashboard={dashboard} adminDisplayName="운영자 김" />,
+    );
+
+    await screen.findByDisplayValue("1주차 기본");
+
+    expect(screen.getAllByRole("button", { name: "섹션 삭제" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "에셋 삭제" })).toHaveLength(2);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "섹션 삭제" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "에셋 삭제" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "주차 저장" }));
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/admin/content/weeks/1",
+        expect.objectContaining({
+          method: "PATCH",
+        }),
+      ),
+    );
+
+    const patchCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([, init]) => init?.method === "PATCH",
+    );
+    const body = JSON.parse(String(patchCall?.[1]?.body)) as AdminWeekUpdateInput;
+
+    expect(body.sections).toHaveLength(1);
+    expect(body.sections[0].id).toBe("section-2");
+    expect(body.assets).toHaveLength(1);
+    expect(body.assets[0].id).toBe("asset-2");
   });
 });

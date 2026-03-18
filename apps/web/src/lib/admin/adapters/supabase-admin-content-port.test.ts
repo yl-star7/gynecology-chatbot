@@ -1,4 +1,5 @@
 import {
+  supabaseDelete,
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
@@ -6,11 +7,15 @@ import {
 import { SupabaseAdminContentPortAdapter } from "./supabase-admin-content-port";
 
 jest.mock("@/lib/mobile/supabase-rest", () => ({
+  supabaseDelete: jest.fn(),
   supabaseSelect: jest.fn(),
   supabaseInsert: jest.fn(),
   supabaseUpdate: jest.fn(),
 }));
 
+const mockedDelete = supabaseDelete as jest.MockedFunction<
+  typeof supabaseDelete
+>;
 const mockedSelect = supabaseSelect as jest.MockedFunction<
   typeof supabaseSelect
 >;
@@ -25,6 +30,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
   const adapter = new SupabaseAdminContentPortAdapter();
 
   afterEach(() => {
+    mockedDelete.mockReset();
     mockedSelect.mockReset();
     mockedInsert.mockReset();
     mockedUpdate.mockReset();
@@ -277,6 +283,113 @@ describe("SupabaseAdminContentPortAdapter", () => {
         week_id: "week-12",
         asset_type: "compare",
       }),
+    );
+  });
+
+  it("deletes persisted sections and assets omitted from the payload", async () => {
+    mockedSelect.mockImplementation((path: string) => {
+      if (path.startsWith("pregnancy_weeks")) {
+        return Promise.resolve([
+          {
+            id: "week-12",
+            week_number: 12,
+            title: "12주차 기본",
+            baby_size_label: "라임",
+            baby_size_compare_object: "작은 라임",
+            baby_summary: "기존 요약",
+            mother_summary: "기존 엄마 요약",
+            hero_image_path: "/images/week12/hero.jpg",
+            compare_image_path: "/images/week12/compare.jpg",
+            status: "draft",
+            updated_at: "2026-03-18T08:00:00.000Z",
+          },
+        ]);
+      }
+
+      if (path.startsWith("pregnancy_week_sections")) {
+        return Promise.resolve([
+          {
+            id: "section-keep",
+            section_key: "baby_growth",
+            title: "아기 성장",
+            body: "기존 본문",
+            display_order: 1,
+            is_required: true,
+          },
+          {
+            id: "section-delete",
+            section_key: "mother_change",
+            title: "산모 변화",
+            body: "삭제 대상",
+            display_order: 2,
+            is_required: false,
+          },
+        ]);
+      }
+
+      if (path.startsWith("pregnancy_week_assets")) {
+        return Promise.resolve([
+          {
+            id: "asset-keep",
+            asset_type: "hero",
+            storage_path: "/images/week12/hero.jpg",
+            alt_text: "hero",
+            style_key: "hero-card",
+            display_order: 1,
+          },
+          {
+            id: "asset-delete",
+            asset_type: "compare",
+            storage_path: "/images/week12/compare.jpg",
+            alt_text: "compare",
+            style_key: "compare-card",
+            display_order: 2,
+          },
+        ]);
+      }
+
+      return Promise.resolve([]);
+    });
+    mockedUpdate.mockResolvedValue([]);
+    mockedInsert.mockResolvedValue([]);
+    mockedDelete.mockResolvedValue([]);
+
+    await adapter.saveWeek(12, {
+      title: "12주차 관리본",
+      babySizeLabel: "자두",
+      babySizeCompareObject: "붉은 자두",
+      babySummary: "수정된 아기 요약",
+      motherSummary: "수정된 엄마 요약",
+      heroImagePath: "/images/week12/hero-next.jpg",
+      compareImagePath: "/images/week12/compare-next.jpg",
+      status: "published",
+      sections: [
+        {
+          id: "section-keep",
+          sectionKey: "baby_growth",
+          title: "아기 성장",
+          body: "수정된 본문",
+          displayOrder: 1,
+          isRequired: true,
+        },
+      ],
+      assets: [
+        {
+          id: "asset-keep",
+          assetType: "hero",
+          storagePath: "/images/week12/hero-next.jpg",
+          altText: "새 hero",
+          styleKey: "hero-card",
+          displayOrder: 1,
+        },
+      ],
+    });
+
+    expect(mockedDelete).toHaveBeenCalledWith(
+      "pregnancy_week_sections?id=eq.section-delete",
+    );
+    expect(mockedDelete).toHaveBeenCalledWith(
+      "pregnancy_week_assets?id=eq.asset-delete",
     );
   });
 });

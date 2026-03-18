@@ -39,7 +39,7 @@ function createDraftMessage(text: string, imageDataUrl?: string): ChatMessage {
   return {
     id: `draft-${Date.now()}`,
     role: "user",
-    createdAtLabel: "방금 전",
+    createdAtLabel: "전송 중",
     parts,
   };
 }
@@ -258,6 +258,7 @@ export function MobileChatView({
     }
 
     const draftMessage = createDraftMessage(text, imageDataUrl ?? undefined);
+    const draftMessageId = draftMessage.id;
     setMessages((current) => [...current, draftMessage]);
     setSessionTitle((current) =>
       current === "새 채팅" && text.trim() ? text.trim().slice(0, 24) : current,
@@ -273,12 +274,26 @@ export function MobileChatView({
         imageDataUris: imageDataUrl ? [imageDataUrl] : [],
       });
 
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === draftMessageId
+            ? { ...message, createdAtLabel: "방금 전" }
+            : message,
+        ),
+      );
       setMessages((current) => [...current, payload.assistantMessage]);
       setText("");
       setImageDataUrl(null);
       const nextSessions = await fetchSessions(resolvedUserId);
       setRecentSessions(nextSessions.sessions.slice(0, 12));
     } catch (nextError) {
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === draftMessageId
+            ? { ...message, createdAtLabel: "전송 실패" }
+            : message,
+        ),
+      );
       setError(
         nextError instanceof Error
           ? nextError.message
