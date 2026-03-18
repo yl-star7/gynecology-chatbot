@@ -1,20 +1,24 @@
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 [data-theme="rose-sand"],
 :root {
-  --bg: #f7eee8;
-  --panel: #fffaf6;
-  --panel-strong: #fffdf9;
-  --panel-muted: #f7efe9;
-  --text: #2e1f1d;
-  --text-soft: #7c625c;
-  --line: #ddc7bf;
-  --accent: #cf6f5b;
-  --accent-dark: #ab5644;
-  --accent-soft: #f4ddd4;
-  --success: #4f7d61;
+  --bg: #fbf4f7;
+  --panel: #fffafc;
+  --panel-strong: #fffdfd;
+  --panel-muted: #f9eef3;
+  --text: #34262d;
+  --text-soft: #7f6974;
+  --line: #e7d7df;
+  --accent: #d48ea5;
+  --accent-dark: #b67087;
+  --accent-soft: #f7e4eb;
+  --success: #5b7d6a;
+  --success-soft: #eef6f1;
+  --success-text: #4b6b5a;
   --warning: #a46d3e;
+  --error-soft: #fbf0f4;
+  --error-text: #95687a;
   --shadow: none;
 }
 
@@ -30,7 +34,11 @@
   --accent-dark: #c5674b;
   --accent-soft: #ffe1d1;
   --success: #537a60;
+  --success-soft: #eef6ef;
+  --success-text: #537a60;
   --warning: #b07a34;
+  --error-soft: #fff3ee;
+  --error-text: #9a503d;
   --shadow: none;
 }
 
@@ -46,7 +54,11 @@
   --accent-dark: #39695c;
   --accent-soft: #dcefe8;
   --success: #3f775f;
+  --success-soft: #ecf7f1;
+  --success-text: #3f775f;
   --warning: #8a7a43;
+  --error-soft: #f7f0ed;
+  --error-text: #7c5b54;
   --shadow: none;
 }
 

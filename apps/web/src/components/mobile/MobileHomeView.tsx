@@ -20,23 +20,23 @@ function getCalendarDotClass(
   hasChat: boolean,
 ) {
   if (emotionTone === "joyful") {
-    return "bg-emerald-500";
+    return "bg-[var(--success)]";
   }
 
   if (emotionTone === "calm") {
-    return "bg-sky-500";
+    return "bg-[var(--accent)]";
   }
 
   if (emotionTone === "tired") {
-    return "bg-amber-500";
+    return "bg-[var(--warning)]";
   }
 
   if (emotionTone === "anxious") {
-    return "bg-rose-500";
+    return "bg-[var(--accent-dark)]";
   }
 
   if (emotionTone === "sad") {
-    return "bg-slate-500";
+    return "bg-[var(--text-soft)]";
   }
 
   return hasChat ? "bg-[var(--accent)]" : "bg-transparent";
@@ -90,27 +90,28 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
 
   return (
     <MobileShell
-      title={home ? `${home.userName}님, 오늘도 기록을 이어가세요.` : "홈"}
+      title="홈"
       description={
         error ??
         "오늘 상태와 이번 주 핵심 정보를 먼저 보고, 바로 채팅으로 이어집니다."
       }
       userId={resolvedUserId}
       showTitleBlock={false}
+      headerMode="compact"
     >
       <div className="grid gap-4">
         <section className="rounded-[32px] border border-[var(--line)] bg-[var(--panel-strong)] p-6 shadow-[var(--shadow)]">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
-            Today
+            오늘 홈
           </p>
           <h1 className="mt-3 text-[32px] font-semibold tracking-[-0.04em] text-[var(--text)]">
             {home
-              ? `${home.userName}님, 오늘은 ${home.pregnancyWeekLabel}`
+              ? `${home.userName}님, 오늘 기록과 상담을 이어가세요.`
               : "오늘 상태를 불러오는 중입니다."}
           </h1>
           <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
             {error ??
-              "아기 상태와 오늘 확인할 내용을 먼저 보고, 필요하면 바로 채팅으로 이어가세요."}
+              "지금 필요한 기록과 이번 주 정보를 먼저 보고, 증상 상담이 필요하면 바로 이어가세요."}
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <div className="rounded-[24px] bg-[var(--accent-soft)] p-4">
@@ -120,7 +121,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
               </p>
             </div>
             <div className="rounded-[24px] bg-[var(--panel-muted)] p-4">
-              <p className="text-sm text-[var(--text-soft)]">임신 일차</p>
+              <p className="text-sm text-[var(--text-soft)]">임신 경과</p>
               <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
                 {home ? `${home.pregnancyDayCount}일` : "데이터 확인 중"}
               </p>
@@ -132,7 +133,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
                 href={linkWithUserId("/chat/new", resolvedUserId)}
                 className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white"
               >
-                지금 채팅하기
+                증상 상담 시작
               </Link>
             ) : null}
             {resolvedUserId ? (
@@ -140,7 +141,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
                 href={linkWithUserId("/knowledge", resolvedUserId)}
                 className="rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-5 py-3 text-sm font-semibold text-[var(--text)]"
               >
-                이번 주 지식 보기
+                이번 주 정보 보기
               </Link>
             ) : null}
           </div>
@@ -149,7 +150,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
         <section className="grid gap-4 sm:grid-cols-2">
           {[
             {
-              eyebrow: "Today",
+              eyebrow: "오늘 할 일",
               title: home?.notebookCard.title ?? "임신수첩",
               body:
                 home?.notebookCard.description ??
@@ -157,7 +158,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
               href: "/notebook",
             },
             {
-              eyebrow: "This Week",
+              eyebrow: "이번 주 정보",
               title: home?.knowledgeCard.title ?? "임신 지식",
               body:
                 home?.knowledgeCard.description ??
@@ -191,7 +192,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-                Continue
+                이어서 보기
               </p>
               <h2 className="mt-2 text-xl font-semibold text-[var(--text)]">
                 최근 채팅 이어가기
@@ -202,7 +203,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
                 href={linkWithUserId("/chat/new", resolvedUserId)}
                 className="text-sm font-semibold text-[var(--accent-dark)]"
               >
-                새 채팅
+                새 상담
               </Link>
             ) : null}
           </div>
@@ -245,7 +246,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-                Calendar
+                기록 달력
               </p>
               <h2 className="mt-2 text-xl font-semibold text-[var(--text)]">
                 {home?.currentMonthLabel ?? "이번 달 기록"}
@@ -306,7 +307,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
             })}
           </div>
           <p className="mt-3 text-xs text-[var(--text-soft)]">
-            점이 표시된 날짜만 채팅 기록 또는 메모가 있습니다.
+            점이 있는 날짜에 상담 기록이나 메모가 있습니다.
           </p>
         </section>
       </div>

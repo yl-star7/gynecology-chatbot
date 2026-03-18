@@ -1,3 +1,4 @@
+import { DEFAULT_MOBILE_THEME_KEY } from "@gynecology-chatbot/app-core";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#f7eee8",
+  themeColor: "#fbf4f7",
 };
 
 export default function RootLayout({
@@ -28,7 +29,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko">
+    <html
+      lang="ko"
+      data-theme={DEFAULT_MOBILE_THEME_KEY}
+      suppressHydrationWarning
+    >
       <head>
         <link
           href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap"
@@ -40,7 +45,7 @@ export default function RootLayout({
                           try {
                             const rawProfile = window.localStorage.getItem("phedy-mobile-profile");
                             const parsedProfile = rawProfile ? JSON.parse(rawProfile) : null;
-                            const themeKey = parsedProfile?.themeKey || "rose-sand";
+                            const themeKey = parsedProfile?.themeKey || ${JSON.stringify(DEFAULT_MOBILE_THEME_KEY)};
                             document.documentElement.setAttribute("data-theme", themeKey);
                           } catch {}
                           window.PhedyNative = {

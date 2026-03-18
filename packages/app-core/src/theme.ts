@@ -16,7 +16,11 @@ export interface MobileThemePreset {
     accentDark: string;
     accentSoft: string;
     success: string;
+    successSoft: string;
+    successText: string;
     warning: string;
+    errorSoft: string;
+    errorText: string;
     shadow: string;
   };
   native: {
@@ -40,38 +44,42 @@ export interface MobileThemePreset {
 export const MOBILE_THEME_PRESETS: Record<MobileThemeKey, MobileThemePreset> = {
   "rose-sand": {
     key: "rose-sand",
-    label: "Rose Sand",
-    description: "부드러운 로즈와 샌드 계열의 기본 테마",
+    label: "Cherry Blossom",
+    description: "벚꽃 잎과 라이트 샌드 계열의 기본 테마",
     web: {
-      bg: "#f7eee8",
-      panel: "rgba(255, 250, 246, 0.82)",
-      panelStrong: "#fffdf9",
-      panelMuted: "#f7efe9",
-      text: "#2e1f1d",
-      textSoft: "#7c625c",
-      line: "rgba(120, 82, 72, 0.16)",
-      accent: "#cf6f5b",
-      accentDark: "#ab5644",
-      accentSoft: "#f4ddd4",
-      success: "#4f7d61",
+      bg: "#fbf4f7",
+      panel: "rgba(255, 250, 252, 0.88)",
+      panelStrong: "#fffdfd",
+      panelMuted: "#f9eef3",
+      text: "#34262d",
+      textSoft: "#7f6974",
+      line: "rgba(140, 106, 122, 0.16)",
+      accent: "#d48ea5",
+      accentDark: "#b67087",
+      accentSoft: "#f7e4eb",
+      success: "#5b7d6a",
+      successSoft: "#eef6f1",
+      successText: "#4b6b5a",
       warning: "#a46d3e",
-      shadow: "0 22px 60px rgba(123, 83, 72, 0.14)",
+      errorSoft: "#fbf0f4",
+      errorText: "#95687a",
+      shadow: "0 22px 60px rgba(139, 111, 125, 0.14)",
     },
     native: {
-      background: "#f7eee8",
-      card: "#fffdf9",
-      cardMuted: "#f7efe9",
-      ink: "#2e1f1d",
-      subInk: "#7c625c",
-      accent: "#cf6f5b",
-      accentSoft: "#f4ddd4",
-      warm: "#efd4c7",
-      line: "#e5cdc4",
-      dot: "#d88a69",
-      successBackground: "#eef6f0",
-      successText: "#4f7d61",
-      errorBackground: "#fff4f1",
-      errorText: "#8c4738",
+      background: "#fbf4f7",
+      card: "#fffdfd",
+      cardMuted: "#f9eef3",
+      ink: "#34262d",
+      subInk: "#7f6974",
+      accent: "#d48ea5",
+      accentSoft: "#f7e4eb",
+      warm: "#f3d8e2",
+      line: "#e7d7df",
+      dot: "#d8a1b5",
+      successBackground: "#eef6f1",
+      successText: "#4b6b5a",
+      errorBackground: "#fbf0f4",
+      errorText: "#95687a",
     },
   },
   "soft-peach": {
@@ -90,7 +98,11 @@ export const MOBILE_THEME_PRESETS: Record<MobileThemeKey, MobileThemePreset> = {
       accentDark: "#c5674b",
       accentSoft: "#ffe1d1",
       success: "#537a60",
+      successSoft: "#eef6ef",
+      successText: "#537a60",
       warning: "#b07a34",
+      errorSoft: "#fff3ee",
+      errorText: "#9a503d",
       shadow: "0 22px 60px rgba(189, 118, 86, 0.16)",
     },
     native: {
@@ -126,7 +138,11 @@ export const MOBILE_THEME_PRESETS: Record<MobileThemeKey, MobileThemePreset> = {
       accentDark: "#39695c",
       accentSoft: "#dcefe8",
       success: "#3f775f",
+      successSoft: "#ecf7f1",
+      successText: "#3f775f",
       warning: "#8a7a43",
+      errorSoft: "#f7f0ed",
+      errorText: "#7c5b54",
       shadow: "0 22px 60px rgba(59, 101, 89, 0.13)",
     },
     native: {

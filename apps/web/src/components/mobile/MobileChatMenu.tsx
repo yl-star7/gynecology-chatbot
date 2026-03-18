@@ -28,16 +28,19 @@ export function MobileChatMenu({
         type="button"
         aria-label="메뉴 닫기"
         onClick={onClose}
-        className="absolute inset-0 bg-[rgba(39,24,20,0.16)]"
+        className="absolute inset-0"
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--text) 16%, transparent)",
+        }}
       />
       <aside className="absolute inset-y-0 left-0 flex w-[82%] max-w-sm flex-col border-r border-[var(--line)] bg-[var(--panel)] px-5 pb-6 pt-5 shadow-[var(--shadow)]">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
-              Menu
+              상담 목록
             </p>
             <h2 className="mt-2 text-xl font-semibold text-[var(--text)]">
-              지난 채팅
+              최근 상담
             </h2>
           </div>
           <button
@@ -55,7 +58,7 @@ export function MobileChatMenu({
           onClick={onClose}
           className="mt-5 rounded-[20px] border border-[var(--line)] bg-[var(--panel)] px-4 py-4 text-base font-semibold text-[var(--text)]"
         >
-          홈 가기
+          홈으로
         </Link>
 
         <div className="mt-6 min-h-0 flex-1 overflow-y-auto pr-1">

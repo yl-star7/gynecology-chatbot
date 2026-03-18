@@ -22,6 +22,23 @@ function describeEntryType(entryType: string) {
   }
 }
 
+function describeEmotionTone(emotionTone: RecordDayView["emotionTone"]) {
+  switch (emotionTone) {
+    case "calm":
+      return "차분함";
+    case "joyful":
+      return "기분 좋음";
+    case "anxious":
+      return "불안함";
+    case "tired":
+      return "피곤함";
+    case "sad":
+      return "가라앉음";
+    default:
+      return "기록 없음";
+  }
+}
+
 export function MobileRecordDayView({
   isoDate,
   userId,
@@ -60,31 +77,53 @@ export function MobileRecordDayView({
 
   return (
     <MobileShell
-      title={recordDay?.dateLabel ?? isoDate}
-      description={error ?? "이 날짜에 저장된 채팅 메모, 감정 기록, 연결 세션을 확인합니다."}
+      title="기록 상세"
+      description="하루 기록과 연결 상담을 확인합니다."
       userId={resolvedUserId}
+      showTitleBlock={false}
+      headerMode="compact"
     >
       <div className="grid gap-4">
         <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">Day Summary</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
+            하루 기록
+          </p>
+          <h1 className="mt-3 text-[30px] font-semibold tracking-[-0.04em] text-[var(--text)]">
+            {recordDay?.dateLabel ?? isoDate}
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
+            {error ?? "이 날짜에 남긴 메모, 감정 기록, 연결 상담을 한눈에 확인합니다."}
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className="rounded-[22px] bg-[var(--accent-soft)] p-4">
-              <p className="text-sm text-[var(--text-soft)]">기준 날짜</p>
-              <p className="mt-2 text-xl font-semibold text-[var(--text)]">{recordDay?.dateLabel ?? isoDate}</p>
+              <p className="text-sm text-[var(--text-soft)]">감정 상태</p>
+              <p className="mt-2 text-xl font-semibold text-[var(--text)]">
+                {describeEmotionTone(recordDay?.emotionTone ?? null)}
+              </p>
             </div>
-            <div className="rounded-[22px] bg-[rgba(20,34,20,0.05)] p-4">
-              <p className="text-sm text-[var(--text-soft)]">감정 기록</p>
-              <p className="mt-2 text-xl font-semibold text-[var(--text)]">{recordDay?.emotionTone ?? "기록 없음"}</p>
+            <div className="rounded-[22px] bg-[var(--panel-muted)] p-4">
+              <p className="text-sm text-[var(--text-soft)]">저장 기록</p>
+              <p className="mt-2 text-xl font-semibold text-[var(--text)]">
+                {recordDay ? `${recordDay.records.length}건` : "확인 중"}
+              </p>
+            </div>
+            <div className="rounded-[22px] bg-[var(--panel-muted)] p-4">
+              <p className="text-sm text-[var(--text-soft)]">연결 상담</p>
+              <p className="mt-2 text-xl font-semibold text-[var(--text)]">
+                {recordDay ? `${recordDay.relatedSessions.length}건` : "확인 중"}
+              </p>
             </div>
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-white/85 p-5 shadow-[var(--shadow)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">Records</p>
+        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+            저장 기록
+          </p>
           <div className="mt-4 grid gap-3">
             {recordDay && recordDay.records.length > 0 ? (
               recordDay.records.map((record) => (
-                <article key={record.id} className="rounded-[22px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4">
+                <article key={record.id} className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-medium text-[var(--text)]">{record.title}</p>
                     <span className="text-xs text-[var(--text-soft)]">{describeEntryType(record.entryType)}</span>
@@ -108,15 +147,17 @@ export function MobileRecordDayView({
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-white/85 p-5 shadow-[var(--shadow)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">Related Sessions</p>
+        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+            연결 상담
+          </p>
           <div className="mt-4 grid gap-3">
             {recordDay && recordDay.relatedSessions.length > 0 ? (
               recordDay.relatedSessions.map((session) => (
                 <Link
                   key={session.id}
                   href={appendUserIdToPath(`/chat/${session.id}`, resolvedUserId)}
-                  className="rounded-[20px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4"
+                  className="rounded-[20px] border border-[var(--line)] bg-[var(--panel-muted)] p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>

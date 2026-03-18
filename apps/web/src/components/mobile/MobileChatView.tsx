@@ -156,10 +156,13 @@ export function MobileChatView({
   const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const storedProfile = useMemo(() => readStoredMobileProfile(), []);
+  const displaySessionTitle =
+    sessionTitle === "새 채팅" ? "새 상담" : sessionTitle;
+  const sessionMetaLabel = storedProfile?.pregnancyWeekLabel ?? "증상 상담";
 
   useEffect(() => {
-    window.PhedyNative?.setTitle?.(sessionTitle);
-  }, [sessionTitle]);
+    window.PhedyNative?.setTitle?.(displaySessionTitle);
+  }, [displaySessionTitle]);
 
   useEffect(() => {
     if (!resolvedUserId) {
@@ -318,10 +321,10 @@ export function MobileChatView({
             </button>
             <div className="min-w-0 text-center">
               <p className="text-xs font-medium text-[var(--text-soft)]">
-                {storedProfile?.pregnancyWeekLabel ?? "산모 채팅"}
+                {sessionMetaLabel}
               </p>
               <h1 className="truncate text-base font-semibold text-[var(--text)]">
-                {sessionTitle}
+                {displaySessionTitle}
               </h1>
             </div>
             <div className="h-11 w-11" aria-hidden />

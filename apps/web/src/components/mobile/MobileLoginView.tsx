@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  DEFAULT_MOBILE_THEME_KEY,
+  type MobileThemeKey,
+} from "@gynecology-chatbot/app-core";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -7,10 +11,14 @@ import { signInWithPhonePassword } from "@/lib/mobile/web-mobile-api";
 import { appendUserIdToPath } from "@/lib/mobile/web-mobile-api";
 import {
   hasCompletedMobileOnboarding,
+  readStoredMobileThemeKey,
   readStoredMobileUserId,
   storeMobileProfile,
+  storeMobileThemeKey,
   storeMobileUserId,
 } from "@/lib/mobile/mobile-session";
+import { applyMobileTheme } from "@/lib/mobile/themes";
+import { MobileThemePresetButtons } from "./MobileThemePresetButtons";
 import { setNativeTitle } from "./native-bridge";
 
 type Props = {
@@ -21,11 +29,22 @@ export function MobileLoginView({ initialUserId }: Props) {
   const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
+  const [themeKey, setThemeKey] = useState(
+    () => readStoredMobileThemeKey() ?? DEFAULT_MOBILE_THEME_KEY,
+  );
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setNativeTitle("로그인");
+  }, []);
+
+  useEffect(() => {
+    const storedThemeKey = readStoredMobileThemeKey();
+    if (storedThemeKey) {
+      setThemeKey(storedThemeKey);
+      applyMobileTheme(storedThemeKey);
+    }
   }, []);
 
   useEffect(() => {
@@ -83,18 +102,24 @@ export function MobileLoginView({ initialUserId }: Props) {
     }
   }
 
+  function handleThemeSelect(nextThemeKey: MobileThemeKey) {
+    setThemeKey(nextThemeKey);
+    storeMobileThemeKey(nextThemeKey);
+    applyMobileTheme(nextThemeKey);
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[520px] flex-col gap-4 px-4 py-5">
       <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)] backdrop-blur">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--accent-dark)]">
-          Welcome
+          시작하기
         </p>
         <h1 className="mt-3 text-[30px] font-semibold tracking-[-0.04em] text-[var(--text)]">
-          처음 시작하거나, 다시 이어서 로그인
+          안녕하세요. 오늘 기록을 이어가 볼까요?
         </h1>
         <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
-          처음 사용자라면 문자 인증으로 비밀번호를 만든 뒤 바로 온보딩으로
-          이어집니다. 기존 사용자는 전화번호와 비밀번호로 바로 로그인합니다.
+          처음 오셨다면 비밀번호를 만든 뒤 기본 정보를 설정하고, 다시 오셨다면
+          바로 로그인해 최근 기록과 채팅을 이어갈 수 있어요.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
@@ -110,6 +135,13 @@ export function MobileLoginView({ initialUserId }: Props) {
             비밀번호 재설정
           </Link>
         </div>
+        <div className="mt-5">
+          <MobileThemePresetButtons
+            label="분위기 테마"
+            onSelect={handleThemeSelect}
+            selectedThemeKey={themeKey}
+          />
+        </div>
       </section>
 
       <form
@@ -118,7 +150,7 @@ export function MobileLoginView({ initialUserId }: Props) {
       >
         <div className="grid gap-3">
           <label className="grid gap-2">
-            <span className="text-sm font-semibold text-[#142214]">
+            <span className="text-sm font-semibold text-[var(--text)]">
               전화번호
             </span>
             <input
@@ -130,7 +162,7 @@ export function MobileLoginView({ initialUserId }: Props) {
             />
           </label>
           <label className="grid gap-2">
-            <span className="text-sm font-semibold text-[#142214]">
+            <span className="text-sm font-semibold text-[var(--text)]">
               비밀번호
             </span>
             <input
@@ -142,7 +174,7 @@ export function MobileLoginView({ initialUserId }: Props) {
             />
           </label>
           {error ? (
-            <p className="rounded-2xl bg-[#fff4f1] px-3 py-2 text-sm text-[#8c4738]">
+            <p className="rounded-2xl border border-[var(--line)] bg-[var(--panel-muted)] px-3 py-2 text-sm text-[var(--accent-dark)]">
               {error}
             </p>
           ) : null}
@@ -158,10 +190,10 @@ export function MobileLoginView({ initialUserId }: Props) {
 
       <div className="rounded-[24px] border border-[var(--line)] bg-[var(--panel)] p-5 text-sm leading-6 text-[var(--text-soft)] shadow-[var(--shadow)]">
         <strong className="block text-base text-[var(--text)]">
-          Mock User 시작 플로우
+          처음이라면 이렇게 진행돼요
         </strong>
-        등록된 전화번호 입력 후 문자 코드를 받고, 비밀번호를 만든 뒤 온보딩에서
-        예정일과 채팅 톤을 설정합니다.
+        전화번호 인증 후 비밀번호를 만들고, 예정일이나 현재 주차를 입력하면
+        바로 홈으로 이어집니다.
       </div>
     </main>
   );

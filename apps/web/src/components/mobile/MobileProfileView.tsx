@@ -4,6 +4,7 @@ import {
   DEFAULT_MOBILE_THEME_KEY,
   MOBILE_THEME_OPTIONS,
   resolveMobileThemeKey,
+  type MobileThemeKey,
 } from "@gynecology-chatbot/app-core";
 import type { MobileProfileViewData } from "@gynecology-chatbot/app-core";
 import Link from "next/link";
@@ -14,9 +15,14 @@ import {
   resolveMobileUserId,
   updateMobileProfile,
 } from "@/lib/mobile/web-mobile-api";
-import { storeMobileProfile } from "@/lib/mobile/mobile-session";
+import {
+  readStoredMobileThemeKey,
+  storeMobileProfile,
+  storeMobileThemeKey,
+} from "@/lib/mobile/mobile-session";
 import { applyMobileTheme } from "@/lib/mobile/themes";
 import { MobileShell } from "./MobileShell";
+import { MobileThemePresetButtons } from "./MobileThemePresetButtons";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
 const TONE_OPTIONS = [
@@ -44,9 +50,19 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
   const [babyNickname, setBabyNickname] = useState("");
   const [hospitalName, setHospitalName] = useState("");
   const [notificationTime, setNotificationTime] = useState("08:30");
-  const [themeKey, setThemeKey] = useState(DEFAULT_MOBILE_THEME_KEY);
+  const [themeKey, setThemeKey] = useState(
+    () => readStoredMobileThemeKey() ?? DEFAULT_MOBILE_THEME_KEY,
+  );
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const storedThemeKey = readStoredMobileThemeKey();
+    if (storedThemeKey) {
+      setThemeKey(storedThemeKey);
+      applyMobileTheme(storedThemeKey);
+    }
+  }, []);
 
   useEffect(() => {
     if (!resolvedUserId) {
@@ -61,6 +77,10 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
           return;
         }
 
+        const nextThemeKey = resolveMobileThemeKey(
+          readStoredMobileThemeKey() ?? payload.profile.themeKey,
+        );
+
         setProfile(payload.profile);
         setDisplayName(payload.profile.displayName);
         setDueDate(payload.profile.dueDate ?? "");
@@ -68,15 +88,15 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
         setBabyNickname(payload.profile.babyNickname ?? "");
         setHospitalName(payload.profile.hospitalName ?? "");
         setNotificationTime(payload.profile.notificationTime ?? "08:30");
-        setThemeKey(resolveMobileThemeKey(payload.profile.themeKey));
+        setThemeKey(nextThemeKey);
         storeMobileProfile({
           userId: payload.profile.userId,
           displayName: payload.profile.displayName,
           phoneNumber: payload.profile.phoneNumber,
           pregnancyWeekLabel: payload.profile.pregnancyWeekLabel,
-          themeKey: resolveMobileThemeKey(payload.profile.themeKey),
+          themeKey: nextThemeKey,
         });
-        applyMobileTheme(payload.profile.themeKey);
+        applyMobileTheme(nextThemeKey);
         setError(null);
       })
       .catch((nextError) => {
@@ -118,6 +138,9 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
       });
 
       const refreshed = await fetchMobileProfile(payload.user.id);
+      const nextThemeKey = resolveMobileThemeKey(
+        refreshed.profile.themeKey ?? themeKey,
+      );
       setProfile(refreshed.profile);
       setDisplayName(refreshed.profile.displayName);
       setDueDate(refreshed.profile.dueDate ?? "");
@@ -125,15 +148,15 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
       setBabyNickname(refreshed.profile.babyNickname ?? "");
       setHospitalName(refreshed.profile.hospitalName ?? "");
       setNotificationTime(refreshed.profile.notificationTime ?? "08:30");
-      setThemeKey(resolveMobileThemeKey(refreshed.profile.themeKey));
+      setThemeKey(nextThemeKey);
       storeMobileProfile({
         userId: refreshed.profile.userId,
         displayName: refreshed.profile.displayName,
         phoneNumber: refreshed.profile.phoneNumber,
         pregnancyWeekLabel: refreshed.profile.pregnancyWeekLabel,
-        themeKey: resolveMobileThemeKey(refreshed.profile.themeKey),
+        themeKey: nextThemeKey,
       });
-      applyMobileTheme(refreshed.profile.themeKey);
+      applyMobileTheme(nextThemeKey);
     } catch (nextError) {
       setError(
         nextError instanceof Error
@@ -145,18 +168,30 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
     }
   }
 
+  function handleThemeSelect(nextThemeKey: MobileThemeKey) {
+    setThemeKey(nextThemeKey);
+    storeMobileThemeKey(nextThemeKey);
+    applyMobileTheme(nextThemeKey);
+  }
+
   return (
     <MobileShell
-      title={profile ? `${profile.displayName}님의 프로필` : "프로필"}
-      description={
-        error ?? "기본 계정 정보와 현재 임신 주차 상태를 확인합니다."
-      }
+      title="프로필"
+      description="계정 정보와 상담 환경을 관리합니다."
       userId={resolvedUserId}
+      showTitleBlock={false}
+      headerMode="compact"
     >
       <div className="grid gap-4">
         <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-            Account
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
+            프로필
+          </p>
+          <h1 className="mt-3 text-[30px] font-semibold tracking-[-0.04em] text-[var(--text)]">
+            계정과 상담 설정
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
+            이름, 알림, 채팅 톤과 현재 임신 정보를 한곳에서 관리합니다.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-[22px] bg-[var(--accent-soft)] p-4">
@@ -165,7 +200,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
                 {profile?.displayName ?? "확인 중"}
               </p>
             </div>
-            <div className="rounded-[22px] bg-[rgba(20,34,20,0.05)] p-4">
+            <div className="rounded-[22px] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">전화번호</p>
               <p className="mt-2 text-xl font-semibold text-[var(--text)]">
                 {profile?.phoneNumber ?? "확인 중"}
@@ -174,9 +209,9 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-white/85 p-5 shadow-[var(--shadow)]">
+        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-            Settings
+            설정
           </p>
           <form className="mt-4 grid gap-3" onSubmit={handleSave}>
             <label className="grid gap-2">
@@ -186,7 +221,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               <input
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
-                className="rounded-[18px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+                className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
                 placeholder="이름"
               />
             </label>
@@ -197,7 +232,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               <input
                 value={babyNickname}
                 onChange={(event) => setBabyNickname(event.target.value)}
-                className="rounded-[18px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+                className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
                 placeholder="예: 튼튼이"
               />
             </label>
@@ -209,7 +244,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
                 type="date"
                 value={dueDate}
                 onChange={(event) => setDueDate(event.target.value)}
-                className="rounded-[18px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+                className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
               />
             </label>
             <label className="grid gap-2">
@@ -219,32 +254,15 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               <input
                 value={hospitalName}
                 onChange={(event) => setHospitalName(event.target.value)}
-                className="rounded-[18px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+                className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
                 placeholder="예: 산단여성병원"
               />
             </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-[var(--text)]">
-                테마
-              </span>
-              <select
-                value={themeKey}
-                onChange={(event) => {
-                  const nextThemeKey = resolveMobileThemeKey(
-                    event.target.value,
-                  );
-                  setThemeKey(nextThemeKey);
-                  applyMobileTheme(nextThemeKey);
-                }}
-                className="rounded-[18px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
-              >
-                {MOBILE_THEME_OPTIONS.map((option) => (
-                  <option key={option.key} value={option.key}>
-                    {option.label} · {option.description}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <MobileThemePresetButtons
+              label="테마"
+              onSelect={handleThemeSelect}
+              selectedThemeKey={themeKey}
+            />
             <label className="grid gap-2">
               <span className="text-sm font-medium text-[var(--text)]">
                 매일 알림 시간
@@ -253,7 +271,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
                 type="time"
                 value={notificationTime}
                 onChange={(event) => setNotificationTime(event.target.value)}
-                className="rounded-[18px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+                className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
               />
             </label>
             <label className="grid gap-2">
@@ -263,7 +281,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               <select
                 value={tonePreference}
                 onChange={(event) => setTonePreference(event.target.value)}
-                className="rounded-[18px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+                className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
               >
                 {TONE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -273,7 +291,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               </select>
             </label>
             {error ? (
-              <p className="rounded-2xl bg-[#fff4f1] px-3 py-2 text-sm text-[#8c4738]">
+              <p className="rounded-2xl border border-[var(--line)] bg-[var(--panel-muted)] px-3 py-2 text-sm text-[var(--accent-dark)]">
                 {error}
               </p>
             ) : null}
@@ -287,61 +305,61 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
           </form>
         </section>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-white/85 p-5 shadow-[var(--shadow)]">
+        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-            Pregnancy
+            임신 정보
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-[22px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4">
+            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">현재 주차</p>
               <p className="mt-2 text-lg font-semibold text-[var(--text)]">
                 {profile?.pregnancyWeekLabel ?? "정보 없음"}
               </p>
             </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4">
+            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">임신 일차</p>
               <p className="mt-2 text-lg font-semibold text-[var(--text)]">
                 {profile ? `${profile.pregnancyDayCount}일` : "정보 없음"}
               </p>
             </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4">
+            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">온보딩</p>
               <p className="mt-2 text-lg font-semibold text-[var(--text)]">
                 {profile?.hasCompletedOnboarding ? "완료" : "미완료"}
               </p>
             </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4 sm:col-span-3">
+            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4 sm:col-span-3">
               <p className="text-sm text-[var(--text-soft)]">예정 출산일</p>
               <p className="mt-2 text-lg font-semibold text-[var(--text)]">
                 {profile?.dueDate ?? "미설정"}
               </p>
             </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4">
+            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">태명</p>
               <p className="mt-2 text-lg font-semibold text-[var(--text)]">
                 {profile?.babyNickname ?? "미설정"}
               </p>
             </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4">
+            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">주 진료 병원</p>
               <p className="mt-2 text-lg font-semibold text-[var(--text)]">
                 {profile?.hospitalName ?? "미설정"}
               </p>
             </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4">
+            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">선택 테마</p>
               <p className="mt-2 text-lg font-semibold text-[var(--text)]">
                 {MOBILE_THEME_OPTIONS.find((option) => option.key === themeKey)
                   ?.label ?? themeKey}
               </p>
             </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4">
+            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">매일 알림 시간</p>
               <p className="mt-2 text-lg font-semibold text-[var(--text)]">
                 {profile?.notificationTime ?? "08:30"}
               </p>
             </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4 sm:col-span-3">
+            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4 sm:col-span-3">
               <p className="text-sm text-[var(--text-soft)]">채팅 톤</p>
               <p className="mt-2 text-lg font-semibold text-[var(--text)]">
                 {resolveToneLabel(profile?.tonePreference)}
@@ -350,9 +368,9 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-white/85 p-5 shadow-[var(--shadow)]">
+        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-            Actions
+            바로가기
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link
@@ -363,9 +381,9 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
             </Link>
             <Link
               href={appendUserIdToPath("/chat/new", resolvedUserId)}
-              className="rounded-full border border-[var(--line)] bg-white px-4 py-3 text-sm font-semibold text-[var(--text)]"
+              className="rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-4 py-3 text-sm font-semibold text-[var(--text)]"
             >
-              새 채팅 시작
+              새 상담 시작
             </Link>
           </div>
         </section>

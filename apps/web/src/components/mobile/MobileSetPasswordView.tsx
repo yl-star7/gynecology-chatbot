@@ -104,7 +104,7 @@ export function MobileSetPasswordView({ initialUserId }: Props) {
     <main className="mx-auto flex min-h-screen w-full max-w-[520px] flex-col gap-4 px-4 py-5">
       <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)] backdrop-blur">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--accent-dark)]">
-          Start
+          첫 시작
         </p>
         <h1 className="mt-3 text-[30px] font-semibold tracking-[-0.04em] text-[var(--text)]">
           문자 인증으로 시작하기
@@ -113,7 +113,7 @@ export function MobileSetPasswordView({ initialUserId }: Props) {
           등록된 전화번호로 인증 코드를 받고, 비밀번호를 만든 뒤 바로 온보딩으로
           이어집니다.
         </p>
-        <div className="mt-4 grid gap-2 rounded-[22px] bg-[var(--accent-soft)] p-4 text-sm text-[var(--accent-dark)]">
+        <div className="mt-4 grid gap-2 rounded-[22px] border border-[var(--line)] bg-[var(--accent-soft)] p-4 text-sm text-[var(--accent-dark)]">
           <p>1. 전화번호 입력</p>
           <p>2. 문자 코드 발송</p>
           <p>3. 코드 확인 후 비밀번호 생성</p>
@@ -124,14 +124,19 @@ export function MobileSetPasswordView({ initialUserId }: Props) {
         className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]"
         onSubmit={handleSubmit}
       >
-        <div className="grid gap-3">
-          <input
-            className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 outline-none"
-            inputMode="tel"
-            onChange={(event) => setPhoneNumber(event.target.value)}
-            placeholder="전화번호"
-            value={phoneNumber}
-          />
+        <div className="grid gap-4">
+          <label className="grid gap-2">
+            <span className="text-sm font-semibold text-[var(--text)]">
+              전화번호
+            </span>
+            <input
+              className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 outline-none"
+              inputMode="tel"
+              onChange={(event) => setPhoneNumber(event.target.value)}
+              placeholder="전화번호"
+              value={phoneNumber}
+            />
+          </label>
           <button
             className="rounded-full border border-[var(--accent)] px-4 py-3 text-sm font-semibold text-[var(--accent)] disabled:opacity-60"
             disabled={isSendingCode}
@@ -144,27 +149,37 @@ export function MobileSetPasswordView({ initialUserId }: Props) {
                 ? "코드 다시 보내기"
                 : "인증 코드 보내기"}
           </button>
-          <input
-            className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 outline-none"
-            inputMode="numeric"
-            onChange={(event) => setVerificationCode(event.target.value)}
-            placeholder="인증 코드"
-            value={verificationCode}
-          />
-          <input
-            className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 outline-none"
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="새 비밀번호"
-            type="password"
-            value={password}
-          />
+          <label className="grid gap-2">
+            <span className="text-sm font-semibold text-[var(--text)]">
+              인증 코드
+            </span>
+            <input
+              className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 outline-none"
+              inputMode="numeric"
+              onChange={(event) => setVerificationCode(event.target.value)}
+              placeholder="인증 코드"
+              value={verificationCode}
+            />
+          </label>
+          <label className="grid gap-2">
+            <span className="text-sm font-semibold text-[var(--text)]">
+              새 비밀번호
+            </span>
+            <input
+              className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 outline-none"
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="새 비밀번호"
+              type="password"
+              value={password}
+            />
+          </label>
           {statusMessage ? (
-            <p className="rounded-2xl bg-[#eef6f3] px-3 py-2 text-sm text-[#2f7a55]">
+            <p className="rounded-2xl border border-[var(--line)] bg-[var(--accent-soft)] px-3 py-2 text-sm text-[var(--accent-dark)]">
               {statusMessage}
             </p>
           ) : null}
           {error ? (
-            <p className="rounded-2xl bg-[#fff4f1] px-3 py-2 text-sm text-[#8c4738]">
+            <p className="rounded-2xl border border-[var(--line)] bg-[var(--panel-muted)] px-3 py-2 text-sm text-[var(--accent-dark)]">
               {error}
             </p>
           ) : null}
@@ -173,7 +188,7 @@ export function MobileSetPasswordView({ initialUserId }: Props) {
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "저장 중" : "다음으로"}
+            {isSubmitting ? "저장 중" : "비밀번호 만들고 계속하기"}
           </button>
         </div>
       </form>
@@ -182,7 +197,7 @@ export function MobileSetPasswordView({ initialUserId }: Props) {
         className="text-sm font-semibold text-[var(--text-soft)]"
         href="/auth/login"
       >
-        이미 계정이 있으면 로그인
+        로그인으로 돌아가기
       </Link>
     </main>
   );

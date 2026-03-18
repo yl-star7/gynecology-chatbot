@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  resolveMobileThemeKey,
+  type MobileThemeKey,
+} from "@gynecology-chatbot/app-core";
+
 const USER_ID_KEY = "phedy-mobile-user-id";
 const ONBOARDING_KEY = "phedy-mobile-onboarding-complete";
 const PROFILE_KEY = "phedy-mobile-profile";
@@ -51,6 +56,11 @@ export function readStoredMobileProfile() {
   }
 }
 
+export function readStoredMobileThemeKey(): MobileThemeKey | null {
+  const themeKey = readStoredMobileProfile()?.themeKey;
+  return themeKey ? resolveMobileThemeKey(themeKey) : null;
+}
+
 export function storeMobileProfile(profile: {
   userId?: string;
   displayName?: string;
@@ -69,6 +79,10 @@ export function storeMobileProfile(profile: {
   };
 
   window.localStorage.setItem(PROFILE_KEY, JSON.stringify(nextProfile));
+}
+
+export function storeMobileThemeKey(themeKey: MobileThemeKey) {
+  storeMobileProfile({ themeKey });
 }
 
 export function clearMobileSession() {
