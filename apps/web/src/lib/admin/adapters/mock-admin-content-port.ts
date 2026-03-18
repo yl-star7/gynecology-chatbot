@@ -13,4 +13,8 @@ export class MockAdminContentPortAdapter implements AdminContentPort {
   async getWeek(weekNumber: number) {
     return this.adapter.getWeek(weekNumber);
   }
+
+  async saveWeek(weekNumber: number, input: Parameters<AdminContentPort["saveWeek"]>[1]) {
+    return this.adapter.saveWeek(weekNumber, input);
+  }
 }

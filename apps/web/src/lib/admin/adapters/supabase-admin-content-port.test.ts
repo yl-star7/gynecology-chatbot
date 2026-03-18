@@ -1,12 +1,24 @@
-import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+import {
+  supabaseInsert,
+  supabaseSelect,
+  supabaseUpdate,
+} from "@/lib/mobile/supabase-rest";
 import { SupabaseAdminContentPortAdapter } from "./supabase-admin-content-port";
 
 jest.mock("@/lib/mobile/supabase-rest", () => ({
   supabaseSelect: jest.fn(),
+  supabaseInsert: jest.fn(),
+  supabaseUpdate: jest.fn(),
 }));
 
 const mockedSelect = supabaseSelect as jest.MockedFunction<
   typeof supabaseSelect
+>;
+const mockedInsert = supabaseInsert as jest.MockedFunction<
+  typeof supabaseInsert
+>;
+const mockedUpdate = supabaseUpdate as jest.MockedFunction<
+  typeof supabaseUpdate
 >;
 
 describe("SupabaseAdminContentPortAdapter", () => {
@@ -14,6 +26,8 @@ describe("SupabaseAdminContentPortAdapter", () => {
 
   afterEach(() => {
     mockedSelect.mockReset();
+    mockedInsert.mockReset();
+    mockedUpdate.mockReset();
   });
 
   it("maps week summaries from Supabase rows", async () => {
@@ -138,5 +152,131 @@ describe("SupabaseAdminContentPortAdapter", () => {
     mockedSelect.mockResolvedValueOnce([]);
     const detail = await adapter.getWeek(99);
     expect(detail).toBeNull();
+  });
+
+  it("saves week metadata, sections, and assets", async () => {
+    mockedSelect.mockImplementation((path: string) => {
+      if (path.startsWith("pregnancy_weeks")) {
+        return Promise.resolve([
+          {
+            id: "week-12",
+            week_number: 12,
+            title: "12주차 기본",
+            baby_size_label: "라임",
+            baby_size_compare_object: "작은 라임",
+            baby_summary: "기존 요약",
+            mother_summary: "기존 엄마 요약",
+            hero_image_path: "/images/week12/hero.jpg",
+            compare_image_path: "/images/week12/compare.jpg",
+            status: "draft",
+            updated_at: "2026-03-18T08:00:00.000Z",
+          },
+        ]);
+      }
+
+      if (path.startsWith("pregnancy_week_sections")) {
+        return Promise.resolve([
+          {
+            id: "section-existing",
+            section_key: "baby_growth",
+            title: "아기 성장",
+            body: "기존 본문",
+            display_order: 1,
+            is_required: true,
+          },
+        ]);
+      }
+
+      if (path.startsWith("pregnancy_week_assets")) {
+        return Promise.resolve([
+          {
+            id: "asset-existing",
+            asset_type: "hero",
+            storage_path: "/images/week12/hero.jpg",
+            alt_text: "hero",
+            style_key: "hero-card",
+            display_order: 1,
+          },
+        ]);
+      }
+
+      return Promise.resolve([]);
+    });
+    mockedUpdate.mockResolvedValue([]);
+    mockedInsert.mockResolvedValue([]);
+
+    await adapter.saveWeek(12, {
+      title: "12주차 관리본",
+      babySizeLabel: "자두",
+      babySizeCompareObject: "붉은 자두",
+      babySummary: "수정된 아기 요약",
+      motherSummary: "수정된 엄마 요약",
+      heroImagePath: "/images/week12/hero-next.jpg",
+      compareImagePath: "/images/week12/compare-next.jpg",
+      status: "published",
+      sections: [
+        {
+          id: "section-existing",
+          sectionKey: "baby_growth",
+          title: "아기 성장",
+          body: "수정된 본문",
+          displayOrder: 1,
+          isRequired: true,
+        },
+        {
+          sectionKey: "checklist",
+          title: "체크리스트",
+          body: "새 섹션",
+          displayOrder: 2,
+          isRequired: false,
+        },
+      ],
+      assets: [
+        {
+          id: "asset-existing",
+          assetType: "hero",
+          storagePath: "/images/week12/hero-next.jpg",
+          altText: "새 hero",
+          styleKey: "hero-card",
+          displayOrder: 1,
+        },
+        {
+          assetType: "compare",
+          storagePath: "/images/week12/compare-next.jpg",
+          altText: "새 compare",
+          styleKey: "compare-card",
+          displayOrder: 2,
+        },
+      ],
+    });
+
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      "pregnancy_weeks?id=eq.week-12",
+      expect.objectContaining({
+        title: "12주차 관리본",
+        baby_size_label: "자두",
+        status: "published",
+      }),
+    );
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      "pregnancy_week_sections?id=eq.section-existing",
+      expect.objectContaining({
+        body: "수정된 본문",
+      }),
+    );
+    expect(mockedInsert).toHaveBeenCalledWith(
+      "pregnancy_week_sections",
+      expect.objectContaining({
+        week_id: "week-12",
+        section_key: "checklist",
+      }),
+    );
+    expect(mockedInsert).toHaveBeenCalledWith(
+      "pregnancy_week_assets",
+      expect.objectContaining({
+        week_id: "week-12",
+        asset_type: "compare",
+      }),
+    );
   });
 });

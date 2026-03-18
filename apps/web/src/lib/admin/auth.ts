@@ -1,4 +1,4 @@
-import { createHmac, scryptSync, timingSafeEqual } from "crypto";
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
@@ -13,8 +13,23 @@ type AdminUserRow = {
   password_hash: string | null;
 };
 
+type AdminAuthProvider = "backend" | "mock";
+
 function getAdminSessionSecret() {
   return process.env.ADMIN_SESSION_SECRET || "local-admin-session-secret";
+}
+
+function getAdminAuthProvider(): AdminAuthProvider {
+  return process.env.ADMIN_DATA_PROVIDER === "backend" ? "backend" : "mock";
+}
+
+function getLocalAdminCredentials() {
+  return {
+    id: process.env.LOCAL_ADMIN_USER_ID ?? "local-admin-1",
+    phoneNumber: process.env.LOCAL_ADMIN_PHONE_NUMBER ?? "01099998888",
+    password: process.env.LOCAL_ADMIN_PASSWORD ?? "admin1234",
+    displayName: process.env.LOCAL_ADMIN_NAME ?? "운영자",
+  };
 }
 
 function signValue(value: string) {
@@ -60,7 +75,33 @@ function verifyPasswordHash(password: string, passwordHash: string | null) {
   return expectedHash.length === actualHash.length && timingSafeEqual(expectedHash, actualHash);
 }
 
+function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return `scrypt:${salt}:${hash}`;
+}
+
+function buildLocalAdminRow(): AdminUserRow {
+  const localAdmin = getLocalAdminCredentials();
+  return {
+    id: localAdmin.id,
+    phone_number: localAdmin.phoneNumber,
+    display_name: localAdmin.displayName,
+    role: "admin",
+    password_hash: hashPassword(localAdmin.password),
+  };
+}
+
 export async function findAdminUserByPhoneNumber(phoneNumber: string) {
+  if (getAdminAuthProvider() === "mock") {
+    const localAdmin = getLocalAdminCredentials();
+    if (phoneNumber !== localAdmin.phoneNumber) {
+      return null;
+    }
+
+    return buildLocalAdminRow();
+  }
+
   const users = await supabaseSelect<AdminUserRow[]>(
     `users?select=id,phone_number,display_name,role,password_hash&phone_number=eq.${encodeURIComponent(phoneNumber)}&limit=1`,
   );
@@ -107,6 +148,20 @@ export async function readAdminSessionUser() {
   const userId = decodeAdminSession(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
   if (!userId) {
     return null;
+  }
+
+  if (getAdminAuthProvider() === "mock") {
+    const localAdmin = getLocalAdminCredentials();
+    if (userId !== localAdmin.id) {
+      return null;
+    }
+
+    return {
+      id: localAdmin.id,
+      phoneNumber: localAdmin.phoneNumber,
+      displayName: localAdmin.displayName,
+      role: "admin",
+    };
   }
 
   const users = await supabaseSelect<AdminUserRow[]>(

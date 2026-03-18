@@ -130,4 +130,81 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
       detail: "재설정 플로우에서 새 비밀번호를 저장했습니다.",
     });
   });
+
+  it("relabels initial account setup actions without signup wording", async () => {
+    mockedSelect.mockImplementation((path: string) => {
+      if (path.startsWith("users?")) {
+        return Promise.resolve([
+          {
+            id: "user-1",
+            display_name: "김수연",
+            phone_number: "01012345678",
+            account_status: "active",
+            last_login_at: "2026-03-17T10:00:00.000Z",
+          },
+        ]);
+      }
+
+      if (path.startsWith("pregnancy_profiles?")) {
+        return Promise.resolve([]);
+      }
+
+      if (path.startsWith("chat_sessions?")) {
+        return Promise.resolve([]);
+      }
+
+      if (path.startsWith("chat_messages?")) {
+        return Promise.resolve([]);
+      }
+
+      if (path.startsWith("admin_audit_logs?")) {
+        return Promise.resolve([]);
+      }
+
+      if (path.startsWith("pregnancy_documents?")) {
+        return Promise.resolve([]);
+      }
+
+      if (path.startsWith("user_action_logs?")) {
+        return Promise.resolve([
+          {
+            id: "action-1",
+            user_id: "user-1",
+            session_id: null,
+            message_id: null,
+            action_type: "phone_verification_started",
+            payload: {
+              flow: "signup",
+            },
+            occurred_at: "2026-03-17T08:50:00.000Z",
+          },
+          {
+            id: "action-2",
+            user_id: "user-1",
+            session_id: null,
+            message_id: null,
+            action_type: "password_set",
+            payload: {
+              flow: "signup",
+            },
+            occurred_at: "2026-03-17T09:00:00.000Z",
+          },
+        ]);
+      }
+
+      return Promise.resolve([]);
+    });
+
+    const dashboard = await adapter.getDashboard();
+
+    expect(dashboard.userActions).toHaveLength(2);
+    expect(dashboard.userActions[0]).toMatchObject({
+      actionLabel: "초기 계정 인증 요청",
+      detail: "초기 계정 설정 절차에서 인증 코드를 발송했습니다.",
+    });
+    expect(dashboard.userActions[1]).toMatchObject({
+      actionLabel: "초기 비밀번호 설정 완료",
+      detail: "초기 계정 설정 절차에서 비밀번호를 저장했습니다.",
+    });
+  });
 });

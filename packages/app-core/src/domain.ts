@@ -281,6 +281,24 @@ export interface AdminWeekAsset {
   displayOrder: number;
 }
 
+export interface AdminWeekSectionInput {
+  id?: string | null;
+  sectionKey: string;
+  title: string;
+  body: string;
+  displayOrder: number;
+  isRequired: boolean;
+}
+
+export interface AdminWeekAssetInput {
+  id?: string | null;
+  assetType: string;
+  storagePath: string;
+  altText: string | null;
+  styleKey: string | null;
+  displayOrder: number;
+}
+
 export interface AdminWeekSummary {
   id: string;
   weekNumber: number;
@@ -300,4 +318,17 @@ export interface AdminWeekDetail extends AdminWeekSummary {
   motherSummary: string;
   sections: AdminWeekSection[];
   assets: AdminWeekAsset[];
+}
+
+export interface AdminWeekUpdateInput {
+  title: string;
+  babySizeLabel: string | null;
+  babySizeCompareObject: string | null;
+  babySummary: string;
+  motherSummary: string;
+  heroImagePath: string | null;
+  compareImagePath: string | null;
+  status: AdminWeekSummary["status"];
+  sections: AdminWeekSectionInput[];
+  assets: AdminWeekAssetInput[];
 }

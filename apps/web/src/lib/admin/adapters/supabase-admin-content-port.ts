@@ -4,15 +4,21 @@ import type {
   AdminWeekDetail,
   AdminWeekSection,
   AdminWeekSummary,
+  AdminWeekUpdateInput,
 } from "@gynecology-chatbot/app-core";
 import { MockAdminContentAdapter } from "@gynecology-chatbot/app-core";
+import { randomUUID } from "crypto";
 
 import {
   hasDockerConfig,
   hasSupabaseConfig,
   resolveServerDataProvider,
 } from "@/lib/server-data-provider";
-import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+import {
+  supabaseInsert,
+  supabaseSelect,
+  supabaseUpdate,
+} from "@/lib/mobile/supabase-rest";
 
 function hasBackendAdminConfig() {
   const provider = resolveServerDataProvider();
@@ -151,5 +157,75 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     );
 
     return mapWeekDetail(week, sections, assets);
+  }
+
+  async saveWeek(
+    weekNumber: number,
+    input: AdminWeekUpdateInput,
+  ): Promise<AdminWeekDetail | null> {
+    if (!hasBackendAdminConfig()) {
+      return this.fallback.saveWeek(weekNumber, input);
+    }
+
+    const current = await this.getWeek(weekNumber);
+    if (!current) {
+      return null;
+    }
+
+    await supabaseUpdate(`pregnancy_weeks?id=eq.${current.id}`, {
+      title: input.title,
+      baby_size_label: input.babySizeLabel,
+      baby_size_compare_object: input.babySizeCompareObject,
+      baby_summary: input.babySummary,
+      mother_summary: input.motherSummary,
+      hero_image_path: input.heroImagePath,
+      compare_image_path: input.compareImagePath,
+      status: input.status,
+      updated_at: new Date().toISOString(),
+    });
+
+    for (const section of input.sections) {
+      const payload = {
+        week_id: current.id,
+        section_key: section.sectionKey,
+        title: section.title,
+        body: section.body,
+        display_order: section.displayOrder,
+        is_required: section.isRequired,
+      };
+
+      if (section.id) {
+        await supabaseUpdate(`pregnancy_week_sections?id=eq.${section.id}`, payload);
+        continue;
+      }
+
+      await supabaseInsert("pregnancy_week_sections", {
+        id: randomUUID(),
+        ...payload,
+      });
+    }
+
+    for (const asset of input.assets) {
+      const payload = {
+        week_id: current.id,
+        asset_type: asset.assetType,
+        storage_path: asset.storagePath,
+        alt_text: asset.altText,
+        style_key: asset.styleKey,
+        display_order: asset.displayOrder,
+      };
+
+      if (asset.id) {
+        await supabaseUpdate(`pregnancy_week_assets?id=eq.${asset.id}`, payload);
+        continue;
+      }
+
+      await supabaseInsert("pregnancy_week_assets", {
+        id: randomUUID(),
+        ...payload,
+      });
+    }
+
+    return this.getWeek(weekNumber);
   }
 }

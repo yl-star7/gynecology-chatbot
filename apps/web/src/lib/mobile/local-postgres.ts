@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID, scryptSync } from "crypto";
 import { Pool, types } from "pg";
+import { buildLocalPostgresBootstrapSql } from "./local-postgres-schema";
 
 const LOCAL_SCHEMA = process.env.LOCAL_DB_SCHEMA ?? "gynecology_local";
 const DEFAULT_USER_ID =
@@ -252,6 +253,21 @@ async function ensureSeedData() {
     ],
   );
 
+  await db.query(
+    `
+      INSERT INTO ${getQualifiedTable("chat_sessions")} (id, user_id, title, status, last_message_at)
+      VALUES ($1, $2, $3, 'active', $4)
+      ON CONFLICT (id) DO UPDATE
+      SET title = EXCLUDED.title, status = EXCLUDED.status, last_message_at = EXCLUDED.last_message_at
+    `,
+    [
+      "local-session-welcome",
+      DEFAULT_USER_ID,
+      "24주차 컨디션 채팅",
+      now.toISOString(),
+    ],
+  );
+
   const calendarEntries = [
     [
       "calendar-yesterday",
@@ -320,21 +336,6 @@ async function ensureSeedData() {
       [id, DEFAULT_USER_ID, date, emotionTone],
     );
   }
-
-  await db.query(
-    `
-      INSERT INTO ${getQualifiedTable("chat_sessions")} (id, user_id, title, status, last_message_at)
-      VALUES ($1, $2, $3, 'active', $4)
-      ON CONFLICT (id) DO UPDATE
-      SET title = EXCLUDED.title, status = EXCLUDED.status, last_message_at = EXCLUDED.last_message_at
-    `,
-    [
-      "local-session-welcome",
-      DEFAULT_USER_ID,
-      "24주차 컨디션 채팅",
-      now.toISOString(),
-    ],
-  );
 
   const introMessages = [
     {
@@ -523,162 +524,7 @@ export async function ensureLocalPostgresReady() {
       await db.query(
         `CREATE SCHEMA IF NOT EXISTS ${assertIdentifier(LOCAL_SCHEMA)}`,
       );
-      await db.query(`
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("users")} (
-          id text PRIMARY KEY,
-          role text NOT NULL DEFAULT 'user',
-          display_name text NOT NULL,
-          phone_number text NOT NULL UNIQUE,
-          account_status text NOT NULL DEFAULT 'active',
-          password_hash text,
-          password_set_at timestamptz,
-          phone_verified_at timestamptz,
-          last_login_at timestamptz,
-          created_at timestamptz NOT NULL DEFAULT now()
-        );
-
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("pregnancy_profiles")} (
-          id text PRIMARY KEY,
-          user_id text NOT NULL UNIQUE REFERENCES ${getQualifiedTable("users")}(id) ON DELETE CASCADE,
-          pregnancy_status text NOT NULL DEFAULT 'pregnant',
-          pregnancy_day_count integer NOT NULL DEFAULT 0,
-          pregnancy_week integer,
-          pregnancy_day_in_week integer,
-          due_date date,
-          onboarding_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-          baby_sex text CHECK (baby_sex IN ('male', 'female', 'unknown') OR baby_sex IS NULL),
-          baby_nickname text,
-          theme_key text,
-          notification_time time,
-          notification_enabled boolean NOT NULL DEFAULT true,
-          week_override integer,
-          day_override integer,
-          created_at timestamptz NOT NULL DEFAULT now(),
-          updated_at timestamptz NOT NULL DEFAULT now()
-        );
-
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("calendar_logs")} (
-          id text PRIMARY KEY,
-          user_id text NOT NULL REFERENCES ${getQualifiedTable("users")}(id) ON DELETE CASCADE,
-          session_id text REFERENCES ${getQualifiedTable("chat_sessions")}(id) ON DELETE SET NULL,
-          date date NOT NULL,
-          entry_type text NOT NULL DEFAULT 'ai_summary',
-          title text NOT NULL DEFAULT '기록',
-          summary text,
-          payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-          created_at timestamptz NOT NULL DEFAULT now()
-        );
-
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("emotion_logs")} (
-          id text PRIMARY KEY,
-          user_id text NOT NULL REFERENCES ${getQualifiedTable("users")}(id) ON DELETE CASCADE,
-          date date NOT NULL,
-          emotion_tone text NOT NULL,
-          created_at timestamptz NOT NULL DEFAULT now()
-        );
-
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("chat_sessions")} (
-          id text PRIMARY KEY,
-          user_id text NOT NULL REFERENCES ${getQualifiedTable("users")}(id) ON DELETE CASCADE,
-          title text NOT NULL,
-          status text NOT NULL DEFAULT 'active',
-          last_message_at timestamptz,
-          created_at timestamptz NOT NULL DEFAULT now()
-        );
-
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("chat_messages")} (
-          id text PRIMARY KEY,
-          session_id text NOT NULL REFERENCES ${getQualifiedTable("chat_sessions")}(id) ON DELETE CASCADE,
-          user_id text NOT NULL REFERENCES ${getQualifiedTable("users")}(id) ON DELETE CASCADE,
-          role text NOT NULL,
-          parts jsonb NOT NULL DEFAULT '[]'::jsonb,
-          plain_text text,
-          image_attachments jsonb NOT NULL DEFAULT '[]'::jsonb,
-          model_name text,
-          created_at timestamptz NOT NULL DEFAULT now()
-        );
-
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("knowledge_items")} (
-          id text PRIMARY KEY,
-          title text NOT NULL,
-          section text NOT NULL,
-          body text NOT NULL,
-          status text NOT NULL DEFAULT 'published',
-          created_at timestamptz NOT NULL DEFAULT now()
-        );
-
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("pregnancy_documents")} (
-          id text PRIMARY KEY,
-          title text NOT NULL,
-          content text NOT NULL,
-          pregnancy_week integer,
-          category text NOT NULL,
-          metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
-          created_at timestamptz NOT NULL DEFAULT now()
-        );
-
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("pregnancy_weeks")} (
-          id text PRIMARY KEY,
-          week_number integer NOT NULL,
-          title text,
-          baby_size_label text,
-          baby_size_compare_object text,
-          baby_summary text,
-          mother_summary text,
-          hero_image_path text,
-          compare_image_path text,
-          status text NOT NULL DEFAULT 'draft',
-          updated_at timestamptz NOT NULL DEFAULT now(),
-          created_at timestamptz NOT NULL DEFAULT now(),
-          UNIQUE (week_number),
-          CONSTRAINT pregnancy_weeks_week_number_range CHECK (week_number BETWEEN 1 AND 40),
-          CONSTRAINT pregnancy_weeks_status_check CHECK (status IN ('draft', 'published', 'archived'))
-        );
-
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("pregnancy_week_sections")} (
-          id text PRIMARY KEY,
-          week_id text NOT NULL REFERENCES ${getQualifiedTable("pregnancy_weeks")}(id) ON DELETE CASCADE,
-          section_key text NOT NULL,
-          title text,
-          body text,
-          display_order integer NOT NULL DEFAULT 0,
-          is_required boolean NOT NULL DEFAULT false,
-          created_at timestamptz NOT NULL DEFAULT now()
-        );
-
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("pregnancy_week_assets")} (
-          id text PRIMARY KEY,
-          week_id text NOT NULL REFERENCES ${getQualifiedTable("pregnancy_weeks")}(id) ON DELETE CASCADE,
-          asset_type text NOT NULL,
-          storage_path text NOT NULL,
-          alt_text text,
-          style_key text,
-          display_order integer NOT NULL DEFAULT 0,
-          created_at timestamptz NOT NULL DEFAULT now()
-        );
-
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("admin_audit_logs")} (
-          id text PRIMARY KEY,
-          admin_user_id text,
-          target_user_id text,
-          action_type text NOT NULL,
-          entity_type text NOT NULL,
-          reason text,
-          before_payload jsonb,
-          after_payload jsonb,
-          created_at timestamptz NOT NULL DEFAULT now()
-        );
-
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("user_action_logs")} (
-          id text PRIMARY KEY,
-          user_id text NOT NULL REFERENCES ${getQualifiedTable("users")}(id) ON DELETE CASCADE,
-          session_id text REFERENCES ${getQualifiedTable("chat_sessions")}(id) ON DELETE SET NULL,
-          message_id text REFERENCES ${getQualifiedTable("chat_messages")}(id) ON DELETE SET NULL,
-          action_type text NOT NULL,
-          payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-          occurred_at timestamptz NOT NULL DEFAULT now()
-        );
-      `);
+      await db.query(buildLocalPostgresBootstrapSql(LOCAL_SCHEMA));
 
       await db.query(`
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'user';

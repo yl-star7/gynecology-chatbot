@@ -59,6 +59,7 @@ describe("GET /api/admin/content/weeks", () => {
           },
         ]),
         getWeek: jest.fn(),
+        saveWeek: jest.fn(),
       },
     });
 

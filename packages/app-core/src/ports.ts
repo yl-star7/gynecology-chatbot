@@ -2,6 +2,7 @@ import type {
   AdminDashboardData,
   AdminWeekDetail,
   AdminWeekSummary,
+  AdminWeekUpdateInput,
   AuthenticatedUser,
   ChatComposerInput,
   ChatSession,
@@ -70,4 +71,8 @@ export interface AdminUserPort {
 export interface AdminContentPort {
   listWeeks(): Promise<AdminWeekSummary[]>;
   getWeek(weekNumber: number): Promise<AdminWeekDetail | null>;
+  saveWeek(
+    weekNumber: number,
+    input: AdminWeekUpdateInput,
+  ): Promise<AdminWeekDetail | null>;
 }

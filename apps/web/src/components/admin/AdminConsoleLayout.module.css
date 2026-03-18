@@ -1,0 +1,581 @@
+.consoleRoot,
+.loginRoot {
+  --admin-bg: #f4f4f4;
+  --admin-panel: #ffffff;
+  --admin-panel-alt: #e8e8e8;
+  --admin-border: #e0e0e0;
+  --admin-border-strong: #8d8d8d;
+  --admin-text: #161616;
+  --admin-text-soft: #525252;
+  --admin-text-muted: #6f6f6f;
+  --admin-accent: #0f62fe;
+  --admin-accent-strong: #0043ce;
+  --admin-success: #198038;
+  --admin-warning: #8e6a00;
+  --admin-warning-bg: #fcf4d6;
+  --admin-error: #da1e28;
+  --admin-font: "IBM Plex Sans", "Noto Sans KR", sans-serif;
+  color: var(--admin-text);
+  font-family: var(--admin-font);
+}
+
+.loginRoot {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(320px, 1.2fr) minmax(340px, 420px);
+  background:
+    linear-gradient(180deg, rgba(15, 98, 254, 0.06), rgba(15, 98, 254, 0)),
+    var(--admin-bg);
+}
+
+.loginInfo {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 56px 48px;
+  border-right: 1px solid var(--admin-border);
+}
+
+.loginEyebrow,
+.eyebrow {
+  margin: 0 0 12px;
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.loginHeading,
+.brandHeading,
+.topbarHeading,
+.panelTitle {
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.loginHeading {
+  font-size: clamp(2rem, 3vw, 3rem);
+  line-height: 1.1;
+}
+
+.loginCopy,
+.brandCopy,
+.metaLabel,
+.panelDescription,
+.listMeta,
+.formHint,
+.historyMeta {
+  color: var(--admin-text-soft);
+}
+
+.loginCopy {
+  max-width: 44ch;
+  margin: 16px 0 0;
+  line-height: 1.7;
+}
+
+.loginChecklist {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.checkRow {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+}
+
+.checkRow strong,
+.metricCard strong,
+.metaValue,
+.panelStat strong,
+.listPrimary,
+.historyStat strong {
+  display: block;
+}
+
+.checkRow strong,
+.listPrimary {
+  font-size: 15px;
+}
+
+.loginPanel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px 40px;
+}
+
+.loginCard {
+  display: grid;
+  gap: 20px;
+  padding: 28px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+}
+
+.consoleRoot {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  background: var(--admin-bg);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 28px 20px;
+  border-right: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+}
+
+.brandCopy {
+  margin: 12px 0 0;
+  line-height: 1.7;
+}
+
+.nav {
+  display: grid;
+  gap: 2px;
+}
+
+.navItem,
+.secondaryButton,
+.primaryButton {
+  font: inherit;
+  cursor: pointer;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: none;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--admin-text);
+  text-align: left;
+}
+
+.navItemActive {
+  border-left-color: var(--admin-accent);
+  background: rgba(15, 98, 254, 0.08);
+}
+
+.sideNote,
+.panel,
+.metricCard,
+.historyStat {
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+}
+
+.sideNote {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag,
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--admin-border);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tag {
+  background: var(--admin-panel-alt);
+  color: var(--admin-text);
+}
+
+.tagActive,
+.statusSuccess {
+  border-color: rgba(25, 128, 56, 0.24);
+  background: rgba(25, 128, 56, 0.08);
+  color: var(--admin-success);
+}
+
+.tagAccent {
+  border-color: rgba(15, 98, 254, 0.24);
+  background: rgba(15, 98, 254, 0.08);
+  color: var(--admin-accent-strong);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 28px;
+  border-bottom: 1px solid var(--admin-border);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+}
+
+.topbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.metaGrid,
+.metricsGrid,
+.panelGrid,
+.statsGrid,
+.formGrid,
+.historyGrid,
+.sessionGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.metaGrid {
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+}
+
+.metaCard {
+  min-width: 140px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+}
+
+.metaValue {
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.content {
+  display: grid;
+  gap: 20px;
+  padding: 24px 28px 36px;
+}
+
+.metricsGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.metricCard {
+  padding: 18px 18px 16px;
+  border-top: 3px solid var(--admin-accent);
+}
+
+.metricCard span {
+  display: block;
+  color: var(--admin-text-soft);
+}
+
+.metricCard strong {
+  margin: 14px 0 10px;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.panelGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.panel {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: 20px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panelTitle {
+  font-size: 1.25rem;
+}
+
+.panelDescription {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.statsGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.panelStat {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-bg);
+}
+
+.panelStat strong {
+  font-size: 1.25rem;
+}
+
+.list {
+  display: grid;
+  gap: 8px;
+}
+
+.listRow,
+.listButton {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel);
+}
+
+.listButton {
+  width: 100%;
+  text-align: left;
+  border-left: 3px solid transparent;
+}
+
+.listButton:hover,
+.listButton:focus-visible {
+  border-left-color: var(--admin-accent);
+  outline: none;
+}
+
+.listDetail,
+.listMetaGroup {
+  display: grid;
+  gap: 6px;
+}
+
+.listMetaGroup {
+  justify-items: end;
+}
+
+.listMeta {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.listEmpty {
+  padding: 14px 16px;
+  border: 1px dashed var(--admin-border-strong);
+  color: var(--admin-text-soft);
+}
+
+.statusBadge {
+  background: var(--admin-panel-alt);
+  color: var(--admin-text);
+}
+
+.statusWarning {
+  border-color: rgba(241, 194, 27, 0.45);
+  background: var(--admin-warning-bg);
+  color: var(--admin-warning);
+}
+
+.statusMuted {
+  border-color: var(--admin-border);
+  background: var(--admin-panel-alt);
+  color: var(--admin-text-muted);
+}
+
+.statusError {
+  border-color: rgba(218, 30, 40, 0.18);
+  background: rgba(218, 30, 40, 0.08);
+  color: var(--admin-error);
+}
+
+.formGrid {
+  margin-top: 4px;
+}
+
+.fieldGroup {
+  display: grid;
+  gap: 8px;
+}
+
+.fieldLabel {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.fieldInput,
+.fieldTextarea,
+.fieldSelect {
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border-strong);
+  background: var(--admin-panel);
+  color: var(--admin-text);
+  font: inherit;
+}
+
+.fieldTextarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.fieldInput:focus-visible,
+.fieldTextarea:focus-visible,
+.fieldSelect:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 1px;
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.primaryButton,
+.secondaryButton {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+}
+
+.primaryButton {
+  background: var(--admin-accent);
+  color: #ffffff;
+}
+
+.primaryButton:hover,
+.primaryButton:focus-visible {
+  background: var(--admin-accent-strong);
+  outline: none;
+}
+
+.secondaryButton {
+  border-color: var(--admin-border-strong);
+  background: var(--admin-panel);
+  color: var(--admin-text);
+}
+
+.secondaryButton:hover,
+.secondaryButton:focus-visible {
+  border-color: var(--admin-accent);
+  color: var(--admin-accent-strong);
+  outline: none;
+}
+
+.historyGrid {
+  grid-template-columns: 280px minmax(0, 1fr);
+  align-items: start;
+}
+
+.historyStats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.historyStat {
+  padding: 14px;
+}
+
+.historyStat strong {
+  margin-top: 6px;
+  font-size: 1.125rem;
+}
+
+.sessionGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1200px) {
+  .metricsGrid,
+  .panelGrid,
+  .historyGrid,
+  .sessionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .metaGrid,
+  .statsGrid,
+  .historyStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .consoleRoot,
+  .loginRoot {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--admin-border);
+  }
+
+  .loginInfo {
+    border-right: none;
+    border-bottom: 1px solid var(--admin-border);
+    padding: 32px 24px;
+  }
+
+  .loginPanel,
+  .content,
+  .topbar {
+    padding: 24px;
+  }
+
+  .topbar {
+    position: static;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 560px) {
+  .metaGrid,
+  .metricsGrid,
+  .statsGrid,
+  .historyStats {
+    grid-template-columns: 1fr;
+  }
+
+  .panel,
+  .loginCard {
+    padding: 18px;
+  }
+}

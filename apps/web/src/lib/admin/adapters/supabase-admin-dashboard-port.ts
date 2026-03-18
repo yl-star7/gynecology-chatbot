@@ -69,10 +69,17 @@ function formatUserActionLabel(
   }
 
   if (actionType === "phone_verification_started") {
-    const flow = payload?.flow === "signup" ? "처음 시작하기" : "인증";
+    if (payload?.flow === "signup") {
+      return {
+        actionLabel: "초기 계정 인증 요청",
+        detail: "초기 계정 설정 절차에서 인증 코드를 발송했습니다.",
+      };
+    }
+
+    const flow = payload?.flow === "recovery" ? "복구" : "계정";
     return {
-      actionLabel: "문자 인증 요청",
-      detail: `${flow} 플로우에서 인증 코드를 발송했습니다.`,
+      actionLabel: `${flow} 인증 요청`,
+      detail: `${flow} 확인 절차에서 인증 코드를 발송했습니다.`,
     };
   }
 
@@ -87,11 +94,13 @@ function formatUserActionLabel(
     const flow = payload?.flow === "recovery" ? "recovery" : "signup";
     return {
       actionLabel:
-        flow === "recovery" ? "비밀번호 재설정 완료" : "첫 비밀번호 설정 완료",
+        flow === "recovery"
+          ? "비밀번호 재설정 완료"
+          : "초기 비밀번호 설정 완료",
       detail:
         flow === "recovery"
           ? "재설정 플로우에서 새 비밀번호를 저장했습니다."
-          : "처음 시작하기 플로우에서 비밀번호를 저장했습니다.",
+          : "초기 계정 설정 절차에서 비밀번호를 저장했습니다.",
     };
   }
 
@@ -104,8 +113,8 @@ function formatUserActionLabel(
 
   if (actionType === "onboarding_completed") {
     return {
-      actionLabel: "온보딩 완료",
-      detail: "임신 정보와 기본 말투 설정을 저장했습니다.",
+      actionLabel: "초기 프로필 등록 완료",
+      detail: "기본 채팅 톤과 임신 정보를 저장했습니다.",
     };
   }
 
