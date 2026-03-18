@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { embedPregnancyDocument } from "@/lib/mobile/rag";
-import { supabaseInsert } from "@/lib/mobile/supabase-rest";
+import { createAdminServices } from "@/lib/admin/create-admin-services";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,20 +19,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "title, content, and category are required" }, { status: 400 });
     }
 
-    const embedding = await embedPregnancyDocument(content);
-    const inserted = await supabaseInsert<Array<{ id: string }>>("pregnancy_documents", {
+    const services = createAdminServices();
+    const document = await services.adminContentPort.createDocument({
       title,
       content,
-      pregnancy_week: pregnancyWeek,
+      pregnancyWeek,
       category,
-      embedding,
-      metadata: {
-        chunk_count: 1,
-        source: "admin_upload",
-      },
     });
 
-    return NextResponse.json({ id: inserted[0]?.id ?? null, ok: true });
+    return NextResponse.json({ id: document.id, ok: true });
   } catch (error) {
     console.error("admin rag upload route error", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "failed to upload rag document" }, { status: 400 });

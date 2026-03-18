@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireMobileSession } from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
 
 export async function GET(request: NextRequest) {
   try {
+    await requireMobileSession(request);
     const target = request.nextUrl.searchParams.get("target");
     const entityId = request.nextUrl.searchParams.get("entityId");
 
@@ -12,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     const column = entityId ? `id=eq.${entityId}` : `section=eq.${target}&status=eq.published`;
     const items = await supabaseSelect<Array<{ title: string; section: string; body: string }>>(
-      `knowledge_items?select=title,section,body&${column}&limit=1`,
+      `content.knowledge_items?select=title,section,body&${column}&limit=1`,
     );
 
     if (!items[0]) {

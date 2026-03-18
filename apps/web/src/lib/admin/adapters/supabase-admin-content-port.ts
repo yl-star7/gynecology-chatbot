@@ -1,5 +1,11 @@
 import type {
   AdminContentPort,
+  AdminKnowledgeItem,
+  AdminKnowledgeItemInput,
+  AdminRagDocumentDetail,
+  AdminRagDocumentInput,
+  AdminWorkflowRule,
+  AdminWorkflowRuleInput,
   AdminWeekAsset,
   AdminWeekDetail,
   AdminWeekSection,
@@ -56,6 +62,39 @@ type SupabaseWeekAssetRow = {
   alt_text: string | null;
   style_key: string | null;
   display_order: number | null;
+};
+
+type SupabaseKnowledgeItemRow = {
+  id: string;
+  slug: string;
+  section: "knowledge" | "notebook";
+  title: string;
+  body: string;
+  status: "draft" | "published" | "archived";
+  updated_at: string;
+};
+
+type SupabaseRagDocumentRow = {
+  id: string;
+  title: string;
+  content: string;
+  pregnancy_week: number | null;
+  category: string;
+  metadata: { chunk_count?: number; draft?: boolean } | null;
+  created_at?: string;
+  updated_at?: string | null;
+};
+
+type SupabaseWorkflowDefinitionRow = {
+  id: string;
+  name: string;
+  slug: string;
+  provider: string;
+  status: string;
+  is_active: boolean;
+  config: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+  updated_at: string;
 };
 
 const sectionComparator = (a: AdminWeekSection, b: AdminWeekSection) =>
@@ -120,8 +159,252 @@ function mapWeekDetail(
   };
 }
 
+function mapKnowledgeItem(
+  row: SupabaseKnowledgeItemRow,
+): AdminKnowledgeItem {
+  return {
+    id: row.id,
+    slug: row.slug,
+    section: row.section,
+    title: row.title,
+    body: row.body,
+    status: row.status,
+    updatedAt: row.updated_at,
+  };
+}
+
+function getDocumentUpdatedAt(row: SupabaseRagDocumentRow) {
+  return row.updated_at ?? row.created_at ?? new Date().toISOString();
+}
+
+function mapRagDocument(row: SupabaseRagDocumentRow): AdminRagDocumentDetail {
+  const status =
+    row.metadata?.draft || row.metadata?.chunk_count === 0 ? "draft" : "ready";
+
+  return {
+    id: row.id,
+    title: row.title,
+    pregnancyWeekLabel: row.pregnancy_week ? `${row.pregnancy_week}주차` : "공통",
+    pregnancyWeek: row.pregnancy_week,
+    category: row.category,
+    chunkCount: row.metadata?.chunk_count ?? 1,
+    updatedAt: getDocumentUpdatedAt(row),
+    status,
+    content: row.content,
+  };
+}
+
+function mapWorkflowRule(
+  row: SupabaseWorkflowDefinitionRow,
+): AdminWorkflowRule {
+  const trigger =
+    typeof row.metadata?.trigger === "string"
+      ? row.metadata.trigger
+      : typeof row.config?.trigger === "string"
+        ? row.config.trigger
+        : row.provider;
+  const retrievalScope =
+    typeof row.metadata?.retrievalScope === "string"
+      ? row.metadata.retrievalScope
+      : typeof row.config?.retrievalScope === "string"
+        ? row.config.retrievalScope
+        : "기본 범위";
+  const modelName =
+    typeof row.metadata?.modelName === "string"
+      ? row.metadata.modelName
+      : typeof row.config?.modelName === "string"
+        ? row.config.modelName
+        : "미설정";
+
+  return {
+    id: row.id,
+    name: row.name,
+    trigger,
+    retrievalScope,
+    modelName,
+    status: row.is_active ? "active" : "review",
+  };
+}
+
 export class SupabaseAdminContentPortAdapter implements AdminContentPort {
   private readonly fallback = new MockAdminContentAdapter();
+
+  async createDocument(
+    input: AdminRagDocumentInput,
+  ): Promise<AdminRagDocumentDetail> {
+    if (!hasBackendAdminConfig()) {
+      return this.fallback.createDocument(input);
+    }
+
+    const inserted = await supabaseInsert<Array<SupabaseRagDocumentRow>>(
+      "content.pregnancy_documents",
+      {
+        id: randomUUID(),
+        title: input.title,
+        content: input.content,
+        pregnancy_week: input.pregnancyWeek,
+        category: input.category,
+        metadata: {
+          chunk_count: 1,
+          draft: false,
+          source: "admin_upload",
+        },
+        updated_at: new Date().toISOString(),
+      },
+    );
+
+    return mapRagDocument(inserted[0] as SupabaseRagDocumentRow);
+  }
+
+  async getDocument(
+    documentId: string,
+  ): Promise<AdminRagDocumentDetail | null> {
+    if (!hasBackendAdminConfig()) {
+      return this.fallback.getDocument(documentId);
+    }
+
+    const rows = await supabaseSelect<Array<SupabaseRagDocumentRow>>(
+      `content.pregnancy_documents?select=id,title,content,pregnancy_week,category,metadata,created_at,updated_at&id=eq.${documentId}&limit=1`,
+    );
+
+    return rows[0] ? mapRagDocument(rows[0]) : null;
+  }
+
+  async updateDocument(
+    documentId: string,
+    input: AdminRagDocumentInput,
+  ): Promise<AdminRagDocumentDetail | null> {
+    if (!hasBackendAdminConfig()) {
+      return this.fallback.updateDocument(documentId, input);
+    }
+
+    const updated = await supabaseUpdate<Array<SupabaseRagDocumentRow>>(
+      `content.pregnancy_documents?id=eq.${documentId}`,
+      {
+        title: input.title,
+        content: input.content,
+        pregnancy_week: input.pregnancyWeek,
+        category: input.category,
+        updated_at: new Date().toISOString(),
+      },
+    );
+
+    return updated[0] ? mapRagDocument(updated[0]) : null;
+  }
+
+  async deleteDocument(documentId: string): Promise<void> {
+    if (!hasBackendAdminConfig()) {
+      return this.fallback.deleteDocument(documentId);
+    }
+
+    await supabaseDelete(`content.pregnancy_documents?id=eq.${documentId}`);
+  }
+
+  async updateWorkflowRule(
+    id: string,
+    input: AdminWorkflowRuleInput,
+  ): Promise<AdminWorkflowRule | null> {
+    if (!hasBackendAdminConfig()) {
+      return this.fallback.updateWorkflowRule(id, input);
+    }
+
+    const currentRows = await supabaseSelect<Array<SupabaseWorkflowDefinitionRow>>(
+      `workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata,updated_at&id=eq.${id}&limit=1`,
+    );
+    const current = currentRows[0];
+    if (!current) {
+      return null;
+    }
+
+    const updated = await supabaseUpdate<Array<SupabaseWorkflowDefinitionRow>>(
+      `workflow_definitions?id=eq.${id}`,
+      {
+        name: input.name,
+        status: input.status === "active" ? "published" : "draft",
+        is_active: input.status === "active",
+        config: {
+          ...(current.config ?? {}),
+          modelName: input.modelName,
+          retrievalScope: input.retrievalScope,
+        },
+        metadata: {
+          ...(current.metadata ?? {}),
+          trigger: input.trigger,
+          retrievalScope: input.retrievalScope,
+          modelName: input.modelName,
+        },
+        updated_at: new Date().toISOString(),
+      },
+    );
+
+    return updated[0] ? mapWorkflowRule(updated[0]) : null;
+  }
+
+  async listKnowledgeItems(): Promise<AdminKnowledgeItem[]> {
+    if (!hasBackendAdminConfig()) {
+      return this.fallback.listKnowledgeItems();
+    }
+
+    const rows = await supabaseSelect<Array<SupabaseKnowledgeItemRow>>(
+      "content.knowledge_items?select=id,slug,section,title,body,status,updated_at&order=updated_at.desc",
+    );
+
+    return rows.map(mapKnowledgeItem);
+  }
+
+  async createKnowledgeItem(
+    input: AdminKnowledgeItemInput,
+  ): Promise<AdminKnowledgeItem> {
+    if (!hasBackendAdminConfig()) {
+      return this.fallback.createKnowledgeItem(input);
+    }
+
+    const inserted = await supabaseInsert<Array<SupabaseKnowledgeItemRow>>(
+      "content.knowledge_items",
+      {
+        id: randomUUID(),
+        slug: input.slug,
+        section: input.section,
+        title: input.title,
+        body: input.body,
+        status: input.status,
+        updated_at: new Date().toISOString(),
+      },
+    );
+
+    return mapKnowledgeItem(inserted[0] as SupabaseKnowledgeItemRow);
+  }
+
+  async updateKnowledgeItem(
+    id: string,
+    input: AdminKnowledgeItemInput,
+  ): Promise<AdminKnowledgeItem | null> {
+    if (!hasBackendAdminConfig()) {
+      return this.fallback.updateKnowledgeItem(id, input);
+    }
+
+    const updated = await supabaseUpdate<Array<SupabaseKnowledgeItemRow>>(
+      `content.knowledge_items?id=eq.${id}`,
+      {
+        slug: input.slug,
+        section: input.section,
+        title: input.title,
+        body: input.body,
+        status: input.status,
+        updated_at: new Date().toISOString(),
+      },
+    );
+
+    return updated[0] ? mapKnowledgeItem(updated[0]) : null;
+  }
+
+  async deleteKnowledgeItem(id: string): Promise<void> {
+    if (!hasBackendAdminConfig()) {
+      return this.fallback.deleteKnowledgeItem(id);
+    }
+
+    await supabaseDelete(`content.knowledge_items?id=eq.${id}`);
+  }
 
   async listWeeks(): Promise<AdminWeekSummary[]> {
     if (!hasBackendAdminConfig()) {
@@ -129,7 +412,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const rows = await supabaseSelect<Array<SupabaseWeekRow>>(
-      "pregnancy_weeks?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,hero_image_path,compare_image_path,status,updated_at&order=week_number.asc",
+      "content.pregnancy_weeks?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,hero_image_path,compare_image_path,status,updated_at&order=week_number.asc",
     );
 
     return rows.map(mapWeekSummary);
@@ -141,7 +424,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const weekRows = await supabaseSelect<Array<SupabaseWeekRow>>(
-      `pregnancy_weeks?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,hero_image_path,compare_image_path,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
+      `content.pregnancy_weeks?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,hero_image_path,compare_image_path,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
     );
 
     const week = weekRows[0];
@@ -150,11 +433,11 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const sections = await supabaseSelect<Array<SupabaseWeekSectionRow>>(
-      `pregnancy_week_sections?select=id,section_key,title,body,display_order,is_required&week_id=eq.${week.id}&order=display_order.asc.nullslast`,
+      `content.pregnancy_week_sections?select=id,section_key,title,body,display_order,is_required&week_id=eq.${week.id}&order=display_order.asc.nullslast`,
     );
 
     const assets = await supabaseSelect<Array<SupabaseWeekAssetRow>>(
-      `pregnancy_week_assets?select=id,asset_type,storage_path,alt_text,style_key,display_order&week_id=eq.${week.id}&order=display_order.asc.nullslast`,
+      `content.pregnancy_week_assets?select=id,asset_type,storage_path,alt_text,style_key,display_order&week_id=eq.${week.id}&order=display_order.asc.nullslast`,
     );
 
     return mapWeekDetail(week, sections, assets);
@@ -173,7 +456,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return null;
     }
 
-    await supabaseUpdate(`pregnancy_weeks?id=eq.${current.id}`, {
+    await supabaseUpdate(`content.pregnancy_weeks?id=eq.${current.id}`, {
       title: input.title,
       baby_size_label: input.babySizeLabel,
       baby_size_compare_object: input.babySizeCompareObject,
@@ -204,11 +487,11 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       .filter((assetId) => !nextAssetIds.has(assetId));
 
     for (const sectionId of removedSectionIds) {
-      await supabaseDelete(`pregnancy_week_sections?id=eq.${sectionId}`);
+      await supabaseDelete(`content.pregnancy_week_sections?id=eq.${sectionId}`);
     }
 
     for (const assetId of removedAssetIds) {
-      await supabaseDelete(`pregnancy_week_assets?id=eq.${assetId}`);
+      await supabaseDelete(`content.pregnancy_week_assets?id=eq.${assetId}`);
     }
 
     for (const section of input.sections) {
@@ -222,11 +505,11 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       };
 
       if (section.id) {
-        await supabaseUpdate(`pregnancy_week_sections?id=eq.${section.id}`, payload);
+        await supabaseUpdate(`content.pregnancy_week_sections?id=eq.${section.id}`, payload);
         continue;
       }
 
-      await supabaseInsert("pregnancy_week_sections", {
+      await supabaseInsert("content.pregnancy_week_sections", {
         id: randomUUID(),
         ...payload,
       });
@@ -243,11 +526,11 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       };
 
       if (asset.id) {
-        await supabaseUpdate(`pregnancy_week_assets?id=eq.${asset.id}`, payload);
+        await supabaseUpdate(`content.pregnancy_week_assets?id=eq.${asset.id}`, payload);
         continue;
       }
 
-      await supabaseInsert("pregnancy_week_assets", {
+      await supabaseInsert("content.pregnancy_week_assets", {
         id: randomUUID(),
         ...payload,
       });

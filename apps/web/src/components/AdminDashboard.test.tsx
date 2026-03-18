@@ -48,14 +48,14 @@ const dashboard: AdminDashboardData = {
       name: "김수연",
       phoneNumber: "01012345678",
       status: "attention",
-      latestIssue: "비밀번호 재설정 대기",
+      latestIssue: "세션 초기화 대기",
     },
   ],
   recoveryActions: [
     {
       id: "recovery-1",
       userName: "김수연",
-      action: "password_reset",
+      action: "session_reset",
       requestedAt: "2026. 3. 17. 오후 6:00:00",
       status: "completed",
     },
@@ -242,6 +242,37 @@ describe("AdminDashboard", () => {
         return createJsonResponse({ weeks: [weekSummary] });
       }
 
+      if (pathname === "/api/admin/allowed-phone-numbers" && !init?.method) {
+        return createJsonResponse({
+          allowedPhoneNumbers: [
+            {
+              id: "allow-1",
+              phoneNumber: "01012345678",
+              displayName: "김수연",
+              note: "1차 파일럿",
+              createdAt: "2026-03-18T09:00:00.000Z",
+              updatedAt: "2026-03-18T09:00:00.000Z",
+            },
+          ],
+        });
+      }
+
+      if (pathname === "/api/admin/content/knowledge-items" && !init?.method) {
+        return createJsonResponse({
+          knowledgeItems: [
+            {
+              id: "knowledge-item-1",
+              slug: "warning-signs",
+              section: "knowledge",
+              title: "24주차 위험 신호",
+              body: "규칙적인 수축, 양수 유출 의심, 선명한 출혈은 즉시 확인이 필요합니다.",
+              status: "published",
+              updatedAt: "2026-03-18T09:20:00.000Z",
+            },
+          ],
+        });
+      }
+
       if (pathname === "/api/admin/content/weeks/1" && !init?.method) {
         return createJsonResponse({ week: currentWeekDetail });
       }
@@ -368,9 +399,11 @@ describe("AdminDashboard", () => {
     expect(body.assets[0].assetType).toBe("illustration");
     expect(body.assets.map((asset) => asset.displayOrder)).toEqual([1, 2]);
 
-    expect(
-      await screen.findByText("1주차 데이터를 저장했습니다."),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getAllByText("1주차 데이터를 저장했습니다.").length,
+      ).toBeGreaterThan(0),
+    );
   });
 
   it("keeps week saving separate from account and rag actions", async () => {
@@ -405,9 +438,11 @@ describe("AdminDashboard", () => {
       );
     });
 
-    expect(
-      await screen.findByText("1주차 데이터를 저장했습니다."),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getAllByText("1주차 데이터를 저장했습니다.").length,
+      ).toBeGreaterThan(0),
+    );
   });
 
   it("allows deleting persisted week sections and assets before saving", async () => {

@@ -77,7 +77,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
 
   it("returns detailed week content with ordered sections and assets", async () => {
     mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("pregnancy_weeks")) {
+      if (path.startsWith("content.pregnancy_weeks")) {
         return Promise.resolve([
           {
             id: "week-2",
@@ -95,7 +95,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("pregnancy_week_sections")) {
+      if (path.startsWith("content.pregnancy_week_sections")) {
         return Promise.resolve([
           {
             id: "section-2",
@@ -116,7 +116,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("pregnancy_week_assets")) {
+      if (path.startsWith("content.pregnancy_week_assets")) {
         return Promise.resolve([
           {
             id: "asset-2",
@@ -162,7 +162,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
 
   it("saves week metadata, sections, and assets", async () => {
     mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("pregnancy_weeks")) {
+      if (path.startsWith("content.pregnancy_weeks")) {
         return Promise.resolve([
           {
             id: "week-12",
@@ -180,7 +180,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("pregnancy_week_sections")) {
+      if (path.startsWith("content.pregnancy_week_sections")) {
         return Promise.resolve([
           {
             id: "section-existing",
@@ -193,7 +193,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("pregnancy_week_assets")) {
+      if (path.startsWith("content.pregnancy_week_assets")) {
         return Promise.resolve([
           {
             id: "asset-existing",
@@ -257,7 +257,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
     });
 
     expect(mockedUpdate).toHaveBeenCalledWith(
-      "pregnancy_weeks?id=eq.week-12",
+      "content.pregnancy_weeks?id=eq.week-12",
       expect.objectContaining({
         title: "12주차 관리본",
         baby_size_label: "자두",
@@ -265,20 +265,20 @@ describe("SupabaseAdminContentPortAdapter", () => {
       }),
     );
     expect(mockedUpdate).toHaveBeenCalledWith(
-      "pregnancy_week_sections?id=eq.section-existing",
+      "content.pregnancy_week_sections?id=eq.section-existing",
       expect.objectContaining({
         body: "수정된 본문",
       }),
     );
     expect(mockedInsert).toHaveBeenCalledWith(
-      "pregnancy_week_sections",
+      "content.pregnancy_week_sections",
       expect.objectContaining({
         week_id: "week-12",
         section_key: "checklist",
       }),
     );
     expect(mockedInsert).toHaveBeenCalledWith(
-      "pregnancy_week_assets",
+      "content.pregnancy_week_assets",
       expect.objectContaining({
         week_id: "week-12",
         asset_type: "compare",
@@ -288,7 +288,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
 
   it("deletes persisted sections and assets omitted from the payload", async () => {
     mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("pregnancy_weeks")) {
+      if (path.startsWith("content.pregnancy_weeks")) {
         return Promise.resolve([
           {
             id: "week-12",
@@ -306,7 +306,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("pregnancy_week_sections")) {
+      if (path.startsWith("content.pregnancy_week_sections")) {
         return Promise.resolve([
           {
             id: "section-keep",
@@ -327,7 +327,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("pregnancy_week_assets")) {
+      if (path.startsWith("content.pregnancy_week_assets")) {
         return Promise.resolve([
           {
             id: "asset-keep",
@@ -386,10 +386,130 @@ describe("SupabaseAdminContentPortAdapter", () => {
     });
 
     expect(mockedDelete).toHaveBeenCalledWith(
-      "pregnancy_week_sections?id=eq.section-delete",
+      "content.pregnancy_week_sections?id=eq.section-delete",
     );
     expect(mockedDelete).toHaveBeenCalledWith(
-      "pregnancy_week_assets?id=eq.asset-delete",
+      "content.pregnancy_week_assets?id=eq.asset-delete",
     );
+  });
+
+  it("creates and updates rag documents", async () => {
+    mockedInsert.mockResolvedValueOnce([
+      {
+        id: "doc-1",
+        title: "두통 가이드",
+        content: "본문",
+        pregnancy_week: 18,
+        category: "guide",
+        metadata: { chunk_count: 1 },
+        updated_at: "2026-03-18T10:00:00.000Z",
+      },
+    ]);
+    mockedUpdate.mockResolvedValueOnce([
+      {
+        id: "doc-1",
+        title: "수정된 두통 가이드",
+        content: "수정 본문",
+        pregnancy_week: null,
+        category: "warning",
+        metadata: { chunk_count: 1 },
+        updated_at: "2026-03-18T11:00:00.000Z",
+      },
+    ]);
+
+    const created = await adapter.createDocument({
+      title: "두통 가이드",
+      pregnancyWeek: 18,
+      category: "guide",
+      content: "본문",
+    });
+    const updated = await adapter.updateDocument("doc-1", {
+      title: "수정된 두통 가이드",
+      pregnancyWeek: null,
+      category: "warning",
+      content: "수정 본문",
+    });
+
+    expect(created).toMatchObject({
+      id: "doc-1",
+      pregnancyWeek: 18,
+      category: "guide",
+    });
+    expect(updated).toMatchObject({
+      id: "doc-1",
+      title: "수정된 두통 가이드",
+      pregnancyWeek: null,
+      category: "warning",
+    });
+    expect(mockedInsert).toHaveBeenCalledWith(
+      "content.pregnancy_documents",
+      expect.objectContaining({
+        title: "두통 가이드",
+        pregnancy_week: 18,
+      }),
+    );
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      "content.pregnancy_documents?id=eq.doc-1",
+      expect.objectContaining({
+        title: "수정된 두통 가이드",
+        category: "warning",
+      }),
+    );
+  });
+
+  it("deletes rag documents and updates workflow rules", async () => {
+    mockedDelete.mockResolvedValueOnce([]);
+    mockedSelect.mockResolvedValueOnce([
+      {
+        id: "wf-1",
+        name: "기본 응답",
+        slug: "default-chat",
+        provider: "flowise",
+        status: "published",
+        is_active: true,
+        config: { modelName: "gemini-2.5-flash-lite" },
+        metadata: { trigger: "일반 채팅" },
+        updated_at: "2026-03-18T10:00:00.000Z",
+      },
+    ]);
+    mockedUpdate.mockResolvedValueOnce([
+      {
+        id: "wf-1",
+        name: "수정된 기본 응답",
+        slug: "default-chat",
+        provider: "flowise",
+        status: "draft",
+        is_active: false,
+        config: {
+          modelName: "gemini-2.5-pro",
+          retrievalScope: "응급 문서 우선",
+        },
+        metadata: {
+          trigger: "복통",
+          retrievalScope: "응급 문서 우선",
+          modelName: "gemini-2.5-pro",
+        },
+        updated_at: "2026-03-18T11:00:00.000Z",
+      },
+    ]);
+
+    await adapter.deleteDocument("doc-1");
+    const updatedRule = await adapter.updateWorkflowRule("wf-1", {
+      name: "수정된 기본 응답",
+      trigger: "복통",
+      retrievalScope: "응급 문서 우선",
+      modelName: "gemini-2.5-pro",
+      status: "review",
+    });
+
+    expect(mockedDelete).toHaveBeenCalledWith(
+      "content.pregnancy_documents?id=eq.doc-1",
+    );
+    expect(updatedRule).toMatchObject({
+      id: "wf-1",
+      name: "수정된 기본 응답",
+      modelName: "gemini-2.5-pro",
+      status: "review",
+    });
   });
 });

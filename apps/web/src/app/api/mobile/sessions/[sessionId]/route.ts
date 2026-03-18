@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireMobileSession } from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
 import { toChatSession } from "@/lib/mobile/serializers";
 
@@ -7,12 +8,9 @@ export async function GET(
   context: { params: Promise<{ sessionId: string }> },
 ) {
   try {
-    const userId = request.nextUrl.searchParams.get("userId");
+    const hintedUserId = request.nextUrl.searchParams.get("userId");
     const { sessionId } = await context.params;
-
-    if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
-    }
+    const { userId } = await requireMobileSession(request, hintedUserId);
 
     const [sessions, messages] = await Promise.all([
       supabaseSelect<Array<{ id: string; title: string; last_message_at: string | null }>>(

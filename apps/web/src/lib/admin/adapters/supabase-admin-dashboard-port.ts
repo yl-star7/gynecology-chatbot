@@ -12,10 +12,12 @@ import {
   resolveServerDataProvider,
 } from "@/lib/server-data-provider";
 import {
+  supabaseDelete,
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
 } from "@/lib/mobile/supabase-rest";
+import { normalizePhoneNumberToE164 } from "@/lib/mobile/twilio-verify";
 
 import { MockAdminDashboardPortAdapter } from "./mock-admin-dashboard-port";
 
@@ -33,6 +35,19 @@ function getAdminActorId() {
   }
 
   return actorId;
+}
+
+function normalizeManagedPhoneNumber(phoneNumber: string) {
+  const trimmed = phoneNumber.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  try {
+    return normalizePhoneNumberToE164(trimmed);
+  } catch {
+    return trimmed;
+  }
 }
 
 function toManagedUserStatus(
@@ -64,7 +79,7 @@ function formatUserActionLabel(
   if (actionType === "login_succeeded") {
     return {
       actionLabel: "로그인 완료",
-      detail: "기존 비밀번호로 로그인했습니다.",
+      detail: "문자 인증 후 세션을 발급했습니다.",
     };
   }
 
@@ -87,27 +102,6 @@ function formatUserActionLabel(
     return {
       actionLabel: "문자 인증 확인",
       detail: "문자 인증 코드를 확인했습니다.",
-    };
-  }
-
-  if (actionType === "password_set") {
-    const flow = payload?.flow === "recovery" ? "recovery" : "signup";
-    return {
-      actionLabel:
-        flow === "recovery"
-          ? "비밀번호 재설정 완료"
-          : "초기 비밀번호 설정 완료",
-      detail:
-        flow === "recovery"
-          ? "재설정 플로우에서 새 비밀번호를 저장했습니다."
-          : "초기 계정 설정 절차에서 비밀번호를 저장했습니다.",
-    };
-  }
-
-  if (actionType === "password_reset_requested") {
-    return {
-      actionLabel: "비밀번호 재설정 요청",
-      detail: "재설정용 문자 인증을 요청했습니다.",
     };
   }
 
@@ -140,6 +134,40 @@ function formatUserActionLabel(
   };
 }
 
+function mapWorkflowRule(row: {
+  id: string;
+  name: string;
+  provider: string;
+  is_active: boolean;
+  config: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+}) {
+  const status: "active" | "review" = row.is_active ? "active" : "review";
+  return {
+    id: row.id,
+    name: row.name,
+    trigger:
+      typeof row.metadata?.trigger === "string"
+        ? row.metadata.trigger
+        : typeof row.config?.trigger === "string"
+          ? row.config.trigger
+          : row.provider,
+    retrievalScope:
+      typeof row.metadata?.retrievalScope === "string"
+        ? row.metadata.retrievalScope
+        : typeof row.config?.retrievalScope === "string"
+          ? row.config.retrievalScope
+          : "기본 범위",
+    modelName:
+      typeof row.metadata?.modelName === "string"
+        ? row.metadata.modelName
+        : typeof row.config?.modelName === "string"
+          ? row.config.modelName
+          : "미설정",
+    status,
+  };
+}
+
 export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
   private readonly fallback = new MockAdminDashboardPortAdapter();
 
@@ -155,27 +183,28 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       messages,
       auditLogs,
       ragDocuments,
+      workflowDefinitions,
       userActions,
     ] = await Promise.all([
       supabaseSelect<
         Array<{
           id: string;
-          display_name: string;
           phone_number: string;
           account_status: string;
           last_login_at: string | null;
         }>
       >(
-        "users?select=id,display_name,phone_number,account_status,last_login_at",
+        "users?select=id,phone_number,account_status,last_login_at",
       ),
       supabaseSelect<
         Array<{
           user_id: string;
+          display_name: string | null;
           pregnancy_week: number | null;
           pregnancy_day_in_week: number | null;
         }>
       >(
-        "pregnancy_profiles?select=user_id,pregnancy_week,pregnancy_day_in_week",
+        "pregnancy_profiles?select=user_id,display_name,pregnancy_week,pregnancy_day_in_week",
       ),
       supabaseSelect<
         Array<{
@@ -218,7 +247,19 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           created_at: string;
         }>
       >(
-        "pregnancy_documents?select=id,title,pregnancy_week,category,metadata,created_at&order=created_at.desc",
+        "content.pregnancy_documents?select=id,title,pregnancy_week,category,metadata,created_at&order=created_at.desc",
+      ),
+      supabaseSelect<
+        Array<{
+          id: string;
+          name: string;
+          provider: string;
+          is_active: boolean;
+          config: Record<string, unknown> | null;
+          metadata: Record<string, unknown> | null;
+        }>
+      >(
+        "workflow_definitions?select=id,name,provider,is_active,config,metadata&order=updated_at.desc",
       ),
       supabaseSelect<
         Array<{
@@ -257,6 +298,9 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       sessionsByUser.set(session.user_id, current);
     }
 
+    const resolveDisplayName = (userId: string) =>
+      profilesByUser.get(userId)?.display_name?.trim() || "알 수 없는 사용자";
+
     const latestAuditByUser = new Map(
       auditLogs
         .filter((log) => log.target_user_id)
@@ -280,7 +324,7 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       return {
         id: action.id,
         userId: action.user_id,
-        userName: user?.display_name ?? "알 수 없는 사용자",
+        userName: user ? resolveDisplayName(user.id) : "알 수 없는 사용자",
         actionType: action.action_type,
         actionLabel: description.actionLabel,
         detail: description.detail,
@@ -306,9 +350,9 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
             ...metric,
             value: String(
               auditLogs.filter((log) =>
-                ["phone_change", "login_id_change", "password_reset"].includes(
+                ["phone_change", "login_id_change", "session_reset"].includes(
                   log.action_type,
-                ),
+                )
               ).length,
             ),
           };
@@ -320,7 +364,7 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
         const latestAudit = latestAuditByUser.get(user.id);
         return {
           id: user.id,
-          name: user.display_name,
+          name: resolveDisplayName(user.id),
           phoneNumber: user.phone_number,
           status: toManagedUserStatus(user.account_status),
           latestIssue: latestAudit?.action_type ?? user.account_status,
@@ -328,16 +372,16 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       }),
       recoveryActions: auditLogs
         .filter((log) =>
-          ["phone_change", "login_id_change", "password_reset"].includes(
+          ["phone_change", "login_id_change", "session_reset"].includes(
             log.action_type,
           ),
         )
         .slice(0, 8)
         .map((log) => ({
           id: log.id,
-          userName:
-            users.find((user) => user.id === log.target_user_id)
-              ?.display_name ?? "알 수 없는 사용자",
+          userName: log.target_user_id
+            ? resolveDisplayName(log.target_user_id)
+            : "알 수 없는 사용자",
           action: log.action_type,
           requestedAt: new Date(log.created_at).toLocaleString("ko-KR"),
           status: "completed" as const,
@@ -367,7 +411,7 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
 
               return {
                 id: user.id,
-                name: user.display_name,
+                name: resolveDisplayName(user.id),
                 phoneNumber: user.phone_number,
                 pregnancyWeekLabel: toPregnancyWeekLabel(
                   profile?.pregnancy_week ?? null,
@@ -410,6 +454,10 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
         mappedUserActions.length > 0
           ? mappedUserActions
           : dashboard.userActions,
+      workflowRules:
+        workflowDefinitions.length > 0
+          ? workflowDefinitions.map(mapWorkflowRule)
+          : dashboard.workflowRules,
     };
   }
 }
@@ -425,19 +473,196 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     const users = await supabaseSelect<
       Array<{
         id: string;
-        display_name: string;
         phone_number: string;
         account_status: string;
       }>
-    >("users?select=id,display_name,phone_number,account_status");
+    >("users?select=id,phone_number,account_status");
+    const profiles = await supabaseSelect<
+      Array<{ user_id: string; display_name: string | null }>
+    >("pregnancy_profiles?select=user_id,display_name");
+    const profilesByUser = new Map(
+      profiles.map((profile) => [profile.user_id, profile.display_name]),
+    );
 
     return users.map((user) => ({
       id: user.id,
-      name: user.display_name,
+      name: profilesByUser.get(user.id)?.trim() || "알 수 없는 사용자",
       phoneNumber: user.phone_number,
       status: toManagedUserStatus(user.account_status),
       latestIssue: user.account_status,
     }));
+  }
+
+  async listAllowedPhoneNumbers() {
+    if (!hasBackendAdminConfig()) {
+      return [];
+    }
+
+    const rows = await supabaseSelect<
+      Array<{
+        id: string;
+        phone_number: string;
+        display_name: string | null;
+        note: string | null;
+        created_at: string;
+        updated_at: string;
+      }>
+    >(
+      "allowed_phone_numbers?select=id,phone_number,display_name,note,created_at,updated_at&order=updated_at.desc",
+    );
+
+    return rows.map((row) => ({
+      id: row.id,
+      phoneNumber: row.phone_number,
+      displayName: row.display_name,
+      note: row.note,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  async createAllowedPhoneNumber(input: {
+    actorId?: string;
+    phoneNumber: string;
+    displayName?: string | null;
+    note?: string | null;
+  }) {
+    if (!hasBackendAdminConfig()) {
+      throw new Error("backend admin configuration is required");
+    }
+
+    const inserted = await supabaseInsert<
+      Array<{
+        id: string;
+        phone_number: string;
+        display_name: string | null;
+        note: string | null;
+        created_at: string;
+        updated_at: string;
+      }>
+    >("allowed_phone_numbers", {
+      phone_number: normalizeManagedPhoneNumber(input.phoneNumber),
+      display_name: input.displayName ?? null,
+      note: input.note ?? null,
+      updated_at: new Date().toISOString(),
+    });
+
+    const createdEntry = {
+      id: inserted[0]?.id ?? "",
+      phoneNumber: inserted[0]?.phone_number ?? input.phoneNumber,
+      displayName: inserted[0]?.display_name ?? input.displayName ?? null,
+      note: inserted[0]?.note ?? input.note ?? null,
+      createdAt: inserted[0]?.created_at ?? new Date().toISOString(),
+      updatedAt: inserted[0]?.updated_at ?? new Date().toISOString(),
+    };
+
+    await supabaseInsert("admin_audit_logs", {
+      admin_user_id: input.actorId ?? getAdminActorId(),
+      target_user_id: null,
+      action_type: "content_update",
+      entity_type: "allowed_phone_number",
+      entity_id: createdEntry.id || null,
+      reason: "allowed_phone_number_create",
+      before_payload: {},
+      after_payload: {
+        phone_number: createdEntry.phoneNumber,
+        display_name: createdEntry.displayName,
+        note: createdEntry.note,
+      },
+    });
+
+    return createdEntry;
+  }
+
+  async updateAllowedPhoneNumber(input: {
+    actorId?: string;
+    id: string;
+    phoneNumber: string;
+    displayName?: string | null;
+    note?: string | null;
+  }) {
+    if (!hasBackendAdminConfig()) {
+      throw new Error("backend admin configuration is required");
+    }
+
+    const beforeRows = await supabaseSelect<
+      Array<{
+        id: string;
+        phone_number: string;
+        display_name: string | null;
+        note: string | null;
+      }>
+    >(`allowed_phone_numbers?select=id,phone_number,display_name,note&id=eq.${input.id}&limit=1`);
+
+    const updated = await supabaseUpdate<
+      Array<{
+        id: string;
+        phone_number: string;
+        display_name: string | null;
+        note: string | null;
+        created_at: string;
+        updated_at: string;
+      }>
+    >(`allowed_phone_numbers?id=eq.${input.id}`, {
+      phone_number: normalizeManagedPhoneNumber(input.phoneNumber),
+      display_name: input.displayName ?? null,
+      note: input.note ?? null,
+      updated_at: new Date().toISOString(),
+    });
+
+    const updatedEntry = {
+      id: updated[0]?.id ?? input.id,
+      phoneNumber: updated[0]?.phone_number ?? input.phoneNumber,
+      displayName: updated[0]?.display_name ?? input.displayName ?? null,
+      note: updated[0]?.note ?? input.note ?? null,
+      createdAt: updated[0]?.created_at ?? new Date().toISOString(),
+      updatedAt: updated[0]?.updated_at ?? new Date().toISOString(),
+    };
+
+    await supabaseInsert("admin_audit_logs", {
+      admin_user_id: input.actorId ?? getAdminActorId(),
+      target_user_id: null,
+      action_type: "content_update",
+      entity_type: "allowed_phone_number",
+      entity_id: updatedEntry.id,
+      reason: "allowed_phone_number_update",
+      before_payload: beforeRows[0] ?? {},
+      after_payload: {
+        phone_number: updatedEntry.phoneNumber,
+        display_name: updatedEntry.displayName,
+        note: updatedEntry.note,
+      },
+    });
+
+    return updatedEntry;
+  }
+
+  async deleteAllowedPhoneNumber(input: { actorId?: string; id: string }) {
+    if (!hasBackendAdminConfig()) {
+      return;
+    }
+
+    const beforeRows = await supabaseSelect<
+      Array<{
+        id: string;
+        phone_number: string;
+        display_name: string | null;
+        note: string | null;
+      }>
+    >(`allowed_phone_numbers?select=id,phone_number,display_name,note&id=eq.${input.id}&limit=1`);
+
+    await supabaseDelete(`allowed_phone_numbers?id=eq.${input.id}`);
+
+    await supabaseInsert("admin_audit_logs", {
+      admin_user_id: input.actorId ?? getAdminActorId(),
+      target_user_id: null,
+      action_type: "content_update",
+      entity_type: "allowed_phone_number",
+      entity_id: input.id,
+      reason: "allowed_phone_number_delete",
+      before_payload: beforeRows[0] ?? {},
+      after_payload: {},
+    });
   }
 
   async updatePhoneNumber(input: {
@@ -472,7 +697,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     });
   }
 
-  async resetPassword(input: {
+  async resetSession(input: {
     actorId?: string;
     userId: string;
     reason: string;
@@ -489,7 +714,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     await supabaseInsert("admin_audit_logs", {
       admin_user_id: input.actorId ?? getAdminActorId(),
       target_user_id: input.userId,
-      action_type: "password_reset",
+      action_type: "session_reset",
       entity_type: "user",
       entity_id: input.userId,
       reason: input.reason,

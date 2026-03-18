@@ -15,14 +15,12 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "users")} (
           id text PRIMARY KEY,
           role text NOT NULL DEFAULT 'user',
-          display_name text NOT NULL,
           phone_number text NOT NULL UNIQUE,
           account_status text NOT NULL DEFAULT 'active',
-          password_hash text,
-          password_set_at timestamptz,
           phone_verified_at timestamptz,
           last_login_at timestamptz,
-          created_at timestamptz NOT NULL DEFAULT now()
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
         );
 
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "chat_sessions")} (
@@ -37,6 +35,7 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "pregnancy_profiles")} (
           id text PRIMARY KEY,
           user_id text NOT NULL UNIQUE REFERENCES ${getQualifiedTable(schema, "users")}(id) ON DELETE CASCADE,
+          display_name text,
           pregnancy_status text NOT NULL DEFAULT 'pregnant',
           pregnancy_day_count integer NOT NULL DEFAULT 0,
           pregnancy_week integer,
@@ -54,12 +53,36 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           updated_at timestamptz NOT NULL DEFAULT now()
         );
 
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "emotion_logs")} (
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "auth_sessions")} (
           id text PRIMARY KEY,
           user_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "users")}(id) ON DELETE CASCADE,
-          date date NOT NULL,
-          emotion_tone text NOT NULL,
+          refresh_token_hash text NOT NULL,
+          device_label text,
+          last_used_at timestamptz NOT NULL DEFAULT now(),
+          expires_at timestamptz NOT NULL,
+          revoked_at timestamptz,
           created_at timestamptz NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "phone_verification_requests")} (
+          id text PRIMARY KEY,
+          phone_number text NOT NULL,
+          verification_sid text,
+          channel text NOT NULL DEFAULT 'sms',
+          status text NOT NULL DEFAULT 'pending',
+          attempt_count integer NOT NULL DEFAULT 0,
+          expires_at timestamptz NOT NULL,
+          verified_at timestamptz,
+          created_at timestamptz NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "allowed_phone_numbers")} (
+          id text PRIMARY KEY,
+          phone_number text NOT NULL UNIQUE,
+          display_name text,
+          note text,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
         );
 
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "chat_messages")} (
@@ -92,6 +115,19 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           section text NOT NULL,
           body text NOT NULL,
           status text NOT NULL DEFAULT 'published',
+          created_at timestamptz NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "workflow_definitions")} (
+          id text PRIMARY KEY,
+          name text NOT NULL,
+          slug text NOT NULL UNIQUE,
+          provider text NOT NULL DEFAULT 'flowise',
+          status text NOT NULL DEFAULT 'draft',
+          is_active boolean NOT NULL DEFAULT false,
+          config jsonb NOT NULL DEFAULT '{}'::jsonb,
+          metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+          updated_at timestamptz NOT NULL DEFAULT now(),
           created_at timestamptz NOT NULL DEFAULT now()
         );
 

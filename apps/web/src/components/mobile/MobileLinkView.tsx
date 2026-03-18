@@ -4,6 +4,7 @@ import type { LinkTargetContent } from "@gynecology-chatbot/app-core";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchLinkTarget } from "@/lib/mobile/web-mobile-api";
+import { MobileCard } from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
 
 export function MobileLinkView({
@@ -53,7 +54,7 @@ export function MobileLinkView({
       showTitleBlock={false}
       showChatFab
     >
-      <section className="rounded-[30px] border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)] backdrop-blur">
+      <MobileCard className="rounded-[30px] p-6 backdrop-blur">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
           {content?.section ?? target}
         </p>
@@ -71,7 +72,7 @@ export function MobileLinkView({
             홈으로 돌아가기
           </Link>
         </div>
-      </section>
+      </MobileCard>
     </MobileShell>
   );
 }

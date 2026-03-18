@@ -3,28 +3,45 @@ import {
   DEFAULT_MOBILE_THEME_KEY,
   resolveMobileThemeKey,
 } from "@gynecology-chatbot/app-core";
-import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import {
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
 } from "./supabase-rest";
-import { checkSmsVerification, sendSmsVerification } from "./twilio-verify";
+import {
+  checkSmsVerification,
+  normalizePhoneNumberToE164,
+  sendSmsVerification,
+} from "./twilio-verify";
 import { recordUserAction } from "./user-action-log";
 
 type UserRow = {
   id: string;
-  display_name: string;
   phone_number: string;
   account_status: "active" | "paused" | "deleted" | "pending_recovery";
-  password_hash: string | null;
-  password_set_at: string | null;
   phone_verified_at: string | null;
+  last_login_at: string | null;
 };
 
 type PregnancyProfileRow = {
+  id?: string;
   user_id: string;
+  display_name?: string | null;
+  onboarding_payload?: PregnancyProfileOnboardingPayload | null;
+  baby_nickname?: string | null;
+  notification_time?: string | null;
+  theme_key?: string | null;
 };
+
+type AllowedPhoneNumberRow = {
+  id: string;
+  phone_number: string;
+  display_name: string | null;
+  note: string | null;
+};
+
+type TwilioFlow = "sign_in" | "signup";
 
 function calculatePregnancyMetrics(input: {
   pregnancyWeekOrDueDate?: string;
@@ -147,230 +164,304 @@ export function buildPregnancyProfilePayload({
   };
 }
 
-function toAuthenticatedUser(
-  user: UserRow,
-  hasCompletedOnboarding: boolean,
-): AuthenticatedUser {
-  return {
-    id: user.id,
-    phoneNumber: user.phone_number,
-    displayName: user.display_name,
-    hasCompletedOnboarding,
-  };
-}
-
-function encodeVerificationToken(phoneNumber: string) {
-  return Buffer.from(JSON.stringify({ phoneNumber }), "utf8").toString(
-    "base64url",
-  );
-}
-
-function decodeVerificationToken(token: string): { phoneNumber: string } {
-  const decoded = Buffer.from(token, "base64url").toString("utf8");
-  return JSON.parse(decoded) as { phoneNumber: string };
-}
-
-function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return `scrypt:${salt}:${hash}`;
-}
-
-function verifyPassword(password: string, passwordHash: string | null) {
-  if (!passwordHash) {
-    return false;
-  }
-
-  const [algorithm, salt, storedHash] = passwordHash.split(":");
-  if (algorithm !== "scrypt" || !salt || !storedHash) {
-    return false;
-  }
-
-  const actualHash = scryptSync(password, salt, 64);
-  const expectedHash = Buffer.from(storedHash, "hex");
-  return (
-    expectedHash.length === actualHash.length &&
-    timingSafeEqual(expectedHash, actualHash)
-  );
-}
-
 function nowIso() {
   return new Date().toISOString();
 }
 
-export async function findUserByPhoneNumber(phoneNumber: string) {
-  const users = await supabaseSelect<UserRow[]>(
-    `users?select=id,display_name,phone_number,account_status,password_hash,password_set_at,phone_verified_at&phone_number=eq.${encodeURIComponent(phoneNumber)}&limit=1`,
+function oneYearFromNowIso() {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() + 1);
+  return date.toISOString();
+}
+
+function tenMinutesFromNowIso() {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() + 10);
+  return date.toISOString();
+}
+
+function buildSessionToken() {
+  return randomBytes(32).toString("base64url");
+}
+
+function hashSessionToken(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function normalizePhoneNumber(phoneNumber: string) {
+  const trimmed = phoneNumber.trim();
+  if (!trimmed) {
+    throw new Error("전화번호를 입력해 주세요.");
+  }
+
+  try {
+    return normalizePhoneNumberToE164(trimmed);
+  } catch {
+    return trimmed;
+  }
+}
+
+function createPhoneCandidates(phoneNumber: string) {
+  const trimmed = phoneNumber.trim();
+  const candidates = new Set<string>();
+
+  if (trimmed) {
+    candidates.add(trimmed);
+  }
+
+  try {
+    const normalized = normalizePhoneNumberToE164(trimmed);
+    candidates.add(normalized);
+
+    if (normalized.startsWith("+82")) {
+      candidates.add(`0${normalized.slice(3)}`);
+    }
+  } catch {
+    // Ignore normalization errors here; callers validate separately.
+  }
+
+  return [...candidates];
+}
+
+function ensureUserCanSignIn(
+  accountStatus: UserRow["account_status"],
+  _flow: TwilioFlow,
+) {
+  if (accountStatus === "paused" || accountStatus === "deleted") {
+    throw new Error(
+      "현재 로그인할 수 없는 계정 상태입니다. 관리자에게 문의해 주세요.",
+    );
+  }
+}
+
+async function findPregnancyProfile(userId: string) {
+  const profiles = await supabaseSelect<PregnancyProfileRow[]>(
+    `pregnancy_profiles?select=id,user_id,display_name,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${userId}&limit=1`,
   );
-  return users[0] ?? null;
+
+  return profiles[0] ?? null;
+}
+
+export async function findAllowedPhoneNumber(phoneNumber: string) {
+  const candidates = createPhoneCandidates(phoneNumber);
+
+  for (const candidate of candidates) {
+    const rows = await supabaseSelect<AllowedPhoneNumberRow[]>(
+      `allowed_phone_numbers?select=id,phone_number,display_name,note&phone_number=eq.${encodeURIComponent(candidate)}&limit=1`,
+    );
+
+    if (rows[0]) {
+      return rows[0];
+    }
+  }
+
+  return null;
+}
+
+function toAuthenticatedUser(
+  user: UserRow,
+  profile: PregnancyProfileRow | null,
+): AuthenticatedUser {
+  return {
+    id: user.id,
+    phoneNumber: user.phone_number,
+    displayName: profile?.display_name?.trim() || "사용자",
+    hasCompletedOnboarding: Boolean(profile),
+  };
+}
+
+export async function findUserByPhoneNumber(phoneNumber: string) {
+  const candidates = createPhoneCandidates(phoneNumber);
+
+  for (const candidate of candidates) {
+    const users = await supabaseSelect<UserRow[]>(
+      `users?select=id,phone_number,account_status,phone_verified_at,last_login_at&phone_number=eq.${encodeURIComponent(candidate)}&limit=1`,
+    );
+
+    if (users[0]) {
+      return users[0];
+    }
+  }
+
+  return null;
 }
 
 export async function getAuthenticatedUser(userId: string) {
-  const [users, profiles] = await Promise.all([
+  const [users, profile] = await Promise.all([
     supabaseSelect<UserRow[]>(
-      `users?select=id,display_name,phone_number,account_status,password_hash,password_set_at,phone_verified_at&id=eq.${userId}&limit=1`,
+      `users?select=id,phone_number,account_status,phone_verified_at,last_login_at&id=eq.${userId}&limit=1`,
     ),
-    supabaseSelect<PregnancyProfileRow[]>(
-      `pregnancy_profiles?select=user_id&user_id=eq.${userId}&limit=1`,
-    ),
+    findPregnancyProfile(userId),
   ]);
 
   if (!users[0]) {
     return null;
   }
 
-  return toAuthenticatedUser(users[0], Boolean(profiles[0]));
+  return toAuthenticatedUser(users[0], profile);
 }
 
-export async function signInUserByPhoneNumber(
+async function createOrUpdateSession(userId: string) {
+  const sessionToken = buildSessionToken();
+  const currentTimestamp = nowIso();
+
+  await supabaseUpdate(`auth_sessions?user_id=eq.${userId}`, {
+    revoked_at: currentTimestamp,
+  });
+
+  await supabaseInsert("auth_sessions", {
+    user_id: userId,
+    refresh_token_hash: hashSessionToken(sessionToken),
+    expires_at: oneYearFromNowIso(),
+    last_used_at: currentTimestamp,
+    created_at: currentTimestamp,
+  });
+
+  return sessionToken;
+}
+
+async function recordPhoneVerificationRequest(input: {
+  phoneNumber: string;
+  verificationSid?: string;
+  status: string;
+  channel?: string;
+  verifiedAt?: string | null;
+}) {
+  await supabaseInsert("phone_verification_requests", {
+    phone_number: input.phoneNumber,
+    verification_sid: input.verificationSid ?? null,
+    channel: input.channel ?? "sms",
+    status: input.status,
+    verified_at: input.verifiedAt ?? null,
+    expires_at: tenMinutesFromNowIso(),
+  });
+}
+
+async function upsertPhoneUser(phoneNumber: string) {
+  const existingUser = await findUserByPhoneNumber(phoneNumber);
+  const nextTimestamp = nowIso();
+
+  if (existingUser) {
+    ensureUserCanSignIn(existingUser.account_status, "sign_in");
+
+    await supabaseUpdate(`users?id=eq.${existingUser.id}`, {
+      account_status: "active",
+      phone_number: phoneNumber,
+      phone_verified_at: nextTimestamp,
+      last_login_at: nextTimestamp,
+      updated_at: nextTimestamp,
+    });
+
+    return existingUser.id;
+  }
+
+  const userId = randomUUID();
+  await supabaseInsert("users", {
+    id: userId,
+    phone_number: phoneNumber,
+    role: "user",
+    account_status: "active",
+    phone_verified_at: nextTimestamp,
+    last_login_at: nextTimestamp,
+    updated_at: nextTimestamp,
+  });
+
+  return userId;
+}
+
+export async function startPhoneVerification(phoneNumber: string) {
+  const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+  const allowedPhoneNumber = await findAllowedPhoneNumber(normalizedPhoneNumber);
+  if (!allowedPhoneNumber) {
+    throw new Error("허용된 전화번호가 아닙니다. 관리자에게 문의해 주세요.");
+  }
+  const existingUser = await findUserByPhoneNumber(normalizedPhoneNumber);
+
+  if (existingUser) {
+    ensureUserCanSignIn(existingUser.account_status, "sign_in");
+  }
+
+  const verification = await sendSmsVerification(normalizedPhoneNumber);
+  await recordPhoneVerificationRequest({
+    phoneNumber: verification.to ?? normalizedPhoneNumber,
+    verificationSid: verification.sid,
+    status: verification.status ?? "pending",
+    channel: "sms",
+  });
+
+  if (existingUser) {
+    await recordUserAction({
+      userId: existingUser.id,
+      actionType: "phone_verification_started",
+      payload: {
+        flow: "sign_in",
+      },
+    });
+  }
+
+  return { ok: true as const };
+}
+
+export async function completePhoneSignIn(
   phoneNumber: string,
-  password: string,
+  verificationCode: string,
 ) {
-  const user = await findUserByPhoneNumber(phoneNumber);
-  if (!user) {
-    throw new Error("등록된 전화번호를 찾을 수 없습니다.");
+  const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+  const allowedPhoneNumber = await findAllowedPhoneNumber(normalizedPhoneNumber);
+  if (!allowedPhoneNumber) {
+    throw new Error("허용된 전화번호가 아닙니다. 관리자에게 문의해 주세요.");
   }
+  const verification = await checkSmsVerification(
+    normalizedPhoneNumber,
+    verificationCode,
+  );
 
-  if (user.account_status === "pending_recovery") {
-    throw new Error(
-      "비밀번호 재설정 대기 중입니다. 새 비밀번호를 먼저 설정해 주세요.",
-    );
-  }
+  const verifiedAt = nowIso();
+  await recordPhoneVerificationRequest({
+    phoneNumber: verification.to ?? normalizedPhoneNumber,
+    verificationSid: verification.sid,
+    status: verification.status,
+    channel: "sms",
+    verifiedAt,
+  });
 
-  if (user.account_status === "paused" || user.account_status === "deleted") {
-    throw new Error(
-      "현재 로그인할 수 없는 계정 상태입니다. 관리자에게 문의해 주세요.",
-    );
-  }
+  const userId = await upsertPhoneUser(verification.to ?? normalizedPhoneNumber);
+  const sessionToken = await createOrUpdateSession(userId);
 
-  if (!verifyPassword(password, user.password_hash)) {
-    throw new Error("전화번호 또는 비밀번호가 맞지 않습니다.");
-  }
-
-  await supabaseUpdate(`users?id=eq.${user.id}`, {
-    last_login_at: nowIso(),
-    updated_at: nowIso(),
+  await recordUserAction({
+    userId,
+    actionType: "phone_verified",
   });
 
   await recordUserAction({
-    userId: user.id,
+    userId,
     actionType: "login_succeeded",
   });
 
-  const nextUser = await getAuthenticatedUser(user.id);
+  const nextUser = await getAuthenticatedUser(userId);
   if (!nextUser) {
     throw new Error("로그인 사용자 정보를 확인하지 못했습니다.");
   }
 
-  return nextUser;
+  if (
+    nextUser.displayName === "사용자" &&
+    allowedPhoneNumber.display_name?.trim()
+  ) {
+    nextUser.displayName = allowedPhoneNumber.display_name.trim();
+  }
+
+  return {
+    user: nextUser,
+    sessionToken,
+  };
 }
 
 export async function verifyPhoneNumber(
   phoneNumber: string,
   verificationCode: string,
 ) {
-  const user = await findUserByPhoneNumber(phoneNumber);
-  if (!user) {
-    throw new Error("등록된 전화번호를 찾을 수 없습니다.");
-  }
-
-  await checkSmsVerification(phoneNumber, verificationCode);
-
-  await recordUserAction({
-    userId: user.id,
-    actionType: "phone_verified",
-  });
-
-  return {
-    verificationToken: encodeVerificationToken(phoneNumber),
-  };
-}
-
-export async function startPhoneVerification(phoneNumber: string) {
-  const user = await findUserByPhoneNumber(phoneNumber);
-  if (!user) {
-    throw new Error("등록된 전화번호를 찾을 수 없습니다.");
-  }
-
-  await sendSmsVerification(phoneNumber);
-
-  await recordUserAction({
-    userId: user.id,
-    actionType: "phone_verification_started",
-    payload: {
-      flow: "signup",
-    },
-  });
-
-  return { ok: true as const };
-}
-
-export async function setUserPassword(
-  verificationToken: string,
-  password: string,
-) {
-  const { phoneNumber } = decodeVerificationToken(verificationToken);
-  const user = await findUserByPhoneNumber(phoneNumber);
-  if (!user) {
-    throw new Error("인증 대상 사용자를 찾지 못했습니다.");
-  }
-
-  await supabaseUpdate(`users?id=eq.${user.id}`, {
-    account_status: "active",
-    password_hash: hashPassword(password),
-    password_set_at: nowIso(),
-    phone_verified_at: nowIso(),
-    updated_at: nowIso(),
-  });
-
-  await recordUserAction({
-    userId: user.id,
-    actionType: "password_set",
-    payload: {
-      flow: user.account_status === "pending_recovery" ? "recovery" : "signup",
-    },
-  });
-
-  const nextUser = await getAuthenticatedUser(user.id);
-  if (!nextUser) {
-    throw new Error("비밀번호 설정 후 사용자 정보를 확인하지 못했습니다.");
-  }
-
-  return nextUser;
-}
-
-export async function createPasswordResetAudit(phoneNumber: string) {
-  const user = await findUserByPhoneNumber(phoneNumber);
-  if (!user) {
-    throw new Error("등록된 전화번호를 찾을 수 없습니다.");
-  }
-
-  await supabaseUpdate(`users?id=eq.${user.id}`, {
-    account_status: "pending_recovery",
-    updated_at: nowIso(),
-  });
-
-  const adminUserId = process.env.ADMIN_ACTOR_USER_ID;
-  if (adminUserId) {
-    await supabaseInsert("admin_audit_logs", {
-      admin_user_id: adminUserId,
-      target_user_id: user.id,
-      action_type: "password_reset",
-      entity_type: "user",
-      reason: "mobile_password_reset_request",
-      before_payload: { accountStatus: "active" },
-      after_payload: { accountStatus: "pending_recovery" },
-    });
-  }
-
-  await sendSmsVerification(phoneNumber);
-
-  await recordUserAction({
-    userId: user.id,
-    actionType: "password_reset_requested",
-  });
-
-  return { ok: true as const };
+  const result = await completePhoneSignIn(phoneNumber, verificationCode);
+  return result;
 }
 
 export async function completeUserOnboarding(input: {
@@ -406,13 +497,10 @@ export async function completeUserOnboarding(input: {
   });
 
   if (existingProfiles[0]) {
-    await supabaseUpdate(
-      `pregnancy_profiles?user_id=eq.${input.userId}`,
-      {
-        ...payload,
-        updated_at: nowIso(),
-      },
-    );
+    await supabaseUpdate(`pregnancy_profiles?user_id=eq.${input.userId}`, {
+      ...payload,
+      updated_at: nowIso(),
+    });
   } else {
     await supabaseInsert("pregnancy_profiles", {
       user_id: input.userId,
@@ -458,27 +546,8 @@ export async function updateMobileProfile(input: {
     pregnancyWeekOrDueDate: input.dueDate ?? undefined,
   });
 
-  await supabaseUpdate(`users?id=eq.${input.userId}`, {
-    display_name: input.displayName,
-    updated_at: nowIso(),
-  });
-
-  const existingProfiles = await supabaseSelect<
-    Array<{
-      id: string;
-      onboarding_payload: {
-        pregnancyWeekOrDueDate?: string | null;
-        tonePreference?: string | null;
-        babyNickname?: string | null;
-        hospitalName?: string | null;
-        notificationTime?: string | null;
-      } | null;
-      baby_nickname?: string | null;
-      notification_time?: string | null;
-      theme_key?: string | null;
-    }>
-  >(
-    `pregnancy_profiles?select=id,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${input.userId}&limit=1`,
+  const existingProfiles = await supabaseSelect<Array<PregnancyProfileRow>>(
+    `pregnancy_profiles?select=id,user_id,display_name,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${input.userId}&limit=1`,
   );
 
   const existingProfile = existingProfiles[0];
@@ -503,17 +572,18 @@ export async function updateMobileProfile(input: {
       : null,
   });
 
-  if (existingProfiles[0]) {
-    await supabaseUpdate(
-      `pregnancy_profiles?user_id=eq.${input.userId}`,
-      {
-        ...profilePayload,
-        updated_at: nowIso(),
-      },
-    );
+  const nextDisplayName = input.displayName.trim() || null;
+
+  if (existingProfile) {
+    await supabaseUpdate(`pregnancy_profiles?user_id=eq.${input.userId}`, {
+      ...profilePayload,
+      display_name: nextDisplayName,
+      updated_at: nowIso(),
+    });
   } else {
     await supabaseInsert("pregnancy_profiles", {
       user_id: input.userId,
+      display_name: nextDisplayName,
       ...profilePayload,
     });
   }

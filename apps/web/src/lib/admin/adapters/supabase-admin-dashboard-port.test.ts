@@ -31,7 +31,6 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
         return Promise.resolve([
           {
             id: "user-1",
-            display_name: "김수연",
             phone_number: "01012345678",
             account_status: "active",
             last_login_at: "2026-03-17T10:00:00.000Z",
@@ -43,6 +42,7 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
         return Promise.resolve([
           {
             user_id: "user-1",
+            display_name: "김수연",
             pregnancy_week: 18,
             pregnancy_day_in_week: 2,
           },
@@ -76,7 +76,7 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
         return Promise.resolve([]);
       }
 
-      if (path.startsWith("pregnancy_documents?")) {
+      if (path.startsWith("content.pregnancy_documents?")) {
         return Promise.resolve([]);
       }
 
@@ -99,10 +99,8 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
             user_id: "user-1",
             session_id: null,
             message_id: null,
-            action_type: "password_set",
-            payload: {
-              flow: "recovery",
-            },
+            action_type: "phone_verified",
+            payload: {},
             occurred_at: "2026-03-17T09:00:00.000Z",
           },
         ]);
@@ -126,8 +124,8 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
     });
     expect(dashboard.userActions[1]).toMatchObject({
       id: "action-2",
-      actionLabel: "비밀번호 재설정 완료",
-      detail: "재설정 플로우에서 새 비밀번호를 저장했습니다.",
+      actionLabel: "문자 인증 확인",
+      detail: "문자 인증 코드를 확인했습니다.",
     });
   });
 
@@ -137,7 +135,6 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
         return Promise.resolve([
           {
             id: "user-1",
-            display_name: "김수연",
             phone_number: "01012345678",
             account_status: "active",
             last_login_at: "2026-03-17T10:00:00.000Z",
@@ -161,7 +158,7 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
         return Promise.resolve([]);
       }
 
-      if (path.startsWith("pregnancy_documents?")) {
+      if (path.startsWith("content.pregnancy_documents?")) {
         return Promise.resolve([]);
       }
 
@@ -183,10 +180,8 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
             user_id: "user-1",
             session_id: null,
             message_id: null,
-            action_type: "password_set",
-            payload: {
-              flow: "signup",
-            },
+            action_type: "phone_verified",
+            payload: {},
             occurred_at: "2026-03-17T09:00:00.000Z",
           },
         ]);
@@ -203,8 +198,8 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
       detail: "초기 계정 설정 절차에서 인증 코드를 발송했습니다.",
     });
     expect(dashboard.userActions[1]).toMatchObject({
-      actionLabel: "초기 비밀번호 설정 완료",
-      detail: "초기 계정 설정 절차에서 비밀번호를 저장했습니다.",
+      actionLabel: "문자 인증 확인",
+      detail: "문자 인증 코드를 확인했습니다.",
     });
   });
 });

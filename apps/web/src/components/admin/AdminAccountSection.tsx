@@ -1,6 +1,9 @@
 "use client";
 
-import type { AdminDashboardData } from "@gynecology-chatbot/app-core";
+import type {
+  AdminAllowedPhoneNumber,
+  AdminDashboardData,
+} from "@gynecology-chatbot/app-core";
 
 import {
   getManagedUserStatusBadge,
@@ -14,31 +17,55 @@ import styles from "./AdminConsoleLayout.module.css";
 interface AdminAccountSectionProps {
   managedUsers: AdminDashboardData["managedUsers"];
   recoveryActions: AdminDashboardData["recoveryActions"];
+  allowedPhoneNumbers: AdminAllowedPhoneNumber[];
   selectedUserId: string;
   phoneNumber: string;
   reason: string;
+  selectedAllowedPhoneId: string;
+  allowedPhoneNumber: string;
+  allowedDisplayName: string;
+  allowedNote: string;
   actionMessage: string | null;
   isSubmitting: boolean;
   onSelectUser: (userId: string) => void;
   onPhoneNumberChange: (value: string) => void;
   onReasonChange: (value: string) => void;
+  onSelectAllowedPhone: (id: string) => void;
+  onAllowedPhoneNumberChange: (value: string) => void;
+  onAllowedDisplayNameChange: (value: string) => void;
+  onAllowedNoteChange: (value: string) => void;
   onUpdatePhoneNumber: () => Promise<void>;
-  onResetPassword: () => Promise<void>;
+  onResetSession: () => Promise<void>;
+  onCreateAllowedPhoneNumber: () => Promise<void>;
+  onUpdateAllowedPhoneNumber: () => Promise<void>;
+  onDeleteAllowedPhoneNumber: () => Promise<void>;
 }
 
 export function AdminAccountSection({
   managedUsers,
   recoveryActions,
+  allowedPhoneNumbers,
   selectedUserId,
   phoneNumber,
   reason,
+  selectedAllowedPhoneId,
+  allowedPhoneNumber,
+  allowedDisplayName,
+  allowedNote,
   actionMessage,
   isSubmitting,
   onSelectUser,
   onPhoneNumberChange,
   onReasonChange,
+  onSelectAllowedPhone,
+  onAllowedPhoneNumberChange,
+  onAllowedDisplayNameChange,
+  onAllowedNoteChange,
   onUpdatePhoneNumber,
-  onResetPassword,
+  onResetSession,
+  onCreateAllowedPhoneNumber,
+  onUpdateAllowedPhoneNumber,
+  onDeleteAllowedPhoneNumber,
 }: AdminAccountSectionProps) {
   return (
     <section className={styles.panelGrid}>
@@ -161,15 +188,106 @@ export function AdminAccountSection({
               className={styles.secondaryButton}
               type="button"
               disabled={isSubmitting}
-              onClick={onResetPassword}
+              onClick={onResetSession}
             >
-              비밀번호 재설정
+              세션 초기화
             </button>
           </div>
 
           {actionMessage ? (
             <p className={styles.formHint}>{actionMessage}</p>
           ) : null}
+        </div>
+
+        <div className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <div>
+              <p className={styles.eyebrow}>Allowlist</p>
+              <h3 className={styles.panelTitle}>허용 전화번호 관리</h3>
+              <p className={styles.panelDescription}>
+                연구 참여자 번호를 화이트리스트로 관리하고, 등록된 번호만 문자 인증을 진행합니다.
+              </p>
+            </div>
+            <span className={styles.statusBadge}>Whitelist</span>
+          </div>
+
+          <div className={styles.list}>
+            {allowedPhoneNumbers.map((entry) => (
+              <button
+                key={entry.id}
+                className={styles.listButton}
+                type="button"
+                onClick={() => onSelectAllowedPhone(entry.id)}
+              >
+                <div className={styles.listDetail}>
+                  <strong className={styles.listPrimary}>
+                    {entry.displayName || "이름 없음"}
+                  </strong>
+                  <span className={styles.listMeta}>{entry.phoneNumber}</span>
+                </div>
+                <div className={styles.listMetaGroup}>
+                  <span className={styles.statusBadge}>허용</span>
+                  <span className={styles.listMeta}>{entry.note || "메모 없음"}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.formGrid}>
+            <label className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>허용 전화번호</span>
+              <input
+                className={styles.fieldInput}
+                value={allowedPhoneNumber}
+                onChange={(event) => onAllowedPhoneNumberChange(event.target.value)}
+              />
+            </label>
+
+            <label className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>표시 이름</span>
+              <input
+                className={styles.fieldInput}
+                value={allowedDisplayName}
+                onChange={(event) => onAllowedDisplayNameChange(event.target.value)}
+              />
+            </label>
+
+            <label className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>메모</span>
+              <textarea
+                className={styles.fieldTextarea}
+                value={allowedNote}
+                onChange={(event) => onAllowedNoteChange(event.target.value)}
+              />
+            </label>
+
+            <div className={styles.actionRow}>
+              <button
+                className={styles.primaryButton}
+                type="button"
+                disabled={isSubmitting}
+                onClick={onCreateAllowedPhoneNumber}
+              >
+                허용 번호 추가
+              </button>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                disabled={isSubmitting}
+                onClick={onUpdateAllowedPhoneNumber}
+              >
+                선택 번호 수정
+              </button>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                disabled={isSubmitting || !selectedAllowedPhoneId}
+                onClick={onDeleteAllowedPhoneNumber}
+              >
+                선택 번호 삭제
+              </button>
+            </div>
+          </div>
         </div>
       </section>
     </section>

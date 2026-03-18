@@ -6,6 +6,7 @@ import {
 } from "@gynecology-chatbot/app-core";
 
 const USER_ID_KEY = "phedy-mobile-user-id";
+const SESSION_TOKEN_KEY = "phedy-mobile-session-token";
 const ONBOARDING_KEY = "phedy-mobile-onboarding-complete";
 const PROFILE_KEY = "phedy-mobile-profile";
 
@@ -27,6 +28,22 @@ export function storeMobileUserId(userId: string) {
   }
 
   window.localStorage.setItem(USER_ID_KEY, userId);
+}
+
+export function readStoredMobileSessionToken() {
+  if (!isBrowser()) {
+    return null;
+  }
+
+  return window.localStorage.getItem(SESSION_TOKEN_KEY);
+}
+
+export function storeMobileSessionToken(sessionToken: string) {
+  if (!isBrowser()) {
+    return;
+  }
+
+  window.localStorage.setItem(SESSION_TOKEN_KEY, sessionToken);
 }
 
 export function readStoredMobileProfile() {
@@ -91,6 +108,7 @@ export function clearMobileSession() {
   }
 
   window.localStorage.removeItem(USER_ID_KEY);
+  window.localStorage.removeItem(SESSION_TOKEN_KEY);
   window.localStorage.removeItem(ONBOARDING_KEY);
   window.localStorage.removeItem(PROFILE_KEY);
 }

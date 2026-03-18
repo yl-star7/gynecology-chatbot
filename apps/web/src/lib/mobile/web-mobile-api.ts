@@ -6,11 +6,13 @@ import type {
   ChatSession,
   HomeViewData,
   LinkTargetContent,
+  MobileContentListItem,
   MobileThemeKey,
   MobileProfileViewData,
   RecentChatSummary,
   RecordDayView,
 } from "@gynecology-chatbot/app-core";
+import { readStoredMobileSessionToken } from "./mobile-session";
 
 type ApiErrorPayload = {
   error?: string;
@@ -59,6 +61,21 @@ async function parseJson<T>(response: Response) {
   return payload;
 }
 
+function buildMobileSessionHeaders() {
+  if (typeof window === "undefined") {
+    return {} as Record<string, string>;
+  }
+
+  const sessionToken = readStoredMobileSessionToken();
+  if (!sessionToken) {
+    return {} as Record<string, string>;
+  }
+
+  return {
+    Authorization: `Bearer ${sessionToken}`,
+  } satisfies Record<string, string>;
+}
+
 function createSearch(params: Record<string, string | undefined>) {
   const searchParams = new URLSearchParams();
 
@@ -80,6 +97,7 @@ export async function fetchHome(userId: string, month?: string) {
     `/api/mobile/home?${createSearch({ userId, month })}`,
     {
       cache: "no-store",
+      headers: buildMobileSessionHeaders(),
     },
   );
 
@@ -91,6 +109,7 @@ export async function fetchSessions(userId: string) {
     `/api/mobile/sessions?${createSearch({ userId })}`,
     {
       cache: "no-store",
+      headers: buildMobileSessionHeaders(),
     },
   );
 
@@ -102,6 +121,7 @@ export async function fetchRecordDay(userId: string, isoDate: string) {
     `/api/mobile/records?${createSearch({ userId, date: isoDate })}`,
     {
       cache: "no-store",
+      headers: buildMobileSessionHeaders(),
     },
   );
 
@@ -113,6 +133,7 @@ export async function fetchMobileProfile(userId: string) {
     `/api/mobile/profile?${createSearch({ userId })}`,
     {
       cache: "no-store",
+      headers: buildMobileSessionHeaders(),
     },
   );
 
@@ -131,7 +152,10 @@ export async function updateMobileProfile(input: {
 }) {
   const response = await fetch("/api/mobile/profile", {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...buildMobileSessionHeaders(),
+    },
     body: JSON.stringify(input),
   });
 
@@ -143,10 +167,25 @@ export async function fetchSession(userId: string, sessionId: string) {
     `/api/mobile/sessions/${encodeURIComponent(sessionId)}?${createSearch({ userId })}`,
     {
       cache: "no-store",
+      headers: buildMobileSessionHeaders(),
     },
   );
 
   return parseJson<{ session: ChatSession }>(response);
+}
+
+export async function fetchContentItems(
+  section: "knowledge" | "notebook",
+) {
+  const response = await fetch(
+    `/api/mobile/content-items?${createSearch({ section })}`,
+    {
+      cache: "no-store",
+      headers: buildMobileSessionHeaders(),
+    },
+  );
+
+  return parseJson<{ items: MobileContentListItem[] }>(response);
 }
 
 export async function fetchLinkTarget(target: string, entityId?: string) {
@@ -154,6 +193,7 @@ export async function fetchLinkTarget(target: string, entityId?: string) {
     `/api/mobile/link?${createSearch({ target, entityId })}`,
     {
       cache: "no-store",
+      headers: buildMobileSessionHeaders(),
     },
   );
 
@@ -169,7 +209,10 @@ export async function sendChatMessage(input: {
 }) {
   const response = await fetch("/api/mobile/chat", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...buildMobileSessionHeaders(),
+    },
     body: JSON.stringify(input),
   });
 
@@ -197,33 +240,9 @@ export async function fileToDataUrl(file: File) {
   });
 }
 
-export async function signInWithPhonePassword(input: {
+export async function requestPhoneVerification(input: {
   phoneNumber: string;
-  password: string;
 }) {
-  const response = await fetch("/api/mobile/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-
-  return parseJson<{ user: AuthenticatedUser }>(response);
-}
-
-export async function verifyPhone(input: {
-  phoneNumber: string;
-  verificationCode: string;
-}) {
-  const response = await fetch("/api/mobile/auth/verify-phone", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-
-  return parseJson<{ verificationToken: string }>(response);
-}
-
-export async function startPhoneVerification(input: { phoneNumber: string }) {
   const response = await fetch("/api/mobile/auth/start-phone-verification", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -233,27 +252,17 @@ export async function startPhoneVerification(input: { phoneNumber: string }) {
   return parseJson<{ ok: true }>(response);
 }
 
-export async function setPassword(input: {
-  verificationToken: string;
-  password: string;
+export async function signInWithPhoneVerification(input: {
+  phoneNumber: string;
+  verificationCode: string;
 }) {
-  const response = await fetch("/api/mobile/auth/set-password", {
+  const response = await fetch("/api/mobile/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
 
-  return parseJson<{ user: AuthenticatedUser }>(response);
-}
-
-export async function requestPasswordReset(input: { phoneNumber: string }) {
-  const response = await fetch("/api/mobile/auth/request-password-reset", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-
-  return parseJson<{ ok: true }>(response);
+  return parseJson<{ user: AuthenticatedUser; sessionToken?: string }>(response);
 }
 
 export async function completeOnboarding(input: {
@@ -264,7 +273,10 @@ export async function completeOnboarding(input: {
 }) {
   const response = await fetch("/api/mobile/onboarding", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...buildMobileSessionHeaders(),
+    },
     body: JSON.stringify(input),
   });
 

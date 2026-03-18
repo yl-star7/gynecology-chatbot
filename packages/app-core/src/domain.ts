@@ -135,6 +135,14 @@ export interface LinkTargetContent {
   ctaLabel?: string;
 }
 
+export interface MobileContentListItem {
+  id: string;
+  slug: string;
+  section: "knowledge" | "notebook";
+  title: string;
+  preview: string;
+}
+
 export interface AuthenticatedUser {
   id: string;
   phoneNumber: string;
@@ -188,6 +196,15 @@ export interface AdminRecoveryAction {
   status: "pending" | "completed";
 }
 
+export interface AdminAllowedPhoneNumber {
+  id: string;
+  phoneNumber: string;
+  displayName: string | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AdminRagDocument {
   id: string;
   title: string;
@@ -198,6 +215,36 @@ export interface AdminRagDocument {
   status: "ready" | "draft";
 }
 
+export interface AdminRagDocumentDetail extends AdminRagDocument {
+  pregnancyWeek: number | null;
+  content: string;
+}
+
+export interface AdminRagDocumentInput {
+  title: string;
+  pregnancyWeek: number | null;
+  category: string;
+  content: string;
+}
+
+export interface AdminKnowledgeItem {
+  id: string;
+  slug: string;
+  section: "knowledge" | "notebook";
+  title: string;
+  body: string;
+  status: "draft" | "published" | "archived";
+  updatedAt: string;
+}
+
+export interface AdminKnowledgeItemInput {
+  slug: string;
+  section: "knowledge" | "notebook";
+  title: string;
+  body: string;
+  status: AdminKnowledgeItem["status"];
+}
+
 export interface AdminWorkflowRule {
   id: string;
   name: string;
@@ -205,6 +252,14 @@ export interface AdminWorkflowRule {
   retrievalScope: string;
   modelName: string;
   status: "active" | "review";
+}
+
+export interface AdminWorkflowRuleInput {
+  name: string;
+  trigger: string;
+  retrievalScope: string;
+  modelName: string;
+  status: AdminWorkflowRule["status"];
 }
 
 export interface AdminHistoryMessage {
@@ -245,8 +300,6 @@ export type UserActionType =
   | "login_succeeded"
   | "phone_verification_started"
   | "phone_verified"
-  | "password_set"
-  | "password_reset_requested"
   | "onboarding_completed"
   | "profile_updated"
   | "chat_message_sent";

@@ -4,6 +4,7 @@ import type { RecordDayView } from "@gynecology-chatbot/app-core";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchRecordDay, resolveMobileUserId, appendUserIdToPath } from "@/lib/mobile/web-mobile-api";
+import { MobileCard, MobileSectionIntro } from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
@@ -84,16 +85,12 @@ export function MobileRecordDayView({
       showChatFab
     >
       <div className="grid gap-4">
-        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
-            하루 기록
-          </p>
-          <h1 className="mt-3 text-[30px] font-semibold tracking-[-0.04em] text-[var(--text)]">
-            {recordDay?.dateLabel ?? isoDate}
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
-            {error ?? "이 날짜에 남긴 메모, 감정 기록, 연결 상담을 한눈에 확인합니다."}
-          </p>
+        <MobileCard className="bg-[var(--panel-strong)] p-5">
+          <MobileSectionIntro
+            eyebrow="하루 기록"
+            title={recordDay?.dateLabel ?? isoDate}
+            description={error ?? "이 날짜에 남긴 메모, 감정 기록, 연결 상담을 한눈에 확인합니다."}
+          />
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className="rounded-[22px] bg-[var(--accent-soft)] p-4">
               <p className="text-sm text-[var(--text-soft)]">감정 상태</p>
@@ -114,9 +111,9 @@ export function MobileRecordDayView({
               </p>
             </div>
           </div>
-        </section>
+        </MobileCard>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+        <MobileCard className="p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
             저장 기록
           </p>
@@ -145,9 +142,9 @@ export function MobileRecordDayView({
               </p>
             )}
           </div>
-        </section>
+        </MobileCard>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+        <MobileCard className="p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
             연결 상담
           </p>
@@ -174,7 +171,7 @@ export function MobileRecordDayView({
               </p>
             )}
           </div>
-        </section>
+        </MobileCard>
       </div>
     </MobileShell>
   );

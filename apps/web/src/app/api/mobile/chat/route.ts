@@ -3,6 +3,7 @@ import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import { generateText } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 import { formatRagContext, retrievePregnancyContext } from "@/lib/mobile/rag";
+import { requireMobileSession } from "@/lib/mobile/session-auth";
 import {
   supabaseInsert,
   supabaseSelect,
@@ -138,7 +139,7 @@ function parseAssistantResponse(rawText: string): ChatMessage {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const userId = typeof body.userId === "string" ? body.userId : "";
+    const hintedUserId = typeof body.userId === "string" ? body.userId : "";
     const text = typeof body.text === "string" ? body.text : "";
     const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
     const pregnancyWeek =
@@ -147,12 +148,13 @@ export async function POST(request: NextRequest) {
       ? body.imageDataUris
       : [];
 
-    if (!userId || !sessionId || (!text && imageDataUris.length === 0)) {
+    if (!sessionId || (!text && imageDataUris.length === 0)) {
       return NextResponse.json(
-        { error: "userId, sessionId, and text or imageDataUris are required" },
+        { error: "sessionId and text or imageDataUris are required" },
         { status: 400 },
       );
     }
+    const { userId } = await requireMobileSession(request, hintedUserId);
 
     const existingSessions = await supabaseSelect<
       Array<{ id: string; title: string }>

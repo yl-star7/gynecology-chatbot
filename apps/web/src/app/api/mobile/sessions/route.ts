@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireMobileSession } from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
 import { toRecentChats } from "@/lib/mobile/serializers";
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get("userId");
-    if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
-    }
+    const hintedUserId = request.nextUrl.searchParams.get("userId");
+    const { userId } = await requireMobileSession(request, hintedUserId);
 
     const sessions = await supabaseSelect<Array<{ id: string; title: string; last_message_at: string | null }>>(
       `chat_sessions?select=id,title,last_message_at&user_id=eq.${userId}&order=last_message_at.desc.nullslast`,

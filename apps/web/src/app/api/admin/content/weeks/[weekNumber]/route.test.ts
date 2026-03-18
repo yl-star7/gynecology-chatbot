@@ -17,6 +17,26 @@ const mockedCreateAdminServices = createAdminServices as jest.MockedFunction<
   typeof createAdminServices
 >;
 
+function createAdminContentPortStub(
+  overrides: Partial<ReturnType<typeof createAdminServices>["adminContentPort"]>,
+) {
+  return {
+    createDocument: jest.fn(),
+    getDocument: jest.fn(),
+    updateDocument: jest.fn(),
+    deleteDocument: jest.fn(),
+    updateWorkflowRule: jest.fn(),
+    listKnowledgeItems: jest.fn(),
+    createKnowledgeItem: jest.fn(),
+    updateKnowledgeItem: jest.fn(),
+    deleteKnowledgeItem: jest.fn(),
+    listWeeks: jest.fn(),
+    getWeek: jest.fn(),
+    saveWeek: jest.fn(),
+    ...overrides,
+  };
+}
+
 describe("GET /api/admin/content/weeks/[weekNumber]", () => {
   beforeEach(() => {
     mockedReadAdminSessionUser.mockReset();
@@ -33,11 +53,9 @@ describe("GET /api/admin/content/weeks/[weekNumber]", () => {
     mockedCreateAdminServices.mockReturnValue({
       adminDashboardPort: {} as never,
       adminUserPort: {} as never,
-      adminContentPort: {
-        listWeeks: jest.fn(),
+      adminContentPort: createAdminContentPortStub({
         getWeek: jest.fn().mockResolvedValue(null),
-        saveWeek: jest.fn(),
-      },
+      }),
     });
 
     const response = await GET({} as Request, {
@@ -73,11 +91,9 @@ describe("GET /api/admin/content/weeks/[weekNumber]", () => {
     mockedCreateAdminServices.mockReturnValue({
       adminDashboardPort: {} as never,
       adminUserPort: {} as never,
-      adminContentPort: {
-        listWeeks: jest.fn(),
-        getWeek: jest.fn(),
+      adminContentPort: createAdminContentPortStub({
         saveWeek,
-      },
+      }),
     });
 
     const response = await PATCH(
@@ -128,11 +144,7 @@ describe("GET /api/admin/content/weeks/[weekNumber]", () => {
     mockedCreateAdminServices.mockReturnValue({
       adminDashboardPort: {} as never,
       adminUserPort: {} as never,
-      adminContentPort: {
-        listWeeks: jest.fn(),
-        getWeek: jest.fn(),
-        saveWeek: jest.fn(),
-      },
+      adminContentPort: createAdminContentPortStub({}),
     });
 
     const response = await PATCH(
@@ -173,11 +185,7 @@ describe("GET /api/admin/content/weeks/[weekNumber]", () => {
     mockedCreateAdminServices.mockReturnValue({
       adminDashboardPort: {} as never,
       adminUserPort: {} as never,
-      adminContentPort: {
-        listWeeks: jest.fn(),
-        getWeek: jest.fn(),
-        saveWeek: jest.fn(),
-      },
+      adminContentPort: createAdminContentPortStub({}),
     });
 
     const response = await PATCH(
@@ -233,11 +241,7 @@ describe("GET /api/admin/content/weeks/[weekNumber]", () => {
     mockedCreateAdminServices.mockReturnValue({
       adminDashboardPort: {} as never,
       adminUserPort: {} as never,
-      adminContentPort: {
-        listWeeks: jest.fn(),
-        getWeek: jest.fn(),
-        saveWeek: jest.fn(),
-      },
+      adminContentPort: createAdminContentPortStub({}),
     });
 
     const response = await PATCH(
@@ -286,11 +290,7 @@ describe("GET /api/admin/content/weeks/[weekNumber]", () => {
     mockedCreateAdminServices.mockReturnValue({
       adminDashboardPort: {} as never,
       adminUserPort: {} as never,
-      adminContentPort: {
-        listWeeks: jest.fn(),
-        getWeek: jest.fn(),
-        saveWeek: jest.fn(),
-      },
+      adminContentPort: createAdminContentPortStub({}),
     });
 
     const response = await PATCH(
@@ -339,11 +339,7 @@ describe("GET /api/admin/content/weeks/[weekNumber]", () => {
     mockedCreateAdminServices.mockReturnValue({
       adminDashboardPort: {} as never,
       adminUserPort: {} as never,
-      adminContentPort: {
-        listWeeks: jest.fn(),
-        getWeek: jest.fn(),
-        saveWeek: jest.fn(),
-      },
+      adminContentPort: createAdminContentPortStub({}),
     });
 
     const response = await PATCH(

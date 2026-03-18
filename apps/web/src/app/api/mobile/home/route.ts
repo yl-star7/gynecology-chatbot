@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireMobileSession } from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
 import { toHomeViewData } from "@/lib/mobile/serializers";
 
@@ -14,36 +15,35 @@ function getMonth(raw: string | null) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
-    const userId = searchParams.get("userId");
+    const hintedUserId = searchParams.get("userId");
     const month = getMonth(searchParams.get("month"));
+    const { userId } = await requireMobileSession(request, hintedUserId);
 
-    if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
-    }
-
-    const [users, profiles, calendarRows, emotionRows] = await Promise.all([
-      supabaseSelect<Array<{ display_name: string }>>(`users?select=display_name&id=eq.${userId}&limit=1`),
-      supabaseSelect<Array<{ pregnancy_day_count: number; pregnancy_week: number | null; pregnancy_day_in_week: number | null }>>(
-        `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
+    const [profiles, calendarRows] = await Promise.all([
+      supabaseSelect<
+        Array<{
+          display_name: string | null;
+          pregnancy_day_count: number;
+          pregnancy_week: number | null;
+          pregnancy_day_in_week: number | null;
+        }>
+      >(
+        `pregnancy_profiles?select=display_name,pregnancy_day_count,pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
       ),
       supabaseSelect<Array<{ date: string; summary: string | null }>>(
         `calendar_logs?select=date,summary&user_id=eq.${userId}&date=gte.${month}-01&date=lt.${month}-32`,
       ),
-      supabaseSelect<Array<{ date: string; emotion_tone: "calm" | "joyful" | "anxious" | "tired" | "sad" }>>(
-        `emotion_logs?select=date,emotion_tone&user_id=eq.${userId}&date=gte.${month}-01&date=lt.${month}-32`,
-      ),
     ]);
 
-    if (!users[0]) {
+    if (!profiles[0]) {
       return NextResponse.json({ error: "user not found" }, { status: 404 });
     }
 
     return NextResponse.json({
       home: toHomeViewData({
-        user: users[0],
+        user: { display_name: profiles[0].display_name ?? "사용자" },
         profile: profiles[0] ?? null,
         calendarRows,
-        emotionRows,
         month,
       }),
     });

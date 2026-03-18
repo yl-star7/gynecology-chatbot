@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID, scryptSync } from "crypto";
+import { randomUUID } from "crypto";
 import { Pool, types } from "pg";
 import { buildLocalPostgresBootstrapSql } from "./local-postgres-schema";
 
@@ -9,13 +9,11 @@ const DEFAULT_USER_ID =
   "local-user-demo";
 const DEFAULT_PHONE_NUMBER =
   process.env.LOCAL_DEV_USER_PHONE_NUMBER ?? "01012345678";
-const DEFAULT_PASSWORD = process.env.LOCAL_DEV_USER_PASSWORD ?? "test1234";
 const DEFAULT_USER_NAME = process.env.LOCAL_DEV_USER_NAME ?? "김수아";
 const DEFAULT_ADMIN_USER_ID =
   process.env.LOCAL_ADMIN_USER_ID ?? "local-admin-1";
 const DEFAULT_ADMIN_PHONE_NUMBER =
   process.env.LOCAL_ADMIN_PHONE_NUMBER ?? "01099998888";
-const DEFAULT_ADMIN_PASSWORD = process.env.LOCAL_ADMIN_PASSWORD ?? "admin1234";
 const DEFAULT_ADMIN_NAME = process.env.LOCAL_ADMIN_NAME ?? "운영자";
 const DEFAULT_DUE_DATE = process.env.LOCAL_DEV_DUE_DATE ?? "2026-07-01";
 
@@ -23,8 +21,10 @@ const SELECT_ONLY_PARAMS = new Set(["select", "limit", "order"]);
 const LOCAL_TABLES = new Set([
   "users",
   "pregnancy_profiles",
+  "auth_sessions",
+  "phone_verification_requests",
+  "allowed_phone_numbers",
   "calendar_logs",
-  "emotion_logs",
   "chat_sessions",
   "chat_messages",
   "knowledge_items",
@@ -34,6 +34,7 @@ const LOCAL_TABLES = new Set([
   "pregnancy_week_assets",
   "admin_audit_logs",
   "user_action_logs",
+  "workflow_definitions",
 ]);
 
 let pool: Pool | null = null;
@@ -62,18 +63,18 @@ function getPool() {
   return pool;
 }
 
-function getQualifiedTable(table: string) {
-  if (!LOCAL_TABLES.has(table)) {
+function resolveLocalTableName(table: string) {
+  const normalizedTable = table.includes(".") ? table.split(".").pop() ?? table : table;
+
+  if (!LOCAL_TABLES.has(normalizedTable)) {
     throw new Error(`Unsupported local table: ${table}`);
   }
 
-  return `${assertIdentifier(LOCAL_SCHEMA)}.${assertIdentifier(table)}`;
+  return normalizedTable;
 }
 
-function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return `scrypt:${salt}:${hash}`;
+function getQualifiedTable(table: string) {
+  return `${assertIdentifier(LOCAL_SCHEMA)}.${assertIdentifier(resolveLocalTableName(table))}`;
 }
 
 function toIsoDate(input: Date) {
@@ -117,38 +118,31 @@ async function ensureSeedData() {
   const { now, yesterday, twoDaysAgo, fourDaysAgo } = createSeedDates();
   const pregnancyMetrics =
     calculatePregnancyMetricsFromDueDate(DEFAULT_DUE_DATE);
-  const passwordHash = hashPassword(DEFAULT_PASSWORD);
-  const adminPasswordHash = hashPassword(DEFAULT_ADMIN_PASSWORD);
 
   await db.query(
     `
       INSERT INTO ${getQualifiedTable("users")} (
         id,
         role,
-        display_name,
         phone_number,
         account_status,
-        password_hash,
-        password_set_at,
         phone_verified_at,
-        last_login_at
+        last_login_at,
+        updated_at
       )
-      VALUES ($1, 'user', $2, $3, 'active', $4, $5, $5, $5)
+      VALUES ($1, 'user', $2, 'active', $3, $3, $3)
       ON CONFLICT (id) DO UPDATE
       SET
         role = EXCLUDED.role,
-        display_name = EXCLUDED.display_name,
         phone_number = EXCLUDED.phone_number,
         account_status = EXCLUDED.account_status,
-        password_hash = EXCLUDED.password_hash,
-        password_set_at = EXCLUDED.password_set_at,
-        phone_verified_at = EXCLUDED.phone_verified_at
+        phone_verified_at = EXCLUDED.phone_verified_at,
+        last_login_at = EXCLUDED.last_login_at,
+        updated_at = EXCLUDED.updated_at
     `,
     [
       DEFAULT_USER_ID,
-      DEFAULT_USER_NAME,
       DEFAULT_PHONE_NUMBER,
-      passwordHash,
       yesterday.toISOString(),
     ],
   );
@@ -158,30 +152,25 @@ async function ensureSeedData() {
       INSERT INTO ${getQualifiedTable("users")} (
         id,
         role,
-        display_name,
         phone_number,
         account_status,
-        password_hash,
-        password_set_at,
         phone_verified_at,
-        last_login_at
+        last_login_at,
+        updated_at
       )
-      VALUES ($1, 'admin', $2, $3, 'active', $4, $5, $5, $5)
+      VALUES ($1, 'admin', $2, 'active', $3, $3, $3)
       ON CONFLICT (id) DO UPDATE
       SET
         role = EXCLUDED.role,
-        display_name = EXCLUDED.display_name,
         phone_number = EXCLUDED.phone_number,
         account_status = EXCLUDED.account_status,
-        password_hash = EXCLUDED.password_hash,
-        password_set_at = EXCLUDED.password_set_at,
-        phone_verified_at = EXCLUDED.phone_verified_at
+        phone_verified_at = EXCLUDED.phone_verified_at,
+        last_login_at = EXCLUDED.last_login_at,
+        updated_at = EXCLUDED.updated_at
     `,
     [
       DEFAULT_ADMIN_USER_ID,
-      DEFAULT_ADMIN_NAME,
       DEFAULT_ADMIN_PHONE_NUMBER,
-      adminPasswordHash,
       yesterday.toISOString(),
     ],
   );
@@ -195,9 +184,36 @@ async function ensureSeedData() {
 
   await db.query(
     `
+      INSERT INTO ${getQualifiedTable("allowed_phone_numbers")} (
+        id,
+        phone_number,
+        display_name,
+        note,
+        created_at,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $5)
+      ON CONFLICT (phone_number) DO UPDATE
+      SET
+        display_name = EXCLUDED.display_name,
+        note = EXCLUDED.note,
+        updated_at = EXCLUDED.updated_at
+    `,
+    [
+      "allow-local-user-demo",
+      DEFAULT_PHONE_NUMBER,
+      DEFAULT_USER_NAME,
+      "로컬 개발 허용 번호",
+      yesterday.toISOString(),
+    ],
+  );
+
+  await db.query(
+    `
       INSERT INTO ${getQualifiedTable("pregnancy_profiles")} (
         id,
         user_id,
+        display_name,
         pregnancy_status,
         pregnancy_day_count,
         pregnancy_week,
@@ -212,9 +228,10 @@ async function ensureSeedData() {
         week_override,
         day_override
       )
-      VALUES ($1, $2, 'pregnant', $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13, $14)
+      VALUES ($1, $2, $3, 'pregnant', $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, $15)
       ON CONFLICT (user_id) DO UPDATE
       SET
+        display_name = EXCLUDED.display_name,
         pregnancy_status = EXCLUDED.pregnancy_status,
         pregnancy_day_count = EXCLUDED.pregnancy_day_count,
         pregnancy_week = EXCLUDED.pregnancy_week,
@@ -232,6 +249,7 @@ async function ensureSeedData() {
     [
       "profile-local-user-demo",
       DEFAULT_USER_ID,
+      DEFAULT_USER_NAME,
       pregnancyMetrics.pregnancyDayCount,
       pregnancyMetrics.pregnancyWeek,
       pregnancyMetrics.pregnancyDayInWeek,
@@ -316,24 +334,6 @@ async function ensureSeedData() {
         entryType,
         JSON.stringify({ source: "local-seed" }),
       ],
-    );
-  }
-
-  const emotionEntries = [
-    ["emotion-yesterday", toIsoDate(yesterday), "calm"],
-    ["emotion-two-days-ago", toIsoDate(twoDaysAgo), "tired"],
-    ["emotion-four-days-ago", toIsoDate(fourDaysAgo), "joyful"],
-  ];
-
-  for (const [id, date, emotionTone] of emotionEntries) {
-    await db.query(
-      `
-        INSERT INTO ${getQualifiedTable("emotion_logs")} (id, user_id, date, emotion_tone)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (id) DO UPDATE
-        SET date = EXCLUDED.date, emotion_tone = EXCLUDED.emotion_tone
-      `,
-      [id, DEFAULT_USER_ID, date, emotionTone],
     );
   }
 
@@ -438,6 +438,83 @@ async function ensureSeedData() {
     );
   }
 
+  const workflowDefinitions = [
+    {
+      id: "workflow-chat-default",
+      name: "기본 채팅 응답",
+      slug: "default-chat",
+      provider: "flowise",
+      status: "published",
+      isActive: true,
+      config: {
+        modelName: "gemini-2.5-flash-lite",
+        retrievalScope: "현재 주차 ±1주 + 공통 문서",
+      },
+      metadata: {
+        trigger: "일반 채팅",
+        retrievalScope: "현재 주차 ±1주 + 공통 문서",
+        modelName: "gemini-2.5-flash-lite",
+      },
+    },
+    {
+      id: "workflow-image-triage",
+      name: "이미지 동반 채팅",
+      slug: "image-triage",
+      provider: "flowise",
+      status: "draft",
+      isActive: false,
+      config: {
+        modelName: "gemini-2.5-flash-lite",
+        retrievalScope: "위험 신호 문서 우선",
+      },
+      metadata: {
+        trigger: "이미지 + 텍스트 입력",
+        retrievalScope: "위험 신호 문서 우선",
+        modelName: "gemini-2.5-flash-lite",
+      },
+    },
+  ];
+
+  for (const workflow of workflowDefinitions) {
+    await db.query(
+      `
+        INSERT INTO ${getQualifiedTable("workflow_definitions")} (
+          id,
+          name,
+          slug,
+          provider,
+          status,
+          is_active,
+          config,
+          metadata,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9)
+        ON CONFLICT (id) DO UPDATE
+        SET
+          name = EXCLUDED.name,
+          slug = EXCLUDED.slug,
+          provider = EXCLUDED.provider,
+          status = EXCLUDED.status,
+          is_active = EXCLUDED.is_active,
+          config = EXCLUDED.config,
+          metadata = EXCLUDED.metadata,
+          updated_at = EXCLUDED.updated_at
+      `,
+      [
+        workflow.id,
+        workflow.name,
+        workflow.slug,
+        workflow.provider,
+        workflow.status,
+        workflow.isActive,
+        JSON.stringify(workflow.config),
+        JSON.stringify(workflow.metadata),
+        now.toISOString(),
+      ],
+    );
+  }
+
   const ragDocuments = [
     {
       id: "pregnancy-doc-24-common",
@@ -528,14 +605,17 @@ export async function ensureLocalPostgresReady() {
 
       await db.query(`
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'user';
-        ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS display_name text;
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS phone_number text;
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS account_status text NOT NULL DEFAULT 'active';
-        ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS password_hash text;
-        ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS password_set_at timestamptz;
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS phone_verified_at timestamptz;
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS last_login_at timestamptz;
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+        ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS display_name text;
+        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS note text;
+        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+        ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS display_name text;
         ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS due_date date;
         ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS baby_sex text CHECK (baby_sex IN ('male', 'female', 'unknown') OR baby_sex IS NULL);
         ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS baby_nickname text;
@@ -562,10 +642,14 @@ export async function ensureLocalPostgresReady() {
 }
 
 function splitPath(path: string) {
-  const [table, search = ""] = path.split("?");
-  if (!table) {
+  const [rawTable, search = ""] = path.split("?");
+  if (!rawTable) {
     throw new Error(`Invalid Supabase path: ${path}`);
   }
+
+  const table = rawTable.includes(".")
+    ? rawTable.split(".").at(-1) ?? rawTable
+    : rawTable;
 
   return {
     table,

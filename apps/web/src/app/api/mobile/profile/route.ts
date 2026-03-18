@@ -4,16 +4,17 @@ import {
 } from "@gynecology-chatbot/app-core";
 import { NextRequest, NextResponse } from "next/server";
 import { updateMobileProfile } from "@/lib/mobile/auth";
+import { requireMobileSession } from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
 
 type UserRow = {
   id: string;
-  display_name: string;
   phone_number: string;
   account_status: string;
 };
 
 type ProfileRow = {
+  display_name: string | null;
   pregnancy_day_count: number;
   pregnancy_week: number | null;
   pregnancy_day_in_week: number | null;
@@ -33,20 +34,15 @@ type ProfileRow = {
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get("userId");
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 },
-      );
-    }
+    const hintedUserId = request.nextUrl.searchParams.get("userId");
+    const { userId } = await requireMobileSession(request, hintedUserId);
 
     const [users, profiles] = await Promise.all([
       supabaseSelect<UserRow[]>(
-        `users?select=id,display_name,phone_number,account_status&id=eq.${userId}&limit=1`,
+        `users?select=id,phone_number,account_status&id=eq.${userId}&limit=1`,
       ),
       supabaseSelect<ProfileRow[]>(
-        `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${userId}&limit=1`,
+        `pregnancy_profiles?select=display_name,pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${userId}&limit=1`,
       ),
     ]);
 
@@ -59,7 +55,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       profile: {
         userId: users[0].id,
-        displayName: users[0].display_name,
+        displayName: profile?.display_name ?? "사용자",
         phoneNumber: users[0].phone_number,
         pregnancyWeekLabel: profile?.pregnancy_week
           ? `${profile.pregnancy_week}주 ${profile.pregnancy_day_in_week ?? 0}일`
@@ -99,7 +95,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const userId = typeof body.userId === "string" ? body.userId.trim() : "";
+    const hintedUserId = typeof body.userId === "string" ? body.userId.trim() : "";
     const displayName =
       typeof body.displayName === "string" ? body.displayName.trim() : "";
     const dueDate = typeof body.dueDate === "string" ? body.dueDate.trim() : "";
@@ -116,12 +112,13 @@ export async function PATCH(request: NextRequest) {
     const themeKey =
       typeof body.themeKey === "string" ? body.themeKey.trim() : "";
 
-    if (!userId || !displayName || !tonePreference) {
+    if (!displayName || !tonePreference) {
       return NextResponse.json(
-        { error: "userId, displayName, and tonePreference are required" },
+        { error: "displayName and tonePreference are required" },
         { status: 400 },
       );
     }
+    const { userId } = await requireMobileSession(request, hintedUserId);
 
     const user = await updateMobileProfile({
       userId,

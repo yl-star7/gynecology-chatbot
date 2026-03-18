@@ -1,11 +1,12 @@
 import { DEFAULT_MOBILE_THEME_KEY } from "@gynecology-chatbot/app-core";
 import { NextRequest, NextResponse } from "next/server";
 import { completeUserOnboarding } from "@/lib/mobile/auth";
+import { requireMobileSession } from "@/lib/mobile/session-auth";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const userId = typeof body.userId === "string" ? body.userId : "";
+    const hintedUserId = typeof body.userId === "string" ? body.userId : "";
     const pregnancyWeekOrDueDate =
       typeof body.pregnancyWeekOrDueDate === "string"
         ? body.pregnancyWeekOrDueDate.trim()
@@ -16,15 +17,15 @@ export async function POST(request: NextRequest) {
     const themeKey =
       typeof body.themeKey === "string" ? body.themeKey.trim() : "";
 
-    if (!userId || !pregnancyWeekOrDueDate || !tonePreference) {
+    if (!pregnancyWeekOrDueDate || !tonePreference) {
       return NextResponse.json(
         {
-          error:
-            "userId, pregnancyWeekOrDueDate, and tonePreference are required",
+          error: "pregnancyWeekOrDueDate and tonePreference are required",
         },
         { status: 400 },
       );
     }
+    const { userId } = await requireMobileSession(request, hintedUserId);
 
     const user = await completeUserOnboarding({
       userId,

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { appendUserIdToPath, fetchLinkTarget, resolveMobileUserId } from "@/lib/mobile/web-mobile-api";
 import { setNativeTitle } from "./native-bridge";
+import { MobileCard } from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
@@ -66,7 +67,10 @@ export function MobileContentView({
       showChatFab
     >
       <div className="grid gap-4">
-        <header className="rounded-[26px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)] backdrop-blur">
+        <MobileCard
+          as="header"
+          className="rounded-[26px] p-5 backdrop-blur"
+        >
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent-dark)]">
             {resolveEyebrowLabel(title, sectionTitle)}
           </p>
@@ -76,15 +80,18 @@ export function MobileContentView({
           <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
             {error ?? "앱 내부 참고 문서를 그대로 확인하는 화면입니다."}
           </p>
-        </header>
+        </MobileCard>
 
-        <article className="rounded-[26px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 text-[15px] leading-7 text-[var(--text)] shadow-[var(--shadow)]">
+        <MobileCard
+          as="article"
+          className="rounded-[26px] bg-[var(--panel-strong)] p-5 text-[15px] leading-7 text-[var(--text)]"
+        >
           {body ? (
             <p className="whitespace-pre-wrap">{body}</p>
           ) : (
             <p className="text-[var(--text-soft)]">콘텐츠를 불러오는 중입니다.</p>
           )}
-        </article>
+        </MobileCard>
 
         <div className="flex gap-3">
           <Link

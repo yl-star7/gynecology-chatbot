@@ -161,6 +161,7 @@
   background: transparent;
   color: var(--admin-text);
   text-align: left;
+  text-decoration: none;
 }
 
 .navItemActive {
@@ -276,6 +277,10 @@
   display: grid;
   gap: 20px;
   padding: 24px 28px 36px;
+}
+
+.content > section {
+  scroll-margin-top: 120px;
 }
 
 .metricsGrid {

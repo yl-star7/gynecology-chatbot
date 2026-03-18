@@ -1,10 +1,15 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import styles from "./AdminConsoleLayout.module.css";
 
-const NAV_ITEMS = ["운영 상태", "계정", "지식 문서", "모니터링"] as const;
+const NAV_ITEMS = [
+  { id: "operations", label: "운영 상태" },
+  { id: "accounts", label: "계정" },
+  { id: "content", label: "지식 문서" },
+  { id: "monitoring", label: "모니터링" },
+] as const;
 
 interface AdminConsoleShellProps {
   adminDisplayName: string;
@@ -21,6 +26,32 @@ export function AdminConsoleShell({
   onLogout,
   children,
 }: AdminConsoleShellProps) {
+  const [activeSectionId, setActiveSectionId] = useState<
+    (typeof NAV_ITEMS)[number]["id"]
+  >(
+    NAV_ITEMS[0]?.id ?? "operations",
+  );
+
+  useEffect(() => {
+    function syncActiveSection() {
+      const nextHash = window.location.hash.replace(/^#/, "");
+      const nextSection =
+        NAV_ITEMS.find((item) => item.id === nextHash)?.id ??
+        NAV_ITEMS[0]?.id ??
+        "operations";
+      setActiveSectionId(nextSection);
+    }
+
+    syncActiveSection();
+    window.addEventListener("hashchange", syncActiveSection);
+    return () => {
+      window.removeEventListener("hashchange", syncActiveSection);
+    };
+  }, []);
+
+  const activeSectionLabel =
+    NAV_ITEMS.find((item) => item.id === activeSectionId)?.label ?? "운영 상태";
+
   return (
     <main className={styles.consoleRoot}>
       <aside className={styles.sidebar}>
@@ -34,14 +65,14 @@ export function AdminConsoleShell({
         </div>
 
         <nav aria-label="관리자 탐색" className={styles.nav}>
-          {NAV_ITEMS.map((item, index) => (
-            <button
-              key={item}
-              className={`${styles.navItem} ${index === 0 ? styles.navItemActive : ""}`}
-              type="button"
+          {NAV_ITEMS.map((item) => (
+            <a
+              key={item.id}
+              className={`${styles.navItem} ${activeSectionId === item.id ? styles.navItemActive : ""}`}
+              href={`#${item.id}`}
             >
-              {item}
-            </button>
+              {item.label}
+            </a>
           ))}
         </nav>
 
@@ -65,7 +96,7 @@ export function AdminConsoleShell({
         <header className={styles.topbar}>
           <div>
             <p className={styles.eyebrow}>Operations</p>
-            <h2 className={styles.topbarHeading}>운영 상태</h2>
+            <h2 className={styles.topbarHeading}>{activeSectionLabel}</h2>
           </div>
 
           <div className={styles.topbarActions}>

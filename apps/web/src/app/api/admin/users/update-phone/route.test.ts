@@ -54,8 +54,12 @@ describe("POST /api/admin/users/update-phone", () => {
       adminDashboardPort: {} as never,
       adminUserPort: {
         listUsers: jest.fn(),
+        listAllowedPhoneNumbers: jest.fn(),
         updatePhoneNumber,
-        resetPassword: jest.fn(),
+        createAllowedPhoneNumber: jest.fn(),
+        updateAllowedPhoneNumber: jest.fn(),
+        deleteAllowedPhoneNumber: jest.fn(),
+        resetSession: jest.fn(),
       },
       adminContentPort: {} as never,
     });

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireMobileSession } from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
 import { toRecordDayView } from "@/lib/mobile/serializers";
 
@@ -10,11 +11,6 @@ type CalendarRecordRow = {
   session_id: string | null;
 };
 
-type EmotionRow = {
-  date: string;
-  emotion_tone: "calm" | "joyful" | "anxious" | "tired" | "sad";
-};
-
 type SessionRow = {
   id: string;
   title: string;
@@ -23,19 +19,17 @@ type SessionRow = {
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get("userId");
+    const hintedUserId = request.nextUrl.searchParams.get("userId");
     const isoDate = request.nextUrl.searchParams.get("date");
 
-    if (!userId || !isoDate) {
-      return NextResponse.json({ error: "userId and date are required" }, { status: 400 });
+    if (!isoDate) {
+      return NextResponse.json({ error: "date is required" }, { status: 400 });
     }
+    const { userId } = await requireMobileSession(request, hintedUserId);
 
-    const [records, emotions] = await Promise.all([
-      supabaseSelect<CalendarRecordRow[]>(
-        `calendar_logs?select=id,title,summary,entry_type,session_id&user_id=eq.${userId}&date=eq.${isoDate}&order=created_at.desc`,
-      ),
-      supabaseSelect<EmotionRow[]>(`emotion_logs?select=date,emotion_tone&user_id=eq.${userId}&date=eq.${isoDate}&limit=1`),
-    ]);
+    const records = await supabaseSelect<CalendarRecordRow[]>(
+      `calendar_logs?select=id,title,summary,entry_type,session_id&user_id=eq.${userId}&date=eq.${isoDate}&order=created_at.desc`,
+    );
 
     const sessionIds = [...new Set(records.map((record) => record.session_id).filter((value): value is string => Boolean(value)))];
     const relatedSessions: SessionRow[] = [];
@@ -53,7 +47,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       recordDay: toRecordDayView({
         isoDate,
-        emotionTone: emotions[0]?.emotion_tone ?? null,
+        emotionTone: null,
         records,
         relatedSessions,
       }),

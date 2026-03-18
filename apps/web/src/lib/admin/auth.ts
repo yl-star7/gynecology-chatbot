@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
@@ -8,9 +8,11 @@ const ADMIN_SESSION_COOKIE = "gc_admin_session";
 type AdminUserRow = {
   id: string;
   phone_number: string;
-  display_name: string;
   role: "user" | "admin" | "super_admin";
-  password_hash: string | null;
+};
+
+type AdminProfileRow = {
+  display_name: string | null;
 };
 
 type AdminAuthProvider = "backend" | "mock";
@@ -23,11 +25,19 @@ function getAdminAuthProvider(): AdminAuthProvider {
   return process.env.ADMIN_DATA_PROVIDER === "backend" ? "backend" : "mock";
 }
 
+function getAdminLoginPassword() {
+  return (
+    process.env.ADMIN_LOGIN_PASSWORD ??
+    process.env.LOCAL_ADMIN_PASSWORD ??
+    "admin1234"
+  );
+}
+
 function getLocalAdminCredentials() {
   return {
     id: process.env.LOCAL_ADMIN_USER_ID ?? "local-admin-1",
     phoneNumber: process.env.LOCAL_ADMIN_PHONE_NUMBER ?? "01099998888",
-    password: process.env.LOCAL_ADMIN_PASSWORD ?? "admin1234",
+    password: getAdminLoginPassword(),
     displayName: process.env.LOCAL_ADMIN_NAME ?? "운영자",
   };
 }
@@ -60,36 +70,12 @@ function decodeAdminSession(cookieValue: string | undefined) {
   return userId;
 }
 
-function verifyPasswordHash(password: string, passwordHash: string | null) {
-  if (!passwordHash) {
-    return false;
-  }
+async function findAdminProfileDisplayName(userId: string) {
+  const profiles = await supabaseSelect<AdminProfileRow[]>(
+    `pregnancy_profiles?select=display_name&user_id=eq.${userId}&limit=1`,
+  );
 
-  const [algorithm, salt, storedHash] = passwordHash.split(":");
-  if (algorithm !== "scrypt" || !salt || !storedHash) {
-    return false;
-  }
-
-  const actualHash = scryptSync(password, salt, 64);
-  const expectedHash = Buffer.from(storedHash, "hex");
-  return expectedHash.length === actualHash.length && timingSafeEqual(expectedHash, actualHash);
-}
-
-function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return `scrypt:${salt}:${hash}`;
-}
-
-function buildLocalAdminRow(): AdminUserRow {
-  const localAdmin = getLocalAdminCredentials();
-  return {
-    id: localAdmin.id,
-    phone_number: localAdmin.phoneNumber,
-    display_name: localAdmin.displayName,
-    role: "admin",
-    password_hash: hashPassword(localAdmin.password),
-  };
+  return profiles[0]?.display_name?.trim() || null;
 }
 
 export async function findAdminUserByPhoneNumber(phoneNumber: string) {
@@ -99,30 +85,38 @@ export async function findAdminUserByPhoneNumber(phoneNumber: string) {
       return null;
     }
 
-    return buildLocalAdminRow();
+    return {
+      id: localAdmin.id,
+      phone_number: localAdmin.phoneNumber,
+      role: "admin" as const,
+      displayName: localAdmin.displayName,
+    };
   }
 
   const users = await supabaseSelect<AdminUserRow[]>(
-    `users?select=id,phone_number,display_name,role,password_hash&phone_number=eq.${encodeURIComponent(phoneNumber)}&limit=1`,
+    `users?select=id,phone_number,role&phone_number=eq.${encodeURIComponent(phoneNumber)}&limit=1`,
   );
   const user = users[0];
   if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
     return null;
   }
 
-  return user;
+  return {
+    ...user,
+    displayName: (await findAdminProfileDisplayName(user.id)) ?? "운영자",
+  };
 }
 
 export async function authenticateAdmin(input: { phoneNumber: string; password: string }) {
   const user = await findAdminUserByPhoneNumber(input.phoneNumber);
-  if (!user || !verifyPasswordHash(input.password, user.password_hash)) {
+  if (!user || input.password !== getAdminLoginPassword()) {
     throw new Error("관리자 전화번호 또는 비밀번호가 맞지 않습니다.");
   }
 
   return {
     id: user.id,
     phoneNumber: user.phone_number,
-    displayName: user.display_name,
+    displayName: user.displayName,
     role: user.role,
   };
 }
@@ -165,7 +159,7 @@ export async function readAdminSessionUser() {
   }
 
   const users = await supabaseSelect<AdminUserRow[]>(
-    `users?select=id,phone_number,display_name,role,password_hash&id=eq.${userId}&limit=1`,
+    `users?select=id,phone_number,role&id=eq.${userId}&limit=1`,
   );
   const user = users[0];
   if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
@@ -175,7 +169,7 @@ export async function readAdminSessionUser() {
   return {
     id: user.id,
     phoneNumber: user.phone_number,
-    displayName: user.display_name,
+    displayName: (await findAdminProfileDisplayName(user.id)) ?? "운영자",
     role: user.role,
   };
 }

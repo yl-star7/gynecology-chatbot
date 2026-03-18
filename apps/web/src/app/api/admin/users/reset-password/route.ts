@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const services = createAdminServices();
-    await services.adminUserPort.resetPassword({
+    await services.adminUserPort.resetSession({
       actorId: admin.id,
       userId,
       reason,
@@ -26,6 +26,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("admin reset password route error", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "failed to reset password" }, { status: 400 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "failed to reset session" }, { status: 400 });
   }
 }

@@ -2,6 +2,7 @@
 
 import type {
   AdminDashboardData,
+  AdminKnowledgeItem,
   AdminWeekAsset,
   AdminWeekDetail,
   AdminWeekSection,
@@ -19,6 +20,14 @@ import {
 import styles from "./AdminConsoleLayout.module.css";
 
 interface AdminContentSectionProps {
+  knowledgeItems: AdminKnowledgeItem[];
+  selectedKnowledgeItemId: string;
+  knowledgeSlug: string;
+  knowledgeSection: AdminKnowledgeItem["section"];
+  knowledgeTitle: string;
+  knowledgeBody: string;
+  knowledgeStatus: AdminKnowledgeItem["status"];
+  selectedRagDocumentId: string;
   ragDocuments: AdminDashboardData["ragDocuments"];
   workflowRules: AdminDashboardData["workflowRules"];
   contentMessage: string | null;
@@ -26,17 +35,46 @@ interface AdminContentSectionProps {
   ragCategory: string;
   ragWeek: string;
   ragContent: string;
+  selectedWorkflowRuleId: string;
+  workflowName: string;
+  workflowTrigger: string;
+  workflowRetrievalScope: string;
+  workflowModelName: string;
+  workflowStatus: AdminDashboardData["workflowRules"][number]["status"];
   weekSummaries: AdminWeekSummary[];
   selectedWeekNumber: number | null;
   selectedWeekDetail: AdminWeekDetail | null;
   isLoadingWeeks: boolean;
   isRagSubmitting: boolean;
+  isKnowledgeSaving: boolean;
+  isWorkflowSaving: boolean;
   isWeekSaving: boolean;
+  onSelectKnowledgeItem: (id: string) => void;
+  onKnowledgeSlugChange: (value: string) => void;
+  onKnowledgeSectionChange: (value: AdminKnowledgeItem["section"]) => void;
+  onKnowledgeTitleChange: (value: string) => void;
+  onKnowledgeBodyChange: (value: string) => void;
+  onKnowledgeStatusChange: (value: AdminKnowledgeItem["status"]) => void;
+  onCreateKnowledgeItem: () => Promise<void>;
+  onUpdateKnowledgeItem: () => Promise<void>;
+  onDeleteKnowledgeItem: () => Promise<void>;
+  onSelectRagDocument: (id: string) => Promise<void>;
+  onResetRagDocument: () => void;
   onRagTitleChange: (value: string) => void;
   onRagCategoryChange: (value: string) => void;
   onRagWeekChange: (value: string) => void;
   onRagContentChange: (value: string) => void;
   onUploadRagDocument: () => Promise<void>;
+  onDeleteRagDocument: () => Promise<void>;
+  onSelectWorkflowRule: (id: string) => void;
+  onWorkflowNameChange: (value: string) => void;
+  onWorkflowTriggerChange: (value: string) => void;
+  onWorkflowRetrievalScopeChange: (value: string) => void;
+  onWorkflowModelNameChange: (value: string) => void;
+  onWorkflowStatusChange: (
+    value: AdminDashboardData["workflowRules"][number]["status"],
+  ) => void;
+  onSaveWorkflowRule: () => Promise<void>;
   onSelectWeek: (weekNumber: number) => void;
   onWeekFieldChange: (
     field:
@@ -70,6 +108,14 @@ interface AdminContentSectionProps {
 }
 
 export function AdminContentSection({
+  knowledgeItems,
+  selectedKnowledgeItemId,
+  knowledgeSlug,
+  knowledgeSection,
+  knowledgeTitle,
+  knowledgeBody,
+  knowledgeStatus,
+  selectedRagDocumentId,
   ragDocuments,
   workflowRules,
   contentMessage,
@@ -77,17 +123,44 @@ export function AdminContentSection({
   ragCategory,
   ragWeek,
   ragContent,
+  selectedWorkflowRuleId,
+  workflowName,
+  workflowTrigger,
+  workflowRetrievalScope,
+  workflowModelName,
+  workflowStatus,
   weekSummaries,
   selectedWeekNumber,
   selectedWeekDetail,
   isLoadingWeeks,
   isRagSubmitting,
+  isKnowledgeSaving,
+  isWorkflowSaving,
   isWeekSaving,
+  onSelectKnowledgeItem,
+  onKnowledgeSlugChange,
+  onKnowledgeSectionChange,
+  onKnowledgeTitleChange,
+  onKnowledgeBodyChange,
+  onKnowledgeStatusChange,
+  onCreateKnowledgeItem,
+  onUpdateKnowledgeItem,
+  onDeleteKnowledgeItem,
+  onSelectRagDocument,
+  onResetRagDocument,
   onRagTitleChange,
   onRagCategoryChange,
   onRagWeekChange,
   onRagContentChange,
   onUploadRagDocument,
+  onDeleteRagDocument,
+  onSelectWorkflowRule,
+  onWorkflowNameChange,
+  onWorkflowTriggerChange,
+  onWorkflowRetrievalScopeChange,
+  onWorkflowModelNameChange,
+  onWorkflowStatusChange,
+  onSaveWorkflowRule,
   onSelectWeek,
   onWeekFieldChange,
   onWeekStatusChange,
@@ -106,6 +179,151 @@ export function AdminContentSection({
 
   return (
     <section className={styles.panelGrid}>
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <p className={styles.eyebrow}>Knowledge Items</p>
+            <h2 className={styles.panelTitle}>정적 문헌 관리</h2>
+            <p className={styles.panelDescription}>
+              `knowledge`와 `notebook` 섹션용 정적 문헌을 직접 생성, 수정, 삭제합니다.
+            </p>
+          </div>
+          <span className={styles.statusBadge}>Docs</span>
+        </div>
+
+        <div className={styles.panelGrid}>
+          <div className={styles.list}>
+            {knowledgeItems.map((item) => (
+              <button
+                key={item.id}
+                className={styles.listButton}
+                type="button"
+                onClick={() => onSelectKnowledgeItem(item.id)}
+              >
+                <div className={styles.listDetail}>
+                  <strong className={styles.listPrimary}>{item.title}</strong>
+                  <span className={styles.listMeta}>
+                    {item.section} · {item.slug}
+                  </span>
+                </div>
+                <div className={styles.listMetaGroup}>
+                  <span
+                    className={`${styles.statusBadge} ${styles[getWeekStatusBadge(item.status)] ?? ""}`}
+                  >
+                    {getWeekStatusLabel(item.status)}
+                  </span>
+                  <span className={styles.listMeta}>
+                    {selectedKnowledgeItemId === item.id ? "선택됨" : item.updatedAt}
+                  </span>
+                </div>
+              </button>
+            ))}
+            {knowledgeItems.length === 0 ? (
+              <div className={styles.listEmpty}>
+                등록된 정적 문헌이 아직 없습니다.
+              </div>
+            ) : null}
+          </div>
+
+          <div className={styles.formGrid}>
+            {contentMessage ? (
+              <p className={styles.formHint}>{contentMessage}</p>
+            ) : null}
+
+            <div className={styles.panelGrid}>
+              <label className={styles.fieldGroup}>
+                <span className={styles.fieldLabel}>슬러그</span>
+                <input
+                  className={styles.fieldInput}
+                  value={knowledgeSlug}
+                  onChange={(event) => onKnowledgeSlugChange(event.target.value)}
+                />
+              </label>
+
+              <label className={styles.fieldGroup}>
+                <span className={styles.fieldLabel}>섹션</span>
+                <select
+                  className={styles.fieldSelect}
+                  value={knowledgeSection}
+                  onChange={(event) =>
+                    onKnowledgeSectionChange(
+                      event.target.value as AdminKnowledgeItem["section"],
+                    )
+                  }
+                >
+                  <option value="knowledge">knowledge</option>
+                  <option value="notebook">notebook</option>
+                </select>
+              </label>
+            </div>
+
+            <div className={styles.panelGrid}>
+              <label className={styles.fieldGroup}>
+                <span className={styles.fieldLabel}>제목</span>
+                <input
+                  className={styles.fieldInput}
+                  value={knowledgeTitle}
+                  onChange={(event) => onKnowledgeTitleChange(event.target.value)}
+                />
+              </label>
+
+              <label className={styles.fieldGroup}>
+                <span className={styles.fieldLabel}>상태</span>
+                <select
+                  className={styles.fieldSelect}
+                  value={knowledgeStatus}
+                  onChange={(event) =>
+                    onKnowledgeStatusChange(
+                      event.target.value as AdminKnowledgeItem["status"],
+                    )
+                  }
+                >
+                  <option value="draft">draft</option>
+                  <option value="published">published</option>
+                  <option value="archived">archived</option>
+                </select>
+              </label>
+            </div>
+
+            <label className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>본문</span>
+              <textarea
+                className={styles.fieldTextarea}
+                value={knowledgeBody}
+                onChange={(event) => onKnowledgeBodyChange(event.target.value)}
+              />
+            </label>
+
+            <div className={styles.actionRow}>
+              <button
+                className={styles.primaryButton}
+                type="button"
+                disabled={isKnowledgeSaving}
+                onClick={onCreateKnowledgeItem}
+              >
+                문헌 생성
+              </button>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                disabled={isKnowledgeSaving || !selectedKnowledgeItemId}
+                onClick={onUpdateKnowledgeItem}
+              >
+                문헌 수정
+              </button>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                disabled={isKnowledgeSaving || !selectedKnowledgeItemId}
+                onClick={onDeleteKnowledgeItem}
+              >
+                문헌 삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
@@ -186,16 +404,37 @@ export function AdminContentSection({
               className={styles.primaryButton}
               type="button"
               disabled={isRagSubmitting}
+              onClick={onResetRagDocument}
+            >
+              새 문서
+            </button>
+            <button
+              className={styles.primaryButton}
+              type="button"
+              disabled={isRagSubmitting}
               onClick={onUploadRagDocument}
             >
-              문서 반영
+              {selectedRagDocumentId ? "문서 저장" : "문서 반영"}
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              disabled={isRagSubmitting || !selectedRagDocumentId}
+              onClick={onDeleteRagDocument}
+            >
+              문서 삭제
             </button>
           </div>
         </div>
 
         <div className={styles.list}>
           {ragDocuments.map((document) => (
-            <div key={document.id} className={styles.listRow}>
+            <button
+              key={document.id}
+              className={styles.listButton}
+              type="button"
+              onClick={() => void onSelectRagDocument(document.id)}
+            >
               <div className={styles.listDetail}>
                 <strong className={styles.listPrimary}>{document.title}</strong>
                 <span className={styles.listMeta}>
@@ -209,10 +448,10 @@ export function AdminContentSection({
                   {getDocumentStatusLabel(document.status)}
                 </span>
                 <span className={styles.listMeta}>
-                  {document.chunkCount}개 청크 · {document.updatedAt}
+                  {document.chunkCount}개 청크 · {selectedRagDocumentId === document.id ? "선택됨" : document.updatedAt}
                 </span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </section>
@@ -664,7 +903,12 @@ export function AdminContentSection({
 
         <div className={styles.list}>
           {workflowRules.map((rule) => (
-            <div key={rule.id} className={styles.listRow}>
+            <button
+              key={rule.id}
+              className={styles.listButton}
+              type="button"
+              onClick={() => onSelectWorkflowRule(rule.id)}
+            >
               <div className={styles.listDetail}>
                 <strong className={styles.listPrimary}>{rule.name}</strong>
                 <span className={styles.listMeta}>{rule.trigger}</span>
@@ -676,11 +920,82 @@ export function AdminContentSection({
                   {getWorkflowStatusLabel(rule.status)}
                 </span>
                 <span className={styles.listMeta}>
-                  {rule.retrievalScope} · {rule.modelName}
+                  {selectedWorkflowRuleId === rule.id ? "선택됨" : `${rule.retrievalScope} · ${rule.modelName}`}
                 </span>
               </div>
-            </div>
+            </button>
           ))}
+        </div>
+
+        <div className={styles.formGrid}>
+          <div className={styles.panelGrid}>
+            <label className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>정책 이름</span>
+              <input
+                className={styles.fieldInput}
+                value={workflowName}
+                onChange={(event) => onWorkflowNameChange(event.target.value)}
+              />
+            </label>
+            <label className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>상태</span>
+              <select
+                className={styles.fieldSelect}
+                value={workflowStatus}
+                onChange={(event) =>
+                  onWorkflowStatusChange(
+                    event.target.value as AdminDashboardData["workflowRules"][number]["status"],
+                  )
+                }
+              >
+                <option value="active">active</option>
+                <option value="review">review</option>
+              </select>
+            </label>
+          </div>
+
+          <label className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>트리거</span>
+            <input
+              className={styles.fieldInput}
+              value={workflowTrigger}
+              onChange={(event) => onWorkflowTriggerChange(event.target.value)}
+            />
+          </label>
+
+          <div className={styles.panelGrid}>
+            <label className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>검색 범위</span>
+              <input
+                className={styles.fieldInput}
+                value={workflowRetrievalScope}
+                onChange={(event) =>
+                  onWorkflowRetrievalScopeChange(event.target.value)
+                }
+              />
+            </label>
+            <label className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>모델</span>
+              <input
+                className={styles.fieldInput}
+                value={workflowModelName}
+                onChange={(event) =>
+                  onWorkflowModelNameChange(event.target.value)
+                }
+              />
+            </label>
+          </div>
+
+          <div className={styles.actionRow}>
+            <button
+              className={styles.primaryButton}
+              type="button"
+              disabled={isWorkflowSaving || !selectedWorkflowRuleId}
+              onClick={onSaveWorkflowRule}
+            >
+              정책 저장
+            </button>
+          </div>
         </div>
       </section>
     </section>

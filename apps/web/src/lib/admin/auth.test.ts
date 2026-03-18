@@ -14,7 +14,6 @@ jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
 }));
 
-import { scryptSync } from "crypto";
 import { cookies } from "next/headers";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
 import {
@@ -27,12 +26,6 @@ const mockedSelect = supabaseSelect as jest.MockedFunction<
   typeof supabaseSelect
 >;
 const mockedCookies = cookies as jest.MockedFunction<typeof cookies>;
-
-function buildPasswordHash(password: string) {
-  const salt = "unit-test-salt";
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return `scrypt:${salt}:${hash}`;
-}
 
 function createCookieStore() {
   let value: string | undefined;
@@ -51,6 +44,7 @@ function createCookieStore() {
 describe("admin auth provider awareness", () => {
   const originalEnv = {
     ADMIN_DATA_PROVIDER: process.env.ADMIN_DATA_PROVIDER,
+    ADMIN_LOGIN_PASSWORD: process.env.ADMIN_LOGIN_PASSWORD,
     LOCAL_ADMIN_USER_ID: process.env.LOCAL_ADMIN_USER_ID,
     LOCAL_ADMIN_PHONE_NUMBER: process.env.LOCAL_ADMIN_PHONE_NUMBER,
     LOCAL_ADMIN_PASSWORD: process.env.LOCAL_ADMIN_PASSWORD,
@@ -61,6 +55,7 @@ describe("admin auth provider awareness", () => {
     mockedSelect.mockReset();
     mockedCookies.mockReset();
     process.env.ADMIN_DATA_PROVIDER = originalEnv.ADMIN_DATA_PROVIDER;
+    process.env.ADMIN_LOGIN_PASSWORD = originalEnv.ADMIN_LOGIN_PASSWORD;
     process.env.LOCAL_ADMIN_USER_ID = originalEnv.LOCAL_ADMIN_USER_ID;
     process.env.LOCAL_ADMIN_PHONE_NUMBER = originalEnv.LOCAL_ADMIN_PHONE_NUMBER;
     process.env.LOCAL_ADMIN_PASSWORD = originalEnv.LOCAL_ADMIN_PASSWORD;
@@ -69,6 +64,7 @@ describe("admin auth provider awareness", () => {
 
   afterAll(() => {
     process.env.ADMIN_DATA_PROVIDER = originalEnv.ADMIN_DATA_PROVIDER;
+    process.env.ADMIN_LOGIN_PASSWORD = originalEnv.ADMIN_LOGIN_PASSWORD;
     process.env.LOCAL_ADMIN_USER_ID = originalEnv.LOCAL_ADMIN_USER_ID;
     process.env.LOCAL_ADMIN_PHONE_NUMBER = originalEnv.LOCAL_ADMIN_PHONE_NUMBER;
     process.env.LOCAL_ADMIN_PASSWORD = originalEnv.LOCAL_ADMIN_PASSWORD;
@@ -107,17 +103,28 @@ describe("admin auth provider awareness", () => {
 
   test("backend mode still authenticates and restores the session from users table", async () => {
     process.env.ADMIN_DATA_PROVIDER = "backend";
+    mockedSelect.mockImplementation((path: string) => {
+      if (path.startsWith("users?")) {
+        return Promise.resolve([
+          {
+            id: "admin-backend",
+            phone_number: "01033334444",
+            role: "super_admin",
+          },
+        ]);
+      }
 
-    const passwordHash = buildPasswordHash("backend-pass");
-    mockedSelect.mockResolvedValue([
-      {
-        id: "admin-backend",
-        phone_number: "01033334444",
-        display_name: "백엔드 운영자",
-        role: "super_admin",
-        password_hash: passwordHash,
-      },
-    ]);
+      if (path.startsWith("pregnancy_profiles?")) {
+        return Promise.resolve([
+          {
+            display_name: "백엔드 운영자",
+          },
+        ]);
+      }
+
+      return Promise.resolve([]);
+    });
+    process.env.ADMIN_LOGIN_PASSWORD = "backend-pass";
 
     const cookieStore = createCookieStore();
     mockedCookies.mockImplementation(async () => cookieStore as never);
@@ -138,12 +145,12 @@ describe("admin auth provider awareness", () => {
     const sessionUser = await readAdminSessionUser();
 
     expect(sessionUser).toEqual(admin);
-    expect(mockedSelect).toHaveBeenCalledTimes(2);
+    expect(mockedSelect).toHaveBeenCalledTimes(4);
     expect(mockedSelect.mock.calls[0]?.[0]).toContain(
-      "users?select=id,phone_number,display_name,role,password_hash&phone_number=eq.01033334444&limit=1",
+      "users?select=id,phone_number,role&phone_number=eq.01033334444&limit=1",
     );
     expect(mockedSelect.mock.calls[1]?.[0]).toContain(
-      "users?select=id,phone_number,display_name,role,password_hash&id=eq.admin-backend&limit=1",
+      "pregnancy_profiles?select=display_name&user_id=eq.admin-backend&limit=1",
     );
   });
 });

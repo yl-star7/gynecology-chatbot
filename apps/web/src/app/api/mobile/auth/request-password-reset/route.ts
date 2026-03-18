@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createPasswordResetAudit } from "@/lib/mobile/auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const phoneNumber = typeof body.phoneNumber === "string" ? body.phoneNumber.trim() : "";
-
-    if (!phoneNumber) {
-      return NextResponse.json({ error: "phoneNumber is required" }, { status: 400 });
-    }
-
-    const result = await createPasswordResetAudit(phoneNumber);
-    return NextResponse.json(result);
+    await request.json();
+    return NextResponse.json(
+      {
+        error:
+          "password reset is no longer required. Re-run phone verification to sign in again.",
+      },
+      { status: 410 },
+    );
   } catch (error) {
     console.error("mobile request password reset route error", error);
     return NextResponse.json(

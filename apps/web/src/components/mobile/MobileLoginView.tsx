@@ -4,20 +4,29 @@ import {
   DEFAULT_MOBILE_THEME_KEY,
   type MobileThemeKey,
 } from "@gynecology-chatbot/app-core";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { signInWithPhonePassword } from "@/lib/mobile/web-mobile-api";
-import { appendUserIdToPath } from "@/lib/mobile/web-mobile-api";
+import {
+  appendUserIdToPath,
+  requestPhoneVerification,
+  signInWithPhoneVerification,
+} from "@/lib/mobile/web-mobile-api";
 import {
   hasCompletedMobileOnboarding,
   readStoredMobileThemeKey,
   readStoredMobileUserId,
   storeMobileProfile,
+  storeMobileSessionToken,
   storeMobileThemeKey,
   storeMobileUserId,
 } from "@/lib/mobile/mobile-session";
 import { applyMobileTheme } from "@/lib/mobile/themes";
+import {
+  MobileCard,
+  MobileFormField,
+  MobileNotice,
+  MobileSectionIntro,
+} from "./MobilePrimitives";
 import { MobileThemePresetButtons } from "./MobileThemePresetButtons";
 import { setNativeTitle } from "./native-bridge";
 
@@ -28,12 +37,15 @@ type Props = {
 export function MobileLoginView({ initialUserId }: Props) {
   const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [password, setPassword] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
   const [themeKey, setThemeKey] = useState(
     () => readStoredMobileThemeKey() ?? DEFAULT_MOBILE_THEME_KEY,
   );
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [hasRequestedCode, setHasRequestedCode] = useState(false);
 
   useEffect(() => {
     setNativeTitle("로그인");
@@ -66,21 +78,25 @@ export function MobileLoginView({ initialUserId }: Props) {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!phoneNumber.trim() || !password.trim()) {
-      setError("전화번호와 비밀번호를 먼저 입력하세요.");
+    if (!phoneNumber.trim() || !verificationCode.trim()) {
+      setError("전화번호와 인증 코드를 먼저 입력하세요.");
       return;
     }
 
     setIsSubmitting(true);
     setError(null);
+    setStatusMessage(null);
 
     try {
-      const payload = await signInWithPhonePassword({
+      const payload = await signInWithPhoneVerification({
         phoneNumber: phoneNumber.trim(),
-        password: password.trim(),
+        verificationCode: verificationCode.trim(),
       });
 
       storeMobileUserId(payload.user.id);
+      if (payload.sessionToken) {
+        storeMobileSessionToken(payload.sessionToken);
+      }
       storeMobileProfile({
         displayName: payload.user.displayName,
         phoneNumber: payload.user.phoneNumber,
@@ -102,6 +118,35 @@ export function MobileLoginView({ initialUserId }: Props) {
     }
   }
 
+  async function handleSendCode() {
+    if (!phoneNumber.trim()) {
+      setError("먼저 전화번호를 입력하세요.");
+      return;
+    }
+
+    setIsSendingCode(true);
+    setError(null);
+    setStatusMessage(null);
+
+    try {
+      await requestPhoneVerification({
+        phoneNumber: phoneNumber.trim(),
+      });
+      setHasRequestedCode(true);
+      setStatusMessage(
+        "인증 코드를 발송했습니다. 문자로 받은 코드를 입력하세요.",
+      );
+    } catch (nextError) {
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : "인증 코드를 보내지 못했습니다.",
+      );
+    } finally {
+      setIsSendingCode(false);
+    }
+  }
+
   function handleThemeSelect(nextThemeKey: MobileThemeKey) {
     setThemeKey(nextThemeKey);
     storeMobileThemeKey(nextThemeKey);
@@ -110,31 +155,12 @@ export function MobileLoginView({ initialUserId }: Props) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[520px] flex-col gap-4 px-4 py-5">
-      <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)] backdrop-blur">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--accent-dark)]">
-          시작하기
-        </p>
-        <h1 className="mt-3 text-[30px] font-semibold tracking-[-0.04em] text-[var(--text)]">
-          안녕하세요. 오늘 기록을 이어가 볼까요?
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
-          처음 오셨다면 비밀번호를 만든 뒤 기본 정보를 설정하고, 다시 오셨다면
-          바로 로그인해 최근 기록과 채팅을 이어갈 수 있어요.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link
-            className="rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white"
-            href="/auth/set-password"
-          >
-            처음 시작하기
-          </Link>
-          <Link
-            className="rounded-full border border-[var(--line)] px-4 py-3 text-sm font-semibold text-[var(--text-soft)]"
-            href="/auth/reset-password"
-          >
-            비밀번호 재설정
-          </Link>
-        </div>
+      <MobileCard className="p-6 backdrop-blur">
+        <MobileSectionIntro
+          eyebrow="시작하기"
+          title="안녕하세요. 오늘 기록을 이어가 볼까요?"
+          description="전화번호로 문자 인증을 한 번 확인하면 바로 로그인됩니다. 이후에는 1년 세션을 기준으로 다시 로그인하지 않고 이어서 사용할 수 있어요."
+        />
         <div className="mt-5">
           <MobileThemePresetButtons
             label="분위기 테마"
@@ -142,17 +168,11 @@ export function MobileLoginView({ initialUserId }: Props) {
             selectedThemeKey={themeKey}
           />
         </div>
-      </section>
+      </MobileCard>
 
-      <form
-        className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]"
-        onSubmit={handleSubmit}
-      >
+      <MobileCard as="form" className="p-5" onSubmit={handleSubmit}>
         <div className="grid gap-3">
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold text-[var(--text)]">
-              전화번호
-            </span>
+          <MobileFormField label="전화번호">
             <input
               className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
               inputMode="tel"
@@ -160,41 +180,49 @@ export function MobileLoginView({ initialUserId }: Props) {
               placeholder="01012345678"
               value={phoneNumber}
             />
-          </label>
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold text-[var(--text)]">
-              비밀번호
-            </span>
+          </MobileFormField>
+          <button
+            className="rounded-full border border-[var(--accent)] px-4 py-3 text-sm font-semibold text-[var(--accent)] disabled:opacity-60"
+            disabled={isSendingCode}
+            onClick={handleSendCode}
+            type="button"
+          >
+            {isSendingCode
+              ? "발송 중"
+              : hasRequestedCode
+                ? "코드 다시 보내기"
+                : "인증 코드 보내기"}
+          </button>
+          <MobileFormField label="인증 코드">
             <input
               className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="비밀번호"
-              type="password"
-              value={password}
+              inputMode="numeric"
+              onChange={(event) => setVerificationCode(event.target.value)}
+              placeholder="인증 코드"
+              value={verificationCode}
             />
-          </label>
-          {error ? (
-            <p className="rounded-2xl border border-[var(--line)] bg-[var(--panel-muted)] px-3 py-2 text-sm text-[var(--accent-dark)]">
-              {error}
-            </p>
+          </MobileFormField>
+          {statusMessage ? (
+            <MobileNotice tone="accent">{statusMessage}</MobileNotice>
           ) : null}
+          {error ? <MobileNotice>{error}</MobileNotice> : null}
           <button
             className="rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "로그인 중" : "로그인"}
+            {isSubmitting ? "인증 확인 중" : "인증하고 로그인"}
           </button>
         </div>
-      </form>
+      </MobileCard>
 
-      <div className="rounded-[24px] border border-[var(--line)] bg-[var(--panel)] p-5 text-sm leading-6 text-[var(--text-soft)] shadow-[var(--shadow)]">
+      <MobileCard as="div" className="rounded-[24px] p-5 text-sm leading-6 text-[var(--text-soft)]">
         <strong className="block text-base text-[var(--text)]">
-          처음이라면 이렇게 진행돼요
+          로그인 흐름
         </strong>
-        전화번호 인증 후 비밀번호를 만들고, 예정일이나 현재 주차를 입력하면
-        바로 홈으로 이어집니다.
-      </div>
+        전화번호 입력, 인증 코드 수신, 코드 확인까지 마치면 바로 홈 또는
+        온보딩으로 이어집니다.
+      </MobileCard>
     </main>
   );
 }

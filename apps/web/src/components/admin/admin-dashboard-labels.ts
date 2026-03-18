@@ -34,8 +34,8 @@ export function getRecoveryActionLabel(action: string) {
     return "전화번호 변경";
   }
 
-  if (action === "password_reset") {
-    return "비밀번호 재설정";
+  if (action === "session_reset") {
+    return "세션 초기화";
   }
 
   if (action === "login_id_change") {

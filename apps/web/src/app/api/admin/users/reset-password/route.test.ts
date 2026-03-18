@@ -48,13 +48,17 @@ describe("POST /api/admin/users/reset-password", () => {
       phoneNumber: "010",
       role: "admin",
     });
-    const resetPassword = jest.fn().mockResolvedValue(undefined);
+    const resetSession = jest.fn().mockResolvedValue(undefined);
     mockedCreateAdminServices.mockReturnValue({
       adminDashboardPort: {} as never,
       adminUserPort: {
         listUsers: jest.fn(),
+        listAllowedPhoneNumbers: jest.fn(),
         updatePhoneNumber: jest.fn(),
-        resetPassword,
+        createAllowedPhoneNumber: jest.fn(),
+        updateAllowedPhoneNumber: jest.fn(),
+        deleteAllowedPhoneNumber: jest.fn(),
+        resetSession,
       },
       adminContentPort: {} as never,
     });
@@ -70,7 +74,7 @@ describe("POST /api/admin/users/reset-password", () => {
       }) as never,
     );
 
-    expect(resetPassword).toHaveBeenCalledWith({
+    expect(resetSession).toHaveBeenCalledWith({
       actorId: "admin-1",
       userId: "user-1",
       reason: "운영자 수동 초기화",

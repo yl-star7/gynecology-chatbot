@@ -128,7 +128,7 @@ export function toHomeViewData(input: {
   user: UserRow;
   profile: PregnancyProfileRow | null;
   calendarRows: CalendarRow[];
-  emotionRows: EmotionRow[];
+  emotionRows?: EmotionRow[];
   month: string;
 }): HomeViewData {
   const daysInMonth =
@@ -137,7 +137,7 @@ export function toHomeViewData(input: {
     input.calendarRows.map((row) => [normalizeDateKey(row.date), row]),
   );
   const emotionMap = new Map(
-    input.emotionRows.map((row) => [
+    (input.emotionRows ?? []).map((row) => [
       normalizeDateKey(row.date),
       row.emotion_tone,
     ]),

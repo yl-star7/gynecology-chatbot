@@ -21,6 +21,12 @@ import {
   storeMobileThemeKey,
 } from "@/lib/mobile/mobile-session";
 import { applyMobileTheme } from "@/lib/mobile/themes";
+import {
+  MobileCard,
+  MobileFormField,
+  MobileNotice,
+  MobileSectionIntro,
+} from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
 import { MobileThemePresetButtons } from "./MobileThemePresetButtons";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
@@ -181,18 +187,15 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
       description="계정 정보와 상담 환경을 관리합니다."
       userId={resolvedUserId}
       showTitleBlock={false}
+      showChatFab
     >
       <div className="grid gap-4">
-        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
-            프로필
-          </p>
-          <h1 className="mt-3 text-[30px] font-semibold tracking-[-0.04em] text-[var(--text)]">
-            계정과 상담 설정
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
-            이름, 알림, 채팅 톤과 현재 임신 정보를 한곳에서 관리합니다.
-          </p>
+        <MobileCard className="bg-[var(--panel-strong)] p-5">
+          <MobileSectionIntro
+            eyebrow="프로필"
+            title="계정과 상담 설정"
+            description="이름, 알림, 채팅 톤과 현재 임신 정보를 한곳에서 관리합니다."
+          />
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-[22px] bg-[var(--accent-soft)] p-4">
               <p className="text-sm text-[var(--text-soft)]">이름</p>
@@ -207,77 +210,59 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               </p>
             </div>
           </div>
-        </section>
+        </MobileCard>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+        <MobileCard as="section" className="p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
             설정
           </p>
           <form className="mt-4 grid gap-3" onSubmit={handleSave}>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-[var(--text)]">
-                이름
-              </span>
+            <MobileFormField label="이름">
               <input
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
                 className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
                 placeholder="이름"
               />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-[var(--text)]">
-                태명
-              </span>
+            </MobileFormField>
+            <MobileFormField label="태명">
               <input
                 value={babyNickname}
                 onChange={(event) => setBabyNickname(event.target.value)}
                 className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
                 placeholder="예: 튼튼이"
               />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-[var(--text)]">
-                예정 출산일
-              </span>
+            </MobileFormField>
+            <MobileFormField label="예정 출산일">
               <input
                 type="date"
                 value={dueDate}
                 onChange={(event) => setDueDate(event.target.value)}
                 className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
               />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-[var(--text)]">
-                주 진료 병원
-              </span>
+            </MobileFormField>
+            <MobileFormField label="주 진료 병원">
               <input
                 value={hospitalName}
                 onChange={(event) => setHospitalName(event.target.value)}
                 className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
                 placeholder="예: 산단여성병원"
               />
-            </label>
+            </MobileFormField>
             <MobileThemePresetButtons
               label="테마"
               onSelect={handleThemeSelect}
               selectedThemeKey={themeKey}
             />
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-[var(--text)]">
-                매일 알림 시간
-              </span>
+            <MobileFormField label="매일 알림 시간">
               <input
                 type="time"
                 value={notificationTime}
                 onChange={(event) => setNotificationTime(event.target.value)}
                 className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
               />
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-[var(--text)]">
-                채팅 톤
-              </span>
+            </MobileFormField>
+            <MobileFormField label="채팅 톤">
               <select
                 value={tonePreference}
                 onChange={(event) => setTonePreference(event.target.value)}
@@ -289,12 +274,8 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
                   </option>
                 ))}
               </select>
-            </label>
-            {error ? (
-              <p className="rounded-2xl border border-[var(--line)] bg-[var(--panel-muted)] px-3 py-2 text-sm text-[var(--accent-dark)]">
-                {error}
-              </p>
-            ) : null}
+            </MobileFormField>
+            {error ? <MobileNotice>{error}</MobileNotice> : null}
             <button
               type="submit"
               disabled={isSaving}
@@ -303,9 +284,9 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               {isSaving ? "저장 중" : "프로필 저장"}
             </button>
           </form>
-        </section>
+        </MobileCard>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+        <MobileCard className="p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
             임신 정보
           </p>
@@ -366,15 +347,16 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               </p>
             </div>
           </div>
-        </section>
+        </MobileCard>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-            세션 관리
-          </p>
-          <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
-            상담 정보와 설정을 바꾼 뒤, 필요할 때만 여기서 세션을 종료합니다.
-          </p>
+        <MobileCard className="p-5">
+          <MobileSectionIntro
+            eyebrow="세션 관리"
+            eyebrowTone="muted"
+            size="section"
+            title="로그아웃"
+            description="상담 정보와 설정을 바꾼 뒤, 필요할 때만 여기서 세션을 종료합니다."
+          />
           <button
             type="button"
             onClick={() => {
@@ -385,7 +367,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
           >
             로그아웃
           </button>
-        </section>
+        </MobileCard>
       </div>
     </MobileShell>
   );

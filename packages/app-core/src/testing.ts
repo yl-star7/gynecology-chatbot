@@ -1,6 +1,14 @@
 import type {
+  AdminAllowedPhoneNumber,
   AdminDashboardData,
+  AdminKnowledgeItem,
+  AdminKnowledgeItemInput,
+  AdminRagDocument,
+  AdminRagDocumentDetail,
+  AdminRagDocumentInput,
   AdminUserAction,
+  AdminWorkflowRule,
+  AdminWorkflowRuleInput,
   AdminWeekAsset,
   AdminWeekAssetInput,
   AdminWeekDetail,
@@ -15,6 +23,7 @@ import type {
   ChatMessage,
   EmotionTone,
   HomeViewData,
+  MobileContentListItem,
   LinkTargetContent,
   OnboardingProfileInput,
   RecentChatSummary,
@@ -22,6 +31,7 @@ import type {
 import type {
   AdminContentPort,
   AdminDashboardPort,
+  AdminUserPort,
   AuthPort,
   MobileChatPort,
   MobileHomePort,
@@ -40,8 +50,6 @@ const emotionPalette: EmotionTone[] = [
 
 const mockAuthState: {
   user: AuthenticatedUser;
-  verificationToken: string;
-  password: string;
   onboardingInput: OnboardingProfileInput;
 } = {
   user: {
@@ -50,8 +58,6 @@ const mockAuthState: {
     displayName: "김수연",
     hasCompletedOnboarding: false,
   },
-  verificationToken: "verified-token",
-  password: "pass1234",
   onboardingInput: {
     pregnancyWeekOrDueDate: "18주 6일",
     tonePreference: "차분하고 직접적인 설명",
@@ -212,6 +218,27 @@ const linkMap: Record<string, LinkTargetContent> = {
   },
 };
 
+const contentItemMap: Record<"knowledge" | "notebook", MobileContentListItem[]> = {
+  knowledge: [
+    {
+      id: "headache-alert",
+      slug: "headache-alert",
+      section: "knowledge",
+      title: "두통 위험 신호",
+      preview: "시야 변화, 심한 부종, 갑작스러운 극심한 두통이 있으면 즉시 진료가 필요합니다.",
+    },
+  ],
+  notebook: [
+    {
+      id: "visit-checklist",
+      slug: "visit-checklist",
+      section: "notebook",
+      title: "진료 전 체크리스트",
+      preview: "최근 증상 시작 시점, 복용 약, 통증 위치, 태동 변화를 기록해 두세요.",
+    },
+  ],
+};
+
 const adminUserActions: AdminUserAction[] = [
   {
     id: "action-1",
@@ -219,7 +246,7 @@ const adminUserActions: AdminUserAction[] = [
     userName: "김수연",
     actionType: "login_succeeded",
     actionLabel: "로그인 완료",
-    detail: "기존 비밀번호로 로그인했습니다.",
+    detail: "문자 인증 후 세션을 발급했습니다.",
     occurredAtLabel: "오늘 14:24",
     sessionId: null,
     sessionTitle: null,
@@ -259,6 +286,64 @@ const adminUserActions: AdminUserAction[] = [
   },
 ];
 
+let mockRagDocuments: AdminRagDocumentDetail[] = [
+  {
+    id: "doc-18w",
+    title: "18주차 두통 및 혈압 경고 신호",
+    pregnancyWeekLabel: "18주차",
+    pregnancyWeek: 18,
+    category: "위험 신호",
+    chunkCount: 14,
+    updatedAt: "오늘 11:20",
+    status: "ready",
+    content:
+      "18주차 두통과 혈압 상승 위험 신호를 우선 안내합니다. 시야 변화와 부종이 동반되면 즉시 진료가 필요합니다.",
+  },
+  {
+    id: "doc-20w",
+    title: "20주차 영양 및 철분 관리",
+    pregnancyWeekLabel: "20주차",
+    pregnancyWeek: 20,
+    category: "영양",
+    chunkCount: 9,
+    updatedAt: "어제 16:10",
+    status: "ready",
+    content:
+      "20주차에는 철분과 단백질 섭취를 꾸준히 유지하고 속 불편이 있으면 복용 시간을 조절합니다.",
+  },
+  {
+    id: "doc-common",
+    title: "공통 응급 내원 가이드",
+    pregnancyWeekLabel: "공통",
+    pregnancyWeek: null,
+    category: "응급",
+    chunkCount: 6,
+    updatedAt: "3일 전",
+    status: "draft",
+    content:
+      "공통 응급 신호를 정리한 문서입니다. 출혈, 호흡곤란, 극심한 통증은 즉시 진료를 권합니다.",
+  },
+];
+
+let mockWorkflowRules: AdminWorkflowRule[] = [
+  {
+    id: "wf-chat-default",
+    name: "기본 채팅 응답",
+    trigger: "일반 채팅",
+    retrievalScope: "현재 주차 ±1주 + 공통 문서",
+    modelName: "gemini-2.5-flash-lite",
+    status: "active",
+  },
+  {
+    id: "wf-image-triage",
+    name: "이미지 동반 채팅",
+    trigger: "이미지 + 텍스트 입력",
+    retrievalScope: "위험 신호 문서 우선",
+    modelName: "gemini-2.5-flash-lite",
+    status: "review",
+  },
+];
+
 function toSession(sessionId: string): ChatSession {
   return {
     id: sessionId,
@@ -269,24 +354,18 @@ function toSession(sessionId: string): ChatSession {
 }
 
 export class MockAuthAdapter implements AuthPort {
-  async signInWithPhonePassword(input: {
+  async requestPhoneVerification(input: {
     phoneNumber: string;
-    password: string;
-  }): Promise<AuthenticatedUser> {
-    if (
-      input.phoneNumber !== mockAuthState.user.phoneNumber ||
-      input.password !== mockAuthState.password
-    ) {
-      throw new Error("전화번호 또는 비밀번호가 일치하지 않습니다.");
+  }): Promise<void> {
+    if (input.phoneNumber !== mockAuthState.user.phoneNumber) {
+      throw new Error("등록된 전화번호를 찾을 수 없습니다.");
     }
-
-    return { ...mockAuthState.user };
   }
 
-  async verifyPhone(input: {
+  async signInWithPhoneVerification(input: {
     phoneNumber: string;
     verificationCode: string;
-  }): Promise<{ verificationToken: string }> {
+  }): Promise<AuthenticatedUser> {
     if (
       input.phoneNumber !== mockAuthState.user.phoneNumber ||
       input.verificationCode.trim().length < 4
@@ -294,25 +373,7 @@ export class MockAuthAdapter implements AuthPort {
       throw new Error("인증 코드를 확인해 주세요.");
     }
 
-    return { verificationToken: mockAuthState.verificationToken };
-  }
-
-  async setPassword(input: {
-    verificationToken: string;
-    password: string;
-  }): Promise<AuthenticatedUser> {
-    if (input.verificationToken !== mockAuthState.verificationToken) {
-      throw new Error("유효하지 않은 인증 세션입니다.");
-    }
-
-    mockAuthState.password = input.password;
     return { ...mockAuthState.user };
-  }
-
-  async requestPasswordReset(input: { phoneNumber: string }): Promise<void> {
-    if (input.phoneNumber !== mockAuthState.user.phoneNumber) {
-      throw new Error("등록된 전화번호를 찾을 수 없습니다.");
-    }
   }
 }
 
@@ -443,7 +504,7 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
           name: "이하은",
           phoneNumber: "010-2222-4444",
           status: "paused",
-          latestIssue: "비밀번호 초기화 필요",
+          latestIssue: "세션 초기화 필요",
         },
       ],
       recoveryActions: [
@@ -457,58 +518,21 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
         {
           id: "r2",
           userName: "이하은",
-          action: "비밀번호 초기화",
+          action: "세션 초기화",
           requestedAt: "오늘 09:20",
           status: "completed",
         },
       ],
-      ragDocuments: [
-        {
-          id: "doc-18w",
-          title: "18주차 두통 및 혈압 경고 신호",
-          pregnancyWeekLabel: "18주차",
-          category: "위험 신호",
-          chunkCount: 14,
-          updatedAt: "오늘 11:20",
-          status: "ready",
-        },
-        {
-          id: "doc-20w",
-          title: "20주차 영양 및 철분 관리",
-          pregnancyWeekLabel: "20주차",
-          category: "영양",
-          chunkCount: 9,
-          updatedAt: "어제 16:10",
-          status: "ready",
-        },
-        {
-          id: "doc-common",
-          title: "공통 응급 내원 가이드",
-          pregnancyWeekLabel: "공통",
-          category: "응급",
-          chunkCount: 6,
-          updatedAt: "3일 전",
-          status: "draft",
-        },
-      ],
-      workflowRules: [
-        {
-          id: "wf-chat-default",
-          name: "기본 채팅 응답",
-          trigger: "일반 채팅",
-          retrievalScope: "현재 주차 ±1주 + 공통 문서",
-          modelName: "gemini-2.5-flash-lite",
-          status: "active",
-        },
-        {
-          id: "wf-image-triage",
-          name: "이미지 동반 채팅",
-          trigger: "이미지 + 텍스트 입력",
-          retrievalScope: "위험 신호 문서 우선",
-          modelName: "gemini-2.5-flash-lite",
-          status: "review",
-        },
-      ],
+      ragDocuments: mockRagDocuments.map((document) => ({
+        id: document.id,
+        title: document.title,
+        pregnancyWeekLabel: document.pregnancyWeekLabel,
+        category: document.category,
+        chunkCount: document.chunkCount,
+        updatedAt: document.updatedAt,
+        status: document.status,
+      })),
+      workflowRules: mockWorkflowRules,
       historyUsers: [
         {
           id: "u1",
@@ -597,6 +621,110 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
       ],
       userActions: adminUserActions,
     };
+  }
+}
+
+export class MockKnowledgeAdapter implements KnowledgePort {
+  async listContentItems(section: "knowledge" | "notebook") {
+    return contentItemMap[section] ?? [];
+  }
+
+  async getLinkTarget(target: string, entityId?: string): Promise<LinkTargetContent> {
+    return (
+      linkMap[`${target}:${entityId ?? ""}`] ?? {
+        title: "연결된 정보",
+        section: target === "knowledge" ? "임신 지식" : "임신수첩",
+        body: "연결된 콘텐츠를 준비 중입니다.",
+      }
+    );
+  }
+}
+
+const mockAllowedPhoneNumbers: AdminAllowedPhoneNumber[] = [
+  {
+    id: "allow-1",
+    phoneNumber: "010-2345-6789",
+    displayName: "김수연",
+    note: "1차 파일럿",
+    createdAt: "2026-03-18T09:00:00.000Z",
+    updatedAt: "2026-03-18T09:00:00.000Z",
+  },
+  {
+    id: "allow-2",
+    phoneNumber: "010-9999-1111",
+    displayName: "박지안",
+    note: "대면 연구 대상",
+    createdAt: "2026-03-18T09:10:00.000Z",
+    updatedAt: "2026-03-18T09:10:00.000Z",
+  },
+];
+
+export class MockAdminUserAdapter implements AdminUserPort {
+  async listUsers(): Promise<AdminDashboardData["managedUsers"]> {
+    const dashboard = await new MockAdminDashboardAdapter().getDashboard();
+    return dashboard.managedUsers;
+  }
+
+  async listAllowedPhoneNumbers(): Promise<AdminAllowedPhoneNumber[]> {
+    return mockAllowedPhoneNumbers;
+  }
+
+  async createAllowedPhoneNumber(input: {
+    phoneNumber: string;
+    displayName?: string | null;
+    note?: string | null;
+  }): Promise<AdminAllowedPhoneNumber> {
+    const nextEntry: AdminAllowedPhoneNumber = {
+      id: `allow-${Date.now()}`,
+      phoneNumber: input.phoneNumber,
+      displayName: input.displayName ?? null,
+      note: input.note ?? null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockAllowedPhoneNumbers.unshift(nextEntry);
+    return nextEntry;
+  }
+
+  async updateAllowedPhoneNumber(input: {
+    id: string;
+    phoneNumber: string;
+    displayName?: string | null;
+    note?: string | null;
+  }): Promise<AdminAllowedPhoneNumber> {
+    const current =
+      mockAllowedPhoneNumbers.find((entry) => entry.id === input.id) ??
+      mockAllowedPhoneNumbers[0];
+    const nextEntry: AdminAllowedPhoneNumber = {
+      ...current,
+      id: input.id,
+      phoneNumber: input.phoneNumber,
+      displayName: input.displayName ?? null,
+      note: input.note ?? null,
+      updatedAt: new Date().toISOString(),
+    };
+    const index = mockAllowedPhoneNumbers.findIndex((entry) => entry.id === input.id);
+    if (index >= 0) {
+      mockAllowedPhoneNumbers[index] = nextEntry;
+    } else {
+      mockAllowedPhoneNumbers.unshift(nextEntry);
+    }
+    return nextEntry;
+  }
+
+  async deleteAllowedPhoneNumber(input: { id: string }): Promise<void> {
+    const index = mockAllowedPhoneNumbers.findIndex((entry) => entry.id === input.id);
+    if (index >= 0) {
+      mockAllowedPhoneNumbers.splice(index, 1);
+    }
+  }
+
+  async updatePhoneNumber(): Promise<void> {
+    return;
+  }
+
+  async resetSession(): Promise<void> {
+    return;
   }
 }
 
@@ -703,6 +831,49 @@ let mockWeekDetailMap: Record<number, AdminWeekDetail> = Object.fromEntries(
   mockWeekContent.map((week) => [week.weekNumber, week]),
 );
 
+let mockKnowledgeItems: AdminKnowledgeItem[] = [
+  {
+    id: "knowledge-item-1",
+    slug: "warning-signs",
+    section: "knowledge",
+    title: "24주차 위험 신호",
+    body: "규칙적인 수축, 양수 유출 의심, 선명한 출혈은 즉시 확인이 필요합니다.",
+    status: "published",
+    updatedAt: "2026-03-18T09:20:00.000Z",
+  },
+  {
+    id: "knowledge-item-2",
+    slug: "visit-checklist",
+    section: "notebook",
+    title: "진료 전 체크리스트",
+    body: "통증 시작 시각, 지속 시간, 출혈 여부, 태동 변화를 기록해 두세요.",
+    status: "published",
+    updatedAt: "2026-03-18T09:25:00.000Z",
+  },
+];
+
+function toPregnancyWeekLabel(week: number | null) {
+  return week ? `${week}주차` : "공통";
+}
+
+function mapRagDocumentDetail(
+  input: AdminRagDocumentInput,
+  current?: AdminRagDocumentDetail,
+): AdminRagDocumentDetail {
+  const updatedAt = new Date().toISOString();
+  return {
+    id: current?.id ?? `doc-${Date.now()}`,
+    title: input.title,
+    pregnancyWeekLabel: toPregnancyWeekLabel(input.pregnancyWeek),
+    pregnancyWeek: input.pregnancyWeek,
+    category: input.category,
+    chunkCount: current?.chunkCount ?? 1,
+    updatedAt,
+    status: current?.status ?? "ready",
+    content: input.content,
+  };
+}
+
 function mapMockSectionInput(input: AdminWeekSectionInput): AdminWeekSection {
   return {
     id: input.id ?? `section-${input.sectionKey}-${input.displayOrder}`,
@@ -726,6 +897,109 @@ function mapMockAssetInput(input: AdminWeekAssetInput): AdminWeekAsset {
 }
 
 export class MockAdminContentAdapter implements AdminContentPort {
+  async createDocument(
+    input: AdminRagDocumentInput,
+  ): Promise<AdminRagDocumentDetail> {
+    const nextDocument = mapRagDocumentDetail(input);
+    mockRagDocuments = [nextDocument, ...mockRagDocuments];
+    return nextDocument;
+  }
+
+  async getDocument(documentId: string): Promise<AdminRagDocumentDetail | null> {
+    return (
+      mockRagDocuments.find((document) => document.id === documentId) ?? null
+    );
+  }
+
+  async updateDocument(
+    documentId: string,
+    input: AdminRagDocumentInput,
+  ): Promise<AdminRagDocumentDetail | null> {
+    const current = mockRagDocuments.find((document) => document.id === documentId);
+    if (!current) {
+      return null;
+    }
+
+    const nextDocument = mapRagDocumentDetail(input, current);
+    mockRagDocuments = mockRagDocuments.map((document) =>
+      document.id === documentId ? nextDocument : document,
+    );
+    return nextDocument;
+  }
+
+  async deleteDocument(documentId: string): Promise<void> {
+    mockRagDocuments = mockRagDocuments.filter(
+      (document) => document.id !== documentId,
+    );
+  }
+
+  async updateWorkflowRule(
+    id: string,
+    input: AdminWorkflowRuleInput,
+  ): Promise<AdminWorkflowRule | null> {
+    const current = mockWorkflowRules.find((rule) => rule.id === id);
+    if (!current) {
+      return null;
+    }
+
+    const nextRule: AdminWorkflowRule = {
+      ...current,
+      ...input,
+    };
+    mockWorkflowRules = mockWorkflowRules.map((rule) =>
+      rule.id === id ? nextRule : rule,
+    );
+    return nextRule;
+  }
+
+  async listKnowledgeItems(): Promise<AdminKnowledgeItem[]> {
+    return mockKnowledgeItems;
+  }
+
+  async createKnowledgeItem(
+    input: AdminKnowledgeItemInput,
+  ): Promise<AdminKnowledgeItem> {
+    const nextItem: AdminKnowledgeItem = {
+      id: `knowledge-item-${Date.now()}`,
+      slug: input.slug,
+      section: input.section,
+      title: input.title,
+      body: input.body,
+      status: input.status,
+      updatedAt: new Date().toISOString(),
+    };
+    mockKnowledgeItems = [nextItem, ...mockKnowledgeItems];
+    return nextItem;
+  }
+
+  async updateKnowledgeItem(
+    id: string,
+    input: AdminKnowledgeItemInput,
+  ): Promise<AdminKnowledgeItem | null> {
+    const existing = mockKnowledgeItems.find((item) => item.id === id);
+    if (!existing) {
+      return null;
+    }
+
+    const nextItem: AdminKnowledgeItem = {
+      ...existing,
+      slug: input.slug,
+      section: input.section,
+      title: input.title,
+      body: input.body,
+      status: input.status,
+      updatedAt: new Date().toISOString(),
+    };
+    mockKnowledgeItems = mockKnowledgeItems.map((item) =>
+      item.id === id ? nextItem : item,
+    );
+    return nextItem;
+  }
+
+  async deleteKnowledgeItem(id: string): Promise<void> {
+    mockKnowledgeItems = mockKnowledgeItems.filter((item) => item.id !== id);
+  }
+
   async listWeeks(): Promise<AdminWeekSummary[]> {
     return mockWeekSummaries;
   }

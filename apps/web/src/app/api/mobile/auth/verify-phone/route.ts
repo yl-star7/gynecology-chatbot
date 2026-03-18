@@ -11,8 +11,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "phoneNumber and verificationCode are required" }, { status: 400 });
     }
 
-    const verification = await verifyPhoneNumber(phoneNumber, verificationCode);
-    return NextResponse.json(verification);
+    const result = await verifyPhoneNumber(phoneNumber, verificationCode);
+    return NextResponse.json(result);
   } catch (error) {
     console.error("mobile verify phone route error", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "failed to verify phone" }, { status: 400 });

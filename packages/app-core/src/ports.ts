@@ -1,33 +1,33 @@
 import type {
   AdminDashboardData,
+  AdminRagDocumentDetail,
+  AdminRagDocumentInput,
   AdminWeekDetail,
   AdminWeekSummary,
   AdminWeekUpdateInput,
+  AdminKnowledgeItem,
+  AdminKnowledgeItemInput,
+  AdminWorkflowRule,
+  AdminWorkflowRuleInput,
   AuthenticatedUser,
   ChatComposerInput,
   ChatSession,
   ChatMessage,
   HomeViewData,
+  MobileContentListItem,
   LinkTargetContent,
   MobileProfileViewData,
   OnboardingProfileInput,
+  AdminAllowedPhoneNumber,
   RecentChatSummary,
 } from "./domain";
 
 export interface AuthPort {
-  signInWithPhonePassword(input: {
-    phoneNumber: string;
-    password: string;
-  }): Promise<AuthenticatedUser>;
-  verifyPhone(input: {
+  requestPhoneVerification(input: { phoneNumber: string }): Promise<void>;
+  signInWithPhoneVerification(input: {
     phoneNumber: string;
     verificationCode: string;
-  }): Promise<{ verificationToken: string }>;
-  setPassword(input: {
-    verificationToken: string;
-    password: string;
   }): Promise<AuthenticatedUser>;
-  requestPasswordReset(input: { phoneNumber: string }): Promise<void>;
 }
 
 export interface OnboardingPort {
@@ -45,6 +45,7 @@ export interface CalendarPort {
 }
 
 export interface KnowledgePort {
+  listContentItems(section: "knowledge" | "notebook"): Promise<MobileContentListItem[]>;
   getLinkTarget(target: string, entityId?: string): Promise<LinkTargetContent>;
 }
 
@@ -75,13 +76,31 @@ export interface AdminDashboardPort {
 
 export interface AdminUserPort {
   listUsers(): Promise<AdminDashboardData["managedUsers"]>;
+  listAllowedPhoneNumbers(): Promise<AdminAllowedPhoneNumber[]>;
   updatePhoneNumber(input: {
     actorId?: string;
     userId: string;
     phoneNumber: string;
     reason: string;
   }): Promise<void>;
-  resetPassword(input: {
+  createAllowedPhoneNumber(input: {
+    actorId?: string;
+    phoneNumber: string;
+    displayName?: string | null;
+    note?: string | null;
+  }): Promise<AdminAllowedPhoneNumber>;
+  updateAllowedPhoneNumber(input: {
+    actorId?: string;
+    id: string;
+    phoneNumber: string;
+    displayName?: string | null;
+    note?: string | null;
+  }): Promise<AdminAllowedPhoneNumber>;
+  deleteAllowedPhoneNumber(input: {
+    actorId?: string;
+    id: string;
+  }): Promise<void>;
+  resetSession(input: {
     actorId?: string;
     userId: string;
     reason: string;
@@ -89,6 +108,26 @@ export interface AdminUserPort {
 }
 
 export interface AdminContentPort {
+  createDocument(
+    input: AdminRagDocumentInput,
+  ): Promise<AdminRagDocumentDetail>;
+  getDocument(documentId: string): Promise<AdminRagDocumentDetail | null>;
+  updateDocument(
+    documentId: string,
+    input: AdminRagDocumentInput,
+  ): Promise<AdminRagDocumentDetail | null>;
+  deleteDocument(documentId: string): Promise<void>;
+  updateWorkflowRule(
+    id: string,
+    input: AdminWorkflowRuleInput,
+  ): Promise<AdminWorkflowRule | null>;
+  listKnowledgeItems(): Promise<AdminKnowledgeItem[]>;
+  createKnowledgeItem(input: AdminKnowledgeItemInput): Promise<AdminKnowledgeItem>;
+  updateKnowledgeItem(
+    id: string,
+    input: AdminKnowledgeItemInput,
+  ): Promise<AdminKnowledgeItem | null>;
+  deleteKnowledgeItem(id: string): Promise<void>;
   listWeeks(): Promise<AdminWeekSummary[]>;
   getWeek(weekNumber: number): Promise<AdminWeekDetail | null>;
   saveWeek(

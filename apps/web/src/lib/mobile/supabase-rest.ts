@@ -16,6 +16,12 @@ const jsonHeaders = {
   Accept: "application/json",
 };
 
+type SchemaScopedTarget = {
+  schema: "public" | "content";
+  relation: string;
+  search?: string;
+};
+
 function getSupabaseServiceRoleKey() {
   return (
     process.env.SUPABASE_SERVICE_ROLE_KEY ??
@@ -53,12 +59,37 @@ function assertSelectedProviderConfig() {
   }
 }
 
-function buildHeaders(prefer?: string) {
+function parseSchemaScopedTarget(target: string): SchemaScopedTarget {
+  const [relationPath, search = ""] = target.split("?");
+  const [schemaOrRelation, maybeRelation] = relationPath.split(".", 2);
+
+  if (maybeRelation && (schemaOrRelation === "public" || schemaOrRelation === "content")) {
+    return {
+      schema: schemaOrRelation,
+      relation: maybeRelation,
+      search,
+    };
+  }
+
+  return {
+    schema: "public",
+    relation: relationPath,
+    search,
+  };
+}
+
+function buildHeaders(prefer?: string, schema: "public" | "content" = "public") {
   const { serviceRoleKey } = getConfig();
   return {
     ...jsonHeaders,
     apikey: serviceRoleKey,
     Authorization: `Bearer ${serviceRoleKey}`,
+    ...(schema !== "public"
+      ? {
+          "Accept-Profile": schema,
+          "Content-Profile": schema,
+        }
+      : {}),
     ...(prefer ? { Prefer: prefer } : {}),
   };
 }
@@ -70,9 +101,13 @@ export async function supabaseSelect<T>(path: string) {
   }
 
   const { url } = getConfig();
-  const response = await fetch(`${url}/rest/v1/${path}`, {
+  const target = parseSchemaScopedTarget(path);
+  const pathWithSearch = target.search
+    ? `${target.relation}?${target.search}`
+    : target.relation;
+  const response = await fetch(`${url}/rest/v1/${pathWithSearch}`, {
     method: "GET",
-    headers: buildHeaders(),
+    headers: buildHeaders(undefined, target.schema),
     cache: "no-store",
   });
 
@@ -93,9 +128,10 @@ export async function supabaseInsert<T>(
   }
 
   const { url } = getConfig();
-  const response = await fetch(`${url}/rest/v1/${table}`, {
+  const target = parseSchemaScopedTarget(table);
+  const response = await fetch(`${url}/rest/v1/${target.relation}`, {
     method: "POST",
-    headers: buildHeaders("return=representation"),
+    headers: buildHeaders("return=representation", target.schema),
     body: JSON.stringify(payload),
     cache: "no-store",
   });
@@ -114,9 +150,13 @@ export async function supabaseUpdate<T>(path: string, payload: object) {
   }
 
   const { url } = getConfig();
-  const response = await fetch(`${url}/rest/v1/${path}`, {
+  const target = parseSchemaScopedTarget(path);
+  const pathWithSearch = target.search
+    ? `${target.relation}?${target.search}`
+    : target.relation;
+  const response = await fetch(`${url}/rest/v1/${pathWithSearch}`, {
     method: "PATCH",
-    headers: buildHeaders("return=representation"),
+    headers: buildHeaders("return=representation", target.schema),
     body: JSON.stringify(payload),
     cache: "no-store",
   });
@@ -135,9 +175,13 @@ export async function supabaseDelete<T>(path: string) {
   }
 
   const { url } = getConfig();
-  const response = await fetch(`${url}/rest/v1/${path}`, {
+  const target = parseSchemaScopedTarget(path);
+  const pathWithSearch = target.search
+    ? `${target.relation}?${target.search}`
+    : target.relation;
+  const response = await fetch(`${url}/rest/v1/${pathWithSearch}`, {
     method: "DELETE",
-    headers: buildHeaders("return=representation"),
+    headers: buildHeaders("return=representation", target.schema),
     cache: "no-store",
   });
 

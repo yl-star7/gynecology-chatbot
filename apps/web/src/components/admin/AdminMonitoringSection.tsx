@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import type { AdminDashboardData, AdminHistoryUser } from "@gynecology-chatbot/app-core";
 
 import { getSessionRoleBadge, getSessionRoleLabel } from "./admin-dashboard-labels";
@@ -20,6 +22,57 @@ export function AdminMonitoringSection({
   focusedUserActions,
   onFocusUser,
 }: AdminMonitoringSectionProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedActionType, setSelectedActionType] = useState("all");
+  const [actionPage, setActionPage] = useState(1);
+  const [userPage, setUserPage] = useState(1);
+
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const actionTypeOptions = Array.from(
+    new Set(userActions.map((action) => action.actionType)),
+  );
+  const filteredUserActions = userActions.filter((action) => {
+    const matchesType =
+      selectedActionType === "all" || action.actionType === selectedActionType;
+    const matchesQuery =
+      !normalizedQuery ||
+      action.userName.toLowerCase().includes(normalizedQuery) ||
+      action.actionLabel.toLowerCase().includes(normalizedQuery) ||
+      action.detail.toLowerCase().includes(normalizedQuery) ||
+      (action.sessionTitle ?? "").toLowerCase().includes(normalizedQuery);
+
+    return matchesType && matchesQuery;
+  });
+  const filteredHistoryUsers = historyUsers.filter((user) => {
+    if (!normalizedQuery) {
+      return true;
+    }
+
+    return (
+      user.name.toLowerCase().includes(normalizedQuery) ||
+      user.phoneNumber.toLowerCase().includes(normalizedQuery) ||
+      user.pregnancyWeekLabel.toLowerCase().includes(normalizedQuery)
+    );
+  });
+  const ACTIONS_PER_PAGE = 8;
+  const USERS_PER_PAGE = 4;
+  const paginatedUserActions = filteredUserActions.slice(
+    (actionPage - 1) * ACTIONS_PER_PAGE,
+    actionPage * ACTIONS_PER_PAGE,
+  );
+  const paginatedHistoryUsers = filteredHistoryUsers.slice(
+    (userPage - 1) * USERS_PER_PAGE,
+    userPage * USERS_PER_PAGE,
+  );
+  const totalActionPages = Math.max(
+    1,
+    Math.ceil(filteredUserActions.length / ACTIONS_PER_PAGE),
+  );
+  const totalUserPages = Math.max(
+    1,
+    Math.ceil(filteredHistoryUsers.length / USERS_PER_PAGE),
+  );
+
   return (
     <section className={styles.panelGrid}>
       <section className={styles.panel}>
@@ -34,8 +87,43 @@ export function AdminMonitoringSection({
           <span className={styles.statusBadge}>Feed</span>
         </div>
 
+        <div className={styles.formGrid}>
+          <div className={styles.panelGrid}>
+            <label className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>이벤트 검색</span>
+              <input
+                className={styles.fieldInput}
+                value={searchQuery}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value);
+                  setActionPage(1);
+                  setUserPage(1);
+                }}
+              />
+            </label>
+            <label className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>액션 타입</span>
+              <select
+                className={styles.fieldSelect}
+                value={selectedActionType}
+                onChange={(event) => {
+                  setSelectedActionType(event.target.value);
+                  setActionPage(1);
+                }}
+              >
+                <option value="all">all</option>
+                {actionTypeOptions.map((actionType) => (
+                  <option key={actionType} value={actionType}>
+                    {actionType}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
+
         <div className={styles.list}>
-          {userActions.slice(0, 12).map((action) => (
+          {paginatedUserActions.map((action) => (
             <div key={action.id} className={styles.listRow}>
               <div className={styles.listDetail}>
                 <strong className={styles.listPrimary}>{action.userName}</strong>
@@ -51,6 +139,33 @@ export function AdminMonitoringSection({
               </div>
             </div>
           ))}
+          {paginatedUserActions.length === 0 ? (
+            <div className={styles.listEmpty}>조건에 맞는 이벤트가 없습니다.</div>
+          ) : null}
+        </div>
+
+        <div className={styles.actionRow}>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            disabled={actionPage === 1}
+            onClick={() => setActionPage((current) => Math.max(1, current - 1))}
+          >
+            이전 이벤트
+          </button>
+          <span className={styles.formHint}>
+            {actionPage} / {totalActionPages}
+          </span>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            disabled={actionPage >= totalActionPages}
+            onClick={() =>
+              setActionPage((current) => Math.min(totalActionPages, current + 1))
+            }
+          >
+            다음 이벤트
+          </button>
         </div>
       </section>
 
@@ -68,7 +183,7 @@ export function AdminMonitoringSection({
 
         <div className={styles.historyGrid}>
           <div className={styles.list}>
-            {historyUsers.map((user) => (
+            {paginatedHistoryUsers.map((user) => (
               <button
                 key={user.id}
                 className={styles.listButton}
@@ -87,6 +202,33 @@ export function AdminMonitoringSection({
                 </div>
               </button>
             ))}
+            {paginatedHistoryUsers.length === 0 ? (
+              <div className={styles.listEmpty}>조건에 맞는 사용자가 없습니다.</div>
+            ) : null}
+          </div>
+
+          <div className={styles.actionRow}>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              disabled={userPage === 1}
+              onClick={() => setUserPage((current) => Math.max(1, current - 1))}
+            >
+              이전 사용자
+            </button>
+            <span className={styles.formHint}>
+              {userPage} / {totalUserPages}
+            </span>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              disabled={userPage >= totalUserPages}
+              onClick={() =>
+                setUserPage((current) => Math.min(totalUserPages, current + 1))
+              }
+            >
+              다음 사용자
+            </button>
           </div>
 
           {focusedHistoryUser ? (
