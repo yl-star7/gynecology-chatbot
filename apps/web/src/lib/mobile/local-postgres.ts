@@ -2,12 +2,18 @@ import { randomBytes, randomUUID, scryptSync } from "crypto";
 import { Pool, types } from "pg";
 
 const LOCAL_SCHEMA = process.env.LOCAL_DB_SCHEMA ?? "gynecology_local";
-const DEFAULT_USER_ID = process.env.NEXT_PUBLIC_DEV_USER_ID ?? process.env.EXPO_PUBLIC_DEV_USER_ID ?? "local-user-demo";
-const DEFAULT_PHONE_NUMBER = process.env.LOCAL_DEV_USER_PHONE_NUMBER ?? "01012345678";
+const DEFAULT_USER_ID =
+  process.env.NEXT_PUBLIC_DEV_USER_ID ??
+  process.env.EXPO_PUBLIC_DEV_USER_ID ??
+  "local-user-demo";
+const DEFAULT_PHONE_NUMBER =
+  process.env.LOCAL_DEV_USER_PHONE_NUMBER ?? "01012345678";
 const DEFAULT_PASSWORD = process.env.LOCAL_DEV_USER_PASSWORD ?? "test1234";
 const DEFAULT_USER_NAME = process.env.LOCAL_DEV_USER_NAME ?? "김수아";
-const DEFAULT_ADMIN_USER_ID = process.env.LOCAL_ADMIN_USER_ID ?? "local-admin-1";
-const DEFAULT_ADMIN_PHONE_NUMBER = process.env.LOCAL_ADMIN_PHONE_NUMBER ?? "01099998888";
+const DEFAULT_ADMIN_USER_ID =
+  process.env.LOCAL_ADMIN_USER_ID ?? "local-admin-1";
+const DEFAULT_ADMIN_PHONE_NUMBER =
+  process.env.LOCAL_ADMIN_PHONE_NUMBER ?? "01099998888";
 const DEFAULT_ADMIN_PASSWORD = process.env.LOCAL_ADMIN_PASSWORD ?? "admin1234";
 const DEFAULT_ADMIN_NAME = process.env.LOCAL_ADMIN_NAME ?? "운영자";
 const DEFAULT_DUE_DATE = process.env.LOCAL_DEV_DUE_DATE ?? "2026-07-01";
@@ -22,7 +28,11 @@ const LOCAL_TABLES = new Set([
   "chat_messages",
   "knowledge_items",
   "pregnancy_documents",
+  "pregnancy_weeks",
+  "pregnancy_week_sections",
+  "pregnancy_week_assets",
   "admin_audit_logs",
+  "user_action_logs",
 ]);
 
 let pool: Pool | null = null;
@@ -84,8 +94,14 @@ function createSeedDates() {
 function calculatePregnancyMetricsFromDueDate(dueDateText: string) {
   const dueDate = new Date(`${dueDateText}T00:00:00`);
   const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const diffDays = Math.round((dueDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  const diffDays = Math.round(
+    (dueDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24),
+  );
   const pregnancyDayCount = Math.max(0, Math.min(280, 280 - diffDays));
 
   return {
@@ -98,7 +114,8 @@ function calculatePregnancyMetricsFromDueDate(dueDateText: string) {
 async function ensureSeedData() {
   const db = getPool();
   const { now, yesterday, twoDaysAgo, fourDaysAgo } = createSeedDates();
-  const pregnancyMetrics = calculatePregnancyMetricsFromDueDate(DEFAULT_DUE_DATE);
+  const pregnancyMetrics =
+    calculatePregnancyMetricsFromDueDate(DEFAULT_DUE_DATE);
   const passwordHash = hashPassword(DEFAULT_PASSWORD);
   const adminPasswordHash = hashPassword(DEFAULT_ADMIN_PASSWORD);
 
@@ -126,7 +143,13 @@ async function ensureSeedData() {
         password_set_at = EXCLUDED.password_set_at,
         phone_verified_at = EXCLUDED.phone_verified_at
     `,
-    [DEFAULT_USER_ID, DEFAULT_USER_NAME, DEFAULT_PHONE_NUMBER, passwordHash, yesterday.toISOString()],
+    [
+      DEFAULT_USER_ID,
+      DEFAULT_USER_NAME,
+      DEFAULT_PHONE_NUMBER,
+      passwordHash,
+      yesterday.toISOString(),
+    ],
   );
 
   await db.query(
@@ -153,7 +176,13 @@ async function ensureSeedData() {
         password_set_at = EXCLUDED.password_set_at,
         phone_verified_at = EXCLUDED.phone_verified_at
     `,
-    [DEFAULT_ADMIN_USER_ID, DEFAULT_ADMIN_NAME, DEFAULT_ADMIN_PHONE_NUMBER, adminPasswordHash, yesterday.toISOString()],
+    [
+      DEFAULT_ADMIN_USER_ID,
+      DEFAULT_ADMIN_NAME,
+      DEFAULT_ADMIN_PHONE_NUMBER,
+      adminPasswordHash,
+      yesterday.toISOString(),
+    ],
   );
 
   await db.query(
@@ -173,9 +202,16 @@ async function ensureSeedData() {
         pregnancy_week,
         pregnancy_day_in_week,
         due_date,
-        onboarding_payload
+        onboarding_payload,
+        baby_sex,
+        baby_nickname,
+        theme_key,
+        notification_time,
+        notification_enabled,
+        week_override,
+        day_override
       )
-      VALUES ($1, $2, 'pregnant', $3, $4, $5, $6, $7::jsonb)
+      VALUES ($1, $2, 'pregnant', $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13, $14)
       ON CONFLICT (user_id) DO UPDATE
       SET
         pregnancy_status = EXCLUDED.pregnancy_status,
@@ -183,7 +219,14 @@ async function ensureSeedData() {
         pregnancy_week = EXCLUDED.pregnancy_week,
         pregnancy_day_in_week = EXCLUDED.pregnancy_day_in_week,
         due_date = EXCLUDED.due_date,
-        onboarding_payload = EXCLUDED.onboarding_payload
+        onboarding_payload = EXCLUDED.onboarding_payload,
+        baby_sex = EXCLUDED.baby_sex,
+        baby_nickname = EXCLUDED.baby_nickname,
+        theme_key = EXCLUDED.theme_key,
+        notification_time = EXCLUDED.notification_time,
+        notification_enabled = EXCLUDED.notification_enabled,
+        week_override = EXCLUDED.week_override,
+        day_override = EXCLUDED.day_override
     `,
     [
       "profile-local-user-demo",
@@ -199,6 +242,13 @@ async function ensureSeedData() {
         hospitalName: "산단여성병원",
         notificationTime: "08:30",
       }),
+      "unknown",
+      "튼튼이",
+      "default",
+      "08:30",
+      true,
+      null,
+      null,
     ],
   );
 
@@ -240,7 +290,16 @@ async function ensureSeedData() {
           entry_type = EXCLUDED.entry_type,
           payload = EXCLUDED.payload
       `,
-      [id, DEFAULT_USER_ID, "local-session-welcome", date, title, summary, entryType, JSON.stringify({ source: "local-seed" })],
+      [
+        id,
+        DEFAULT_USER_ID,
+        "local-session-welcome",
+        date,
+        title,
+        summary,
+        entryType,
+        JSON.stringify({ source: "local-seed" }),
+      ],
     );
   }
 
@@ -269,7 +328,12 @@ async function ensureSeedData() {
       ON CONFLICT (id) DO UPDATE
       SET title = EXCLUDED.title, status = EXCLUDED.status, last_message_at = EXCLUDED.last_message_at
     `,
-    ["local-session-welcome", DEFAULT_USER_ID, "24주차 컨디션 상담", now.toISOString()],
+    [
+      "local-session-welcome",
+      DEFAULT_USER_ID,
+      "24주차 컨디션 상담",
+      now.toISOString(),
+    ],
   );
 
   const introMessages = [
@@ -277,7 +341,13 @@ async function ensureSeedData() {
       id: "message-local-user-1",
       role: "user",
       plainText: "24주차인데 밤에 배가 단단해지는 느낌이 잠깐 있어요.",
-      parts: [{ type: "text", id: "part-local-user-1", text: "24주차인데 밤에 배가 단단해지는 느낌이 잠깐 있어요." }],
+      parts: [
+        {
+          type: "text",
+          id: "part-local-user-1",
+          text: "24주차인데 밤에 배가 단단해지는 느낌이 잠깐 있어요.",
+        },
+      ],
       createdAt: twoDaysAgo.toISOString(),
     },
     {
@@ -371,14 +441,16 @@ async function ensureSeedData() {
     {
       id: "pregnancy-doc-24-common",
       title: "24주차 배뭉침 안내",
-      content: "24주차에는 짧고 불규칙한 배뭉침이 나타날 수 있습니다. 수분 섭취와 휴식 후 완화되는지 관찰하고 규칙적인 간격이면 진료 상담이 필요합니다.",
+      content:
+        "24주차에는 짧고 불규칙한 배뭉침이 나타날 수 있습니다. 수분 섭취와 휴식 후 완화되는지 관찰하고 규칙적인 간격이면 진료 상담이 필요합니다.",
       pregnancyWeek: 24,
       category: "symptom-guide",
     },
     {
       id: "pregnancy-doc-common-warning",
       title: "조산 위험 신호",
-      content: "한 시간 이상 반복되는 수축, 선명한 출혈, 양수 유출 의심, 태동 감소는 즉시 의료기관과 상의해야 합니다.",
+      content:
+        "한 시간 이상 반복되는 수축, 선명한 출혈, 양수 유출 의심, 태동 감소는 즉시 의료기관과 상의해야 합니다.",
       pregnancyWeek: null,
       category: "warning-signs",
     },
@@ -416,6 +488,31 @@ async function ensureSeedData() {
       ],
     );
   }
+
+  for (let weekNumber = 1; weekNumber <= 40; weekNumber++) {
+    await db.query(
+      `
+        INSERT INTO ${getQualifiedTable("pregnancy_weeks")} (
+          id,
+          week_number,
+          title,
+          status,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (week_number) DO NOTHING
+      `,
+      [
+        `pregnancy-week-${weekNumber}`,
+        weekNumber,
+        `Week ${weekNumber}`,
+        "draft",
+        now.toISOString(),
+        now.toISOString(),
+      ],
+    );
+  }
 }
 
 export async function ensureLocalPostgresReady() {
@@ -423,7 +520,9 @@ export async function ensureLocalPostgresReady() {
     ensurePromise = (async () => {
       const db = getPool();
 
-      await db.query(`CREATE SCHEMA IF NOT EXISTS ${assertIdentifier(LOCAL_SCHEMA)}`);
+      await db.query(
+        `CREATE SCHEMA IF NOT EXISTS ${assertIdentifier(LOCAL_SCHEMA)}`,
+      );
       await db.query(`
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable("users")} (
           id text PRIMARY KEY,
@@ -447,6 +546,13 @@ export async function ensureLocalPostgresReady() {
           pregnancy_day_in_week integer,
           due_date date,
           onboarding_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+          baby_sex text CHECK (baby_sex IN ('male', 'female', 'unknown') OR baby_sex IS NULL),
+          baby_nickname text,
+          theme_key text,
+          notification_time time,
+          notification_enabled boolean NOT NULL DEFAULT true,
+          week_override integer,
+          day_override integer,
           created_at timestamptz NOT NULL DEFAULT now(),
           updated_at timestamptz NOT NULL DEFAULT now()
         );
@@ -511,6 +617,46 @@ export async function ensureLocalPostgresReady() {
           created_at timestamptz NOT NULL DEFAULT now()
         );
 
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("pregnancy_weeks")} (
+          id text PRIMARY KEY,
+          week_number integer NOT NULL,
+          title text,
+          baby_size_label text,
+          baby_size_compare_object text,
+          baby_summary text,
+          mother_summary text,
+          hero_image_path text,
+          compare_image_path text,
+          status text NOT NULL DEFAULT 'draft',
+          updated_at timestamptz NOT NULL DEFAULT now(),
+          created_at timestamptz NOT NULL DEFAULT now(),
+          UNIQUE (week_number),
+          CONSTRAINT pregnancy_weeks_week_number_range CHECK (week_number BETWEEN 1 AND 40),
+          CONSTRAINT pregnancy_weeks_status_check CHECK (status IN ('draft', 'published', 'archived'))
+        );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("pregnancy_week_sections")} (
+          id text PRIMARY KEY,
+          week_id text NOT NULL REFERENCES ${getQualifiedTable("pregnancy_weeks")}(id) ON DELETE CASCADE,
+          section_key text NOT NULL,
+          title text,
+          body text,
+          display_order integer NOT NULL DEFAULT 0,
+          is_required boolean NOT NULL DEFAULT false,
+          created_at timestamptz NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("pregnancy_week_assets")} (
+          id text PRIMARY KEY,
+          week_id text NOT NULL REFERENCES ${getQualifiedTable("pregnancy_weeks")}(id) ON DELETE CASCADE,
+          asset_type text NOT NULL,
+          storage_path text NOT NULL,
+          alt_text text,
+          style_key text,
+          display_order integer NOT NULL DEFAULT 0,
+          created_at timestamptz NOT NULL DEFAULT now()
+        );
+
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable("admin_audit_logs")} (
           id text PRIMARY KEY,
           admin_user_id text,
@@ -521,6 +667,16 @@ export async function ensureLocalPostgresReady() {
           before_payload jsonb,
           after_payload jsonb,
           created_at timestamptz NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable("user_action_logs")} (
+          id text PRIMARY KEY,
+          user_id text NOT NULL REFERENCES ${getQualifiedTable("users")}(id) ON DELETE CASCADE,
+          session_id text REFERENCES ${getQualifiedTable("chat_sessions")}(id) ON DELETE SET NULL,
+          message_id text REFERENCES ${getQualifiedTable("chat_messages")}(id) ON DELETE SET NULL,
+          action_type text NOT NULL,
+          payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+          occurred_at timestamptz NOT NULL DEFAULT now()
         );
       `);
 
@@ -535,6 +691,14 @@ export async function ensureLocalPostgresReady() {
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS last_login_at timestamptz;
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
         ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS due_date date;
+        ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS baby_sex text CHECK (baby_sex IN ('male', 'female', 'unknown') OR baby_sex IS NULL);
+        ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS baby_nickname text;
+        ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS theme_key text;
+        ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS notification_time time;
+        ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS notification_enabled boolean NOT NULL DEFAULT true;
+        ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS week_override integer;
+        ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS day_override integer;
+        ALTER TABLE ${getQualifiedTable("pregnancy_week_assets")} ADD COLUMN IF NOT EXISTS display_order integer NOT NULL DEFAULT 0;
         ALTER TABLE ${getQualifiedTable("calendar_logs")} ADD COLUMN IF NOT EXISTS session_id text REFERENCES ${getQualifiedTable("chat_sessions")}(id) ON DELETE SET NULL;
         ALTER TABLE ${getQualifiedTable("calendar_logs")} ADD COLUMN IF NOT EXISTS entry_type text NOT NULL DEFAULT 'ai_summary';
         ALTER TABLE ${getQualifiedTable("calendar_logs")} ADD COLUMN IF NOT EXISTS title text NOT NULL DEFAULT '기록';
@@ -643,8 +807,14 @@ function buildOrderBy(order: string | null) {
   }
 
   const [column, direction = "asc", nulls] = order.split(".");
-  const normalizedDirection = direction.toLowerCase() === "desc" ? "DESC" : "ASC";
-  const nullsClause = nulls?.toLowerCase() === "nullslast" ? " NULLS LAST" : nulls?.toLowerCase() === "nullsfirst" ? " NULLS FIRST" : "";
+  const normalizedDirection =
+    direction.toLowerCase() === "desc" ? "DESC" : "ASC";
+  const nullsClause =
+    nulls?.toLowerCase() === "nullslast"
+      ? " NULLS LAST"
+      : nulls?.toLowerCase() === "nullsfirst"
+        ? " NULLS FIRST"
+        : "";
 
   return ` ORDER BY ${assertIdentifier(column)} ${normalizedDirection}${nullsClause}`;
 }
@@ -671,7 +841,10 @@ function createInsertRows(table: string, payload: object | object[]) {
   });
 }
 
-async function syncSessionTimestamp(table: string, rows: Array<Record<string, unknown>>) {
+async function syncSessionTimestamp(
+  table: string,
+  rows: Array<Record<string, unknown>>,
+) {
   if (table !== "chat_messages") {
     return;
   }
@@ -683,7 +856,10 @@ async function syncSessionTimestamp(table: string, rows: Array<Record<string, un
       continue;
     }
 
-    const createdAt = typeof row.created_at === "string" ? row.created_at : new Date().toISOString();
+    const createdAt =
+      typeof row.created_at === "string"
+        ? row.created_at
+        : new Date().toISOString();
     await db.query(
       `UPDATE ${getQualifiedTable("chat_sessions")} SET last_message_at = $2 WHERE id = $1`,
       [row.session_id, createdAt],
@@ -706,12 +882,17 @@ export async function localSupabaseSelect<T>(path: string) {
   return result.rows as T;
 }
 
-export async function localSupabaseInsert<T>(table: string, payload: object | object[]) {
+export async function localSupabaseInsert<T>(
+  table: string,
+  payload: object | object[],
+) {
   await ensureLocalPostgresReady();
   const db = getPool();
   const rows = createInsertRows(table, payload);
   const columnNames = [...new Set(rows.flatMap((row) => Object.keys(row)))];
-  const columnsSql = columnNames.map((column) => assertIdentifier(column)).join(", ");
+  const columnsSql = columnNames
+    .map((column) => assertIdentifier(column))
+    .join(", ");
 
   const values: unknown[] = [];
   const valuesSql = rows
@@ -749,13 +930,19 @@ export async function localSupabaseUpdate<T>(path: string, payload: object) {
     })
     .join(", ");
 
-  const { sql: whereSql, values: whereValues } = buildWhereClause(searchParams, values.length);
+  const { sql: whereSql, values: whereValues } = buildWhereClause(
+    searchParams,
+    values.length,
+  );
   const query = `UPDATE ${getQualifiedTable(table)} SET ${setSql}${whereSql} RETURNING *`;
   const result = await db.query(query, [...values, ...whereValues]);
   return result.rows as T;
 }
 
-export async function localSupabaseRpc<T>(fn: string, payload: Record<string, unknown>) {
+export async function localSupabaseRpc<T>(
+  fn: string,
+  payload: Record<string, unknown>,
+) {
   await ensureLocalPostgresReady();
   const db = getPool();
 
@@ -763,8 +950,10 @@ export async function localSupabaseRpc<T>(fn: string, payload: Record<string, un
     throw new Error(`Unsupported local rpc: ${fn}`);
   }
 
-  const currentWeek = typeof payload.current_week === "number" ? payload.current_week : null;
-  const matchCount = typeof payload.match_count === "number" ? payload.match_count : 4;
+  const currentWeek =
+    typeof payload.current_week === "number" ? payload.current_week : null;
+  const matchCount =
+    typeof payload.match_count === "number" ? payload.match_count : 4;
 
   const result = await db.query(
     `

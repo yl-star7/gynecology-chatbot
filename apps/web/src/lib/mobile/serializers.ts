@@ -1,4 +1,10 @@
-import type { ChatMessage, ChatSession, HomeViewData, RecentChatSummary, RecordDayView } from "@gynecology-chatbot/app-core";
+import type {
+  ChatMessage,
+  ChatSession,
+  HomeViewData,
+  RecentChatSummary,
+  RecordDayView,
+} from "@gynecology-chatbot/app-core";
 
 type SessionRow = {
   id: string;
@@ -50,16 +56,59 @@ function normalizeDateKey(value: string | Date) {
   return match ? match[0] : value;
 }
 
+function toLocalDateKey(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function formatRecentChatLabel(value: string | null) {
+  if (!value) {
+    return "방금 전";
+  }
+
+  const date = new Date(value);
+  const today = new Date();
+  const todayKey = toLocalDateKey(today);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = toLocalDateKey(yesterday);
+  const dateKey = toLocalDateKey(date);
+  const timeLabel = date.toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  if (dateKey === todayKey) {
+    return `오늘 ${timeLabel}`;
+  }
+
+  if (dateKey === yesterdayKey) {
+    return `어제 ${timeLabel}`;
+  }
+
+  return date.toLocaleDateString("ko-KR", {
+    month: "long",
+    day: "numeric",
+  });
+}
+
 export function toRecentChats(sessions: SessionRow[]): RecentChatSummary[] {
   return sessions.map((session) => ({
     id: session.id,
     title: session.title,
     preview: "세션 상세에서 최근 메시지를 표시합니다.",
-    updatedAtLabel: session.last_message_at ? new Date(session.last_message_at).toLocaleDateString("ko-KR") : "방금 전",
+    updatedAtLabel: formatRecentChatLabel(session.last_message_at),
+    updatedAtIso: session.last_message_at,
   }));
 }
 
-export function toChatSession(session: SessionRow, messages: MessageRow[]): ChatSession {
+export function toChatSession(
+  session: SessionRow,
+  messages: MessageRow[],
+): ChatSession {
   return {
     id: session.id,
     title: session.title,
@@ -82,9 +131,17 @@ export function toHomeViewData(input: {
   emotionRows: EmotionRow[];
   month: string;
 }): HomeViewData {
-  const daysInMonth = new Date(`${input.month}-01T00:00:00`).getMonth() === 1 ? 28 : 31;
-  const calendarMap = new Map(input.calendarRows.map((row) => [normalizeDateKey(row.date), row]));
-  const emotionMap = new Map(input.emotionRows.map((row) => [normalizeDateKey(row.date), row.emotion_tone]));
+  const daysInMonth =
+    new Date(`${input.month}-01T00:00:00`).getMonth() === 1 ? 28 : 31;
+  const calendarMap = new Map(
+    input.calendarRows.map((row) => [normalizeDateKey(row.date), row]),
+  );
+  const emotionMap = new Map(
+    input.emotionRows.map((row) => [
+      normalizeDateKey(row.date),
+      row.emotion_tone,
+    ]),
+  );
 
   const calendarDays = Array.from({ length: daysInMonth }, (_, index) => {
     const day = index + 1;
@@ -105,7 +162,9 @@ export function toHomeViewData(input: {
     userName: input.user.display_name,
     pregnancyDayCount: input.profile?.pregnancy_day_count ?? 0,
     pregnancyWeekLabel: week ? `${week}주 ${dayInWeek ?? 0}일` : "정보 없음",
-    currentMonthLabel: new Date(`${input.month}-01T00:00:00`).toLocaleDateString("ko-KR", {
+    currentMonthLabel: new Date(
+      `${input.month}-01T00:00:00`,
+    ).toLocaleDateString("ko-KR", {
       year: "numeric",
       month: "long",
     }),
@@ -133,12 +192,15 @@ export function toRecordDayView(input: {
 }): RecordDayView {
   return {
     isoDate: input.isoDate,
-    dateLabel: new Date(`${input.isoDate}T00:00:00`).toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "long",
-    }),
+    dateLabel: new Date(`${input.isoDate}T00:00:00`).toLocaleDateString(
+      "ko-KR",
+      {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        weekday: "long",
+      },
+    ),
     emotionTone: input.emotionTone,
     records: input.records.map((record) => ({
       id: record.id,

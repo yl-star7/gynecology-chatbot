@@ -1,6 +1,9 @@
 "use client";
 
-import type { HomeViewData, RecentChatSummary } from "@gynecology-chatbot/app-core";
+import type {
+  HomeViewData,
+  RecentChatSummary,
+} from "@gynecology-chatbot/app-core";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchHome, fetchSessions } from "@/lib/mobile/web-mobile-api";
@@ -12,7 +15,10 @@ function linkWithUserId(path: string, userId: string) {
   return `${path}?userId=${encodeURIComponent(userId)}`;
 }
 
-function getCalendarDotClass(emotionTone: HomeViewData["calendarDays"][number]["emotionTone"], hasChat: boolean) {
+function getCalendarDotClass(
+  emotionTone: HomeViewData["calendarDays"][number]["emotionTone"],
+  hasChat: boolean,
+) {
   if (emotionTone === "joyful") {
     return "bg-emerald-500";
   }
@@ -69,7 +75,11 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
       })
       .catch((nextError) => {
         if (!cancelled) {
-          setError(nextError instanceof Error ? nextError.message : "홈 화면을 불러오지 못했습니다.");
+          setError(
+            nextError instanceof Error
+              ? nextError.message
+              : "홈 화면을 불러오지 못했습니다.",
+          );
         }
       });
 
@@ -80,50 +90,188 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
 
   return (
     <MobileShell
-      title={home ? `${home.userName}님, 오늘도 기록을 이어가세요.` : "사용자용 모바일 웹"}
-      description={error ?? "임신 주차 정보, 캘린더 기록, 최근 상담을 한 화면에서 이어집니다."}
+      title={home ? `${home.userName}님, 오늘도 기록을 이어가세요.` : "홈"}
+      description={
+        error ??
+        "오늘 상태와 이번 주 핵심 정보를 먼저 보고, 바로 상담으로 이어집니다."
+      }
       userId={resolvedUserId}
+      showTitleBlock={false}
     >
       <div className="grid gap-4">
-        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">Today</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-[22px] bg-[var(--accent-soft)] p-4">
+        <section className="rounded-[32px] border border-[var(--line)] bg-[var(--panel-strong)] p-6 shadow-[var(--shadow)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
+            Today
+          </p>
+          <h1 className="mt-3 text-[32px] font-semibold tracking-[-0.04em] text-[var(--text)]">
+            {home
+              ? `${home.userName}님, 오늘은 ${home.pregnancyWeekLabel}`
+              : "오늘 상태를 불러오는 중입니다."}
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
+            {error ??
+              "아기 상태와 오늘 확인할 내용을 먼저 보고, 필요하면 바로 상담으로 이어가세요."}
+          </p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-[24px] bg-[var(--accent-soft)] p-4">
               <p className="text-sm text-[var(--text-soft)]">현재 주차</p>
-              <p className="mt-2 text-2xl font-semibold text-[var(--text)]">{home?.pregnancyWeekLabel ?? "연결 중"}</p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
+                {home?.pregnancyWeekLabel ?? "연결 중"}
+              </p>
             </div>
-            <div className="rounded-[22px] bg-[rgba(20,34,20,0.05)] p-4">
+            <div className="rounded-[24px] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">임신 일차</p>
               <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
                 {home ? `${home.pregnancyDayCount}일` : "데이터 확인 중"}
               </p>
             </div>
           </div>
-        </section>
-
-        <section className="rounded-[28px] border border-[var(--line)] bg-white/80 p-5 shadow-[var(--shadow)]">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">Calendar</p>
-              <h2 className="mt-2 text-xl font-semibold text-[var(--text)]">{home?.currentMonthLabel ?? "이번 달 기록"}</h2>
-            </div>
+          <div className="mt-5 flex flex-wrap gap-3">
             {resolvedUserId ? (
-              <Link href={linkWithUserId("/chat/new", resolvedUserId)} className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white">
-                상담 시작
+              <Link
+                href={linkWithUserId("/chat/new", resolvedUserId)}
+                className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white"
+              >
+                지금 상담하기
+              </Link>
+            ) : null}
+            {resolvedUserId ? (
+              <Link
+                href={linkWithUserId("/knowledge", resolvedUserId)}
+                className="rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-5 py-3 text-sm font-semibold text-[var(--text)]"
+              >
+                이번 주 지식 보기
               </Link>
             ) : null}
           </div>
+        </section>
+
+        <section className="grid gap-4 sm:grid-cols-2">
+          {[
+            {
+              eyebrow: "Today",
+              title: home?.notebookCard.title ?? "임신수첩",
+              body:
+                home?.notebookCard.description ??
+                "오늘 해야 할 체크리스트와 저장 기록을 확인합니다.",
+              href: "/notebook",
+            },
+            {
+              eyebrow: "This Week",
+              title: home?.knowledgeCard.title ?? "임신 지식",
+              body:
+                home?.knowledgeCard.description ??
+                "이번 주 변화와 놓치면 안 될 위험 신호를 먼저 봅니다.",
+              href: "/knowledge",
+            },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={
+                resolvedUserId
+                  ? linkWithUserId(item.href, resolvedUserId)
+                  : item.href
+              }
+              className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)] transition"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
+                {item.eyebrow}
+              </p>
+              <p className="mt-3 text-xl font-semibold text-[var(--text)]">
+                {item.title}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--text-soft)]">
+                {item.body}
+              </p>
+            </Link>
+          ))}
+        </section>
+
+        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                Continue
+              </p>
+              <h2 className="mt-2 text-xl font-semibold text-[var(--text)]">
+                최근 상담 이어가기
+              </h2>
+            </div>
+            {resolvedUserId ? (
+              <Link
+                href={linkWithUserId("/chat/new", resolvedUserId)}
+                className="text-sm font-semibold text-[var(--accent-dark)]"
+              >
+                새 상담
+              </Link>
+            ) : null}
+          </div>
+          <div className="mt-4 grid gap-3">
+            {sessions.length > 0 ? (
+              sessions.map((session) => (
+                <Link
+                  key={session.id}
+                  href={
+                    resolvedUserId
+                      ? linkWithUserId(`/chat/${session.id}`, resolvedUserId)
+                      : `/chat/${session.id}`
+                  }
+                  className="rounded-[20px] border border-[var(--line)] bg-[var(--panel-muted)] p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-[var(--text)]">
+                        {session.title}
+                      </p>
+                      <p className="mt-1 text-sm text-[var(--text-soft)]">
+                        {session.preview}
+                      </p>
+                    </div>
+                    <span className="text-xs text-[var(--text-soft)]">
+                      {session.updatedAtLabel}
+                    </span>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <p className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--text-soft)]">
+                아직 상담 세션이 없습니다. 첫 상담을 시작하면 여기에 누적됩니다.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+                Calendar
+              </p>
+              <h2 className="mt-2 text-xl font-semibold text-[var(--text)]">
+                {home?.currentMonthLabel ?? "이번 달 기록"}
+              </h2>
+            </div>
+          </div>
           <div className="mt-4 grid grid-cols-7 gap-2">
             {(home?.calendarDays ?? []).map((day) => {
-              const clickable = day.hasChat || Boolean(day.emotionTone) || Boolean(day.summary);
+              const clickable =
+                day.hasChat || Boolean(day.emotionTone) || Boolean(day.summary);
               const className = `flex aspect-square flex-col items-center justify-center rounded-[18px] border text-center ${
-                day.hasChat ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--line)] bg-[rgba(20,34,20,0.03)]"
+                day.hasChat
+                  ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                  : "border-[var(--line)] bg-[var(--panel-muted)]"
               }`;
 
               if (!clickable) {
                 return (
-                  <div key={day.isoDate} className={className} title={day.summary ?? day.isoDate}>
-                    <span className="text-sm font-medium text-[var(--text)]">{day.dayLabel}</span>
+                  <div
+                    key={day.isoDate}
+                    className={className}
+                    title={day.summary ?? day.isoDate}
+                  >
+                    <span className="text-sm font-medium text-[var(--text)]">
+                      {day.dayLabel}
+                    </span>
                     <span className="mt-1 flex h-3 items-center justify-center">
                       <span className="h-2 w-2 rounded-full bg-transparent" />
                     </span>
@@ -134,67 +282,32 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
               return (
                 <Link
                   key={day.isoDate}
-                  href={resolvedUserId ? linkWithUserId(`/records/${day.isoDate}`, resolvedUserId) : `/records/${day.isoDate}`}
+                  href={
+                    resolvedUserId
+                      ? linkWithUserId(
+                          `/records/${day.isoDate}`,
+                          resolvedUserId,
+                        )
+                      : `/records/${day.isoDate}`
+                  }
                   className={className}
                   title={day.summary ?? day.isoDate}
                 >
-                  <span className="text-sm font-medium text-[var(--text)]">{day.dayLabel}</span>
+                  <span className="text-sm font-medium text-[var(--text)]">
+                    {day.dayLabel}
+                  </span>
                   <span className="mt-1 flex h-3 items-center justify-center">
-                    <span className={`h-2 w-2 rounded-full ${getCalendarDotClass(day.emotionTone, day.hasChat)}`} />
+                    <span
+                      className={`h-2 w-2 rounded-full ${getCalendarDotClass(day.emotionTone, day.hasChat)}`}
+                    />
                   </span>
                 </Link>
               );
             })}
           </div>
-          <p className="mt-3 text-xs text-[var(--text-soft)]">점이 표시된 날짜만 상담 기록 또는 메모가 있습니다.</p>
-        </section>
-
-        <section className="grid gap-4 sm:grid-cols-2">
-          {[
-            { title: home?.notebookCard.title ?? "임신수첩", body: home?.notebookCard.description ?? "체크리스트와 저장 답변", href: "/notebook" },
-            { title: home?.knowledgeCard.title ?? "임신 지식", body: home?.knowledgeCard.description ?? "주차별 안내와 위험 신호", href: "/knowledge" },
-          ].map((item) => (
-            <Link
-              key={item.href}
-              href={resolvedUserId ? linkWithUserId(item.href, resolvedUserId) : item.href}
-              className="rounded-[26px] border border-[var(--line)] bg-white/85 p-5 shadow-[var(--shadow)] transition hover:-translate-y-0.5"
-            >
-              <p className="text-lg font-semibold text-[var(--text)]">{item.title}</p>
-              <p className="mt-2 text-sm leading-6 text-[var(--text-soft)]">{item.body}</p>
-            </Link>
-          ))}
-        </section>
-
-        <section className="rounded-[28px] border border-[var(--line)] bg-white/85 p-5 shadow-[var(--shadow)]">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">Recent</p>
-              <h2 className="mt-2 text-xl font-semibold text-[var(--text)]">최근 상담 세션</h2>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-3">
-            {sessions.length > 0 ? (
-              sessions.map((session) => (
-                <Link
-                  key={session.id}
-                  href={resolvedUserId ? linkWithUserId(`/chat/${session.id}`, resolvedUserId) : `/chat/${session.id}`}
-                  className="rounded-[20px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-[var(--text)]">{session.title}</p>
-                      <p className="mt-1 text-sm text-[var(--text-soft)]">{session.preview}</p>
-                    </div>
-                    <span className="text-xs text-[var(--text-soft)]">{session.updatedAtLabel}</span>
-                  </div>
-                </Link>
-              ))
-            ) : (
-              <p className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--text-soft)]">
-                아직 상담 세션이 없습니다. 첫 상담을 시작하면 여기에 누적됩니다.
-              </p>
-            )}
-          </div>
+          <p className="mt-3 text-xs text-[var(--text-soft)]">
+            점이 표시된 날짜만 상담 기록 또는 메모가 있습니다.
+          </p>
         </section>
       </div>
     </MobileShell>

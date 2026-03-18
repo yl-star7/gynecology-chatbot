@@ -1,3 +1,7 @@
+import {
+  DEFAULT_MOBILE_THEME_KEY,
+  resolveMobileThemeKey,
+} from "@gynecology-chatbot/app-core";
 import { NextRequest, NextResponse } from "next/server";
 import { updateMobileProfile } from "@/lib/mobile/auth";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
@@ -20,20 +24,29 @@ type ProfileRow = {
     babyNickname?: string | null;
     hospitalName?: string | null;
     notificationTime?: string | null;
+    themeKey?: string | null;
   } | null;
+  baby_nickname?: string | null;
+  notification_time?: string | null;
+  theme_key?: string | null;
 };
 
 export async function GET(request: NextRequest) {
   try {
     const userId = request.nextUrl.searchParams.get("userId");
     if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "userId is required" },
+        { status: 400 },
+      );
     }
 
     const [users, profiles] = await Promise.all([
-      supabaseSelect<UserRow[]>(`users?select=id,display_name,phone_number,account_status&id=eq.${userId}&limit=1`),
+      supabaseSelect<UserRow[]>(
+        `users?select=id,display_name,phone_number,account_status&id=eq.${userId}&limit=1`,
+      ),
       supabaseSelect<ProfileRow[]>(
-        `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date,onboarding_payload&user_id=eq.${userId}&limit=1`,
+        `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${userId}&limit=1`,
       ),
     ]);
 
@@ -48,21 +61,38 @@ export async function GET(request: NextRequest) {
         userId: users[0].id,
         displayName: users[0].display_name,
         phoneNumber: users[0].phone_number,
-        pregnancyWeekLabel: profile?.pregnancy_week ? `${profile.pregnancy_week}주 ${profile.pregnancy_day_in_week ?? 0}일` : "정보 없음",
+        pregnancyWeekLabel: profile?.pregnancy_week
+          ? `${profile.pregnancy_week}주 ${profile.pregnancy_day_in_week ?? 0}일`
+          : "정보 없음",
         pregnancyDayCount: profile?.pregnancy_day_count ?? 0,
         accountStatus: users[0].account_status,
         hasCompletedOnboarding: Boolean(profile),
         dueDate: profile?.due_date ?? null,
         tonePreference: profile?.onboarding_payload?.tonePreference ?? null,
-        pregnancyWeekOrDueDate: profile?.onboarding_payload?.pregnancyWeekOrDueDate ?? null,
-        babyNickname: profile?.onboarding_payload?.babyNickname ?? null,
+        pregnancyWeekOrDueDate:
+          profile?.onboarding_payload?.pregnancyWeekOrDueDate ?? null,
+        babyNickname:
+          profile?.baby_nickname ??
+          profile?.onboarding_payload?.babyNickname ??
+          null,
         hospitalName: profile?.onboarding_payload?.hospitalName ?? null,
-        notificationTime: profile?.onboarding_payload?.notificationTime ?? "08:30",
+        notificationTime:
+          profile?.notification_time ??
+          profile?.onboarding_payload?.notificationTime ??
+          "08:30",
+        themeKey: resolveMobileThemeKey(
+          profile?.theme_key ??
+            profile?.onboarding_payload?.themeKey ??
+            DEFAULT_MOBILE_THEME_KEY,
+        ),
       },
     });
   } catch (error) {
     console.error("mobile profile route error", error);
-    return NextResponse.json({ error: "failed to load profile" }, { status: 500 });
+    return NextResponse.json(
+      { error: "failed to load profile" },
+      { status: 500 },
+    );
   }
 }
 
@@ -70,15 +100,27 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const userId = typeof body.userId === "string" ? body.userId.trim() : "";
-    const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
+    const displayName =
+      typeof body.displayName === "string" ? body.displayName.trim() : "";
     const dueDate = typeof body.dueDate === "string" ? body.dueDate.trim() : "";
-    const tonePreference = typeof body.tonePreference === "string" ? body.tonePreference.trim() : "";
-    const babyNickname = typeof body.babyNickname === "string" ? body.babyNickname.trim() : "";
-    const hospitalName = typeof body.hospitalName === "string" ? body.hospitalName.trim() : "";
-    const notificationTime = typeof body.notificationTime === "string" ? body.notificationTime.trim() : "";
+    const tonePreference =
+      typeof body.tonePreference === "string" ? body.tonePreference.trim() : "";
+    const babyNickname =
+      typeof body.babyNickname === "string" ? body.babyNickname.trim() : "";
+    const hospitalName =
+      typeof body.hospitalName === "string" ? body.hospitalName.trim() : "";
+    const notificationTime =
+      typeof body.notificationTime === "string"
+        ? body.notificationTime.trim()
+        : "";
+    const themeKey =
+      typeof body.themeKey === "string" ? body.themeKey.trim() : "";
 
     if (!userId || !displayName || !tonePreference) {
-      return NextResponse.json({ error: "userId, displayName, and tonePreference are required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "userId, displayName, and tonePreference are required" },
+        { status: 400 },
+      );
     }
 
     const user = await updateMobileProfile({
@@ -89,11 +131,18 @@ export async function PATCH(request: NextRequest) {
       babyNickname: babyNickname || null,
       hospitalName: hospitalName || null,
       notificationTime: notificationTime || "08:30",
+      themeKey: themeKey || DEFAULT_MOBILE_THEME_KEY,
     });
 
     return NextResponse.json({ user });
   } catch (error) {
     console.error("mobile profile patch route error", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "failed to update profile" }, { status: 400 });
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : "failed to update profile",
+      },
+      { status: 400 },
+    );
   }
 }

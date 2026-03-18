@@ -1,11 +1,11 @@
 // Jest DOM matchers 추가
-import '@testing-library/jest-dom';
+import "@testing-library/jest-dom";
 
 // 전역 모킹 설정
 global.fetch = jest.fn();
 
 // Next.js router 모킹
-jest.mock('next/navigation', () => ({
+jest.mock("next/navigation", () => ({
   useRouter() {
     return {
       push: jest.fn(),
@@ -21,7 +21,7 @@ jest.mock('next/navigation', () => ({
     return new URLSearchParams();
   },
   usePathname() {
-    return '/';
+    return "/";
   },
 }));
 
@@ -50,7 +50,6 @@ jest.mock('@/lib/supabase-client', () => ({
   }),
 }));
 */
-
 
 // React Hot Toast 모킹
 /*
@@ -85,18 +84,38 @@ jest.mock('ai/react', () => ({
 */
 
 // Lucide React 아이콘 모킹
-jest.mock('lucide-react', () => {
+jest.mock("lucide-react", () => {
   const icons = [
-    'Heart', 'MessageSquare', 'User', 'Mail', 'Lock', 'Eye', 'EyeOff',
-    'Calendar', 'Shield', 'Users', 'ArrowRight', 'ArrowLeft', 'Edit3',
-    'Save', 'LogOut', 'Trash2', 'Sparkles', 'Send', 'Menu', 'X'
+    "Heart",
+    "MessageSquare",
+    "User",
+    "Mail",
+    "Lock",
+    "Eye",
+    "EyeOff",
+    "Calendar",
+    "Shield",
+    "Users",
+    "ArrowRight",
+    "ArrowLeft",
+    "Edit3",
+    "Save",
+    "LogOut",
+    "Trash2",
+    "Sparkles",
+    "Send",
+    "Menu",
+    "X",
   ];
 
   const iconComponents = {};
-  icons.forEach(icon => {
-    iconComponents[icon] = ({ className, ...props }) => (
-      React.createElement('svg', { 'data-testid': `${icon.toLowerCase()}-icon`, className, ...props })
-    );
+  icons.forEach((icon) => {
+    iconComponents[icon] = ({ className, ...props }) =>
+      React.createElement("svg", {
+        "data-testid": `${icon.toLowerCase()}-icon`,
+        className,
+        ...props,
+      });
   });
 
   return iconComponents;
@@ -104,24 +123,24 @@ jest.mock('lucide-react', () => {
 
 // IntersectionObserver 모킹 (스크롤 관련 테스트용)
 global.IntersectionObserver = class IntersectionObserver {
-  constructor() { }
-  observe() { }
-  unobserve() { }
-  disconnect() { }
+  constructor() {}
+  observe() {}
+  unobserve() {}
+  disconnect() {}
 };
 
 // ResizeObserver 모킹
 global.ResizeObserver = class ResizeObserver {
-  constructor() { }
-  observe() { }
-  unobserve() { }
-  disconnect() { }
+  constructor() {}
+  observe() {}
+  unobserve() {}
+  disconnect() {}
 };
 
 // matchMedia 모킹 (반응형 디자인 테스트용)
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(window, "matchMedia", {
   writable: true,
-  value: jest.fn().mockImplementation(query => ({
+  value: jest.fn().mockImplementation((query) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -136,8 +155,27 @@ Object.defineProperty(window, 'matchMedia', {
 // 환경변수 모킹
 process.env = {
   ...process.env,
-  NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
-  NEXT_PUBLIC_APP_URL: 'http://localhost:4000',
-  NODE_ENV: 'test',
+  NEXT_PUBLIC_SUPABASE_URL: "https://test.supabase.co",
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY: "test-publishable-key",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key",
+  SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",
+  NEXT_PUBLIC_APP_URL: "http://localhost:4000",
+  NODE_ENV: "test",
 };
+
+if (typeof global.TextEncoder === "undefined") {
+  const { TextEncoder, TextDecoder } = require("util");
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder;
+}
+
+if (typeof global.Request === "undefined") {
+  const { ReadableStream, TransformStream } = require("stream/web");
+  global.ReadableStream = ReadableStream;
+  global.TransformStream = TransformStream;
+  const { fetch, Headers, Request, Response } = require("undici");
+  global.fetch = fetch;
+  global.Headers = Headers;
+  global.Request = Request;
+  global.Response = Response;
+}

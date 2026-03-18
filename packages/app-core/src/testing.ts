@@ -1,5 +1,10 @@
 import type {
   AdminDashboardData,
+  AdminUserAction,
+  AdminWeekAsset,
+  AdminWeekDetail,
+  AdminWeekSection,
+  AdminWeekSummary,
   AuthenticatedUser,
   CalendarDay,
   ChatComposerInput,
@@ -11,9 +16,24 @@ import type {
   OnboardingProfileInput,
   RecentChatSummary,
 } from "./domain";
-import type { AdminDashboardPort, AuthPort, MobileChatPort, MobileHomePort, OnboardingPort } from "./ports";
+import type {
+  AdminContentPort,
+  AdminDashboardPort,
+  AuthPort,
+  MobileChatPort,
+  MobileHomePort,
+  OnboardingPort,
+} from "./ports";
 
-const emotionPalette: EmotionTone[] = ["joyful", "calm", "anxious", "tired", "sad", "calm", "joyful"];
+const emotionPalette: EmotionTone[] = [
+  "joyful",
+  "calm",
+  "anxious",
+  "tired",
+  "sad",
+  "calm",
+  "joyful",
+];
 
 const mockAuthState: {
   user: AuthenticatedUser;
@@ -43,16 +63,36 @@ function buildCalendar(): CalendarDay[] {
       isoDate: `2026-03-${String(day).padStart(2, "0")}`,
       dayLabel: String(day),
       hasChat,
-      emotionTone: hasChat ? emotionPalette[index % emotionPalette.length] : null,
+      emotionTone: hasChat
+        ? emotionPalette[index % emotionPalette.length]
+        : null,
       summary: hasChat ? "상담 기록 있음" : undefined,
     };
   });
 }
 
 const recentChats: RecentChatSummary[] = [
-  { id: "chat-today", title: "오늘 컨디션 상담", preview: "두통이 있을 때 바로 내원해야 하나요?", updatedAtLabel: "방금 전" },
-  { id: "chat-vitamins", title: "영양제 복용", preview: "철분제와 엽산 복용 시간을 정리했어요.", updatedAtLabel: "어제" },
-  { id: "chat-work", title: "업무 피로", preview: "오래 앉아 있을 때 통증 관리법", updatedAtLabel: "3일 전" },
+  {
+    id: "chat-today",
+    title: "오늘 컨디션 상담",
+    preview: "두통이 있을 때 바로 내원해야 하나요?",
+    updatedAtLabel: "방금 전",
+    updatedAtIso: "2026-03-17T14:31:00.000Z",
+  },
+  {
+    id: "chat-vitamins",
+    title: "영양제 복용",
+    preview: "철분제와 엽산 복용 시간을 정리했어요.",
+    updatedAtLabel: "어제",
+    updatedAtIso: "2026-03-16T09:10:00.000Z",
+  },
+  {
+    id: "chat-work",
+    title: "업무 피로",
+    preview: "오래 앉아 있을 때 통증 관리법",
+    updatedAtLabel: "3일 전",
+    updatedAtIso: "2026-03-14T07:45:00.000Z",
+  },
 ];
 
 const baseMessages: Record<string, ChatMessage[]> = {
@@ -144,7 +184,8 @@ const baseMessages: Record<string, ChatMessage[]> = {
         {
           type: "image",
           id: "img1",
-          imageUrl: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=900&q=80",
+          imageUrl:
+            "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=900&q=80",
           alt: "산모가 의자에 기대어 쉬는 장면",
           caption: "허리와 골반 부담을 줄이는 자세 가이드",
         },
@@ -168,32 +209,95 @@ const linkMap: Record<string, LinkTargetContent> = {
   },
 };
 
+const adminUserActions: AdminUserAction[] = [
+  {
+    id: "action-1",
+    userId: "u1",
+    userName: "김수연",
+    actionType: "login_succeeded",
+    actionLabel: "로그인 완료",
+    detail: "기존 비밀번호로 로그인했습니다.",
+    occurredAtLabel: "오늘 14:24",
+    sessionId: null,
+    sessionTitle: null,
+  },
+  {
+    id: "action-2",
+    userId: "u1",
+    userName: "김수연",
+    actionType: "chat_message_sent",
+    actionLabel: "채팅 메시지 전송",
+    detail: "두통과 피로가 같이 와요.",
+    occurredAtLabel: "오늘 14:28",
+    sessionId: "hs-1",
+    sessionTitle: "두통과 피로 상담",
+  },
+  {
+    id: "action-3",
+    userId: "u1",
+    userName: "김수연",
+    actionType: "profile_updated",
+    actionLabel: "프로필 업데이트",
+    detail: "아기 태명과 알림 시간을 수정했습니다.",
+    occurredAtLabel: "어제 18:12",
+    sessionId: null,
+    sessionTitle: null,
+  },
+  {
+    id: "action-4",
+    userId: "u2",
+    userName: "박지안",
+    actionType: "onboarding_completed",
+    actionLabel: "온보딩 완료",
+    detail: "출산예정일과 말투 설정을 저장했습니다.",
+    occurredAtLabel: "오늘 09:08",
+    sessionId: null,
+    sessionTitle: null,
+  },
+];
+
 function toSession(sessionId: string): ChatSession {
   return {
     id: sessionId,
-    title: recentChats.find((item) => item.id === sessionId)?.title ?? "새 상담",
+    title:
+      recentChats.find((item) => item.id === sessionId)?.title ?? "새 상담",
     messages: baseMessages[sessionId] ?? [],
   };
 }
 
 export class MockAuthAdapter implements AuthPort {
-  async signInWithPhonePassword(input: { phoneNumber: string; password: string }): Promise<AuthenticatedUser> {
-    if (input.phoneNumber !== mockAuthState.user.phoneNumber || input.password !== mockAuthState.password) {
+  async signInWithPhonePassword(input: {
+    phoneNumber: string;
+    password: string;
+  }): Promise<AuthenticatedUser> {
+    if (
+      input.phoneNumber !== mockAuthState.user.phoneNumber ||
+      input.password !== mockAuthState.password
+    ) {
       throw new Error("전화번호 또는 비밀번호가 일치하지 않습니다.");
     }
 
     return { ...mockAuthState.user };
   }
 
-  async verifyPhone(input: { phoneNumber: string; verificationCode: string }): Promise<{ verificationToken: string }> {
-    if (input.phoneNumber !== mockAuthState.user.phoneNumber || input.verificationCode.trim().length < 4) {
+  async verifyPhone(input: {
+    phoneNumber: string;
+    verificationCode: string;
+  }): Promise<{ verificationToken: string }> {
+    if (
+      input.phoneNumber !== mockAuthState.user.phoneNumber ||
+      input.verificationCode.trim().length < 4
+    ) {
       throw new Error("인증 코드를 확인해 주세요.");
     }
 
     return { verificationToken: mockAuthState.verificationToken };
   }
 
-  async setPassword(input: { verificationToken: string; password: string }): Promise<AuthenticatedUser> {
+  async setPassword(input: {
+    verificationToken: string;
+    password: string;
+  }): Promise<AuthenticatedUser> {
     if (input.verificationToken !== mockAuthState.verificationToken) {
       throw new Error("유효하지 않은 인증 세션입니다.");
     }
@@ -210,7 +314,9 @@ export class MockAuthAdapter implements AuthPort {
 }
 
 export class MockOnboardingAdapter implements OnboardingPort {
-  async completeProfile(input: OnboardingProfileInput): Promise<AuthenticatedUser> {
+  async completeProfile(
+    input: OnboardingProfileInput,
+  ): Promise<AuthenticatedUser> {
     mockAuthState.onboardingInput = input;
     mockAuthState.user = {
       ...mockAuthState.user,
@@ -277,7 +383,10 @@ export class MockMobileChatAdapter implements MobileChatPort {
     };
   }
 
-  async resolveLink(target: string, entityId?: string): Promise<LinkTargetContent> {
+  async resolveLink(
+    target: string,
+    entityId?: string,
+  ): Promise<LinkTargetContent> {
     return (
       linkMap[`${target}:${entityId ?? ""}`] ?? {
         title: "연결된 정보",
@@ -292,18 +401,63 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
   async getDashboard(): Promise<AdminDashboardData> {
     return {
       metrics: [
-        { id: "active-users", label: "활성 사용자", value: "184", changeLabel: "+12 이번 주" },
-        { id: "daily-chats", label: "일일 채팅", value: "1,284", changeLabel: "+8% 어제 대비" },
-        { id: "recovery", label: "계정 복구 요청", value: "7", changeLabel: "2건 처리 대기" },
+        {
+          id: "active-users",
+          label: "활성 사용자",
+          value: "184",
+          changeLabel: "+12 이번 주",
+        },
+        {
+          id: "daily-chats",
+          label: "일일 채팅",
+          value: "1,284",
+          changeLabel: "+8% 어제 대비",
+        },
+        {
+          id: "recovery",
+          label: "계정 복구 요청",
+          value: "7",
+          changeLabel: "2건 처리 대기",
+        },
       ],
       managedUsers: [
-        { id: "u1", name: "김수연", phoneNumber: "010-2345-6789", status: "attention", latestIssue: "전화번호 변경 요청" },
-        { id: "u2", name: "박지안", phoneNumber: "010-9999-1111", status: "active", latestIssue: "최근 로그인 정상" },
-        { id: "u3", name: "이하은", phoneNumber: "010-2222-4444", status: "paused", latestIssue: "비밀번호 초기화 필요" },
+        {
+          id: "u1",
+          name: "김수연",
+          phoneNumber: "010-2345-6789",
+          status: "attention",
+          latestIssue: "전화번호 변경 요청",
+        },
+        {
+          id: "u2",
+          name: "박지안",
+          phoneNumber: "010-9999-1111",
+          status: "active",
+          latestIssue: "최근 로그인 정상",
+        },
+        {
+          id: "u3",
+          name: "이하은",
+          phoneNumber: "010-2222-4444",
+          status: "paused",
+          latestIssue: "비밀번호 초기화 필요",
+        },
       ],
       recoveryActions: [
-        { id: "r1", userName: "김수연", action: "전화번호 변경", requestedAt: "오늘 14:10", status: "pending" },
-        { id: "r2", userName: "이하은", action: "비밀번호 초기화", requestedAt: "오늘 09:20", status: "completed" },
+        {
+          id: "r1",
+          userName: "김수연",
+          action: "전화번호 변경",
+          requestedAt: "오늘 14:10",
+          status: "pending",
+        },
+        {
+          id: "r2",
+          userName: "이하은",
+          action: "비밀번호 초기화",
+          requestedAt: "오늘 09:20",
+          status: "completed",
+        },
       ],
       ragDocuments: [
         {
@@ -366,9 +520,24 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
               updatedAtLabel: "오늘 14:31",
               pregnancyWeekLabel: "18주 6일",
               messages: [
-                { id: "hm-1", role: "user", createdAtLabel: "14:28", summary: "두통과 피로가 같이 와요." },
-                { id: "hm-2", role: "assistant", createdAtLabel: "14:30", summary: "시야 변화 여부와 내원 권고 기준을 안내." },
-                { id: "hm-3", role: "assistant", createdAtLabel: "14:31", summary: "체크 카드 3장과 지식 링크 제공." },
+                {
+                  id: "hm-1",
+                  role: "user",
+                  createdAtLabel: "14:28",
+                  summary: "두통과 피로가 같이 와요.",
+                },
+                {
+                  id: "hm-2",
+                  role: "assistant",
+                  createdAtLabel: "14:30",
+                  summary: "시야 변화 여부와 내원 권고 기준을 안내.",
+                },
+                {
+                  id: "hm-3",
+                  role: "assistant",
+                  createdAtLabel: "14:31",
+                  summary: "체크 카드 3장과 지식 링크 제공.",
+                },
               ],
             },
             {
@@ -377,8 +546,18 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
               updatedAtLabel: "어제 09:10",
               pregnancyWeekLabel: "18주 5일",
               messages: [
-                { id: "hm-4", role: "user", createdAtLabel: "09:02", summary: "철분제 먹고 속이 메스꺼워요." },
-                { id: "hm-5", role: "assistant", createdAtLabel: "09:10", summary: "복용 패턴 설문과 간식 후 복용 가이드 안내." },
+                {
+                  id: "hm-4",
+                  role: "user",
+                  createdAtLabel: "09:02",
+                  summary: "철분제 먹고 속이 메스꺼워요.",
+                },
+                {
+                  id: "hm-5",
+                  role: "assistant",
+                  createdAtLabel: "09:10",
+                  summary: "복용 패턴 설문과 간식 후 복용 가이드 안내.",
+                },
               ],
             },
           ],
@@ -396,13 +575,137 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
               updatedAtLabel: "오늘 10:12",
               pregnancyWeekLabel: "22주 1일",
               messages: [
-                { id: "hm-6", role: "user", createdAtLabel: "10:01", summary: "오전부터 배가 자주 뭉쳐요." },
-                { id: "hm-7", role: "assistant", createdAtLabel: "10:12", summary: "빈도 기록과 위험 신호 체크리스트 제공." },
+                {
+                  id: "hm-6",
+                  role: "user",
+                  createdAtLabel: "10:01",
+                  summary: "오전부터 배가 자주 뭉쳐요.",
+                },
+                {
+                  id: "hm-7",
+                  role: "assistant",
+                  createdAtLabel: "10:12",
+                  summary: "빈도 기록과 위험 신호 체크리스트 제공.",
+                },
               ],
             },
           ],
         },
       ],
+      userActions: adminUserActions,
     };
+  }
+}
+
+const mockWeekContent: AdminWeekDetail[] = [
+  {
+    id: "week-1",
+    weekNumber: 1,
+    title: "처음의 변화",
+    babySizeLabel: "블루베리",
+    babySizeCompareObject: "작은 블루베리",
+    babySummary: "초기에 빠르게 심장이 생성되고 있어요.",
+    motherSummary: "약간의 피로와 감정 기복을 느낄 수 있어요.",
+    heroImagePath: "/images/week1/hero.jpg",
+    compareImagePath: "/images/week1/compare.png",
+    status: "published",
+    updatedAt: "2026-03-17T10:00:00.000Z",
+    sections: [
+      {
+        id: "section-1",
+        sectionKey: "baby_growth",
+        title: "아기의 성장",
+        body: "배가 커진 것처럼 느껴질 수 있어요.",
+        displayOrder: 1,
+        isRequired: true,
+      },
+    ],
+    assets: [
+      {
+        id: "asset-1",
+        assetType: "hero",
+        storagePath: "/assets/week1/hero.jpg",
+        altText: "Week 1 hero",
+        styleKey: "soft-glow",
+        displayOrder: 1,
+      },
+    ],
+  },
+  {
+    id: "week-2",
+    weekNumber: 2,
+    title: "움직임이 시작돼요",
+    babySizeLabel: "체리",
+    babySizeCompareObject: "작은 체리",
+    babySummary: "감각이 조금씩 발달하고 있어요.",
+    motherSummary: "유방이 민감해질 수 있어요.",
+    heroImagePath: null,
+    compareImagePath: "/assets/week2/compare.jpg",
+    status: "draft",
+    updatedAt: "2026-03-18T09:00:00.000Z",
+    sections: [
+      {
+        id: "section-2",
+        sectionKey: "attachment_question",
+        title: "애착 질문",
+        body: "오늘 느낀 감정을 적어보세요.",
+        displayOrder: 1,
+        isRequired: false,
+      },
+      {
+        id: "section-3",
+        sectionKey: "baby_appearance",
+        title: "아기 모양",
+        body: "작은 체리처럼 생겼어요.",
+        displayOrder: 2,
+        isRequired: true,
+      },
+    ],
+    assets: [
+      {
+        id: "asset-2",
+        assetType: "compare",
+        storagePath: "/assets/week2/compare.jpg",
+        altText: "Compare spotlight",
+        styleKey: null,
+        displayOrder: 1,
+      },
+      {
+        id: "asset-3",
+        assetType: "hero",
+        storagePath: "/assets/week2/hero.jpg",
+        altText: "Hero spotlight",
+        styleKey: "liquid-glass",
+        displayOrder: 2,
+      },
+    ],
+  },
+];
+
+const mockWeekSummaries: AdminWeekSummary[] = mockWeekContent.map((week) => ({
+  id: week.id,
+  weekNumber: week.weekNumber,
+  title: week.title,
+  babySizeLabel: week.babySizeLabel,
+  babySizeCompareObject: week.babySizeCompareObject,
+  babySummary: week.babySummary,
+  motherSummary: week.motherSummary,
+  heroImagePath: week.heroImagePath,
+  compareImagePath: week.compareImagePath,
+  status: week.status,
+  updatedAt: week.updatedAt,
+}));
+
+const mockWeekDetailMap: Record<number, AdminWeekDetail> = Object.fromEntries(
+  mockWeekContent.map((week) => [week.weekNumber, week]),
+);
+
+export class MockAdminContentAdapter implements AdminContentPort {
+  async listWeeks(): Promise<AdminWeekSummary[]> {
+    return mockWeekSummaries;
+  }
+
+  async getWeek(weekNumber: number): Promise<AdminWeekDetail | null> {
+    return mockWeekDetailMap[weekNumber] ?? null;
   }
 }

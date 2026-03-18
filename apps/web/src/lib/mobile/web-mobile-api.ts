@@ -6,6 +6,7 @@ import type {
   ChatSession,
   HomeViewData,
   LinkTargetContent,
+  MobileThemeKey,
   MobileProfileViewData,
   RecentChatSummary,
   RecordDayView,
@@ -25,10 +26,15 @@ export function resolveMobileUserId(explicitUserId?: string | null) {
   }
 
   const searchParams = new URLSearchParams(window.location.search);
-  return searchParams.get("userId") ?? process.env.NEXT_PUBLIC_DEV_USER_ID ?? null;
+  return (
+    searchParams.get("userId") ?? process.env.NEXT_PUBLIC_DEV_USER_ID ?? null
+  );
 }
 
-export function appendUserIdToPath(path: string, explicitUserId?: string | null) {
+export function appendUserIdToPath(
+  path: string,
+  explicitUserId?: string | null,
+) {
   const userId = resolveMobileUserId(explicitUserId);
   if (!userId) {
     return path;
@@ -70,33 +76,45 @@ export function createSessionId() {
 }
 
 export async function fetchHome(userId: string, month?: string) {
-  const response = await fetch(`/api/mobile/home?${createSearch({ userId, month })}`, {
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `/api/mobile/home?${createSearch({ userId, month })}`,
+    {
+      cache: "no-store",
+    },
+  );
 
   return parseJson<{ home: HomeViewData }>(response);
 }
 
 export async function fetchSessions(userId: string) {
-  const response = await fetch(`/api/mobile/sessions?${createSearch({ userId })}`, {
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `/api/mobile/sessions?${createSearch({ userId })}`,
+    {
+      cache: "no-store",
+    },
+  );
 
   return parseJson<{ sessions: RecentChatSummary[] }>(response);
 }
 
 export async function fetchRecordDay(userId: string, isoDate: string) {
-  const response = await fetch(`/api/mobile/records?${createSearch({ userId, date: isoDate })}`, {
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `/api/mobile/records?${createSearch({ userId, date: isoDate })}`,
+    {
+      cache: "no-store",
+    },
+  );
 
   return parseJson<{ recordDay: RecordDayView }>(response);
 }
 
 export async function fetchMobileProfile(userId: string) {
-  const response = await fetch(`/api/mobile/profile?${createSearch({ userId })}`, {
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `/api/mobile/profile?${createSearch({ userId })}`,
+    {
+      cache: "no-store",
+    },
+  );
 
   return parseJson<{ profile: MobileProfileViewData }>(response);
 }
@@ -109,6 +127,7 @@ export async function updateMobileProfile(input: {
   babyNickname?: string | null;
   hospitalName?: string | null;
   notificationTime?: string | null;
+  themeKey?: MobileThemeKey | null;
 }) {
   const response = await fetch("/api/mobile/profile", {
     method: "PATCH",
@@ -120,17 +139,23 @@ export async function updateMobileProfile(input: {
 }
 
 export async function fetchSession(userId: string, sessionId: string) {
-  const response = await fetch(`/api/mobile/sessions/${encodeURIComponent(sessionId)}?${createSearch({ userId })}`, {
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `/api/mobile/sessions/${encodeURIComponent(sessionId)}?${createSearch({ userId })}`,
+    {
+      cache: "no-store",
+    },
+  );
 
   return parseJson<{ session: ChatSession }>(response);
 }
 
 export async function fetchLinkTarget(target: string, entityId?: string) {
-  const response = await fetch(`/api/mobile/link?${createSearch({ target, entityId })}`, {
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `/api/mobile/link?${createSearch({ target, entityId })}`,
+    {
+      cache: "no-store",
+    },
+  );
 
   return parseJson<{ content: LinkTargetContent }>(response);
 }
@@ -172,7 +197,10 @@ export async function fileToDataUrl(file: File) {
   });
 }
 
-export async function signInWithPhonePassword(input: { phoneNumber: string; password: string }) {
+export async function signInWithPhonePassword(input: {
+  phoneNumber: string;
+  password: string;
+}) {
   const response = await fetch("/api/mobile/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -182,7 +210,10 @@ export async function signInWithPhonePassword(input: { phoneNumber: string; pass
   return parseJson<{ user: AuthenticatedUser }>(response);
 }
 
-export async function verifyPhone(input: { phoneNumber: string; verificationCode: string }) {
+export async function verifyPhone(input: {
+  phoneNumber: string;
+  verificationCode: string;
+}) {
   const response = await fetch("/api/mobile/auth/verify-phone", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -192,7 +223,20 @@ export async function verifyPhone(input: { phoneNumber: string; verificationCode
   return parseJson<{ verificationToken: string }>(response);
 }
 
-export async function setPassword(input: { verificationToken: string; password: string }) {
+export async function startPhoneVerification(input: { phoneNumber: string }) {
+  const response = await fetch("/api/mobile/auth/start-phone-verification", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  return parseJson<{ ok: true }>(response);
+}
+
+export async function setPassword(input: {
+  verificationToken: string;
+  password: string;
+}) {
   const response = await fetch("/api/mobile/auth/set-password", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -216,6 +260,7 @@ export async function completeOnboarding(input: {
   userId: string;
   pregnancyWeekOrDueDate: string;
   tonePreference: string;
+  themeKey?: MobileThemeKey | null;
 }) {
   const response = await fetch("/api/mobile/onboarding", {
     method: "POST",

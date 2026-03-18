@@ -1,8 +1,11 @@
 "use client";
 
-import type { ChatMessage, RecentChatSummary } from "@gynecology-chatbot/app-core";
+import type {
+  ChatMessage,
+  RecentChatSummary,
+} from "@gynecology-chatbot/app-core";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createSessionId,
   fetchSession,
@@ -10,7 +13,10 @@ import {
   fileToDataUrl,
   sendChatMessage,
 } from "@/lib/mobile/web-mobile-api";
-import { MobileShell } from "./MobileShell";
+import { readStoredMobileProfile } from "@/lib/mobile/mobile-session";
+import { MobileChatComposer } from "./MobileChatComposer";
+import { MobileChatMenu } from "./MobileChatMenu";
+import { groupChatSessionsByDate } from "./mobile-chat-session-groups";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
 function createDraftMessage(text: string, imageDataUrl?: string): ChatMessage {
@@ -38,10 +44,16 @@ function createDraftMessage(text: string, imageDataUrl?: string): ChatMessage {
   };
 }
 
-function renderMessagePart(part: ChatMessage["parts"][number], userId: string | null) {
+function renderMessagePart(
+  part: ChatMessage["parts"][number],
+  userId: string | null,
+) {
   if (part.type === "text") {
     return (
-      <p key={part.id} className="whitespace-pre-wrap text-[15px] leading-7 text-[var(--text)]">
+      <p
+        key={part.id}
+        className="whitespace-pre-wrap text-[15px] leading-7 text-[var(--text)]"
+      >
         {part.text}
       </p>
     );
@@ -51,8 +63,14 @@ function renderMessagePart(part: ChatMessage["parts"][number], userId: string | 
     return (
       <div key={part.id} className="grid gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={part.imageUrl} alt={part.alt} className="h-52 w-full rounded-[20px] object-cover" />
-        {part.caption ? <p className="text-xs text-[var(--text-soft)]">{part.caption}</p> : null}
+        <img
+          src={part.imageUrl}
+          alt={part.alt}
+          className="h-52 w-full rounded-[20px] object-cover"
+        />
+        {part.caption ? (
+          <p className="text-xs text-[var(--text-soft)]">{part.caption}</p>
+        ) : null}
       </div>
     );
   }
@@ -64,9 +82,15 @@ function renderMessagePart(part: ChatMessage["parts"][number], userId: string | 
     }).toString()}`;
 
     return (
-      <Link key={part.id} href={href} className="rounded-[18px] bg-[var(--accent-soft)] p-4">
+      <Link
+        key={part.id}
+        href={href}
+        className="rounded-[18px] bg-[var(--accent-soft)] p-4"
+      >
         <p className="font-medium text-[var(--accent-dark)]">{part.title}</p>
-        <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">{part.description}</p>
+        <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">
+          {part.description}
+        </p>
       </Link>
     );
   }
@@ -77,10 +101,19 @@ function renderMessagePart(part: ChatMessage["parts"][number], userId: string | 
         <p className="font-medium text-[var(--text)]">{part.title}</p>
         <div className="grid gap-3">
           {part.cards.map((card) => (
-            <div key={card.id} className="rounded-[18px] border border-[var(--line)] bg-white/70 p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-[var(--text-soft)]">{card.eyebrow}</p>
-              <p className="mt-2 font-medium text-[var(--text)]">{card.title}</p>
-              <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">{card.description}</p>
+            <div
+              key={card.id}
+              className="rounded-[18px] border border-[var(--line)] bg-[var(--panel)] p-4"
+            >
+              <p className="text-xs uppercase tracking-[0.16em] text-[var(--text-soft)]">
+                {card.eyebrow}
+              </p>
+              <p className="mt-2 font-medium text-[var(--text)]">
+                {card.title}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">
+                {card.description}
+              </p>
             </div>
           ))}
         </div>
@@ -89,16 +122,29 @@ function renderMessagePart(part: ChatMessage["parts"][number], userId: string | 
   }
 
   return (
-    <div key={part.id} className="rounded-[18px] border border-[var(--line)] bg-white/70 p-4">
+    <div
+      key={part.id}
+      className="rounded-[18px] border border-[var(--line)] bg-[var(--panel)] p-4"
+    >
       <p className="font-medium text-[var(--text)]">{part.title}</p>
-      <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">{part.body}</p>
+      <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">
+        {part.body}
+      </p>
     </div>
   );
 }
 
-export function MobileChatView({ userId, initialSessionId }: { userId: string | null; initialSessionId: string }) {
+export function MobileChatView({
+  userId,
+  initialSessionId,
+}: {
+  userId: string | null;
+  initialSessionId: string;
+}) {
   const resolvedUserId = useMobileSessionGuard(userId);
-  const [resolvedSessionId] = useState(() => (initialSessionId === "new" ? createSessionId() : initialSessionId));
+  const [resolvedSessionId] = useState(() =>
+    initialSessionId === "new" ? createSessionId() : initialSessionId,
+  );
   const [sessionTitle, setSessionTitle] = useState("새 상담");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [recentSessions, setRecentSessions] = useState<RecentChatSummary[]>([]);
@@ -106,10 +152,14 @@ export function MobileChatView({ userId, initialSessionId }: { userId: string | 
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const storedProfile = useMemo(() => readStoredMobileProfile(), []);
 
   useEffect(() => {
-    window.PhedyNative?.setTitle?.("상담 채팅");
-  }, []);
+    window.PhedyNative?.setTitle?.(sessionTitle);
+  }, [sessionTitle]);
 
   useEffect(() => {
     if (!resolvedUserId) {
@@ -121,12 +171,16 @@ export function MobileChatView({ userId, initialSessionId }: { userId: string | 
     fetchSessions(resolvedUserId)
       .then((payload) => {
         if (!cancelled) {
-          setRecentSessions(payload.sessions.slice(0, 6));
+          setRecentSessions(payload.sessions.slice(0, 12));
         }
       })
       .catch((nextError) => {
         if (!cancelled) {
-          setError(nextError instanceof Error ? nextError.message : "최근 세션을 불러오지 못했습니다.");
+          setError(
+            nextError instanceof Error
+              ? nextError.message
+              : "최근 세션을 불러오지 못했습니다.",
+          );
         }
       });
 
@@ -145,7 +199,11 @@ export function MobileChatView({ userId, initialSessionId }: { userId: string | 
       })
       .catch((nextError) => {
         if (!cancelled) {
-          setError(nextError instanceof Error ? nextError.message : "세션을 불러오지 못했습니다.");
+          setError(
+            nextError instanceof Error
+              ? nextError.message
+              : "세션을 불러오지 못했습니다.",
+          );
         }
       });
 
@@ -154,21 +212,38 @@ export function MobileChatView({ userId, initialSessionId }: { userId: string | 
     };
   }, [initialSessionId, resolvedSessionId, resolvedUserId]);
 
-  const chatHrefBase = useMemo(
-    () => (resolvedUserId ? `/chat/${resolvedSessionId}?userId=${encodeURIComponent(resolvedUserId)}` : `/chat/${resolvedSessionId}`),
-    [resolvedSessionId, resolvedUserId],
+  const homeHref = useMemo(
+    () =>
+      resolvedUserId ? `/?userId=${encodeURIComponent(resolvedUserId)}` : "/",
+    [resolvedUserId],
   );
+  const sessionGroups = useMemo(
+    () => groupChatSessionsByDate(recentSessions),
+    [recentSessions],
+  );
+  const showQuickPrompts =
+    messages.length === 0 && !text.trim() && !imageDataUrl && !isSending;
 
-  const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  useEffect(() => {
+    bottomAnchorRef.current?.scrollIntoView({
+      behavior: messages.length > 1 ? "smooth" : "auto",
+      block: "end",
+    });
+  }, [messages, isSending]);
 
-    if (!file) {
-      setImageDataUrl(null);
-      return;
-    }
+  const handleFileChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
 
-    setImageDataUrl(await fileToDataUrl(file));
-  }, []);
+      if (!file) {
+        setImageDataUrl(null);
+        return;
+      }
+
+      setImageDataUrl(await fileToDataUrl(file));
+    },
+    [],
+  );
 
   const handleSend = useCallback(async () => {
     if (!resolvedUserId) {
@@ -181,7 +256,9 @@ export function MobileChatView({ userId, initialSessionId }: { userId: string | 
 
     const draftMessage = createDraftMessage(text, imageDataUrl ?? undefined);
     setMessages((current) => [...current, draftMessage]);
-    setSessionTitle((current) => (current === "새 상담" && text.trim() ? text.trim().slice(0, 24) : current));
+    setSessionTitle((current) =>
+      current === "새 상담" && text.trim() ? text.trim().slice(0, 24) : current,
+    );
     setIsSending(true);
     setError(null);
 
@@ -196,92 +273,101 @@ export function MobileChatView({ userId, initialSessionId }: { userId: string | 
       setMessages((current) => [...current, payload.assistantMessage]);
       setText("");
       setImageDataUrl(null);
+      const nextSessions = await fetchSessions(resolvedUserId);
+      setRecentSessions(nextSessions.sessions.slice(0, 12));
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "메시지를 전송하지 못했습니다.");
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : "메시지를 전송하지 못했습니다.",
+      );
     } finally {
       setIsSending(false);
     }
   }, [imageDataUrl, resolvedSessionId, resolvedUserId, text]);
 
-  return (
-    <MobileShell title={sessionTitle} description={error ?? "텍스트와 이미지 첨부를 함께 전송할 수 있습니다."} userId={resolvedUserId}>
-      <div className="grid gap-4">
-        <section className="rounded-[30px] border border-[var(--line)] bg-white/90 p-5 shadow-[var(--shadow)]">
-          <div className="grid gap-3">
-            {messages.length > 0 ? (
-              messages.map((message) => (
-                <article
-                  key={message.id}
-                  className={`rounded-[24px] p-4 ${message.role === "user" ? "bg-[var(--accent-soft)]" : "border border-[var(--line)] bg-[rgba(255,255,255,0.8)]"}`}
-                >
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium text-[var(--text)]">{message.role === "user" ? "나" : "상담 도우미"}</span>
-                    <span className="text-xs text-[var(--text-soft)]">{message.createdAtLabel}</span>
-                  </div>
-                  <div className="grid gap-3">{message.parts.map((part) => renderMessagePart(part, resolvedUserId))}</div>
-                </article>
-              ))
-            ) : (
-              <div className="rounded-[22px] border border-dashed border-[var(--line)] p-5 text-sm leading-6 text-[var(--text-soft)]">
-                아직 메시지가 없습니다. 증상, 궁금한 점, 이미지를 바로 첨부해서 시작하세요.
-              </div>
-            )}
-          </div>
-        </section>
+  const handlePromptSelect = useCallback((prompt: string) => {
+    setText((current) => (current.trim() ? `${current}\n${prompt}` : prompt));
+    composerRef.current?.focus();
+  }, []);
 
-        <section className="rounded-[30px] border border-[var(--line)] bg-white/90 p-5 shadow-[var(--shadow)]">
-          <div className="grid gap-3">
-            <textarea
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              placeholder="불편한 증상이나 궁금한 점을 입력하세요."
-              className="min-h-28 rounded-[22px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
-            />
-            <label className="rounded-[18px] border border-dashed border-[var(--line)] px-4 py-3 text-sm text-[var(--text-soft)]">
-              이미지 첨부
-              <input type="file" accept="image/*" className="mt-2 block w-full text-sm" onChange={handleFileChange} />
-            </label>
-            {imageDataUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={imageDataUrl} alt="첨부 미리보기" className="h-40 w-full rounded-[20px] object-cover" />
-            ) : null}
+  return (
+    <>
+      <MobileChatMenu
+        currentSessionId={resolvedSessionId}
+        groups={sessionGroups}
+        homeHref={homeHref}
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        userId={resolvedUserId}
+      />
+      <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-3 pb-4 pt-3 sm:px-4">
+        <header className="sticky top-0 z-20 border-b border-[var(--line)] bg-[var(--bg)] px-1 pb-3">
+          <div className="flex items-center justify-between gap-3">
             <button
               type="button"
-              onClick={handleSend}
-              disabled={isSending}
-              className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="상담 메뉴 열기"
+              onClick={() => setIsMenuOpen(true)}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--panel-strong)]"
             >
-              {isSending ? "전송 중" : "보내기"}
+              <span className="grid gap-[4px]">
+                <span className="block h-[1.5px] w-4 rounded-full bg-[var(--text)]" />
+                <span className="block h-[1.5px] w-4 rounded-full bg-[var(--text)]" />
+                <span className="block h-[1.5px] w-4 rounded-full bg-[var(--text)]" />
+              </span>
             </button>
+            <div className="min-w-0 text-center">
+              <p className="text-xs font-medium text-[var(--text-soft)]">
+                {storedProfile?.pregnancyWeekLabel ?? "산모 상담"}
+              </p>
+              <h1 className="truncate text-base font-semibold text-[var(--text)]">
+                {sessionTitle}
+              </h1>
+            </div>
+            <div className="h-11 w-11" aria-hidden />
+          </div>
+        </header>
+
+        <section className="flex-1 pb-6 pt-4">
+          <div className="grid min-h-full gap-3 pb-24">
+            {messages.length > 0
+              ? messages.map((message) => (
+                  <article
+                    key={message.id}
+                    className={`max-w-[88%] rounded-[26px] p-4 ${
+                      message.role === "user"
+                        ? "ml-auto bg-[var(--accent-soft)]"
+                        : "border border-[var(--line)] bg-[var(--panel-strong)]"
+                    }`}
+                  >
+                    <div className="grid gap-3">
+                      {message.parts.map((part) =>
+                        renderMessagePart(part, resolvedUserId),
+                      )}
+                    </div>
+                    <p className="mt-3 text-right text-xs text-[var(--text-soft)]">
+                      {message.createdAtLabel}
+                    </p>
+                  </article>
+                ))
+              : null}
+            <div ref={bottomAnchorRef} />
           </div>
         </section>
 
-        <section className="rounded-[30px] border border-[var(--line)] bg-white/85 p-5 shadow-[var(--shadow)]">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-[var(--text)]">최근 세션</h2>
-            <Link href={chatHrefBase} className="text-sm font-medium text-[var(--accent-dark)]">
-              현재 세션 링크
-            </Link>
-          </div>
-          <div className="grid gap-3">
-            {recentSessions.map((session) => (
-              <Link
-                key={session.id}
-                href={`/chat/${session.id}${userId ? `?userId=${encodeURIComponent(userId)}` : ""}`}
-                className="rounded-[18px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-[var(--text)]">{session.title}</p>
-                    <p className="mt-1 text-sm text-[var(--text-soft)]">{session.preview}</p>
-                  </div>
-                  <span className="text-xs text-[var(--text-soft)]">{session.updatedAtLabel}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      </div>
-    </MobileShell>
+        <MobileChatComposer
+          error={error}
+          imageDataUrl={imageDataUrl}
+          isSending={isSending}
+          onFileChange={handleFileChange}
+          onPromptSelect={handlePromptSelect}
+          onSend={handleSend}
+          onTextChange={setText}
+          showQuickPrompts={showQuickPrompts}
+          textareaRef={composerRef}
+          text={text}
+        />
+      </main>
+    </>
   );
 }

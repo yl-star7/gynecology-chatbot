@@ -26,7 +26,12 @@ export function storeMobileUserId(userId: string) {
 
 export function readStoredMobileProfile() {
   if (!isBrowser()) {
-    return null as null | { displayName?: string; phoneNumber?: string; pregnancyWeekLabel?: string };
+    return null as null | {
+      displayName?: string;
+      phoneNumber?: string;
+      pregnancyWeekLabel?: string;
+      themeKey?: string;
+    };
   }
 
   const raw = window.localStorage.getItem(PROFILE_KEY);
@@ -35,7 +40,12 @@ export function readStoredMobileProfile() {
   }
 
   try {
-    return JSON.parse(raw) as { displayName?: string; phoneNumber?: string; pregnancyWeekLabel?: string };
+    return JSON.parse(raw) as {
+      displayName?: string;
+      phoneNumber?: string;
+      pregnancyWeekLabel?: string;
+      themeKey?: string;
+    };
   } catch {
     return null;
   }
@@ -46,6 +56,7 @@ export function storeMobileProfile(profile: {
   displayName?: string;
   phoneNumber?: string;
   pregnancyWeekLabel?: string;
+  themeKey?: string | null;
 }) {
   if (!isBrowser()) {
     return;

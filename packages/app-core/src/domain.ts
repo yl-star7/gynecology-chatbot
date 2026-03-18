@@ -1,3 +1,5 @@
+import type { MobileThemeKey } from "./theme";
+
 export type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
 
 export interface CalendarDay {
@@ -30,6 +32,7 @@ export interface RecentChatSummary {
   title: string;
   preview: string;
   updatedAtLabel: string;
+  updatedAtIso?: string | null;
 }
 
 export interface RecordDayItem {
@@ -98,7 +101,12 @@ export interface DeepLinkPart {
   entityId?: string;
 }
 
-export type ChatPart = TextPart | SurveyPart | CarouselPart | ImagePart | DeepLinkPart;
+export type ChatPart =
+  | TextPart
+  | SurveyPart
+  | CarouselPart
+  | ImagePart
+  | DeepLinkPart;
 
 export interface ChatMessage {
   id: string;
@@ -148,11 +156,13 @@ export interface MobileProfileViewData {
   babyNickname?: string | null;
   hospitalName?: string | null;
   notificationTime?: string | null;
+  themeKey?: MobileThemeKey | null;
 }
 
 export interface OnboardingProfileInput {
   pregnancyWeekOrDueDate: string;
   tonePreference: string;
+  themeKey?: MobileThemeKey | null;
 }
 
 export interface AdminMetric {
@@ -228,4 +238,66 @@ export interface AdminDashboardData {
   ragDocuments: AdminRagDocument[];
   workflowRules: AdminWorkflowRule[];
   historyUsers: AdminHistoryUser[];
+  userActions: AdminUserAction[];
+}
+
+export type UserActionType =
+  | "login_succeeded"
+  | "phone_verification_started"
+  | "phone_verified"
+  | "password_set"
+  | "password_reset_requested"
+  | "onboarding_completed"
+  | "profile_updated"
+  | "chat_message_sent";
+
+export interface AdminUserAction {
+  id: string;
+  userId: string;
+  userName: string;
+  actionType: UserActionType;
+  actionLabel: string;
+  detail: string;
+  occurredAtLabel: string;
+  sessionId: string | null;
+  sessionTitle: string | null;
+}
+
+export interface AdminWeekSection {
+  id: string;
+  sectionKey: string;
+  title: string;
+  body: string;
+  displayOrder: number;
+  isRequired: boolean;
+}
+
+export interface AdminWeekAsset {
+  id: string;
+  assetType: string;
+  storagePath: string;
+  altText: string | null;
+  styleKey: string | null;
+  displayOrder: number;
+}
+
+export interface AdminWeekSummary {
+  id: string;
+  weekNumber: number;
+  title: string;
+  babySizeLabel: string | null;
+  babySizeCompareObject: string | null;
+  babySummary: string | null;
+  motherSummary: string | null;
+  heroImagePath: string | null;
+  compareImagePath: string | null;
+  status: "draft" | "published" | "archived";
+  updatedAt: string;
+}
+
+export interface AdminWeekDetail extends AdminWeekSummary {
+  babySummary: string;
+  motherSummary: string;
+  sections: AdminWeekSection[];
+  assets: AdminWeekAsset[];
 }

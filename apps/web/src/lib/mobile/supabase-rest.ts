@@ -4,16 +4,28 @@ import {
   localSupabaseSelect,
   localSupabaseUpdate,
 } from "./local-postgres";
-import { hasDockerConfig, hasSupabaseConfig, resolveServerDataProvider } from "../server-data-provider";
+import {
+  hasDockerConfig,
+  hasSupabaseConfig,
+  resolveServerDataProvider,
+} from "../server-data-provider";
 
 const jsonHeaders = {
   "Content-Type": "application/json",
   Accept: "application/json",
 };
 
+function getSupabaseServiceRoleKey() {
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??
+    process.env.SUPABASE_SERVICE_ROLE ??
+    process.env.SERVICEROLE
+  );
+}
+
 function getConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceRoleKey = getSupabaseServiceRoleKey();
 
   if (!url || !serviceRoleKey) {
     throw new Error("Supabase REST configuration is missing");
@@ -22,7 +34,7 @@ function getConfig() {
   return { url: url.replace(/\/$/, ""), serviceRoleKey };
 }
 
-function useLocalPostgres() {
+function shouldUseLocalPostgres() {
   return resolveServerDataProvider() === "docker";
 }
 
@@ -34,7 +46,9 @@ function assertSelectedProviderConfig() {
   }
 
   if (provider === "supabase" && !hasSupabaseConfig()) {
-    throw new Error("SERVER_DATA_PROVIDER=supabase requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
+    throw new Error(
+      "SERVER_DATA_PROVIDER=supabase requires NEXT_PUBLIC_SUPABASE_URL and a service-role key (SUPABASE_SERVICE_ROLE_KEY, SUPABASE_SERVICE_ROLE, or SERVICEROLE)",
+    );
   }
 }
 
@@ -50,7 +64,7 @@ function buildHeaders(prefer?: string) {
 
 export async function supabaseSelect<T>(path: string) {
   assertSelectedProviderConfig();
-  if (useLocalPostgres()) {
+  if (shouldUseLocalPostgres()) {
     return localSupabaseSelect<T>(path);
   }
 
@@ -68,9 +82,12 @@ export async function supabaseSelect<T>(path: string) {
   return (await response.json()) as T;
 }
 
-export async function supabaseInsert<T>(table: string, payload: object | object[]) {
+export async function supabaseInsert<T>(
+  table: string,
+  payload: object | object[],
+) {
   assertSelectedProviderConfig();
-  if (useLocalPostgres()) {
+  if (shouldUseLocalPostgres()) {
     return localSupabaseInsert<T>(table, payload);
   }
 
@@ -91,7 +108,7 @@ export async function supabaseInsert<T>(table: string, payload: object | object[
 
 export async function supabaseUpdate<T>(path: string, payload: object) {
   assertSelectedProviderConfig();
-  if (useLocalPostgres()) {
+  if (shouldUseLocalPostgres()) {
     return localSupabaseUpdate<T>(path, payload);
   }
 
@@ -112,7 +129,7 @@ export async function supabaseUpdate<T>(path: string, payload: object) {
 
 export async function supabaseRpc<T>(fn: string, payload: object) {
   assertSelectedProviderConfig();
-  if (useLocalPostgres()) {
+  if (shouldUseLocalPostgres()) {
     return localSupabaseRpc<T>(fn, payload as Record<string, unknown>);
   }
 
