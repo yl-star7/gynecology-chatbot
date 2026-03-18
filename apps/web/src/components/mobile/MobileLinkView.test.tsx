@@ -5,6 +5,15 @@ import { MobileLinkView } from "./MobileLinkView";
 
 jest.mock("@/lib/mobile/web-mobile-api", () => ({
   fetchLinkTarget: jest.fn(),
+  resolveMobileUserId: jest.fn((userId?: string | null) => userId ?? null),
+}));
+
+jest.mock("next/navigation", () => ({
+  useSearchParams: jest.fn(() => new URLSearchParams()),
+}));
+
+jest.mock("./useMobileSessionGuard", () => ({
+  useMobileSessionGuard: jest.fn((userId: string | null) => userId),
 }));
 
 jest.mock("@/lib/mobile/mobile-session", () => ({
