@@ -20,14 +20,14 @@ function resolveBaseUrl() {
 
 function resolveInitialUrl() {
   const baseUrl = resolveBaseUrl();
+  const homeUrl = `${baseUrl}/`;
   const devUserId = process.env.EXPO_PUBLIC_DEV_USER_ID?.trim();
 
   if (!devUserId) {
-    return baseUrl;
+    return homeUrl;
   }
 
-  const separator = baseUrl.includes("?") ? "&" : "?";
-  return `${baseUrl}/chat/new${separator}userId=${encodeURIComponent(devUserId)}`;
+  return `${homeUrl}?userId=${encodeURIComponent(devUserId)}`;
 }
 
 type AppState = {
@@ -63,7 +63,7 @@ export default class App extends React.Component<
         <EmbeddedWebContent
           hasError={this.state.hasError}
           initialUrl={this.initialUrl}
-          nativeTitle="Gynecology Chatbot Chat"
+          nativeTitle="Gynecology Chatbot Home"
           onReload={this.handleReload}
           onWebViewError={this.handleWebViewError}
           reloadKey={this.state.reloadKey}
