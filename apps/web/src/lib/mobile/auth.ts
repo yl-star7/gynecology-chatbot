@@ -194,6 +194,10 @@ function verifyPassword(password: string, passwordHash: string | null) {
   );
 }
 
+function nowIso() {
+  return new Date().toISOString();
+}
+
 export async function findUserByPhoneNumber(phoneNumber: string) {
   const users = await supabaseSelect<UserRow[]>(
     `users?select=id,display_name,phone_number,account_status,password_hash,password_set_at,phone_verified_at&phone_number=eq.${encodeURIComponent(phoneNumber)}&limit=1`,
@@ -244,7 +248,8 @@ export async function signInUserByPhoneNumber(
   }
 
   await supabaseUpdate(`users?id=eq.${user.id}`, {
-    last_login_at: new Date().toISOString(),
+    last_login_at: nowIso(),
+    updated_at: nowIso(),
   });
 
   await recordUserAction({
@@ -313,8 +318,9 @@ export async function setUserPassword(
   await supabaseUpdate(`users?id=eq.${user.id}`, {
     account_status: "active",
     password_hash: hashPassword(password),
-    password_set_at: new Date().toISOString(),
-    phone_verified_at: new Date().toISOString(),
+    password_set_at: nowIso(),
+    phone_verified_at: nowIso(),
+    updated_at: nowIso(),
   });
 
   await recordUserAction({
@@ -341,6 +347,7 @@ export async function createPasswordResetAudit(phoneNumber: string) {
 
   await supabaseUpdate(`users?id=eq.${user.id}`, {
     account_status: "pending_recovery",
+    updated_at: nowIso(),
   });
 
   const adminUserId = process.env.ADMIN_ACTOR_USER_ID;
@@ -401,7 +408,10 @@ export async function completeUserOnboarding(input: {
   if (existingProfiles[0]) {
     await supabaseUpdate(
       `pregnancy_profiles?user_id=eq.${input.userId}`,
-      payload,
+      {
+        ...payload,
+        updated_at: nowIso(),
+      },
     );
   } else {
     await supabaseInsert("pregnancy_profiles", {
@@ -450,6 +460,7 @@ export async function updateMobileProfile(input: {
 
   await supabaseUpdate(`users?id=eq.${input.userId}`, {
     display_name: input.displayName,
+    updated_at: nowIso(),
   });
 
   const existingProfiles = await supabaseSelect<
@@ -495,7 +506,10 @@ export async function updateMobileProfile(input: {
   if (existingProfiles[0]) {
     await supabaseUpdate(
       `pregnancy_profiles?user_id=eq.${input.userId}`,
-      profilePayload,
+      {
+        ...profilePayload,
+        updated_at: nowIso(),
+      },
     );
   } else {
     await supabaseInsert("pregnancy_profiles", {

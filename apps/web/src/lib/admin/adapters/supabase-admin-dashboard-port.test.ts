@@ -54,7 +54,7 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
           {
             id: "session-1",
             user_id: "user-1",
-            title: "두통 상담",
+            title: "두통 채팅",
             last_message_at: "2026-03-17T10:10:00.000Z",
           },
         ]);
@@ -122,7 +122,7 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
       actionLabel: "채팅 메시지 전송",
       detail: "두통이 있어요",
       sessionId: "session-1",
-      sessionTitle: "두통 상담",
+      sessionTitle: "두통 채팅",
     });
     expect(dashboard.userActions[1]).toMatchObject({
       id: "action-2",

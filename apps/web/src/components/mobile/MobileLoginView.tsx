@@ -161,7 +161,7 @@ export function MobileLoginView({ initialUserId }: Props) {
           Mock User 시작 플로우
         </strong>
         등록된 전화번호 입력 후 문자 코드를 받고, 비밀번호를 만든 뒤 온보딩에서
-        예정일과 상담 톤을 설정합니다.
+        예정일과 채팅 톤을 설정합니다.
       </div>
     </main>
   );

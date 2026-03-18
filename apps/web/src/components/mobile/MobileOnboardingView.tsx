@@ -38,7 +38,7 @@ export function MobileOnboardingView({ userId }: Props) {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!userId || !pregnancyInfo.trim() || !tonePreference.trim()) {
-      setError("주차 또는 예정일과 상담 톤을 입력하세요.");
+      setError("주차 또는 예정일과 채팅 톤을 입력하세요.");
       return;
     }
 
@@ -78,7 +78,7 @@ export function MobileOnboardingView({ userId }: Props) {
           Onboarding
         </p>
         <h1 className="mt-3 text-[30px] font-semibold tracking-[-0.04em] text-[var(--text)]">
-          임신 정보와 상담 톤 설정
+          임신 정보와 채팅 톤 설정
         </h1>
         <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
           초기 사용자 설정을 모바일 API에 저장하고 홈으로 이어집니다.
@@ -99,7 +99,7 @@ export function MobileOnboardingView({ userId }: Props) {
           <input
             className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 outline-none"
             onChange={(event) => setTonePreference(event.target.value)}
-            placeholder="상담 톤 선호"
+            placeholder="채팅 톤 선호"
             value={tonePreference}
           />
           <select

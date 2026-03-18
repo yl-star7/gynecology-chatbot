@@ -27,24 +27,3 @@ CREATE INDEX IF NOT EXISTS idx_user_action_logs_action_occurred
 
 CREATE INDEX IF NOT EXISTS idx_user_action_logs_session_occurred
   ON public.user_action_logs (session_id, occurred_at DESC);
-
-ALTER TABLE public.user_action_logs ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS user_action_logs_user_select ON public.user_action_logs;
-CREATE POLICY user_action_logs_user_select
-ON public.user_action_logs
-FOR SELECT
-USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS user_action_logs_user_insert ON public.user_action_logs;
-CREATE POLICY user_action_logs_user_insert
-ON public.user_action_logs
-FOR INSERT
-WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS user_action_logs_admin_access ON public.user_action_logs;
-CREATE POLICY user_action_logs_admin_access
-ON public.user_action_logs
-FOR ALL
-USING (public.is_admin_user())
-WITH CHECK (public.is_admin_user());

@@ -54,7 +54,7 @@ export function HomeScreen() {
           {home ? `안녕하세요 ${home.userName}님, 임신 ${home.pregnancyDayCount}일차네요.` : "홈 데이터를 불러오는 중입니다."}
         </Text>
         <Text style={styles.subtitle}>
-          {error ?? "캘린더, 임신수첩, 임신 지식을 한 화면에서 보고 상담으로 이동합니다."}
+          {error ?? "캘린더, 임신수첩, 임신 지식을 한 화면에서 보고 채팅으로 이동합니다."}
         </Text>
 
         <View style={styles.heroCard}>

@@ -66,7 +66,7 @@ export function MobileLinkView({
               href={`/chat/new?userId=${encodeURIComponent(userId)}`}
               className="rounded-full border border-[var(--line)] px-5 py-3 text-sm font-medium text-[var(--text)]"
             >
-              상담 이어가기
+              채팅 이어가기
             </Link>
           ) : null}
         </div>

@@ -126,8 +126,8 @@ function formatUserActionLabel(
     detail:
       textPreview ||
       (imageCount > 0
-        ? `이미지 ${imageCount}장을 첨부해 상담을 시작했습니다.`
-        : "새 상담 메시지를 전송했습니다."),
+        ? `이미지 ${imageCount}장을 첨부해 채팅을 시작했습니다.`
+        : "새 채팅 메시지를 전송했습니다."),
   };
 }
 

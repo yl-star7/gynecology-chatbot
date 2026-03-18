@@ -37,7 +37,7 @@ export function MobileChatMenu({
               Menu
             </p>
             <h2 className="mt-2 text-xl font-semibold text-[var(--text)]">
-              지난 상담
+              지난 채팅
             </h2>
           </div>
           <button
@@ -98,7 +98,7 @@ export function MobileChatMenu({
               ))
             ) : (
               <div className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm leading-6 text-[var(--text-soft)]">
-                아직 저장된 상담이 없습니다.
+                아직 저장된 채팅이 없습니다.
               </div>
             )}
           </div>

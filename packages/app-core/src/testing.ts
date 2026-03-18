@@ -2,9 +2,12 @@ import type {
   AdminDashboardData,
   AdminUserAction,
   AdminWeekAsset,
+  AdminWeekAssetInput,
   AdminWeekDetail,
   AdminWeekSection,
+  AdminWeekSectionInput,
   AdminWeekSummary,
+  AdminWeekUpdateInput,
   AuthenticatedUser,
   CalendarDay,
   ChatComposerInput,
@@ -66,7 +69,7 @@ function buildCalendar(): CalendarDay[] {
       emotionTone: hasChat
         ? emotionPalette[index % emotionPalette.length]
         : null,
-      summary: hasChat ? "상담 기록 있음" : undefined,
+      summary: hasChat ? "채팅 기록 있음" : undefined,
     };
   });
 }
@@ -74,7 +77,7 @@ function buildCalendar(): CalendarDay[] {
 const recentChats: RecentChatSummary[] = [
   {
     id: "chat-today",
-    title: "오늘 컨디션 상담",
+    title: "오늘 컨디션 채팅",
     preview: "두통이 있을 때 바로 내원해야 하나요?",
     updatedAtLabel: "방금 전",
     updatedAtIso: "2026-03-17T14:31:00.000Z",
@@ -230,7 +233,7 @@ const adminUserActions: AdminUserAction[] = [
     detail: "두통과 피로가 같이 와요.",
     occurredAtLabel: "오늘 14:28",
     sessionId: "hs-1",
-    sessionTitle: "두통과 피로 상담",
+    sessionTitle: "두통과 피로 채팅",
   },
   {
     id: "action-3",
@@ -260,7 +263,7 @@ function toSession(sessionId: string): ChatSession {
   return {
     id: sessionId,
     title:
-      recentChats.find((item) => item.id === sessionId)?.title ?? "새 상담",
+      recentChats.find((item) => item.id === sessionId)?.title ?? "새 채팅",
     messages: baseMessages[sessionId] ?? [],
   };
 }
@@ -491,7 +494,7 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
       workflowRules: [
         {
           id: "wf-chat-default",
-          name: "기본 상담 응답",
+          name: "기본 채팅 응답",
           trigger: "일반 채팅",
           retrievalScope: "현재 주차 ±1주 + 공통 문서",
           modelName: "gemini-2.5-flash-lite",
@@ -499,7 +502,7 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
         },
         {
           id: "wf-image-triage",
-          name: "이미지 동반 상담",
+          name: "이미지 동반 채팅",
           trigger: "이미지 + 텍스트 입력",
           retrievalScope: "위험 신호 문서 우선",
           modelName: "gemini-2.5-flash-lite",
@@ -516,7 +519,7 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
           sessions: [
             {
               id: "hs-1",
-              title: "두통과 피로 상담",
+              title: "두통과 피로 채팅",
               updatedAtLabel: "오늘 14:31",
               pregnancyWeekLabel: "18주 6일",
               messages: [
@@ -542,7 +545,7 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
             },
             {
               id: "hs-2",
-              title: "영양제 복용 상담",
+              title: "영양제 복용 채팅",
               updatedAtLabel: "어제 09:10",
               pregnancyWeekLabel: "18주 5일",
               messages: [
@@ -682,7 +685,7 @@ const mockWeekContent: AdminWeekDetail[] = [
   },
 ];
 
-const mockWeekSummaries: AdminWeekSummary[] = mockWeekContent.map((week) => ({
+let mockWeekSummaries: AdminWeekSummary[] = mockWeekContent.map((week) => ({
   id: week.id,
   weekNumber: week.weekNumber,
   title: week.title,
@@ -696,9 +699,31 @@ const mockWeekSummaries: AdminWeekSummary[] = mockWeekContent.map((week) => ({
   updatedAt: week.updatedAt,
 }));
 
-const mockWeekDetailMap: Record<number, AdminWeekDetail> = Object.fromEntries(
+let mockWeekDetailMap: Record<number, AdminWeekDetail> = Object.fromEntries(
   mockWeekContent.map((week) => [week.weekNumber, week]),
 );
+
+function mapMockSectionInput(input: AdminWeekSectionInput): AdminWeekSection {
+  return {
+    id: input.id ?? `section-${input.sectionKey}-${input.displayOrder}`,
+    sectionKey: input.sectionKey,
+    title: input.title,
+    body: input.body,
+    displayOrder: input.displayOrder,
+    isRequired: input.isRequired,
+  };
+}
+
+function mapMockAssetInput(input: AdminWeekAssetInput): AdminWeekAsset {
+  return {
+    id: input.id ?? `asset-${input.assetType}-${input.displayOrder}`,
+    assetType: input.assetType,
+    storagePath: input.storagePath,
+    altText: input.altText,
+    styleKey: input.styleKey,
+    displayOrder: input.displayOrder,
+  };
+}
 
 export class MockAdminContentAdapter implements AdminContentPort {
   async listWeeks(): Promise<AdminWeekSummary[]> {
@@ -707,5 +732,53 @@ export class MockAdminContentAdapter implements AdminContentPort {
 
   async getWeek(weekNumber: number): Promise<AdminWeekDetail | null> {
     return mockWeekDetailMap[weekNumber] ?? null;
+  }
+
+  async saveWeek(
+    weekNumber: number,
+    input: AdminWeekUpdateInput,
+  ): Promise<AdminWeekDetail | null> {
+    const current = mockWeekDetailMap[weekNumber];
+    if (!current) {
+      return null;
+    }
+
+    const nextDetail: AdminWeekDetail = {
+      ...current,
+      title: input.title,
+      babySizeLabel: input.babySizeLabel,
+      babySizeCompareObject: input.babySizeCompareObject,
+      babySummary: input.babySummary,
+      motherSummary: input.motherSummary,
+      heroImagePath: input.heroImagePath,
+      compareImagePath: input.compareImagePath,
+      status: input.status,
+      updatedAt: new Date().toISOString(),
+      sections: input.sections.map(mapMockSectionInput),
+      assets: input.assets.map(mapMockAssetInput),
+    };
+
+    mockWeekDetailMap = {
+      ...mockWeekDetailMap,
+      [weekNumber]: nextDetail,
+    };
+    mockWeekSummaries = mockWeekSummaries.map((week) =>
+      week.weekNumber === weekNumber
+        ? {
+            ...week,
+            title: nextDetail.title,
+            babySizeLabel: nextDetail.babySizeLabel,
+            babySizeCompareObject: nextDetail.babySizeCompareObject,
+            babySummary: nextDetail.babySummary,
+            motherSummary: nextDetail.motherSummary,
+            heroImagePath: nextDetail.heroImagePath,
+            compareImagePath: nextDetail.compareImagePath,
+            status: nextDetail.status,
+            updatedAt: nextDetail.updatedAt,
+          }
+        : week,
+    );
+
+    return nextDetail;
   }
 }

@@ -10,7 +10,7 @@ import { useMobileSessionGuard } from "./useMobileSessionGuard";
 function describeEntryType(entryType: string) {
   switch (entryType) {
     case "chat_saved":
-      return "상담 저장";
+      return "채팅 저장";
     case "symptom_note":
       return "증상 메모";
     case "ai_summary":
@@ -61,7 +61,7 @@ export function MobileRecordDayView({
   return (
     <MobileShell
       title={recordDay?.dateLabel ?? isoDate}
-      description={error ?? "이 날짜에 저장된 상담 메모, 감정 기록, 연결 세션을 확인합니다."}
+      description={error ?? "이 날짜에 저장된 채팅 메모, 감정 기록, 연결 세션을 확인합니다."}
       userId={resolvedUserId}
     >
       <div className="grid gap-4">
@@ -95,7 +95,7 @@ export function MobileRecordDayView({
                       href={appendUserIdToPath(`/chat/${record.linkedSessionId}`, resolvedUserId)}
                       className="mt-3 inline-flex rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white"
                     >
-                      연결 상담 보기
+                      연결 채팅 보기
                     </Link>
                   ) : null}
                 </article>
@@ -129,7 +129,7 @@ export function MobileRecordDayView({
               ))
             ) : (
               <p className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--text-soft)]">
-                연결된 상담 세션이 없습니다.
+                연결된 채팅 세션이 없습니다.
               </p>
             )}
           </div>

@@ -49,7 +49,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    window.PhedyNative?.setTitle?.("부인과 상담 앱");
+    window.PhedyNative?.setTitle?.("부인과 채팅 앱");
   }, []);
 
   useEffect(() => {
@@ -93,7 +93,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
       title={home ? `${home.userName}님, 오늘도 기록을 이어가세요.` : "홈"}
       description={
         error ??
-        "오늘 상태와 이번 주 핵심 정보를 먼저 보고, 바로 상담으로 이어집니다."
+        "오늘 상태와 이번 주 핵심 정보를 먼저 보고, 바로 채팅으로 이어집니다."
       }
       userId={resolvedUserId}
       showTitleBlock={false}
@@ -110,7 +110,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
           </h1>
           <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
             {error ??
-              "아기 상태와 오늘 확인할 내용을 먼저 보고, 필요하면 바로 상담으로 이어가세요."}
+              "아기 상태와 오늘 확인할 내용을 먼저 보고, 필요하면 바로 채팅으로 이어가세요."}
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <div className="rounded-[24px] bg-[var(--accent-soft)] p-4">
@@ -132,7 +132,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
                 href={linkWithUserId("/chat/new", resolvedUserId)}
                 className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white"
               >
-                지금 상담하기
+                지금 채팅하기
               </Link>
             ) : null}
             {resolvedUserId ? (
@@ -194,7 +194,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
                 Continue
               </p>
               <h2 className="mt-2 text-xl font-semibold text-[var(--text)]">
-                최근 상담 이어가기
+                최근 채팅 이어가기
               </h2>
             </div>
             {resolvedUserId ? (
@@ -202,7 +202,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
                 href={linkWithUserId("/chat/new", resolvedUserId)}
                 className="text-sm font-semibold text-[var(--accent-dark)]"
               >
-                새 상담
+                새 채팅
               </Link>
             ) : null}
           </div>
@@ -235,7 +235,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
               ))
             ) : (
               <p className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--text-soft)]">
-                아직 상담 세션이 없습니다. 첫 상담을 시작하면 여기에 누적됩니다.
+                아직 채팅 세션이 없습니다. 첫 채팅을 시작하면 여기에 누적됩니다.
               </p>
             )}
           </div>
@@ -306,7 +306,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
             })}
           </div>
           <p className="mt-3 text-xs text-[var(--text-soft)]">
-            점이 표시된 날짜만 상담 기록 또는 메모가 있습니다.
+            점이 표시된 날짜만 채팅 기록 또는 메모가 있습니다.
           </p>
         </section>
       </div>

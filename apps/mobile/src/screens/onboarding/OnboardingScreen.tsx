@@ -25,8 +25,8 @@ export function OnboardingScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <Text style={styles.eyebrow}>Onboarding</Text>
-        <Text style={styles.title}>임신 정보와 상담 톤 설정</Text>
-        <Text style={styles.description}>{error ?? "임신 주차, 예정일, 상담 톤 선호를 최소값으로 수집하는 초기 화면입니다."}</Text>
+        <Text style={styles.title}>임신 정보와 채팅 톤 설정</Text>
+        <Text style={styles.description}>{error ?? "임신 주차, 예정일, 채팅 톤 선호를 최소값으로 수집하는 초기 화면입니다."}</Text>
 
         <View style={styles.form}>
           <TextInput
@@ -39,7 +39,7 @@ export function OnboardingScreen() {
           <TextInput
             value={tonePreference}
             onChangeText={setTonePreference}
-            placeholder="상담 톤 선호"
+            placeholder="채팅 톤 선호"
             placeholderTextColor={palette.subInk}
             style={styles.input}
           />

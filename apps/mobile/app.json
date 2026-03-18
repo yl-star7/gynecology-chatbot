@@ -1,6 +1,6 @@
 {
     "expo": {
-        "name": "부인과 AI 상담",
+        "name": "부인과 AI 채팅",
         "slug": "gynecology-chatbot",
         "version": "1.0.0",
         "orientation": "portrait",

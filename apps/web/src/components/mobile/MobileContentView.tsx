@@ -69,7 +69,7 @@ export function MobileContentView({
           홈
         </Link>
         <Link href={appendUserIdToPath("/chat/new", resolvedUserId)} className="rounded-full bg-[#d76c57] px-4 py-3 text-sm font-semibold text-white">
-          상담으로 이동
+          채팅으로 이동
         </Link>
       </div>
     </main>

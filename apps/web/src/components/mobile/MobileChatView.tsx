@@ -145,7 +145,7 @@ export function MobileChatView({
   const [resolvedSessionId] = useState(() =>
     initialSessionId === "new" ? createSessionId() : initialSessionId,
   );
-  const [sessionTitle, setSessionTitle] = useState("새 상담");
+  const [sessionTitle, setSessionTitle] = useState("새 채팅");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [recentSessions, setRecentSessions] = useState<RecentChatSummary[]>([]);
   const [text, setText] = useState("");
@@ -257,7 +257,7 @@ export function MobileChatView({
     const draftMessage = createDraftMessage(text, imageDataUrl ?? undefined);
     setMessages((current) => [...current, draftMessage]);
     setSessionTitle((current) =>
-      current === "새 상담" && text.trim() ? text.trim().slice(0, 24) : current,
+      current === "새 채팅" && text.trim() ? text.trim().slice(0, 24) : current,
     );
     setIsSending(true);
     setError(null);
@@ -306,7 +306,7 @@ export function MobileChatView({
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
-              aria-label="상담 메뉴 열기"
+              aria-label="채팅 메뉴 열기"
               onClick={() => setIsMenuOpen(true)}
               className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--panel-strong)]"
             >
@@ -318,7 +318,7 @@ export function MobileChatView({
             </button>
             <div className="min-w-0 text-center">
               <p className="text-xs font-medium text-[var(--text-soft)]">
-                {storedProfile?.pregnancyWeekLabel ?? "산모 상담"}
+                {storedProfile?.pregnancyWeekLabel ?? "산모 채팅"}
               </p>
               <h1 className="truncate text-base font-semibold text-[var(--text)]">
                 {sessionTitle}

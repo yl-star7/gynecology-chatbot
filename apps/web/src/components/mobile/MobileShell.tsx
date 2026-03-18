@@ -40,7 +40,7 @@ export function MobileShell({
   const profileMeta =
     profile?.pregnancyWeekLabel ??
     profile?.phoneNumber ??
-    "상담과 기록을 이어가는 중";
+    "채팅과 기록을 이어가는 중";
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 py-6 sm:px-6">
@@ -88,7 +88,7 @@ export function MobileShell({
         <nav className="mt-4 flex gap-2 overflow-x-auto pb-1">
           {[
             { href: "/", label: "홈" },
-            { href: "/chat/new", label: "상담" },
+            { href: "/chat/new", label: "채팅" },
             { href: "/knowledge", label: "지식" },
             { href: "/notebook", label: "수첩" },
             { href: "/profile", label: "프로필" },

@@ -98,7 +98,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
     event.preventDefault();
 
     if (!resolvedUserId || !displayName.trim() || !tonePreference.trim()) {
-      setError("이름과 상담 톤은 비워둘 수 없습니다.");
+      setError("이름과 채팅 톤은 비워둘 수 없습니다.");
       return;
     }
 
@@ -258,7 +258,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
             </label>
             <label className="grid gap-2">
               <span className="text-sm font-medium text-[var(--text)]">
-                상담 톤
+                채팅 톤
               </span>
               <select
                 value={tonePreference}
@@ -342,7 +342,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               </p>
             </div>
             <div className="rounded-[22px] border border-[var(--line)] bg-[rgba(20,34,20,0.03)] p-4 sm:col-span-3">
-              <p className="text-sm text-[var(--text-soft)]">상담 톤</p>
+              <p className="text-sm text-[var(--text-soft)]">채팅 톤</p>
               <p className="mt-2 text-lg font-semibold text-[var(--text)]">
                 {resolveToneLabel(profile?.tonePreference)}
               </p>
@@ -365,7 +365,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               href={appendUserIdToPath("/chat/new", resolvedUserId)}
               className="rounded-full border border-[var(--line)] bg-white px-4 py-3 text-sm font-semibold text-[var(--text)]"
             >
-              새 상담 시작
+              새 채팅 시작
             </Link>
           </div>
         </section>

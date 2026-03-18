@@ -331,7 +331,7 @@ async function ensureSeedData() {
     [
       "local-session-welcome",
       DEFAULT_USER_ID,
-      "24주차 컨디션 상담",
+      "24주차 컨디션 채팅",
       now.toISOString(),
     ],
   );
@@ -417,7 +417,7 @@ async function ensureSeedData() {
       id: "warning-signs",
       title: "24주차 위험 신호",
       section: "knowledge",
-      body: "규칙적인 수축, 양수 같은 맑은 액체 유출, 선명한 출혈, 태동 급감은 바로 진료 상담이 필요합니다.",
+      body: "규칙적인 수축, 양수 같은 맑은 액체 유출, 선명한 출혈, 태동 급감은 즉시 진료가 필요합니다.",
     },
   ];
 
@@ -442,7 +442,7 @@ async function ensureSeedData() {
       id: "pregnancy-doc-24-common",
       title: "24주차 배뭉침 안내",
       content:
-        "24주차에는 짧고 불규칙한 배뭉침이 나타날 수 있습니다. 수분 섭취와 휴식 후 완화되는지 관찰하고 규칙적인 간격이면 진료 상담이 필요합니다.",
+        "24주차에는 짧고 불규칙한 배뭉침이 나타날 수 있습니다. 수분 섭취와 휴식 후 완화되는지 관찰하고 규칙적인 간격이면 진료가 필요합니다.",
       pregnancyWeek: 24,
       category: "symptom-guide",
     },

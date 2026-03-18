@@ -6,21 +6,21 @@ describe("groupChatSessionsByDate", () => {
       [
         {
           id: "older",
-          title: "철분제 상담",
+          title: "철분제 채팅",
           preview: "복용 타이밍",
           updatedAtLabel: "3월 15일",
           updatedAtIso: "2026-03-15T08:00:00",
         },
         {
           id: "today-1",
-          title: "복통 상담",
+          title: "복통 채팅",
           preview: "아랫배 통증",
           updatedAtLabel: "오늘 14:31",
           updatedAtIso: "2026-03-17T14:31:00",
         },
         {
           id: "today-2",
-          title: "출혈 상담",
+          title: "출혈 채팅",
           preview: "갈색 혈",
           updatedAtLabel: "오늘 09:10",
           updatedAtIso: "2026-03-17T09:10:00",

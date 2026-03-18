@@ -3,7 +3,11 @@ import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import { generateText } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 import { formatRagContext, retrievePregnancyContext } from "@/lib/mobile/rag";
-import { supabaseInsert, supabaseSelect } from "@/lib/mobile/supabase-rest";
+import {
+  supabaseInsert,
+  supabaseSelect,
+  supabaseUpdate,
+} from "@/lib/mobile/supabase-rest";
 import { recordUserAction } from "@/lib/mobile/user-action-log";
 
 const google = createGoogleGenerativeAI({
@@ -196,6 +200,12 @@ export async function POST(request: NextRequest) {
       },
     );
     const insertedUserMessage = insertedUserMessages[0] ?? null;
+    const lastMessageAt = new Date().toISOString();
+
+    await supabaseUpdate(`chat_sessions?id=eq.${sessionId}`, {
+      last_message_at: lastMessageAt,
+      updated_at: lastMessageAt,
+    });
 
     await recordUserAction({
       userId,
@@ -226,7 +236,7 @@ export async function POST(request: NextRequest) {
           const { text: responseText } = await generateText({
             model: google("gemini-2.5-flash-lite"),
             system: [
-              "당신은 임산부 상담 앱의 어시스턴트입니다.",
+              "당신은 임산부 채팅 앱의 어시스턴트입니다.",
               "항상 JSON 하나만 반환하세요.",
               "응답 스키마는 ChatMessage 타입과 유사하며 role은 assistant입니다.",
               "parts는 text, carousel, survey, deepLink 중 필요한 것만 사용하세요.",
@@ -262,6 +272,12 @@ export async function POST(request: NextRequest) {
         .map((part) => part.text)
         .join("\n"),
       model_name: apiKey ? "gemini-2.5-flash-lite" : "fallback",
+    });
+
+    const assistantMessageAt = new Date().toISOString();
+    await supabaseUpdate(`chat_sessions?id=eq.${sessionId}`, {
+      last_message_at: assistantMessageAt,
+      updated_at: assistantMessageAt,
     });
 
     return NextResponse.json({
