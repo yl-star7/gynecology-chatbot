@@ -1,40 +1,25 @@
 // @ts-nocheck
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { palette } from "../../theme";
 
 export function ResetPasswordScreen() {
-  const { requestPasswordReset } = useMobileAppSession();
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
-
-  async function handleSubmit() {
-    await requestPasswordReset({ phoneNumber });
-    setMessage("재설정 요청을 접수했습니다. 운영자 확인 후 안내됩니다.");
-    router.replace("/auth/login");
-  }
+  const [message] = useState(
+    "세션이 만료되면 같은 전화번호로 인증 코드를 다시 받아 로그인하면 됩니다.",
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.eyebrow}>Reset Password</Text>
-        <Text style={styles.title}>비밀번호 재설정</Text>
-        <Text style={styles.description}>{message ?? "전화번호 기준으로 재설정 요청을 시작하는 화면입니다."}</Text>
+        <Text style={styles.eyebrow}>Notice</Text>
+        <Text style={styles.title}>비밀번호 재설정 없음</Text>
+        <Text style={styles.description}>{message}</Text>
 
         <View style={styles.form}>
-          <TextInput
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            placeholder="전화번호"
-            placeholderTextColor={palette.subInk}
-            style={styles.input}
-            keyboardType="phone-pad"
-          />
-          <Pressable style={styles.primaryButton} onPress={handleSubmit}>
-            <Text style={styles.primaryButtonLabel}>재설정 요청</Text>
+          <Pressable style={styles.primaryButton} onPress={() => router.replace("/auth/login")}>
+            <Text style={styles.primaryButtonLabel}>로그인 화면으로 이동</Text>
           </Pressable>
         </View>
       </View>

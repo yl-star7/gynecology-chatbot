@@ -1,13 +1,16 @@
 import type { AuthenticatedUser, OnboardingProfileInput } from "@gynecology-chatbot/app-core";
 import { createContext, useContext, useMemo, useState } from "react";
+import { storeCurrentMobileSessionToken } from "../api/mobileApi";
 import { useMobileServices } from "./MobileServicesProvider";
 import { clearMockMobileCurrentUser, readMockMobileRuntime } from "./mockMobileRuntime";
 
 interface MobileAppSessionValue {
   currentUser: AuthenticatedUser | null;
-  signIn(input: { phoneNumber: string; password: string }): Promise<AuthenticatedUser>;
-  setPassword(input: { phoneNumber: string; verificationCode: string; password: string }): Promise<AuthenticatedUser>;
-  requestPasswordReset(input: { phoneNumber: string }): Promise<void>;
+  requestVerificationCode(input: { phoneNumber: string }): Promise<void>;
+  signIn(input: {
+    phoneNumber: string;
+    verificationCode: string;
+  }): Promise<AuthenticatedUser>;
   completeOnboarding(input: OnboardingProfileInput): Promise<AuthenticatedUser>;
   signOut(): Promise<void>;
 }
@@ -21,25 +24,15 @@ export function MobileAppSessionProvider({ children }: { children: React.ReactNo
   const value = useMemo<MobileAppSessionValue>(
     () => ({
       currentUser,
+      async requestVerificationCode(input) {
+        await services.authPort.requestPhoneVerification(input);
+      },
       async signIn(input) {
-        const nextUser = await services.authPort.signInWithPhonePassword(input);
+        const nextUser = await services.authPort.signInWithPhoneVerification(
+          input,
+        );
         setCurrentUser(nextUser);
         return nextUser;
-      },
-      async setPassword(input) {
-        const verification = await services.authPort.verifyPhone({
-          phoneNumber: input.phoneNumber,
-          verificationCode: input.verificationCode,
-        });
-        const nextUser = await services.authPort.setPassword({
-          verificationToken: verification.verificationToken,
-          password: input.password,
-        });
-        setCurrentUser(nextUser);
-        return nextUser;
-      },
-      async requestPasswordReset(input) {
-        await services.authPort.requestPasswordReset(input);
       },
       async completeOnboarding(input) {
         const nextUser = await services.onboardingPort.completeProfile(input);
@@ -47,6 +40,7 @@ export function MobileAppSessionProvider({ children }: { children: React.ReactNo
         return nextUser;
       },
       async signOut() {
+        storeCurrentMobileSessionToken(null);
         clearMockMobileCurrentUser();
         setCurrentUser(null);
       },

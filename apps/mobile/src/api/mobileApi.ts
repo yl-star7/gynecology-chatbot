@@ -4,12 +4,15 @@ import type {
   ChatSession,
   HomeViewData,
   LinkTargetContent,
+  MobileContentListItem,
   MobileProfileViewData,
   OnboardingProfileInput,
   RecentChatSummary,
 } from "@gynecology-chatbot/app-core";
 
 type MobileFetch = typeof fetch;
+
+let currentMobileSessionToken: string | null = null;
 
 interface MobileApiClientOptions {
   fetchImpl?: MobileFetch;
@@ -18,15 +21,17 @@ interface MobileApiClientOptions {
 }
 
 export interface MobileApiClient {
-  signInWithPhonePassword(input: { phoneNumber: string; password: string }): Promise<{ user: AuthenticatedUser }>;
-  verifyPhone(input: { phoneNumber: string; verificationCode: string }): Promise<{ verificationToken: string }>;
-  setPassword(input: { verificationToken: string; password: string }): Promise<{ user: AuthenticatedUser }>;
-  requestPasswordReset(input: { phoneNumber: string }): Promise<{ ok: true }>;
+  requestPhoneVerification(input: { phoneNumber: string }): Promise<{ ok: true }>;
+  signInWithPhoneVerification(input: {
+    phoneNumber: string;
+    verificationCode: string;
+  }): Promise<{ user: AuthenticatedUser; sessionToken?: string }>;
   completeOnboarding(input: { userId: string } & OnboardingProfileInput): Promise<{ user: AuthenticatedUser }>;
   fetchHome(month?: string): Promise<{ home: HomeViewData }>;
   fetchMobileProfile(): Promise<{ profile: MobileProfileViewData }>;
   fetchSessions(): Promise<{ sessions: RecentChatSummary[] }>;
   fetchSession(sessionId: string): Promise<{ session: ChatSession }>;
+  fetchContentItems(section: "knowledge" | "notebook"): Promise<{ items: MobileContentListItem[] }>;
   fetchLinkTarget(target: string, entityId?: string): Promise<{ content: LinkTargetContent }>;
   updateMobileProfile(input: {
     userId: string;
@@ -73,44 +78,30 @@ async function parseJson<T>(response: Response) {
   return payload;
 }
 
+function buildMobileSessionHeaders() {
+  return currentMobileSessionToken
+    ? {
+        Authorization: `Bearer ${currentMobileSessionToken}`,
+      }
+    : ({} as Record<string, string>);
+}
+
+export function readCurrentMobileSessionToken() {
+  return currentMobileSessionToken;
+}
+
+export function storeCurrentMobileSessionToken(sessionToken: string | null) {
+  currentMobileSessionToken = sessionToken;
+}
+
 export function createMobileApiClient(options: MobileApiClientOptions = {}): MobileApiClient {
   const fetchImpl = options.fetchImpl ?? fetch;
   const getApiBaseUrl = options.getApiBaseUrl ?? getEnvApiBaseUrl;
   const getUserId = options.getUserId ?? getEnvUserId;
 
   return {
-    async signInWithPhonePassword(input) {
-      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-
-      return parseJson<{ user: AuthenticatedUser }>(response);
-    },
-
-    async verifyPhone(input) {
-      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/auth/verify-phone`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-
-      return parseJson<{ verificationToken: string }>(response);
-    },
-
-    async setPassword(input) {
-      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/auth/set-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-
-      return parseJson<{ user: AuthenticatedUser }>(response);
-    },
-
-    async requestPasswordReset(input) {
-      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/auth/request-password-reset`, {
+    async requestPhoneVerification(input) {
+      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/auth/start-phone-verification`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
@@ -119,10 +110,27 @@ export function createMobileApiClient(options: MobileApiClientOptions = {}): Mob
       return parseJson<{ ok: true }>(response);
     },
 
+    async signInWithPhoneVerification(input) {
+      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+
+      const payload = await parseJson<{ user: AuthenticatedUser; sessionToken?: string }>(response);
+      if (payload.sessionToken) {
+        storeCurrentMobileSessionToken(payload.sessionToken);
+      }
+      return payload;
+    },
+
     async completeOnboarding(input) {
       const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/onboarding`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...buildMobileSessionHeaders(),
+        },
         body: JSON.stringify(input),
       });
 
@@ -131,39 +139,64 @@ export function createMobileApiClient(options: MobileApiClientOptions = {}): Mob
 
     async fetchHome(month) {
       const searchParams = new URLSearchParams({ userId: getUserId(), ...(month ? { month } : {}) });
-      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/home?${searchParams.toString()}`);
+      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/home?${searchParams.toString()}`, {
+        headers: buildMobileSessionHeaders(),
+      });
       return parseJson<{ home: HomeViewData }>(response);
     },
 
     async fetchMobileProfile() {
       const response = await fetchImpl(
         `${getApiBaseUrl()}/api/mobile/profile?userId=${encodeURIComponent(getUserId())}`,
+        {
+          headers: buildMobileSessionHeaders(),
+        },
       );
       return parseJson<{ profile: MobileProfileViewData }>(response);
     },
 
     async fetchSessions() {
-      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/sessions?userId=${encodeURIComponent(getUserId())}`);
+      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/sessions?userId=${encodeURIComponent(getUserId())}`, {
+        headers: buildMobileSessionHeaders(),
+      });
       return parseJson<{ sessions: RecentChatSummary[] }>(response);
     },
 
     async fetchSession(sessionId) {
       const response = await fetchImpl(
         `${getApiBaseUrl()}/api/mobile/sessions/${encodeURIComponent(sessionId)}?userId=${encodeURIComponent(getUserId())}`,
+        {
+          headers: buildMobileSessionHeaders(),
+        },
       );
       return parseJson<{ session: ChatSession }>(response);
     },
 
+    async fetchContentItems(section) {
+      const response = await fetchImpl(
+        `${getApiBaseUrl()}/api/mobile/content-items?section=${encodeURIComponent(section)}`,
+        {
+          headers: buildMobileSessionHeaders(),
+        },
+      );
+      return parseJson<{ items: MobileContentListItem[] }>(response);
+    },
+
     async fetchLinkTarget(target, entityId) {
       const searchParams = new URLSearchParams({ target, ...(entityId ? { entityId } : {}) });
-      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/link?${searchParams.toString()}`);
+      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/link?${searchParams.toString()}`, {
+        headers: buildMobileSessionHeaders(),
+      });
       return parseJson<{ content: LinkTargetContent }>(response);
     },
 
     async updateMobileProfile(input) {
       const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/profile`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...buildMobileSessionHeaders(),
+        },
         body: JSON.stringify(input),
       });
 
@@ -173,7 +206,10 @@ export function createMobileApiClient(options: MobileApiClientOptions = {}): Mob
     async sendChatMessage(input) {
       const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...buildMobileSessionHeaders(),
+        },
         body: JSON.stringify({
           userId: getUserId(),
           sessionId: input.sessionId,
@@ -190,20 +226,15 @@ export function createMobileApiClient(options: MobileApiClientOptions = {}): Mob
 
 const defaultClient = createMobileApiClient();
 
-export function signInWithPhonePassword(input: { phoneNumber: string; password: string }) {
-  return defaultClient.signInWithPhonePassword(input);
+export function requestPhoneVerification(input: { phoneNumber: string }) {
+  return defaultClient.requestPhoneVerification(input);
 }
 
-export function verifyPhone(input: { phoneNumber: string; verificationCode: string }) {
-  return defaultClient.verifyPhone(input);
-}
-
-export function setPassword(input: { verificationToken: string; password: string }) {
-  return defaultClient.setPassword(input);
-}
-
-export function requestPasswordReset(input: { phoneNumber: string }) {
-  return defaultClient.requestPasswordReset(input);
+export function signInWithPhoneVerification(input: {
+  phoneNumber: string;
+  verificationCode: string;
+}) {
+  return defaultClient.signInWithPhoneVerification(input);
 }
 
 export function completeOnboarding(input: { userId: string } & OnboardingProfileInput) {
@@ -224,6 +255,10 @@ export function fetchSessions() {
 
 export function fetchSession(sessionId: string) {
   return defaultClient.fetchSession(sessionId);
+}
+
+export function fetchContentItems(section: "knowledge" | "notebook") {
+  return defaultClient.fetchContentItems(section);
 }
 
 export function fetchLinkTarget(target: string, entityId?: string) {

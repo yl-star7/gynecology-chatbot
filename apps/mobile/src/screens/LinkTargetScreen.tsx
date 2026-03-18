@@ -7,21 +7,27 @@ import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { useMobileServices } from "../core/MobileServicesProvider";
 import { palette } from "../theme";
 
-export function LinkTargetScreen({ target }: { target: string }) {
+export function LinkTargetScreen({
+  target,
+  entityId,
+}: {
+  target: string;
+  entityId?: string;
+}) {
   const services = useMobileServices();
   const [content, setContent] = useState<LinkTargetContent | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     services.knowledgePort
-      .getLinkTarget(target)
+      .getLinkTarget(target, entityId)
       .then((nextContent) => {
         setContent(nextContent);
       })
       .catch((nextError) => {
         setError(nextError instanceof Error ? nextError.message : "링크 콘텐츠를 불러오지 못했습니다.");
       });
-  }, [services, target]);
+  }, [entityId, services, target]);
 
   return (
     <MobileScreenFrame title="참고 콘텐츠" showProfileButton showChatFab>

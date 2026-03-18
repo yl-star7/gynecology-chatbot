@@ -1,61 +1,25 @@
 // @ts-nocheck
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { palette } from "../../theme";
 
 export function SetPasswordScreen() {
-  const { setPassword } = useMobileAppSession();
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
-  const [password, setPasswordValue] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit() {
-    try {
-      await setPassword({ phoneNumber, verificationCode, password });
-      router.replace("/auth/login");
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "비밀번호 저장에 실패했습니다.");
-    }
-  }
+  const [message] = useState(
+    "이제 비밀번호 설정 단계는 필요하지 않습니다. 로그인 화면에서 문자 인증만 완료해 주세요.",
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.eyebrow}>Set Password</Text>
-        <Text style={styles.title}>최초 비밀번호 설정</Text>
-        <Text style={styles.description}>{error ?? "휴대폰 본인인증 이후 비밀번호를 등록하는 화면입니다."}</Text>
+        <Text style={styles.eyebrow}>Notice</Text>
+        <Text style={styles.title}>문자 인증으로 바로 로그인</Text>
+        <Text style={styles.description}>{message}</Text>
 
         <View style={styles.form}>
-          <TextInput
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            placeholder="전화번호"
-            placeholderTextColor={palette.subInk}
-            style={styles.input}
-            keyboardType="phone-pad"
-          />
-          <TextInput
-            value={verificationCode}
-            onChangeText={setVerificationCode}
-            placeholder="인증 코드"
-            placeholderTextColor={palette.subInk}
-            style={styles.input}
-            keyboardType="number-pad"
-          />
-          <TextInput
-            value={password}
-            onChangeText={setPasswordValue}
-            placeholder="새 비밀번호"
-            placeholderTextColor={palette.subInk}
-            style={styles.input}
-            secureTextEntry
-          />
-          <Pressable style={styles.primaryButton} onPress={handleSubmit}>
-            <Text style={styles.primaryButtonLabel}>비밀번호 저장</Text>
+          <Pressable style={styles.primaryButton} onPress={() => router.replace("/auth/login")}>
+            <Text style={styles.primaryButtonLabel}>로그인 화면으로 이동</Text>
           </Pressable>
         </View>
       </View>

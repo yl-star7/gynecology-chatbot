@@ -1,4 +1,4 @@
-import { MockMobileChatAdapter, MockMobileHomeAdapter } from "@gynecology-chatbot/app-core";
+import { MockKnowledgeAdapter, MockMobileChatAdapter, MockMobileHomeAdapter } from "@gynecology-chatbot/app-core";
 import type {
   AuthPort,
   KnowledgePort,
@@ -90,17 +90,14 @@ export function createMobileServices(options: CreateMobileServicesOptions = {}):
   }
 
   const chatPort = new MockMobileChatAdapter();
+  const knowledgePort = new MockKnowledgeAdapter();
 
   return {
     authPort: new MockAuthPortAdapter(),
     onboardingPort: new MockOnboardingPortAdapter(),
     homePort: new RuntimeAwareMockMobileHomeAdapter(),
     chatPort,
-    knowledgePort: {
-      getLinkTarget(target: string, entityId?: string) {
-        return chatPort.resolveLink(target, entityId);
-      },
-    },
+    knowledgePort,
     profilePort: {
       async getProfile() {
         return readMockMobileProfile();

@@ -33,6 +33,7 @@ import type {
   AdminDashboardPort,
   AdminUserPort,
   AuthPort,
+  KnowledgePort,
   MobileChatPort,
   MobileHomePort,
   OnboardingPort,

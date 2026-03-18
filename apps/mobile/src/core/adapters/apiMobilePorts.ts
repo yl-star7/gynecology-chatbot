@@ -1,6 +1,7 @@
 import type {
   AuthPort,
   KnowledgePort,
+  MobileContentListItem,
   MobileChatPort,
   MobileHomePort,
   MobileProfileViewData,
@@ -12,22 +13,16 @@ import type { MobileApiClient } from "../../api/mobileApi";
 export class ApiMobileAuthAdapter implements AuthPort {
   constructor(private readonly client: MobileApiClient) {}
 
-  async signInWithPhonePassword(input: { phoneNumber: string; password: string }) {
-    const payload = await this.client.signInWithPhonePassword(input);
+  async requestPhoneVerification(input: { phoneNumber: string }) {
+    await this.client.requestPhoneVerification(input);
+  }
+
+  async signInWithPhoneVerification(input: {
+    phoneNumber: string;
+    verificationCode: string;
+  }) {
+    const payload = await this.client.signInWithPhoneVerification(input);
     return payload.user;
-  }
-
-  async verifyPhone(input: { phoneNumber: string; verificationCode: string }) {
-    return this.client.verifyPhone(input);
-  }
-
-  async setPassword(input: { verificationToken: string; password: string }) {
-    const payload = await this.client.setPassword(input);
-    return payload.user;
-  }
-
-  async requestPasswordReset(input: { phoneNumber: string }) {
-    await this.client.requestPasswordReset(input);
   }
 }
 
@@ -87,6 +82,11 @@ export class ApiMobileChatAdapter implements MobileChatPort {
 
 export class ApiKnowledgeAdapter implements KnowledgePort {
   constructor(private readonly client: MobileApiClient) {}
+
+  async listContentItems(section: "knowledge" | "notebook"): Promise<MobileContentListItem[]> {
+    const payload = await this.client.fetchContentItems(section);
+    return payload.items;
+  }
 
   async getLinkTarget(target: string, entityId?: string) {
     const payload = await this.client.fetchLinkTarget(target, entityId);

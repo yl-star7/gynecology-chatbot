@@ -59,13 +59,18 @@ export function signInMockUser(phoneNumber: string) {
   return nextUser;
 }
 
-export function setMockPasswordUser(phoneNumber: string) {
-  const nextUser = buildAuthenticatedUser({
-    phoneNumber,
-    hasCompletedOnboarding: false,
-  });
-  runtimeState.currentUser = nextUser;
-  return nextUser;
+export function createMockVerificationRequest(phoneNumber: string) {
+  const normalizedPhoneNumber = phoneNumber.trim();
+  if (!normalizedPhoneNumber) {
+    throw new Error("전화번호를 먼저 입력해 주세요.");
+  }
+
+  if (!runtimeState.currentUser) {
+    runtimeState.currentUser = buildAuthenticatedUser({
+      phoneNumber: normalizedPhoneNumber,
+      hasCompletedOnboarding: false,
+    });
+  }
 }
 
 export function clearMockMobileCurrentUser() {

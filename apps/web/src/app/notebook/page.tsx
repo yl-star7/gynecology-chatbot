@@ -1,4 +1,4 @@
-import { MobileContentView } from "@/components/mobile/MobileContentView";
+import { MobileContentIndexView } from "@/components/mobile/MobileContentIndexView";
 
 export default async function NotebookPage({
   searchParams,
@@ -7,5 +7,11 @@ export default async function NotebookPage({
 }) {
   const { userId } = await searchParams;
 
-  return <MobileContentView target="notebook" title="임신수첩" userId={userId ?? null} />;
+  return (
+    <MobileContentIndexView
+      section="notebook"
+      title="임신수첩"
+      userId={userId ?? null}
+    />
+  );
 }

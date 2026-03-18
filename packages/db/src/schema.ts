@@ -17,7 +17,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-export const authSchema = pgSchema("auth");
+export const contentSchema = pgSchema("content");
 
 const genRandomUuid = sql`gen_random_uuid()`;
 const utcNow = sql`timezone('utc', now())`;
@@ -39,22 +39,13 @@ const vector = customType<{
   },
 });
 
-export const authUsers = authSchema.table("users", {
-  id: uuid("id").primaryKey(),
-});
-
 export const users = pgTable(
   "users",
   {
-    id: uuid("id")
-      .primaryKey()
-      .references(() => authUsers.id, { onDelete: "cascade" }),
+    id: uuid("id").primaryKey(),
     role: text("role").notNull().default("user"),
     phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
-    displayName: varchar("display_name", { length: 100 }).notNull(),
     accountStatus: text("account_status").notNull().default("active"),
-    passwordHash: text("password_hash"),
-    passwordSetAt: timestamp("password_set_at", { withTimezone: true }),
     phoneVerifiedAt: timestamp("phone_verified_at", { withTimezone: true }),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -84,6 +75,7 @@ export const pregnancyProfiles = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    displayName: varchar("display_name", { length: 100 }),
     pregnancyStatus: text("pregnancy_status").notNull(),
     pregnancyDayCount: integer("pregnancy_day_count").notNull().default(0),
     pregnancyWeek: integer("pregnancy_week"),
@@ -119,6 +111,89 @@ export const pregnancyProfiles = pgTable(
     babySexCheck: check(
       "pregnancy_profiles_baby_sex_check",
       sql`${table.babySex} IS NULL OR ${table.babySex} IN ('male', 'female', 'unknown')`,
+    ),
+  }),
+);
+
+export const authSessions = pgTable(
+  "auth_sessions",
+  {
+    id: uuid("id").primaryKey().default(genRandomUuid),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    refreshTokenHash: text("refresh_token_hash").notNull(),
+    deviceLabel: varchar("device_label", { length: 120 }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+  },
+  (table) => ({
+    userLastUsedIdx: index("idx_auth_sessions_user_last_used").on(
+      table.userId,
+      table.lastUsedAt,
+    ),
+    expiresAtIdx: index("idx_auth_sessions_expires_at").on(table.expiresAt),
+  }),
+);
+
+export const phoneVerificationRequests = pgTable(
+  "phone_verification_requests",
+  {
+    id: uuid("id").primaryKey().default(genRandomUuid),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    verificationSid: varchar("verification_sid", { length: 100 }),
+    channel: text("channel").notNull().default("sms"),
+    status: text("status").notNull().default("pending"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+  },
+  (table) => ({
+    phoneCreatedIdx: index("idx_phone_verification_requests_phone_created").on(
+      table.phoneNumber,
+      table.createdAt,
+    ),
+    statusCreatedIdx: index("idx_phone_verification_requests_status_created").on(
+      table.status,
+      table.createdAt,
+    ),
+    channelCheck: check(
+      "phone_verification_requests_channel_check",
+      sql`${table.channel} IN ('sms', 'voice', 'whatsapp')`,
+    ),
+    statusCheck: check(
+      "phone_verification_requests_status_check",
+      sql`${table.status} IN ('pending', 'approved', 'expired', 'canceled', 'failed')`,
+    ),
+  }),
+);
+
+export const allowedPhoneNumbers = pgTable(
+  "allowed_phone_numbers",
+  {
+    id: uuid("id").primaryKey().default(genRandomUuid),
+    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    displayName: varchar("display_name", { length: 100 }),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+  },
+  (table) => ({
+    phoneNumberIdx: uniqueIndex("idx_allowed_phone_numbers_phone_number").on(
+      table.phoneNumber,
     ),
   }),
 );
@@ -191,34 +266,6 @@ export const chatMessages = pgTable(
   }),
 );
 
-export const emotionLogs = pgTable(
-  "emotion_logs",
-  {
-    id: uuid("id").primaryKey().default(genRandomUuid),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    date: date("date").notNull(),
-    emotionTone: text("emotion_tone").notNull(),
-    note: text("note"),
-    source: text("source").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .default(utcNow),
-  },
-  (table) => ({
-    userDateIdx: index("idx_emotion_logs_user_date").on(table.userId, table.date),
-    emotionToneCheck: check(
-      "emotion_logs_tone_check",
-      sql`${table.emotionTone} IN ('calm', 'joyful', 'anxious', 'tired', 'sad')`,
-    ),
-    sourceCheck: check(
-      "emotion_logs_source_check",
-      sql`${table.source} IN ('manual', 'chat_inferred', 'survey')`,
-    ),
-  }),
-);
-
 export const calendarLogs = pgTable(
   "calendar_logs",
   {
@@ -256,7 +303,7 @@ export const calendarLogs = pgTable(
   }),
 );
 
-export const knowledgeItems = pgTable(
+export const knowledgeItems = contentSchema.table(
   "knowledge_items",
   {
     id: uuid("id").primaryKey().default(genRandomUuid),
@@ -297,9 +344,9 @@ export const messageLinks = pgTable(
     messageId: uuid("message_id")
       .notNull()
       .references(() => chatMessages.id, { onDelete: "cascade" }),
-    knowledgeItemId: uuid("knowledge_item_id")
-      .notNull()
-      .references(() => knowledgeItems.id, { onDelete: "cascade" }),
+    targetType: text("target_type").notNull(),
+    targetId: uuid("target_id"),
+    targetPath: text("target_path"),
     targetSection: text("target_section").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -307,14 +354,19 @@ export const messageLinks = pgTable(
   },
   (table) => ({
     messageIdx: index("idx_message_links_message").on(table.messageId),
+    targetTypeIdx: index("idx_message_links_target_type").on(table.targetType),
     targetSectionCheck: check(
       "message_links_target_section_check",
       sql`${table.targetSection} IN ('knowledge', 'notebook')`,
     ),
+    targetTypeCheck: check(
+      "message_links_target_type_check",
+      sql`${table.targetType} IN ('knowledge_item', 'pregnancy_week', 'pregnancy_document', 'external')`,
+    ),
   }),
 );
 
-export const pregnancyDocuments = pgTable(
+export const pregnancyDocuments = contentSchema.table(
   "pregnancy_documents",
   {
     id: uuid("id").primaryKey().default(genRandomUuid),
@@ -340,7 +392,7 @@ export const pregnancyDocuments = pgTable(
   }),
 );
 
-export const pregnancyWeeks = pgTable(
+export const pregnancyWeeks = contentSchema.table(
   "pregnancy_weeks",
   {
     id: uuid("id").primaryKey().default(genRandomUuid),
@@ -377,7 +429,7 @@ export const pregnancyWeeks = pgTable(
   }),
 );
 
-export const pregnancyWeekSections = pgTable(
+export const pregnancyWeekSections = contentSchema.table(
   "pregnancy_week_sections",
   {
     id: uuid("id").primaryKey().default(genRandomUuid),
@@ -395,7 +447,7 @@ export const pregnancyWeekSections = pgTable(
   },
 );
 
-export const pregnancyWeekAssets = pgTable("pregnancy_week_assets", {
+export const pregnancyWeekAssets = contentSchema.table("pregnancy_week_assets", {
   id: uuid("id").primaryKey().default(genRandomUuid),
   weekId: uuid("week_id")
     .notNull()
@@ -445,7 +497,7 @@ export const adminAuditLogs = pgTable(
     ),
     actionTypeCheck: check(
       "admin_audit_logs_action_type_check",
-      sql`${table.actionType} IN ('phone_change', 'login_id_change', 'password_reset', 'content_update', 'knowledge_publish')`,
+      sql`${table.actionType} IN ('phone_change', 'login_id_change', 'session_reset', 'content_update', 'knowledge_publish')`,
     ),
   }),
 );
@@ -486,7 +538,7 @@ export const userActionLogs = pgTable(
     ),
     actionTypeCheck: check(
       "user_action_logs_action_type_check",
-      sql`${table.actionType} IN ('login_succeeded', 'phone_verification_started', 'phone_verified', 'password_set', 'password_reset_requested', 'onboarding_completed', 'profile_updated', 'chat_message_sent')`,
+      sql`${table.actionType} IN ('login_succeeded', 'phone_verification_started', 'phone_verified', 'onboarding_completed', 'profile_updated', 'chat_message_sent')`,
     ),
   }),
 );
