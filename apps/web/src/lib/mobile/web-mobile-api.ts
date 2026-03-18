@@ -27,13 +27,11 @@ export function resolveMobileUserId(explicitUserId?: string | null) {
   }
 
   if (typeof window === "undefined") {
-    return process.env.NEXT_PUBLIC_DEV_USER_ID ?? null;
+    return null;
   }
 
   const searchParams = new URLSearchParams(window.location.search);
-  return (
-    searchParams.get("userId") ?? process.env.NEXT_PUBLIC_DEV_USER_ID ?? null
-  );
+  return searchParams.get("userId");
 }
 
 export function appendUserIdToPath(

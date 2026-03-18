@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { readStoredMobileProfile } from "@/lib/mobile/mobile-session";
 
 function withUserId(path: string, userId?: string | null) {
@@ -28,10 +28,16 @@ export function MobileShell({
   showTitleBlock?: boolean;
   showChatFab?: boolean;
 }) {
-  const profile = readStoredMobileProfile();
-  const displayName = profile?.displayName ?? "임부 사용자";
+  const [displayName, setDisplayName] = useState("임부 사용자");
   const profileHref = withUserId("/profile", userId);
   const chatHref = withUserId("/chat/new", userId);
+
+  useEffect(() => {
+    const profile = readStoredMobileProfile();
+    if (profile?.displayName) {
+      setDisplayName(profile.displayName);
+    }
+  }, []);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 py-6 sm:px-6">
