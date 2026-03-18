@@ -1,6 +1,10 @@
 import type { AuthenticatedUser, OnboardingProfileInput } from "@gynecology-chatbot/app-core";
-import { createContext, useContext, useMemo, useState } from "react";
-import { storeCurrentMobileSessionToken } from "../api/mobileApi";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  fetchCurrentMobileSession,
+  readCurrentMobileSessionToken,
+  storeCurrentMobileSessionToken,
+} from "../api/mobileApi";
 import { useMobileServices } from "./MobileServicesProvider";
 import { clearMockMobileCurrentUser, readMockMobileRuntime } from "./mockMobileRuntime";
 
@@ -20,6 +24,30 @@ const MobileAppSessionContext = createContext<MobileAppSessionValue | null>(null
 export function MobileAppSessionProvider({ children }: { children: React.ReactNode }) {
   const services = useMobileServices();
   const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(readMockMobileRuntime().currentUser);
+
+  useEffect(() => {
+    if (currentUser || !readCurrentMobileSessionToken()) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetchCurrentMobileSession()
+      .then((payload) => {
+        if (!cancelled) {
+          setCurrentUser(payload.user);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          storeCurrentMobileSessionToken(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
 
   const value = useMemo<MobileAppSessionValue>(
     () => ({

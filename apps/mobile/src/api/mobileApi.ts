@@ -26,6 +26,7 @@ export interface MobileApiClient {
     phoneNumber: string;
     verificationCode: string;
   }): Promise<{ user: AuthenticatedUser; sessionToken?: string }>;
+  fetchCurrentMobileSession(): Promise<{ user: AuthenticatedUser }>;
   completeOnboarding(input: { userId: string } & OnboardingProfileInput): Promise<{ user: AuthenticatedUser }>;
   fetchHome(month?: string): Promise<{ home: HomeViewData }>;
   fetchMobileProfile(): Promise<{ profile: MobileProfileViewData }>;
@@ -122,6 +123,15 @@ export function createMobileApiClient(options: MobileApiClientOptions = {}): Mob
         storeCurrentMobileSessionToken(payload.sessionToken);
       }
       return payload;
+    },
+
+    async fetchCurrentMobileSession() {
+      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/auth/session`, {
+        method: "GET",
+        headers: buildMobileSessionHeaders(),
+      });
+
+      return parseJson<{ user: AuthenticatedUser }>(response);
     },
 
     async completeOnboarding(input) {
@@ -235,6 +245,10 @@ export function signInWithPhoneVerification(input: {
   verificationCode: string;
 }) {
   return defaultClient.signInWithPhoneVerification(input);
+}
+
+export function fetchCurrentMobileSession() {
+  return defaultClient.fetchCurrentMobileSession();
 }
 
 export function completeOnboarding(input: { userId: string } & OnboardingProfileInput) {

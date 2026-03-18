@@ -15,6 +15,7 @@ import {
   hasCompletedMobileOnboarding,
   readStoredMobileThemeKey,
   readStoredMobileUserId,
+  setMobileOnboardingStatus,
   storeMobileProfile,
   storeMobileSessionToken,
   storeMobileThemeKey,
@@ -97,6 +98,7 @@ export function MobileLoginView({ initialUserId }: Props) {
       if (payload.sessionToken) {
         storeMobileSessionToken(payload.sessionToken);
       }
+      setMobileOnboardingStatus(payload.user.hasCompletedOnboarding);
       storeMobileProfile({
         displayName: payload.user.displayName,
         phoneNumber: payload.user.phoneNumber,

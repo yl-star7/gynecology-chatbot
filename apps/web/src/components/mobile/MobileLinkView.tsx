@@ -2,10 +2,15 @@
 
 import type { LinkTargetContent } from "@gynecology-chatbot/app-core";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { fetchLinkTarget } from "@/lib/mobile/web-mobile-api";
+import {
+  fetchLinkTarget,
+  resolveMobileUserId,
+} from "@/lib/mobile/web-mobile-api";
 import { MobileCard } from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
+import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
 export function MobileLinkView({
   userId,
@@ -16,6 +21,10 @@ export function MobileLinkView({
   target: string;
   entityId?: string;
 }) {
+  const searchParams = useSearchParams();
+  const resolvedUserId = useMobileSessionGuard(
+    resolveMobileUserId(userId ?? searchParams.get("userId")),
+  );
   const [content, setContent] = useState<LinkTargetContent | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,13 +53,13 @@ export function MobileLinkView({
     };
   }, [entityId, target]);
 
-  const backHref = userId ? `/?userId=${encodeURIComponent(userId)}` : "/";
+  const backHref = resolvedUserId ? `/?userId=${encodeURIComponent(resolvedUserId)}` : "/";
 
   return (
     <MobileShell
       title="참고 콘텐츠"
       description="관련 문서와 안내를 바로 확인합니다."
-      userId={userId}
+      userId={resolvedUserId}
       showTitleBlock={false}
       showChatFab
     >

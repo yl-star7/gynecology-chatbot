@@ -121,6 +121,14 @@ export function markMobileOnboardingComplete() {
   window.localStorage.setItem(ONBOARDING_KEY, "true");
 }
 
+export function setMobileOnboardingStatus(completed: boolean) {
+  if (!isBrowser()) {
+    return;
+  }
+
+  window.localStorage.setItem(ONBOARDING_KEY, completed ? "true" : "false");
+}
+
 export function hasCompletedMobileOnboarding() {
   if (!isBrowser()) {
     return false;

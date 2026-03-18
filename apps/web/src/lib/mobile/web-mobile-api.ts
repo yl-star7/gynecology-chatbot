@@ -12,7 +12,10 @@ import type {
   RecentChatSummary,
   RecordDayView,
 } from "@gynecology-chatbot/app-core";
-import { readStoredMobileSessionToken } from "./mobile-session";
+import {
+  clearMobileSession,
+  readStoredMobileSessionToken,
+} from "./mobile-session";
 
 type ApiErrorPayload = {
   error?: string;
@@ -55,6 +58,9 @@ async function parseJson<T>(response: Response) {
   const payload = (await response.json()) as T & ApiErrorPayload;
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearMobileSession();
+    }
     throw new Error(payload.error ?? `Request failed: ${response.status}`);
   }
 
@@ -263,6 +269,16 @@ export async function signInWithPhoneVerification(input: {
   });
 
   return parseJson<{ user: AuthenticatedUser; sessionToken?: string }>(response);
+}
+
+export async function fetchCurrentMobileSession() {
+  const response = await fetch("/api/mobile/auth/session", {
+    method: "GET",
+    headers: buildMobileSessionHeaders(),
+    cache: "no-store",
+  });
+
+  return parseJson<{ user: AuthenticatedUser }>(response);
 }
 
 export async function completeOnboarding(input: {

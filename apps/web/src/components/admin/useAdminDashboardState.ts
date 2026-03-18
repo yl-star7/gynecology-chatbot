@@ -641,7 +641,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     setIsAccountSubmitting(true);
     setActionMessage(null);
 
-    const response = await fetch("/api/admin/users/reset-password", {
+    const response = await fetch("/api/admin/users/reset-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

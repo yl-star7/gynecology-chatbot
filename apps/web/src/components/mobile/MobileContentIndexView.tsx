@@ -2,13 +2,16 @@
 
 import type { MobileContentListItem } from "@gynecology-chatbot/app-core";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   appendUserIdToPath,
   fetchContentItems,
+  resolveMobileUserId,
 } from "@/lib/mobile/web-mobile-api";
 import { MobileCard } from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
+import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
 export function MobileContentIndexView({
   section,
@@ -19,6 +22,10 @@ export function MobileContentIndexView({
   title: string;
   userId: string | null;
 }) {
+  const searchParams = useSearchParams();
+  const resolvedUserId = useMobileSessionGuard(
+    resolveMobileUserId(userId ?? searchParams.get("userId")),
+  );
   const [items, setItems] = useState<MobileContentListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +62,7 @@ export function MobileContentIndexView({
     <MobileShell
       title={title}
       description={error ?? "앱 내부 정적 문헌 목록을 확인합니다."}
-      userId={userId}
+      userId={resolvedUserId}
       showTitleBlock={false}
       showChatFab
     >
@@ -79,7 +86,7 @@ export function MobileContentIndexView({
                 key={item.id}
                 href={appendUserIdToPath(
                   `/link/${item.section}?entityId=${encodeURIComponent(item.id)}`,
-                  userId,
+                  resolvedUserId,
                 )}
                 className="rounded-[22px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]"
               >
