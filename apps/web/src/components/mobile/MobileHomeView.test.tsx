@@ -87,11 +87,17 @@ describe("MobileHomeView", () => {
     expect(
       screen.queryByRole("link", { name: /^프로필$/ }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "새 상담 시작" })).toHaveAttribute(
+      "href",
+      "/chat/new?userId=user-1",
+    );
     expect(
-      screen.getByRole("link", { name: "증상 상담 시작" }),
-    ).toHaveAttribute("href", "/chat/new?userId=user-1");
+      screen.queryByRole("link", { name: "증상 상담 시작" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Today")).not.toBeInTheDocument();
     expect(screen.queryByText("Continue")).not.toBeInTheDocument();
+    expect(screen.getByText("임신수첩")).toBeInTheDocument();
+    expect(screen.getByText("임신 지식")).toBeInTheDocument();
     expect(storeMobileProfile).toHaveBeenCalledWith({
       displayName: "수연",
       pregnancyWeekLabel: "18주 6일",

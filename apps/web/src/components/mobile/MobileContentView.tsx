@@ -59,11 +59,11 @@ export function MobileContentView({
 
   return (
     <MobileShell
-      title={title}
+      title="콘텐츠"
       description="앱 내부 문서를 확인합니다."
       userId={resolvedUserId}
       showTitleBlock={false}
-      headerMode="compact"
+      showChatFab
     >
       <div className="grid gap-4">
         <header className="rounded-[26px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)] backdrop-blur">
@@ -92,12 +92,6 @@ export function MobileContentView({
             className="rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white"
           >
             홈으로
-          </Link>
-          <Link
-            href={appendUserIdToPath("/chat/new", resolvedUserId)}
-            className="rounded-full bg-[var(--accent-dark)] px-4 py-3 text-sm font-semibold text-white"
-          >
-            상담으로 이동
           </Link>
         </div>
       </div>

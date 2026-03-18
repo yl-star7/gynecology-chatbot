@@ -81,7 +81,7 @@ export function MobileRecordDayView({
       description="하루 기록과 연결 상담을 확인합니다."
       userId={resolvedUserId}
       showTitleBlock={false}
-      headerMode="compact"
+      showChatFab
     >
       <div className="grid gap-4">
         <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)]">

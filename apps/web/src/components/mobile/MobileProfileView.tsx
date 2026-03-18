@@ -7,15 +7,15 @@ import {
   type MobileThemeKey,
 } from "@gynecology-chatbot/app-core";
 import type { MobileProfileViewData } from "@gynecology-chatbot/app-core";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   fetchMobileProfile,
-  appendUserIdToPath,
   resolveMobileUserId,
   updateMobileProfile,
 } from "@/lib/mobile/web-mobile-api";
 import {
+  clearMobileSession,
   readStoredMobileThemeKey,
   storeMobileProfile,
   storeMobileThemeKey,
@@ -43,6 +43,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
   const resolvedUserId = useMobileSessionGuard(
     resolveMobileUserId(userId ?? null),
   );
+  const router = useRouter();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -180,7 +181,6 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
       description="계정 정보와 상담 환경을 관리합니다."
       userId={resolvedUserId}
       showTitleBlock={false}
-      headerMode="compact"
     >
       <div className="grid gap-4">
         <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)]">
@@ -370,22 +370,21 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
 
         <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-            바로가기
+            세션 관리
           </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Link
-              href={appendUserIdToPath("/", resolvedUserId)}
-              className="rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white"
-            >
-              홈으로
-            </Link>
-            <Link
-              href={appendUserIdToPath("/chat/new", resolvedUserId)}
-              className="rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-4 py-3 text-sm font-semibold text-[var(--text)]"
-            >
-              새 상담 시작
-            </Link>
-          </div>
+          <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
+            상담 정보와 설정을 바꾼 뒤, 필요할 때만 여기서 세션을 종료합니다.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              clearMobileSession();
+              router.replace("/auth/login");
+            }}
+            className="mt-4 rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white"
+          >
+            로그아웃
+          </button>
         </section>
       </div>
     </MobileShell>

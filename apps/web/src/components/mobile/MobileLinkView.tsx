@@ -51,7 +51,7 @@ export function MobileLinkView({
       description="관련 문서와 안내를 바로 확인합니다."
       userId={userId}
       showTitleBlock={false}
-      headerMode="compact"
+      showChatFab
     >
       <section className="rounded-[30px] border border-[var(--line)] bg-[var(--panel)] p-6 shadow-[var(--shadow)] backdrop-blur">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
@@ -70,14 +70,6 @@ export function MobileLinkView({
           >
             홈으로 돌아가기
           </Link>
-          {userId ? (
-            <Link
-              href={`/chat/new?userId=${encodeURIComponent(userId)}`}
-              className="rounded-full border border-[var(--line)] px-5 py-3 text-sm font-medium text-[var(--text)]"
-            >
-              상담으로 돌아가기
-            </Link>
-          ) : null}
         </div>
       </section>
     </MobileShell>

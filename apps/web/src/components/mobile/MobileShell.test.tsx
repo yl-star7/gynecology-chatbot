@@ -1,9 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 
 import { MobileShell } from "./MobileShell";
 
 jest.mock("@/lib/mobile/mobile-session", () => ({
-  clearMobileSession: jest.fn(),
   readStoredMobileProfile: jest.fn(() => ({
     displayName: "김수연",
     pregnancyWeekLabel: "18주 2일",
@@ -13,8 +12,12 @@ jest.mock("@/lib/mobile/mobile-session", () => ({
   storeMobileThemeKey: jest.fn(),
 }));
 
+jest.mock("@/lib/mobile/themes", () => ({
+  applyMobileTheme: jest.fn(),
+}));
+
 describe("MobileShell", () => {
-  it("renders mobile navigation with user scoped links", () => {
+  it("renders a compact profile entry without shell-owned navigation or logout", () => {
     render(
       <MobileShell
         title="홈"
@@ -25,41 +28,33 @@ describe("MobileShell", () => {
       </MobileShell>,
     );
 
-    expect(
-      screen.getByRole("navigation", { name: "모바일 기본 탐색" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "홈" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "프로필" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "프로필 열기" })).toHaveAttribute(
       "href",
       "/profile?userId=user-1",
     );
-    expect(screen.getByRole("link", { name: "채팅" })).toHaveAttribute(
-      "href",
-      "/chat/new?userId=user-1",
-    );
+    expect(screen.getByRole("heading", { name: "홈" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "로그아웃" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("빠른 테마")).not.toBeInTheDocument();
   });
 
-  it("applies the selected theme with one click", () => {
-    const sessionModule = jest.requireMock("@/lib/mobile/mobile-session");
-
+  it("renders the chat FAB only when explicitly enabled", () => {
     render(
       <MobileShell
         title="홈"
         description="모바일 웹 기본 구조"
         userId="user-1"
+        showChatFab
       >
         <div>본문</div>
       </MobileShell>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "민트 테마 적용" }));
-
-    expect(sessionModule.storeMobileThemeKey).toHaveBeenCalledWith(
-      "mint-neutral",
-    );
-    expect(document.documentElement).toHaveAttribute(
-      "data-theme",
-      "mint-neutral",
+    expect(screen.getByRole("link", { name: "새 상담 시작" })).toHaveAttribute(
+      "href",
+      "/chat/new?userId=user-1",
     );
   });
 });

@@ -97,7 +97,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
       }
       userId={resolvedUserId}
       showTitleBlock={false}
-      headerMode="compact"
+      showChatFab
     >
       <div className="grid gap-4">
         <section className="rounded-[32px] border border-[var(--line)] bg-[var(--panel-strong)] p-6 shadow-[var(--shadow)]">
@@ -126,24 +126,6 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
                 {home ? `${home.pregnancyDayCount}일` : "데이터 확인 중"}
               </p>
             </div>
-          </div>
-          <div className="mt-5 flex flex-wrap gap-3">
-            {resolvedUserId ? (
-              <Link
-                href={linkWithUserId("/chat/new", resolvedUserId)}
-                className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-white"
-              >
-                증상 상담 시작
-              </Link>
-            ) : null}
-            {resolvedUserId ? (
-              <Link
-                href={linkWithUserId("/knowledge", resolvedUserId)}
-                className="rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-5 py-3 text-sm font-semibold text-[var(--text)]"
-              >
-                이번 주 정보 보기
-              </Link>
-            ) : null}
           </div>
         </section>
 

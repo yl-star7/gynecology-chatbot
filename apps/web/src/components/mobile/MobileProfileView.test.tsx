@@ -73,6 +73,13 @@ describe("MobileProfileView", () => {
       "href",
       "/profile?userId=user-1",
     );
+    expect(
+      screen.getByRole("button", { name: "로그아웃" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "홈으로" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "새 상담 시작" }),
+    ).not.toBeInTheDocument();
     expect(storeMobileProfile).toHaveBeenCalledWith({
       userId: "user-1",
       displayName: "김수연",

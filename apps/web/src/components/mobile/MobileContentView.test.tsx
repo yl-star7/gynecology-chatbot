@@ -60,5 +60,12 @@ describe("MobileContentView", () => {
     expect(
       screen.queryByRole("link", { name: /^프로필$/ }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "새 상담 시작" })).toHaveAttribute(
+      "href",
+      "/chat/new?userId=user-1",
+    );
+    expect(
+      screen.queryByRole("link", { name: "상담으로 이동" }),
+    ).not.toBeInTheDocument();
   });
 });
