@@ -7,6 +7,11 @@ import {
 } from "../api/mobileApi";
 import { useMobileServices } from "./MobileServicesProvider";
 import { clearMockMobileCurrentUser, readMockMobileRuntime } from "./mockMobileRuntime";
+import {
+  clearNativeSessionToken,
+  persistNativeSessionToken,
+  readNativeSessionToken,
+} from "./nativeSessionStorage";
 
 interface MobileAppSessionValue {
   currentUser: AuthenticatedUser | null;
@@ -26,23 +31,36 @@ export function MobileAppSessionProvider({ children }: { children: React.ReactNo
   const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(readMockMobileRuntime().currentUser);
 
   useEffect(() => {
-    if (currentUser || !readCurrentMobileSessionToken()) {
-      return;
-    }
-
     let cancelled = false;
 
-    void fetchCurrentMobileSession()
-      .then((payload) => {
+    async function restoreSession() {
+      if (currentUser) {
+        return;
+      }
+
+      const inMemoryToken = readCurrentMobileSessionToken();
+      const persistedToken = inMemoryToken ?? (await readNativeSessionToken());
+
+      if (!persistedToken) {
+        return;
+      }
+
+      storeCurrentMobileSessionToken(persistedToken);
+
+      try {
+        const payload = await fetchCurrentMobileSession();
         if (!cancelled) {
           setCurrentUser(payload.user);
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           storeCurrentMobileSessionToken(null);
+          await clearNativeSessionToken();
         }
-      });
+      }
+    }
+
+    void restoreSession();
 
     return () => {
       cancelled = true;
@@ -59,6 +77,10 @@ export function MobileAppSessionProvider({ children }: { children: React.ReactNo
         const nextUser = await services.authPort.signInWithPhoneVerification(
           input,
         );
+        const sessionToken = readCurrentMobileSessionToken();
+        if (sessionToken) {
+          await persistNativeSessionToken(sessionToken);
+        }
         setCurrentUser(nextUser);
         return nextUser;
       },
@@ -69,6 +91,7 @@ export function MobileAppSessionProvider({ children }: { children: React.ReactNo
       },
       async signOut() {
         storeCurrentMobileSessionToken(null);
+        await clearNativeSessionToken();
         clearMockMobileCurrentUser();
         setCurrentUser(null);
       },

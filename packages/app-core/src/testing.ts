@@ -11,7 +11,11 @@ import type {
   AdminWorkflowRuleInput,
   AdminWeekAsset,
   AdminWeekAssetInput,
+  AdminWeekDay,
+  AdminWeekDayInput,
   AdminWeekDetail,
+  AdminWeekMedia,
+  AdminWeekMediaInput,
   AdminWeekSection,
   AdminWeekSectionInput,
   AdminWeekSummary,
@@ -742,23 +746,52 @@ const mockWeekContent: AdminWeekDetail[] = [
     compareImagePath: "/images/week1/compare.png",
     status: "published",
     updatedAt: "2026-03-17T10:00:00.000Z",
+    days: [
+      {
+        id: "day-1",
+        dayNumber: 1,
+        title: "Day 1",
+        babyDevelopmentItems: ["아주 작은 크기로 빠르게 성장하고 있어요."],
+        babyMessage: "엄마, 반가워요.",
+        motherChangesItems: ["몸이 조금 예민하게 느껴질 수 있어요."],
+        displayOrder: 1,
+      },
+    ],
     sections: [
       {
         id: "section-1",
+        dayNumber: 1,
         sectionKey: "baby_growth",
         title: "아기의 성장",
         body: "배가 커진 것처럼 느껴질 수 있어요.",
         displayOrder: 1,
         isRequired: true,
+        isActive: true,
       },
     ],
     assets: [
       {
         id: "asset-1",
+        dayNumber: 1,
         assetType: "hero",
         storagePath: "/assets/week1/hero.jpg",
         altText: "Week 1 hero",
         styleKey: "soft-glow",
+        displayOrder: 1,
+        isRequired: false,
+        isActive: true,
+      },
+    ],
+    media: [
+      {
+        id: "media-1",
+        dayNumber: null,
+        mediaScope: "week",
+        bucketId: "pregnancy-content",
+        objectPath: "weeks/1/hero.jpg",
+        mediaRole: "hero",
+        altText: "1주차 대표 이미지",
+        sourceFileName: "week1-hero.jpg",
         displayOrder: 1,
       },
     ],
@@ -775,40 +808,83 @@ const mockWeekContent: AdminWeekDetail[] = [
     compareImagePath: "/assets/week2/compare.jpg",
     status: "draft",
     updatedAt: "2026-03-18T09:00:00.000Z",
+    days: [
+      {
+        id: "day-2-1",
+        dayNumber: 1,
+        title: "Day 1",
+        babyDevelopmentItems: ["감각이 조금씩 발달하고 있어요."],
+        babyMessage: null,
+        motherChangesItems: ["유방이 민감해질 수 있어요."],
+        displayOrder: 1,
+      },
+      {
+        id: "day-2-2",
+        dayNumber: 2,
+        title: "Day 2",
+        babyDevelopmentItems: ["작은 움직임이 시작돼요."],
+        babyMessage: null,
+        motherChangesItems: ["피로가 이어질 수 있어요."],
+        displayOrder: 2,
+      },
+    ],
     sections: [
       {
         id: "section-2",
+        dayNumber: 1,
         sectionKey: "attachment_question",
         title: "애착 질문",
         body: "오늘 느낀 감정을 적어보세요.",
         displayOrder: 1,
         isRequired: false,
+        isActive: true,
       },
       {
         id: "section-3",
+        dayNumber: 2,
         sectionKey: "baby_appearance",
         title: "아기 모양",
         body: "작은 체리처럼 생겼어요.",
         displayOrder: 2,
         isRequired: true,
+        isActive: true,
       },
     ],
     assets: [
       {
         id: "asset-2",
+        dayNumber: 1,
         assetType: "compare",
         storagePath: "/assets/week2/compare.jpg",
         altText: "Compare spotlight",
         styleKey: null,
         displayOrder: 1,
+        isRequired: false,
+        isActive: true,
       },
       {
         id: "asset-3",
+        dayNumber: 2,
         assetType: "hero",
         storagePath: "/assets/week2/hero.jpg",
         altText: "Hero spotlight",
         styleKey: "liquid-glass",
         displayOrder: 2,
+        isRequired: false,
+        isActive: true,
+      },
+    ],
+    media: [
+      {
+        id: "media-2",
+        dayNumber: 1,
+        mediaScope: "day",
+        bucketId: "pregnancy-content",
+        objectPath: "weeks/2/day-01/reference.jpg",
+        mediaRole: "reference",
+        altText: "2주차 day1 참고 이미지",
+        sourceFileName: "week2-day1.jpg",
+        displayOrder: 1,
       },
     ],
   },
@@ -878,21 +954,54 @@ function mapRagDocumentDetail(
 function mapMockSectionInput(input: AdminWeekSectionInput): AdminWeekSection {
   return {
     id: input.id ?? `section-${input.sectionKey}-${input.displayOrder}`,
+    dayNumber: input.dayNumber,
     sectionKey: input.sectionKey,
     title: input.title,
     body: input.body,
     displayOrder: input.displayOrder,
     isRequired: input.isRequired,
+    isActive: input.isActive,
   };
 }
 
 function mapMockAssetInput(input: AdminWeekAssetInput): AdminWeekAsset {
   return {
     id: input.id ?? `asset-${input.assetType}-${input.displayOrder}`,
+    dayNumber: input.dayNumber,
     assetType: input.assetType,
     storagePath: input.storagePath,
     altText: input.altText,
     styleKey: input.styleKey,
+    displayOrder: input.displayOrder,
+    isRequired: input.isRequired,
+    isActive: input.isActive,
+  };
+}
+
+function mapMockDayInput(input: AdminWeekDayInput): AdminWeekDay {
+  return {
+    id: input.id ?? `day-${input.dayNumber}`,
+    dayNumber: input.dayNumber,
+    title: input.title,
+    babyDevelopmentItems: [...input.babyDevelopmentItems],
+    babyMessage: input.babyMessage,
+    motherChangesItems: [...input.motherChangesItems],
+    displayOrder: input.displayOrder,
+  };
+}
+
+function mapMockMediaInput(input: AdminWeekMediaInput): AdminWeekMedia {
+  return {
+    id:
+      input.id ??
+      `media-${input.mediaScope}-${input.dayNumber ?? "week"}-${input.displayOrder}`,
+    dayNumber: input.dayNumber,
+    mediaScope: input.mediaScope,
+    bucketId: input.bucketId,
+    objectPath: input.objectPath,
+    mediaRole: input.mediaRole,
+    altText: input.altText,
+    sourceFileName: input.sourceFileName,
     displayOrder: input.displayOrder,
   };
 }
@@ -1029,8 +1138,10 @@ export class MockAdminContentAdapter implements AdminContentPort {
       compareImagePath: input.compareImagePath,
       status: input.status,
       updatedAt: new Date().toISOString(),
+      days: input.days.map(mapMockDayInput),
       sections: input.sections.map(mapMockSectionInput),
       assets: input.assets.map(mapMockAssetInput),
+      media: input.media.map(mapMockMediaInput),
     };
 
     mockWeekDetailMap = {

@@ -18,6 +18,25 @@ test("schema exports the runtime tables required by the web app", async () => {
     getTableName(schema.allowedPhoneNumbers),
     "allowed_phone_numbers",
   );
+  assert.equal(
+    getTableName(schema.pregnancyWeekData),
+    "pregnancy_week_data",
+  );
+  assert.equal(getTableName(schema.weekChecklists), "week_checklists");
+  assert.equal(getTableName(schema.weekQuestions), "week_questions");
+  assert.equal(
+    getTableName(schema.userChecklistEvents),
+    "user_checklist_events",
+  );
+  assert.equal(
+    getTableName(schema.userQuestionEvents),
+    "user_question_events",
+  );
+  assert.equal(
+    getTableName(schema.pregnancyDayContents),
+    "pregnancy_day_contents",
+  );
+  assert.equal(getTableName(schema.pregnancyWeekMedia), "pregnancy_week_media");
   assert.equal(getTableName(schema.calendarLogs), "calendar_logs");
   assert.equal(getTableName(schema.knowledgeItems), "knowledge_items");
   assert.equal(getTableName(schema.messageLinks), "message_links");

@@ -1,4 +1,13 @@
-CREATE SCHEMA IF NOT EXISTS content;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.schemata
+    WHERE schema_name = 'content'
+  ) THEN
+    EXECUTE 'CREATE SCHEMA content';
+  END IF;
+END $$;
 
 ALTER TABLE public.users
   DROP CONSTRAINT IF EXISTS users_id_users_id_fk;

@@ -19,6 +19,345 @@ const google = createGoogleGenerativeAI({
     process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
 });
 
+type PregnancyProfilePromptRow = {
+  pregnancy_week: number | null;
+  pregnancy_day_in_week: number | null;
+};
+
+type WeekDataRow = {
+  id: string;
+  week_number: number;
+  title: string | null;
+  baby_summary: string | null;
+  mother_summary: string | null;
+  warning_signs: string | null;
+  recommended_actions: string | null;
+  checklist_intro: string | null;
+  question_intro: string | null;
+  status: "draft" | "published" | "archived";
+};
+
+type DayContentRow = {
+  id: string;
+  day_number: number;
+  title: string | null;
+  baby_development_payload: { items?: string[] } | null;
+  baby_message: string | null;
+  mother_changes_payload: { items?: string[] } | null;
+};
+
+type ChecklistRow = {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  checklist_payload: {
+    items?: Array<{ id?: string; label?: string }>;
+    rawText?: string;
+  } | null;
+  display_order: number;
+  is_required: boolean;
+};
+
+type QuestionRow = {
+  id: string;
+  code: string;
+  question_text: string;
+  question_type: "text" | "single_choice" | "multi_choice" | "yes_no" | "number";
+  help_text: string | null;
+  question_payload: {
+    choices?: Array<{ id?: string; label?: string }>;
+    yesLabel?: string;
+    noLabel?: string;
+    rawText?: string;
+  } | null;
+  display_order: number;
+  is_required: boolean;
+};
+
+type UserChecklistEventRow = {
+  id: string;
+  checklist_id: string;
+  status: "sent" | "opened" | "completed" | "skipped";
+};
+
+type UserQuestionEventRow = {
+  id: string;
+  question_id: string;
+  status: "sent" | "opened" | "answered" | "skipped";
+};
+
+function resolveSurveyChoicesFromChecklist(checklist: ChecklistRow) {
+  const choices =
+    checklist.checklist_payload?.items?.map((item, index) => ({
+      id: item.id ?? `${checklist.code}-choice-${index + 1}`,
+      label: item.label ?? `항목 ${index + 1}`,
+    })) ?? [];
+
+  return choices.length > 0
+    ? choices
+    : [
+        { id: `${checklist.code}-yes`, label: "예" },
+        { id: `${checklist.code}-no`, label: "아니오" },
+      ];
+}
+
+function resolveSurveyChoicesFromQuestion(question: QuestionRow) {
+  if (question.question_type === "yes_no") {
+    return [
+      {
+        id: `${question.code}-yes`,
+        label: question.question_payload?.yesLabel ?? "예",
+      },
+      {
+        id: `${question.code}-no`,
+        label: question.question_payload?.noLabel ?? "아니오",
+      },
+    ];
+  }
+
+  if (
+    question.question_type === "single_choice" ||
+    question.question_type === "multi_choice"
+  ) {
+    const choices =
+      question.question_payload?.choices?.map((choice, index) => ({
+        id: choice.id ?? `${question.code}-choice-${index + 1}`,
+        label: choice.label ?? `선택지 ${index + 1}`,
+      })) ?? [];
+
+    if (choices.length > 0) {
+      return choices;
+    }
+  }
+
+  return [];
+}
+
+function buildWeekPromptParts(input: {
+  week: WeekDataRow;
+  dayContent: DayContentRow | null;
+  checklists: ChecklistRow[];
+  questions: QuestionRow[];
+}): ChatMessage["parts"] {
+  const parts: ChatMessage["parts"] = [];
+
+  if (input.dayContent) {
+    const carouselCards = [
+      ...(input.dayContent.baby_development_payload?.items ?? []).map(
+        (item, index) => ({
+          id: `baby-${input.week.week_number}-${input.dayContent?.day_number}-${index + 1}`,
+          eyebrow: "오늘 아기는요",
+          title: input.dayContent?.title ?? `Day ${input.dayContent?.day_number}`,
+          description: item,
+        }),
+      ),
+      ...(input.dayContent.mother_changes_payload?.items ?? []).map(
+        (item, index) => ({
+          id: `mother-${input.week.week_number}-${input.dayContent?.day_number}-${index + 1}`,
+          eyebrow: "오늘 엄마는요",
+          title: input.dayContent?.title ?? `Day ${input.dayContent?.day_number}`,
+          description: item,
+        }),
+      ),
+    ];
+
+    if (carouselCards.length > 0) {
+      parts.push({
+        type: "carousel",
+        id: `week-day-carousel-${input.week.week_number}-${input.dayContent.day_number}`,
+        title: `${input.week.week_number}주차 Day ${input.dayContent.day_number}`,
+        cards: carouselCards,
+      });
+    }
+
+    if (input.dayContent.baby_message) {
+      parts.push({
+        type: "text",
+        id: `baby-message-${input.week.week_number}-${input.dayContent.day_number}`,
+        text: input.dayContent.baby_message,
+      });
+    }
+  }
+
+  for (const checklist of input.checklists) {
+    parts.push({
+      type: "survey",
+      id: `checklist-${checklist.id}`,
+      title: checklist.title,
+      body:
+        checklist.description ??
+        input.week.checklist_intro ??
+        "오늘 함께 해 볼 체크리스트입니다.",
+      choices: resolveSurveyChoicesFromChecklist(checklist),
+    });
+  }
+
+  for (const question of input.questions) {
+    const choices = resolveSurveyChoicesFromQuestion(question);
+    if (choices.length > 0) {
+      parts.push({
+        type: "survey",
+        id: `question-${question.id}`,
+        title: question.question_text,
+        body:
+          question.help_text ??
+          input.week.question_intro ??
+          "아기와 나누는 마음 질문입니다.",
+        choices,
+      });
+      continue;
+    }
+
+    parts.push({
+      type: "text",
+      id: `question-${question.id}`,
+      text: `${question.question_text}${question.help_text ? `\n${question.help_text}` : ""}`,
+    });
+  }
+
+  return parts;
+}
+
+async function getPromptContext(userId: string, hintedPregnancyWeek: number | null) {
+  const profiles = await supabaseSelect<PregnancyProfilePromptRow[]>(
+    `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
+  );
+
+  const pregnancyWeek = hintedPregnancyWeek ?? profiles[0]?.pregnancy_week ?? null;
+  if (!pregnancyWeek) {
+    return null;
+  }
+
+  const dayNumber = ((profiles[0]?.pregnancy_day_in_week ?? 0) % 7) + 1;
+
+  const weekRows = await supabaseSelect<WeekDataRow[]>(
+    `content.pregnancy_week_data?select=id,week_number,title,baby_summary,mother_summary,warning_signs,recommended_actions,checklist_intro,question_intro,status&week_number=eq.${pregnancyWeek}&status=eq.published&limit=1`,
+  );
+  const week = weekRows[0];
+  if (!week) {
+    return null;
+  }
+
+  const dayContentRows = await supabaseSelect<DayContentRow[]>(
+    `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
+  );
+  const dayContent = dayContentRows[0] ?? null;
+
+  const checklists = await supabaseSelect<ChecklistRow[]>(
+    `content.week_checklists?select=id,code,title,description,checklist_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+  );
+  const questions = await supabaseSelect<QuestionRow[]>(
+    `content.week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+  );
+
+  return {
+    pregnancyWeek,
+    dayNumber,
+    week,
+    dayContent,
+    checklists,
+    questions,
+  };
+}
+
+async function markOutstandingPromptEventsAnswered(input: {
+  userId: string;
+  sessionId: string;
+  userMessageId: string | null;
+}) {
+  const checklistEvents = await supabaseSelect<UserChecklistEventRow[]>(
+    `user_checklist_events?select=id,checklist_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}&status=eq.sent`,
+  );
+  const questionEvents = await supabaseSelect<UserQuestionEventRow[]>(
+    `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}&status=eq.sent`,
+  );
+
+  const now = new Date().toISOString();
+
+  for (const event of checklistEvents) {
+    await supabaseUpdate(`user_checklist_events?id=eq.${event.id}`, {
+      status: "completed",
+      completion_message_id: input.userMessageId,
+      completed_at: now,
+      updated_at: now,
+    });
+  }
+
+  for (const event of questionEvents) {
+    await supabaseUpdate(`user_question_events?id=eq.${event.id}`, {
+      status: "answered",
+      answer_message_id: input.userMessageId,
+      answered_at: now,
+      updated_at: now,
+    });
+  }
+}
+
+async function createPromptEvents(input: {
+  userId: string;
+  sessionId: string;
+  assistantMessageId: string | null;
+  checklists: ChecklistRow[];
+  questions: QuestionRow[];
+}) {
+  const now = new Date().toISOString();
+
+  for (const checklist of input.checklists) {
+    await supabaseInsert("user_checklist_events", {
+      user_id: input.userId,
+      checklist_id: checklist.id,
+      session_id: input.sessionId,
+      prompt_message_id: input.assistantMessageId,
+      status: "sent",
+      sent_at: now,
+      updated_at: now,
+    });
+  }
+
+  for (const question of input.questions) {
+    await supabaseInsert("user_question_events", {
+      user_id: input.userId,
+      question_id: question.id,
+      session_id: input.sessionId,
+      prompt_message_id: input.assistantMessageId,
+      status: "sent",
+      sent_at: now,
+      updated_at: now,
+    });
+  }
+}
+
+async function alreadyPromptedForSession(input: {
+  userId: string;
+  sessionId: string;
+  checklistIds: string[];
+  questionIds: string[];
+}) {
+  if (input.checklistIds.length === 0 && input.questionIds.length === 0) {
+    return true;
+  }
+
+  const checklistEvents = input.checklistIds.length
+    ? await supabaseSelect<UserChecklistEventRow[]>(
+        `user_checklist_events?select=id,checklist_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}`,
+      )
+    : [];
+  const questionEvents = input.questionIds.length
+    ? await supabaseSelect<UserQuestionEventRow[]>(
+        `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}`,
+      )
+    : [];
+
+  const checklistSet = new Set(checklistEvents.map((event) => event.checklist_id));
+  const questionSet = new Set(questionEvents.map((event) => event.question_id));
+
+  return (
+    input.checklistIds.every((id) => checklistSet.has(id)) &&
+    input.questionIds.every((id) => questionSet.has(id))
+  );
+}
+
 function buildFallbackReply(input: {
   text: string;
   hasImages: boolean;
@@ -224,17 +563,24 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    await markOutstandingPromptEventsAnswered({
+      userId,
+      sessionId,
+      userMessageId: insertedUserMessage?.id ?? null,
+    });
+
     const apiKey =
       process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    const promptContext = await getPromptContext(userId, pregnancyWeek);
     const ragDocuments = await retrievePregnancyContext({
-      currentWeek: pregnancyWeek,
+      currentWeek: promptContext?.pregnancyWeek ?? pregnancyWeek,
       query: text,
     });
     const assistantMessage = !apiKey
       ? buildFallbackReply({
           text,
           hasImages: imageDataUris.length > 0,
-          pregnancyWeek,
+          pregnancyWeek: promptContext?.pregnancyWeek ?? pregnancyWeek,
           ragSummary: formatRagContext(ragDocuments),
         })
       : await (async () => {
@@ -246,6 +592,7 @@ export async function POST(request: NextRequest) {
               "응답 스키마는 ChatMessage 타입과 유사하며 role은 assistant입니다.",
               "parts는 text, carousel, survey, deepLink 중 필요한 것만 사용하세요.",
               "deepLink target은 knowledge 또는 notebook만 사용하세요.",
+              "추가로 현재 주차 체크리스트와 질문이 있으면 survey/text part로 포함하세요.",
               "대화는 세션 단위로 이어지므로 현재 세션 맥락을 유지하세요.",
               "임신 주차 정보가 주어지면 그 주차와 인접 주차 기준으로 설명한다고 가정하세요.",
               "RAG 문맥이 주어지면 그 범위 안에서만 참고 정보를 요약하세요.",
@@ -253,7 +600,7 @@ export async function POST(request: NextRequest) {
             ].join("\n"),
             prompt: [
               `세션 ID: ${sessionId || "(없음)"}`,
-              `현재 임신 주차: ${pregnancyWeek ?? "(정보 없음)"}`,
+              `현재 임신 주차: ${promptContext?.pregnancyWeek ?? pregnancyWeek ?? "(정보 없음)"}`,
               `사용자 텍스트: ${text || "(텍스트 없음)"}`,
               `첨부 이미지 수: ${imageDataUris.length}`,
               `RAG 문맥:\n${formatRagContext(ragDocuments)}`,
@@ -264,20 +611,52 @@ export async function POST(request: NextRequest) {
           return parseAssistantResponse(responseText);
         })();
 
-    await supabaseInsert("chat_messages", {
-      session_id: sessionId,
-      user_id: userId,
-      role: "assistant",
-      parts: assistantMessage.parts,
-      plain_text: assistantMessage.parts
-        .filter(
-          (part): part is Extract<typeof part, { type: "text" }> =>
-            part.type === "text",
+    const shouldAppendPromptParts = promptContext
+      ? !(
+          await alreadyPromptedForSession({
+            userId,
+            sessionId,
+            checklistIds: promptContext.checklists.map((item) => item.id),
+            questionIds: promptContext.questions.map((item) => item.id),
+          })
         )
-        .map((part) => part.text)
-        .join("\n"),
-      model_name: apiKey ? "gemini-2.5-flash-lite" : "fallback",
-    });
+      : false;
+
+    if (promptContext && shouldAppendPromptParts) {
+      assistantMessage.parts = [
+        ...assistantMessage.parts,
+        ...buildWeekPromptParts(promptContext),
+      ];
+    }
+
+    const insertedAssistantMessages = await supabaseInsert<Array<{ id: string }>>(
+      "chat_messages",
+      {
+        session_id: sessionId,
+        user_id: userId,
+        role: "assistant",
+        parts: assistantMessage.parts,
+        plain_text: assistantMessage.parts
+          .filter(
+            (part): part is Extract<typeof part, { type: "text" }> =>
+              part.type === "text",
+          )
+          .map((part) => part.text)
+          .join("\n"),
+        model_name: apiKey ? "gemini-2.5-flash-lite" : "fallback",
+      },
+    );
+    const insertedAssistantMessage = insertedAssistantMessages[0] ?? null;
+
+    if (promptContext && shouldAppendPromptParts) {
+      await createPromptEvents({
+        userId,
+        sessionId,
+        assistantMessageId: insertedAssistantMessage?.id ?? null,
+        checklists: promptContext.checklists,
+        questions: promptContext.questions,
+      });
+    }
 
     const assistantMessageAt = new Date().toISOString();
     await supabaseUpdate(`chat_sessions?id=eq.${sessionId}`, {

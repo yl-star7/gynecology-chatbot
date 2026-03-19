@@ -121,14 +121,22 @@ export default function AdminDashboard({
           onSelectWeek={state.handleSelectWeek}
           onWeekFieldChange={state.handleWeekFieldChange}
           onWeekStatusChange={state.handleWeekStatusChange}
+          onWeekDayChange={state.handleWeekDayChange}
           onWeekSectionChange={state.handleWeekSectionChange}
           onWeekAssetChange={state.handleWeekAssetChange}
+          onWeekMediaChange={state.handleWeekMediaChange}
+          onAddWeekDay={state.handleAddWeekDay}
           onAddWeekSection={state.handleAddWeekSection}
           onAddWeekAsset={state.handleAddWeekAsset}
+          onAddWeekMedia={state.handleAddWeekMedia}
+          onMoveWeekDay={state.handleMoveWeekDay}
           onMoveWeekSection={state.handleMoveWeekSection}
           onMoveWeekAsset={state.handleMoveWeekAsset}
+          onMoveWeekMedia={state.handleMoveWeekMedia}
+          onRemoveWeekDay={state.handleRemoveWeekDay}
           onRemoveWeekSection={state.handleRemoveWeekSection}
           onRemoveWeekAsset={state.handleRemoveWeekAsset}
+          onRemoveWeekMedia={state.handleRemoveWeekMedia}
           onSaveWeek={state.handleSaveWeek}
         />
       </section>

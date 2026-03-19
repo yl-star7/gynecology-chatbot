@@ -318,37 +318,91 @@ export interface AdminUserAction {
 
 export interface AdminWeekSection {
   id: string;
+  dayNumber: number | null;
   sectionKey: string;
   title: string;
   body: string;
   displayOrder: number;
   isRequired: boolean;
+  isActive: boolean;
 }
 
 export interface AdminWeekAsset {
   id: string;
+  dayNumber: number | null;
   assetType: string;
   storagePath: string;
   altText: string | null;
   styleKey: string | null;
   displayOrder: number;
+  isRequired: boolean;
+  isActive: boolean;
 }
 
 export interface AdminWeekSectionInput {
   id?: string | null;
+  dayNumber: number | null;
   sectionKey: string;
   title: string;
   body: string;
   displayOrder: number;
   isRequired: boolean;
+  isActive: boolean;
 }
 
 export interface AdminWeekAssetInput {
   id?: string | null;
+  dayNumber: number | null;
   assetType: string;
   storagePath: string;
   altText: string | null;
   styleKey: string | null;
+  displayOrder: number;
+  isRequired: boolean;
+  isActive: boolean;
+}
+
+export interface AdminWeekDay {
+  id: string;
+  dayNumber: number;
+  title: string;
+  babyDevelopmentItems: string[];
+  babyMessage: string | null;
+  motherChangesItems: string[];
+  displayOrder: number;
+}
+
+export interface AdminWeekDayInput {
+  id?: string | null;
+  dayNumber: number;
+  title: string;
+  babyDevelopmentItems: string[];
+  babyMessage: string | null;
+  motherChangesItems: string[];
+  displayOrder: number;
+}
+
+export interface AdminWeekMedia {
+  id: string;
+  dayNumber: number | null;
+  mediaScope: "week" | "day";
+  bucketId: string;
+  objectPath: string;
+  mediaRole: string;
+  altText: string | null;
+  sourceFileName: string | null;
+  displayOrder: number;
+}
+
+export interface AdminWeekMediaInput {
+  id?: string | null;
+  dayNumber: number | null;
+  mediaScope: AdminWeekMedia["mediaScope"];
+  bucketId: string;
+  objectPath: string;
+  mediaRole: string;
+  altText: string | null;
+  sourceFileName: string | null;
   displayOrder: number;
 }
 
@@ -369,8 +423,10 @@ export interface AdminWeekSummary {
 export interface AdminWeekDetail extends AdminWeekSummary {
   babySummary: string;
   motherSummary: string;
+  days: AdminWeekDay[];
   sections: AdminWeekSection[];
   assets: AdminWeekAsset[];
+  media: AdminWeekMedia[];
 }
 
 export interface AdminWeekUpdateInput {
@@ -382,6 +438,8 @@ export interface AdminWeekUpdateInput {
   heroImagePath: string | null;
   compareImagePath: string | null;
   status: AdminWeekSummary["status"];
+  days: AdminWeekDayInput[];
   sections: AdminWeekSectionInput[];
   assets: AdminWeekAssetInput[];
+  media: AdminWeekMediaInput[];
 }

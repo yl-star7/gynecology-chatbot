@@ -4,7 +4,9 @@ import type {
   AdminDashboardData,
   AdminKnowledgeItem,
   AdminWeekAsset,
+  AdminWeekDay,
   AdminWeekDetail,
+  AdminWeekMedia,
   AdminWeekSection,
   AdminWeekSummary,
 } from "@gynecology-chatbot/app-core";
@@ -88,22 +90,38 @@ interface AdminContentSectionProps {
     value: string,
   ) => void;
   onWeekStatusChange: (value: AdminWeekDetail["status"]) => void;
+  onWeekDayChange: (
+    index: number,
+    field: keyof AdminWeekDay,
+    value: string | number | string[] | null,
+  ) => void;
   onWeekSectionChange: (
     index: number,
     field: keyof AdminWeekSection,
-    value: string | number | boolean,
+    value: string | number | boolean | null,
   ) => void;
   onWeekAssetChange: (
     index: number,
     field: keyof AdminWeekAsset,
+    value: string | number | boolean | null,
+  ) => void;
+  onWeekMediaChange: (
+    index: number,
+    field: keyof AdminWeekMedia,
     value: string | number | null,
   ) => void;
+  onAddWeekDay: () => void;
   onAddWeekSection: () => void;
   onAddWeekAsset: () => void;
+  onAddWeekMedia: () => void;
+  onMoveWeekDay: (index: number, direction: -1 | 1) => void;
   onMoveWeekSection: (index: number, direction: -1 | 1) => void;
   onMoveWeekAsset: (index: number, direction: -1 | 1) => void;
+  onMoveWeekMedia: (index: number, direction: -1 | 1) => void;
+  onRemoveWeekDay: (index: number) => void;
   onRemoveWeekSection: (index: number) => void;
   onRemoveWeekAsset: (index: number) => void;
+  onRemoveWeekMedia: (index: number) => void;
   onSaveWeek: () => Promise<void>;
 }
 
@@ -164,14 +182,22 @@ export function AdminContentSection({
   onSelectWeek,
   onWeekFieldChange,
   onWeekStatusChange,
+  onWeekDayChange,
   onWeekSectionChange,
   onWeekAssetChange,
+  onWeekMediaChange,
+  onAddWeekDay,
   onAddWeekSection,
   onAddWeekAsset,
+  onAddWeekMedia,
+  onMoveWeekDay,
   onMoveWeekSection,
   onMoveWeekAsset,
+  onMoveWeekMedia,
+  onRemoveWeekDay,
   onRemoveWeekSection,
   onRemoveWeekAsset,
+  onRemoveWeekMedia,
   onSaveWeek,
 }: AdminContentSectionProps) {
   const readyDocuments = ragDocuments.filter((document) => document.status === "ready").length;
@@ -462,7 +488,7 @@ export function AdminContentSection({
             <p className={styles.eyebrow}>Pregnancy Weeks</p>
             <h2 className={styles.panelTitle}>주차별 데이터 관리</h2>
             <p className={styles.panelDescription}>
-              주차 기본 정보, 본문 섹션, 에셋 메타데이터를 같은 작업 맥락에서 편집합니다.
+              주차 기본 정보, 체크리스트, 질문 정의를 같은 작업 맥락에서 편집합니다.
             </p>
           </div>
           <span className={`${styles.statusBadge} ${styles.tagAccent}`}>Weeks</span>
@@ -587,7 +613,7 @@ export function AdminContentSection({
 
                 <div className={styles.panelGrid}>
                   <label className={styles.fieldGroup}>
-                    <span className={styles.fieldLabel}>Hero 이미지 경로</span>
+                    <span className={styles.fieldLabel}>경고 신호</span>
                     <input
                       className={styles.fieldInput}
                       value={selectedWeekDetail.heroImagePath ?? ""}
@@ -597,7 +623,7 @@ export function AdminContentSection({
                     />
                   </label>
                   <label className={styles.fieldGroup}>
-                    <span className={styles.fieldLabel}>Compare 이미지 경로</span>
+                    <span className={styles.fieldLabel}>권장 액션</span>
                     <input
                       className={styles.fieldInput}
                       value={selectedWeekDetail.compareImagePath ?? ""}
@@ -610,17 +636,171 @@ export function AdminContentSection({
 
                 <div className={styles.panelHeader}>
                   <div>
-                    <h3 className={styles.panelTitle}>본문 섹션</h3>
+                    <h3 className={styles.panelTitle}>Day별 본문</h3>
                     <p className={styles.panelDescription}>
-                      섹션 키와 본문을 주차별로 정리합니다.
+                      주차 안의 `Day 1~7` 본문과 아기/산모 문구를 직접 수정합니다.
+                    </p>
+                  </div>
+                  <button
+                    className={styles.secondaryButton}
+                    type="button"
+                    onClick={onAddWeekDay}
+                    aria-label="Day 추가"
+                  >
+                    Day 추가
+                  </button>
+                </div>
+
+                <div className={styles.list}>
+                  {selectedWeekDetail.days.map((day, index) => (
+                    <div
+                      key={day.id || `new-day-${index}`}
+                      className={styles.listRow}
+                    >
+                      <div className={styles.listDetail}>
+                        <div className={styles.panelGrid}>
+                          <label className={styles.fieldGroup}>
+                            <span className={styles.fieldLabel}>Day 번호</span>
+                            <input
+                              className={styles.fieldInput}
+                              inputMode="numeric"
+                              value={day.dayNumber}
+                              onChange={(event) =>
+                                onWeekDayChange(
+                                  index,
+                                  "dayNumber",
+                                  Number(event.target.value) || 1,
+                                )
+                              }
+                            />
+                          </label>
+                          <label className={styles.fieldGroup}>
+                            <span className={styles.fieldLabel}>제목</span>
+                            <input
+                              className={styles.fieldInput}
+                              value={day.title}
+                              onChange={(event) =>
+                                onWeekDayChange(index, "title", event.target.value)
+                              }
+                            />
+                          </label>
+                        </div>
+
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>아기 발달 항목</span>
+                          <textarea
+                            className={styles.fieldTextarea}
+                            value={day.babyDevelopmentItems.join("\n")}
+                            onChange={(event) =>
+                              onWeekDayChange(
+                                index,
+                                "babyDevelopmentItems",
+                                event.target.value
+                                  .split("\n")
+                                  .map((item) => item.trim())
+                                  .filter(Boolean),
+                              )
+                            }
+                          />
+                        </label>
+
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>아기의 말</span>
+                          <textarea
+                            className={styles.fieldTextarea}
+                            value={day.babyMessage ?? ""}
+                            onChange={(event) =>
+                              onWeekDayChange(
+                                index,
+                                "babyMessage",
+                                event.target.value,
+                              )
+                            }
+                          />
+                        </label>
+
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>산모 변화 항목</span>
+                          <textarea
+                            className={styles.fieldTextarea}
+                            value={day.motherChangesItems.join("\n")}
+                            onChange={(event) =>
+                              onWeekDayChange(
+                                index,
+                                "motherChangesItems",
+                                event.target.value
+                                  .split("\n")
+                                  .map((item) => item.trim())
+                                  .filter(Boolean),
+                              )
+                            }
+                          />
+                        </label>
+                      </div>
+
+                      <div className={styles.listMetaGroup}>
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>순서</span>
+                          <input
+                            className={styles.fieldInput}
+                            inputMode="numeric"
+                            value={day.displayOrder}
+                            onChange={(event) =>
+                              onWeekDayChange(
+                                index,
+                                "displayOrder",
+                                Number(event.target.value) || day.dayNumber,
+                              )
+                            }
+                          />
+                        </label>
+                        <div className={styles.rowActions}>
+                          <button
+                            className={styles.secondaryButton}
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => onMoveWeekDay(index, -1)}
+                            aria-label="Day 위로"
+                          >
+                            위로
+                          </button>
+                          <button
+                            className={styles.secondaryButton}
+                            type="button"
+                            disabled={index === selectedWeekDetail.days.length - 1}
+                            onClick={() => onMoveWeekDay(index, 1)}
+                            aria-label="Day 아래로"
+                          >
+                            아래로
+                          </button>
+                          <button
+                            className={styles.secondaryButton}
+                            type="button"
+                            onClick={() => onRemoveWeekDay(index)}
+                            aria-label="Day 삭제"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className={styles.panelHeader}>
+                  <div>
+                    <h3 className={styles.panelTitle}>체크리스트</h3>
+                    <p className={styles.panelDescription}>
+                      주차별로 여러 개의 체크리스트 항목을 정의합니다.
                     </p>
                   </div>
                   <button
                     className={styles.secondaryButton}
                     type="button"
                     onClick={onAddWeekSection}
+                    aria-label="체크리스트 추가"
                   >
-                    섹션 추가
+                    체크리스트 추가
                   </button>
                 </div>
 
@@ -632,7 +812,24 @@ export function AdminContentSection({
                     >
                       <div className={styles.listDetail}>
                         <label className={styles.fieldGroup}>
-                          <span className={styles.fieldLabel}>섹션 키</span>
+                          <span className={styles.fieldLabel}>Day 번호</span>
+                          <input
+                            className={styles.fieldInput}
+                            inputMode="numeric"
+                            value={section.dayNumber ?? ""}
+                            onChange={(event) =>
+                              onWeekSectionChange(
+                                index,
+                                "dayNumber",
+                                event.target.value
+                                  ? Number(event.target.value) || 1
+                                  : null,
+                              )
+                            }
+                          />
+                        </label>
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>체크리스트 코드</span>
                           <input
                             className={styles.fieldInput}
                             value={section.sectionKey}
@@ -646,7 +843,7 @@ export function AdminContentSection({
                           />
                         </label>
                         <label className={styles.fieldGroup}>
-                          <span className={styles.fieldLabel}>섹션 제목</span>
+                          <span className={styles.fieldLabel}>체크리스트 제목</span>
                           <input
                             className={styles.fieldInput}
                             value={section.title}
@@ -660,7 +857,7 @@ export function AdminContentSection({
                           />
                         </label>
                         <label className={styles.fieldGroup}>
-                          <span className={styles.fieldLabel}>본문</span>
+                          <span className={styles.fieldLabel}>설명</span>
                           <textarea
                             className={styles.fieldTextarea}
                             value={section.body}
@@ -707,14 +904,32 @@ export function AdminContentSection({
                             <option value="required">required</option>
                           </select>
                         </label>
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>활성 여부</span>
+                          <select
+                            className={styles.fieldSelect}
+                            value={section.isActive ? "active" : "inactive"}
+                            onChange={(event) =>
+                              onWeekSectionChange(
+                                index,
+                                "isActive",
+                                event.target.value === "active",
+                              )
+                            }
+                          >
+                            <option value="active">active</option>
+                            <option value="inactive">inactive</option>
+                          </select>
+                        </label>
                         <div className={styles.rowActions}>
                           <button
                             className={styles.secondaryButton}
                             type="button"
                             disabled={index === 0}
                             onClick={() => onMoveWeekSection(index, -1)}
+                            aria-label="체크리스트 위로"
                           >
-                            섹션 위로
+                            위로
                           </button>
                           <button
                             className={styles.secondaryButton}
@@ -723,15 +938,17 @@ export function AdminContentSection({
                               index === selectedWeekDetail.sections.length - 1
                             }
                             onClick={() => onMoveWeekSection(index, 1)}
+                            aria-label="체크리스트 아래로"
                           >
-                            섹션 아래로
+                            아래로
                           </button>
                           <button
                             className={styles.secondaryButton}
                             type="button"
                             onClick={() => onRemoveWeekSection(index)}
+                            aria-label="체크리스트 삭제"
                           >
-                            섹션 삭제
+                            삭제
                           </button>
                         </div>
                       </div>
@@ -741,17 +958,18 @@ export function AdminContentSection({
 
                 <div className={styles.panelHeader}>
                   <div>
-                    <h3 className={styles.panelTitle}>에셋 메타데이터</h3>
+                    <h3 className={styles.panelTitle}>질문</h3>
                     <p className={styles.panelDescription}>
-                      저장 경로와 보조 텍스트를 주차 데이터와 함께 유지합니다.
+                      주차별 질문 정의와 답변 유도 문구를 관리합니다.
                     </p>
                   </div>
                   <button
                     className={styles.secondaryButton}
                     type="button"
                     onClick={onAddWeekAsset}
+                    aria-label="질문 추가"
                   >
-                    에셋 추가
+                    질문 추가
                   </button>
                 </div>
 
@@ -763,7 +981,24 @@ export function AdminContentSection({
                     >
                       <div className={styles.listDetail}>
                         <label className={styles.fieldGroup}>
-                          <span className={styles.fieldLabel}>에셋 타입</span>
+                          <span className={styles.fieldLabel}>Day 번호</span>
+                          <input
+                            className={styles.fieldInput}
+                            inputMode="numeric"
+                            value={asset.dayNumber ?? ""}
+                            onChange={(event) =>
+                              onWeekAssetChange(
+                                index,
+                                "dayNumber",
+                                event.target.value
+                                  ? Number(event.target.value) || 1
+                                  : null,
+                              )
+                            }
+                          />
+                        </label>
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>질문 타입</span>
                           <input
                             className={styles.fieldInput}
                             value={asset.assetType}
@@ -777,7 +1012,7 @@ export function AdminContentSection({
                           />
                         </label>
                         <label className={styles.fieldGroup}>
-                          <span className={styles.fieldLabel}>저장 경로</span>
+                          <span className={styles.fieldLabel}>질문 문구</span>
                           <input
                             className={styles.fieldInput}
                             value={asset.storagePath}
@@ -793,7 +1028,7 @@ export function AdminContentSection({
                       </div>
                       <div className={styles.listMetaGroup}>
                         <label className={styles.fieldGroup}>
-                          <span className={styles.fieldLabel}>대체 텍스트</span>
+                          <span className={styles.fieldLabel}>도움말</span>
                           <input
                             className={styles.fieldInput}
                             value={asset.altText ?? ""}
@@ -807,7 +1042,7 @@ export function AdminContentSection({
                           />
                         </label>
                         <label className={styles.fieldGroup}>
-                          <span className={styles.fieldLabel}>스타일 키</span>
+                          <span className={styles.fieldLabel}>질문 코드</span>
                           <input
                             className={styles.fieldInput}
                             value={asset.styleKey ?? ""}
@@ -819,6 +1054,40 @@ export function AdminContentSection({
                               )
                             }
                           />
+                        </label>
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>필수 여부</span>
+                          <select
+                            className={styles.fieldSelect}
+                            value={asset.isRequired ? "required" : "optional"}
+                            onChange={(event) =>
+                              onWeekAssetChange(
+                                index,
+                                "isRequired",
+                                event.target.value === "required",
+                              )
+                            }
+                          >
+                            <option value="optional">optional</option>
+                            <option value="required">required</option>
+                          </select>
+                        </label>
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>활성 여부</span>
+                          <select
+                            className={styles.fieldSelect}
+                            value={asset.isActive ? "active" : "inactive"}
+                            onChange={(event) =>
+                              onWeekAssetChange(
+                                index,
+                                "isActive",
+                                event.target.value === "active",
+                              )
+                            }
+                          >
+                            <option value="active">active</option>
+                            <option value="inactive">inactive</option>
+                          </select>
                         </label>
                         <label className={styles.fieldGroup}>
                           <span className={styles.fieldLabel}>순서</span>
@@ -841,8 +1110,9 @@ export function AdminContentSection({
                             type="button"
                             disabled={index === 0}
                             onClick={() => onMoveWeekAsset(index, -1)}
+                            aria-label="질문 위로"
                           >
-                            에셋 위로
+                            위로
                           </button>
                           <button
                             className={styles.secondaryButton}
@@ -851,15 +1121,188 @@ export function AdminContentSection({
                               index === selectedWeekDetail.assets.length - 1
                             }
                             onClick={() => onMoveWeekAsset(index, 1)}
+                            aria-label="질문 아래로"
                           >
-                            에셋 아래로
+                            아래로
                           </button>
                           <button
                             className={styles.secondaryButton}
                             type="button"
                             onClick={() => onRemoveWeekAsset(index)}
+                            aria-label="질문 삭제"
                           >
-                            에셋 삭제
+                            삭제
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className={styles.panelHeader}>
+                  <div>
+                    <h3 className={styles.panelTitle}>이미지 매핑</h3>
+                    <p className={styles.panelDescription}>
+                      Storage bucket/object path 기준으로 주차 또는 day 이미지를 연결합니다.
+                    </p>
+                  </div>
+                  <button
+                    className={styles.secondaryButton}
+                    type="button"
+                    onClick={onAddWeekMedia}
+                    aria-label="이미지 매핑 추가"
+                  >
+                    이미지 추가
+                  </button>
+                </div>
+
+                <div className={styles.list}>
+                  {selectedWeekDetail.media.map((media, index) => (
+                    <div
+                      key={media.id || `new-media-${index}`}
+                      className={styles.listRow}
+                    >
+                      <div className={styles.listDetail}>
+                        <div className={styles.panelGrid}>
+                          <label className={styles.fieldGroup}>
+                            <span className={styles.fieldLabel}>Scope</span>
+                            <select
+                              className={styles.fieldSelect}
+                              value={media.mediaScope}
+                              onChange={(event) =>
+                                onWeekMediaChange(
+                                  index,
+                                  "mediaScope",
+                                  event.target.value,
+                                )
+                              }
+                            >
+                              <option value="week">week</option>
+                              <option value="day">day</option>
+                            </select>
+                          </label>
+                          <label className={styles.fieldGroup}>
+                            <span className={styles.fieldLabel}>Day 번호</span>
+                            <input
+                              className={styles.fieldInput}
+                              inputMode="numeric"
+                              value={media.dayNumber ?? ""}
+                              onChange={(event) =>
+                                onWeekMediaChange(
+                                  index,
+                                  "dayNumber",
+                                  event.target.value
+                                    ? Number(event.target.value) || 1
+                                    : null,
+                                )
+                              }
+                            />
+                          </label>
+                        </div>
+
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>Bucket ID</span>
+                          <input
+                            className={styles.fieldInput}
+                            value={media.bucketId}
+                            onChange={(event) =>
+                              onWeekMediaChange(index, "bucketId", event.target.value)
+                            }
+                          />
+                        </label>
+
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>Object Path</span>
+                          <input
+                            className={styles.fieldInput}
+                            value={media.objectPath}
+                            onChange={(event) =>
+                              onWeekMediaChange(index, "objectPath", event.target.value)
+                            }
+                          />
+                        </label>
+
+                        <div className={styles.panelGrid}>
+                          <label className={styles.fieldGroup}>
+                            <span className={styles.fieldLabel}>Media Role</span>
+                            <input
+                              className={styles.fieldInput}
+                              value={media.mediaRole}
+                              onChange={(event) =>
+                                onWeekMediaChange(index, "mediaRole", event.target.value)
+                              }
+                            />
+                          </label>
+                          <label className={styles.fieldGroup}>
+                            <span className={styles.fieldLabel}>원본 파일명</span>
+                            <input
+                              className={styles.fieldInput}
+                              value={media.sourceFileName ?? ""}
+                              onChange={(event) =>
+                                onWeekMediaChange(
+                                  index,
+                                  "sourceFileName",
+                                  event.target.value,
+                                )
+                              }
+                            />
+                          </label>
+                        </div>
+
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>대체 텍스트</span>
+                          <input
+                            className={styles.fieldInput}
+                            value={media.altText ?? ""}
+                            onChange={(event) =>
+                              onWeekMediaChange(index, "altText", event.target.value)
+                            }
+                          />
+                        </label>
+                      </div>
+
+                      <div className={styles.listMetaGroup}>
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>순서</span>
+                          <input
+                            className={styles.fieldInput}
+                            inputMode="numeric"
+                            value={media.displayOrder}
+                            onChange={(event) =>
+                              onWeekMediaChange(
+                                index,
+                                "displayOrder",
+                                Number(event.target.value) || 0,
+                              )
+                            }
+                          />
+                        </label>
+                        <div className={styles.rowActions}>
+                          <button
+                            className={styles.secondaryButton}
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => onMoveWeekMedia(index, -1)}
+                            aria-label="이미지 위로"
+                          >
+                            위로
+                          </button>
+                          <button
+                            className={styles.secondaryButton}
+                            type="button"
+                            disabled={index === selectedWeekDetail.media.length - 1}
+                            onClick={() => onMoveWeekMedia(index, 1)}
+                            aria-label="이미지 아래로"
+                          >
+                            아래로
+                          </button>
+                          <button
+                            className={styles.secondaryButton}
+                            type="button"
+                            onClick={() => onRemoveWeekMedia(index)}
+                            aria-label="이미지 삭제"
+                          >
+                            삭제
                           </button>
                         </div>
                       </div>

@@ -144,61 +144,100 @@ async function ensureSeedData() {
   const { now, yesterday, twoDaysAgo, fourDaysAgo } = createSeedDates();
   const pregnancyMetrics =
     calculatePregnancyMetricsFromDueDate(DEFAULT_DUE_DATE);
+  const {
+    rows: [displayNameColumnRow],
+  } = await db.query<{ exists: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = $1
+          AND table_name = 'users'
+          AND column_name = 'display_name'
+      ) AS exists
+    `,
+    [LOCAL_SCHEMA],
+  );
+  const hasLegacyDisplayNameColumn = Boolean(displayNameColumnRow?.exists);
+
+  const userInsertSql = hasLegacyDisplayNameColumn
+    ? `
+        INSERT INTO ${getQualifiedTable("users")} (
+          id,
+          role,
+          display_name,
+          phone_number,
+          account_status,
+          phone_verified_at,
+          last_login_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, 'active', $5, $5, $5)
+        ON CONFLICT (id) DO UPDATE
+        SET
+          role = EXCLUDED.role,
+          display_name = EXCLUDED.display_name,
+          phone_number = EXCLUDED.phone_number,
+          account_status = EXCLUDED.account_status,
+          phone_verified_at = EXCLUDED.phone_verified_at,
+          last_login_at = EXCLUDED.last_login_at,
+          updated_at = EXCLUDED.updated_at
+      `
+    : `
+        INSERT INTO ${getQualifiedTable("users")} (
+          id,
+          role,
+          phone_number,
+          account_status,
+          phone_verified_at,
+          last_login_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, 'active', $4, $4, $4)
+        ON CONFLICT (id) DO UPDATE
+        SET
+          role = EXCLUDED.role,
+          phone_number = EXCLUDED.phone_number,
+          account_status = EXCLUDED.account_status,
+          phone_verified_at = EXCLUDED.phone_verified_at,
+          last_login_at = EXCLUDED.last_login_at,
+          updated_at = EXCLUDED.updated_at
+      `;
 
   await db.query(
-    `
-      INSERT INTO ${getQualifiedTable("users")} (
-        id,
-        role,
-        phone_number,
-        account_status,
-        phone_verified_at,
-        last_login_at,
-        updated_at
-      )
-      VALUES ($1, 'user', $2, 'active', $3, $3, $3)
-      ON CONFLICT (id) DO UPDATE
-      SET
-        role = EXCLUDED.role,
-        phone_number = EXCLUDED.phone_number,
-        account_status = EXCLUDED.account_status,
-        phone_verified_at = EXCLUDED.phone_verified_at,
-        last_login_at = EXCLUDED.last_login_at,
-        updated_at = EXCLUDED.updated_at
-    `,
-    [
-      DEFAULT_USER_ID,
-      DEFAULT_PHONE_NUMBER,
-      yesterday.toISOString(),
-    ],
+    userInsertSql,
+    hasLegacyDisplayNameColumn
+      ? [
+          DEFAULT_USER_ID,
+          "user",
+          DEFAULT_USER_NAME,
+          DEFAULT_PHONE_NUMBER,
+          yesterday.toISOString(),
+        ]
+      : [
+          DEFAULT_USER_ID,
+          "user",
+          DEFAULT_PHONE_NUMBER,
+          yesterday.toISOString(),
+        ],
   );
 
   await db.query(
-    `
-      INSERT INTO ${getQualifiedTable("users")} (
-        id,
-        role,
-        phone_number,
-        account_status,
-        phone_verified_at,
-        last_login_at,
-        updated_at
-      )
-      VALUES ($1, 'admin', $2, 'active', $3, $3, $3)
-      ON CONFLICT (id) DO UPDATE
-      SET
-        role = EXCLUDED.role,
-        phone_number = EXCLUDED.phone_number,
-        account_status = EXCLUDED.account_status,
-        phone_verified_at = EXCLUDED.phone_verified_at,
-        last_login_at = EXCLUDED.last_login_at,
-        updated_at = EXCLUDED.updated_at
-    `,
-    [
-      DEFAULT_ADMIN_USER_ID,
-      DEFAULT_ADMIN_PHONE_NUMBER,
-      yesterday.toISOString(),
-    ],
+    userInsertSql,
+    hasLegacyDisplayNameColumn
+      ? [
+          DEFAULT_ADMIN_USER_ID,
+          "admin",
+          DEFAULT_ADMIN_NAME,
+          DEFAULT_ADMIN_PHONE_NUMBER,
+          yesterday.toISOString(),
+        ]
+      : [
+          DEFAULT_ADMIN_USER_ID,
+          "admin",
+          DEFAULT_ADMIN_PHONE_NUMBER,
+          yesterday.toISOString(),
+        ],
   );
 
   await db.query(

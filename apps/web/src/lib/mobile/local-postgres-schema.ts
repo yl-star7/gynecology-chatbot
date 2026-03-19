@@ -159,6 +159,96 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           CONSTRAINT pregnancy_weeks_status_check CHECK (status IN ('draft', 'published', 'archived'))
         );
 
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "pregnancy_week_data")} (
+          id text PRIMARY KEY,
+          week_number integer NOT NULL UNIQUE,
+          title text,
+          baby_size_label text,
+          baby_size_compare_object text,
+          baby_summary text,
+          mother_summary text,
+          warning_signs text,
+          recommended_actions text,
+          checklist_intro text,
+          question_intro text,
+          status text NOT NULL DEFAULT 'draft',
+          updated_at timestamptz NOT NULL DEFAULT now(),
+          created_at timestamptz NOT NULL DEFAULT now(),
+          CONSTRAINT pregnancy_week_data_week_number_range CHECK (week_number BETWEEN 1 AND 40),
+          CONSTRAINT pregnancy_week_data_status_check CHECK (status IN ('draft', 'published', 'archived'))
+        );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "pregnancy_day_contents")} (
+          id text PRIMARY KEY,
+          week_data_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "pregnancy_week_data")}(id) ON DELETE CASCADE,
+          day_number integer NOT NULL,
+          title text,
+          baby_development_payload jsonb NOT NULL DEFAULT '{"items":[]}'::jsonb,
+          baby_message text,
+          mother_changes_payload jsonb NOT NULL DEFAULT '{"items":[]}'::jsonb,
+          display_order integer NOT NULL DEFAULT 0,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now(),
+          UNIQUE (week_data_id, day_number),
+          CONSTRAINT pregnancy_day_contents_day_number_range CHECK (day_number BETWEEN 1 AND 7)
+        );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "pregnancy_week_media")} (
+          id text PRIMARY KEY,
+          week_data_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "pregnancy_week_data")}(id) ON DELETE CASCADE,
+          day_content_id text REFERENCES ${getQualifiedTable(schema, "pregnancy_day_contents")}(id) ON DELETE CASCADE,
+          day_number integer,
+          media_scope text NOT NULL DEFAULT 'week',
+          bucket_id text NOT NULL,
+          object_path text NOT NULL,
+          media_role text NOT NULL DEFAULT 'reference',
+          alt_text text,
+          source_file_name text,
+          display_order integer NOT NULL DEFAULT 0,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now(),
+          UNIQUE (week_data_id, object_path),
+          CONSTRAINT pregnancy_week_media_day_number_range CHECK (day_number IS NULL OR day_number BETWEEN 1 AND 7),
+          CONSTRAINT pregnancy_week_media_scope_check CHECK (media_scope IN ('week', 'day'))
+        );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "week_checklists")} (
+          id text PRIMARY KEY,
+          week_data_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "pregnancy_week_data")}(id) ON DELETE CASCADE,
+          day_content_id text REFERENCES ${getQualifiedTable(schema, "pregnancy_day_contents")}(id) ON DELETE CASCADE,
+          day_number integer,
+          code text NOT NULL,
+          title text NOT NULL,
+          description text,
+          checklist_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+          display_order integer NOT NULL DEFAULT 0,
+          is_required boolean NOT NULL DEFAULT false,
+          is_active boolean NOT NULL DEFAULT true,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now(),
+          UNIQUE (week_data_id, day_number, code),
+          CONSTRAINT week_checklists_day_number_range CHECK (day_number IS NULL OR day_number BETWEEN 1 AND 7)
+        );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "week_questions")} (
+          id text PRIMARY KEY,
+          week_data_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "pregnancy_week_data")}(id) ON DELETE CASCADE,
+          day_content_id text REFERENCES ${getQualifiedTable(schema, "pregnancy_day_contents")}(id) ON DELETE CASCADE,
+          day_number integer,
+          code text NOT NULL,
+          question_text text NOT NULL,
+          question_type text NOT NULL DEFAULT 'text',
+          help_text text,
+          question_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+          display_order integer NOT NULL DEFAULT 0,
+          is_required boolean NOT NULL DEFAULT false,
+          is_active boolean NOT NULL DEFAULT true,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now(),
+          UNIQUE (week_data_id, day_number, code),
+          CONSTRAINT week_questions_day_number_range CHECK (day_number IS NULL OR day_number BETWEEN 1 AND 7)
+        );
+
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "pregnancy_week_sections")} (
           id text PRIMARY KEY,
           week_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "pregnancy_weeks")}(id) ON DELETE CASCADE,

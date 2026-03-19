@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const packageJson = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 const appJson = JSON.parse(readFileSync(new URL("./app.json", import.meta.url), "utf8"));
@@ -43,5 +43,13 @@ test("mobile app config does not ship a placeholder EAS project id for local sim
     appJson.expo?.extra?.eas?.projectId,
     "your-project-id",
     "apps/mobile app.json should not include the Expo placeholder project id",
+  );
+});
+
+test("mobile workspace provides a Metro config that pins React resolution to the app-local runtime", () => {
+  assert.equal(
+    existsSync(new URL("./metro.config.js", import.meta.url)),
+    true,
+    "apps/mobile should define metro.config.js so React resolves from apps/mobile/node_modules in the monorepo",
   );
 });

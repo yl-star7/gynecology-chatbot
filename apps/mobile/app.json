@@ -1,42 +1,43 @@
 {
-    "expo": {
-        "name": "부인과 AI 채팅",
-        "slug": "gynecology-chatbot",
-        "version": "1.0.0",
-        "orientation": "portrait",
-        "scheme": "gynecology-chatbot",
-        "userInterfaceStyle": "automatic",
-        "newArchEnabled": true,
-        "ios": {
-            "supportsTablet": true,
-            "bundleIdentifier": "com.gynecology.chatbot",
-            "buildNumber": "1",
-            "infoPlist": {}
-        },
-        "android": {
-            "package": "com.gynecology.chatbot",
-            "versionCode": 1
-        },
-        "web": {
-            "bundler": "metro",
-            "output": "single"
-        },
-        "plugins": [
-            "expo-router",
-            [
-                "expo-notifications",
-                {
-                    "color": "#d76c57"
-                }
-            ]
-        ],
-        "experiments": {
-            "typedRoutes": true
-        },
-        "extra": {
-            "router": {
-                "origin": false
-            }
+  "expo": {
+    "name": "부인과 AI 채팅",
+    "slug": "gynecology-chatbot",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "gynecology-chatbot",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gynecology.chatbot",
+      "buildNumber": "1",
+      "infoPlist": {}
+    },
+    "android": {
+      "package": "com.gynecology.chatbot",
+      "versionCode": 1
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "color": "#d76c57"
         }
+      ],
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      }
     }
+  }
 }

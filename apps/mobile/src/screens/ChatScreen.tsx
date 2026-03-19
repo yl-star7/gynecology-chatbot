@@ -4,7 +4,18 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useChatSessions } from "../chat/store";
 import { useMobileServices } from "../core/MobileServicesProvider";
@@ -124,97 +135,106 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.replace("/home")} accessibilityLabel="홈으로 이동">
-          <Ionicons name="arrow-back" size={24} color={surface.textPrimary} />
-        </Pressable>
-        <Text style={styles.headerTitle}>{session.title}</Text>
-        <Pressable onPress={() => setShowRecent(true)} accessibilityLabel="최근 채팅 열기">
-          <Ionicons name="menu" size={24} color={surface.textPrimary} />
-        </Pressable>
-      </View>
+      <KeyboardAvoidingView
+        style={styles.keyboardArea}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={styles.header}>
+          <Pressable onPress={() => router.replace("/home")} accessibilityLabel="홈으로 이동">
+            <Ionicons name="arrow-back" size={24} color={surface.textPrimary} />
+          </Pressable>
+          <Text style={styles.headerTitle}>{session.title}</Text>
+          <Pressable onPress={() => setShowRecent(true)} accessibilityLabel="최근 채팅 열기">
+            <Ionicons name="menu" size={24} color={surface.textPrimary} />
+          </Pressable>
+        </View>
 
-      <ScrollView contentContainerStyle={styles.messages}>
-        {session.messages.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>새 세션</Text>
-            <Text style={styles.emptyBody}>텍스트와 이미지 첨부를 함께 보내면 세션 단위로 누적됩니다.</Text>
-          </View>
-        ) : null}
+        <ScrollView
+          contentContainerStyle={styles.messages}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
+        >
+          {session.messages.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>새 세션</Text>
+              <Text style={styles.emptyBody}>텍스트와 이미지 첨부를 함께 보내면 세션 단위로 누적됩니다.</Text>
+            </View>
+          ) : null}
 
-        {session.messages.map((message) => (
-          <View key={message.id} style={[styles.messageBubble, message.role === "user" ? styles.userBubble : styles.assistantBubble]}>
-            {message.parts.map((part) => {
-              if (part.type === "text") {
-                return (
-                  <Text key={part.id} style={styles.messageText}>
-                    {part.text}
-                  </Text>
-                );
-              }
+          {session.messages.map((message) => (
+            <View key={message.id} style={[styles.messageBubble, message.role === "user" ? styles.userBubble : styles.assistantBubble]}>
+              {message.parts.map((part) => {
+                if (part.type === "text") {
+                  return (
+                    <Text key={part.id} style={styles.messageText}>
+                      {part.text}
+                    </Text>
+                  );
+                }
 
-              if (part.type === "image") {
-                return (
-                  <View key={part.id} style={styles.imageBlock}>
-                    <Image source={{ uri: part.imageUrl }} style={styles.image} resizeMode="cover" />
-                    {part.caption ? <Text style={styles.caption}>{part.caption}</Text> : null}
-                  </View>
-                );
-              }
+                if (part.type === "image") {
+                  return (
+                    <View key={part.id} style={styles.imageBlock}>
+                      <Image source={{ uri: part.imageUrl }} style={styles.image} resizeMode="cover" />
+                      {part.caption ? <Text style={styles.caption}>{part.caption}</Text> : null}
+                    </View>
+                  );
+                }
 
-              if (part.type === "deepLink") {
-                return (
-                  <Pressable key={part.id} style={styles.linkCard} onPress={() => router.push(`/chat/link/${part.target}`)}>
-                    <Text style={styles.linkTitle}>{part.title}</Text>
-                    <Text style={styles.linkBody}>{part.description}</Text>
-                  </Pressable>
-                );
-              }
+                if (part.type === "deepLink") {
+                  return (
+                    <Pressable key={part.id} style={styles.linkCard} onPress={() => router.push(`/chat/link/${part.target}`)}>
+                      <Text style={styles.linkTitle}>{part.title}</Text>
+                      <Text style={styles.linkBody}>{part.description}</Text>
+                    </Pressable>
+                  );
+                }
 
-              if (part.type === "carousel") {
+                if (part.type === "carousel") {
+                  return (
+                    <View key={part.id} style={styles.partBlock}>
+                      <Text style={styles.partTitle}>{part.title}</Text>
+                      {part.cards.map((card) => (
+                        <View key={card.id} style={styles.carouselCard}>
+                          <Text style={styles.carouselEyebrow}>{card.eyebrow}</Text>
+                          <Text style={styles.carouselTitle}>{card.title}</Text>
+                          <Text style={styles.carouselBody}>{card.description}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                }
+
                 return (
                   <View key={part.id} style={styles.partBlock}>
                     <Text style={styles.partTitle}>{part.title}</Text>
-                    {part.cards.map((card) => (
-                      <View key={card.id} style={styles.carouselCard}>
-                        <Text style={styles.carouselEyebrow}>{card.eyebrow}</Text>
-                        <Text style={styles.carouselTitle}>{card.title}</Text>
-                        <Text style={styles.carouselBody}>{card.description}</Text>
-                      </View>
-                    ))}
+                    <Text style={styles.partBody}>{part.body}</Text>
                   </View>
                 );
-              }
+              })}
+            </View>
+          ))}
+        </ScrollView>
 
-              return (
-                <View key={part.id} style={styles.partBlock}>
-                  <Text style={styles.partTitle}>{part.title}</Text>
-                  <Text style={styles.partBody}>{part.body}</Text>
-                </View>
-              );
-            })}
-          </View>
-        ))}
-      </ScrollView>
-
-      <View style={styles.composer}>
-        <Pressable style={styles.attachButton} onPress={handlePickImage}>
-          <Ionicons name="image-outline" size={18} color={surface.accentSolid} />
-          <Text style={styles.attachButtonLabel}>{imageUri ? "이미지 선택됨" : "이미지 첨부"}</Text>
-        </Pressable>
-        {imageUri ? <Image source={{ uri: imageUri }} style={styles.attachmentPreview} resizeMode="cover" /> : null}
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder="메시지를 입력하세요"
-          placeholderTextColor={surface.textSecondary}
-          style={[styles.input, styles.messageInput]}
-          multiline
-        />
-        <Pressable style={[styles.sendButton, isSending ? styles.sendButtonDisabled : null]} onPress={handleSend} disabled={isSending}>
-          <Text style={styles.sendButtonLabel}>{isSending ? "전송 중" : "보내기"}</Text>
-        </Pressable>
-      </View>
+        <View style={styles.composer}>
+          <Pressable style={styles.attachButton} onPress={handlePickImage}>
+            <Ionicons name="image-outline" size={18} color={surface.accentSolid} />
+            <Text style={styles.attachButtonLabel}>{imageUri ? "이미지 선택됨" : "이미지 첨부"}</Text>
+          </Pressable>
+          {imageUri ? <Image source={{ uri: imageUri }} style={styles.attachmentPreview} resizeMode="cover" /> : null}
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="메시지를 입력하세요"
+            placeholderTextColor={surface.textSecondary}
+            style={[styles.input, styles.messageInput]}
+            multiline
+          />
+          <Pressable style={[styles.sendButton, isSending ? styles.sendButtonDisabled : null]} onPress={handleSend} disabled={isSending}>
+            <Text style={styles.sendButtonLabel}>{isSending ? "전송 중" : "보내기"}</Text>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
 
       <Modal animationType="slide" visible={showRecent} transparent onRequestClose={() => setShowRecent(false)}>
         <View style={styles.modalBackdrop}>
@@ -248,6 +268,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: surface.pageBackground,
+  },
+  keyboardArea: {
+    flex: 1,
   },
   header: {
     paddingHorizontal: 18,

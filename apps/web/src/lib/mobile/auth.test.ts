@@ -4,7 +4,147 @@ jest.mock("@/lib/mobile/supabase-rest", () => ({
   supabaseUpdate: jest.fn(),
 }));
 
-import { buildPregnancyProfilePayload } from "@/lib/mobile/auth";
+jest.mock("@/lib/mobile/twilio-verify", () => {
+  const actual = jest.requireActual("@/lib/mobile/twilio-verify");
+
+  return {
+    ...actual,
+    checkSmsVerification: jest.fn(),
+    sendSmsVerification: jest.fn(),
+  };
+});
+
+import {
+  buildPregnancyProfilePayload,
+  completePhoneSignIn,
+} from "@/lib/mobile/auth";
+import {
+  supabaseInsert,
+  supabaseSelect,
+  supabaseUpdate,
+} from "@/lib/mobile/supabase-rest";
+import { checkSmsVerification } from "@/lib/mobile/twilio-verify";
+
+const mockedSupabaseInsert = jest.mocked(supabaseInsert);
+const mockedSupabaseSelect = jest.mocked(supabaseSelect);
+const mockedSupabaseUpdate = jest.mocked(supabaseUpdate);
+const mockedCheckSmsVerification = jest.mocked(checkSmsVerification);
+
+describe("completePhoneSignIn", () => {
+  beforeEach(() => {
+    mockedSupabaseInsert.mockReset();
+    mockedSupabaseSelect.mockReset();
+    mockedSupabaseUpdate.mockReset();
+    mockedCheckSmsVerification.mockReset();
+    mockedSupabaseUpdate.mockResolvedValue([]);
+  });
+
+  test("retries user creation with the allowed phone display name when a legacy users schema still requires it", async () => {
+    mockedCheckSmsVerification.mockResolvedValue({
+      sid: "check-1",
+      status: "approved",
+      to: "+821012345678",
+    });
+    mockedSupabaseSelect
+      .mockResolvedValueOnce([
+        {
+          id: "allow-1",
+          phone_number: "+821012345678",
+          display_name: "김수연",
+          note: null,
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "user-1",
+          phone_number: "+821012345678",
+          account_status: "active",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    mockedSupabaseInsert
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(
+        new Error(
+          'null value in column "display_name" of relation "users" violates not-null constraint',
+        ),
+      )
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    const result = await completePhoneSignIn("01012345678", "1234");
+
+    expect(mockedSupabaseInsert).toHaveBeenNthCalledWith(
+      3,
+      "users",
+      expect.objectContaining({
+        display_name: "김수연",
+        phone_number: "+821012345678",
+        role: "user",
+      }),
+    );
+    expect(result.user.displayName).toBe("김수연");
+  });
+
+  test('falls back to "사용자" when the legacy schema requires display_name but no allowed-phone display name exists', async () => {
+    mockedCheckSmsVerification.mockResolvedValue({
+      sid: "check-2",
+      status: "approved",
+      to: "+821055566677",
+    });
+    mockedSupabaseSelect
+      .mockResolvedValueOnce([
+        {
+          id: "allow-2",
+          phone_number: "+821055566677",
+          display_name: null,
+          note: null,
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "user-2",
+          phone_number: "+821055566677",
+          account_status: "active",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    mockedSupabaseInsert
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(
+        new Error(
+          'null value in column "display_name" of relation "users" violates not-null constraint',
+        ),
+      )
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    const result = await completePhoneSignIn("01055566677", "1234");
+
+    expect(mockedSupabaseInsert).toHaveBeenNthCalledWith(
+      3,
+      "users",
+      expect.objectContaining({
+        display_name: "사용자",
+        phone_number: "+821055566677",
+        role: "user",
+      }),
+    );
+    expect(result.user.displayName).toBe("사용자");
+  });
+});
 
 describe("buildPregnancyProfilePayload", () => {
   const baseMetrics = {

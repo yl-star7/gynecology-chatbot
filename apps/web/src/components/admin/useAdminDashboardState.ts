@@ -6,7 +6,9 @@ import type {
   AdminKnowledgeItem,
   AdminWorkflowRule,
   AdminWeekAsset,
+  AdminWeekDay,
   AdminWeekDetail,
+  AdminWeekMedia,
   AdminWeekSection,
   AdminWeekSummary,
 } from "@gynecology-chatbot/app-core";
@@ -16,6 +18,19 @@ type OrderedItem = { displayOrder: number };
 
 function sortOrderedItems<T extends OrderedItem>(items: T[]) {
   return [...items].sort((left, right) => {
+    const leftDayNumber =
+      "dayNumber" in left && typeof left.dayNumber === "number"
+        ? left.dayNumber
+        : -1;
+    const rightDayNumber =
+      "dayNumber" in right && typeof right.dayNumber === "number"
+        ? right.dayNumber
+        : -1;
+    const dayDelta = leftDayNumber - rightDayNumber;
+    if (dayDelta !== 0) {
+      return dayDelta;
+    }
+
     const orderDelta = left.displayOrder - right.displayOrder;
     if (orderDelta !== 0) {
       return orderDelta;
@@ -320,8 +335,10 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
       setSelectedWeekNumber(weekNumber);
       setSelectedWeekDetail({
         ...payload.week,
+        days: sortOrderedItems(payload.week.days),
         sections: sortOrderedItems(payload.week.sections),
         assets: sortOrderedItems(payload.week.assets),
+        media: sortOrderedItems(payload.week.media),
       });
       setContentMessage(null);
     } catch (error) {
@@ -376,7 +393,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
   function handleWeekSectionChange(
     index: number,
     field: keyof AdminWeekSection,
-    value: string | number | boolean,
+    value: string | number | boolean | null,
   ) {
     updateWeekDetail((current) => ({
       ...current,
@@ -389,7 +406,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
   function handleWeekAssetChange(
     index: number,
     field: keyof AdminWeekAsset,
-    value: string | number | null,
+    value: string | number | boolean | null,
   ) {
     updateWeekDetail((current) => ({
       ...current,
@@ -399,6 +416,61 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     }));
   }
 
+  function handleWeekDayChange(
+    index: number,
+    field: keyof AdminWeekDay,
+    value: string | number | string[] | null,
+  ) {
+    updateWeekDetail((current) => ({
+      ...current,
+      days: current.days.map((day, currentIndex) =>
+        currentIndex === index ? { ...day, [field]: value } : day,
+      ),
+    }));
+  }
+
+  function handleWeekMediaChange(
+    index: number,
+    field: keyof AdminWeekMedia,
+    value: string | number | null,
+  ) {
+    updateWeekDetail((current) => ({
+      ...current,
+      media: current.media.map((entry, currentIndex) =>
+        currentIndex === index ? { ...entry, [field]: value } : entry,
+      ),
+    }));
+  }
+
+  function handleAddWeekDay() {
+    updateWeekDetail((current) => {
+      const usedDayNumbers = new Set(current.days.map((day) => day.dayNumber));
+      const nextDayNumber =
+        [1, 2, 3, 4, 5, 6, 7].find((dayNumber) => !usedDayNumbers.has(dayNumber)) ??
+        current.days.length + 1;
+
+      if (nextDayNumber > 7) {
+        return current;
+      }
+
+      return {
+        ...current,
+        days: [
+          ...current.days,
+          {
+            id: "",
+            dayNumber: nextDayNumber,
+            title: `Day ${nextDayNumber}`,
+            babyDevelopmentItems: [],
+            babyMessage: null,
+            motherChangesItems: [],
+            displayOrder: nextDayNumber,
+          },
+        ],
+      };
+    });
+  }
+
   function handleAddWeekSection() {
     updateWeekDetail((current) => ({
       ...current,
@@ -406,11 +478,13 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
         ...current.sections,
         {
           id: "",
+          dayNumber: current.days[0]?.dayNumber ?? null,
           sectionKey: `section_new_${current.sections.length + 1}`,
           title: "",
           body: "",
           displayOrder: current.sections.length + 1,
           isRequired: false,
+          isActive: true,
         },
       ],
     }));
@@ -423,13 +497,50 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
         ...current.assets,
         {
           id: "",
+          dayNumber: current.days[0]?.dayNumber ?? null,
           assetType: "illustration",
           storagePath: "",
           altText: null,
           styleKey: null,
           displayOrder: current.assets.length + 1,
+          isRequired: false,
+          isActive: true,
         },
       ],
+    }));
+  }
+
+  function handleAddWeekMedia() {
+    updateWeekDetail((current) => ({
+      ...current,
+      media: [
+        ...current.media,
+        {
+          id: "",
+          dayNumber: null,
+          mediaScope: "week",
+          bucketId: "pregnancy-content",
+          objectPath: "",
+          mediaRole: "reference",
+          altText: null,
+          sourceFileName: null,
+          displayOrder: current.media.length + 1,
+        },
+      ],
+    }));
+  }
+
+  function handleMoveWeekDay(index: number, direction: -1 | 1) {
+    updateWeekDetail((current) => ({
+      ...current,
+      days: moveOrderedItem(current.days, index, direction),
+    }));
+  }
+
+  function handleRemoveWeekDay(index: number) {
+    updateWeekDetail((current) => ({
+      ...current,
+      days: removeOrderedItem(current.days, index),
     }));
   }
 
@@ -461,6 +572,20 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     }));
   }
 
+  function handleMoveWeekMedia(index: number, direction: -1 | 1) {
+    updateWeekDetail((current) => ({
+      ...current,
+      media: moveOrderedItem(current.media, index, direction),
+    }));
+  }
+
+  function handleRemoveWeekMedia(index: number) {
+    updateWeekDetail((current) => ({
+      ...current,
+      media: removeOrderedItem(current.media, index),
+    }));
+  }
+
   async function handleSaveWeek() {
     if (!selectedWeekDetail || !selectedWeekNumber) {
       return;
@@ -483,23 +608,48 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
           heroImagePath: selectedWeekDetail.heroImagePath,
           compareImagePath: selectedWeekDetail.compareImagePath,
           status: selectedWeekDetail.status,
+          days: sortOrderedItems(selectedWeekDetail.days).map((day) => ({
+            id: day.id,
+            dayNumber: day.dayNumber,
+            title: day.title,
+            babyDevelopmentItems: day.babyDevelopmentItems,
+            babyMessage: day.babyMessage,
+            motherChangesItems: day.motherChangesItems,
+            displayOrder: day.displayOrder,
+          })),
           sections: sortOrderedItems(selectedWeekDetail.sections).map(
             (section) => ({
               id: section.id,
+              dayNumber: section.dayNumber,
               sectionKey: section.sectionKey,
               title: section.title,
               body: section.body,
               displayOrder: section.displayOrder,
               isRequired: section.isRequired,
+              isActive: section.isActive,
             }),
           ),
           assets: sortOrderedItems(selectedWeekDetail.assets).map((asset) => ({
             id: asset.id,
+            dayNumber: asset.dayNumber,
             assetType: asset.assetType,
             storagePath: asset.storagePath,
             altText: asset.altText,
             styleKey: asset.styleKey,
             displayOrder: asset.displayOrder,
+            isRequired: asset.isRequired,
+            isActive: asset.isActive,
+          })),
+          media: sortOrderedItems(selectedWeekDetail.media).map((media) => ({
+            id: media.id,
+            dayNumber: media.dayNumber,
+            mediaScope: media.mediaScope,
+            bucketId: media.bucketId,
+            objectPath: media.objectPath,
+            mediaRole: media.mediaRole,
+            altText: media.altText,
+            sourceFileName: media.sourceFileName,
+            displayOrder: media.displayOrder,
           })),
         }),
       },
@@ -517,8 +667,10 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
 
     setSelectedWeekDetail({
       ...payload.week,
+      days: sortOrderedItems(payload.week.days),
       sections: sortOrderedItems(payload.week.sections),
       assets: sortOrderedItems(payload.week.assets),
+      media: sortOrderedItems(payload.week.media),
     });
     setWeekSummaries((current) => {
       const nextSummary = mapDetailToSummary(payload.week as AdminWeekDetail);
@@ -1163,12 +1315,20 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     handleWeekStatusChange,
     handleWeekSectionChange,
     handleWeekAssetChange,
+    handleWeekDayChange,
+    handleWeekMediaChange,
+    handleAddWeekDay,
     handleAddWeekSection,
     handleAddWeekAsset,
+    handleAddWeekMedia,
+    handleMoveWeekDay,
     handleMoveWeekSection,
     handleMoveWeekAsset,
+    handleMoveWeekMedia,
+    handleRemoveWeekDay,
     handleRemoveWeekSection,
     handleRemoveWeekAsset,
+    handleRemoveWeekMedia,
     handleSaveWeek,
   };
 }

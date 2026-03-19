@@ -2,6 +2,8 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -118,60 +120,69 @@ export function ProfileScreen() {
 
   return (
     <MobileScreenFrame title="프로필" backHref="/home">
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.heroCard}>
-          <Text style={styles.eyebrow}>프로필</Text>
-          <Text style={styles.title}>내 정보와 상담 설정</Text>
-          <Text style={styles.description}>
-            {error ?? "로그아웃은 여기서만 노출하고, 홈은 탐색과 요약에 집중합니다."}
-          </Text>
-          <View style={styles.metaGrid}>
-            <View style={styles.metaCard}>
-              <Text style={styles.metaLabel}>이름</Text>
-              <Text style={styles.metaValue}>{displayName || "확인 중"}</Text>
-            </View>
-            <View style={styles.metaCard}>
-              <Text style={styles.metaLabel}>전화번호</Text>
-              <Text style={styles.metaValue}>{phoneNumber || "확인 중"}</Text>
-            </View>
-            <View style={styles.metaCard}>
-              <Text style={styles.metaLabel}>현재 주차</Text>
-              <Text style={styles.metaValue}>{pregnancyWeekLabel}</Text>
-            </View>
-            <View style={styles.metaCard}>
-              <Text style={styles.metaLabel}>임신 경과</Text>
-              <Text style={styles.metaValue}>{pregnancyDayCount}일</Text>
+      <KeyboardAvoidingView
+        style={styles.keyboardArea}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.heroCard}>
+            <Text style={styles.eyebrow}>프로필</Text>
+            <Text style={styles.title}>내 정보와 상담 설정</Text>
+            <Text style={styles.description}>
+              {error ?? "로그아웃은 여기서만 노출하고, 홈은 탐색과 요약에 집중합니다."}
+            </Text>
+            <View style={styles.metaGrid}>
+              <View style={styles.metaCard}>
+                <Text style={styles.metaLabel}>이름</Text>
+                <Text style={styles.metaValue}>{displayName || "확인 중"}</Text>
+              </View>
+              <View style={styles.metaCard}>
+                <Text style={styles.metaLabel}>전화번호</Text>
+                <Text style={styles.metaValue}>{phoneNumber || "확인 중"}</Text>
+              </View>
+              <View style={styles.metaCard}>
+                <Text style={styles.metaLabel}>현재 주차</Text>
+                <Text style={styles.metaValue}>{pregnancyWeekLabel}</Text>
+              </View>
+              <View style={styles.metaCard}>
+                <Text style={styles.metaLabel}>임신 경과</Text>
+                <Text style={styles.metaValue}>{pregnancyDayCount}일</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>설정</Text>
-          <View style={styles.form}>
-            <LabeledInput label="이름" value={displayName} onChangeText={setDisplayName} />
-            <LabeledInput label="태명" value={babyNickname} onChangeText={setBabyNickname} />
-            <LabeledInput label="예정 출산일" value={dueDate} onChangeText={setDueDate} placeholder="2026-08-01" />
-            <LabeledInput label="주 진료 병원" value={hospitalName} onChangeText={setHospitalName} />
-            <LabeledInput label="알림 시간" value={notificationTime} onChangeText={setNotificationTime} placeholder="08:30" />
-            <LabeledInput label="채팅 톤" value={tonePreference} onChangeText={setTonePreference} placeholder="차분하게" />
-            <Pressable style={styles.primaryButton} onPress={handleSave}>
-              <Text style={styles.primaryButtonLabel}>
-                {isSaving ? "저장 중" : "프로필 저장"}
-              </Text>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>설정</Text>
+            <View style={styles.form}>
+              <LabeledInput label="이름" value={displayName} onChangeText={setDisplayName} />
+              <LabeledInput label="태명" value={babyNickname} onChangeText={setBabyNickname} />
+              <LabeledInput label="예정 출산일" value={dueDate} onChangeText={setDueDate} placeholder="2026-08-01" />
+              <LabeledInput label="주 진료 병원" value={hospitalName} onChangeText={setHospitalName} />
+              <LabeledInput label="알림 시간" value={notificationTime} onChangeText={setNotificationTime} placeholder="08:30" />
+              <LabeledInput label="채팅 톤" value={tonePreference} onChangeText={setTonePreference} placeholder="차분하게" />
+              <Pressable style={styles.primaryButton} onPress={handleSave}>
+                <Text style={styles.primaryButtonLabel}>
+                  {isSaving ? "저장 중" : "프로필 저장"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>세션 관리</Text>
+            <Text style={styles.description}>
+              계정과 설정을 정리한 뒤, 필요할 때만 여기서 세션을 종료합니다.
+            </Text>
+            <Pressable style={styles.secondaryButton} onPress={handleLogout}>
+              <Text style={styles.secondaryButtonLabel}>로그아웃</Text>
             </Pressable>
           </View>
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>세션 관리</Text>
-          <Text style={styles.description}>
-            계정과 설정을 정리한 뒤, 필요할 때만 여기서 세션을 종료합니다.
-          </Text>
-          <Pressable style={styles.secondaryButton} onPress={handleLogout}>
-            <Text style={styles.secondaryButtonLabel}>로그아웃</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </MobileScreenFrame>
   );
 }
@@ -202,7 +213,11 @@ function LabeledInput({
 }
 
 const styles = StyleSheet.create({
+  keyboardArea: {
+    flex: 1,
+  },
   content: {
+    flexGrow: 1,
     padding: 20,
     paddingBottom: 120,
     gap: 16,

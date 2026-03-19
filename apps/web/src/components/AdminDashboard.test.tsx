@@ -147,40 +147,74 @@ const baseWeekDetail: AdminWeekDetail = {
   compareImagePath: "/images/week1/compare.jpg",
   status: "published",
   updatedAt: "2026-03-18T00:00:00.000Z",
+  days: [
+    {
+      id: "day-1",
+      dayNumber: 1,
+      title: "Day 1",
+      babyDevelopmentItems: ["작은 변화가 시작됩니다."],
+      babyMessage: "엄마, 안녕하세요.",
+      motherChangesItems: ["몸의 변화를 느낄 수 있습니다."],
+      displayOrder: 1,
+    },
+  ],
   sections: [
     {
       id: "section-1",
+      dayNumber: 1,
       sectionKey: "baby_growth",
       title: "아기 성장",
       body: "아주 작은 크기로 성장합니다.",
       displayOrder: 1,
       isRequired: true,
+      isActive: true,
     },
     {
       id: "section-2",
+      dayNumber: 1,
       sectionKey: "mother_change",
       title: "산모 변화",
       body: "몸의 변화를 정리합니다.",
       displayOrder: 2,
       isRequired: false,
+      isActive: true,
     },
   ],
   assets: [
     {
       id: "asset-1",
+      dayNumber: 1,
       assetType: "hero",
       storagePath: "/images/week1/hero.jpg",
       altText: "1주차 hero",
       styleKey: "hero-card",
       displayOrder: 1,
+      isRequired: false,
+      isActive: true,
     },
     {
       id: "asset-2",
+      dayNumber: 1,
       assetType: "illustration",
       storagePath: "/images/week1/illustration.jpg",
       altText: "1주차 illustration",
       styleKey: "detail-card",
       displayOrder: 2,
+      isRequired: false,
+      isActive: true,
+    },
+  ],
+  media: [
+    {
+      id: "media-1",
+      dayNumber: null,
+      mediaScope: "week",
+      bucketId: "pregnancy-content",
+      objectPath: "weeks/1/hero.jpg",
+      mediaRole: "hero",
+      altText: "1주차 대표 이미지",
+      sourceFileName: "week1-hero.jpg",
+      displayOrder: 1,
     },
   ],
 };
@@ -207,21 +241,46 @@ describe("AdminDashboard", () => {
       currentWeekDetail = {
         ...currentWeekDetail,
         ...body,
+        days: body.days.map((day, index) => ({
+          id: day.id ?? `day-${index + 1}`,
+          dayNumber: day.dayNumber,
+          title: day.title,
+          babyDevelopmentItems: [...day.babyDevelopmentItems],
+          babyMessage: day.babyMessage,
+          motherChangesItems: [...day.motherChangesItems],
+          displayOrder: day.displayOrder,
+        })),
         sections: body.sections.map((section, index) => ({
           id: section.id ?? `section-${index + 1}`,
+          dayNumber: section.dayNumber,
           sectionKey: section.sectionKey,
           title: section.title,
           body: section.body,
           displayOrder: section.displayOrder,
           isRequired: section.isRequired,
+          isActive: section.isActive,
         })),
         assets: body.assets.map((asset, index) => ({
           id: asset.id ?? `asset-${index + 1}`,
+          dayNumber: asset.dayNumber,
           assetType: asset.assetType,
           storagePath: asset.storagePath,
           altText: asset.altText,
           styleKey: asset.styleKey,
           displayOrder: asset.displayOrder,
+          isRequired: asset.isRequired,
+          isActive: asset.isActive,
+        })),
+        media: body.media.map((media, index) => ({
+          id: media.id ?? `media-${index + 1}`,
+          dayNumber: media.dayNumber,
+          mediaScope: media.mediaScope,
+          bucketId: media.bucketId,
+          objectPath: media.objectPath,
+          mediaRole: media.mediaRole,
+          altText: media.altText,
+          sourceFileName: media.sourceFileName,
+          displayOrder: media.displayOrder,
         })),
         updatedAt: "2026-03-18T01:00:00.000Z",
       };
@@ -342,10 +401,10 @@ describe("AdminDashboard", () => {
     await screen.findByDisplayValue("1주차 기본");
 
     const sectionDownButton = screen
-      .getAllByRole("button", { name: "섹션 아래로" })
+      .getAllByRole("button", { name: "체크리스트 아래로" })
       .find((button) => !(button as HTMLButtonElement).disabled);
     const assetDownButton = screen
-      .getAllByRole("button", { name: "에셋 아래로" })
+      .getAllByRole("button", { name: "질문 아래로" })
       .find((button) => !(button as HTMLButtonElement).disabled);
 
     expect(sectionDownButton).toBeDefined();
@@ -355,24 +414,24 @@ describe("AdminDashboard", () => {
     fireEvent.click(assetDownButton!);
 
     expect(
-      screen.getAllByRole("button", { name: "섹션 삭제" }),
+      screen.getAllByRole("button", { name: "체크리스트 삭제" }),
     ).toHaveLength(2);
     expect(
-      screen.getAllByRole("button", { name: "에셋 삭제" }),
+      screen.getAllByRole("button", { name: "질문 삭제" }),
     ).toHaveLength(2);
 
-    fireEvent.click(screen.getByRole("button", { name: "섹션 추가" }));
-    fireEvent.click(screen.getByRole("button", { name: "에셋 추가" }));
+    fireEvent.click(screen.getByRole("button", { name: "체크리스트 추가" }));
+    fireEvent.click(screen.getByRole("button", { name: "질문 추가" }));
 
     expect(
-      screen.getAllByRole("button", { name: "섹션 삭제" }),
+      screen.getAllByRole("button", { name: "체크리스트 삭제" }),
     ).toHaveLength(3);
     expect(
-      screen.getAllByRole("button", { name: "에셋 삭제" }),
+      screen.getAllByRole("button", { name: "질문 삭제" }),
     ).toHaveLength(3);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "섹션 삭제" })[2]);
-    fireEvent.click(screen.getAllByRole("button", { name: "에셋 삭제" })[2]);
+    fireEvent.click(screen.getAllByRole("button", { name: "체크리스트 삭제" })[2]);
+    fireEvent.click(screen.getAllByRole("button", { name: "질문 삭제" })[2]);
 
     fireEvent.click(screen.getByRole("button", { name: "주차 저장" }));
 
@@ -394,10 +453,14 @@ describe("AdminDashboard", () => {
     const body = JSON.parse(String(patchCall?.[1]?.body)) as AdminWeekUpdateInput;
     expect(body.sections).toHaveLength(2);
     expect(body.sections[0].sectionKey).toBe("mother_change");
+    expect(body.sections[0].dayNumber).toBe(1);
     expect(body.sections.map((section) => section.displayOrder)).toEqual([1, 2]);
     expect(body.assets).toHaveLength(2);
     expect(body.assets[0].assetType).toBe("illustration");
+    expect(body.assets[0].dayNumber).toBe(1);
     expect(body.assets.map((asset) => asset.displayOrder)).toEqual([1, 2]);
+    expect(body.days).toHaveLength(1);
+    expect(body.media).toHaveLength(1);
 
     await waitFor(() =>
       expect(
@@ -452,11 +515,11 @@ describe("AdminDashboard", () => {
 
     await screen.findByDisplayValue("1주차 기본");
 
-    expect(screen.getAllByRole("button", { name: "섹션 삭제" })).toHaveLength(2);
-    expect(screen.getAllByRole("button", { name: "에셋 삭제" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "체크리스트 삭제" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "질문 삭제" })).toHaveLength(2);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "섹션 삭제" })[0]);
-    fireEvent.click(screen.getAllByRole("button", { name: "에셋 삭제" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "체크리스트 삭제" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "질문 삭제" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "주차 저장" }));
 
     await waitFor(() =>

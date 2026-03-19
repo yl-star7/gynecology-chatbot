@@ -1,7 +1,16 @@
 // @ts-nocheck
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { palette, patientSurfacePalette as surface } from "../../theme";
@@ -23,45 +32,58 @@ export function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.heroCard}>
-          <Text style={styles.eyebrow}>Onboarding</Text>
-          <Text style={styles.title}>임신 정보와 채팅 톤 설정</Text>
-          <Text style={styles.description}>
-            {error ??
-              "임신 주차, 예정일, 채팅 톤 선호를 최소값으로 수집하는 초기 화면입니다."}
-          </Text>
-        </View>
+      <KeyboardAvoidingView
+        style={styles.keyboardArea}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.container}>
+            <View style={styles.heroCard}>
+              <Text style={styles.eyebrow}>Onboarding</Text>
+              <Text style={styles.title}>임신 정보와 채팅 톤 설정</Text>
+              <Text style={styles.description}>
+                {error ??
+                  "임신 주차, 예정일, 채팅 톤 선호를 최소값으로 수집하는 초기 화면입니다."}
+              </Text>
+            </View>
 
-        <View style={styles.formCard}>
-          <View style={styles.form}>
-            <TextInput
-              value={pregnancyWeekOrDueDate}
-              onChangeText={setPregnancyWeekOrDueDate}
-              placeholder="임신 주차 또는 예정일"
-              placeholderTextColor={surface.textSecondary}
-              style={styles.input}
-            />
-            <TextInput
-              value={tonePreference}
-              onChangeText={setTonePreference}
-              placeholder="채팅 톤 선호"
-              placeholderTextColor={surface.textSecondary}
-              style={styles.input}
-            />
-            <Pressable style={styles.primaryButton} onPress={handleComplete}>
-              <Text style={styles.primaryButtonLabel}>온보딩 완료</Text>
-            </Pressable>
+            <View style={styles.formCard}>
+              <View style={styles.form}>
+                <TextInput
+                  value={pregnancyWeekOrDueDate}
+                  onChangeText={setPregnancyWeekOrDueDate}
+                  placeholder="임신 주차 또는 예정일"
+                  placeholderTextColor={surface.textSecondary}
+                  style={styles.input}
+                />
+                <TextInput
+                  value={tonePreference}
+                  onChangeText={setTonePreference}
+                  placeholder="채팅 톤 선호"
+                  placeholderTextColor={surface.textSecondary}
+                  style={styles.input}
+                />
+                <Pressable style={styles.primaryButton} onPress={handleComplete}>
+                  <Text style={styles.primaryButtonLabel}>온보딩 완료</Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: surface.pageBackground },
-  container: { flex: 1, padding: 24, justifyContent: "center" },
+  keyboardArea: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
+  container: { flexGrow: 1, padding: 24, justifyContent: "center", gap: 16 },
   heroCard: {
     borderRadius: 24,
     backgroundColor: surface.surfacePrimary,
@@ -73,7 +95,6 @@ const styles = StyleSheet.create({
   title: { marginTop: 10, fontSize: 30, fontWeight: "700", color: surface.textPrimary },
   description: { marginTop: 12, fontSize: 15, lineHeight: 22, color: surface.textSecondary },
   formCard: {
-    marginTop: 16,
     borderRadius: 24,
     backgroundColor: surface.surfacePrimary,
     borderWidth: 1,

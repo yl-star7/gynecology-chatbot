@@ -4,10 +4,12 @@ import type {
   AdminKnowledgeItemInput,
   AdminRagDocumentDetail,
   AdminRagDocumentInput,
+  AdminWeekDay,
   AdminWorkflowRule,
   AdminWorkflowRuleInput,
   AdminWeekAsset,
   AdminWeekDetail,
+  AdminWeekMedia,
   AdminWeekSection,
   AdminWeekSummary,
   AdminWeekUpdateInput,
@@ -15,11 +17,8 @@ import type {
 import { MockAdminContentAdapter } from "@gynecology-chatbot/app-core";
 import { randomUUID } from "crypto";
 
-import {
-  hasDockerConfig,
-  hasSupabaseConfig,
-  resolveServerDataProvider,
-} from "@/lib/server-data-provider";
+import { embedPregnancyDocument } from "@/lib/mobile/rag";
+import { hasDockerConfig, hasSupabaseConfig, resolveServerDataProvider } from "@/lib/server-data-provider";
 import {
   supabaseDelete,
   supabaseInsert,
@@ -40,27 +39,54 @@ type SupabaseWeekRow = {
   baby_size_compare_object: string | null;
   baby_summary: string | null;
   mother_summary: string | null;
-  hero_image_path: string | null;
-  compare_image_path: string | null;
+  warning_signs: string | null;
+  recommended_actions: string | null;
   status: "draft" | "published" | "archived";
   updated_at: string;
 };
 
 type SupabaseWeekSectionRow = {
   id: string;
-  section_key: string;
+  day_number: number | null;
+  code: string;
   title: string | null;
-  body: string | null;
+  description: string | null;
   display_order: number | null;
   is_required: boolean | null;
+  is_active: boolean | null;
 };
 
 type SupabaseWeekAssetRow = {
   id: string;
-  asset_type: string;
-  storage_path: string;
+  day_number: number | null;
+  code: string;
+  question_type: string;
+  question_text: string;
+  help_text: string | null;
+  display_order: number | null;
+  is_required: boolean | null;
+  is_active: boolean | null;
+};
+
+type SupabaseWeekDayRow = {
+  id: string;
+  day_number: number;
+  title: string | null;
+  baby_development_payload: { items?: string[] } | null;
+  baby_message: string | null;
+  mother_changes_payload: { items?: string[] } | null;
+  display_order: number | null;
+};
+
+type SupabaseWeekMediaRow = {
+  id: string;
+  day_number: number | null;
+  media_scope: "week" | "day";
+  bucket_id: string;
+  object_path: string;
+  media_role: string;
   alt_text: string | null;
-  style_key: string | null;
+  source_file_name: string | null;
   display_order: number | null;
 };
 
@@ -98,10 +124,16 @@ type SupabaseWorkflowDefinitionRow = {
 };
 
 const sectionComparator = (a: AdminWeekSection, b: AdminWeekSection) =>
-  a.displayOrder - b.displayOrder;
+  (a.dayNumber ?? 0) - (b.dayNumber ?? 0) || a.displayOrder - b.displayOrder;
 
 const assetComparator = (a: AdminWeekAsset, b: AdminWeekAsset) =>
-  a.displayOrder - b.displayOrder;
+  (a.dayNumber ?? 0) - (b.dayNumber ?? 0) || a.displayOrder - b.displayOrder;
+
+const dayComparator = (a: AdminWeekDay, b: AdminWeekDay) =>
+  a.dayNumber - b.dayNumber || a.displayOrder - b.displayOrder;
+
+const mediaComparator = (a: AdminWeekMedia, b: AdminWeekMedia) =>
+  (a.dayNumber ?? 0) - (b.dayNumber ?? 0) || a.displayOrder - b.displayOrder;
 
 function mapWeekSummary(row: SupabaseWeekRow): AdminWeekSummary {
   return {
@@ -112,8 +144,8 @@ function mapWeekSummary(row: SupabaseWeekRow): AdminWeekSummary {
     babySizeCompareObject: row.baby_size_compare_object,
     babySummary: row.baby_summary,
     motherSummary: row.mother_summary,
-    heroImagePath: row.hero_image_path,
-    compareImagePath: row.compare_image_path,
+    heroImagePath: row.warning_signs,
+    compareImagePath: row.recommended_actions,
     status: row.status,
     updatedAt: row.updated_at,
   };
@@ -123,11 +155,13 @@ function mapSections(rows: SupabaseWeekSectionRow[]): AdminWeekSection[] {
   return rows
     .map((row) => ({
       id: row.id,
-      sectionKey: row.section_key,
+      dayNumber: row.day_number,
+      sectionKey: row.code,
       title: row.title ?? "",
-      body: row.body ?? "",
+      body: row.description ?? "",
       displayOrder: row.display_order ?? 0,
       isRequired: Boolean(row.is_required),
+      isActive: row.is_active ?? true,
     }))
     .sort(sectionComparator);
 }
@@ -136,26 +170,63 @@ function mapAssets(rows: SupabaseWeekAssetRow[]): AdminWeekAsset[] {
   return rows
     .map((row) => ({
       id: row.id,
-      assetType: row.asset_type,
-      storagePath: row.storage_path,
-      altText: row.alt_text ?? null,
-      styleKey: row.style_key ?? null,
+      dayNumber: row.day_number,
+      assetType: row.question_type,
+      storagePath: row.question_text,
+      altText: row.help_text ?? null,
+      styleKey: row.code ?? null,
       displayOrder: row.display_order ?? 0,
+      isRequired: Boolean(row.is_required),
+      isActive: row.is_active ?? true,
     }))
     .sort(assetComparator);
 }
 
+function mapDays(rows: SupabaseWeekDayRow[]): AdminWeekDay[] {
+  return rows
+    .map((row) => ({
+      id: row.id,
+      dayNumber: row.day_number,
+      title: row.title ?? `Day ${row.day_number}`,
+      babyDevelopmentItems: row.baby_development_payload?.items ?? [],
+      babyMessage: row.baby_message,
+      motherChangesItems: row.mother_changes_payload?.items ?? [],
+      displayOrder: row.display_order ?? row.day_number,
+    }))
+    .sort(dayComparator);
+}
+
+function mapMedia(rows: SupabaseWeekMediaRow[]): AdminWeekMedia[] {
+  return rows
+    .map((row) => ({
+      id: row.id,
+      dayNumber: row.day_number,
+      mediaScope: row.media_scope,
+      bucketId: row.bucket_id,
+      objectPath: row.object_path,
+      mediaRole: row.media_role,
+      altText: row.alt_text,
+      sourceFileName: row.source_file_name,
+      displayOrder: row.display_order ?? 0,
+    }))
+    .sort(mediaComparator);
+}
+
 function mapWeekDetail(
   row: SupabaseWeekRow,
+  days: SupabaseWeekDayRow[],
   sections: SupabaseWeekSectionRow[],
   assets: SupabaseWeekAssetRow[],
+  media: SupabaseWeekMediaRow[],
 ): AdminWeekDetail {
   return {
     ...mapWeekSummary(row),
     babySummary: row.baby_summary ?? "",
     motherSummary: row.mother_summary ?? "",
+    days: mapDays(days),
     sections: mapSections(sections),
     assets: mapAssets(assets),
+    media: mapMedia(media),
   };
 }
 
@@ -236,6 +307,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return this.fallback.createDocument(input);
     }
 
+    const embedding = await embedPregnancyDocument(input.content);
     const inserted = await supabaseInsert<Array<SupabaseRagDocumentRow>>(
       "content.pregnancy_documents",
       {
@@ -244,12 +316,12 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
         content: input.content,
         pregnancy_week: input.pregnancyWeek,
         category: input.category,
+        embedding,
         metadata: {
           chunk_count: 1,
           draft: false,
           source: "admin_upload",
         },
-        updated_at: new Date().toISOString(),
       },
     );
 
@@ -264,7 +336,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const rows = await supabaseSelect<Array<SupabaseRagDocumentRow>>(
-      `content.pregnancy_documents?select=id,title,content,pregnancy_week,category,metadata,created_at,updated_at&id=eq.${documentId}&limit=1`,
+      `content.pregnancy_documents?select=id,title,content,pregnancy_week,category,metadata,created_at&id=eq.${documentId}&limit=1`,
     );
 
     return rows[0] ? mapRagDocument(rows[0]) : null;
@@ -278,6 +350,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return this.fallback.updateDocument(documentId, input);
     }
 
+    const embedding = await embedPregnancyDocument(input.content);
     const updated = await supabaseUpdate<Array<SupabaseRagDocumentRow>>(
       `content.pregnancy_documents?id=eq.${documentId}`,
       {
@@ -285,7 +358,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
         content: input.content,
         pregnancy_week: input.pregnancyWeek,
         category: input.category,
-        updated_at: new Date().toISOString(),
+        embedding,
       },
     );
 
@@ -412,7 +485,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const rows = await supabaseSelect<Array<SupabaseWeekRow>>(
-      "content.pregnancy_weeks?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,hero_image_path,compare_image_path,status,updated_at&order=week_number.asc",
+      "content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
     );
 
     return rows.map(mapWeekSummary);
@@ -424,7 +497,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const weekRows = await supabaseSelect<Array<SupabaseWeekRow>>(
-      `content.pregnancy_weeks?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,hero_image_path,compare_image_path,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
+      `content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
     );
 
     const week = weekRows[0];
@@ -433,14 +506,22 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const sections = await supabaseSelect<Array<SupabaseWeekSectionRow>>(
-      `content.pregnancy_week_sections?select=id,section_key,title,body,display_order,is_required&week_id=eq.${week.id}&order=display_order.asc.nullslast`,
+      `content.week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
     );
 
     const assets = await supabaseSelect<Array<SupabaseWeekAssetRow>>(
-      `content.pregnancy_week_assets?select=id,asset_type,storage_path,alt_text,style_key,display_order&week_id=eq.${week.id}&order=display_order.asc.nullslast`,
+      `content.week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
     );
 
-    return mapWeekDetail(week, sections, assets);
+    const days = await supabaseSelect<Array<SupabaseWeekDayRow>>(
+      `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${week.id}&order=day_number.asc`,
+    );
+
+    const media = await supabaseSelect<Array<SupabaseWeekMediaRow>>(
+      `content.pregnancy_week_media?select=id,day_number,media_scope,bucket_id,object_path,media_role,alt_text,source_file_name,display_order&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+    );
+
+    return mapWeekDetail(week, days, sections, assets, media);
   }
 
   async saveWeek(
@@ -456,14 +537,14 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return null;
     }
 
-    await supabaseUpdate(`content.pregnancy_weeks?id=eq.${current.id}`, {
+    await supabaseUpdate(`content.pregnancy_week_data?id=eq.${current.id}`, {
       title: input.title,
       baby_size_label: input.babySizeLabel,
       baby_size_compare_object: input.babySizeCompareObject,
       baby_summary: input.babySummary,
       mother_summary: input.motherSummary,
-      hero_image_path: input.heroImagePath,
-      compare_image_path: input.compareImagePath,
+      warning_signs: input.heroImagePath,
+      recommended_actions: input.compareImagePath,
       status: input.status,
       updated_at: new Date().toISOString(),
     });
@@ -485,31 +566,97 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     const removedAssetIds = current.assets
       .map((asset) => asset.id)
       .filter((assetId) => !nextAssetIds.has(assetId));
+    const nextDayIds = new Set(
+      input.days
+        .map((day) => day.id)
+        .filter((dayId): dayId is string => Boolean(dayId)),
+    );
+    const removedDayIds = current.days
+      .map((day) => day.id)
+      .filter((dayId) => !nextDayIds.has(dayId));
+    const nextMediaIds = new Set(
+      input.media
+        .map((media) => media.id)
+        .filter((mediaId): mediaId is string => Boolean(mediaId)),
+    );
+    const removedMediaIds = current.media
+      .map((media) => media.id)
+      .filter((mediaId) => !nextMediaIds.has(mediaId));
 
     for (const sectionId of removedSectionIds) {
-      await supabaseDelete(`content.pregnancy_week_sections?id=eq.${sectionId}`);
+      await supabaseDelete(`content.week_checklists?id=eq.${sectionId}`);
     }
 
     for (const assetId of removedAssetIds) {
-      await supabaseDelete(`content.pregnancy_week_assets?id=eq.${assetId}`);
+      await supabaseDelete(`content.week_questions?id=eq.${assetId}`);
+    }
+
+    for (const mediaId of removedMediaIds) {
+      await supabaseDelete(`content.pregnancy_week_media?id=eq.${mediaId}`);
+    }
+
+    for (const dayId of removedDayIds) {
+      await supabaseDelete(`content.pregnancy_day_contents?id=eq.${dayId}`);
+    }
+
+    const dayIdByNumber = new Map<number, string>();
+
+    for (const day of input.days) {
+      const payload = {
+        week_data_id: current.id,
+        day_number: day.dayNumber,
+        title: day.title,
+        baby_development_payload: {
+          items: day.babyDevelopmentItems,
+        },
+        baby_message: day.babyMessage,
+        mother_changes_payload: {
+          items: day.motherChangesItems,
+        },
+        display_order: day.displayOrder,
+      };
+
+      if (day.id) {
+        await supabaseUpdate(`content.pregnancy_day_contents?id=eq.${day.id}`, payload);
+        dayIdByNumber.set(day.dayNumber, day.id);
+        continue;
+      }
+
+      const inserted = await supabaseInsert<Array<{ id: string }>>(
+        "content.pregnancy_day_contents",
+        {
+          id: randomUUID(),
+          ...payload,
+        },
+      );
+      const insertedDayId = inserted[0]?.id;
+      if (insertedDayId) {
+        dayIdByNumber.set(day.dayNumber, insertedDayId);
+      }
     }
 
     for (const section of input.sections) {
       const payload = {
-        week_id: current.id,
-        section_key: section.sectionKey,
+        week_data_id: current.id,
+        day_content_id:
+          section.dayNumber !== null
+            ? (dayIdByNumber.get(section.dayNumber) ?? null)
+            : null,
+        day_number: section.dayNumber,
+        code: section.sectionKey,
         title: section.title,
-        body: section.body,
+        description: section.body,
         display_order: section.displayOrder,
         is_required: section.isRequired,
+        is_active: section.isActive,
       };
 
       if (section.id) {
-        await supabaseUpdate(`content.pregnancy_week_sections?id=eq.${section.id}`, payload);
+        await supabaseUpdate(`content.week_checklists?id=eq.${section.id}`, payload);
         continue;
       }
 
-      await supabaseInsert("content.pregnancy_week_sections", {
+      await supabaseInsert("content.week_checklists", {
         id: randomUUID(),
         ...payload,
       });
@@ -517,20 +664,55 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
 
     for (const asset of input.assets) {
       const payload = {
-        week_id: current.id,
-        asset_type: asset.assetType,
-        storage_path: asset.storagePath,
-        alt_text: asset.altText,
-        style_key: asset.styleKey,
+        week_data_id: current.id,
+        day_content_id:
+          asset.dayNumber !== null
+            ? (dayIdByNumber.get(asset.dayNumber) ?? null)
+            : null,
+        day_number: asset.dayNumber,
+        code: asset.styleKey,
+        question_type: asset.assetType,
+        question_text: asset.storagePath,
+        help_text: asset.altText,
         display_order: asset.displayOrder,
+        is_required: asset.isRequired,
+        is_active: asset.isActive,
       };
 
       if (asset.id) {
-        await supabaseUpdate(`content.pregnancy_week_assets?id=eq.${asset.id}`, payload);
+        await supabaseUpdate(`content.week_questions?id=eq.${asset.id}`, payload);
         continue;
       }
 
-      await supabaseInsert("content.pregnancy_week_assets", {
+      await supabaseInsert("content.week_questions", {
+        id: randomUUID(),
+        ...payload,
+      });
+    }
+
+    for (const media of input.media) {
+      const payload = {
+        week_data_id: current.id,
+        day_content_id:
+          media.dayNumber !== null
+            ? (dayIdByNumber.get(media.dayNumber) ?? null)
+            : null,
+        day_number: media.dayNumber,
+        media_scope: media.mediaScope,
+        bucket_id: media.bucketId,
+        object_path: media.objectPath,
+        media_role: media.mediaRole,
+        alt_text: media.altText,
+        source_file_name: media.sourceFileName,
+        display_order: media.displayOrder,
+      };
+
+      if (media.id) {
+        await supabaseUpdate(`content.pregnancy_week_media?id=eq.${media.id}`, payload);
+        continue;
+      }
+
+      await supabaseInsert("content.pregnancy_week_media", {
         id: randomUUID(),
         ...payload,
       });
