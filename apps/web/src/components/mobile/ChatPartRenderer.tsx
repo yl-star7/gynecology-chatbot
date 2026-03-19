@@ -16,6 +16,7 @@ export function ChatPartRenderer({ part, userId }: { part: ChatPart; userId?: st
   if (part.type === "image") {
     return (
       <figure className="grid gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           alt={part.alt}
           className="h-52 w-full rounded-[20px] object-cover"
