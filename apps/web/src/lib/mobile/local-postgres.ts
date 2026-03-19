@@ -16,6 +16,29 @@ const DEFAULT_ADMIN_PHONE_NUMBER =
   process.env.LOCAL_ADMIN_PHONE_NUMBER ?? "01099998888";
 const DEFAULT_ADMIN_NAME = process.env.LOCAL_ADMIN_NAME ?? "운영자";
 const DEFAULT_DUE_DATE = process.env.LOCAL_DEV_DUE_DATE ?? "2026-07-01";
+const PREGNANCY_WEEK_FRUIT_COMPARISON_BY_WEEK: Record<number, string> = {
+  5: "참깨알",
+  6: "완두콩",
+  7: "블루베리",
+  8: "체리",
+  9: "포도알",
+  10: "딸기",
+  11: "무화과",
+  12: "자두",
+  13: "레몬",
+  14: "복숭아",
+  15: "사과",
+  16: "아보카도",
+  17: "배",
+  18: "피망",
+  19: "석류",
+  20: "바나나",
+  21: "망고",
+  22: "고구마",
+  23: "자몽",
+  24: "옥수수",
+  25: "단호박",
+};
 
 const SELECT_ONLY_PARAMS = new Set(["select", "limit", "order"]);
 const LOCAL_TABLES = new Set([
@@ -30,8 +53,11 @@ const LOCAL_TABLES = new Set([
   "knowledge_items",
   "pregnancy_documents",
   "pregnancy_weeks",
+  "pregnancy_week_data",
   "pregnancy_week_sections",
   "pregnancy_week_assets",
+  "week_checklists",
+  "week_questions",
   "admin_audit_logs",
   "user_action_logs",
   "workflow_definitions",
@@ -568,23 +594,75 @@ async function ensureSeedData() {
   }
 
   for (let weekNumber = 1; weekNumber <= 40; weekNumber++) {
+    const fruitComparison =
+      PREGNANCY_WEEK_FRUIT_COMPARISON_BY_WEEK[weekNumber] ?? null;
+
     await db.query(
       `
         INSERT INTO ${getQualifiedTable("pregnancy_weeks")} (
           id,
           week_number,
           title,
+          baby_size_label,
+          baby_size_compare_object,
           status,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (week_number) DO NOTHING
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (week_number) DO UPDATE
+        SET
+          baby_size_label = COALESCE(
+            ${getQualifiedTable("pregnancy_weeks")}.baby_size_label,
+            EXCLUDED.baby_size_label
+          ),
+          baby_size_compare_object = COALESCE(
+            ${getQualifiedTable("pregnancy_weeks")}.baby_size_compare_object,
+            EXCLUDED.baby_size_compare_object
+          )
       `,
       [
         `pregnancy-week-${weekNumber}`,
         weekNumber,
         `Week ${weekNumber}`,
+        fruitComparison,
+        fruitComparison,
+        "draft",
+        now.toISOString(),
+        now.toISOString(),
+      ],
+    );
+
+    await db.query(
+      `
+        INSERT INTO ${getQualifiedTable("pregnancy_week_data")} (
+          id,
+          week_number,
+          title,
+          baby_size_label,
+          baby_size_compare_object,
+          status,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (week_number) DO UPDATE
+        SET
+          baby_size_label = COALESCE(
+            ${getQualifiedTable("pregnancy_week_data")}.baby_size_label,
+            EXCLUDED.baby_size_label
+          ),
+          baby_size_compare_object = COALESCE(
+            ${getQualifiedTable("pregnancy_week_data")}.baby_size_compare_object,
+            EXCLUDED.baby_size_compare_object
+          )
+      `,
+      [
+        `pregnancy-week-data-${weekNumber}`,
+        weekNumber,
+        `Week ${weekNumber}`,
+        fruitComparison,
+        fruitComparison,
         "draft",
         now.toISOString(),
         now.toISOString(),
