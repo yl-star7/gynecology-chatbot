@@ -88,7 +88,7 @@ export function MobileContentIndexView({
                   `/link/${item.section}?entityId=${encodeURIComponent(item.id)}`,
                   resolvedUserId,
                 )}
-                className="rounded-[22px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]"
+                className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)]"
               >
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
                   {item.slug}

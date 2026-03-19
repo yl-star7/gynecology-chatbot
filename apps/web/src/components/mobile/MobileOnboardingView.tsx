@@ -19,6 +19,7 @@ import {
 import { applyMobileTheme } from "@/lib/mobile/themes";
 import {
   MobileCard,
+  mobileFieldClassName,
   MobileFormField,
   MobileNotice,
   MobileSectionIntro,
@@ -103,7 +104,7 @@ export function MobileOnboardingView({ userId }: Props) {
         <div className="grid gap-4">
           <MobileFormField label="현재 주차 또는 예정일">
             <input
-              className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 outline-none"
+              className={mobileFieldClassName}
               onChange={(event) => setPregnancyInfo(event.target.value)}
               placeholder="예: 24주 3일 또는 2026-07-01"
               value={pregnancyInfo}
@@ -111,7 +112,7 @@ export function MobileOnboardingView({ userId }: Props) {
           </MobileFormField>
           <MobileFormField label="원하는 상담 톤">
             <input
-              className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 outline-none"
+              className={mobileFieldClassName}
               onChange={(event) => setTonePreference(event.target.value)}
               placeholder="예: 차분하고 간단하게"
               value={tonePreference}
@@ -128,7 +129,7 @@ export function MobileOnboardingView({ userId }: Props) {
           />
           <MobileFormField label="추가 메모">
             <textarea
-              className="min-h-28 rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 outline-none"
+              className={`${mobileFieldClassName} min-h-28 resize-none`}
               onChange={(event) => setNotes(event.target.value)}
               placeholder="추가로 기억해둘 내용이 있다면 적어 주세요"
               value={notes}

@@ -64,6 +64,7 @@ describe("MobileChatView", () => {
     render(<MobileChatView userId="user-1" initialSessionId="new" />);
 
     const input = screen.getByPlaceholderText("증상이나 검사 결과를 입력하세요.");
+    expect(input).toHaveClass("bg-[var(--field-surface)]");
     fireEvent.change(input, { target: { value: "복통이 있어요" } });
     fireEvent.click(screen.getByRole("button", { name: "메시지 보내기" }));
 

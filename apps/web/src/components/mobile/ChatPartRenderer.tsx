@@ -54,7 +54,7 @@ export function ChatPartRenderer({ part, userId }: { part: ChatPart; userId?: st
           {part.cards.map((card) => (
             <article
               key={card.id}
-              className="rounded-[20px] border border-[var(--line)] bg-[var(--panel)] p-4"
+              className="rounded-[20px] border border-[var(--line)] bg-[var(--panel-muted)] p-4"
             >
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
                 {card.eyebrow}

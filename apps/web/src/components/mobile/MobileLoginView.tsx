@@ -24,6 +24,7 @@ import {
 import { applyMobileTheme } from "@/lib/mobile/themes";
 import {
   MobileCard,
+  mobileFieldClassName,
   MobileFormField,
   MobileNotice,
   MobileSectionIntro,
@@ -176,7 +177,7 @@ export function MobileLoginView({ initialUserId }: Props) {
         <div className="grid gap-3">
           <MobileFormField label="전화번호">
             <input
-              className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+              className={mobileFieldClassName}
               inputMode="tel"
               onChange={(event) => setPhoneNumber(event.target.value)}
               placeholder="01012345678"
@@ -197,7 +198,7 @@ export function MobileLoginView({ initialUserId }: Props) {
           </button>
           <MobileFormField label="인증 코드">
             <input
-              className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+              className={mobileFieldClassName}
               inputMode="numeric"
               onChange={(event) => setVerificationCode(event.target.value)}
               placeholder="인증 코드"

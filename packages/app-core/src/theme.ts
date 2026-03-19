@@ -9,6 +9,7 @@ export interface MobileThemePreset {
     panel: string;
     panelStrong: string;
     panelMuted: string;
+    field: string;
     text: string;
     textSoft: string;
     line: string;
@@ -27,6 +28,7 @@ export interface MobileThemePreset {
     background: string;
     card: string;
     cardMuted: string;
+    field: string;
     ink: string;
     subInk: string;
     accent: string;
@@ -51,6 +53,7 @@ export const MOBILE_THEME_PRESETS: Record<MobileThemeKey, MobileThemePreset> = {
       panel: "rgba(255, 250, 252, 0.88)",
       panelStrong: "#fffdfd",
       panelMuted: "#f9eef3",
+      field: "#ffffff",
       text: "#34262d",
       textSoft: "#7f6974",
       line: "rgba(140, 106, 122, 0.16)",
@@ -69,6 +72,7 @@ export const MOBILE_THEME_PRESETS: Record<MobileThemeKey, MobileThemePreset> = {
       background: "#fbf4f7",
       card: "#fffdfd",
       cardMuted: "#f9eef3",
+      field: "#ffffff",
       ink: "#34262d",
       subInk: "#7f6974",
       accent: "#d48ea5",
@@ -91,6 +95,7 @@ export const MOBILE_THEME_PRESETS: Record<MobileThemeKey, MobileThemePreset> = {
       panel: "rgba(255, 250, 245, 0.84)",
       panelStrong: "#fffaf5",
       panelMuted: "#fff1e6",
+      field: "#ffffff",
       text: "#3a241f",
       textSoft: "#86645c",
       line: "rgba(164, 111, 88, 0.16)",
@@ -109,6 +114,7 @@ export const MOBILE_THEME_PRESETS: Record<MobileThemeKey, MobileThemePreset> = {
       background: "#fff4ec",
       card: "#fffaf5",
       cardMuted: "#fff1e6",
+      field: "#ffffff",
       ink: "#3a241f",
       subInk: "#86645c",
       accent: "#e08263",
@@ -131,6 +137,7 @@ export const MOBILE_THEME_PRESETS: Record<MobileThemeKey, MobileThemePreset> = {
       panel: "rgba(249, 252, 250, 0.82)",
       panelStrong: "#fbfdfb",
       panelMuted: "#f1f7f3",
+      field: "#ffffff",
       text: "#18302b",
       textSoft: "#5e7870",
       line: "rgba(50, 88, 78, 0.14)",
@@ -149,6 +156,7 @@ export const MOBILE_THEME_PRESETS: Record<MobileThemeKey, MobileThemePreset> = {
       background: "#edf4ef",
       card: "#fbfdfb",
       cardMuted: "#f1f7f3",
+      field: "#ffffff",
       ink: "#18302b",
       subInk: "#5e7870",
       accent: "#4d8776",

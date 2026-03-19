@@ -23,6 +23,7 @@ import {
 import { applyMobileTheme } from "@/lib/mobile/themes";
 import {
   MobileCard,
+  mobileFieldClassName,
   MobileFormField,
   MobileNotice,
   MobileSectionIntro,
@@ -190,20 +191,20 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
       showChatFab
     >
       <div className="grid gap-4">
-        <MobileCard className="bg-[var(--panel-strong)] p-5">
+        <MobileCard className="p-5">
           <MobileSectionIntro
             eyebrow="프로필"
             title="계정과 상담 설정"
             description="이름, 알림, 채팅 톤과 현재 임신 정보를 한곳에서 관리합니다."
           />
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-[22px] bg-[var(--accent-soft)] p-4">
+            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">이름</p>
               <p className="mt-2 text-xl font-semibold text-[var(--text)]">
                 {profile?.displayName ?? "확인 중"}
               </p>
             </div>
-            <div className="rounded-[22px] bg-[var(--panel-muted)] p-4">
+            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--accent-soft)] p-4">
               <p className="text-sm text-[var(--text-soft)]">전화번호</p>
               <p className="mt-2 text-xl font-semibold text-[var(--text)]">
                 {profile?.phoneNumber ?? "확인 중"}
@@ -221,7 +222,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               <input
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
-                className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+                className={mobileFieldClassName}
                 placeholder="이름"
               />
             </MobileFormField>
@@ -229,7 +230,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               <input
                 value={babyNickname}
                 onChange={(event) => setBabyNickname(event.target.value)}
-                className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+                className={mobileFieldClassName}
                 placeholder="예: 튼튼이"
               />
             </MobileFormField>
@@ -238,14 +239,14 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
                 type="date"
                 value={dueDate}
                 onChange={(event) => setDueDate(event.target.value)}
-                className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+                className={mobileFieldClassName}
               />
             </MobileFormField>
             <MobileFormField label="주 진료 병원">
               <input
                 value={hospitalName}
                 onChange={(event) => setHospitalName(event.target.value)}
-                className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+                className={mobileFieldClassName}
                 placeholder="예: 산단여성병원"
               />
             </MobileFormField>
@@ -259,14 +260,14 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
                 type="time"
                 value={notificationTime}
                 onChange={(event) => setNotificationTime(event.target.value)}
-                className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+                className={mobileFieldClassName}
               />
             </MobileFormField>
             <MobileFormField label="채팅 톤">
               <select
                 value={tonePreference}
                 onChange={(event) => setTonePreference(event.target.value)}
-                className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+                className={mobileFieldClassName}
               >
                 {TONE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>

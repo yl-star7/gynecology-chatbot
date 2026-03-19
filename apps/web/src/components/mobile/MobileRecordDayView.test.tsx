@@ -59,12 +59,18 @@ describe("MobileRecordDayView", () => {
   it("shows the record date once and summarizes day metadata in Korean", async () => {
     render(<MobileRecordDayView isoDate="2026-03-18" userId="user-1" />);
 
-    expect(
-      await screen.findByRole("heading", { name: "2026년 3월 18일" }),
-    ).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", {
+      name: "2026년 3월 18일",
+    });
+
+    expect(heading).toBeInTheDocument();
+    expect(heading.closest("section")).toHaveClass("bg-[var(--panel-strong)]");
     expect(screen.getAllByText("2026년 3월 18일")).toHaveLength(1);
     expect(screen.getByText("차분함")).toBeInTheDocument();
     expect(screen.getAllByText("1건")).toHaveLength(2);
+    expect(screen.getByText("하복부 통증 메모").closest("article")).toHaveClass(
+      "bg-[var(--panel-muted)]",
+    );
     expect(screen.queryByText("Day Summary")).not.toBeInTheDocument();
     expect(screen.queryByText("Records")).not.toBeInTheDocument();
     expect(

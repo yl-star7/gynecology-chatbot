@@ -52,11 +52,15 @@ describe("MobileContentView", () => {
       />,
     );
 
-    expect(
-      await screen.findByRole("heading", { name: "임신 지식" }),
-    ).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", { name: "임신 지식" });
+
+    expect(heading).toBeInTheDocument();
+    expect(heading.closest("header")).toHaveClass("bg-[var(--panel-strong)]");
     expect(screen.getAllByText("임신 지식")).toHaveLength(1);
     expect(screen.getByText("참고 문서")).toBeInTheDocument();
+    expect(
+      screen.getByText("이번 주 변화와 주의할 증상을 확인합니다.").closest("article"),
+    ).toHaveClass("bg-[var(--panel-strong)]");
     expect(
       screen.queryByRole("link", { name: /^프로필$/ }),
     ).not.toBeInTheDocument();

@@ -6,15 +6,29 @@ function joinClasses(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
+const mobileCardToneClassNames = {
+  primary: "bg-[var(--panel-strong)]",
+  secondary: "bg-[var(--panel-muted)]",
+  accent: "bg-[var(--accent-soft)]",
+} as const;
+
+export const mobileFieldClassName =
+  "w-full rounded-[18px] border border-[var(--line)] bg-[var(--field-surface)] px-4 py-3 text-[15px] text-[var(--text)] outline-none";
+
+export const mobileInsetCardClassName =
+  "rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)]";
+
 export function MobileCard({
   as,
   children,
   className,
+  tone = "primary",
   ...props
 }: {
   as?: ElementType;
   children: ReactNode;
   className?: string;
+  tone?: keyof typeof mobileCardToneClassNames;
   [key: string]: unknown;
 }) {
   const Component = (as ?? "section") as ElementType;
@@ -23,7 +37,8 @@ export function MobileCard({
     <Component
       {...(props as Record<string, unknown>)}
       className={joinClasses(
-        "rounded-[28px] border border-[var(--line)] bg-[var(--panel)] shadow-[var(--shadow)]",
+        "rounded-[28px] border border-[var(--line)] shadow-[var(--shadow)]",
+        mobileCardToneClassNames[tone],
         className,
       )}
     >

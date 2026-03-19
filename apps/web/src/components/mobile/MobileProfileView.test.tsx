@@ -81,6 +81,15 @@ describe("MobileProfileView", () => {
       "href",
       "/chat/new?userId=user-1",
     );
+    expect(await screen.findByDisplayValue("김수연")).toHaveClass(
+      "bg-[var(--field-surface)]",
+    );
+    expect(screen.getByDisplayValue("튼튼이")).toHaveClass(
+      "bg-[var(--field-surface)]",
+    );
+    expect(screen.getByDisplayValue("산단여성병원")).toHaveClass(
+      "bg-[var(--field-surface)]",
+    );
     expect(storeMobileProfile).toHaveBeenCalledWith({
       userId: "user-1",
       displayName: "김수연",

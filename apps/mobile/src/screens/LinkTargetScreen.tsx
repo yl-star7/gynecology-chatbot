@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { useMobileServices } from "../core/MobileServicesProvider";
-import { palette } from "../theme";
+import { patientSurfacePalette as surface } from "../theme";
 
 export function LinkTargetScreen({
   target,
@@ -32,11 +32,13 @@ export function LinkTargetScreen({
   return (
     <MobileScreenFrame title="참고 콘텐츠" showProfileButton showChatFab>
       <View style={styles.container}>
-        <Text style={styles.title}>{content?.title ?? "콘텐츠를 불러오는 중입니다."}</Text>
-        <Text style={styles.body}>{error ?? content?.body ?? "앱 내부 콘텐츠를 조회하고 있습니다."}</Text>
-        <Pressable style={styles.button} onPress={() => router.replace("/home")}>
-          <Text style={styles.buttonLabel}>홈으로 돌아가기</Text>
-        </Pressable>
+        <View style={styles.card}>
+          <Text style={styles.title}>{content?.title ?? "콘텐츠를 불러오는 중입니다."}</Text>
+          <Text style={styles.body}>{error ?? content?.body ?? "앱 내부 콘텐츠를 조회하고 있습니다."}</Text>
+          <Pressable style={styles.button} onPress={() => router.replace("/home")}>
+            <Text style={styles.buttonLabel}>홈으로 돌아가기</Text>
+          </Pressable>
+        </View>
       </View>
     </MobileScreenFrame>
   );
@@ -48,23 +50,30 @@ const styles = StyleSheet.create({
     padding: 24,
     justifyContent: "center",
   },
+  card: {
+    borderRadius: 24,
+    backgroundColor: surface.surfacePrimary,
+    borderWidth: 1,
+    borderColor: surface.strokeSubtle,
+    padding: 20,
+  },
   title: {
     fontSize: 30,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   body: {
     marginTop: 14,
     fontSize: 16,
     lineHeight: 24,
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
   button: {
     marginTop: 24,
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: palette.accent,
+    backgroundColor: surface.accentSolid,
     alignSelf: "flex-start",
   },
   buttonLabel: {

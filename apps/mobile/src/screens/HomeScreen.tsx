@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { useMobileServices } from "../core/MobileServicesProvider";
-import { palette } from "../theme";
+import { palette, patientSurfacePalette as surface } from "../theme";
 
 export function HomeScreen() {
   const services = useMobileServices();
@@ -117,37 +117,39 @@ const styles = StyleSheet.create({
     marginTop: 20,
     padding: 18,
     borderRadius: 20,
-    backgroundColor: palette.warm,
+    backgroundColor: surface.surfacePrimary,
+    borderWidth: 1,
+    borderColor: surface.strokeSubtle,
   },
   heroLabel: {
     fontSize: 13,
     fontWeight: "700",
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
   heroValue: {
     marginTop: 8,
     fontSize: 22,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   sectionCard: {
     marginTop: 18,
     padding: 18,
     borderRadius: 20,
-    backgroundColor: palette.card,
+    backgroundColor: surface.surfacePrimary,
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: surface.strokeSubtle,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   sectionDescription: {
     marginTop: 8,
     fontSize: 14,
     lineHeight: 20,
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
   calendarGrid: {
     marginTop: 16,
@@ -159,17 +161,17 @@ const styles = StyleSheet.create({
     width: "12.5%",
     aspectRatio: 1,
     borderRadius: 14,
-    backgroundColor: "#f1f4f1",
+    backgroundColor: surface.surfaceSecondary,
     alignItems: "center",
     justifyContent: "center",
   },
   calendarCellActive: {
-    backgroundColor: palette.accentSoft,
+    backgroundColor: surface.surfaceAccent,
   },
   calendarLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   dot: {
     position: "absolute",
@@ -186,18 +188,18 @@ const styles = StyleSheet.create({
   shortcutCard: {
     padding: 18,
     borderRadius: 18,
-    backgroundColor: palette.card,
+    backgroundColor: surface.surfacePrimary,
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: surface.strokeSubtle,
   },
   shortcutTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   shortcutDescription: {
     marginTop: 8,
     fontSize: 14,
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
 });

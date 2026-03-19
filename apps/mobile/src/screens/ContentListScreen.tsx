@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { useMobileServices } from "../core/MobileServicesProvider";
-import { palette } from "../theme";
+import { palette, patientSurfacePalette as surface } from "../theme";
 
 export function ContentListScreen({
   section,
@@ -110,9 +110,9 @@ const styles = StyleSheet.create({
   itemCard: {
     padding: 18,
     borderRadius: 18,
-    backgroundColor: palette.card,
+    backgroundColor: surface.surfacePrimary,
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: surface.strokeSubtle,
   },
   itemEyebrow: {
     fontSize: 12,
@@ -136,9 +136,9 @@ const styles = StyleSheet.create({
   emptyCard: {
     padding: 18,
     borderRadius: 18,
-    backgroundColor: palette.card,
+    backgroundColor: surface.surfacePrimary,
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: surface.strokeSubtle,
   },
   emptyText: {
     fontSize: 14,

@@ -41,7 +41,7 @@ export function MobileShell({
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 py-6 sm:px-6">
-      <header className="mb-4 rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-4 shadow-[var(--shadow)]">
+      <header className="mb-4 rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-4 shadow-[var(--shadow)]">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             {!showTitleBlock ? (

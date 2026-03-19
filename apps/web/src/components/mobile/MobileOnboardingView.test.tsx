@@ -41,5 +41,14 @@ describe("MobileOnboardingView", () => {
     expect(
       screen.getByRole("button", { name: "설정 저장하고 시작하기" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("예: 24주 3일 또는 2026-07-01"),
+    ).toHaveClass("bg-[var(--field-surface)]");
+    expect(
+      screen.getByPlaceholderText("예: 차분하고 간단하게"),
+    ).toHaveClass("bg-[var(--field-surface)]");
+    expect(
+      screen.getByPlaceholderText("추가로 기억해둘 내용이 있다면 적어 주세요"),
+    ).toHaveClass("bg-[var(--field-surface)]");
   });
 });

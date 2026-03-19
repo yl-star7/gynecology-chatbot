@@ -8,7 +8,7 @@ import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useChatSessions } from "../chat/store";
 import { useMobileServices } from "../core/MobileServicesProvider";
-import { palette } from "../theme";
+import { palette, patientSurfacePalette as surface } from "../theme";
 
 function createSessionId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
@@ -126,11 +126,11 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Pressable onPress={() => router.replace("/home")} accessibilityLabel="홈으로 이동">
-          <Ionicons name="arrow-back" size={24} color={palette.ink} />
+          <Ionicons name="arrow-back" size={24} color={surface.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>{session.title}</Text>
         <Pressable onPress={() => setShowRecent(true)} accessibilityLabel="최근 채팅 열기">
-          <Ionicons name="menu" size={24} color={palette.ink} />
+          <Ionicons name="menu" size={24} color={surface.textPrimary} />
         </Pressable>
       </View>
 
@@ -199,7 +199,7 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
 
       <View style={styles.composer}>
         <Pressable style={styles.attachButton} onPress={handlePickImage}>
-          <Ionicons name="image-outline" size={18} color={palette.accent} />
+          <Ionicons name="image-outline" size={18} color={surface.accentSolid} />
           <Text style={styles.attachButtonLabel}>{imageUri ? "이미지 선택됨" : "이미지 첨부"}</Text>
         </Pressable>
         {imageUri ? <Image source={{ uri: imageUri }} style={styles.attachmentPreview} resizeMode="cover" /> : null}
@@ -207,7 +207,7 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
           value={text}
           onChangeText={setText}
           placeholder="메시지를 입력하세요"
-          placeholderTextColor={palette.subInk}
+          placeholderTextColor={surface.textSecondary}
           style={[styles.input, styles.messageInput]}
           multiline
         />
@@ -247,7 +247,7 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: surface.pageBackground,
   },
   header: {
     paddingHorizontal: 18,
@@ -256,14 +256,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     borderBottomWidth: 1,
-    borderBottomColor: palette.line,
+    borderBottomColor: surface.strokeSubtle,
   },
   headerTitle: {
     flex: 1,
     marginHorizontal: 12,
     fontSize: 17,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   messages: {
     padding: 18,
@@ -272,20 +272,20 @@ const styles = StyleSheet.create({
   emptyCard: {
     padding: 18,
     borderRadius: 18,
-    backgroundColor: palette.card,
+    backgroundColor: surface.surfacePrimary,
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: surface.strokeSubtle,
   },
   emptyTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   emptyBody: {
     marginTop: 8,
     fontSize: 14,
     lineHeight: 20,
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
   messageBubble: {
     padding: 14,
@@ -293,17 +293,17 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   userBubble: {
-    backgroundColor: palette.accentSoft,
+    backgroundColor: surface.surfaceAccent,
   },
   assistantBubble: {
-    backgroundColor: palette.card,
+    backgroundColor: surface.surfacePrimary,
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: surface.strokeSubtle,
   },
   messageText: {
     fontSize: 15,
     lineHeight: 22,
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   imageBlock: {
     gap: 8,
@@ -312,16 +312,16 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 180,
     borderRadius: 16,
-    backgroundColor: "#dfe5e3",
+    backgroundColor: surface.surfaceSecondary,
   },
   caption: {
     fontSize: 13,
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
   linkCard: {
     padding: 14,
     borderRadius: 16,
-    backgroundColor: "#eef6f3",
+    backgroundColor: surface.surfaceAccent,
   },
   linkTitle: {
     fontSize: 15,
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
   linkBody: {
     marginTop: 6,
     fontSize: 14,
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
   partBlock: {
     gap: 6,
@@ -339,43 +339,45 @@ const styles = StyleSheet.create({
   partTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   partBody: {
     fontSize: 14,
     lineHeight: 20,
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
   carouselCard: {
     marginTop: 8,
     padding: 12,
     borderRadius: 14,
-    backgroundColor: "#f5efe5",
+    backgroundColor: surface.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: surface.strokeSubtle,
   },
   carouselEyebrow: {
     fontSize: 11,
     fontWeight: "700",
-    color: palette.subInk,
+    color: surface.textSecondary,
     textTransform: "uppercase",
   },
   carouselTitle: {
     marginTop: 4,
     fontSize: 15,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   carouselBody: {
     marginTop: 4,
     fontSize: 14,
     lineHeight: 20,
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
   composer: {
     padding: 16,
     gap: 10,
     borderTopWidth: 1,
-    borderTopColor: palette.line,
-    backgroundColor: palette.card,
+    borderTopColor: surface.strokeSubtle,
+    backgroundColor: surface.surfacePrimary,
   },
   attachButton: {
     flexDirection: "row",
@@ -385,27 +387,29 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: palette.accentSoft,
+    backgroundColor: surface.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: surface.strokeSubtle,
   },
   attachButtonLabel: {
     fontSize: 14,
     fontWeight: "700",
-    color: palette.accent,
+    color: surface.accentSolid,
   },
   attachmentPreview: {
     width: 88,
     height: 88,
     borderRadius: 16,
-    backgroundColor: "#dfe5e3",
+    backgroundColor: surface.surfaceSecondary,
   },
   input: {
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: surface.strokeSubtle,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: "#ffffff",
-    color: palette.ink,
+    backgroundColor: surface.fieldSurface,
+    color: surface.textPrimary,
   },
   messageInput: {
     minHeight: 100,
@@ -415,7 +419,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 14,
-    backgroundColor: palette.accent,
+    backgroundColor: surface.accentSolid,
     paddingVertical: 14,
   },
   sendButtonDisabled: {
@@ -435,46 +439,48 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    backgroundColor: palette.card,
+    backgroundColor: surface.surfacePrimary,
     maxHeight: "70%",
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   modalEmpty: {
     marginTop: 12,
     fontSize: 14,
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
   modalItem: {
     marginTop: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: palette.line,
+    borderBottomColor: surface.strokeSubtle,
   },
   modalItemTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   modalItemMeta: {
     marginTop: 4,
     fontSize: 13,
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
   modalClose: {
     marginTop: 18,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 14,
-    backgroundColor: palette.accentSoft,
+    backgroundColor: surface.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: surface.strokeSubtle,
     paddingVertical: 14,
   },
   modalCloseLabel: {
     fontSize: 15,
     fontWeight: "700",
-    color: palette.accent,
+    color: surface.accentSolid,
   },
 });

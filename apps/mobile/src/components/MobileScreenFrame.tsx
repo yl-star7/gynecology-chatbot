@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useMobileAppSession } from "../core/MobileAppSessionProvider";
-import { palette } from "../theme";
+import { palette, patientSurfacePalette as surface } from "../theme";
 
 export function MobileScreenFrame({
   title,
@@ -74,7 +74,7 @@ export function MobileScreenFrame({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: surface.pageBackground,
   },
   header: {
     paddingHorizontal: 20,
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     borderBottomWidth: 1,
-    borderBottomColor: palette.line,
+    borderBottomColor: surface.strokeSubtle,
   },
   leading: {
     flexDirection: "row",
@@ -96,9 +96,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#ffffff",
+    backgroundColor: surface.surfacePrimary,
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: surface.strokeSubtle,
   },
   title: {
     fontSize: 18,
@@ -111,9 +111,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: palette.warm,
+    backgroundColor: surface.surfaceSecondary,
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: surface.strokeSubtle,
   },
   profileButtonLabel: {
     fontSize: 14,
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     borderRadius: 29,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: palette.accent,
+    backgroundColor: surface.accentSolid,
     shadowColor: "#000000",
     shadowOpacity: 0.18,
     shadowRadius: 16,

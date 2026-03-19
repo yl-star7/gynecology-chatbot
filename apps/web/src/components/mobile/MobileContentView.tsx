@@ -84,7 +84,7 @@ export function MobileContentView({
 
         <MobileCard
           as="article"
-          className="rounded-[26px] bg-[var(--panel-strong)] p-5 text-[15px] leading-7 text-[var(--text)]"
+          className="rounded-[26px] p-5 text-[15px] leading-7 text-[var(--text)]"
         >
           {body ? (
             <p className="whitespace-pre-wrap">{body}</p>

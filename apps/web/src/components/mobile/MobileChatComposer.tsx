@@ -3,6 +3,8 @@
 import { ArrowUp, LoaderCircle, Paperclip } from "lucide-react";
 import type { Ref } from "react";
 
+import { mobileFieldClassName } from "./MobilePrimitives";
+
 const QUICK_PROMPTS = [
   "하복부 통증",
   "출혈",
@@ -37,7 +39,7 @@ export function MobileChatComposer({
 }) {
   return (
     <section className="sticky bottom-0 z-20 mt-3 border-t border-[var(--line)] bg-[var(--bg)] px-1 pb-3 pt-3">
-      <div className="grid gap-3">
+      <div className="grid gap-3 rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-3 shadow-[var(--shadow)]">
         {showQuickPrompts ? (
           <div className="flex gap-2 overflow-x-auto pb-1">
             {QUICK_PROMPTS.map((prompt) => (
@@ -54,7 +56,7 @@ export function MobileChatComposer({
         ) : null}
 
         {imageDataUrl ? (
-          <div className="rounded-[20px] border border-[var(--line)] bg-[var(--panel)] p-2">
+          <div className="rounded-[20px] border border-[var(--line)] bg-[var(--panel-muted)] p-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imageDataUrl}
@@ -82,7 +84,7 @@ export function MobileChatComposer({
             value={text}
             onChange={(event) => onTextChange(event.target.value)}
             placeholder="증상이나 검사 결과를 입력하세요."
-            className="min-h-[56px] flex-1 rounded-[24px] border border-[var(--line)] bg-[var(--panel-strong)] px-4 py-3 text-[15px] text-[var(--text)] outline-none"
+            className={`${mobileFieldClassName} min-h-[56px] flex-1 rounded-[24px]`}
           />
           <button
             type="button"

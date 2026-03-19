@@ -7,6 +7,7 @@
   --panel: #fffafc;
   --panel-strong: #fffdfd;
   --panel-muted: #f9eef3;
+  --field-surface: #ffffff;
   --text: #34262d;
   --text-soft: #7f6974;
   --line: #e7d7df;
@@ -27,6 +28,7 @@
   --panel: #fffaf5;
   --panel-strong: #fffaf5;
   --panel-muted: #fff1e6;
+  --field-surface: #ffffff;
   --text: #3a241f;
   --text-soft: #86645c;
   --line: #e9ccbe;
@@ -47,6 +49,7 @@
   --panel: #f9fcfa;
   --panel-strong: #fbfdfb;
   --panel-muted: #f1f7f3;
+  --field-surface: #ffffff;
   --text: #18302b;
   --text-soft: #5e7870;
   --line: #c8d8d2;

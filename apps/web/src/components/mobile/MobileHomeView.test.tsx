@@ -74,12 +74,16 @@ describe("MobileHomeView", () => {
   it("keeps screenshot-facing home copy compact and avoids repeated profile metadata", async () => {
     render(<MobileHomeView userId="user-1" />);
 
-    expect(
-      await screen.findByRole("heading", {
-        name: "수연님, 오늘 기록과 상담을 이어가세요.",
-      }),
-    ).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", {
+      name: "수연님, 오늘 기록과 상담을 이어가세요.",
+    });
+
+    expect(heading).toBeInTheDocument();
+    expect(heading.closest("section")).toHaveClass("bg-[var(--panel-strong)]");
     expect(screen.getAllByText("18주 6일")).toHaveLength(1);
+    expect(screen.getByText("철분제 복용").closest("a")).toHaveClass(
+      "bg-[var(--panel-muted)]",
+    );
     expect(screen.getByRole("link", { name: "프로필 열기" })).toHaveAttribute(
       "href",
       "/profile?userId=user-1",

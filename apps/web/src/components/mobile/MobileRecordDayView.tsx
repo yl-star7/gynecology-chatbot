@@ -4,7 +4,7 @@ import type { RecordDayView } from "@gynecology-chatbot/app-core";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchRecordDay, resolveMobileUserId, appendUserIdToPath } from "@/lib/mobile/web-mobile-api";
-import { MobileCard, MobileSectionIntro } from "./MobilePrimitives";
+import { MobileCard, mobileInsetCardClassName, MobileSectionIntro } from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
@@ -85,26 +85,26 @@ export function MobileRecordDayView({
       showChatFab
     >
       <div className="grid gap-4">
-        <MobileCard className="bg-[var(--panel-strong)] p-5">
+        <MobileCard className="p-5">
           <MobileSectionIntro
             eyebrow="하루 기록"
             title={recordDay?.dateLabel ?? isoDate}
             description={error ?? "이 날짜에 남긴 메모, 감정 기록, 연결 상담을 한눈에 확인합니다."}
           />
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-[22px] bg-[var(--accent-soft)] p-4">
+            <div className={`${mobileInsetCardClassName} p-4`}>
               <p className="text-sm text-[var(--text-soft)]">감정 상태</p>
               <p className="mt-2 text-xl font-semibold text-[var(--text)]">
                 {describeEmotionTone(recordDay?.emotionTone ?? null)}
               </p>
             </div>
-            <div className="rounded-[22px] bg-[var(--panel-muted)] p-4">
+            <div className={`${mobileInsetCardClassName} p-4`}>
               <p className="text-sm text-[var(--text-soft)]">저장 기록</p>
               <p className="mt-2 text-xl font-semibold text-[var(--text)]">
                 {recordDay ? `${recordDay.records.length}건` : "확인 중"}
               </p>
             </div>
-            <div className="rounded-[22px] bg-[var(--panel-muted)] p-4">
+            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--accent-soft)] p-4">
               <p className="text-sm text-[var(--text-soft)]">연결 상담</p>
               <p className="mt-2 text-xl font-semibold text-[var(--text)]">
                 {recordDay ? `${recordDay.relatedSessions.length}건` : "확인 중"}
@@ -120,7 +120,7 @@ export function MobileRecordDayView({
           <div className="mt-4 grid gap-3">
             {recordDay && recordDay.records.length > 0 ? (
               recordDay.records.map((record) => (
-                <article key={record.id} className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
+                <article key={record.id} className={`${mobileInsetCardClassName} p-4`}>
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-medium text-[var(--text)]">{record.title}</p>
                     <span className="text-xs text-[var(--text-soft)]">{describeEntryType(record.entryType)}</span>
@@ -154,7 +154,7 @@ export function MobileRecordDayView({
                 <Link
                   key={session.id}
                   href={appendUserIdToPath(`/chat/${session.id}`, resolvedUserId)}
-                  className="rounded-[20px] border border-[var(--line)] bg-[var(--panel-muted)] p-4"
+                  className={`${mobileInsetCardClassName} p-4`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>

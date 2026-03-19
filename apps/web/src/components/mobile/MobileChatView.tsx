@@ -103,7 +103,7 @@ function renderMessagePart(
           {part.cards.map((card) => (
             <div
               key={card.id}
-              className="rounded-[18px] border border-[var(--line)] bg-[var(--panel)] p-4"
+              className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] p-4"
             >
               <p className="text-xs uppercase tracking-[0.16em] text-[var(--text-soft)]">
                 {card.eyebrow}
@@ -124,7 +124,7 @@ function renderMessagePart(
   return (
     <div
       key={part.id}
-      className="rounded-[18px] border border-[var(--line)] bg-[var(--panel)] p-4"
+      className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] p-4"
     >
       <p className="font-medium text-[var(--text)]">{part.title}</p>
       <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">

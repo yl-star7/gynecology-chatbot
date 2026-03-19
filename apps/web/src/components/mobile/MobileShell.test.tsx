@@ -32,6 +32,9 @@ describe("MobileShell", () => {
       "href",
       "/profile?userId=user-1",
     );
+    expect(screen.getByRole("link", { name: "프로필 열기" }).closest("header")).toHaveClass(
+      "bg-[var(--panel-strong)]",
+    );
     expect(screen.getByRole("heading", { name: "홈" })).toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(

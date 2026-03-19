@@ -33,7 +33,7 @@ export function MobileChatMenu({
           backgroundColor: "color-mix(in srgb, var(--text) 16%, transparent)",
         }}
       />
-      <aside className="absolute inset-y-0 left-0 flex w-[82%] max-w-sm flex-col border-r border-[var(--line)] bg-[var(--panel)] px-5 pb-6 pt-5 shadow-[var(--shadow)]">
+      <aside className="absolute inset-y-0 left-0 flex w-[82%] max-w-sm flex-col border-r border-[var(--line)] bg-[var(--panel-strong)] px-5 pb-6 pt-5 shadow-[var(--shadow)]">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
@@ -56,7 +56,7 @@ export function MobileChatMenu({
         <Link
           href={homeHref}
           onClick={onClose}
-          className="mt-5 rounded-[20px] border border-[var(--line)] bg-[var(--panel)] px-4 py-4 text-base font-semibold text-[var(--text)]"
+          className="mt-5 rounded-[20px] border border-[var(--line)] bg-[var(--panel-strong)] px-4 py-4 text-base font-semibold text-[var(--text)]"
         >
           홈으로
         </Link>

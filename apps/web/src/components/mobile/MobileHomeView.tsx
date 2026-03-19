@@ -114,13 +114,13 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
               "지금 필요한 기록과 이번 주 정보를 먼저 보고, 증상 상담이 필요하면 바로 이어가세요."}
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-[24px] bg-[var(--accent-soft)] p-4">
+            <div className="rounded-[24px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">현재 주차</p>
               <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
                 {home?.pregnancyWeekLabel ?? "연결 중"}
               </p>
             </div>
-            <div className="rounded-[24px] bg-[var(--panel-muted)] p-4">
+            <div className="rounded-[24px] border border-[var(--line)] bg-[var(--accent-soft)] p-4">
               <p className="text-sm text-[var(--text-soft)]">임신 경과</p>
               <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
                 {home ? `${home.pregnancyDayCount}일` : "데이터 확인 중"}
@@ -155,7 +155,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
                   ? linkWithUserId(item.href, resolvedUserId)
                   : item.href
               }
-              className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)] transition"
+              className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)] transition"
             >
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
                 {item.eyebrow}
@@ -170,7 +170,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
           ))}
         </section>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)]">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
@@ -224,7 +224,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)]">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">

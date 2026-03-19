@@ -12,7 +12,7 @@ import {
 import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { useMobileAppSession } from "../core/MobileAppSessionProvider";
 import { useMobileServices } from "../core/MobileServicesProvider";
-import { palette } from "../theme";
+import { palette, patientSurfacePalette as surface } from "../theme";
 
 export function ProfileScreen() {
   const { currentUser, signOut } = useMobileAppSession();
@@ -209,7 +209,9 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     borderRadius: 24,
-    backgroundColor: palette.warm,
+    backgroundColor: surface.surfacePrimary,
+    borderWidth: 1,
+    borderColor: surface.strokeSubtle,
     padding: 20,
   },
   eyebrow: {
@@ -223,13 +225,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 28,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   description: {
     marginTop: 10,
     fontSize: 15,
     lineHeight: 22,
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
   metaGrid: {
     marginTop: 16,
@@ -237,32 +239,32 @@ const styles = StyleSheet.create({
   },
   metaCard: {
     borderRadius: 18,
-    backgroundColor: "#ffffff",
+    backgroundColor: surface.surfaceSecondary,
     padding: 14,
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: surface.strokeSubtle,
   },
   metaLabel: {
     fontSize: 13,
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
   metaValue: {
     marginTop: 6,
     fontSize: 18,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   sectionCard: {
     borderRadius: 24,
-    backgroundColor: palette.card,
+    backgroundColor: surface.surfacePrimary,
     padding: 18,
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: surface.strokeSubtle,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   form: {
     marginTop: 16,
@@ -274,23 +276,23 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   input: {
     borderWidth: 1,
-    borderColor: palette.line,
+    borderColor: surface.strokeSubtle,
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 14,
-    backgroundColor: "#ffffff",
-    color: palette.ink,
+    backgroundColor: surface.fieldSurface,
+    color: surface.textPrimary,
   },
   primaryButton: {
     marginTop: 4,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 16,
-    backgroundColor: palette.accent,
+    backgroundColor: surface.accentSolid,
     paddingVertical: 15,
   },
   primaryButtonLabel: {
@@ -303,11 +305,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 16,
-    backgroundColor: palette.ink,
+    backgroundColor: surface.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: surface.strokeSubtle,
     paddingVertical: 15,
   },
   secondaryButtonLabel: {
-    color: "#ffffff",
+    color: surface.accentSolid,
     fontSize: 15,
     fontWeight: "700",
   },
