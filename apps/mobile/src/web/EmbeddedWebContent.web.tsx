@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { palette } from "../theme";
+import { palette, patientSurfacePalette as surface } from "../theme";
 
 export function EmbeddedWebContent(props: {
   hasError: boolean;
@@ -61,23 +61,23 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderWidth: 0,
-    backgroundColor: palette.background,
+    backgroundColor: surface.pageBackground,
   },
   loadingState: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: "#ffffff",
+    backgroundColor: surface.surfacePrimary,
   },
   loadingTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
   },
   loadingCopy: {
     fontSize: 14,
-    color: palette.subInk,
+    color: surface.textSecondary,
   },
   errorState: {
     flex: 1,
@@ -85,18 +85,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 28,
     gap: 10,
-    backgroundColor: palette.background,
+    backgroundColor: surface.pageBackground,
   },
   errorTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: palette.ink,
+    color: surface.textPrimary,
     textAlign: "center",
   },
   errorCopy: {
     fontSize: 14,
     lineHeight: 22,
-    color: palette.subInk,
+    color: surface.textSecondary,
     textAlign: "center",
   },
   retryButton: {
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 999,
-    backgroundColor: palette.accent,
+    backgroundColor: surface.accentSolid,
   },
   retryButtonLabel: {
     fontSize: 14,
