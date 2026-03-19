@@ -8,11 +8,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   appendUserIdToPath,
+  fetchCurrentMobileSession,
   requestPhoneVerification,
   signInWithPhoneVerification,
 } from "@/lib/mobile/web-mobile-api";
 import {
+  clearMobileSession,
   hasCompletedMobileOnboarding,
+  readStoredMobileSessionToken,
   readStoredMobileThemeKey,
   readStoredMobileUserId,
   setMobileOnboardingStatus,
@@ -62,19 +65,52 @@ export function MobileLoginView({ initialUserId }: Props) {
   }, []);
 
   useEffect(() => {
-    if (initialUserId || typeof window === "undefined") {
+    if (typeof window === "undefined") {
       return;
     }
 
+    const storedSessionToken = readStoredMobileSessionToken();
     const storedUserId = readStoredMobileUserId();
-    if (storedUserId) {
-      router.replace(
-        appendUserIdToPath(
-          hasCompletedMobileOnboarding() ? "/" : "/onboarding",
-          storedUserId,
-        ),
-      );
+
+    if (!storedSessionToken) {
+      if (storedUserId) {
+        clearMobileSession();
+      }
+
+      return;
     }
+
+    let cancelled = false;
+
+    void fetchCurrentMobileSession()
+      .then((payload) => {
+        if (cancelled) {
+          return;
+        }
+
+        storeMobileUserId(payload.user.id);
+        storeMobileProfile({
+          userId: payload.user.id,
+          displayName: payload.user.displayName,
+          phoneNumber: payload.user.phoneNumber,
+        });
+        setMobileOnboardingStatus(payload.user.hasCompletedOnboarding);
+        router.replace(
+          appendUserIdToPath(
+            payload.user.hasCompletedOnboarding ? "/" : "/onboarding",
+            payload.user.id,
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          clearMobileSession();
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [initialUserId, router]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

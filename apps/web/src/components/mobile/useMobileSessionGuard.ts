@@ -24,59 +24,55 @@ export function useMobileSessionGuard(inputUserId?: string | null) {
   const resolvedUserId = useMemo(() => resolveMobileUserId(inputUserId), [inputUserId]);
 
   useEffect(() => {
-    if (resolvedUserId) {
-      return;
-    }
-
     const storedUserId = readStoredMobileUserId();
-    if (storedUserId) {
-      router.replace(
-        appendUserIdToPath(
-          hasCompletedMobileOnboarding() ? "/" : "/onboarding",
-          storedUserId,
-        ),
-      );
+    const storedSessionToken = readStoredMobileSessionToken();
+
+    if (!storedSessionToken) {
+      if (storedUserId) {
+        clearMobileSession();
+      }
+
+      router.replace("/auth/login");
       return;
     }
 
-    const storedSessionToken = readStoredMobileSessionToken();
-    if (storedSessionToken) {
-      let cancelled = false;
+    let cancelled = false;
 
-      void fetchCurrentMobileSession()
-        .then((payload) => {
-          if (cancelled) {
-            return;
-          }
+    void fetchCurrentMobileSession()
+      .then((payload) => {
+        if (cancelled) {
+          return;
+        }
 
-          storeMobileUserId(payload.user.id);
-          storeMobileProfile({
-            userId: payload.user.id,
-            displayName: payload.user.displayName,
-            phoneNumber: payload.user.phoneNumber,
-          });
-          setMobileOnboardingStatus(payload.user.hasCompletedOnboarding);
-
-          const nextSearchParams = new URLSearchParams(
-            searchParams ? searchParams.toString() : "",
-          );
-          nextSearchParams.set("userId", payload.user.id);
-          const nextPath = `${pathname}?${nextSearchParams.toString()}`;
-          router.replace(nextPath);
-        })
-        .catch(() => {
-          if (!cancelled) {
-            clearMobileSession();
-            router.replace("/auth/login");
-          }
+        storeMobileUserId(payload.user.id);
+        storeMobileProfile({
+          userId: payload.user.id,
+          displayName: payload.user.displayName,
+          phoneNumber: payload.user.phoneNumber,
         });
+        setMobileOnboardingStatus(payload.user.hasCompletedOnboarding);
 
-      return () => {
-        cancelled = true;
-      };
-    }
+        if (resolvedUserId === payload.user.id) {
+          return;
+        }
 
-    router.replace("/auth/login");
+        const nextSearchParams = new URLSearchParams(
+          searchParams ? searchParams.toString() : "",
+        );
+        nextSearchParams.set("userId", payload.user.id);
+        const nextPath = `${pathname}?${nextSearchParams.toString()}`;
+        router.replace(nextPath);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          clearMobileSession();
+          router.replace("/auth/login");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [pathname, resolvedUserId, router, searchParams]);
 
   return resolvedUserId;

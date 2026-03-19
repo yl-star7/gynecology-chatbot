@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMobileSession } from "@/lib/mobile/session-auth";
+import {
+  mobileRouteErrorResponse,
+  requireMobileSession,
+} from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
 import { toRecentChats } from "@/lib/mobile/serializers";
 
@@ -15,6 +18,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ sessions: toRecentChats(sessions) });
   } catch (error) {
     console.error("mobile sessions route error", error);
-    return NextResponse.json({ error: "failed to load sessions" }, { status: 500 });
+    return mobileRouteErrorResponse(error, "failed to load sessions");
   }
 }

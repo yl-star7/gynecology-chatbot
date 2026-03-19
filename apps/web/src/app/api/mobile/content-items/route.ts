@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMobileSession } from "@/lib/mobile/session-auth";
+import {
+  mobileRouteErrorResponse,
+  requireMobileSession,
+} from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
 
 type ContentItemRow = {
@@ -43,6 +46,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("mobile content items route error", error);
-    return NextResponse.json({ error: "failed to load content items" }, { status: 500 });
+    return mobileRouteErrorResponse(error, "failed to load content items");
   }
 }

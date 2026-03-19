@@ -3,7 +3,10 @@ import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import { generateText } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 import { formatRagContext, retrievePregnancyContext } from "@/lib/mobile/rag";
-import { requireMobileSession } from "@/lib/mobile/session-auth";
+import {
+  isMobileSessionError,
+  requireMobileSession,
+} from "@/lib/mobile/session-auth";
 import {
   supabaseInsert,
   supabaseSelect,
@@ -287,6 +290,14 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("mobile chat route error", error);
+    if (isMobileSessionError(error)) {
+      return NextResponse.json(
+        {
+          error: error.message,
+        },
+        { status: 401 },
+      );
+    }
     return NextResponse.json(
       {
         assistantMessage: buildFallbackReply({

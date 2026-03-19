@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMobileSession } from "@/lib/mobile/session-auth";
+import {
+  mobileRouteErrorResponse,
+  requireMobileSession,
+} from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
 import { toRecordDayView } from "@/lib/mobile/serializers";
 
@@ -54,6 +57,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("mobile records route error", error);
-    return NextResponse.json({ error: "failed to load day records" }, { status: 500 });
+    return mobileRouteErrorResponse(error, "failed to load day records");
   }
 }

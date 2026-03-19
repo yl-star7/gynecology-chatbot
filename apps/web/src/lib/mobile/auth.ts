@@ -29,6 +29,7 @@ type PregnancyProfileRow = {
   user_id: string;
   display_name?: string | null;
   onboarding_payload?: PregnancyProfileOnboardingPayload | null;
+  due_date?: string | null;
   baby_nickname?: string | null;
   notification_time?: string | null;
   theme_key?: string | null;
@@ -266,8 +267,23 @@ function toAuthenticatedUser(
     id: user.id,
     phoneNumber: user.phone_number,
     displayName: profile?.display_name?.trim() || "사용자",
-    hasCompletedOnboarding: Boolean(profile),
+    hasCompletedOnboarding: hasCompletedProfileOnboarding(profile),
   };
+}
+
+export function hasCompletedProfileOnboarding(
+  profile: Pick<PregnancyProfileRow, "onboarding_payload" | "due_date"> | null,
+) {
+  if (!profile) {
+    return false;
+  }
+
+  const payload = profile.onboarding_payload;
+  const tonePreference = payload?.tonePreference?.trim();
+  const pregnancySignal =
+    payload?.pregnancyWeekOrDueDate?.trim() ?? profile.due_date?.trim();
+
+  return Boolean(tonePreference && pregnancySignal);
 }
 
 export async function findUserByPhoneNumber(phoneNumber: string) {
@@ -337,7 +353,10 @@ async function recordPhoneVerificationRequest(input: {
   });
 }
 
-async function upsertPhoneUser(phoneNumber: string) {
+async function upsertPhoneUser(
+  phoneNumber: string,
+  legacyDisplayName?: string | null,
+) {
   const existingUser = await findUserByPhoneNumber(phoneNumber);
   const nextTimestamp = nowIso();
 
@@ -356,7 +375,7 @@ async function upsertPhoneUser(phoneNumber: string) {
   }
 
   const userId = randomUUID();
-  await supabaseInsert("users", {
+  const payload = {
     id: userId,
     phone_number: phoneNumber,
     role: "user",
@@ -364,7 +383,16 @@ async function upsertPhoneUser(phoneNumber: string) {
     phone_verified_at: nextTimestamp,
     last_login_at: nextTimestamp,
     updated_at: nextTimestamp,
-  });
+  };
+
+  try {
+    await supabaseInsert("users", payload);
+  } catch {
+    await supabaseInsert("users", {
+      ...payload,
+      display_name: legacyDisplayName?.trim() || "사용자",
+    });
+  }
 
   return userId;
 }
@@ -425,7 +453,10 @@ export async function completePhoneSignIn(
     verifiedAt,
   });
 
-  const userId = await upsertPhoneUser(verification.to ?? normalizedPhoneNumber);
+  const userId = await upsertPhoneUser(
+    verification.to ?? normalizedPhoneNumber,
+    allowedPhoneNumber.display_name,
+  );
   const sessionToken = await createOrUpdateSession(userId);
 
   await recordUserAction({

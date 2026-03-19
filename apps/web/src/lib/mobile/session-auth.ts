@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { supabaseSelect, supabaseUpdate } from "./supabase-rest";
 
 type AuthSessionRow = {
@@ -8,6 +9,14 @@ type AuthSessionRow = {
   expires_at: string;
   revoked_at: string | null;
 };
+
+const MOBILE_SESSION_FAILURE_MESSAGES = new Set([
+  "mobile session token is required",
+  "invalid mobile session",
+  "mobile session has been revoked",
+  "mobile session has expired",
+  "mobile session user mismatch",
+]);
 
 function hashSessionToken(value: string) {
   return createHash("sha256").update(value).digest("hex");
@@ -25,6 +34,30 @@ function extractBearerToken(request: NextRequest) {
   }
 
   return token.trim();
+}
+
+export function isMobileSessionError(error: unknown): error is Error {
+  return (
+    error instanceof Error &&
+    MOBILE_SESSION_FAILURE_MESSAGES.has(error.message)
+  );
+}
+
+export function mobileRouteErrorResponse(
+  error: unknown,
+  fallbackMessage: string,
+  fallbackStatus = 500,
+) {
+  if (isMobileSessionError(error)) {
+    return NextResponse.json({ error: error.message }, { status: 401 });
+  }
+
+  return NextResponse.json(
+    {
+      error: error instanceof Error ? error.message : fallbackMessage,
+    },
+    { status: fallbackStatus },
+  );
 }
 
 export async function requireMobileSession(

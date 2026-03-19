@@ -1,7 +1,10 @@
 import { DEFAULT_MOBILE_THEME_KEY } from "@gynecology-chatbot/app-core";
 import { NextRequest, NextResponse } from "next/server";
 import { completeUserOnboarding } from "@/lib/mobile/auth";
-import { requireMobileSession } from "@/lib/mobile/session-auth";
+import {
+  mobileRouteErrorResponse,
+  requireMobileSession,
+} from "@/lib/mobile/session-auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,12 +41,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ user });
   } catch (error) {
     console.error("mobile onboarding route error", error);
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "failed to save onboarding",
-      },
-      { status: 400 },
-    );
+    return mobileRouteErrorResponse(error, "failed to save onboarding", 400);
   }
 }

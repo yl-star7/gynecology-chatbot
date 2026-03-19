@@ -3,8 +3,14 @@ import {
   resolveMobileThemeKey,
 } from "@gynecology-chatbot/app-core";
 import { NextRequest, NextResponse } from "next/server";
-import { updateMobileProfile } from "@/lib/mobile/auth";
-import { requireMobileSession } from "@/lib/mobile/session-auth";
+import {
+  hasCompletedProfileOnboarding,
+  updateMobileProfile,
+} from "@/lib/mobile/auth";
+import {
+  mobileRouteErrorResponse,
+  requireMobileSession,
+} from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
 
 type UserRow = {
@@ -62,7 +68,7 @@ export async function GET(request: NextRequest) {
           : "정보 없음",
         pregnancyDayCount: profile?.pregnancy_day_count ?? 0,
         accountStatus: users[0].account_status,
-        hasCompletedOnboarding: Boolean(profile),
+        hasCompletedOnboarding: hasCompletedProfileOnboarding(profile),
         dueDate: profile?.due_date ?? null,
         tonePreference: profile?.onboarding_payload?.tonePreference ?? null,
         pregnancyWeekOrDueDate:
@@ -85,10 +91,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("mobile profile route error", error);
-    return NextResponse.json(
-      { error: "failed to load profile" },
-      { status: 500 },
-    );
+    return mobileRouteErrorResponse(error, "failed to load profile");
   }
 }
 
@@ -134,12 +137,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ user });
   } catch (error) {
     console.error("mobile profile patch route error", error);
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "failed to update profile",
-      },
-      { status: 400 },
-    );
+    return mobileRouteErrorResponse(error, "failed to update profile", 400);
   }
 }
