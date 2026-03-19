@@ -30,7 +30,7 @@ const updatedUser: AuthenticatedUser = {
 };
 
 test("fetchMobileProfile targets the mobile profile endpoint with the resolved user id", async () => {
-  const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
   const client = createMobileApiClient({
     getApiBaseUrl: () => "http://example.com",
     getUserId: () => "user-1",
@@ -50,7 +50,7 @@ test("fetchMobileProfile targets the mobile profile endpoint with the resolved u
 });
 
 test("updateMobileProfile uses PATCH and forwards the editable fields", async () => {
-  const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
   const client = createMobileApiClient({
     getApiBaseUrl: () => "http://example.com",
     getUserId: () => "user-1",
