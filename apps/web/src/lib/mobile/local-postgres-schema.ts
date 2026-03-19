@@ -29,7 +29,8 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           title text NOT NULL,
           status text NOT NULL DEFAULT 'active',
           last_message_at timestamptz,
-          created_at timestamptz NOT NULL DEFAULT now()
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
         );
 
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "pregnancy_profiles")} (
@@ -291,6 +292,34 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           action_type text NOT NULL,
           payload jsonb NOT NULL DEFAULT '{}'::jsonb,
           occurred_at timestamptz NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "user_checklist_events")} (
+          id text PRIMARY KEY,
+          user_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "users")}(id) ON DELETE CASCADE,
+          checklist_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "week_checklists")}(id) ON DELETE CASCADE,
+          session_id text REFERENCES ${getQualifiedTable(schema, "chat_sessions")}(id) ON DELETE SET NULL,
+          prompt_message_id text REFERENCES ${getQualifiedTable(schema, "chat_messages")}(id) ON DELETE SET NULL,
+          completion_message_id text REFERENCES ${getQualifiedTable(schema, "chat_messages")}(id) ON DELETE SET NULL,
+          status text NOT NULL DEFAULT 'sent',
+          sent_at timestamptz,
+          completed_at timestamptz,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "user_question_events")} (
+          id text PRIMARY KEY,
+          user_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "users")}(id) ON DELETE CASCADE,
+          question_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "week_questions")}(id) ON DELETE CASCADE,
+          session_id text REFERENCES ${getQualifiedTable(schema, "chat_sessions")}(id) ON DELETE SET NULL,
+          prompt_message_id text REFERENCES ${getQualifiedTable(schema, "chat_messages")}(id) ON DELETE SET NULL,
+          answer_message_id text REFERENCES ${getQualifiedTable(schema, "chat_messages")}(id) ON DELETE SET NULL,
+          status text NOT NULL DEFAULT 'sent',
+          sent_at timestamptz,
+          answered_at timestamptz,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
         );
       `;
 }

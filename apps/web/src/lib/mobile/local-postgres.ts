@@ -58,6 +58,8 @@ const LOCAL_TABLES = new Set([
   "pregnancy_week_assets",
   "week_checklists",
   "week_questions",
+  "user_checklist_events",
+  "user_question_events",
   "admin_audit_logs",
   "user_action_logs",
   "workflow_definitions",
@@ -728,6 +730,7 @@ export async function ensureLocalPostgresReady() {
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS last_login_at timestamptz;
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+        ALTER TABLE ${getQualifiedTable("chat_sessions")} ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
         ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS display_name text;
         ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS note text;
         ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
