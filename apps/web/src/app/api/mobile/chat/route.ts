@@ -24,6 +24,9 @@ type PregnancyProfilePromptRow = {
   pregnancy_week: number | null;
   pregnancy_day_in_week: number | null;
   tone_preference: string | null;
+  baby_nickname: string | null;
+  display_name: string | null;
+  due_date: string | null;
 };
 
 type WeekDataRow = {
@@ -223,7 +226,7 @@ function buildWeekPromptParts(input: {
 
 async function getPromptContext(userId: string, hintedPregnancyWeek: number | null) {
   const profiles = await supabaseSelect<PregnancyProfilePromptRow[]>(
-    `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week,tone_preference&user_id=eq.${userId}&limit=1`,
+    `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week,tone_preference,baby_nickname,display_name,due_date&user_id=eq.${userId}&limit=1`,
   );
 
   const pregnancyWeek = hintedPregnancyWeek ?? profiles[0]?.pregnancy_week ?? null;
@@ -253,6 +256,12 @@ async function getPromptContext(userId: string, hintedPregnancyWeek: number | nu
     `content.week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
   );
 
+  const profile = profiles[0];
+  const missingFields: string[] = [];
+  if (!profile?.baby_nickname) missingFields.push("태명");
+  if (!profile?.due_date) missingFields.push("출산 예정일");
+  if (!profile?.display_name || profile.display_name === "사용자") missingFields.push("이름");
+
   return {
     pregnancyWeek,
     dayNumber,
@@ -260,7 +269,8 @@ async function getPromptContext(userId: string, hintedPregnancyWeek: number | nu
     dayContent,
     checklists,
     questions,
-    tonePreference: profiles[0]?.tone_preference ?? null,
+    tonePreference: profile?.tone_preference ?? null,
+    missingFields,
   };
 }
 
@@ -613,6 +623,9 @@ export async function POST(request: NextRequest) {
               "대화는 세션 단위로 이어지므로 현재 세션 맥락을 유지하세요.",
               ...(promptContext?.tonePreference
                 ? [`사용자가 선호하는 상담 분위기: ${promptContext.tonePreference}. 이 톤에 맞춰 응답하세요.`]
+                : []),
+              ...(promptContext?.missingFields && promptContext.missingFields.length > 0
+                ? [`아직 비어있는 정보: ${promptContext.missingFields.join(", ")}. 대화 흐름에 자연스럽게 녹여서 한 번에 하나씩만 물어보세요. 억지로 물어보지 말고, 맥락이 맞을 때만 자연스럽게 여쭤보세요.`]
                 : []),
               "임신 주차 정보가 주어지면 그 주차와 인접 주차 기준으로 설명한다고 가정하세요.",
               "RAG 문맥이 주어지면 그 범위 안에서만 참고 정보를 요약하세요.",
