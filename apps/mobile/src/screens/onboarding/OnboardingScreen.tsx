@@ -1,76 +1,133 @@
 // @ts-nocheck
 import { router } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { Button, Card, HeroSection, KeyboardScreen, LabeledInput } from "../../components/ui";
+import { Animated, StyleSheet, Text, View } from "react-native";
+import { Button, Card, KeyboardScreen, LabeledInput, Pressable } from "../../components/ui";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
-import { palette, patientSurfacePalette as surface, space, typo } from "../../theme";
+import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+
+const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", "다정하게"];
 
 export function OnboardingScreen() {
   const { completeOnboarding } = useMobileAppSession();
   const [step, setStep] = useState(0);
   const [pregnancyWeekOrDueDate, setPregnancyWeekOrDueDate] = useState("");
+  const [babyNickname, setBabyNickname] = useState("");
+  const [tonePreference, setTonePreference] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  async function handleComplete() {
-    if (!pregnancyWeekOrDueDate.trim()) {
-      setError("현재 주차나 예정일을 알려주세요.");
+  function next() {
+    if (step === 0 && !pregnancyWeekOrDueDate.trim()) {
+      setError("주차나 예정일을 알려주세요.");
       return;
     }
+    setError(null);
+    setStep((s) => s + 1);
+  }
 
+  async function handleComplete() {
     try {
+      const notes = babyNickname.trim() ? `태명: ${babyNickname.trim()}` : "";
       await completeOnboarding({
-        pregnancyWeekOrDueDate: pregnancyWeekOrDueDate.trim(),
-        tonePreference: "친근하게",
+        pregnancyWeekOrDueDate: [pregnancyWeekOrDueDate.trim(), notes].filter(Boolean).join(" / "),
+        tonePreference: tonePreference || "친근하게",
       });
       router.replace("/home");
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "저장에 실패했어요. 다시 시도해주세요.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "저장에 실패했어요.");
     }
   }
 
+  const progress = ((step + 1) / 3) * 100;
+
   return (
     <KeyboardScreen centered>
+      <View style={styles.progressBar}>
+        <View style={[styles.progressFill, { width: `${progress}%` }]} />
+      </View>
+
       {step === 0 && (
-        <>
-          <HeroSection
-            title="반가워요!"
-            description="앞으로 임신 기간 동안 함께할게요. 태명, 병원 같은 정보는 나중에 대화하면서 알려주셔도 돼요."
-          />
-          <Button label="시작하기" onPress={() => setStep(1)} />
-        </>
+        <Card>
+          <Text style={styles.question}>지금 몇 주차예요?</Text>
+          <View style={styles.field}>
+            <LabeledInput
+              label=""
+              value={pregnancyWeekOrDueDate}
+              onChangeText={setPregnancyWeekOrDueDate}
+              placeholder="예: 16주 또는 2026-08-01"
+            />
+          </View>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          <Button label="다음" onPress={next} />
+        </Card>
       )}
 
       {step === 1 && (
-        <>
-          <HeroSection
-            title="지금 몇 주차예요?"
-            description="이것만 알려주시면 바로 시작할 수 있어요."
-          />
-          <Card>
-            <View style={styles.form}>
-              <LabeledInput
-                label="현재 주차 또는 출산 예정일"
-                value={pregnancyWeekOrDueDate}
-                onChangeText={setPregnancyWeekOrDueDate}
-                placeholder="예: 16주 또는 2026-08-01"
-              />
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-              <Button label="상담 시작하기" onPress={handleComplete} />
+        <Card>
+          <Text style={styles.question}>태명을 지어주세요</Text>
+          <Text style={styles.hint}>아직 없다면 건너뛰어도 돼요</Text>
+          <View style={styles.field}>
+            <LabeledInput
+              label=""
+              value={babyNickname}
+              onChangeText={setBabyNickname}
+              placeholder="예: 콩이, 달이"
+            />
+          </View>
+          <View style={styles.row}>
+            <View style={styles.half}>
+              <Button label="이전" variant="secondary" onPress={() => setStep(0)} />
             </View>
-          </Card>
-        </>
+            <View style={styles.half}>
+              <Button label={babyNickname.trim() ? "다음" : "건너뛰기"} onPress={() => { setError(null); setStep(2); }} />
+            </View>
+          </View>
+        </Card>
+      )}
+
+      {step === 2 && (
+        <Card>
+          <Text style={styles.question}>어떤 분위기가 좋아요?</Text>
+          <View style={styles.toneGrid}>
+            {TONE_OPTIONS.map((tone) => (
+              <Pressable
+                key={tone}
+                style={[styles.toneChip, tonePreference === tone && styles.toneChipActive]}
+                onPress={() => setTonePreference(tone)}
+              >
+                <Text style={[styles.toneLabel, tonePreference === tone && styles.toneLabelActive]}>
+                  {tone}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          <View style={styles.row}>
+            <View style={styles.half}>
+              <Button label="이전" variant="secondary" onPress={() => setStep(1)} />
+            </View>
+            <View style={styles.half}>
+              <Button label="시작하기" onPress={handleComplete} />
+            </View>
+          </View>
+        </Card>
       )}
     </KeyboardScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  form: {
-    gap: space.lg,
-  },
-  error: {
-    ...typo.caption,
-    color: palette.errorText,
-  },
+  progressBar: { height: 4, borderRadius: 2, backgroundColor: surface.strokeSubtle, overflow: "hidden" },
+  progressFill: { height: "100%", borderRadius: 2, backgroundColor: palette.accent },
+  question: { fontSize: 22, fontWeight: "700", color: surface.textPrimary },
+  hint: { marginTop: space.xs, ...typo.caption, color: surface.textSecondary },
+  field: { marginTop: space.lg },
+  error: { marginTop: space.sm, ...typo.caption, color: palette.errorText },
+  row: { flexDirection: "row", gap: space.md, marginTop: space.sm },
+  half: { flex: 1 },
+  toneGrid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.lg, marginBottom: space.sm },
+  toneChip: { paddingHorizontal: space.lg, paddingVertical: space.md, borderRadius: radii.lg, borderWidth: 1, borderColor: surface.strokeSubtle },
+  toneChipActive: { borderColor: palette.accent, backgroundColor: surface.surfaceAccent },
+  toneLabel: { ...typo.body, color: surface.textSecondary },
+  toneLabelActive: { color: palette.accent, fontWeight: "600" },
 });
