@@ -44,7 +44,7 @@ export function ContentListScreen({
   }, [fetchItems]);
 
   return (
-    <MobileScreenFrame title={title} showProfileButton showChatFab>
+    <MobileScreenFrame title={title} backHref="/home" showProfileButton showChatFab>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}

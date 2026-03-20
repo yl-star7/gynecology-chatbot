@@ -31,7 +31,7 @@ export function LinkTargetScreen({
   }, [entityId, services, target]);
 
   return (
-    <MobileScreenFrame title="상세 보기" showProfileButton showChatFab>
+    <MobileScreenFrame title="상세 보기" backHref="/home" showProfileButton showChatFab>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Card>
           <Text style={styles.title}>{content?.title ?? "불러오는 중이에요"}</Text>
