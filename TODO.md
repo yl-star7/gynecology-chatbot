@@ -10,18 +10,26 @@
 - [x] 채팅 상단과 홈 상단의 정보 밀도 재조정 → 채팅 헤더 minimal, 홈은 eyebrow+title+subtitle
 - [x] 날짜/주차/기록 정보의 시각적 반복 최소화 → 히어로 카드 하나로 통합
 - [x] 의료 상담 제품다운 tone and manner로 카피 전면 점검 → 모바일+웹 전체 -어요 통일
+- [x] 감정 체크인 플로우 (API + 모바일 UI + 캘린더 연동)
+- [x] AI 톤 동적 반영 (사용자 tonePreference → 시스템 프롬프트)
+- [x] 푸시 알림 풀스택 (토큰 저장/hook 연결/Expo SDK 발송/어드민 트리거/마이그레이션)
+- [x] 어드민 분석 대시보드 (API 6개 메트릭 + UI)
+- [x] Proactive 대화 내재화 (Edge Function → Next.js API)
+- [x] 알림 스케줄 관리자 설정 (system_config + GET/PUT API)
+- [x] API rate limiting (채팅 20회/분, in-memory 슬라이딩 윈도우)
+- [x] 설문 템플릿 어드민 CRUD (체크리스트 + 질문 독립 관리)
+- [x] 디자인 시스템 문서화 (AGENTS.md)
+- [x] Expo 푸시 인증서 발급 절차 문서 (docs/PUSH_SETUP.md)
 
 ## 배포 전 체크리스트
 
-- [x] `push_token` 컬럼 마이그레이션 적용 (2026-03-20 완료)
-- [ ] pg_cron 설정 배포 (`supabase/pg_cron_setup.sql`의 URL/키 교체)
-- [ ] Proactive Edge Function 배포 (`supabase/functions/proactive-chat/`)
-- [ ] Expo push notification 인증서 설정 (iOS APNs, Android FCM)
-- [x] Gemini API 키 프로덕션 설정 확인 (GEMINI_API_KEY 설정됨)
+- [x] `push_token` 컬럼 마이그레이션 적용 (2026-03-20)
+- [x] `system_config` 테이블 마이그레이션 적용 (2026-03-20)
+- [x] Gemini API 키 프로덕션 설정 확인
+- [ ] Expo push notification 인증서 설정 (docs/PUSH_SETUP.md 참조)
+- [ ] pg_cron에 proactive trigger URL 교체 (내재화된 `/api/admin/proactive/trigger` 사용)
 
 ## P3 (다음 스프린트)
 
-- [ ] API rate limiting (채팅 엔드포인트 분당 제한)
 - [ ] 오프라인 지원 (서비스워커 / 로컬 캐시)
-- [ ] 설문 템플릿 어드민 CRUD (체크리스트/질문 직접 편집)
 - [ ] 다국어 지원 (i18n)
