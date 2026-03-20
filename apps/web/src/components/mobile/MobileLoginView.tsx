@@ -194,21 +194,6 @@ export function MobileLoginView({ initialUserId }: Props) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[520px] flex-col gap-4 px-4 py-5">
-      <MobileCard className="p-6 backdrop-blur">
-        <MobileSectionIntro
-          eyebrow="본인 확인"
-          title="전화번호로 간편하게 시작해요"
-          description="한 번 인증하면 앱을 다시 열 때 자동으로 로그인돼요."
-        />
-        <div className="mt-5">
-          <MobileThemePresetButtons
-            label="분위기 테마"
-            onSelect={handleThemeSelect}
-            selectedThemeKey={themeKey}
-          />
-        </div>
-      </MobileCard>
-
       <MobileCard as="form" className="p-5" onSubmit={handleSubmit}>
         <div className="grid gap-3">
           <MobileFormField label="전화번호">
@@ -255,10 +240,13 @@ export function MobileLoginView({ initialUserId }: Props) {
         </div>
       </MobileCard>
 
-      <MobileCard as="div" className="rounded-[24px] p-5 text-sm leading-6 text-[var(--text-soft)]">
-        전화번호 인증 한 번이면 다음부터는 자동으로 로그인돼요.
-        궁금한 점이 있으면 언제든 상담을 시작할 수 있어요.
-      </MobileCard>
+      <div className="mt-2">
+        <MobileThemePresetButtons
+          label=""
+          onSelect={handleThemeSelect}
+          selectedThemeKey={themeKey}
+        />
+      </div>
     </main>
   );
 }
