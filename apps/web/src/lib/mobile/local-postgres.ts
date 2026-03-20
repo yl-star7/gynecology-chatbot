@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { Pool, types } from "pg";
+import { createPhoneNumberStorage } from "@/lib/privacy/phone-crypto";
 import { buildLocalPostgresBootstrapSql } from "./local-postgres-schema";
 
 const LOCAL_SCHEMA = process.env.LOCAL_DB_SCHEMA ?? "gynecology_local";
@@ -63,6 +64,7 @@ const LOCAL_TABLES = new Set([
   "admin_audit_logs",
   "user_action_logs",
   "workflow_definitions",
+  "system_config",
 ]);
 
 let pool: Pool | null = null;
@@ -161,6 +163,8 @@ async function ensureSeedData() {
     [LOCAL_SCHEMA],
   );
   const hasLegacyDisplayNameColumn = Boolean(displayNameColumnRow?.exists);
+  const defaultUserPhone = createPhoneNumberStorage(DEFAULT_PHONE_NUMBER);
+  const defaultAdminPhone = createPhoneNumberStorage(DEFAULT_ADMIN_PHONE_NUMBER);
 
   const userInsertSql = hasLegacyDisplayNameColumn
     ? `
@@ -168,18 +172,22 @@ async function ensureSeedData() {
           id,
           role,
           display_name,
-          phone_number,
+          phone_number_encrypted,
+          phone_number_blind_index,
+          phone_number_last4,
           account_status,
           phone_verified_at,
           last_login_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, 'active', $5, $5, $5)
+        VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, $7, $7)
         ON CONFLICT (id) DO UPDATE
         SET
           role = EXCLUDED.role,
           display_name = EXCLUDED.display_name,
-          phone_number = EXCLUDED.phone_number,
+          phone_number_encrypted = EXCLUDED.phone_number_encrypted,
+          phone_number_blind_index = EXCLUDED.phone_number_blind_index,
+          phone_number_last4 = EXCLUDED.phone_number_last4,
           account_status = EXCLUDED.account_status,
           phone_verified_at = EXCLUDED.phone_verified_at,
           last_login_at = EXCLUDED.last_login_at,
@@ -189,17 +197,21 @@ async function ensureSeedData() {
         INSERT INTO ${getQualifiedTable("users")} (
           id,
           role,
-          phone_number,
+          phone_number_encrypted,
+          phone_number_blind_index,
+          phone_number_last4,
           account_status,
           phone_verified_at,
           last_login_at,
           updated_at
         )
-        VALUES ($1, $2, $3, 'active', $4, $4, $4)
+        VALUES ($1, $2, $3, $4, $5, 'active', $6, $6, $6)
         ON CONFLICT (id) DO UPDATE
         SET
           role = EXCLUDED.role,
-          phone_number = EXCLUDED.phone_number,
+          phone_number_encrypted = EXCLUDED.phone_number_encrypted,
+          phone_number_blind_index = EXCLUDED.phone_number_blind_index,
+          phone_number_last4 = EXCLUDED.phone_number_last4,
           account_status = EXCLUDED.account_status,
           phone_verified_at = EXCLUDED.phone_verified_at,
           last_login_at = EXCLUDED.last_login_at,
@@ -213,13 +225,17 @@ async function ensureSeedData() {
           DEFAULT_USER_ID,
           "user",
           DEFAULT_USER_NAME,
-          DEFAULT_PHONE_NUMBER,
+          defaultUserPhone.phoneNumberEncrypted,
+          defaultUserPhone.phoneNumberBlindIndex,
+          defaultUserPhone.phoneNumberLast4,
           yesterday.toISOString(),
         ]
       : [
           DEFAULT_USER_ID,
           "user",
-          DEFAULT_PHONE_NUMBER,
+          defaultUserPhone.phoneNumberEncrypted,
+          defaultUserPhone.phoneNumberBlindIndex,
+          defaultUserPhone.phoneNumberLast4,
           yesterday.toISOString(),
         ],
   );
@@ -231,13 +247,17 @@ async function ensureSeedData() {
           DEFAULT_ADMIN_USER_ID,
           "admin",
           DEFAULT_ADMIN_NAME,
-          DEFAULT_ADMIN_PHONE_NUMBER,
+          defaultAdminPhone.phoneNumberEncrypted,
+          defaultAdminPhone.phoneNumberBlindIndex,
+          defaultAdminPhone.phoneNumberLast4,
           yesterday.toISOString(),
         ]
       : [
           DEFAULT_ADMIN_USER_ID,
           "admin",
-          DEFAULT_ADMIN_PHONE_NUMBER,
+          defaultAdminPhone.phoneNumberEncrypted,
+          defaultAdminPhone.phoneNumberBlindIndex,
+          defaultAdminPhone.phoneNumberLast4,
           yesterday.toISOString(),
         ],
   );
@@ -253,14 +273,16 @@ async function ensureSeedData() {
     `
       INSERT INTO ${getQualifiedTable("allowed_phone_numbers")} (
         id,
-        phone_number,
+        phone_number_encrypted,
+        phone_number_blind_index,
+        phone_number_last4,
         display_name,
         note,
         created_at,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $5)
-      ON CONFLICT (phone_number) DO UPDATE
+      VALUES ($1, $2, $3, $4, $5, $6, $6)
+      ON CONFLICT (phone_number_blind_index) DO UPDATE
       SET
         display_name = EXCLUDED.display_name,
         note = EXCLUDED.note,
@@ -268,7 +290,9 @@ async function ensureSeedData() {
     `,
     [
       "allow-local-user-demo",
-      DEFAULT_PHONE_NUMBER,
+      defaultUserPhone.phoneNumberEncrypted,
+      defaultUserPhone.phoneNumberBlindIndex,
+      defaultUserPhone.phoneNumberLast4,
       DEFAULT_USER_NAME,
       "로컬 개발 허용 번호",
       yesterday.toISOString(),
@@ -724,13 +748,21 @@ export async function ensureLocalPostgresReady() {
 
       await db.query(`
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'user';
-        ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS phone_number text;
+        ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS phone_number_encrypted text;
+        ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS phone_number_blind_index text;
+        ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS phone_number_last4 text;
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS account_status text NOT NULL DEFAULT 'active';
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS phone_verified_at timestamptz;
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS last_login_at timestamptz;
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
         ALTER TABLE ${getQualifiedTable("chat_sessions")} ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+        ALTER TABLE ${getQualifiedTable("phone_verification_requests")} ADD COLUMN IF NOT EXISTS phone_number_encrypted text;
+        ALTER TABLE ${getQualifiedTable("phone_verification_requests")} ADD COLUMN IF NOT EXISTS phone_number_blind_index text;
+        ALTER TABLE ${getQualifiedTable("phone_verification_requests")} ADD COLUMN IF NOT EXISTS phone_number_last4 text;
+        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS phone_number_encrypted text;
+        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS phone_number_blind_index text;
+        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS phone_number_last4 text;
         ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS display_name text;
         ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS note text;
         ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();

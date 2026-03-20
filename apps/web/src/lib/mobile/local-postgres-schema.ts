@@ -15,7 +15,9 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "users")} (
           id text PRIMARY KEY,
           role text NOT NULL DEFAULT 'user',
-          phone_number text NOT NULL UNIQUE,
+          phone_number_encrypted text NOT NULL,
+          phone_number_blind_index text NOT NULL UNIQUE,
+          phone_number_last4 text NOT NULL,
           account_status text NOT NULL DEFAULT 'active',
           phone_verified_at timestamptz,
           last_login_at timestamptz,
@@ -67,7 +69,9 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
 
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "phone_verification_requests")} (
           id text PRIMARY KEY,
-          phone_number text NOT NULL,
+          phone_number_encrypted text NOT NULL,
+          phone_number_blind_index text NOT NULL,
+          phone_number_last4 text NOT NULL,
           verification_sid text,
           channel text NOT NULL DEFAULT 'sms',
           status text NOT NULL DEFAULT 'pending',
@@ -79,7 +83,9 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
 
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "allowed_phone_numbers")} (
           id text PRIMARY KEY,
-          phone_number text NOT NULL UNIQUE,
+          phone_number_encrypted text NOT NULL,
+          phone_number_blind_index text NOT NULL UNIQUE,
+          phone_number_last4 text NOT NULL,
           display_name text,
           note text,
           created_at timestamptz NOT NULL DEFAULT now(),
@@ -130,6 +136,12 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
           updated_at timestamptz NOT NULL DEFAULT now(),
           created_at timestamptz NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "system_config")} (
+          key varchar(100) PRIMARY KEY,
+          value jsonb NOT NULL DEFAULT '{}'::jsonb,
+          updated_at timestamptz NOT NULL DEFAULT now()
         );
 
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "pregnancy_documents")} (

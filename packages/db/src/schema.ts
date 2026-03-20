@@ -693,6 +693,14 @@ export const weekQuestions = contentSchema.table(
   }),
 );
 
+export const systemConfig = pgTable("system_config", {
+  key: varchar("key", { length: 100 }).primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .default(utcNow),
+});
+
 export const adminAuditLogs = pgTable(
   "admin_audit_logs",
   {

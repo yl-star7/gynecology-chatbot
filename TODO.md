@@ -13,7 +13,7 @@
 
 ## 배포 전 체크리스트
 
-- [ ] `push_token` 컬럼 마이그레이션 적용 (`supabase/migrations/20260320_add_push_token_column.sql`)
+- [x] `push_token` 컬럼 마이그레이션 적용 (2026-03-20 완료)
 - [ ] pg_cron 설정 배포 (`supabase/pg_cron_setup.sql`의 URL/키 교체)
 - [ ] Proactive Edge Function 배포 (`supabase/functions/proactive-chat/`)
 - [ ] Expo push notification 인증서 설정 (iOS APNs, Android FCM)
