@@ -15,9 +15,9 @@ export function EmbeddedWebContent(props: {
   const renderLoading = () => (
     <View style={styles.loadingState}>
       <ActivityIndicator size="small" color={palette.accent} />
-      <Text style={styles.loadingTitle}>서비스 연결 중</Text>
+      <Text style={styles.loadingTitle}>잠시만요</Text>
       <Text style={styles.loadingCopy}>
-        웹 사용자 화면을 불러오고 있습니다.
+        화면을 준비하고 있어요.
       </Text>
     </View>
   );
@@ -25,9 +25,9 @@ export function EmbeddedWebContent(props: {
   if (props.hasError) {
     return (
       <View style={styles.errorState}>
-        <Text style={styles.errorTitle}>화면을 불러오지 못했습니다.</Text>
+        <Text style={styles.errorTitle}>연결할 수 없어요</Text>
         <Text style={styles.errorCopy}>
-          웹 앱 서버와 EXPO_PUBLIC_WEB_URL 설정을 확인한 뒤 다시 시도하세요.
+          네트워크 연결을 확인하고 다시 시도해주세요.
         </Text>
       </View>
     );

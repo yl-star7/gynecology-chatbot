@@ -3,7 +3,7 @@ import type { ChatMessage, RecentChatSummary } from "@gynecology-chatbot/app-cor
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -17,9 +17,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { EmptyState } from "../components/ui";
 import { useChatSessions } from "../chat/store";
 import { useMobileServices } from "../core/MobileServicesProvider";
-import { palette, patientSurfacePalette as surface } from "../theme";
+import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../theme";
 
 function createSessionId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
@@ -64,6 +65,7 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
   const [imageUri, setImageUri] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [showRecent, setShowRecent] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     services.chatPort
@@ -91,6 +93,12 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
       });
   }, [replaceSession, resolvedSessionId, services, sessionId]);
 
+  useEffect(() => {
+    if (session.messages.length > 0) {
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  }, [session.messages.length]);
+
   async function handlePickImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -113,7 +121,7 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
       return;
     }
 
-    const nextTitle = session.title === "새 대화" && text ? text.slice(0, 24) : session.title;
+    const nextTitle = session.title === "새 상담" && text ? text.slice(0, 24) : session.title;
     appendMessage(resolvedSessionId, nextTitle, createUserMessage(text, imageUri));
     setIsSending(true);
 
@@ -140,25 +148,28 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.header}>
-          <Pressable onPress={() => router.replace("/home")} accessibilityLabel="홈으로 이동">
-            <Ionicons name="arrow-back" size={24} color={surface.textPrimary} />
+          <Pressable onPress={() => router.replace("/home")} accessibilityLabel="홈으로 이동" style={styles.headerButton}>
+            <Ionicons name="chevron-back" size={22} color={surface.textPrimary} />
           </Pressable>
-          <Text style={styles.headerTitle}>{session.title}</Text>
-          <Pressable onPress={() => setShowRecent(true)} accessibilityLabel="최근 채팅 열기">
-            <Ionicons name="menu" size={24} color={surface.textPrimary} />
+          <Text style={styles.headerTitle} numberOfLines={1}>{session.title}</Text>
+          <Pressable onPress={() => setShowRecent(true)} accessibilityLabel="이전 상담 열기" style={styles.headerButton}>
+            <Ionicons name="time-outline" size={22} color={surface.textPrimary} />
           </Pressable>
         </View>
 
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={styles.messages}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           {session.messages.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>새 세션</Text>
-              <Text style={styles.emptyBody}>텍스트와 이미지 첨부를 함께 보내면 세션 단위로 누적됩니다.</Text>
-            </View>
+            <EmptyState
+              icon="chatbubbles-outline"
+              title="새로운 상담"
+              description={"궁금한 점이나 걱정되는 증상을\n편하게 물어보세요."}
+            />
           ) : null}
 
           {session.messages.map((message) => (
@@ -166,7 +177,7 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
               {message.parts.map((part) => {
                 if (part.type === "text") {
                   return (
-                    <Text key={part.id} style={styles.messageText}>
+                    <Text key={part.id} style={[styles.messageText, message.role === "user" ? styles.userText : null]}>
                       {part.text}
                     </Text>
                   );
@@ -176,7 +187,6 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
                   return (
                     <View key={part.id} style={styles.imageBlock}>
                       <Image source={{ uri: part.imageUrl }} style={styles.image} resizeMode="cover" />
-                      {part.caption ? <Text style={styles.caption}>{part.caption}</Text> : null}
                     </View>
                   );
                 }
@@ -217,48 +227,63 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
         </ScrollView>
 
         <View style={styles.composer}>
-          <Pressable style={styles.attachButton} onPress={handlePickImage}>
-            <Ionicons name="image-outline" size={18} color={surface.accentSolid} />
-            <Text style={styles.attachButtonLabel}>{imageUri ? "이미지 선택됨" : "이미지 첨부"}</Text>
-          </Pressable>
-          {imageUri ? <Image source={{ uri: imageUri }} style={styles.attachmentPreview} resizeMode="cover" /> : null}
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="메시지를 입력하세요"
-            placeholderTextColor={surface.textSecondary}
-            style={[styles.input, styles.messageInput]}
-            multiline
-          />
-          <Pressable style={[styles.sendButton, isSending ? styles.sendButtonDisabled : null]} onPress={handleSend} disabled={isSending}>
-            <Text style={styles.sendButtonLabel}>{isSending ? "전송 중" : "보내기"}</Text>
-          </Pressable>
+          {imageUri ? (
+            <View style={styles.attachmentRow}>
+              <Image source={{ uri: imageUri }} style={styles.attachmentPreview} resizeMode="cover" />
+              <Pressable onPress={() => setImageUri("")} style={styles.attachmentRemove}>
+                <Ionicons name="close-circle" size={20} color={surface.textSecondary} />
+              </Pressable>
+            </View>
+          ) : null}
+          <View style={styles.composerRow}>
+            <Pressable style={styles.attachButton} onPress={handlePickImage}>
+              <Ionicons name="camera-outline" size={22} color={palette.accent} />
+            </Pressable>
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder="궁금한 점을 물어보세요"
+              placeholderTextColor={surface.textSecondary}
+              style={styles.composerInput}
+              multiline
+            />
+            <Pressable
+              style={[styles.sendButton, (!text.trim() && !imageUri.trim()) ? styles.sendButtonDisabled : null]}
+              onPress={handleSend}
+              disabled={isSending || (!text.trim() && !imageUri.trim())}
+            >
+              <Ionicons name={isSending ? "hourglass-outline" : "arrow-up"} size={20} color="#ffffff" />
+            </Pressable>
+          </View>
         </View>
       </KeyboardAvoidingView>
 
       <Modal animationType="slide" visible={showRecent} transparent onRequestClose={() => setShowRecent(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Recent Chat</Text>
-            {recentSessions.length === 0 ? <Text style={styles.modalEmpty}>아직 열린 세션이 없습니다.</Text> : null}
-            {recentSessions.map((recentSession) => (
-              <Pressable
-                key={recentSession.id}
-                style={styles.modalItem}
-                onPress={() => {
-                  setShowRecent(false);
-                  router.replace(`/chat/${recentSession.id}`);
-                }}
-              >
-                <Text style={styles.modalItemTitle}>{recentSession.title}</Text>
-                <Text style={styles.modalItemMeta}>{recentSession.updatedAtLabel}</Text>
-              </Pressable>
-            ))}
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowRecent(false)}>
+          <Pressable style={styles.modalSheet} onPress={() => {}}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>이전 상담</Text>
+            {recentSessions.length === 0 ? <Text style={styles.modalEmpty}>아직 상담 내역이 없어요.</Text> : null}
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {recentSessions.map((recentSession) => (
+                <Pressable
+                  key={recentSession.id}
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setShowRecent(false);
+                    router.replace(`/chat/${recentSession.id}`);
+                  }}
+                >
+                  <Text style={styles.modalItemTitle} numberOfLines={1}>{recentSession.title}</Text>
+                  <Text style={styles.modalItemMeta}>{recentSession.updatedAtLabel}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
             <Pressable style={styles.modalClose} onPress={() => setShowRecent(false)}>
               <Text style={styles.modalCloseLabel}>닫기</Text>
             </Pressable>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
@@ -273,95 +298,87 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.sm,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderBottomColor: surface.strokeSubtle,
+    backgroundColor: surface.pageBackground,
+    ...shadows.header,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
     flex: 1,
-    marginHorizontal: 12,
-    fontSize: 17,
-    fontWeight: "700",
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "600",
     color: surface.textPrimary,
   },
   messages: {
-    padding: 18,
-    gap: 12,
-  },
-  emptyCard: {
-    padding: 18,
-    borderRadius: 18,
-    backgroundColor: surface.surfacePrimary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: surface.textPrimary,
-  },
-  emptyBody: {
-    marginTop: 8,
-    fontSize: 14,
-    lineHeight: 20,
-    color: surface.textSecondary,
+    padding: space.lg,
+    paddingBottom: space.sm,
+    gap: space.sm,
   },
   messageBubble: {
-    padding: 14,
-    borderRadius: 18,
-    gap: 10,
+    padding: space.md,
+    maxWidth: "85%",
+    gap: space.sm,
   },
   userBubble: {
-    backgroundColor: surface.surfaceAccent,
+    alignSelf: "flex-end",
+    backgroundColor: surface.accentSolid,
+    borderRadius: radii.xl,
+    borderBottomRightRadius: 6,
   },
   assistantBubble: {
+    alignSelf: "flex-start",
     backgroundColor: surface.surfacePrimary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
+    borderRadius: radii.xl,
+    borderBottomLeftRadius: 6,
+    ...shadows.card,
   },
   messageText: {
-    fontSize: 15,
-    lineHeight: 22,
+    ...typo.body,
     color: surface.textPrimary,
   },
+  userText: {
+    color: "#ffffff",
+  },
   imageBlock: {
-    gap: 8,
+    gap: 6,
   },
   image: {
     width: "100%",
     height: 180,
-    borderRadius: 16,
+    borderRadius: radii.md,
     backgroundColor: surface.surfaceSecondary,
   },
-  caption: {
-    fontSize: 13,
-    color: surface.textSecondary,
-  },
   linkCard: {
-    padding: 14,
-    borderRadius: 16,
+    padding: space.md,
+    borderRadius: radii.md,
     backgroundColor: surface.surfaceAccent,
   },
   linkTitle: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "600",
     color: palette.accent,
   },
   linkBody: {
-    marginTop: 6,
-    fontSize: 14,
+    marginTop: space.xs,
+    ...typo.caption,
     color: surface.textSecondary,
   },
   partBlock: {
-    gap: 6,
+    gap: space.xs,
   },
   partTitle: {
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "600",
     color: surface.textPrimary,
   },
   partBody: {
@@ -370,140 +387,149 @@ const styles = StyleSheet.create({
     color: surface.textSecondary,
   },
   carouselCard: {
-    marginTop: 8,
-    padding: 12,
-    borderRadius: 14,
+    marginTop: 6,
+    padding: space.md,
+    borderRadius: radii.sm,
     backgroundColor: surface.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
   },
   carouselEyebrow: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "600",
     color: surface.textSecondary,
-    textTransform: "uppercase",
   },
   carouselTitle: {
-    marginTop: 4,
-    fontSize: 15,
-    fontWeight: "700",
+    marginTop: 2,
+    fontSize: 14,
+    fontWeight: "600",
     color: surface.textPrimary,
   },
   carouselBody: {
-    marginTop: 4,
-    fontSize: 14,
-    lineHeight: 20,
+    marginTop: 2,
+    ...typo.caption,
     color: surface.textSecondary,
   },
   composer: {
-    padding: 16,
-    gap: 10,
-    borderTopWidth: 1,
-    borderTopColor: surface.strokeSubtle,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
     backgroundColor: surface.surfacePrimary,
+    ...Platform.select({
+      ios: { shadowColor: palette.ink, shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: -2 } },
+      android: { elevation: 4 },
+    }),
   },
-  attachButton: {
+  attachmentRow: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    alignSelf: "flex-start",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: surface.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-  },
-  attachButtonLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: surface.accentSolid,
+    alignItems: "flex-start",
+    gap: space.xs,
+    marginBottom: space.sm,
   },
   attachmentPreview: {
-    width: 88,
-    height: 88,
-    borderRadius: 16,
+    width: 64,
+    height: 64,
+    borderRadius: radii.sm,
     backgroundColor: surface.surfaceSecondary,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: surface.fieldSurface,
-    color: surface.textPrimary,
+  attachmentRemove: {
+    marginTop: -4,
+    marginLeft: -8,
   },
-  messageInput: {
-    minHeight: 100,
-    textAlignVertical: "top",
+  composerRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: space.sm,
   },
-  sendButton: {
+  attachButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 14,
+  },
+  composerInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 100,
+    borderRadius: radii.xl,
+    paddingHorizontal: space.lg,
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: surface.fieldSurface,
+    color: surface.textPrimary,
+    fontSize: 15,
+    textAlignVertical: "center",
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.xl,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: surface.accentSolid,
-    paddingVertical: 14,
   },
   sendButtonDisabled: {
-    opacity: 0.6,
-  },
-  sendButtonLabel: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "700",
+    opacity: 0.35,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(18, 29, 29, 0.28)",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
     justifyContent: "flex-end",
   },
   modalSheet: {
-    padding: 20,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    paddingHorizontal: space.xl,
+    paddingBottom: 28,
+    borderTopLeftRadius: radii.xxl,
+    borderTopRightRadius: radii.xxl,
     backgroundColor: surface.surfacePrimary,
-    maxHeight: "70%",
+    maxHeight: "65%",
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: surface.strokeSubtle,
+    alignSelf: "center",
+    marginTop: 10,
+    marginBottom: space.lg,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "700",
+    ...typo.titleSm,
     color: surface.textPrimary,
   },
   modalEmpty: {
-    marginTop: 12,
+    marginTop: space.lg,
     fontSize: 14,
     color: surface.textSecondary,
+    textAlign: "center",
+  },
+  modalScroll: {
+    marginTop: space.sm,
   },
   modalItem: {
-    marginTop: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingVertical: space.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: surface.strokeSubtle,
   },
   modalItemTitle: {
-    fontSize: 15,
-    fontWeight: "700",
+    ...typo.body,
+    fontWeight: "600",
     color: surface.textPrimary,
   },
   modalItemMeta: {
-    marginTop: 4,
-    fontSize: 13,
+    marginTop: 2,
+    fontSize: 12,
     color: surface.textSecondary,
   },
   modalClose: {
-    marginTop: 18,
+    marginTop: space.lg,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 14,
+    borderRadius: radii.md,
     backgroundColor: surface.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    paddingVertical: 14,
+    paddingVertical: space.md,
   },
   modalCloseLabel: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: surface.accentSolid,
+    ...typo.body,
+    fontWeight: "600",
+    color: surface.textPrimary,
   },
 });

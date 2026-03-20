@@ -1,19 +1,10 @@
 // @ts-nocheck
 import { router } from "expo-router";
 import { useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet, View } from "react-native";
+import { Button, Card, HeroSection, KeyboardScreen, LabeledInput } from "../../components/ui";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
-import { palette, patientSurfacePalette as surface } from "../../theme";
+import { space } from "../../theme";
 
 export function LoginScreen() {
   const { requestVerificationCode, signIn } = useMobileAppSession();
@@ -25,10 +16,10 @@ export function LoginScreen() {
   async function handleRequestCode() {
     try {
       await requestVerificationCode({ phoneNumber });
-      setStatusMessage("인증 코드를 보냈습니다.");
+      setStatusMessage("인증번호를 보냈어요.");
       setError(null);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "코드 발송에 실패했습니다.");
+      setError(nextError instanceof Error ? nextError.message : "인증번호 발송에 실패했어요.");
     }
   }
 
@@ -37,114 +28,42 @@ export function LoginScreen() {
       const user = await signIn({ phoneNumber, verificationCode });
       router.replace(user.hasCompletedOnboarding ? "/home" : "/onboarding");
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "로그인에 실패했습니다.");
+      setError(nextError instanceof Error ? nextError.message : "로그인에 실패했어요.");
     }
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView
-        style={styles.keyboardArea}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.container}>
-            <View style={styles.heroCard}>
-              <Text style={styles.eyebrow}>Login</Text>
-              <Text style={styles.title}>전화번호 문자 인증으로 로그인</Text>
-              <Text style={styles.description}>
-                {error ??
-                  statusMessage ??
-                  "최초 1회 인증 이후에는 1년 세션을 기준으로 이어서 사용합니다."}
-              </Text>
-            </View>
+    <KeyboardScreen centered>
+      <HeroSection
+        eyebrow="본인 확인"
+        title={`전화번호로\n간편하게 시작해요`}
+        description={error ?? statusMessage ?? "한 번 인증하면 앱을 다시 열 때 자동으로 로그인돼요."}
+      />
 
-            <View style={styles.formCard}>
-              <View style={styles.form}>
-                <TextInput
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  placeholder="전화번호"
-                  placeholderTextColor={surface.textSecondary}
-                  style={styles.input}
-                  keyboardType="phone-pad"
-                />
-                <TextInput
-                  value={verificationCode}
-                  onChangeText={setVerificationCode}
-                  placeholder="인증 코드"
-                  placeholderTextColor={surface.textSecondary}
-                  style={styles.input}
-                  keyboardType="number-pad"
-                />
-                <Pressable style={styles.secondaryButton} onPress={handleRequestCode}>
-                  <Text style={styles.secondaryButtonLabel}>인증 코드 보내기</Text>
-                </Pressable>
-                <Pressable style={styles.primaryButton} onPress={handleLogin}>
-                  <Text style={styles.primaryButtonLabel}>인증하고 로그인</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <Card>
+        <View style={styles.form}>
+          <LabeledInput
+            label="전화번호"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            placeholder="010-0000-0000"
+            keyboardType="phone-pad"
+          />
+          <LabeledInput
+            label="인증번호"
+            value={verificationCode}
+            onChangeText={setVerificationCode}
+            placeholder="6자리 숫자"
+            keyboardType="number-pad"
+          />
+          <Button label="인증번호 받기" variant="secondary" onPress={handleRequestCode} />
+          <Button label="시작하기" onPress={handleLogin} />
+        </View>
+      </Card>
+    </KeyboardScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: surface.pageBackground },
-  keyboardArea: { flex: 1 },
-  scrollContent: { flexGrow: 1 },
-  container: { flexGrow: 1, padding: 24, justifyContent: "center", gap: 16 },
-  heroCard: {
-    borderRadius: 24,
-    backgroundColor: surface.surfacePrimary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    padding: 20,
-  },
-  eyebrow: { fontSize: 12, fontWeight: "700", color: palette.accent, textTransform: "uppercase", letterSpacing: 1 },
-  title: { marginTop: 10, fontSize: 30, fontWeight: "700", color: surface.textPrimary },
-  description: { marginTop: 12, fontSize: 15, lineHeight: 22, color: surface.textSecondary },
-  formCard: {
-    borderRadius: 24,
-    backgroundColor: surface.surfacePrimary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    padding: 18,
-  },
-  form: { gap: 12 },
-  input: {
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    backgroundColor: surface.fieldSurface,
-    color: surface.textPrimary,
-  },
-  primaryButton: {
-    marginTop: 6,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 16,
-    backgroundColor: surface.accentSolid,
-    paddingVertical: 15,
-  },
-  primaryButtonLabel: { color: "#ffffff", fontSize: 15, fontWeight: "700" },
-  secondaryButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: surface.accentSolid,
-    backgroundColor: surface.surfacePrimary,
-    paddingVertical: 15,
-  },
-  secondaryButtonLabel: { color: surface.accentSolid, fontSize: 15, fontWeight: "700" },
+  form: { gap: space.lg },
 });

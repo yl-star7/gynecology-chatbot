@@ -63,7 +63,7 @@ export default class App extends React.Component<
         <EmbeddedWebContent
           hasError={this.state.hasError}
           initialUrl={this.initialUrl}
-          nativeTitle="Gynecology Chatbot Home"
+          nativeTitle="홈"
           onReload={this.handleReload}
           onWebViewError={this.handleWebViewError}
           reloadKey={this.state.reloadKey}

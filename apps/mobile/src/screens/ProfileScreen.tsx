@@ -1,20 +1,12 @@
 // @ts-nocheck
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Button, Card, LabeledInput } from "../components/ui";
 import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { useMobileAppSession } from "../core/MobileAppSessionProvider";
 import { useMobileServices } from "../core/MobileServicesProvider";
-import { palette, patientSurfacePalette as surface } from "../theme";
+import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../theme";
 
 export function ProfileScreen() {
   const { currentUser, signOut } = useMobileAppSession();
@@ -62,7 +54,7 @@ export function ProfileScreen() {
           setError(
             nextError instanceof Error
               ? nextError.message
-              : "프로필을 불러오지 못했습니다.",
+              : "프로필을 불러오지 못했어요.",
           );
         }
       });
@@ -74,7 +66,7 @@ export function ProfileScreen() {
 
   async function handleSave() {
     if (!currentUser || !displayName.trim() || !tonePreference.trim()) {
-      setError("이름과 채팅 톤은 비워둘 수 없습니다.");
+      setError("이름과 상담 분위기는 비워둘 수 없어요.");
       return;
     }
 
@@ -106,7 +98,7 @@ export function ProfileScreen() {
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "프로필을 저장하지 못했습니다.",
+          : "프로필을 저장하지 못했어요.",
       );
     } finally {
       setIsSaving(false);
@@ -121,213 +113,113 @@ export function ProfileScreen() {
   return (
     <MobileScreenFrame title="프로필" backHref="/home">
       <KeyboardAvoidingView
-        style={styles.keyboardArea}
+        style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.heroCard}>
-            <Text style={styles.eyebrow}>프로필</Text>
-            <Text style={styles.title}>내 정보와 상담 설정</Text>
-            <Text style={styles.description}>
-              {error ?? "로그아웃은 여기서만 노출하고, 홈은 탐색과 요약에 집중합니다."}
-            </Text>
-            <View style={styles.metaGrid}>
-              <View style={styles.metaCard}>
-                <Text style={styles.metaLabel}>이름</Text>
-                <Text style={styles.metaValue}>{displayName || "확인 중"}</Text>
-              </View>
-              <View style={styles.metaCard}>
-                <Text style={styles.metaLabel}>전화번호</Text>
-                <Text style={styles.metaValue}>{phoneNumber || "확인 중"}</Text>
-              </View>
-              <View style={styles.metaCard}>
-                <Text style={styles.metaLabel}>현재 주차</Text>
-                <Text style={styles.metaValue}>{pregnancyWeekLabel}</Text>
-              </View>
-              <View style={styles.metaCard}>
-                <Text style={styles.metaLabel}>임신 경과</Text>
-                <Text style={styles.metaValue}>{pregnancyDayCount}일</Text>
-              </View>
-            </View>
+          <View style={styles.heroSection}>
+            <Text style={styles.eyebrow}>내 정보</Text>
+            <Text style={styles.title}>프로필과 설정</Text>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
 
-          <View style={styles.sectionCard}>
+          <View style={styles.metaGrid}>
+            <MetaCard label="이름" value={displayName || "확인 중"} />
+            <MetaCard label="전화번호" value={phoneNumber || "확인 중"} />
+            <MetaCard label="현재 주차" value={pregnancyWeekLabel} />
+            <MetaCard label="임신 경과" value={`${pregnancyDayCount}일`} />
+          </View>
+
+          <Card>
             <Text style={styles.sectionTitle}>설정</Text>
             <View style={styles.form}>
               <LabeledInput label="이름" value={displayName} onChangeText={setDisplayName} />
-              <LabeledInput label="태명" value={babyNickname} onChangeText={setBabyNickname} />
-              <LabeledInput label="예정 출산일" value={dueDate} onChangeText={setDueDate} placeholder="2026-08-01" />
-              <LabeledInput label="주 진료 병원" value={hospitalName} onChangeText={setHospitalName} />
+              <LabeledInput label="태명" value={babyNickname} onChangeText={setBabyNickname} placeholder="우리 아기 별명" />
+              <LabeledInput label="출산 예정일" value={dueDate} onChangeText={setDueDate} placeholder="2026-08-01" />
+              <LabeledInput label="병원" value={hospitalName} onChangeText={setHospitalName} placeholder="다니고 계신 산부인과" />
               <LabeledInput label="알림 시간" value={notificationTime} onChangeText={setNotificationTime} placeholder="08:30" />
-              <LabeledInput label="채팅 톤" value={tonePreference} onChangeText={setTonePreference} placeholder="차분하게" />
-              <Pressable style={styles.primaryButton} onPress={handleSave}>
-                <Text style={styles.primaryButtonLabel}>
-                  {isSaving ? "저장 중" : "프로필 저장"}
-                </Text>
-              </Pressable>
+              <LabeledInput label="상담 분위기" value={tonePreference} onChangeText={setTonePreference} placeholder="차분하게, 친근하게" />
+              <Button label={isSaving ? "저장 중..." : "저장하기"} onPress={handleSave} disabled={isSaving} />
             </View>
-          </View>
+          </Card>
 
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>세션 관리</Text>
-            <Text style={styles.description}>
-              계정과 설정을 정리한 뒤, 필요할 때만 여기서 세션을 종료합니다.
-            </Text>
-            <Pressable style={styles.secondaryButton} onPress={handleLogout}>
-              <Text style={styles.secondaryButtonLabel}>로그아웃</Text>
-            </Pressable>
-          </View>
+          <Button label="로그아웃" variant="text" onPress={handleLogout} />
         </ScrollView>
       </KeyboardAvoidingView>
     </MobileScreenFrame>
   );
 }
 
-function LabeledInput({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  placeholder?: string;
-}) {
+function MetaCard({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={palette.subInk}
-        style={styles.input}
-      />
+    <View style={[styles.metaCard, shadows.card]}>
+      <Text style={styles.metaLabel}>{label}</Text>
+      <Text style={styles.metaValue}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboardArea: {
+  flex: {
     flex: 1,
   },
   content: {
     flexGrow: 1,
-    padding: 20,
-    paddingBottom: 120,
-    gap: 16,
+    padding: space.xl,
+    paddingBottom: 60,
+    gap: space.lg,
   },
-  heroCard: {
-    borderRadius: 24,
-    backgroundColor: surface.surfacePrimary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    padding: 20,
+  heroSection: {
+    paddingHorizontal: 4,
   },
   eyebrow: {
-    fontSize: 12,
-    fontWeight: "700",
+    ...typo.eyebrow,
     color: palette.accent,
-    letterSpacing: 1,
-    textTransform: "uppercase",
   },
   title: {
-    marginTop: 10,
-    fontSize: 28,
-    fontWeight: "700",
+    marginTop: 6,
+    ...typo.titleMd,
     color: surface.textPrimary,
   },
-  description: {
-    marginTop: 10,
-    fontSize: 15,
-    lineHeight: 22,
-    color: surface.textSecondary,
+  errorText: {
+    marginTop: space.sm,
+    fontSize: 14,
+    lineHeight: 20,
+    color: palette.errorText,
   },
   metaGrid: {
-    marginTop: 16,
-    gap: 10,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: space.sm,
   },
   metaCard: {
-    borderRadius: 18,
-    backgroundColor: surface.surfaceSecondary,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
+    width: "47%",
+    borderRadius: radii.lg,
+    backgroundColor: surface.surfacePrimary,
+    padding: space.md,
   },
   metaLabel: {
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: "500",
     color: surface.textSecondary,
   },
   metaValue: {
-    marginTop: 6,
-    fontSize: 18,
-    fontWeight: "700",
-    color: surface.textPrimary,
-  },
-  sectionCard: {
-    borderRadius: 24,
-    backgroundColor: surface.surfacePrimary,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: surface.textPrimary,
-  },
-  form: {
-    marginTop: 16,
-    gap: 12,
-  },
-  field: {
-    gap: 8,
-  },
-  fieldLabel: {
-    fontSize: 14,
+    marginTop: space.xs,
+    fontSize: 16,
     fontWeight: "600",
     color: surface.textPrimary,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    backgroundColor: surface.fieldSurface,
+  sectionTitle: {
+    ...typo.titleSm,
     color: surface.textPrimary,
   },
-  primaryButton: {
-    marginTop: 4,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 16,
-    backgroundColor: surface.accentSolid,
-    paddingVertical: 15,
-  },
-  primaryButtonLabel: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  secondaryButton: {
-    marginTop: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 16,
-    backgroundColor: surface.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    paddingVertical: 15,
-  },
-  secondaryButtonLabel: {
-    color: surface.accentSolid,
-    fontSize: 15,
-    fontWeight: "700",
+  form: {
+    marginTop: space.lg,
+    gap: space.md,
   },
 });

@@ -2,10 +2,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { Pressable } from "./ui";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useMobileAppSession } from "../core/MobileAppSessionProvider";
-import { palette, patientSurfacePalette as surface } from "../theme";
+import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../theme";
 
 export function MobileScreenFrame({
   title,
@@ -25,7 +26,7 @@ export function MobileScreenFrame({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
+      <View style={[styles.header, shadows.header]}>
         <View style={styles.leading}>
           {backHref ? (
             <Pressable
@@ -33,7 +34,7 @@ export function MobileScreenFrame({
               accessibilityLabel="뒤로 이동"
               style={styles.iconButton}
             >
-              <Ionicons name="arrow-back" size={20} color={palette.ink} />
+              <Ionicons name="chevron-back" size={22} color={palette.ink} />
             </Pressable>
           ) : null}
           <Text style={styles.title}>{title}</Text>
@@ -56,15 +57,11 @@ export function MobileScreenFrame({
 
       {showChatFab ? (
         <Pressable
-          style={styles.fab}
+          style={[styles.fab, shadows.fab]}
           onPress={() => router.push("/chat/new")}
-          accessibilityLabel="새 상담 시작"
+          accessibilityLabel="상담하기"
         >
-          <Ionicons
-            name="chatbubble-ellipses-outline"
-            size={22}
-            color="#ffffff"
-          />
+          <Ionicons name="chatbubble-ellipses" size={24} color="#ffffff" />
         </Pressable>
       ) : null}
     </SafeAreaView>
@@ -77,70 +74,58 @@ const styles = StyleSheet.create({
     backgroundColor: surface.pageBackground,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: space.xl,
+    paddingVertical: space.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderBottomColor: surface.strokeSubtle,
+    backgroundColor: surface.pageBackground,
   },
   leading: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: space.sm,
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: surface.surfacePrimary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
   },
   title: {
-    fontSize: 18,
-    fontWeight: "700",
+    ...typo.titleSm,
     color: palette.ink,
   },
   profileButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: surface.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
+    backgroundColor: surface.surfaceAccent,
   },
   profileButtonLabel: {
     fontSize: 14,
-    fontWeight: "700",
-    color: palette.ink,
+    fontWeight: "600",
+    color: palette.accent,
   },
   trailingSpacer: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
   },
   body: {
     flex: 1,
   },
   fab: {
     position: "absolute",
-    right: 20,
-    bottom: 28,
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    right: space.xl,
+    bottom: space.xxxl,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: surface.accentSolid,
-    shadowColor: "#000000",
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 6,
   },
 });

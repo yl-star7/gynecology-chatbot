@@ -2,10 +2,11 @@
 import type { LinkTargetContent } from "@gynecology-chatbot/app-core";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text } from "react-native";
+import { Button, Card } from "../components/ui";
 import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { useMobileServices } from "../core/MobileServicesProvider";
-import { patientSurfacePalette as surface } from "../theme";
+import { patientSurfacePalette as surface, space, typo } from "../theme";
 
 export function LinkTargetScreen({
   target,
@@ -25,60 +26,40 @@ export function LinkTargetScreen({
         setContent(nextContent);
       })
       .catch((nextError) => {
-        setError(nextError instanceof Error ? nextError.message : "링크 콘텐츠를 불러오지 못했습니다.");
+        setError(nextError instanceof Error ? nextError.message : "내용을 불러오지 못했어요.");
       });
   }, [entityId, services, target]);
 
   return (
-    <MobileScreenFrame title="참고 콘텐츠" showProfileButton showChatFab>
-      <View style={styles.container}>
-        <View style={styles.card}>
-          <Text style={styles.title}>{content?.title ?? "콘텐츠를 불러오는 중입니다."}</Text>
-          <Text style={styles.body}>{error ?? content?.body ?? "앱 내부 콘텐츠를 조회하고 있습니다."}</Text>
-          <Pressable style={styles.button} onPress={() => router.replace("/home")}>
-            <Text style={styles.buttonLabel}>홈으로 돌아가기</Text>
-          </Pressable>
-        </View>
-      </View>
+    <MobileScreenFrame title="상세 보기" showProfileButton showChatFab>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <Card>
+          <Text style={styles.title}>{content?.title ?? "불러오는 중이에요"}</Text>
+          <Text style={styles.body}>{error ?? content?.body ?? "잠시만 기다려주세요."}</Text>
+        </Card>
+        <Button label="홈으로 돌아가기" variant="text" onPress={() => router.replace("/home")} />
+      </ScrollView>
     </MobileScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 24,
-    justifyContent: "center",
-  },
-  card: {
-    borderRadius: 24,
-    backgroundColor: surface.surfacePrimary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    padding: 20,
+  scrollContent: {
+    flexGrow: 1,
+    padding: space.xl,
+    paddingBottom: 120,
+    gap: space.lg,
   },
   title: {
-    fontSize: 30,
+    fontSize: 22,
     fontWeight: "700",
+    lineHeight: 30,
     color: surface.textPrimary,
   },
   body: {
-    marginTop: 14,
-    fontSize: 16,
+    marginTop: space.md,
+    ...typo.body,
     lineHeight: 24,
     color: surface.textSecondary,
-  },
-  button: {
-    marginTop: 24,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: surface.accentSolid,
-    alignSelf: "flex-start",
-  },
-  buttonLabel: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "700",
   },
 });

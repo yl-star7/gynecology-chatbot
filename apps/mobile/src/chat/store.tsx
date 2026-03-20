@@ -17,7 +17,7 @@ export function ChatSessionsProvider({ children }: { children: React.ReactNode }
     () => ({
       sessions,
       getSession(sessionId) {
-        return sessions.find((session) => session.id === sessionId) ?? { id: sessionId, title: "새 대화", messages: [] };
+        return sessions.find((session) => session.id === sessionId) ?? { id: sessionId, title: "새 상담", messages: [] };
       },
       replaceSession(session) {
         setSessions((current) => [session, ...current.filter((item) => item.id !== session.id)]);

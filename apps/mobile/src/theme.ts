@@ -23,3 +23,6 @@ export const patientSurfacePalette = {
 export function resolveNativePalette(themeKey?: string | null) {
   return getMobileThemePreset(resolveMobileThemeKey(themeKey)).native;
 }
+
+// Re-export design tokens for convenience
+export { space, radii, typo, shadows } from "./tokens";

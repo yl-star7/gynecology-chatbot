@@ -1,11 +1,13 @@
 // @ts-nocheck
 import type { MobileContentListItem } from "@gynecology-chatbot/app-core";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { EmptyState, Pressable } from "../components/ui";
 import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { useMobileServices } from "../core/MobileServicesProvider";
-import { palette, patientSurfacePalette as surface } from "../theme";
+import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../theme";
 
 export function ContentListScreen({
   section,
@@ -17,40 +19,41 @@ export function ContentListScreen({
   const services = useMobileServices();
   const [items, setItems] = useState<MobileContentListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchItems = useCallback(async () => {
+    try {
+      const nextItems = await services.knowledgePort.listContentItems(section);
+      setItems(nextItems);
+      setError(null);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "목록을 불러오지 못했어요.");
+    }
+  }, [section, services]);
 
   useEffect(() => {
     let mounted = true;
+    fetchItems().then(() => { if (!mounted) { /* cancelled */ } });
+    return () => { mounted = false; };
+  }, [fetchItems]);
 
-    services.knowledgePort
-      .listContentItems(section)
-      .then((nextItems) => {
-        if (mounted) {
-          setItems(nextItems);
-          setError(null);
-        }
-      })
-      .catch((nextError) => {
-        if (mounted) {
-          setError(
-            nextError instanceof Error
-              ? nextError.message
-              : "콘텐츠 목록을 불러오지 못했습니다.",
-          );
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [section, services]);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchItems();
+    setRefreshing(false);
+  }, [fetchItems]);
 
   return (
     <MobileScreenFrame title={title} showProfileButton showChatFab>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>{section}</Text>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={palette.accent} />}
+      >
+        <Text style={styles.eyebrow}>{section === "knowledge" ? "알아두면 좋은 것들" : "나의 기록"}</Text>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.description}>
-          {error ?? "등록된 문헌을 선택해 상세 내용을 확인할 수 있습니다."}
+          {error ?? "원하는 항목을 눌러 자세히 읽어보세요."}
         </Text>
 
         <View style={styles.list}>
@@ -58,20 +61,25 @@ export function ContentListScreen({
             items.map((item) => (
               <Pressable
                 key={item.id}
-                style={styles.itemCard}
+                style={[styles.itemCard, shadows.card]}
                 onPress={() =>
                   router.push(`/chat/link/${item.section}?entityId=${encodeURIComponent(item.id)}`)
                 }
               >
                 <Text style={styles.itemEyebrow}>{item.slug}</Text>
                 <Text style={styles.itemTitle}>{item.title}</Text>
-                <Text style={styles.itemPreview}>{item.preview}</Text>
+                <Text style={styles.itemPreview} numberOfLines={2}>{item.preview}</Text>
+                <View style={styles.itemArrow}>
+                  <Ionicons name="chevron-forward" size={16} color={surface.textSecondary} />
+                </View>
               </Pressable>
             ))
           ) : (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>등록된 콘텐츠가 아직 없습니다.</Text>
-            </View>
+            <EmptyState
+              icon={section === "knowledge" ? "book-outline" : "document-text-outline"}
+              title={error ? "불러올 수 없어요" : "아직 비어있어요"}
+              description={error ? "다시 시도해주세요." : "등록된 내용이 없어요."}
+            />
           )}
         </View>
       </ScrollView>
@@ -81,67 +89,52 @@ export function ContentListScreen({
 
 const styles = StyleSheet.create({
   content: {
-    padding: 20,
+    padding: space.xl,
     paddingBottom: 120,
   },
   eyebrow: {
-    fontSize: 12,
-    fontWeight: "700",
+    ...typo.eyebrow,
     color: palette.accent,
-    textTransform: "uppercase",
-    letterSpacing: 1,
   },
   title: {
-    marginTop: 10,
-    fontSize: 28,
-    fontWeight: "700",
+    marginTop: space.sm,
+    ...typo.titleMd,
     color: palette.ink,
   },
   description: {
-    marginTop: 12,
-    fontSize: 15,
-    lineHeight: 22,
+    marginTop: 6,
+    ...typo.body,
     color: palette.subInk,
   },
   list: {
-    marginTop: 20,
-    gap: 12,
+    marginTop: space.xl,
+    gap: space.sm,
   },
   itemCard: {
-    padding: 18,
-    borderRadius: 18,
+    padding: space.lg,
+    borderRadius: radii.lg,
     backgroundColor: surface.surfacePrimary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
   },
   itemEyebrow: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
     color: palette.accent,
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    letterSpacing: 0.3,
   },
   itemTitle: {
-    marginTop: 10,
-    fontSize: 20,
+    marginTop: space.xs,
+    fontSize: 16,
     fontWeight: "700",
     color: palette.ink,
   },
   itemPreview: {
-    marginTop: 8,
-    fontSize: 14,
-    lineHeight: 20,
+    marginTop: space.xs,
+    ...typo.caption,
     color: palette.subInk,
   },
-  emptyCard: {
-    padding: 18,
-    borderRadius: 18,
-    backgroundColor: surface.surfacePrimary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: palette.subInk,
+  itemArrow: {
+    position: "absolute",
+    right: space.lg,
+    top: "50%",
   },
 });

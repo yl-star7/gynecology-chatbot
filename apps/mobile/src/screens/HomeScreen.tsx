@@ -1,37 +1,40 @@
 // @ts-nocheck
 import type { HomeViewData } from "@gynecology-chatbot/app-core";
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Card, Pressable } from "../components/ui";
 import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { useMobileServices } from "../core/MobileServicesProvider";
-import { palette, patientSurfacePalette as surface } from "../theme";
+import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../theme";
 
 export function HomeScreen() {
   const services = useMobileServices();
   const [home, setHome] = useState<HomeViewData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchHome = useCallback(async () => {
+    try {
+      const nextHome = await services.homePort.getHomeView();
+      setHome(nextHome);
+      setError(null);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "홈 정보를 불러오지 못했어요.");
+    }
+  }, [services]);
 
   useEffect(() => {
     let isMounted = true;
+    fetchHome().then(() => { if (!isMounted) { /* cancelled */ } });
+    return () => { isMounted = false; };
+  }, [fetchHome]);
 
-    services.homePort
-      .getHomeView()
-      .then((nextHome) => {
-        if (isMounted) {
-          setHome(nextHome);
-        }
-      })
-      .catch((nextError) => {
-        if (isMounted) {
-          setError(nextError instanceof Error ? nextError.message : "홈 데이터를 불러오지 못했습니다.");
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [services]);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchHome();
+    setRefreshing(false);
+  }, [fetchHome]);
 
   const calendarDays = useMemo(
     () =>
@@ -47,41 +50,51 @@ export function HomeScreen() {
 
   return (
     <MobileScreenFrame title="홈" showProfileButton showChatFab>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>Gynecology Chatbot</Text>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={palette.accent} />}
+      >
+        <Text style={styles.eyebrow}>오늘의 기록</Text>
         <Text style={styles.title}>
-          {home ? `안녕하세요 ${home.userName}님, 임신 ${home.pregnancyDayCount}일차네요.` : "홈 데이터를 불러오는 중입니다."}
+          {home ? `${home.userName}님,\n임신 ${home.pregnancyDayCount}일째예요` : "잠시만요, 준비 중이에요"}
         </Text>
         <Text style={styles.subtitle}>
-          {error ?? "캘린더, 임신수첩, 임신 지식을 한 화면에서 보고 채팅으로 이동합니다."}
+          {error ?? "오늘 하루도 아기와 함께 잘 보내고 계시죠?"}
         </Text>
 
-        <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>현재 주차</Text>
-          <Text style={styles.heroValue}>{home?.pregnancyWeekLabel ?? "정보 연결 대기"}</Text>
-        </View>
+        <Card variant="accent" style={styles.heroCard}>
+          <Text style={styles.heroLabel}>지금 우리 아기는</Text>
+          <Text style={styles.heroValue}>{home?.pregnancyWeekLabel ?? "정보를 불러오고 있어요"}</Text>
+        </Card>
 
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Calendar View</Text>
-          <Text style={styles.sectionDescription}>일자별 채팅 여부는 dot로, 감정은 색상으로 표시합니다.</Text>
+        <Card style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>이번 달 기록</Text>
+          <Text style={styles.sectionDescription}>상담한 날에는 작은 점이 표시돼요.</Text>
           <View style={styles.calendarGrid}>
             {calendarDays.map((day) => (
               <View key={day.isoDate} style={[styles.calendarCell, day.hasChat ? styles.calendarCellActive : null]}>
-                <Text style={styles.calendarLabel}>{day.dayLabel}</Text>
+                <Text style={[styles.calendarLabel, day.hasChat ? styles.calendarLabelActive : null]}>{day.dayLabel}</Text>
                 {day.hasChat ? <View style={styles.dot} /> : null}
               </View>
             ))}
           </View>
-        </View>
+        </Card>
 
         <View style={styles.shortcutRow}>
-          <Pressable style={styles.shortcutCard} onPress={() => router.push("/notebook")}>
+          <Pressable style={[styles.shortcutCard, shadows.card]} onPress={() => router.push("/notebook")}>
+            <View style={styles.shortcutIcon}>
+              <Text style={styles.shortcutIconText}>{'📓'}</Text>
+            </View>
             <Text style={styles.shortcutTitle}>임신수첩</Text>
-            <Text style={styles.shortcutDescription}>저장 답변과 체크리스트</Text>
+            <Text style={styles.shortcutDescription}>체크리스트와 메모</Text>
           </Pressable>
-          <Pressable style={styles.shortcutCard} onPress={() => router.push("/knowledge")}>
+          <Pressable style={[styles.shortcutCard, shadows.card]} onPress={() => router.push("/knowledge")}>
+            <View style={styles.shortcutIcon}>
+              <Text style={styles.shortcutIconText}>{'📖'}</Text>
+            </View>
             <Text style={styles.shortcutTitle}>임신 지식</Text>
-            <Text style={styles.shortcutDescription}>주차별 지식과 위험 신호</Text>
+            <Text style={styles.shortcutDescription}>주차별 변화 안내</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -91,76 +104,59 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 20,
+    padding: space.xl,
     paddingBottom: 120,
   },
   eyebrow: {
-    fontSize: 12,
-    fontWeight: "700",
+    ...typo.eyebrow,
     color: palette.accent,
-    letterSpacing: 1,
-    textTransform: "uppercase",
   },
   title: {
-    marginTop: 10,
-    fontSize: 28,
-    fontWeight: "700",
+    marginTop: space.sm,
+    ...typo.titleMd,
     color: palette.ink,
   },
   subtitle: {
-    marginTop: 10,
-    fontSize: 15,
-    lineHeight: 22,
+    marginTop: 6,
+    ...typo.body,
     color: palette.subInk,
   },
   heroCard: {
-    marginTop: 20,
-    padding: 18,
-    borderRadius: 20,
-    backgroundColor: surface.surfacePrimary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
+    marginTop: space.xl,
   },
   heroLabel: {
     fontSize: 13,
-    fontWeight: "700",
-    color: surface.textSecondary,
+    fontWeight: "500",
+    color: palette.accent,
   },
   heroValue: {
-    marginTop: 8,
+    marginTop: 6,
     fontSize: 22,
     fontWeight: "700",
-    color: surface.textPrimary,
+    color: palette.ink,
   },
   sectionCard: {
-    marginTop: 18,
-    padding: 18,
-    borderRadius: 20,
-    backgroundColor: surface.surfacePrimary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
+    marginTop: space.lg,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
+    ...typo.titleSm,
     color: surface.textPrimary,
   },
   sectionDescription: {
-    marginTop: 8,
-    fontSize: 14,
-    lineHeight: 20,
+    marginTop: space.xs,
+    ...typo.caption,
     color: surface.textSecondary,
   },
   calendarGrid: {
-    marginTop: 16,
+    marginTop: space.md,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 6,
   },
   calendarCell: {
-    width: "12.5%",
-    aspectRatio: 1,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: radii.sm,
     backgroundColor: surface.surfaceSecondary,
     alignItems: "center",
     justifyContent: "center",
@@ -169,37 +165,54 @@ const styles = StyleSheet.create({
     backgroundColor: surface.surfaceAccent,
   },
   calendarLabel: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: "500",
+    color: surface.textSecondary,
+  },
+  calendarLabelActive: {
+    color: palette.accent,
     fontWeight: "600",
-    color: surface.textPrimary,
   },
   dot: {
     position: "absolute",
-    bottom: 8,
-    width: 6,
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: palette.dot,
+    bottom: 6,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: palette.accent,
   },
   shortcutRow: {
-    marginTop: 18,
-    gap: 12,
+    marginTop: space.lg,
+    flexDirection: "row",
+    gap: space.md,
   },
   shortcutCard: {
-    padding: 18,
-    borderRadius: 18,
+    flex: 1,
+    padding: space.lg,
+    borderRadius: radii.lg,
     backgroundColor: surface.surfacePrimary,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
+  },
+  shortcutIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.sm,
+    backgroundColor: surface.surfaceAccent,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: space.sm,
+  },
+  shortcutIconText: {
+    fontSize: 18,
   },
   shortcutTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: "700",
     color: surface.textPrimary,
   },
   shortcutDescription: {
-    marginTop: 8,
-    fontSize: 14,
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 16,
     color: surface.textSecondary,
   },
 });
