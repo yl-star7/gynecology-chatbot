@@ -58,6 +58,8 @@ jobs:
         env:
           SERVER_DATA_PROVIDER: docker
           ADMIN_DATA_PROVIDER: mock
+          PHONE_DATA_SECRET: ci-test-secret-32-bytes-long-key!
+          ADMIN_SESSION_SECRET: ci-test-admin-session-secret
 
   build:
     name: Build
