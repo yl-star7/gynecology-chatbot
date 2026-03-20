@@ -23,6 +23,8 @@ type CliOptions = {
   bucket: string;
   apply: boolean;
   output: string | null;
+  weekFrom: number | null;
+  weekTo: number | null;
 };
 
 type WeekRow = {
@@ -49,6 +51,8 @@ function parseArgs(argv: string[]): CliOptions {
   let bucket = "pregnancy-content";
   let apply = false;
   let output: string | null = null;
+  let weekFrom: number | null = null;
+  let weekTo: number | null = null;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -67,6 +71,16 @@ function parseArgs(argv: string[]): CliOptions {
       index += 1;
       continue;
     }
+    if (arg === "--week-from") {
+      weekFrom = Number(argv[index + 1]);
+      index += 1;
+      continue;
+    }
+    if (arg === "--week-to") {
+      weekTo = Number(argv[index + 1]);
+      index += 1;
+      continue;
+    }
     if (arg === "--apply") {
       apply = true;
     }
@@ -81,6 +95,8 @@ function parseArgs(argv: string[]): CliOptions {
     bucket,
     apply,
     output: output ? resolve(output) : null,
+    weekFrom,
+    weekTo,
   };
 }
 
@@ -438,13 +454,27 @@ async function main() {
   }
 
   const rawText = await extractRawText(options.input);
-  const parsedWeeks = parsePregnancyWeekDocText(rawText);
+  const allWeeks = parsePregnancyWeekDocText(rawText);
+  const parsedWeeks = allWeeks.filter((week) => {
+    if (options.weekFrom !== null && week.weekNumber < options.weekFrom) return false;
+    if (options.weekTo !== null && week.weekNumber > options.weekTo) return false;
+    return true;
+  });
   const documentXml = readZipEntry(options.input, "word/document.xml").toString("utf8");
   const relsXml = readZipEntry(
     options.input,
     "word/_rels/document.xml.rels",
   ).toString("utf8");
-  const imagePlacements = extractImagePlacements(documentXml, relsXml);
+  const allImagePlacements = extractImagePlacements(documentXml, relsXml);
+  const imagePlacements = allImagePlacements.filter((p) => {
+    if (options.weekFrom !== null && p.weekNumber < options.weekFrom) return false;
+    if (options.weekTo !== null && p.weekNumber > options.weekTo) return false;
+    return true;
+  });
+
+  if (options.weekFrom !== null || options.weekTo !== null) {
+    console.log(`Week filter: ${options.weekFrom ?? 1} ~ ${options.weekTo ?? 40}`);
+  }
 
   if (options.output) {
     mkdirSync(dirname(options.output), { recursive: true });

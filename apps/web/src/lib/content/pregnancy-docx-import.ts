@@ -128,10 +128,10 @@ function pushSectionValue(
 }
 
 function detectSection(line: string): DaySectionKey | null {
-  if (line.includes("태아 발달 정보")) {
+  if (line.includes("태아 발달 정보") || line.includes("태아 발달정보")) {
     return "baby_development";
   }
-  if (line.includes("모체 변화 정보")) {
+  if (line.includes("모체 변화 정보") || line.includes("모체 변화정보")) {
     return "mother_changes";
   }
   if (line.includes("생활 체크리스트")) {

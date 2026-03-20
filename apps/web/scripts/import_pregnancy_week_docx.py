@@ -37,8 +37,19 @@ class WeekContent:
     days: dict[int, DayContent] = field(default_factory=dict)
 
 
+CITATION_RE = re.compile(r"\(\d+\)")
+
+
+def strip_citations(value: str) -> str:
+    cleaned = CITATION_RE.sub("", value)
+    cleaned = re.sub(r"\s+,", ",", cleaned)
+    cleaned = re.sub(r"\.\s*\.", ".", cleaned)
+    cleaned = re.sub(r",\s*(?=[.!?]|$)", "", cleaned)
+    return re.sub(r"\s{2,}", " ", cleaned).strip()
+
+
 def normalize_text(value: str) -> str:
-    return " ".join(value.strip().split())
+    return strip_citations(" ".join(value.strip().split()))
 
 
 def detect_section(value: str) -> str | None:
@@ -286,9 +297,19 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("docx_path")
     parser.add_argument("--database-url", required=True)
+    parser.add_argument("--week-from", type=int, default=None)
+    parser.add_argument("--week-to", type=int, default=None)
     args = parser.parse_args()
 
     weeks = parse_docx(Path(args.docx_path))
+    if args.week_from is not None or args.week_to is not None:
+        weeks = [
+            w for w in weeks
+            if (args.week_from is None or w.week_number >= args.week_from)
+            and (args.week_to is None or w.week_number <= args.week_to)
+        ]
+        print(f"Week filter: {args.week_from or 1} ~ {args.week_to or 40}")
+
     if not weeks:
       raise SystemExit("No weeks found in document.")
 
