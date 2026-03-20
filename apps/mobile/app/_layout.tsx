@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { ChatSessionsProvider } from "../src/chat/store";
 import { MobileAppSessionProvider } from "../src/core/MobileAppSessionProvider";
 import { MobileServicesProvider } from "../src/core/MobileServicesProvider";
 import { usePushNotifications } from "../hooks/usePushNotifications";
@@ -40,8 +41,10 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <MobileServicesProvider>
         <MobileAppSessionProvider>
-          <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false }} />
+          <ChatSessionsProvider>
+            <StatusBar style="dark" />
+            <Stack screenOptions={{ headerShown: false }} />
+          </ChatSessionsProvider>
         </MobileAppSessionProvider>
       </MobileServicesProvider>
     </SafeAreaProvider>
