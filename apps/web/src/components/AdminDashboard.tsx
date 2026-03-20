@@ -7,6 +7,7 @@ import { AdminConsoleShell } from "./admin/AdminConsoleShell";
 import { AdminContentSection } from "./admin/AdminContentSection";
 import { AdminMetricsBar } from "./admin/AdminMetricsBar";
 import { AdminMonitoringSection } from "./admin/AdminMonitoringSection";
+import { AdminOperationsPanel } from "./admin/AdminOperationsPanel";
 import { useAdminDashboardState } from "./admin/useAdminDashboardState";
 
 interface AdminDashboardProps {
@@ -34,6 +35,7 @@ export default function AdminDashboard({
     >
       <section id="operations">
         <AdminMetricsBar metrics={dashboard.metrics} />
+        <AdminOperationsPanel />
       </section>
       <section id="accounts">
         <AdminAccountSection
