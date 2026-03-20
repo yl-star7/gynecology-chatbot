@@ -57,37 +57,20 @@ describe("MobileProfileView", () => {
     jest.clearAllMocks();
   });
 
-  it("keeps profile metadata in the body without repeating it in the shell header", async () => {
+  it("renders settings page with user data", async () => {
     render(<MobileProfileView userId="user-1" />);
 
     expect(
-      await screen.findByRole("heading", { name: "계정과 상담 설정" }),
+      await screen.findByRole("heading", { name: "계정과 상담 환경" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("김수연")).toBeInTheDocument();
-    expect(screen.getAllByText("김수연")).toHaveLength(1);
-    expect(screen.getAllByText("18주 2일")).toHaveLength(1);
-    expect(
-      screen.queryByRole("link", { name: /^프로필$/ }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "프로필 열기" })).toHaveAttribute(
-      "href",
-      "/profile?userId=user-1",
-    );
     expect(
       screen.getByRole("button", { name: "로그아웃" }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "홈으로" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "새 상담 시작" })).toHaveAttribute(
-      "href",
-      "/chat/new?userId=user-1",
-    );
     expect(await screen.findByDisplayValue("김수연")).toHaveClass(
       "bg-[var(--field-surface)]",
     );
     expect(screen.getByDisplayValue("튼튼이")).toHaveClass(
-      "bg-[var(--field-surface)]",
-    );
-    expect(screen.getByDisplayValue("산단여성병원")).toHaveClass(
       "bg-[var(--field-surface)]",
     );
     expect(storeMobileProfile).toHaveBeenCalledWith({

@@ -181,15 +181,14 @@ function renderMessagePart(
     );
   }
 
+  const fallback = part as { id?: string; title?: string; body?: string };
   return (
     <div
-      key={part.id}
+      key={fallback.id ?? "unknown"}
       className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] p-4"
     >
-      <p className="font-medium text-[var(--text)]">{part.title}</p>
-      <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">
-        {part.body}
-      </p>
+      {fallback.title ? <p className="font-medium text-[var(--text)]">{fallback.title}</p> : null}
+      {fallback.body ? <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">{fallback.body}</p> : null}
     </div>
   );
 }

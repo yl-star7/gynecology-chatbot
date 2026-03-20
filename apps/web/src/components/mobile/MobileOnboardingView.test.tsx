@@ -26,29 +26,17 @@ jest.mock("./native-bridge", () => ({
 }));
 
 describe("MobileOnboardingView", () => {
-  it("renders aligned onboarding fields with explicit labels", () => {
+  it("renders step 1 with pregnancy week input", () => {
     render(<MobileOnboardingView userId="user-1" />);
 
     expect(
-      screen.getByRole("heading", {
-        name: "몇 가지만 알려주시면 바로 시작할 수 있어요",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("현재 주차 또는 예정일")).toBeInTheDocument();
-    expect(screen.getByText("원하는 상담 톤")).toBeInTheDocument();
-    expect(screen.getByText("추가 메모")).toBeInTheDocument();
-    expect(screen.getByText("입력 예시")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "설정 저장하고 시작하기" }),
+      screen.getByRole("heading", { name: "지금 몇 주차예요?" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText("예: 24주 3일 또는 2026-07-01"),
-    ).toHaveClass("bg-[var(--field-surface)]");
+      screen.getByPlaceholderText("예: 16주 또는 2026-08-01"),
+    ).toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText("예: 차분하고 간단하게"),
-    ).toHaveClass("bg-[var(--field-surface)]");
-    expect(
-      screen.getByPlaceholderText("추가로 기억해둘 내용이 있다면 적어 주세요"),
-    ).toHaveClass("bg-[var(--field-surface)]");
+      screen.getByRole("button", { name: "다음" }),
+    ).toBeInTheDocument();
   });
 });
