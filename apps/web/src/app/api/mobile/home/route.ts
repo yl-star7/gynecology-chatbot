@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         `pregnancy_profiles?select=display_name,pregnancy_day_count,pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
       ),
       supabaseSelect<Array<{ date: string; summary: string | null }>>(
-        `calendar_logs?select=date,summary&user_id=eq.${userId}&date=gte.${month}-01&date=lt.${month}-32`,
+        `calendar_logs?select=date,summary&user_id=eq.${userId}&date=gte.${month}-01&date=lte.${month}-31`,
       ),
     ]);
 
