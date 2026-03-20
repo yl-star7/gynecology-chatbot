@@ -3,6 +3,7 @@ describe("ensureLocalPostgresReady", () => {
     jest.resetModules();
     process.env.DATABASE_URL = "postgresql://test";
     process.env.LOCAL_DB_SCHEMA = "gynecology_local";
+    process.env.PHONE_DATA_SECRET = "test-secret-key-must-be-32bytes!";
   });
 
   test("inserts chat sessions before seed data that references them", async () => {
