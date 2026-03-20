@@ -9,9 +9,18 @@ import {
   fetchContentItems,
   resolveMobileUserId,
 } from "@/lib/mobile/web-mobile-api";
+import { readStoredMobileSessionToken } from "@/lib/mobile/mobile-session";
 import { MobileCard } from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
+
+type WeekItem = {
+  weekNumber: number;
+  title: string;
+  babySizeLabel: string | null;
+  babySummary: string | null;
+  motherSummary: string | null;
+};
 
 export function MobileContentIndexView({
   section,
@@ -27,6 +36,7 @@ export function MobileContentIndexView({
     resolveMobileUserId(userId ?? searchParams.get("userId")),
   );
   const [items, setItems] = useState<MobileContentListItem[]>([]);
+  const [weeks, setWeeks] = useState<WeekItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,24 +44,38 @@ export function MobileContentIndexView({
 
     fetchContentItems(section)
       .then((payload) => {
-        if (!active) {
-          return;
+        if (active) {
+          setItems(payload.items);
+          setError(null);
         }
-
-        setItems(payload.items);
-        setError(null);
       })
       .catch((nextError) => {
-        if (!active) {
-          return;
+        if (active) {
+          setError(
+            nextError instanceof Error
+              ? nextError.message
+              : "목록을 불러오지 못했어요.",
+          );
         }
-
-        setError(
-          nextError instanceof Error
-            ? nextError.message
-            : "목록을 불러오지 못했어요.",
-        );
       });
+
+    if (section === "knowledge") {
+      fetch("/api/mobile/weeks", {
+          headers: {
+            "Content-Type": "application/json",
+            ...(readStoredMobileSessionToken()
+              ? { Authorization: `Bearer ${readStoredMobileSessionToken()}` }
+              : {}),
+          },
+        })
+        .then((res) => res.json())
+        .then((data) => {
+          if (active && data.weeks) {
+            setWeeks(data.weeks);
+          }
+        })
+        .catch(() => {});
+    }
 
     return () => {
       active = false;
@@ -69,7 +93,7 @@ export function MobileContentIndexView({
       <div className="grid gap-4">
         <MobileCard as="header" className="rounded-[26px] p-5 backdrop-blur">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent-dark)]">
-            {section}
+            {section === "knowledge" ? "임신 지식" : "나의 기록"}
           </p>
           <h1 className="mt-2 text-[28px] font-semibold tracking-[-0.04em] text-[var(--text)]">
             {title}
@@ -79,9 +103,43 @@ export function MobileContentIndexView({
           </p>
         </MobileCard>
 
-        <div className="grid gap-3">
-          {items.length > 0 ? (
-            items.map((item) => (
+        {section === "knowledge" && weeks.length > 0 ? (
+          <div className="grid gap-2">
+            <p className="px-1 text-sm font-semibold text-[var(--text)]">주차별 임신 정보</p>
+            <div className="grid gap-2">
+              {weeks.map((week) => (
+                <Link
+                  key={week.weekNumber}
+                  href={appendUserIdToPath(
+                    `/link/knowledge?entityId=week-${week.weekNumber}`,
+                    resolvedUserId,
+                  )}
+                  className="flex items-center gap-3 rounded-[16px] border border-[var(--line)] bg-[var(--panel-strong)] p-4"
+                >
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)]">
+                    <span className="text-sm font-bold text-[var(--accent-dark)]">{week.weekNumber}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-[var(--text)]">{week.title}</p>
+                    <p className="mt-0.5 truncate text-xs text-[var(--text-soft)]">
+                      {week.babySizeLabel ? `${week.babySizeLabel} 크기` : ""}{week.babySizeLabel && week.babySummary ? " · " : ""}{week.babySummary ? week.babySummary.slice(0, 40) : ""}
+                    </p>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-soft)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {items.length > 0 ? (
+          <div className="grid gap-2">
+            {section === "knowledge" && weeks.length > 0 ? (
+              <p className="mt-2 px-1 text-sm font-semibold text-[var(--text)]">참고 문서</p>
+            ) : null}
+            {items.map((item) => (
               <Link
                 key={item.id}
                 href={appendUserIdToPath(
@@ -100,13 +158,13 @@ export function MobileContentIndexView({
                   {item.preview}
                 </p>
               </Link>
-            ))
-          ) : (
-            <MobileCard as="div" className="rounded-[22px] p-5 text-sm text-[var(--text-soft)]">
-              아직 등록된 내용이 없어요.
-            </MobileCard>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : weeks.length === 0 ? (
+          <MobileCard as="div" className="rounded-[22px] p-5 text-sm text-[var(--text-soft)]">
+            아직 등록된 내용이 없어요.
+          </MobileCard>
+        ) : null}
       </div>
     </MobileShell>
   );
