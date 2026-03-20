@@ -29,7 +29,6 @@
 - [ ] Expo push notification 인증서 설정 (docs/PUSH_SETUP.md 참조)
 - [ ] pg_cron에 proactive trigger URL 교체 (내재화된 `/api/admin/proactive/trigger` 사용)
 
-## P3 (다음 스프린트)
+## P3
 
-- [ ] 오프라인 지원 (서비스워커 / 로컬 캐시)
-- [ ] 다국어 지원 (i18n)
+없음. 오프라인/i18n은 현 제품 범위에서 불필요.
