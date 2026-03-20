@@ -44,7 +44,9 @@ export const users = pgTable(
   {
     id: uuid("id").primaryKey(),
     role: text("role").notNull().default("user"),
-    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    phoneNumberEncrypted: text("phone_number_encrypted").notNull(),
+    phoneNumberBlindIndex: text("phone_number_blind_index").notNull(),
+    phoneNumberLast4: varchar("phone_number_last4", { length: 4 }).notNull(),
     accountStatus: text("account_status").notNull().default("active"),
     phoneVerifiedAt: timestamp("phone_verified_at", { withTimezone: true }),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
@@ -56,7 +58,9 @@ export const users = pgTable(
       .default(utcNow),
   },
   (table) => ({
-    phoneNumberIdx: uniqueIndex("idx_users_phone_number").on(table.phoneNumber),
+    phoneNumberBlindIndexIdx: uniqueIndex("idx_users_phone_number_blind_index").on(
+      table.phoneNumberBlindIndex,
+    ),
     roleCheck: check(
       "users_role_check",
       sql`${table.role} IN ('user', 'admin', 'super_admin')`,
@@ -93,6 +97,7 @@ export const pregnancyProfiles = pgTable(
       .default(true),
     weekOverride: integer("week_override"),
     dayOverride: integer("day_override"),
+    pushToken: text("push_token"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .default(utcNow),
@@ -146,7 +151,9 @@ export const phoneVerificationRequests = pgTable(
   "phone_verification_requests",
   {
     id: uuid("id").primaryKey().default(genRandomUuid),
-    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    phoneNumberEncrypted: text("phone_number_encrypted").notNull(),
+    phoneNumberBlindIndex: text("phone_number_blind_index").notNull(),
+    phoneNumberLast4: varchar("phone_number_last4", { length: 4 }).notNull(),
     verificationSid: varchar("verification_sid", { length: 100 }),
     channel: text("channel").notNull().default("sms"),
     status: text("status").notNull().default("pending"),
@@ -159,7 +166,7 @@ export const phoneVerificationRequests = pgTable(
   },
   (table) => ({
     phoneCreatedIdx: index("idx_phone_verification_requests_phone_created").on(
-      table.phoneNumber,
+      table.phoneNumberBlindIndex,
       table.createdAt,
     ),
     statusCreatedIdx: index("idx_phone_verification_requests_status_created").on(
@@ -181,7 +188,9 @@ export const allowedPhoneNumbers = pgTable(
   "allowed_phone_numbers",
   {
     id: uuid("id").primaryKey().default(genRandomUuid),
-    phoneNumber: varchar("phone_number", { length: 20 }).notNull(),
+    phoneNumberEncrypted: text("phone_number_encrypted").notNull(),
+    phoneNumberBlindIndex: text("phone_number_blind_index").notNull(),
+    phoneNumberLast4: varchar("phone_number_last4", { length: 4 }).notNull(),
     displayName: varchar("display_name", { length: 100 }),
     note: text("note"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -192,8 +201,10 @@ export const allowedPhoneNumbers = pgTable(
       .default(utcNow),
   },
   (table) => ({
-    phoneNumberIdx: uniqueIndex("idx_allowed_phone_numbers_phone_number").on(
-      table.phoneNumber,
+    phoneNumberBlindIndexIdx: uniqueIndex(
+      "idx_allowed_phone_numbers_phone_number_blind_index",
+    ).on(
+      table.phoneNumberBlindIndex,
     ),
   }),
 );

@@ -22,6 +22,7 @@ const google = createGoogleGenerativeAI({
 type PregnancyProfilePromptRow = {
   pregnancy_week: number | null;
   pregnancy_day_in_week: number | null;
+  tone_preference: string | null;
 };
 
 type WeekDataRow = {
@@ -221,7 +222,7 @@ function buildWeekPromptParts(input: {
 
 async function getPromptContext(userId: string, hintedPregnancyWeek: number | null) {
   const profiles = await supabaseSelect<PregnancyProfilePromptRow[]>(
-    `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
+    `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week,tone_preference&user_id=eq.${userId}&limit=1`,
   );
 
   const pregnancyWeek = hintedPregnancyWeek ?? profiles[0]?.pregnancy_week ?? null;
@@ -258,6 +259,7 @@ async function getPromptContext(userId: string, hintedPregnancyWeek: number | nu
     dayContent,
     checklists,
     questions,
+    tonePreference: profiles[0]?.tone_preference ?? null,
   };
 }
 
@@ -389,13 +391,13 @@ function buildFallbackReply(input: {
         type: "text",
         id: `text-${Date.now()}`,
         text:
-          guidance || "질문은 정상 접수되었습니다. 잠시 후 다시 시도해 주세요.",
+          guidance || "질문이 접수됐어요. 잠시 후 다시 시도해주세요.",
       },
       {
         type: "deepLink",
         id: `link-${Date.now()}`,
         title: "임신수첩 체크리스트",
-        description: "앱 내부 화면으로 이동합니다.",
+        description: "임신수첩으로 이동해요.",
         target: "notebook",
         entityId: "visit-checklist",
       },
@@ -416,7 +418,7 @@ function parseAssistantResponse(rawText: string): ChatMessage {
           return {
             type: "text" as const,
             id: `part-fallback-${index}`,
-            text: "응답 형식을 정리하는 중 문제가 있어 텍스트로 변환했습니다.",
+            text: "응답을 정리하는 중 문제가 있었어요.",
           };
         }
 
@@ -508,7 +510,7 @@ export async function POST(request: NextRequest) {
       await supabaseInsert("chat_sessions", {
         id: sessionId,
         user_id: userId,
-        title: text.slice(0, 40) || "새 대화",
+        title: text.slice(0, 40) || "새 상담",
         status: "active",
       });
     }
@@ -594,6 +596,9 @@ export async function POST(request: NextRequest) {
               "deepLink target은 knowledge 또는 notebook만 사용하세요.",
               "추가로 현재 주차 체크리스트와 질문이 있으면 survey/text part로 포함하세요.",
               "대화는 세션 단위로 이어지므로 현재 세션 맥락을 유지하세요.",
+              ...(promptContext?.tonePreference
+                ? [`사용자가 선호하는 상담 분위기: ${promptContext.tonePreference}. 이 톤에 맞춰 응답하세요.`]
+                : []),
               "임신 주차 정보가 주어지면 그 주차와 인접 주차 기준으로 설명한다고 가정하세요.",
               "RAG 문맥이 주어지면 그 범위 안에서만 참고 정보를 요약하세요.",
               "의료 응답은 진단 확정 표현을 피하고 필요한 경우 진료 권고를 포함하세요.",
@@ -680,7 +685,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         assistantMessage: buildFallbackReply({
-          text: "잠시 후 다시 시도해 주세요.",
+          text: "잠시 후 다시 시도해주세요.",
           hasImages: false,
         }),
       },
