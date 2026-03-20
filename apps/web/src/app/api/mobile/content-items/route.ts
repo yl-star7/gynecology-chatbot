@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     }
 
     const rows = await supabaseSelect<ContentItemRow[]>(
-      `content.knowledge_items?select=id,slug,section,title,body&section=eq.${section}&status=eq.published&order=updated_at.desc`,
+      `published_knowledge_items?select=id,slug,section,title,body&section=eq.${section}&order=updated_at.desc`,
     );
 
     return NextResponse.json({

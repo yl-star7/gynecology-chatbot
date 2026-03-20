@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     const column = entityId ? `id=eq.${entityId}` : `section=eq.${target}&status=eq.published`;
     const items = await supabaseSelect<Array<{ title: string; section: string; body: string }>>(
-      `content.knowledge_items?select=title,section,body&${column}&limit=1`,
+      `published_knowledge_items?select=title,section,body&${column}&limit=1`,
     );
 
     if (!items[0]) {
