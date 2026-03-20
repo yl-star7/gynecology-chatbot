@@ -71,6 +71,48 @@ const styles = StyleSheet.create({
 ### 문구 톤
 
 - 산모(환자) 대상 문구는 **-어요/-해요** 체를 사용
+- 어드민 대상 문구는 **-습니다** 체 허용 (운영자용)
 - 개발자 용어 금지 (세션, 엔드포인트, 렌더링 등)
 - 영문 eyebrow/라벨 금지 - 모두 한국어
 - 에러 메시지도 따뜻한 톤 유지 ("~하지 못했어요. 다시 시도해주세요.")
+
+---
+
+## 웹 API 규칙
+
+`apps/web/src/app/api/` 에서 API 라우트를 작성할 때 따르는 규칙입니다.
+
+### 인증 패턴
+
+- **모바일 API** (`/api/mobile/*`): `requireMobileSession(request, hintedUserId)` 사용
+- **어드민 API** (`/api/admin/*`): `readAdminSessionUser()` + null 체크 → 401
+- 모든 어드민 write 엔드포인트에 반드시 인증 체크 포함
+
+### Rate Limiting
+
+- 채팅 엔드포인트에 `checkRateLimit` 적용 (사용자당 20회/분)
+- `@/lib/mobile/rate-limit.ts`의 `checkRateLimit(key, limit, windowMs)` 사용
+- 429 응답 시 `Retry-After` 헤더 포함
+
+### 어드민 엔드포인트 목록
+
+| 엔드포인트 | 메서드 | 설명 |
+|------------|--------|------|
+| `/api/admin/analytics` | GET | 실시간 운영 메트릭 6종 |
+| `/api/admin/push/send` | POST | 푸시 알림 수동 발송 |
+| `/api/admin/proactive/trigger` | POST | Proactive 메시지 트리거 |
+| `/api/admin/schedule` | GET/PUT | 알림 스케줄 설정 |
+| `/api/admin/content/weeks` | GET | 주차 목록 |
+| `/api/admin/content/weeks/[weekNumber]` | GET/POST | 주차 상세/수정 |
+| `/api/admin/content/knowledge-items` | GET/POST | 지식 문서 CRUD |
+| `/api/admin/content/checklists` | GET/POST | 체크리스트 관리 |
+| `/api/admin/content/questions` | GET/POST | 질문 관리 |
+| `/api/admin/rag/upload` | POST | RAG 문서 업로드 |
+| `/api/admin/workflow-rules/[ruleId]` | GET/PUT/DELETE | 응답 정책 |
+| `/api/admin/allowed-phone-numbers` | GET/POST | 허용 번호 관리 |
+
+### DB 쿼리 패턴
+
+- `supabaseSelect`, `supabaseInsert`, `supabaseUpdate` 사용 (`@/lib/mobile/supabase-rest`)
+- content 스키마 테이블은 `content.` prefix 사용 (예: `content.week_checklists`)
+- public 스키마는 prefix 없이 사용 (예: `calendar_logs`)

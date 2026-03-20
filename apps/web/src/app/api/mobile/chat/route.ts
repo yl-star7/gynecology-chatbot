@@ -12,6 +12,7 @@ import {
   supabaseSelect,
   supabaseUpdate,
 } from "@/lib/mobile/supabase-rest";
+import { checkRateLimit } from "@/lib/mobile/rate-limit";
 import { recordUserAction } from "@/lib/mobile/user-action-log";
 
 const google = createGoogleGenerativeAI({
@@ -499,6 +500,20 @@ export async function POST(request: NextRequest) {
       );
     }
     const { userId } = await requireMobileSession(request, hintedUserId);
+
+    const rateCheck = checkRateLimit(`chat:${userId}`, 20, 60_000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: "너무 많은 요청이에요. 잠시 후 다시 시도해주세요." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((rateCheck.resetAt - Date.now()) / 1000)),
+            "X-RateLimit-Remaining": "0",
+          },
+        },
+      );
+    }
 
     const existingSessions = await supabaseSelect<
       Array<{ id: string; title: string }>

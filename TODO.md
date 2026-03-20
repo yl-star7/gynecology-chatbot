@@ -17,7 +17,7 @@
 - [ ] pg_cron 설정 배포 (`supabase/pg_cron_setup.sql`의 URL/키 교체)
 - [ ] Proactive Edge Function 배포 (`supabase/functions/proactive-chat/`)
 - [ ] Expo push notification 인증서 설정 (iOS APNs, Android FCM)
-- [ ] Gemini API 키 프로덕션 설정 확인
+- [x] Gemini API 키 프로덕션 설정 확인 (GEMINI_API_KEY 설정됨)
 
 ## P3 (다음 스프린트)
 
