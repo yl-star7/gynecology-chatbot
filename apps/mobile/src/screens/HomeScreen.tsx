@@ -17,13 +17,14 @@ const CALENDAR_CELL_SIZE = Math.floor(
   (Dimensions.get("window").width - OUTER_H_PADDING - CARD_H_PADDING - CALENDAR_GAP * (CALENDAR_COLS - 1)) / CALENDAR_COLS,
 );
 
-function getCellOpacity(day) {
-  if (!day.hasChat && !day.emotionTone) return 0;
-  let score = 0;
-  if (day.hasChat) score += 1;
-  if (day.emotionTone) score += 1;
-  if (day.summary) score += 1;
-  return Math.min(score / 3, 1);
+function getDotColor(day) {
+  if (day.emotionTone === "joyful") return "#5b7d6a";
+  if (day.emotionTone === "calm") return palette.accent;
+  if (day.emotionTone === "anxious") return "#b67087";
+  if (day.emotionTone === "tired") return "#a46d3e";
+  if (day.emotionTone === "sad") return palette.subInk;
+  if (day.hasChat) return palette.accent;
+  return null;
 }
 
 export function HomeScreen() {
@@ -89,26 +90,26 @@ export function HomeScreen() {
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>이번 달 기록</Text>
           <Text style={styles.sectionDescription}>날짜를 눌러 기록을 확인해보세요.</Text>
+          <View style={styles.weekdayRow}>
+            {["일", "월", "화", "수", "목", "금", "토"].map((d) => (
+              <Text key={d} style={styles.weekdayLabel}>{d}</Text>
+            ))}
+          </View>
           <View style={styles.calendarGrid}>
             {calendarDays.map((day) => {
-              const activity = getCellOpacity(day);
-              const hasActivity = day.hasChat || day.emotionTone;
+              const dotColor = getDotColor(day);
               return (
                 <Pressable
                   key={day.isoDate}
-                  style={[
-                    styles.calendarCell,
-                    hasActivity && { backgroundColor: `rgba(212, 142, 165, ${0.15 + activity * 0.55})` },
-                  ]}
+                  style={styles.calendarCell}
                   onPress={() => {
                     if (day.isoDate && !day.isoDate.startsWith("placeholder")) {
                       router.push(`/chat/link/records?entityId=${day.isoDate}`);
                     }
                   }}
                 >
-                  <Text style={[styles.calendarLabel, hasActivity && styles.calendarLabelActive]}>
-                    {day.dayLabel}
-                  </Text>
+                  <Text style={styles.calendarLabel}>{day.dayLabel}</Text>
+                  <View style={[styles.dot, dotColor ? { backgroundColor: dotColor } : styles.dotHidden]} />
                 </Pressable>
               );
             })}
@@ -196,14 +197,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  weekdayRow: {
+    marginTop: space.md,
+    flexDirection: "row",
+    gap: CALENDAR_GAP,
+  },
+  weekdayLabel: {
+    width: CALENDAR_CELL_SIZE,
+    textAlign: "center",
+    fontSize: 11,
+    fontWeight: "600",
+    color: surface.textSecondary,
+  },
   calendarLabel: {
     fontSize: 13,
     fontWeight: "500",
-    color: surface.textSecondary,
+    color: surface.textPrimary,
   },
-  calendarLabelActive: {
-    color: palette.ink,
-    fontWeight: "700",
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    marginTop: 2,
+  },
+  dotHidden: {
+    backgroundColor: "transparent",
   },
   shortcutRow: {
     marginTop: space.lg,
