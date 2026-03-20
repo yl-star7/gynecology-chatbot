@@ -56,6 +56,35 @@ function createUserMessage(text: string, imageUri: string): ChatMessage {
   };
 }
 
+function SurveyPart({ part }: { part: { title?: string; body?: string; choices?: { id: string; label: string }[] } }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  return (
+    <View style={styles.surveyBlock}>
+      {part.title ? <Text style={styles.partTitle}>{part.title}</Text> : null}
+      {part.body ? <Text style={styles.surveyBody}>{part.body}</Text> : null}
+      {part.choices?.length ? (
+        <View style={styles.surveyChoices}>
+          {part.choices.map((choice) => (
+            <Pressable
+              key={choice.id}
+              style={({ pressed }) => [
+                styles.surveyChoice,
+                selected === choice.id && styles.surveyChoiceSelected,
+                pressed && styles.surveyChoicePressed,
+              ]}
+              onPress={() => setSelected((prev) => (prev === choice.id ? null : choice.id))}
+            >
+              <Text style={[styles.surveyChoiceLabel, selected === choice.id && styles.surveyChoiceLabelSelected]}>
+                {choice.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export function ChatScreen({ sessionId }: { sessionId: string }) {
   const services = useMobileServices();
   const { getSession, replaceSession, appendMessage } = useChatSessions();
@@ -214,25 +243,49 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
 
                 if (part.type === "deepLink") {
                   return (
-                    <Pressable key={part.id} style={styles.linkCard} onPress={() => router.push(`/chat/link/${part.target}`)}>
-                      <Text style={styles.linkTitle}>{part.title}</Text>
-                      <Text style={styles.linkBody}>{part.description}</Text>
+                    <Pressable
+                      key={part.id}
+                      style={({ pressed }) => [styles.linkCard, pressed && styles.linkCardPressed]}
+                      onPress={() => router.push(`/chat/link/${part.target}`)}
+                    >
+                      <View style={styles.linkIconCircle}>
+                        <Ionicons name="open-outline" size={18} color={palette.accent} />
+                      </View>
+                      <View style={styles.linkTextBlock}>
+                        <Text style={styles.linkTitle}>{part.title}</Text>
+                        <Text style={styles.linkBody} numberOfLines={2}>{part.description}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={palette.accent} />
                     </Pressable>
                   );
                 }
 
                 if (part.type === "carousel") {
                   return (
-                    <View key={part.id} style={styles.partBlock}>
-                      <Text style={styles.partTitle}>{part.title}</Text>
-                      {part.cards.map((card) => (
-                        <View key={card.id} style={styles.carouselCard}>
-                          <Text style={styles.carouselEyebrow}>{card.eyebrow}</Text>
-                          <Text style={styles.carouselTitle}>{card.title}</Text>
-                          <Text style={styles.carouselBody}>{card.description}</Text>
-                        </View>
-                      ))}
+                    <View key={part.id} style={styles.carouselBlock}>
+                      {part.title ? <Text style={styles.partTitle}>{part.title}</Text> : null}
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        snapToInterval={256}
+                        decelerationRate="fast"
+                        contentContainerStyle={styles.carouselScroll}
+                      >
+                        {part.cards.map((card) => (
+                          <View key={card.id} style={styles.carouselCard}>
+                            {card.eyebrow ? <Text style={styles.carouselEyebrow}>{card.eyebrow}</Text> : null}
+                            <Text style={styles.carouselTitle}>{card.title}</Text>
+                            {card.description ? <Text style={styles.carouselBody}>{card.description}</Text> : null}
+                          </View>
+                        ))}
+                      </ScrollView>
                     </View>
+                  );
+                }
+
+                if (part.type === "survey") {
+                  return (
+                    <SurveyPart key={part.id} part={part} />
                   );
                 }
 
@@ -372,6 +425,8 @@ const styles = StyleSheet.create({
   },
   messageText: {
     ...typo.body,
+    fontSize: 15,
+    lineHeight: 24,
     color: surface.textPrimary,
   },
   userText: {
@@ -382,14 +437,45 @@ const styles = StyleSheet.create({
   },
   image: {
     width: "100%",
-    height: 180,
-    borderRadius: radii.md,
+    maxHeight: 220,
+    minHeight: 140,
+    borderRadius: 16,
     backgroundColor: surface.surfaceSecondary,
+    ...Platform.select({
+      ios: {
+        shadowColor: palette.ink,
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+      },
+      android: { elevation: 3 },
+    }),
   },
   linkCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
     padding: space.md,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
     backgroundColor: surface.surfaceAccent,
+    ...shadows.card,
+  },
+  linkCardPressed: {
+    opacity: 0.75,
+  },
+  linkIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: surface.surfaceAccent,
+    borderWidth: 1.5,
+    borderColor: palette.accent + "33",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  linkTextBlock: {
+    flex: 1,
+    gap: 2,
   },
   linkTitle: {
     fontSize: 14,
@@ -397,7 +483,6 @@ const styles = StyleSheet.create({
     color: palette.accent,
   },
   linkBody: {
-    marginTop: space.xs,
     ...typo.caption,
     color: surface.textSecondary,
   },
@@ -414,27 +499,75 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: surface.textSecondary,
   },
+  carouselBlock: {
+    gap: space.sm,
+    marginHorizontal: -space.md,
+  },
+  carouselScroll: {
+    paddingHorizontal: space.md,
+    gap: space.sm,
+  },
   carouselCard: {
-    marginTop: 6,
-    padding: space.md,
-    borderRadius: radii.sm,
-    backgroundColor: surface.surfaceSecondary,
+    width: 240,
+    padding: space.lg,
+    borderRadius: radii.xl,
+    backgroundColor: surface.surfacePrimary,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: surface.strokeSubtle,
+    gap: space.xs,
+    ...shadows.card,
   },
   carouselEyebrow: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: surface.textSecondary,
+    ...typo.eyebrow,
+    color: palette.accent,
   },
   carouselTitle: {
-    marginTop: 2,
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
     color: surface.textPrimary,
+    lineHeight: 20,
   },
   carouselBody: {
-    marginTop: 2,
     ...typo.caption,
     color: surface.textSecondary,
+    lineHeight: 18,
+  },
+  surveyBlock: {
+    gap: space.sm,
+  },
+  surveyBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: surface.textSecondary,
+  },
+  surveyChoices: {
+    gap: space.xs,
+    marginTop: space.xs,
+  },
+  surveyChoice: {
+    paddingVertical: space.md,
+    paddingHorizontal: space.lg,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: surface.strokeSubtle,
+    backgroundColor: surface.surfacePrimary,
+  },
+  surveyChoiceSelected: {
+    borderColor: palette.accent,
+    backgroundColor: surface.surfaceAccent,
+  },
+  surveyChoicePressed: {
+    opacity: 0.7,
+  },
+  surveyChoiceLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: surface.textPrimary,
+    textAlign: "center",
+  },
+  surveyChoiceLabelSelected: {
+    color: palette.accent,
+    fontWeight: "600",
   },
   composer: {
     paddingHorizontal: space.md,

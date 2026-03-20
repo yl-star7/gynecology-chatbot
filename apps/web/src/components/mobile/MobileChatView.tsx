@@ -52,7 +52,7 @@ function renderMessagePart(
     return (
       <p
         key={part.id}
-        className="whitespace-pre-wrap text-[15px] leading-7 text-[var(--text)]"
+        className="whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--text)]"
       >
         {part.text}
       </p>
@@ -61,15 +61,18 @@ function renderMessagePart(
 
   if (part.type === "image") {
     return (
-      <div key={part.id} className="grid gap-2">
+      <div key={part.id} className="overflow-hidden rounded-[16px]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={part.imageUrl}
           alt={part.alt}
-          className="h-52 w-full rounded-[20px] object-cover"
+          className="w-full rounded-[16px] object-cover transition-transform hover:scale-[1.02]"
+          style={{ maxHeight: 280 }}
         />
         {part.caption ? (
-          <p className="text-xs text-[var(--text-soft)]">{part.caption}</p>
+          <p className="mt-1 px-1 text-xs text-[var(--text-soft)]">
+            {part.caption}
+          </p>
         ) : null}
       </div>
     );
@@ -85,38 +88,95 @@ function renderMessagePart(
       <Link
         key={part.id}
         href={href}
-        className="rounded-[18px] bg-[var(--accent-soft)] p-4"
+        className="flex items-center gap-3 rounded-[16px] bg-[var(--accent-soft)] p-4 transition-colors hover:bg-[var(--accent-soft)]/80"
       >
-        <p className="font-medium text-[var(--accent-dark)]">{part.title}</p>
-        <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">
-          {part.description}
-        </p>
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/10">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold text-[var(--accent-dark)]">
+            {part.title}
+          </p>
+          <p className="truncate text-sm text-[var(--text-soft)]">
+            {part.description}
+          </p>
+        </div>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--text-soft)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="flex-shrink-0"
+        >
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
       </Link>
     );
   }
 
   if (part.type === "carousel") {
     return (
-      <div key={part.id} className="grid gap-3">
-        <p className="font-medium text-[var(--text)]">{part.title}</p>
-        <div className="grid gap-3">
+      <div key={part.id} className="grid gap-2">
+        <p className="text-sm font-semibold text-[var(--text)]">{part.title}</p>
+        <div className="scrollbar-hide flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
           {part.cards.map((card) => (
             <div
               key={card.id}
-              className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] p-4"
+              className="min-w-[240px] max-w-[280px] flex-shrink-0 snap-start rounded-[20px] border border-[var(--line)] bg-[var(--panel)] p-4"
             >
-              <p className="text-xs uppercase tracking-[0.16em] text-[var(--text-soft)]">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--accent)]">
                 {card.eyebrow}
               </p>
-              <p className="mt-2 font-medium text-[var(--text)]">
+              <p className="mt-2 text-[15px] font-bold text-[var(--text)]">
                 {card.title}
               </p>
-              <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">
+              <p className="mt-1 text-sm leading-relaxed text-[var(--text-soft)]">
                 {card.description}
               </p>
             </div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (part.type === "survey") {
+    return (
+      <div key={part.id} className="grid gap-3">
+        <div>
+          <p className="font-semibold text-[var(--text)]">{part.title}</p>
+          <p className="mt-1 text-sm text-[var(--text-soft)]">{part.body}</p>
+        </div>
+        {part.choices && part.choices.length > 0 ? (
+          <div className="grid gap-2">
+            {part.choices.map((choice) => (
+              <button
+                key={choice.id}
+                type="button"
+                className="w-full rounded-[14px] border border-[var(--line)] px-4 py-3 text-left text-sm font-medium text-[var(--text)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
+              >
+                {choice.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     );
   }

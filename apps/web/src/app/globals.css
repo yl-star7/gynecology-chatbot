@@ -578,3 +578,13 @@ select:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* Utility: hide scrollbar while preserving scroll functionality */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
