@@ -50,6 +50,6 @@ const styles = StyleSheet.create({
     gap: space.xl,
   },
   centered: {
-    justifyContent: "center",
+    paddingTop: 60,
   },
 });

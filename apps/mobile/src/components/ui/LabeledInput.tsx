@@ -51,6 +51,8 @@ const styles = StyleSheet.create({
   },
   input: {
     borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: surface.strokeSubtle,
     paddingHorizontal: 16,
     paddingVertical: 14,
     backgroundColor: surface.fieldSurface,
