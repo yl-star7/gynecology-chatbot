@@ -1,5 +1,6 @@
 // @ts-nocheck
 import type { HomeViewData } from "@gynecology-chatbot/app-core";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -7,6 +8,15 @@ import { Card, Pressable } from "../components/ui";
 import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { useMobileServices } from "../core/MobileServicesProvider";
 import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../theme";
+
+function getCellOpacity(day) {
+  if (!day.hasChat && !day.emotionTone) return 0;
+  let score = 0;
+  if (day.hasChat) score += 1;
+  if (day.emotionTone) score += 1;
+  if (day.summary) score += 1;
+  return Math.min(score / 3, 1);
+}
 
 export function HomeScreen() {
   const services = useMobileServices();
@@ -70,28 +80,44 @@ export function HomeScreen() {
 
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>이번 달 기록</Text>
-          <Text style={styles.sectionDescription}>상담한 날에는 작은 점이 표시돼요.</Text>
+          <Text style={styles.sectionDescription}>날짜를 눌러 기록을 확인해보세요.</Text>
           <View style={styles.calendarGrid}>
-            {calendarDays.map((day) => (
-              <View key={day.isoDate} style={[styles.calendarCell, day.hasChat ? styles.calendarCellActive : null]}>
-                <Text style={[styles.calendarLabel, day.hasChat ? styles.calendarLabelActive : null]}>{day.dayLabel}</Text>
-                {day.hasChat ? <View style={styles.dot} /> : null}
-              </View>
-            ))}
+            {calendarDays.map((day) => {
+              const activity = getCellOpacity(day);
+              const hasActivity = day.hasChat || day.emotionTone;
+              return (
+                <Pressable
+                  key={day.isoDate}
+                  style={[
+                    styles.calendarCell,
+                    hasActivity && { backgroundColor: `rgba(212, 142, 165, ${0.15 + activity * 0.55})` },
+                  ]}
+                  onPress={() => {
+                    if (day.isoDate && !day.isoDate.startsWith("placeholder")) {
+                      router.push(`/chat/link/records?entityId=${day.isoDate}`);
+                    }
+                  }}
+                >
+                  <Text style={[styles.calendarLabel, hasActivity && styles.calendarLabelActive]}>
+                    {day.dayLabel}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </Card>
 
         <View style={styles.shortcutRow}>
-          <Pressable style={[styles.shortcutCard, shadows.card]} onPress={() => router.push("/notebook")}>
+          <Pressable style={[styles.shortcutCard, shadows.card]} onPress={() => router.replace("/notebook")}>
             <View style={styles.shortcutIcon}>
-              <Text style={styles.shortcutIconText}>{'📓'}</Text>
+              <Ionicons name="book-outline" size={20} color={palette.accent} />
             </View>
             <Text style={styles.shortcutTitle}>임신수첩</Text>
             <Text style={styles.shortcutDescription}>체크리스트와 메모</Text>
           </Pressable>
-          <Pressable style={[styles.shortcutCard, shadows.card]} onPress={() => router.push("/knowledge")}>
+          <Pressable style={[styles.shortcutCard, shadows.card]} onPress={() => router.replace("/knowledge")}>
             <View style={styles.shortcutIcon}>
-              <Text style={styles.shortcutIconText}>{'📖'}</Text>
+              <Ionicons name="library-outline" size={20} color={palette.accent} />
             </View>
             <Text style={styles.shortcutTitle}>임신 지식</Text>
             <Text style={styles.shortcutDescription}>주차별 변화 안내</Text>
@@ -151,18 +177,15 @@ const styles = StyleSheet.create({
     marginTop: space.md,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    gap: 5,
   },
   calendarCell: {
-    width: 40,
-    height: 40,
+    width: "13%",
+    aspectRatio: 1,
     borderRadius: radii.sm,
     backgroundColor: surface.surfaceSecondary,
     alignItems: "center",
     justifyContent: "center",
-  },
-  calendarCellActive: {
-    backgroundColor: surface.surfaceAccent,
   },
   calendarLabel: {
     fontSize: 13,
@@ -170,16 +193,8 @@ const styles = StyleSheet.create({
     color: surface.textSecondary,
   },
   calendarLabelActive: {
-    color: palette.accent,
-    fontWeight: "600",
-  },
-  dot: {
-    position: "absolute",
-    bottom: 6,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: palette.accent,
+    color: palette.ink,
+    fontWeight: "700",
   },
   shortcutRow: {
     marginTop: space.lg,
@@ -200,9 +215,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: space.sm,
-  },
-  shortcutIconText: {
-    fontSize: 18,
   },
   shortcutTitle: {
     fontSize: 15,
