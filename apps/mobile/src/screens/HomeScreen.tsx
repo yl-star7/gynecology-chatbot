@@ -3,11 +3,19 @@ import type { HomeViewData } from "@gynecology-chatbot/app-core";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Dimensions, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Card, Pressable } from "../components/ui";
 import { MobileScreenFrame } from "../components/MobileScreenFrame";
 import { useMobileServices } from "../core/MobileServicesProvider";
 import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../theme";
+
+const CALENDAR_COLS = 7;
+const CALENDAR_GAP = 3;
+const CARD_H_PADDING = space.xl * 2;
+const OUTER_H_PADDING = space.xl * 2;
+const CALENDAR_CELL_SIZE = Math.floor(
+  (Dimensions.get("window").width - OUTER_H_PADDING - CARD_H_PADDING - CALENDAR_GAP * (CALENDAR_COLS - 1)) / CALENDAR_COLS,
+);
 
 function getCellOpacity(day) {
   if (!day.hasChat && !day.emotionTone) return 0;
@@ -181,8 +189,8 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
   },
   calendarCell: {
-    width: 38,
-    height: 38,
+    width: CALENDAR_CELL_SIZE,
+    height: CALENDAR_CELL_SIZE,
     borderRadius: 8,
     backgroundColor: surface.surfaceSecondary,
     alignItems: "center",
