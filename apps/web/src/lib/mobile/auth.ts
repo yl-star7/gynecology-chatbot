@@ -5,6 +5,11 @@ import {
 } from "@gynecology-chatbot/app-core";
 import { createHash, randomBytes, randomUUID } from "crypto";
 import {
+  computePhoneNumberBlindIndex,
+  createPhoneNumberStorage,
+  decryptPhoneNumber,
+} from "@/lib/privacy/phone-crypto";
+import {
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
@@ -18,7 +23,8 @@ import { recordUserAction } from "./user-action-log";
 
 type UserRow = {
   id: string;
-  phone_number: string;
+  phone_number_encrypted: string;
+  phone_number_last4: string;
   account_status: "active" | "paused" | "deleted" | "pending_recovery";
   phone_verified_at: string | null;
   last_login_at: string | null;
@@ -37,7 +43,9 @@ type PregnancyProfileRow = {
 
 type AllowedPhoneNumberRow = {
   id: string;
-  phone_number: string;
+  phone_number_encrypted: string;
+  phone_number_last4: string;
+  phone_number_blind_index: string;
   display_name: string | null;
   note: string | null;
 };
@@ -243,16 +251,24 @@ async function findPregnancyProfile(userId: string) {
   return profiles[0] ?? null;
 }
 
+function toDecryptedPhoneRow<T extends { phone_number_encrypted: string }>(row: T) {
+  return {
+    ...row,
+    phone_number: decryptPhoneNumber(row.phone_number_encrypted),
+  };
+}
+
 export async function findAllowedPhoneNumber(phoneNumber: string) {
   const candidates = createPhoneCandidates(phoneNumber);
 
   for (const candidate of candidates) {
+    const blindIndex = computePhoneNumberBlindIndex(candidate);
     const rows = await supabaseSelect<AllowedPhoneNumberRow[]>(
-      `allowed_phone_numbers?select=id,phone_number,display_name,note&phone_number=eq.${encodeURIComponent(candidate)}&limit=1`,
+      `allowed_phone_numbers?select=id,phone_number_encrypted,phone_number_last4,phone_number_blind_index,display_name,note&phone_number_blind_index=eq.${encodeURIComponent(blindIndex)}&limit=1`,
     );
 
     if (rows[0]) {
-      return rows[0];
+      return toDecryptedPhoneRow(rows[0]);
     }
   }
 
@@ -260,7 +276,7 @@ export async function findAllowedPhoneNumber(phoneNumber: string) {
 }
 
 function toAuthenticatedUser(
-  user: UserRow,
+  user: UserRow & { phone_number: string },
   profile: PregnancyProfileRow | null,
 ): AuthenticatedUser {
   return {
@@ -290,12 +306,13 @@ export async function findUserByPhoneNumber(phoneNumber: string) {
   const candidates = createPhoneCandidates(phoneNumber);
 
   for (const candidate of candidates) {
+    const blindIndex = computePhoneNumberBlindIndex(candidate);
     const users = await supabaseSelect<UserRow[]>(
-      `users?select=id,phone_number,account_status,phone_verified_at,last_login_at&phone_number=eq.${encodeURIComponent(candidate)}&limit=1`,
+      `users?select=id,phone_number_encrypted,phone_number_last4,account_status,phone_verified_at,last_login_at&phone_number_blind_index=eq.${encodeURIComponent(blindIndex)}&limit=1`,
     );
 
     if (users[0]) {
-      return users[0];
+      return toDecryptedPhoneRow(users[0]);
     }
   }
 
@@ -305,7 +322,7 @@ export async function findUserByPhoneNumber(phoneNumber: string) {
 export async function getAuthenticatedUser(userId: string) {
   const [users, profile] = await Promise.all([
     supabaseSelect<UserRow[]>(
-      `users?select=id,phone_number,account_status,phone_verified_at,last_login_at&id=eq.${userId}&limit=1`,
+      `users?select=id,phone_number_encrypted,phone_number_last4,account_status,phone_verified_at,last_login_at&id=eq.${userId}&limit=1`,
     ),
     findPregnancyProfile(userId),
   ]);
@@ -314,7 +331,7 @@ export async function getAuthenticatedUser(userId: string) {
     return null;
   }
 
-  return toAuthenticatedUser(users[0], profile);
+  return toAuthenticatedUser(toDecryptedPhoneRow(users[0]), profile);
 }
 
 async function createOrUpdateSession(userId: string) {
@@ -343,8 +360,11 @@ async function recordPhoneVerificationRequest(input: {
   channel?: string;
   verifiedAt?: string | null;
 }) {
+  const storage = createPhoneNumberStorage(input.phoneNumber);
   await supabaseInsert("phone_verification_requests", {
-    phone_number: input.phoneNumber,
+    phone_number_encrypted: storage.phoneNumberEncrypted,
+    phone_number_blind_index: storage.phoneNumberBlindIndex,
+    phone_number_last4: storage.phoneNumberLast4,
     verification_sid: input.verificationSid ?? null,
     channel: input.channel ?? "sms",
     status: input.status,
@@ -362,10 +382,13 @@ async function upsertPhoneUser(
 
   if (existingUser) {
     ensureUserCanSignIn(existingUser.account_status, "sign_in");
+    const storage = createPhoneNumberStorage(phoneNumber);
 
     await supabaseUpdate(`users?id=eq.${existingUser.id}`, {
       account_status: "active",
-      phone_number: phoneNumber,
+      phone_number_encrypted: storage.phoneNumberEncrypted,
+      phone_number_blind_index: storage.phoneNumberBlindIndex,
+      phone_number_last4: storage.phoneNumberLast4,
       phone_verified_at: nextTimestamp,
       last_login_at: nextTimestamp,
       updated_at: nextTimestamp,
@@ -375,9 +398,12 @@ async function upsertPhoneUser(
   }
 
   const userId = randomUUID();
+  const storage = createPhoneNumberStorage(phoneNumber);
   const payload = {
     id: userId,
-    phone_number: phoneNumber,
+    phone_number_encrypted: storage.phoneNumberEncrypted,
+    phone_number_blind_index: storage.phoneNumberBlindIndex,
+    phone_number_last4: storage.phoneNumberLast4,
     role: "user",
     account_status: "active",
     phone_verified_at: nextTimestamp,

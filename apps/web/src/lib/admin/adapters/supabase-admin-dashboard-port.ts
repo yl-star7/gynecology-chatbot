@@ -17,6 +17,11 @@ import {
   supabaseSelect,
   supabaseUpdate,
 } from "@/lib/mobile/supabase-rest";
+import {
+  createPhoneNumberStorage,
+  decryptPhoneNumber,
+  redactPhoneNumber,
+} from "@/lib/privacy/phone-crypto";
 import { normalizePhoneNumberToE164 } from "@/lib/mobile/twilio-verify";
 
 import { MockAdminDashboardPortAdapter } from "./mock-admin-dashboard-port";
@@ -189,12 +194,12 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       supabaseSelect<
         Array<{
           id: string;
-          phone_number: string;
+          phone_number_encrypted: string;
           account_status: string;
           last_login_at: string | null;
         }>
       >(
-        "users?select=id,phone_number,account_status,last_login_at",
+        "users?select=id,phone_number_encrypted,account_status,last_login_at",
       ),
       supabaseSelect<
         Array<{
@@ -365,7 +370,7 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
         return {
           id: user.id,
           name: resolveDisplayName(user.id),
-          phoneNumber: user.phone_number,
+          phoneNumber: decryptPhoneNumber(user.phone_number_encrypted),
           status: toManagedUserStatus(user.account_status),
           latestIssue: latestAudit?.action_type ?? user.account_status,
         };
@@ -412,7 +417,7 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
               return {
                 id: user.id,
                 name: resolveDisplayName(user.id),
-                phoneNumber: user.phone_number,
+                phoneNumber: decryptPhoneNumber(user.phone_number_encrypted),
                 pregnancyWeekLabel: toPregnancyWeekLabel(
                   profile?.pregnancy_week ?? null,
                   profile?.pregnancy_day_in_week ?? null,
@@ -473,10 +478,10 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     const users = await supabaseSelect<
       Array<{
         id: string;
-        phone_number: string;
+        phone_number_encrypted: string;
         account_status: string;
       }>
-    >("users?select=id,phone_number,account_status");
+    >("users?select=id,phone_number_encrypted,account_status");
     const profiles = await supabaseSelect<
       Array<{ user_id: string; display_name: string | null }>
     >("pregnancy_profiles?select=user_id,display_name");
@@ -487,7 +492,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     return users.map((user) => ({
       id: user.id,
       name: profilesByUser.get(user.id)?.trim() || "알 수 없는 사용자",
-      phoneNumber: user.phone_number,
+      phoneNumber: decryptPhoneNumber(user.phone_number_encrypted),
       status: toManagedUserStatus(user.account_status),
       latestIssue: user.account_status,
     }));
@@ -501,19 +506,19 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     const rows = await supabaseSelect<
       Array<{
         id: string;
-        phone_number: string;
+        phone_number_encrypted: string;
         display_name: string | null;
         note: string | null;
         created_at: string;
         updated_at: string;
       }>
     >(
-      "allowed_phone_numbers?select=id,phone_number,display_name,note,created_at,updated_at&order=updated_at.desc",
+      "allowed_phone_numbers?select=id,phone_number_encrypted,display_name,note,created_at,updated_at&order=updated_at.desc",
     );
 
     return rows.map((row) => ({
       id: row.id,
-      phoneNumber: row.phone_number,
+      phoneNumber: decryptPhoneNumber(row.phone_number_encrypted),
       displayName: row.display_name,
       note: row.note,
       createdAt: row.created_at,
@@ -531,17 +536,21 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       throw new Error("backend admin configuration is required");
     }
 
+    const normalizedPhoneNumber = normalizeManagedPhoneNumber(input.phoneNumber);
+    const storage = createPhoneNumberStorage(normalizedPhoneNumber);
     const inserted = await supabaseInsert<
       Array<{
         id: string;
-        phone_number: string;
+        phone_number_encrypted: string;
         display_name: string | null;
         note: string | null;
         created_at: string;
         updated_at: string;
       }>
     >("allowed_phone_numbers", {
-      phone_number: normalizeManagedPhoneNumber(input.phoneNumber),
+      phone_number_encrypted: storage.phoneNumberEncrypted,
+      phone_number_blind_index: storage.phoneNumberBlindIndex,
+      phone_number_last4: storage.phoneNumberLast4,
       display_name: input.displayName ?? null,
       note: input.note ?? null,
       updated_at: new Date().toISOString(),
@@ -549,7 +558,10 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
 
     const createdEntry = {
       id: inserted[0]?.id ?? "",
-      phoneNumber: inserted[0]?.phone_number ?? input.phoneNumber,
+      phoneNumber:
+        inserted[0]?.phone_number_encrypted
+          ? decryptPhoneNumber(inserted[0].phone_number_encrypted)
+          : normalizedPhoneNumber,
       displayName: inserted[0]?.display_name ?? input.displayName ?? null,
       note: inserted[0]?.note ?? input.note ?? null,
       createdAt: inserted[0]?.created_at ?? new Date().toISOString(),
@@ -565,7 +577,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       reason: "allowed_phone_number_create",
       before_payload: {},
       after_payload: {
-        phone_number: createdEntry.phoneNumber,
+        phone_number: redactPhoneNumber(createdEntry.phoneNumber),
         display_name: createdEntry.displayName,
         note: createdEntry.note,
       },
@@ -585,26 +597,30 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       throw new Error("backend admin configuration is required");
     }
 
+    const normalizedPhoneNumber = normalizeManagedPhoneNumber(input.phoneNumber);
+    const storage = createPhoneNumberStorage(normalizedPhoneNumber);
     const beforeRows = await supabaseSelect<
       Array<{
         id: string;
-        phone_number: string;
+        phone_number_encrypted: string;
         display_name: string | null;
         note: string | null;
       }>
-    >(`allowed_phone_numbers?select=id,phone_number,display_name,note&id=eq.${input.id}&limit=1`);
+    >(`allowed_phone_numbers?select=id,phone_number_encrypted,display_name,note&id=eq.${input.id}&limit=1`);
 
     const updated = await supabaseUpdate<
       Array<{
         id: string;
-        phone_number: string;
+        phone_number_encrypted: string;
         display_name: string | null;
         note: string | null;
         created_at: string;
         updated_at: string;
       }>
     >(`allowed_phone_numbers?id=eq.${input.id}`, {
-      phone_number: normalizeManagedPhoneNumber(input.phoneNumber),
+      phone_number_encrypted: storage.phoneNumberEncrypted,
+      phone_number_blind_index: storage.phoneNumberBlindIndex,
+      phone_number_last4: storage.phoneNumberLast4,
       display_name: input.displayName ?? null,
       note: input.note ?? null,
       updated_at: new Date().toISOString(),
@@ -612,7 +628,10 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
 
     const updatedEntry = {
       id: updated[0]?.id ?? input.id,
-      phoneNumber: updated[0]?.phone_number ?? input.phoneNumber,
+      phoneNumber:
+        updated[0]?.phone_number_encrypted
+          ? decryptPhoneNumber(updated[0].phone_number_encrypted)
+          : normalizedPhoneNumber,
       displayName: updated[0]?.display_name ?? input.displayName ?? null,
       note: updated[0]?.note ?? input.note ?? null,
       createdAt: updated[0]?.created_at ?? new Date().toISOString(),
@@ -626,9 +645,16 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       entity_type: "allowed_phone_number",
       entity_id: updatedEntry.id,
       reason: "allowed_phone_number_update",
-      before_payload: beforeRows[0] ?? {},
+      before_payload: beforeRows[0]
+        ? {
+            ...beforeRows[0],
+            phone_number: redactPhoneNumber(
+              decryptPhoneNumber(beforeRows[0].phone_number_encrypted),
+            ),
+          }
+        : {},
       after_payload: {
-        phone_number: updatedEntry.phoneNumber,
+        phone_number: redactPhoneNumber(updatedEntry.phoneNumber),
         display_name: updatedEntry.displayName,
         note: updatedEntry.note,
       },
@@ -645,11 +671,11 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     const beforeRows = await supabaseSelect<
       Array<{
         id: string;
-        phone_number: string;
+        phone_number_encrypted: string;
         display_name: string | null;
         note: string | null;
       }>
-    >(`allowed_phone_numbers?select=id,phone_number,display_name,note&id=eq.${input.id}&limit=1`);
+    >(`allowed_phone_numbers?select=id,phone_number_encrypted,display_name,note&id=eq.${input.id}&limit=1`);
 
     await supabaseDelete(`allowed_phone_numbers?id=eq.${input.id}`);
 
@@ -660,7 +686,14 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       entity_type: "allowed_phone_number",
       entity_id: input.id,
       reason: "allowed_phone_number_delete",
-      before_payload: beforeRows[0] ?? {},
+      before_payload: beforeRows[0]
+        ? {
+            ...beforeRows[0],
+            phone_number: redactPhoneNumber(
+              decryptPhoneNumber(beforeRows[0].phone_number_encrypted),
+            ),
+          }
+        : {},
       after_payload: {},
     });
   }
@@ -675,13 +708,21 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       return;
     }
 
-    const existingUsers = await supabaseSelect<Array<{ phone_number: string }>>(
-      `users?select=phone_number&id=eq.${input.userId}&limit=1`,
+    const existingUsers = await supabaseSelect<
+      Array<{ phone_number_encrypted: string }>
+    >(
+      `users?select=phone_number_encrypted&id=eq.${input.userId}&limit=1`,
     );
-    const beforePhoneNumber = existingUsers[0]?.phone_number ?? null;
+    const beforePhoneNumber = existingUsers[0]?.phone_number_encrypted
+      ? decryptPhoneNumber(existingUsers[0].phone_number_encrypted)
+      : null;
+    const normalizedPhoneNumber = normalizeManagedPhoneNumber(input.phoneNumber);
+    const storage = createPhoneNumberStorage(normalizedPhoneNumber);
 
     await supabaseUpdate(`users?id=eq.${input.userId}`, {
-      phone_number: input.phoneNumber,
+      phone_number_encrypted: storage.phoneNumberEncrypted,
+      phone_number_blind_index: storage.phoneNumberBlindIndex,
+      phone_number_last4: storage.phoneNumberLast4,
       updated_at: new Date().toISOString(),
     });
 
@@ -692,8 +733,12 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       entity_type: "user",
       entity_id: input.userId,
       reason: input.reason,
-      before_payload: { phone_number: beforePhoneNumber },
-      after_payload: { phone_number: input.phoneNumber },
+      before_payload: {
+        phone_number: beforePhoneNumber
+          ? redactPhoneNumber(beforePhoneNumber)
+          : null,
+      },
+      after_payload: { phone_number: redactPhoneNumber(normalizedPhoneNumber) },
     });
   }
 

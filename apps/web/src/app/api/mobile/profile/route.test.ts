@@ -27,6 +27,10 @@ jest.mock("@/lib/mobile/supabase-rest", () => ({
   supabaseSelect: jest.fn(),
 }));
 
+jest.mock("@/lib/privacy/phone-crypto", () => ({
+  decryptPhoneNumber: jest.fn((value: string) => value.replace(/^enc:/, "")),
+}));
+
 import { requireMobileSession } from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
 import { GET } from "./route";
@@ -53,7 +57,7 @@ describe("GET /api/mobile/profile", () => {
       .mockResolvedValueOnce([
         {
           id: "user-1",
-          phone_number: "01012345678",
+          phone_number_encrypted: "enc:01012345678",
           account_status: "active",
         },
       ] as never)

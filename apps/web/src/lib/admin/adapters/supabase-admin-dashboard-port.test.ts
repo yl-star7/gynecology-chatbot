@@ -10,19 +10,36 @@ jest.mock("@/lib/mobile/supabase-rest", () => ({
   supabaseUpdate: jest.fn(),
 }));
 
-import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+jest.mock("@/lib/privacy/phone-crypto", () => ({
+  createPhoneNumberStorage: jest.fn((phoneNumber: string) => ({
+    phoneNumberEncrypted: `enc:${phoneNumber}`,
+    phoneNumberBlindIndex: `idx:${phoneNumber}`,
+    phoneNumberLast4: phoneNumber.slice(-4),
+  })),
+  decryptPhoneNumber: jest.fn((value: string) => value.replace(/^enc:/, "")),
+  redactPhoneNumber: jest.fn((phoneNumber: string) => `redacted:${phoneNumber}`),
+}));
 
-import { SupabaseAdminDashboardPortAdapter } from "./supabase-admin-dashboard-port";
+import { supabaseInsert, supabaseSelect, supabaseUpdate } from "@/lib/mobile/supabase-rest";
+
+import {
+  SupabaseAdminDashboardPortAdapter,
+  SupabaseAdminUserPortAdapter,
+} from "./supabase-admin-dashboard-port";
 
 const mockedSelect = supabaseSelect as jest.MockedFunction<
   typeof supabaseSelect
 >;
+const mockedInsert = supabaseInsert as jest.MockedFunction<typeof supabaseInsert>;
+const mockedUpdate = supabaseUpdate as jest.MockedFunction<typeof supabaseUpdate>;
 
 describe("SupabaseAdminDashboardPortAdapter", () => {
   const adapter = new SupabaseAdminDashboardPortAdapter();
 
   afterEach(() => {
     mockedSelect.mockReset();
+    mockedInsert.mockReset();
+    mockedUpdate.mockReset();
   });
 
   it("includes mapped user action feed data in the dashboard", async () => {
@@ -31,7 +48,8 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
         return Promise.resolve([
           {
             id: "user-1",
-            phone_number: "01012345678",
+            phone_number_encrypted: "enc:01012345678",
+            phone_number_last4: "5678",
             account_status: "active",
             last_login_at: "2026-03-17T10:00:00.000Z",
           },
@@ -135,7 +153,8 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
         return Promise.resolve([
           {
             id: "user-1",
-            phone_number: "01012345678",
+            phone_number_encrypted: "enc:01012345678",
+            phone_number_last4: "5678",
             account_status: "active",
             last_login_at: "2026-03-17T10:00:00.000Z",
           },
@@ -201,5 +220,49 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
       actionLabel: "문자 인증 확인",
       detail: "문자 인증 코드를 확인했습니다.",
     });
+  });
+
+  it("stores allowed phone numbers as encrypted payloads and redacts audit values", async () => {
+    const userAdapter = new SupabaseAdminUserPortAdapter();
+    mockedInsert
+      .mockResolvedValueOnce([
+        {
+          id: "allow-1",
+          phone_number_encrypted: "enc:+821012345678",
+          phone_number_last4: "5678",
+          display_name: "김수연",
+          note: "seed",
+          created_at: "2026-03-20T00:00:00.000Z",
+          updated_at: "2026-03-20T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const created = await userAdapter.createAllowedPhoneNumber({
+      actorId: "admin-1",
+      phoneNumber: "01012345678",
+      displayName: "김수연",
+      note: "seed",
+    });
+
+    expect(mockedInsert).toHaveBeenNthCalledWith(
+      1,
+      "allowed_phone_numbers",
+      expect.objectContaining({
+        phone_number_encrypted: "enc:+821012345678",
+        phone_number_blind_index: "idx:+821012345678",
+        phone_number_last4: "5678",
+      }),
+    );
+    expect(mockedInsert).toHaveBeenNthCalledWith(
+      2,
+      "admin_audit_logs",
+      expect.objectContaining({
+        after_payload: expect.objectContaining({
+          phone_number: "redacted:+821012345678",
+        }),
+      }),
+    );
+    expect(created.phoneNumber).toBe("+821012345678");
   });
 });

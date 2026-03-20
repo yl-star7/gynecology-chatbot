@@ -14,6 +14,11 @@ jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
 }));
 
+jest.mock("@/lib/privacy/phone-crypto", () => ({
+  computePhoneNumberBlindIndex: jest.fn((phoneNumber: string) => `idx:${phoneNumber}`),
+  decryptPhoneNumber: jest.fn((value: string) => value.replace(/^enc:/, "")),
+}));
+
 import { cookies } from "next/headers";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
 import {
@@ -108,7 +113,7 @@ describe("admin auth provider awareness", () => {
         return Promise.resolve([
           {
             id: "admin-backend",
-            phone_number: "01033334444",
+            phone_number_encrypted: "enc:01033334444",
             role: "super_admin",
           },
         ]);
@@ -147,7 +152,7 @@ describe("admin auth provider awareness", () => {
     expect(sessionUser).toEqual(admin);
     expect(mockedSelect).toHaveBeenCalledTimes(4);
     expect(mockedSelect.mock.calls[0]?.[0]).toContain(
-      "users?select=id,phone_number,role&phone_number=eq.01033334444&limit=1",
+      "users?select=id,phone_number_encrypted,role&phone_number_blind_index=eq.idx%3A01033334444&limit=1",
     );
     expect(mockedSelect.mock.calls[1]?.[0]).toContain(
       "pregnancy_profiles?select=display_name&user_id=eq.admin-backend&limit=1",

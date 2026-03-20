@@ -2,12 +2,16 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+import {
+  computePhoneNumberBlindIndex,
+  decryptPhoneNumber,
+} from "@/lib/privacy/phone-crypto";
 
 const ADMIN_SESSION_COOKIE = "gc_admin_session";
 
 type AdminUserRow = {
   id: string;
-  phone_number: string;
+  phone_number_encrypted: string;
   role: "user" | "admin" | "super_admin";
 };
 
@@ -94,7 +98,7 @@ export async function findAdminUserByPhoneNumber(phoneNumber: string) {
   }
 
   const users = await supabaseSelect<AdminUserRow[]>(
-    `users?select=id,phone_number,role&phone_number=eq.${encodeURIComponent(phoneNumber)}&limit=1`,
+    `users?select=id,phone_number_encrypted,role&phone_number_blind_index=eq.${encodeURIComponent(computePhoneNumberBlindIndex(phoneNumber))}&limit=1`,
   );
   const user = users[0];
   if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
@@ -103,6 +107,7 @@ export async function findAdminUserByPhoneNumber(phoneNumber: string) {
 
   return {
     ...user,
+    phone_number: decryptPhoneNumber(user.phone_number_encrypted),
     displayName: (await findAdminProfileDisplayName(user.id)) ?? "운영자",
   };
 }
@@ -159,7 +164,7 @@ export async function readAdminSessionUser() {
   }
 
   const users = await supabaseSelect<AdminUserRow[]>(
-    `users?select=id,phone_number,role&id=eq.${userId}&limit=1`,
+    `users?select=id,phone_number_encrypted,role&id=eq.${userId}&limit=1`,
   );
   const user = users[0];
   if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
@@ -168,7 +173,7 @@ export async function readAdminSessionUser() {
 
   return {
     id: user.id,
-    phoneNumber: user.phone_number,
+    phoneNumber: decryptPhoneNumber(user.phone_number_encrypted),
     displayName: (await findAdminProfileDisplayName(user.id)) ?? "운영자",
     role: user.role,
   };

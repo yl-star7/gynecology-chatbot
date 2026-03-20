@@ -12,10 +12,11 @@ import {
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+import { decryptPhoneNumber } from "@/lib/privacy/phone-crypto";
 
 type UserRow = {
   id: string;
-  phone_number: string;
+  phone_number_encrypted: string;
   account_status: string;
 };
 
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
 
     const [users, profiles] = await Promise.all([
       supabaseSelect<UserRow[]>(
-        `users?select=id,phone_number,account_status&id=eq.${userId}&limit=1`,
+        `users?select=id,phone_number_encrypted,account_status&id=eq.${userId}&limit=1`,
       ),
       supabaseSelect<ProfileRow[]>(
         `pregnancy_profiles?select=display_name,pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${userId}&limit=1`,
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
       profile: {
         userId: users[0].id,
         displayName: profile?.display_name ?? "사용자",
-        phoneNumber: users[0].phone_number,
+        phoneNumber: decryptPhoneNumber(users[0].phone_number_encrypted),
         pregnancyWeekLabel: profile?.pregnancy_week
           ? `${profile.pregnancy_week}주 ${profile.pregnancy_day_in_week ?? 0}일`
           : "정보 없음",

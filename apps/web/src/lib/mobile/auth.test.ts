@@ -14,6 +14,16 @@ jest.mock("@/lib/mobile/twilio-verify", () => {
   };
 });
 
+jest.mock("@/lib/privacy/phone-crypto", () => ({
+  computePhoneNumberBlindIndex: jest.fn((phoneNumber: string) => `idx:${phoneNumber}`),
+  createPhoneNumberStorage: jest.fn((phoneNumber: string) => ({
+    phoneNumberEncrypted: `enc:${phoneNumber}`,
+    phoneNumberBlindIndex: `idx:${phoneNumber}`,
+    phoneNumberLast4: phoneNumber.slice(-4),
+  })),
+  decryptPhoneNumber: jest.fn((value: string) => value.replace(/^enc:/, "")),
+}));
+
 import {
   buildPregnancyProfilePayload,
   completePhoneSignIn,
@@ -49,7 +59,9 @@ describe("completePhoneSignIn", () => {
       .mockResolvedValueOnce([
         {
           id: "allow-1",
-          phone_number: "+821012345678",
+          phone_number_encrypted: "enc:+821012345678",
+          phone_number_last4: "5678",
+          phone_number_blind_index: "idx:+821012345678",
           display_name: "김수연",
           note: null,
         },
@@ -59,7 +71,8 @@ describe("completePhoneSignIn", () => {
       .mockResolvedValueOnce([
         {
           id: "user-1",
-          phone_number: "+821012345678",
+          phone_number_encrypted: "enc:+821012345678",
+          phone_number_last4: "5678",
           account_status: "active",
           phone_verified_at: "2026-03-19T00:00:00.000Z",
           last_login_at: "2026-03-19T00:00:00.000Z",
@@ -85,7 +98,9 @@ describe("completePhoneSignIn", () => {
       "users",
       expect.objectContaining({
         display_name: "김수연",
-        phone_number: "+821012345678",
+        phone_number_encrypted: "enc:+821012345678",
+        phone_number_blind_index: "idx:+821012345678",
+        phone_number_last4: "5678",
         role: "user",
       }),
     );
@@ -102,7 +117,9 @@ describe("completePhoneSignIn", () => {
       .mockResolvedValueOnce([
         {
           id: "allow-2",
-          phone_number: "+821055566677",
+          phone_number_encrypted: "enc:+821055566677",
+          phone_number_last4: "6677",
+          phone_number_blind_index: "idx:+821055566677",
           display_name: null,
           note: null,
         },
@@ -112,7 +129,8 @@ describe("completePhoneSignIn", () => {
       .mockResolvedValueOnce([
         {
           id: "user-2",
-          phone_number: "+821055566677",
+          phone_number_encrypted: "enc:+821055566677",
+          phone_number_last4: "6677",
           account_status: "active",
           phone_verified_at: "2026-03-19T00:00:00.000Z",
           last_login_at: "2026-03-19T00:00:00.000Z",
@@ -138,11 +156,57 @@ describe("completePhoneSignIn", () => {
       "users",
       expect.objectContaining({
         display_name: "사용자",
-        phone_number: "+821055566677",
+        phone_number_encrypted: "enc:+821055566677",
+        phone_number_blind_index: "idx:+821055566677",
+        phone_number_last4: "6677",
         role: "user",
       }),
     );
     expect(result.user.displayName).toBe("사용자");
+  });
+
+  test("queries allowed numbers and users by blind index instead of plaintext phone number", async () => {
+    mockedCheckSmsVerification.mockResolvedValue({
+      sid: "check-3",
+      status: "approved",
+      to: "+821099998888",
+    });
+    mockedSupabaseSelect
+      .mockResolvedValueOnce([
+        {
+          id: "allow-3",
+          phone_number_encrypted: "enc:+821099998888",
+          phone_number_last4: "8888",
+          phone_number_blind_index: "idx:+821099998888",
+          display_name: "운영자",
+          note: null,
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "user-3",
+          phone_number_encrypted: "enc:+821099998888",
+          phone_number_last4: "8888",
+          account_status: "active",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    mockedSupabaseInsert.mockResolvedValue([]);
+
+    await completePhoneSignIn("01099998888", "1234");
+
+    expect(mockedSupabaseSelect).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining("phone_number_blind_index=eq.idx%3A%2B821099998888"),
+    );
+    expect(mockedSupabaseSelect).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("phone_number_blind_index=eq.idx%3A%2B821099998888"),
+    );
   });
 });
 
