@@ -89,7 +89,7 @@ export function MobileContentView({
           {body ? (
             <p className="whitespace-pre-wrap">{body}</p>
           ) : (
-            <p className="text-[var(--text-soft)]">콘텐츠를 불러오는 중입니다.</p>
+            <p className="text-[var(--text-soft)]">내용을 불러오고 있어요.</p>
           )}
         </MobileCard>
 

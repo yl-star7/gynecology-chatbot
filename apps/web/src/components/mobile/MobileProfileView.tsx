@@ -352,11 +352,11 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
 
         <MobileCard className="p-5">
           <MobileSectionIntro
-            eyebrow="세션 관리"
+            eyebrow="계정"
             eyebrowTone="muted"
             size="section"
             title="로그아웃"
-            description="상담 정보와 설정을 바꾼 뒤, 필요할 때만 여기서 세션을 종료합니다."
+            description="다른 기기에서 사용하거나 계정을 전환할 때 로그아웃하세요."
           />
           <button
             type="button"

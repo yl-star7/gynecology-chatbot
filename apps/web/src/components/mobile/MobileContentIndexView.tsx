@@ -61,7 +61,7 @@ export function MobileContentIndexView({
   return (
     <MobileShell
       title={title}
-      description={error ?? "앱 내부 정적 문헌 목록을 확인합니다."}
+      description={error ?? "원하는 항목을 눌러 자세히 읽어보세요."}
       userId={resolvedUserId}
       showTitleBlock={false}
       showChatFab

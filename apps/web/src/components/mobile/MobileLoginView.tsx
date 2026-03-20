@@ -196,9 +196,9 @@ export function MobileLoginView({ initialUserId }: Props) {
     <main className="mx-auto flex min-h-screen w-full max-w-[520px] flex-col gap-4 px-4 py-5">
       <MobileCard className="p-6 backdrop-blur">
         <MobileSectionIntro
-          eyebrow="시작하기"
-          title="안녕하세요. 오늘 기록을 이어가 볼까요?"
-          description="전화번호로 문자 인증을 한 번 확인하면 바로 로그인됩니다. 이후에는 1년 세션을 기준으로 다시 로그인하지 않고 이어서 사용할 수 있어요."
+          eyebrow="본인 확인"
+          title="전화번호로 간편하게 시작해요"
+          description="한 번 인증하면 앱을 다시 열 때 자동으로 로그인돼요."
         />
         <div className="mt-5">
           <MobileThemePresetButtons
@@ -229,15 +229,15 @@ export function MobileLoginView({ initialUserId }: Props) {
             {isSendingCode
               ? "발송 중"
               : hasRequestedCode
-                ? "코드 다시 보내기"
-                : "인증 코드 보내기"}
+                ? "인증번호 다시 보내기"
+                : "인증번호 받기"}
           </button>
-          <MobileFormField label="인증 코드">
+          <MobileFormField label="인증번호">
             <input
               className={mobileFieldClassName}
               inputMode="numeric"
               onChange={(event) => setVerificationCode(event.target.value)}
-              placeholder="인증 코드"
+              placeholder="6자리 숫자"
               value={verificationCode}
             />
           </MobileFormField>
@@ -250,7 +250,7 @@ export function MobileLoginView({ initialUserId }: Props) {
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? "인증 확인 중" : "인증하고 로그인"}
+            {isSubmitting ? "확인 중..." : "시작하기"}
           </button>
         </div>
       </MobileCard>
