@@ -112,7 +112,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
           setError(
             nextError instanceof Error
               ? nextError.message
-              : "프로필을 불러오지 못했어요.",
+              : "설정을 불러오지 못했어요.",
           );
         }
       });
@@ -169,7 +169,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "프로필을 저장하지 못했어요.",
+          : "설정을 저장하지 못했어요.",
       );
     } finally {
       setIsSaving(false);
@@ -184,8 +184,8 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
 
   return (
     <MobileShell
-      title="프로필"
-      description="계정 정보와 상담 환경을 관리합니다."
+      title="설정"
+      description="계정과 상담 환경을 관리해요."
       userId={resolvedUserId}
       showTitleBlock={false}
       showChatFab
@@ -193,8 +193,8 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
       <div className="grid gap-4">
         <MobileCard className="p-5">
           <MobileSectionIntro
-            eyebrow="프로필"
-            title="계정과 상담 설정"
+            eyebrow="내 설정"
+            title="계정과 상담 환경"
             description="이름, 알림, 채팅 톤과 현재 임신 정보를 한곳에서 관리합니다."
           />
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -282,7 +282,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               disabled={isSaving}
               className="rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {isSaving ? "저장 중" : "프로필 저장"}
+              {isSaving ? "저장 중" : "저장하기"}
             </button>
           </form>
         </MobileCard>

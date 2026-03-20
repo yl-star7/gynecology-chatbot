@@ -54,7 +54,7 @@ export function ProfileScreen() {
           setError(
             nextError instanceof Error
               ? nextError.message
-              : "프로필을 불러오지 못했어요.",
+              : "설정을 불러오지 못했어요.",
           );
         }
       });
@@ -98,7 +98,7 @@ export function ProfileScreen() {
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "프로필을 저장하지 못했어요.",
+          : "설정을 저장하지 못했어요.",
       );
     } finally {
       setIsSaving(false);
@@ -111,7 +111,7 @@ export function ProfileScreen() {
   }
 
   return (
-    <MobileScreenFrame title="프로필" backHref="/home">
+    <MobileScreenFrame title="설정" backHref="/home">
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -124,7 +124,7 @@ export function ProfileScreen() {
         >
           <View style={styles.heroSection}>
             <Text style={styles.eyebrow}>내 정보</Text>
-            <Text style={styles.title}>프로필과 설정</Text>
+            <Text style={styles.title}>내 설정</Text>
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
 

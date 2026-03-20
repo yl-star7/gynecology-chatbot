@@ -43,7 +43,7 @@ export function MobileScreenFrame({
         {showProfileButton ? (
           <Pressable
             onPress={() => router.push("/profile")}
-            accessibilityLabel="프로필 열기"
+            accessibilityLabel="설정 열기"
             style={styles.profileButton}
           >
             <Text style={styles.profileButtonLabel}>{avatarLabel}</Text>
