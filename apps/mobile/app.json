@@ -37,7 +37,11 @@
     "extra": {
       "router": {
         "origin": false
+      },
+      "eas": {
+        "projectId": "4a852707-720a-4abf-bbd8-2523b5cff5b8"
       }
-    }
+    },
+    "owner": "yl-star7"
   }
 }
