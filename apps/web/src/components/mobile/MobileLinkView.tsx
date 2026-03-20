@@ -58,7 +58,7 @@ export function MobileLinkView({
   return (
     <MobileShell
       title="참고 콘텐츠"
-      description="관련 문서와 안내를 바로 확인합니다."
+      description="관련 정보를 확인해보세요."
       userId={resolvedUserId}
       showTitleBlock={false}
       showChatFab

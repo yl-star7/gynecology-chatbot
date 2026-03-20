@@ -79,7 +79,7 @@ export function MobileRecordDayView({
   return (
     <MobileShell
       title="기록 상세"
-      description="하루 기록과 연결 상담을 확인합니다."
+      description="하루 기록을 확인해보세요."
       userId={resolvedUserId}
       showTitleBlock={false}
       showChatFab
@@ -89,7 +89,7 @@ export function MobileRecordDayView({
           <MobileSectionIntro
             eyebrow="하루 기록"
             title={recordDay?.dateLabel ?? isoDate}
-            description={error ?? "이 날짜에 남긴 메모, 감정 기록, 연결 상담을 한눈에 확인합니다."}
+            description={error ?? "이 날짜의 메모, 감정, 상담 기록이에요."}
           />
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className={`${mobileInsetCardClassName} p-4`}>

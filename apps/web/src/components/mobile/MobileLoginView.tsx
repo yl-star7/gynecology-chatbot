@@ -256,11 +256,8 @@ export function MobileLoginView({ initialUserId }: Props) {
       </MobileCard>
 
       <MobileCard as="div" className="rounded-[24px] p-5 text-sm leading-6 text-[var(--text-soft)]">
-        <strong className="block text-base text-[var(--text)]">
-          로그인 흐름
-        </strong>
-        전화번호 입력, 인증 코드 수신, 코드 확인까지 마치면 바로 홈 또는
-        온보딩으로 이어집니다.
+        전화번호 인증 한 번이면 다음부터는 자동으로 로그인돼요.
+        궁금한 점이 있으면 언제든 상담을 시작할 수 있어요.
       </MobileCard>
     </main>
   );

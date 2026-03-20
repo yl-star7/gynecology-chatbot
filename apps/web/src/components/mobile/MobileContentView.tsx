@@ -61,7 +61,7 @@ export function MobileContentView({
   return (
     <MobileShell
       title="콘텐츠"
-      description="앱 내부 문서를 확인합니다."
+      description="상세 내용을 확인해보세요."
       userId={resolvedUserId}
       showTitleBlock={false}
       showChatFab
@@ -78,7 +78,7 @@ export function MobileContentView({
             {sectionTitle}
           </h1>
           <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
-            {error ?? "앱 내부 참고 문서를 그대로 확인하는 화면입니다."}
+            {error ?? "내용을 불러오고 있어요."}
           </p>
         </MobileCard>
 

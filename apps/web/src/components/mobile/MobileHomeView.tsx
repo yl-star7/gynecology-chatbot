@@ -136,7 +136,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
               title: home?.notebookCard.title ?? "임신수첩",
               body:
                 home?.notebookCard.description ??
-                "오늘 해야 할 체크리스트와 저장 기록을 확인합니다.",
+                "오늘의 체크리스트와 기록을 확인해보세요.",
               href: "/notebook",
             },
             {
