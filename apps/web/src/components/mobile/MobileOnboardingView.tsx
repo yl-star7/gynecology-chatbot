@@ -92,6 +92,7 @@ export function MobileOnboardingView({ userId }: Props) {
           <input
             className={`${mobileFieldClassName} mt-4`}
             onChange={(e) => setPregnancyInfo(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") next(); }}
             placeholder="예: 16주 또는 2026-08-01"
             value={pregnancyInfo}
             autoFocus
@@ -110,6 +111,7 @@ export function MobileOnboardingView({ userId }: Props) {
           <input
             className={`${mobileFieldClassName} mt-4`}
             onChange={(e) => setBabyNickname(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { setError(null); setStep(2); } }}
             placeholder="예: 콩이, 달이"
             value={babyNickname}
             autoFocus

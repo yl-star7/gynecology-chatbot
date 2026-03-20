@@ -10,6 +10,8 @@ export function LabeledInput({
   placeholder,
   keyboardType,
   multiline = false,
+  returnKeyType,
+  onSubmitEditing,
 }: {
   label: string;
   value: string;
@@ -17,10 +19,12 @@ export function LabeledInput({
   placeholder?: string;
   keyboardType?: KeyboardTypeOptions;
   multiline?: boolean;
+  returnKeyType?: "done" | "go" | "next" | "search" | "send";
+  onSubmitEditing?: () => void;
 }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -29,6 +33,8 @@ export function LabeledInput({
         style={[styles.input, multiline ? styles.multiline : null]}
         keyboardType={keyboardType}
         multiline={multiline}
+        returnKeyType={returnKeyType}
+        onSubmitEditing={onSubmitEditing}
       />
     </View>
   );

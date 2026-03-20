@@ -55,6 +55,8 @@ export function OnboardingScreen() {
               value={pregnancyWeekOrDueDate}
               onChangeText={setPregnancyWeekOrDueDate}
               placeholder="예: 16주 또는 2026-08-01"
+              returnKeyType="next"
+              onSubmitEditing={next}
             />
           </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -72,6 +74,8 @@ export function OnboardingScreen() {
               value={babyNickname}
               onChangeText={setBabyNickname}
               placeholder="예: 콩이, 달이"
+              returnKeyType="next"
+              onSubmitEditing={() => { setError(null); setStep(2); }}
             />
           </View>
           <View style={styles.row}>
