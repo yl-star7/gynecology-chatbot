@@ -527,6 +527,62 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.analyticsSection {
+  margin-top: 20px;
+  border-top: 1px solid var(--admin-border);
+  padding-top: 16px;
+}
+
+.analyticsSectionHeader {
+  margin: 0 0 14px;
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.analyticsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.analyticsCard {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--admin-border);
+  border-top: 3px solid var(--admin-border-strong);
+  background: var(--admin-panel);
+}
+
+.analyticsCard span {
+  display: block;
+  font-size: 12px;
+  color: var(--admin-text-soft);
+}
+
+.analyticsCard strong {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.analyticsLoading,
+.analyticsError {
+  padding: 16px;
+  border: 1px dashed var(--admin-border-strong);
+  font-size: 14px;
+  color: var(--admin-text-soft);
+}
+
+.analyticsError {
+  border-color: rgba(218, 30, 40, 0.3);
+  color: var(--admin-error);
+}
+
 @media (max-width: 1200px) {
   .metricsGrid,
   .panelGrid,
@@ -575,7 +631,8 @@
   .metaGrid,
   .metricsGrid,
   .statsGrid,
-  .historyStats {
+  .historyStats,
+  .analyticsGrid {
     grid-template-columns: 1fr;
   }
 
