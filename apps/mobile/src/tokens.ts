@@ -1,6 +1,3 @@
-import { Platform } from "react-native";
-import { palette, patientSurfacePalette } from "./theme";
-
 // ─── Spacing scale ───────────────────────────────────────
 export const space = {
   xs: 4,
@@ -58,38 +55,5 @@ export const typo = {
   button: {
     fontSize: 16,
     fontWeight: "600" as const,
-  },
-} as const;
-
-// ─── Shadow presets ──────────────────────────────────────
-export const shadows = {
-  card: Platform.select({
-    ios: {
-      shadowColor: palette.ink,
-      shadowOpacity: 0.06,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 },
-    },
-    android: {
-      elevation: 2,
-    },
-  }),
-  header: Platform.select({
-    ios: {
-      shadowColor: palette.ink,
-      shadowOpacity: 0.06,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 2 },
-    },
-    android: {
-      elevation: 3,
-    },
-  }),
-  fab: {
-    shadowColor: patientSurfacePalette.accentSolid,
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
   },
 } as const;

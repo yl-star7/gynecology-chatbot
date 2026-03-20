@@ -13,7 +13,7 @@ const mobileCardToneClassNames = {
 } as const;
 
 export const mobileFieldClassName =
-  "w-full rounded-[18px] border border-[var(--line)] bg-[var(--field-surface)] px-4 py-3 text-[15px] text-[var(--text)] outline-none";
+  "w-full rounded-[14px] border-2 border-[var(--line)] bg-[var(--field-surface)] px-4 py-3.5 text-[15px] text-[var(--text)] outline-none transition-colors focus:border-[var(--accent)] placeholder:text-[var(--text-soft)]";
 
 export const mobileInsetCardClassName =
   "rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)]";

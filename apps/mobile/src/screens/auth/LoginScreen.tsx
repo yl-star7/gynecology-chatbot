@@ -1,10 +1,10 @@
 // @ts-nocheck
 import { router } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, View } from "react-native";
-import { Button, Card, HeroSection, KeyboardScreen, LabeledInput } from "../../components/ui";
+import { StyleSheet, Text, View } from "react-native";
+import { Button, Card, KeyboardScreen, LabeledInput } from "../../components/ui";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
-import { space } from "../../theme";
+import { palette, patientSurfacePalette as surface, space, typo } from "../../theme";
 
 export function LoginScreen() {
   const { requestVerificationCode, signIn } = useMobileAppSession();
@@ -34,20 +34,15 @@ export function LoginScreen() {
 
   return (
     <KeyboardScreen centered>
-      <HeroSection
-        eyebrow="본인 확인"
-        title={`전화번호로\n간편하게 시작해요`}
-        description={error ?? statusMessage ?? "한 번 인증하면 앱을 다시 열 때 자동으로 로그인돼요."}
-      />
-
       <Card>
         <View style={styles.form}>
           <LabeledInput
             label="전화번호"
             value={phoneNumber}
             onChangeText={setPhoneNumber}
-            placeholder="010-0000-0000"
+            placeholder="01012345678"
             keyboardType="phone-pad"
+            returnKeyType="next"
           />
           <LabeledInput
             label="인증번호"
@@ -55,7 +50,11 @@ export function LoginScreen() {
             onChangeText={setVerificationCode}
             placeholder="6자리 숫자"
             keyboardType="number-pad"
+            returnKeyType="done"
+            onSubmitEditing={handleLogin}
           />
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {statusMessage && !error ? <Text style={styles.status}>{statusMessage}</Text> : null}
           <Button label="인증번호 받기" variant="secondary" onPress={handleRequestCode} />
           <Button label="시작하기" onPress={handleLogin} />
         </View>
@@ -66,4 +65,6 @@ export function LoginScreen() {
 
 const styles = StyleSheet.create({
   form: { gap: space.lg },
+  error: { ...typo.caption, color: palette.errorText, textAlign: "center" },
+  status: { ...typo.caption, color: palette.accent, textAlign: "center" },
 });
