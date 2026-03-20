@@ -3,7 +3,7 @@ import {
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+import { supabaseRpc } from "@/lib/mobile/supabase-rest";
 
 type WeekRow = {
   week_number: number;
@@ -11,19 +11,16 @@ type WeekRow = {
   baby_size_label: string | null;
   baby_summary: string | null;
   mother_summary: string | null;
-  status: string;
 };
 
 export async function GET(request: NextRequest) {
   try {
     await requireMobileSession(request);
 
-    const rows = await supabaseSelect<WeekRow[]>(
-      `content.pregnancy_week_data?select=week_number,title,baby_size_label,baby_summary,mother_summary,status&status=eq.published&order=week_number.asc`,
-    );
+    const rows = await supabaseRpc<WeekRow[]>("get_published_weeks", {});
 
     return NextResponse.json({
-      weeks: rows.map((row) => ({
+      weeks: (rows ?? []).map((row) => ({
         weekNumber: row.week_number,
         title: row.title,
         babySizeLabel: row.baby_size_label,
