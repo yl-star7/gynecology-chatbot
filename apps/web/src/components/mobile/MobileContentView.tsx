@@ -50,7 +50,7 @@ export function MobileContentView({
         if (!active) {
           return;
         }
-        setError(nextError instanceof Error ? nextError.message : "콘텐츠를 불러오지 못했습니다.");
+        setError(nextError instanceof Error ? nextError.message : "내용을 불러오지 못했어요.");
       });
 
     return () => {

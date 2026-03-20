@@ -112,7 +112,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
           setError(
             nextError instanceof Error
               ? nextError.message
-              : "프로필을 불러오지 못했습니다.",
+              : "프로필을 불러오지 못했어요.",
           );
         }
       });
@@ -126,7 +126,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
     event.preventDefault();
 
     if (!resolvedUserId || !displayName.trim() || !tonePreference.trim()) {
-      setError("이름과 채팅 톤은 비워둘 수 없습니다.");
+      setError("이름과 상담 분위기는 비워둘 수 없어요.");
       return;
     }
 
@@ -169,7 +169,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "프로필을 저장하지 못했습니다.",
+          : "프로필을 저장하지 못했어요.",
       );
     } finally {
       setIsSaving(false);

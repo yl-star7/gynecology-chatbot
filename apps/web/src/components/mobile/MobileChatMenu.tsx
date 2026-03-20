@@ -101,7 +101,7 @@ export function MobileChatMenu({
               ))
             ) : (
               <div className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm leading-6 text-[var(--text-soft)]">
-                아직 저장된 채팅이 없습니다.
+                아직 상담 내역이 없어요.
               </div>
             )}
           </div>

@@ -17,7 +17,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { EmptyState } from "../components/ui";
+import { EmotionCheckin, EmptyState } from "../components/ui";
+import { readCurrentMobileSessionToken } from "../api/mobileApi";
 import { useChatSessions } from "../chat/store";
 import { useMobileServices } from "../core/MobileServicesProvider";
 import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../theme";
@@ -65,6 +66,7 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
   const [imageUri, setImageUri] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [showRecent, setShowRecent] = useState(false);
+  const [showEmotionCheckin, setShowEmotionCheckin] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -134,10 +136,29 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
       appendMessage(resolvedSessionId, nextTitle, assistantMessage);
       setText("");
       setImageUri("");
+      setShowEmotionCheckin(true);
     } catch (error) {
       console.error(`Failed to send chat message: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsSending(false);
+    }
+  }
+
+  async function handleEmotionSelect(emotionTone) {
+    setShowEmotionCheckin(false);
+    try {
+      const apiBaseUrl = (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
+      const sessionToken = readCurrentMobileSessionToken();
+      await fetch(`${apiBaseUrl}/api/mobile/records`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+        },
+        body: JSON.stringify({ sessionId: resolvedSessionId, emotionTone }),
+      });
+    } catch (error) {
+      console.error(`Failed to save emotion: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -225,6 +246,13 @@ export function ChatScreen({ sessionId }: { sessionId: string }) {
             </View>
           ))}
         </ScrollView>
+
+        {showEmotionCheckin ? (
+          <EmotionCheckin
+            onSelect={handleEmotionSelect}
+            onDismiss={() => setShowEmotionCheckin(false)}
+          />
+        ) : null}
 
         <View style={styles.composer}>
           {imageUri ? (

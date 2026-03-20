@@ -78,7 +78,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
           setError(
             nextError instanceof Error
               ? nextError.message
-              : "홈 화면을 불러오지 못했습니다.",
+              : "홈 정보를 불러오지 못했어요.",
           );
         }
       });
@@ -218,7 +218,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
               ))
             ) : (
               <p className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--text-soft)]">
-                아직 채팅 세션이 없습니다. 첫 채팅을 시작하면 여기에 누적됩니다.
+                아직 상담 내역이 없어요. 첫 상담을 시작해보세요.
               </p>
             )}
           </div>
@@ -289,7 +289,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
             })}
           </div>
           <p className="mt-3 text-xs text-[var(--text-soft)]">
-            점이 있는 날짜에 상담 기록이나 메모가 있습니다.
+            점이 있는 날짜를 누르면 기록을 볼 수 있어요.
           </p>
         </section>
       </div>

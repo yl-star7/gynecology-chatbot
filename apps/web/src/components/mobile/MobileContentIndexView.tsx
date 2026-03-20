@@ -49,7 +49,7 @@ export function MobileContentIndexView({
         setError(
           nextError instanceof Error
             ? nextError.message
-            : "콘텐츠 목록을 불러오지 못했습니다.",
+            : "목록을 불러오지 못했어요.",
         );
       });
 
@@ -75,7 +75,7 @@ export function MobileContentIndexView({
             {title}
           </h1>
           <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
-            {error ?? "문헌 목록을 선택해 바로 상세 내용을 볼 수 있습니다."}
+            {error ?? "원하는 항목을 눌러 자세히 읽어보세요."}
           </p>
         </MobileCard>
 
@@ -103,7 +103,7 @@ export function MobileContentIndexView({
             ))
           ) : (
             <MobileCard as="div" className="rounded-[22px] p-5 text-sm text-[var(--text-soft)]">
-              등록된 콘텐츠가 아직 없습니다.
+              아직 등록된 내용이 없어요.
             </MobileCard>
           )}
         </div>

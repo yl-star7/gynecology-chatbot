@@ -67,7 +67,7 @@ export function MobileRecordDayView({
       })
       .catch((nextError) => {
         if (!cancelled) {
-          setError(nextError instanceof Error ? nextError.message : "기록 상세를 불러오지 못했습니다.");
+          setError(nextError instanceof Error ? nextError.message : "기록을 불러오지 못했어요.");
         }
       });
 
@@ -138,7 +138,7 @@ export function MobileRecordDayView({
               ))
             ) : (
               <p className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--text-soft)]">
-                이 날짜에 저장된 메모나 요약 기록이 없습니다.
+                이 날짜에 저장된 기록이 없어요.
               </p>
             )}
           </div>
@@ -167,7 +167,7 @@ export function MobileRecordDayView({
               ))
             ) : (
               <p className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--text-soft)]">
-                연결된 채팅 세션이 없습니다.
+                연결된 상담 내역이 없어요.
               </p>
             )}
           </div>

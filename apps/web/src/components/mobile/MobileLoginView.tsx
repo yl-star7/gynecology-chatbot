@@ -150,7 +150,7 @@ export function MobileLoginView({ initialUserId }: Props) {
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "로그인하지 못했습니다.",
+          : "로그인에 실패했어요.",
       );
     } finally {
       setIsSubmitting(false);
@@ -173,13 +173,13 @@ export function MobileLoginView({ initialUserId }: Props) {
       });
       setHasRequestedCode(true);
       setStatusMessage(
-        "인증 코드를 발송했습니다. 문자로 받은 코드를 입력하세요.",
+        "인증번호를 보냈어요. 문자로 받은 번호를 입력해주세요.",
       );
     } catch (nextError) {
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "인증 코드를 보내지 못했습니다.",
+          : "인증번호를 보내지 못했어요.",
       );
     } finally {
       setIsSendingCode(false);

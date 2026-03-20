@@ -44,7 +44,7 @@ export function MobileLinkView({
       })
       .catch((nextError) => {
         if (!cancelled) {
-          setError(nextError instanceof Error ? nextError.message : "콘텐츠를 불러오지 못했습니다.");
+          setError(nextError instanceof Error ? nextError.message : "내용을 불러오지 못했어요.");
         }
       });
 
@@ -71,7 +71,7 @@ export function MobileLinkView({
           {content?.title ?? "콘텐츠 연결 중"}
         </h2>
         <p className="mt-4 whitespace-pre-wrap text-[15px] leading-7 text-[var(--text-soft)]">
-          {error ?? content?.body ?? "의학 정보와 참고 안내를 불러오고 있습니다."}
+          {error ?? content?.body ?? "정보를 불러오고 있어요."}
         </p>
         <div className="mt-6 flex gap-3">
           <Link

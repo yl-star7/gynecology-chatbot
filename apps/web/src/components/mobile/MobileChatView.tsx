@@ -182,7 +182,7 @@ export function MobileChatView({
           setError(
             nextError instanceof Error
               ? nextError.message
-              : "최근 세션을 불러오지 못했습니다.",
+              : "이전 상담을 불러오지 못했어요.",
           );
         }
       });
@@ -205,7 +205,7 @@ export function MobileChatView({
           setError(
             nextError instanceof Error
               ? nextError.message
-              : "세션을 불러오지 못했습니다.",
+              : "상담 내용을 불러오지 못했어요.",
           );
         }
       });
@@ -297,7 +297,7 @@ export function MobileChatView({
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "메시지를 전송하지 못했습니다.",
+          : "메시지를 보내지 못했어요.",
       );
     } finally {
       setIsSending(false);
