@@ -1,5 +1,6 @@
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { supabaseRpc } from "./supabase-rest";
+import { getSchiftClient } from "./schift-client";
 
 type RagDocumentRow = {
   id: string;
@@ -26,17 +27,45 @@ export async function retrievePregnancyContext(input: {
     modelName: "embedding-001",
   });
 
+  let supabaseResults: RagDocumentRow[] = [];
   try {
     const queryEmbedding = await embeddings.embedQuery(input.query);
-    return supabaseRpc<RagDocumentRow[]>("match_pregnancy_documents", {
+    supabaseResults = await supabaseRpc<RagDocumentRow[]>("match_pregnancy_documents", {
       query_embedding: queryEmbedding,
       current_week: input.currentWeek,
       match_count: input.matchCount ?? 4,
     });
   } catch (error) {
     console.warn("pregnancy context retrieval skipped", error);
-    return [] as RagDocumentRow[];
   }
+
+  const schift = getSchiftClient();
+  if (schift && input.query.trim()) {
+    try {
+      const schiftResults = await schift.search({
+        query: input.query,
+        collection: "pregnancy-knowledge",
+        topK: 5,
+      });
+      const mapped: RagDocumentRow[] = schiftResults.map((result) => ({
+        id: result.id,
+        title: typeof result.metadata?.title === "string" ? result.metadata.title : result.id,
+        content: typeof result.metadata?.content === "string" ? result.metadata.content : "",
+        pregnancy_week:
+          typeof result.metadata?.pregnancy_week === "number"
+            ? result.metadata.pregnancy_week
+            : null,
+        category: typeof result.metadata?.category === "string" ? result.metadata.category : "schift",
+        metadata: result.metadata ?? null,
+        similarity: result.score,
+      }));
+      return [...supabaseResults, ...mapped];
+    } catch (e) {
+      console.error("Schift search failed, using fallback:", e);
+    }
+  }
+
+  return supabaseResults;
 }
 
 export async function embedPregnancyDocument(content: string) {
