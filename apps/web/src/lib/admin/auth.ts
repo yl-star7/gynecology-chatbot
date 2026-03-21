@@ -115,7 +115,7 @@ export async function findAdminUserByPhoneNumber(phoneNumber: string) {
 export async function authenticateAdmin(input: { phoneNumber: string; password: string }) {
   const user = await findAdminUserByPhoneNumber(input.phoneNumber);
   if (!user || input.password !== getAdminLoginPassword()) {
-    throw new Error("관리자 전화번호 또는 비밀번호가 맞지 않습니다.");
+    throw new Error("입력한 정보를 다시 확인해주세요.");
   }
 
   return {

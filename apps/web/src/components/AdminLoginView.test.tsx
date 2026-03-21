@@ -3,15 +3,12 @@ import { render, screen } from "@testing-library/react";
 import AdminLoginView from "./AdminLoginView";
 
 describe("AdminLoginView", () => {
-  it("renders the admin login as an operator access gate", () => {
+  it("renders a minimal admin login form", () => {
     render(<AdminLoginView />);
 
-    expect(
-      screen.getByRole("heading", { name: "운영 콘솔 인증" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("권한이 확인된 운영 계정만 접근할 수 있습니다."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "권한 확인" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "관리자 로그인" })).toBeInTheDocument();
+    expect(screen.getByLabelText("전화번호")).toBeInTheDocument();
+    expect(screen.getByLabelText("비밀번호")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "로그인" })).toBeInTheDocument();
   });
 });

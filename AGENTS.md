@@ -108,11 +108,15 @@ const styles = StyleSheet.create({
 | `/api/admin/content/checklists` | GET/POST | 체크리스트 관리 |
 | `/api/admin/content/questions` | GET/POST | 질문 관리 |
 | `/api/admin/rag/upload` | POST | RAG 문서 업로드 |
+| `/api/admin/rag-provider` | GET/PUT | RAG 백엔드 설정 (schift/supabase/auto) |
+| `/api/admin/schift` | GET/POST | Schift 컬렉션 조회 / 버킷 업로드 |
+| `/api/admin/schift/chat` | POST | Schift RAG 채팅 테스트 |
 | `/api/admin/workflow-rules/[ruleId]` | GET/PUT/DELETE | 응답 정책 |
 | `/api/admin/allowed-phone-numbers` | GET/POST | 허용 번호 관리 |
 
 ### DB 쿼리 패턴
 
 - `supabaseSelect`, `supabaseInsert`, `supabaseUpdate` 사용 (`@/lib/mobile/supabase-rest`)
-- content 스키마 테이블은 `content.` prefix 사용 (예: `content.week_checklists`)
+- content 스키마 테이블은 **직접 쿼리 금지** (Supabase REST가 406 반환)
+- 대신 public view 사용: `published_pregnancy_weeks`, `published_knowledge_items`, `v_pregnancy_week_data`, `v_pregnancy_day_contents`, `v_week_checklists`, `v_week_questions`
 - public 스키마는 prefix 없이 사용 (예: `calendar_logs`)
