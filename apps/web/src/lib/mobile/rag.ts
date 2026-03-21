@@ -17,37 +17,20 @@ export async function retrievePregnancyContext(input: {
   currentWeek: number | null;
   matchCount?: number;
 }) {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey || !input.query.trim()) {
+  if (!input.query.trim()) {
     return [] as RagDocumentRow[];
   }
 
-  const embeddings = new GoogleGenerativeAIEmbeddings({
-    apiKey,
-    modelName: "embedding-001",
-  });
-
-  let supabaseResults: RagDocumentRow[] = [];
-  try {
-    const queryEmbedding = await embeddings.embedQuery(input.query);
-    supabaseResults = await supabaseRpc<RagDocumentRow[]>("match_pregnancy_documents", {
-      query_embedding: queryEmbedding,
-      current_week: input.currentWeek,
-      match_count: input.matchCount ?? 4,
-    });
-  } catch (error) {
-    console.warn("pregnancy context retrieval skipped", error);
-  }
-
+  // 1. Schift search (primary if available)
   const schift = getSchiftClient();
-  if (schift && input.query.trim()) {
+  if (schift) {
     try {
       const schiftResults = await schift.search({
         query: input.query,
         collection: "pregnancy-knowledge",
-        topK: 5,
+        topK: input.matchCount ?? 5,
       });
-      const mapped: RagDocumentRow[] = schiftResults.map((result) => ({
+      return schiftResults.map((result) => ({
         id: result.id,
         title: typeof result.metadata?.title === "string" ? result.metadata.title : result.id,
         content: typeof result.metadata?.content === "string" ? result.metadata.content : "",
@@ -59,18 +42,49 @@ export async function retrievePregnancyContext(input: {
         metadata: result.metadata ?? null,
         similarity: result.score,
       }));
-      return [...supabaseResults, ...mapped];
     } catch (e) {
-      console.error("Schift search failed, using fallback:", e);
+      console.warn("Schift search failed, falling back to Supabase:", e);
     }
   }
 
-  return supabaseResults;
+  // 2. Supabase pgvector fallback
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!apiKey) {
+    return [] as RagDocumentRow[];
+  }
+
+  try {
+    const embeddings = new GoogleGenerativeAIEmbeddings({
+      apiKey,
+      modelName: "embedding-001",
+    });
+    const queryEmbedding = await embeddings.embedQuery(input.query);
+    return await supabaseRpc<RagDocumentRow[]>("match_pregnancy_documents", {
+      query_embedding: queryEmbedding,
+      current_week: input.currentWeek,
+      match_count: input.matchCount ?? 4,
+    });
+  } catch (error) {
+    console.warn("pregnancy context retrieval skipped", error);
+    return [] as RagDocumentRow[];
+  }
 }
 
-export async function embedPregnancyDocument(content: string) {
+export async function embedPregnancyDocument(content: string): Promise<number[]> {
+  if (!content.trim()) {
+    throw new Error("Content is empty");
+  }
+
+  // Schift embed (primary)
+  const schift = getSchiftClient();
+  if (schift) {
+    const result = await schift.embed({ text: content });
+    return result.embedding;
+  }
+
+  // LangChain fallback
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey || !content.trim()) {
+  if (!apiKey) {
     throw new Error("Embedding configuration is missing");
   }
 
