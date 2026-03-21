@@ -1,8 +1,10 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
-import { generateText } from "ai";
+import { generateText, tool, stepCountIs } from "ai";
+import { z } from "zod";
 import { NextRequest, NextResponse } from "next/server";
 import { formatRagContext, retrievePregnancyContext } from "@/lib/mobile/rag";
+import { getSchiftClient } from "@/lib/mobile/schift-client";
 import {
   isMobileSessionError,
   requireMobileSession,
@@ -599,26 +601,66 @@ export async function POST(request: NextRequest) {
     const apiKey =
       process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     const promptContext = await getPromptContext(userId, pregnancyWeek);
-    const ragDocuments = await retrievePregnancyContext({
-      currentWeek: promptContext?.pregnancyWeek ?? pregnancyWeek,
-      query: text,
-    });
+    const currentWeek = promptContext?.pregnancyWeek ?? pregnancyWeek;
+
+    const ragTools = {
+      searchPregnancyKnowledge: tool({
+        description: "임신 관련 의료 지식을 검색합니다. 사용자가 증상, 주차별 변화, 검사, 영양 등에 대해 물어볼 때 호출하세요.",
+        inputSchema: z.object({
+          query: z.string().describe("검색할 질문 또는 키워드"),
+        }),
+        execute: async ({ query }) => {
+          const docs = await retrievePregnancyContext({
+            query,
+            currentWeek,
+            matchCount: 5,
+          });
+          return formatRagContext(docs);
+        },
+      }),
+      searchSchiftBucket: tool({
+        description: "Schift 벡터 DB에서 임신 관련 문서를 검색합니다. 더 넓은 범위의 문서가 필요할 때 호출하세요.",
+        inputSchema: z.object({
+          query: z.string().describe("검색 쿼리"),
+          bucketId: z.string().optional().describe("검색할 버킷 ID (기본: pregnancy-knowledge)"),
+        }),
+        execute: async ({ query, bucketId }) => {
+          const schift = getSchiftClient();
+          if (!schift) return "Schift가 설정되지 않았습니다.";
+          try {
+            const result = await schift.chat({
+              bucketId: bucketId ?? "pregnancy-knowledge",
+              message: query,
+              topK: 5,
+            });
+            const sourceSummary = result.sources.map((s, i) => `[${i + 1}] ${s.text.slice(0, 200)}`).join("\n");
+            return `답변: ${result.reply}\n\n참고 문서:\n${sourceSummary}`;
+          } catch (e) {
+            return `검색 실패: ${e instanceof Error ? e.message : "알 수 없는 오류"}`;
+          }
+        },
+      }),
+    };
+
     const assistantMessage = !apiKey
       ? buildFallbackReply({
           text,
           hasImages: imageDataUris.length > 0,
-          pregnancyWeek: promptContext?.pregnancyWeek ?? pregnancyWeek,
-          ragSummary: formatRagContext(ragDocuments),
+          pregnancyWeek: currentWeek,
         })
       : await (async () => {
           const { text: responseText } = await generateText({
             model: google("gemini-2.5-flash-lite"),
+            tools: ragTools,
+            stopWhen: stepCountIs(3),
             system: [
               "당신은 임산부 채팅 앱의 어시스턴트입니다.",
               "항상 JSON 하나만 반환하세요.",
               "응답 스키마는 ChatMessage 타입과 유사하며 role은 assistant입니다.",
               "parts는 text, carousel, survey, deepLink 중 필요한 것만 사용하세요.",
               "deepLink target은 knowledge 또는 notebook만 사용하세요.",
+              "의료 관련 질문에는 반드시 searchPregnancyKnowledge 또는 searchSchiftBucket 도구를 호출해서 근거 기반으로 답변하세요.",
+              "일상 대화나 안부에는 도구를 호출하지 않아도 됩니다.",
               "추가로 현재 주차 체크리스트와 질문이 있으면 survey/text part로 포함하세요.",
               "대화는 세션 단위로 이어지므로 현재 세션 맥락을 유지하세요.",
               ...(promptContext?.tonePreference
@@ -628,15 +670,13 @@ export async function POST(request: NextRequest) {
                 ? [`아직 비어있는 정보: ${promptContext.missingFields.join(", ")}. 대화 흐름에 자연스럽게 녹여서 한 번에 하나씩만 물어보세요. 억지로 물어보지 말고, 맥락이 맞을 때만 자연스럽게 여쭤보세요.`]
                 : []),
               "임신 주차 정보가 주어지면 그 주차와 인접 주차 기준으로 설명한다고 가정하세요.",
-              "RAG 문맥이 주어지면 그 범위 안에서만 참고 정보를 요약하세요.",
               "의료 응답은 진단 확정 표현을 피하고 필요한 경우 진료 권고를 포함하세요.",
             ].join("\n"),
             prompt: [
               `세션 ID: ${sessionId || "(없음)"}`,
-              `현재 임신 주차: ${promptContext?.pregnancyWeek ?? pregnancyWeek ?? "(정보 없음)"}`,
+              `현재 임신 주차: ${currentWeek ?? "(정보 없음)"}`,
               `사용자 텍스트: ${text || "(텍스트 없음)"}`,
               `첨부 이미지 수: ${imageDataUris.length}`,
-              `RAG 문맥:\n${formatRagContext(ragDocuments)}`,
               'JSON 예시: {"id":"assistant-1","role":"assistant","createdAtLabel":"방금 전","parts":[{"type":"text","id":"p1","text":"..."}]}',
             ].join("\n"),
           });

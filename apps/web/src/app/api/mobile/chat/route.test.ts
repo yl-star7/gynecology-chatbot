@@ -4,6 +4,8 @@ jest.mock("@ai-sdk/google", () => ({
 
 jest.mock("ai", () => ({
   generateText: jest.fn(),
+  tool: jest.fn((config: any) => config),
+  stepCountIs: jest.fn((n: number) => n),
 }));
 
 jest.mock("@/lib/mobile/session-auth", () => ({
@@ -29,6 +31,10 @@ jest.mock("@/lib/mobile/user-action-log", () => ({
 jest.mock("@/lib/mobile/rag", () => ({
   retrievePregnancyContext: jest.fn(async () => []),
   formatRagContext: jest.fn(() => ""),
+}));
+
+jest.mock("@/lib/mobile/schift-client", () => ({
+  getSchiftClient: jest.fn(() => null),
 }));
 
 import { requireMobileSession } from "@/lib/mobile/session-auth";
@@ -101,6 +107,10 @@ describe("POST /api/mobile/chat", () => {
           {
             pregnancy_week: 13,
             pregnancy_day_in_week: 0,
+            tone_preference: null,
+            baby_nickname: null,
+            display_name: null,
+            due_date: null,
           },
         ]);
       }

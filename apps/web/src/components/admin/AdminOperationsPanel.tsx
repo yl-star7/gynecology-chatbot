@@ -37,7 +37,14 @@ export function AdminOperationsPanel() {
   const [proactiveResult, setProactiveResult] = useState<string | null>(null);
   const [proactiveError, setProactiveError] = useState<string | null>(null);
 
-  // Panel 3: Schedule
+  // Panel 3: RAG Provider
+  const [ragProvider, setRagProvider] = useState<"schift" | "supabase" | "auto">("auto");
+  const [ragLoading, setRagLoading] = useState(true);
+  const [ragSaving, setRagSaving] = useState(false);
+  const [ragResult, setRagResult] = useState<string | null>(null);
+  const [ragError, setRagError] = useState<string | null>(null);
+
+  // Panel 4: Schedule
   const [schedule, setSchedule] = useState<ScheduleData>(DEFAULT_SCHEDULE);
   const [scheduleLoading, setScheduleLoading] = useState(true);
   const [scheduleSaving, setScheduleSaving] = useState(false);
@@ -72,6 +79,20 @@ export function AdminOperationsPanel() {
       }
     }
 
+    async function fetchRagProvider() {
+      setRagLoading(true);
+      try {
+        const res = await fetch("/api/admin/rag-provider");
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) setRagProvider(data.ragProvider ?? "auto");
+        }
+      } catch {} finally {
+        if (!cancelled) setRagLoading(false);
+      }
+    }
+
+    void fetchRagProvider();
     void fetchSchedule();
     return () => {
       cancelled = true;
@@ -219,7 +240,78 @@ export function AdminOperationsPanel() {
         )}
       </section>
 
-      {/* Panel 3: Schedule settings — spans full width */}
+      {/* Panel 3: RAG Provider */}
+      <section className={`${styles.panel} ${styles.opsPanelWide}`}>
+        <div className={styles.panelHeader}>
+          <div>
+            <p className={styles.eyebrow}>RAG Backend</p>
+            <h2 className={styles.panelTitle}>벡터 검색 설정</h2>
+            <p className={styles.panelDescription}>
+              채팅 RAG 검색에 사용할 백엔드를 선택합니다.
+            </p>
+          </div>
+          <span className={`${styles.statusBadge} ${styles.tagAccent}`}>
+            {ragProvider}
+          </span>
+        </div>
+
+        {ragLoading ? (
+          <div className={styles.analyticsLoading} role="status" aria-live="polite">
+            설정을 불러오는 중...
+          </div>
+        ) : (
+          <div className={styles.opsScheduleRows}>
+            {(["schift", "supabase", "auto"] as const).map((option) => (
+              <label key={option} className={styles.opsToggleLabel}>
+                <input
+                  type="radio"
+                  name="ragProvider"
+                  className={styles.opsToggle}
+                  checked={ragProvider === option}
+                  onChange={() => setRagProvider(option)}
+                />
+                <span className={styles.fieldLabel}>
+                  {option === "schift" ? "Schift (벡터 DB)" : option === "supabase" ? "Supabase (pgvector)" : "Auto (Schift 우선)"}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        <div className={styles.actionRow}>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            disabled={ragSaving || ragLoading}
+            aria-busy={ragSaving}
+            onClick={async () => {
+              setRagSaving(true);
+              setRagResult(null);
+              setRagError(null);
+              try {
+                const res = await fetch("/api/admin/rag-provider", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ ragProvider }),
+                });
+                if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+                setRagResult("저장되었습니다.");
+              } catch (err) {
+                setRagError(err instanceof Error ? err.message : "저장에 실패했습니다.");
+              } finally {
+                setRagSaving(false);
+              }
+            }}
+          >
+            {ragSaving ? "저장 중..." : "저장"}
+          </button>
+        </div>
+
+        {ragResult && <p className={styles.opsPanelSuccess} role="status">{ragResult}</p>}
+        {ragError && <p className={styles.opsPanelError} role="alert">{ragError}</p>}
+      </section>
+
+      {/* Panel 4: Schedule settings — spans full width */}
       <section className={`${styles.panel} ${styles.opsPanelWide}`}>
         <div className={styles.panelHeader}>
           <div>
