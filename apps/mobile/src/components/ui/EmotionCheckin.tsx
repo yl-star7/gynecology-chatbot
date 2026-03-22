@@ -49,7 +49,7 @@ export function EmotionCheckin({ onSelect, onDismiss }: EmotionCheckinProps) {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [opacityAnim, slideAnim]);
 
   return (
     <Animated.View

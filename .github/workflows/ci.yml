@@ -30,7 +30,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Type check
+      - name: Run lint
+        run: pnpm lint
+
+      - name: Run type check
         run: pnpm type-check
 
   test:
@@ -62,7 +65,7 @@ jobs:
           ADMIN_SESSION_SECRET: ci-test-admin-session-secret
 
   build:
-    name: Build
+    name: Workspace Build
     runs-on: ubuntu-latest
     needs: [lint-and-type-check, test]
 

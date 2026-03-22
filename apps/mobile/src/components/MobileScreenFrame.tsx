@@ -6,7 +6,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Pressable } from "./ui";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useMobileAppSession } from "../core/MobileAppSessionProvider";
-import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../theme";
+import { palette, patientSurfacePalette as surface, shadows, space, typo } from "../theme";
 
 export function MobileScreenFrame({
   title,

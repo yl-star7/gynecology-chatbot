@@ -4,7 +4,7 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Button, Card, KeyboardScreen, LabeledInput } from "../../components/ui";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
-import { palette, patientSurfacePalette as surface, space, typo } from "../../theme";
+import { palette, space, typo } from "../../theme";
 
 export function LoginScreen() {
   const { requestVerificationCode, signIn } = useMobileAppSession();

@@ -26,6 +26,10 @@ const customJestConfig = {
     '<rootDir>/.next/standalone/'
   ],
 
+  modulePathIgnorePatterns: [
+    '<rootDir>/.next/',
+  ],
+
   // 변환 설정
   transform: {
     '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
@@ -39,8 +43,9 @@ const customJestConfig = {
   // 커버리지 설정
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
+    'app/**/*.{js,jsx,ts,tsx}',
     '!src/**/*.d.ts',
-    '!src/app/**/*.{js,jsx,ts,tsx}', // Next.js App Router 페이지 제외
+    '!app/**/*.{js,jsx,ts,tsx}', // Next.js App Router 페이지 제외
     '!src/**/index.{js,jsx,ts,tsx}', // 인덱스 파일 제외
   ],
 

@@ -8,6 +8,8 @@
     "ios": "expo run:ios",
     "web": "node ./scripts/expo-web.cjs",
     "lint": "expo lint",
+    "type-check": "tsc --noEmit",
+    "test": "pnpm test:config && pnpm test:resolution",
     "test:config": "node --test package-config.test.mjs",
     "test:resolution": "node --test scripts/mobileReactResolution.test.mjs"
   },
