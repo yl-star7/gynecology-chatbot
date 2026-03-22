@@ -5,7 +5,9 @@ node_modules
 out
 *.log
 .env*
-! .env.example
+!.env.example
+apps/**/.env*
+!apps/**/.env.example
 .playwright-cli
 .superpowers
 output/playwright

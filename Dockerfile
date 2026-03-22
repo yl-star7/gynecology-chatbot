@@ -24,14 +24,23 @@ RUN pnpm install
 # Build stage
 COPY --from=builder /app/out/full/ .
 COPY turbo.json turbo.json
-# Next.js build needs common env vars (even if they are dummy values)
-ENV NEXT_TELEMETRY_DISABLED=1
+
+ARG NEXT_PUBLIC_APP_URL=http://localhost:3005
+ARG NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy-anon-key
+
+# Keep build-time public envs explicit so Docker builds do not depend on checked-in .env files.
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
+    NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 RUN pnpm build --filter=@gynecology-chatbot/web...
 
 # Runner stage
 FROM base AS runner
 WORKDIR /app
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
