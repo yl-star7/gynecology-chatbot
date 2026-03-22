@@ -25,6 +25,8 @@ dist/
 .DS_Store
 *.pem
 *.log
+.expo/
+apps/**/.expo/
 package-lock.json
 .omx/
 artifacts/
