@@ -123,6 +123,7 @@ interface AdminContentSectionProps {
   onRemoveWeekAsset: (index: number) => void;
   onRemoveWeekMedia: (index: number) => void;
   onSaveWeek: () => Promise<void>;
+  view?: "all" | "documents" | "static" | "weeks" | "policies";
 }
 
 export function AdminContentSection({
@@ -199,22 +200,23 @@ export function AdminContentSection({
   onRemoveWeekAsset,
   onRemoveWeekMedia,
   onSaveWeek,
+  view = "all",
 }: AdminContentSectionProps) {
   const readyDocuments = ragDocuments.filter((document) => document.status === "ready").length;
   const draftDocuments = ragDocuments.filter((document) => document.status === "draft").length;
+  const showStatic = view === "all" || view === "static";
+  const showDocuments = view === "all" || view === "documents";
+  const showWeeks = view === "all" || view === "weeks";
+  const showPolicies = view === "all" || view === "policies";
 
   return (
     <section className={styles.panelGrid}>
+      {showStatic ? (
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <p className={styles.eyebrow}>Knowledge Items</p>
             <h2 className={styles.panelTitle}>정적 문헌 관리</h2>
-            <p className={styles.panelDescription}>
-              `knowledge`와 `notebook` 섹션용 정적 문헌을 직접 생성, 수정, 삭제합니다.
-            </p>
           </div>
-          <span className={styles.statusBadge}>Docs</span>
         </div>
 
         <div className={styles.panelGrid}>
@@ -349,17 +351,14 @@ export function AdminContentSection({
           </div>
         </div>
       </section>
+      ) : null}
 
+      {showDocuments ? (
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <p className={styles.eyebrow}>Knowledge Base</p>
             <h2 className={styles.panelTitle}>지식 문서 관리</h2>
-            <p className={styles.panelDescription}>
-              문서 추가와 상태 점검을 Carbon식 밀도와 표 구조로 정리합니다.
-            </p>
           </div>
-          <span className={`${styles.statusBadge} ${styles.tagActive}`}>Ready</span>
         </div>
 
         <div className={styles.statsGrid}>
@@ -481,17 +480,14 @@ export function AdminContentSection({
           ))}
         </div>
       </section>
+      ) : null}
 
+      {showWeeks ? (
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <p className={styles.eyebrow}>Pregnancy Weeks</p>
             <h2 className={styles.panelTitle}>주차별 데이터 관리</h2>
-            <p className={styles.panelDescription}>
-              주차 기본 정보, 체크리스트, 질문 정의를 같은 작업 맥락에서 편집합니다.
-            </p>
           </div>
-          <span className={`${styles.statusBadge} ${styles.tagAccent}`}>Weeks</span>
         </div>
 
         <div className={styles.panelGrid}>
@@ -1331,17 +1327,14 @@ export function AdminContentSection({
           </div>
         </div>
       </section>
+      ) : null}
 
+      {showPolicies ? (
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <p className={styles.eyebrow}>Response Policies</p>
             <h2 className={styles.panelTitle}>응답 정책</h2>
-            <p className={styles.panelDescription}>
-              운영자가 현재 활성 라우팅 정책을 빠르게 감사할 수 있게 유지합니다.
-            </p>
           </div>
-          <span className={`${styles.statusBadge} ${styles.tagAccent}`}>Rules</span>
         </div>
 
         <div className={styles.list}>
@@ -1441,6 +1434,7 @@ export function AdminContentSection({
           </div>
         </div>
       </section>
+      ) : null}
     </section>
   );
 }

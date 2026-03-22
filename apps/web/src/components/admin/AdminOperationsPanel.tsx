@@ -166,15 +166,8 @@ export function AdminOperationsPanel() {
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <p className={styles.eyebrow}>Push Notifications</p>
             <h2 className={styles.panelTitle}>푸시 알림 발송</h2>
-            <p className={styles.panelDescription}>
-              푸시 수신 동의 사용자 전체에게 즉시 알림을 발송합니다.
-            </p>
           </div>
-          <span className={`${styles.statusBadge} ${styles.tagAccent}`}>
-            Broadcast
-          </span>
         </div>
 
         <div className={styles.actionRow}>
@@ -205,15 +198,8 @@ export function AdminOperationsPanel() {
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <p className={styles.eyebrow}>Proactive Messaging</p>
             <h2 className={styles.panelTitle}>Proactive 메시지</h2>
-            <p className={styles.panelDescription}>
-              안부 메시지를 수동으로 트리거하여 대상 사용자에게 예약합니다.
-            </p>
           </div>
-          <span className={`${styles.statusBadge} ${styles.tagActive}`}>
-            Trigger
-          </span>
         </div>
 
         <div className={styles.actionRow}>
@@ -244,11 +230,7 @@ export function AdminOperationsPanel() {
       <section className={`${styles.panel} ${styles.opsPanelWide}`}>
         <div className={styles.panelHeader}>
           <div>
-            <p className={styles.eyebrow}>RAG Backend</p>
             <h2 className={styles.panelTitle}>벡터 검색 설정</h2>
-            <p className={styles.panelDescription}>
-              채팅 RAG 검색에 사용할 백엔드를 선택합니다.
-            </p>
           </div>
           <span className={`${styles.statusBadge} ${styles.tagAccent}`}>
             {ragProvider}
@@ -315,15 +297,8 @@ export function AdminOperationsPanel() {
       <section className={`${styles.panel} ${styles.opsPanelWide}`}>
         <div className={styles.panelHeader}>
           <div>
-            <p className={styles.eyebrow}>Notification Schedule</p>
             <h2 className={styles.panelTitle}>알림 스케줄 설정</h2>
-            <p className={styles.panelDescription}>
-              자동 알림 발송 시각과 활성화 여부를 구성합니다.
-            </p>
           </div>
-          <span className={`${styles.statusBadge} ${styles.statusBadge}`}>
-            Config
-          </span>
         </div>
 
         {scheduleLoading && (

@@ -385,7 +385,7 @@ describe("AdminDashboard", () => {
     expect(
       screen.getByRole("navigation", { name: "관리자 탐색" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("운영자 세션")).toHaveLength(2);
+    expect(screen.getByText("운영자")).toBeInTheDocument();
     expect(await screen.findByDisplayValue("1주차 기본")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /1주차/i }),

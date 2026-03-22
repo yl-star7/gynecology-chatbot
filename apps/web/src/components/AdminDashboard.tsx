@@ -5,7 +5,6 @@ import type { AdminDashboardData } from "@gynecology-chatbot/app-core";
 import { AdminAccountSection } from "./admin/AdminAccountSection";
 import { AdminConsoleShell } from "./admin/AdminConsoleShell";
 import { AdminContentSection } from "./admin/AdminContentSection";
-import { AdminMetricsBar } from "./admin/AdminMetricsBar";
 import { AdminMonitoringSection } from "./admin/AdminMonitoringSection";
 import { AdminOperationsPanel } from "./admin/AdminOperationsPanel";
 import { useAdminDashboardState } from "./admin/useAdminDashboardState";
@@ -29,12 +28,11 @@ export default function AdminDashboard({
   return (
     <AdminConsoleShell
       adminDisplayName={adminDisplayName}
-      attentionUserCount={state.attentionUserCount}
-      readyDocumentCount={state.readyDocumentCount}
+      currentPath="/admin/operations"
+      title="운영 상태"
       onLogout={handleLogout}
     >
       <section id="operations">
-        <AdminMetricsBar metrics={dashboard.metrics} />
         <AdminOperationsPanel />
       </section>
       <section id="accounts">

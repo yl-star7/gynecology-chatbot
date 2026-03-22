@@ -1,120 +1,109 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import styles from "./AdminConsoleLayout.module.css";
 
-const NAV_ITEMS = [
-  { id: "operations", label: "운영 상태" },
-  { id: "accounts", label: "계정" },
-  { id: "content", label: "지식 문서" },
-  { id: "monitoring", label: "모니터링" },
-] as const;
+type NavItem = {
+  href: string;
+  label: string;
+  children?: NavItem[];
+};
+
+const NAV_ITEMS: NavItem[] = [
+  { href: "/admin/operations", label: "운영 상태" },
+  { href: "/admin/accounts", label: "계정" },
+  {
+    href: "/admin/content",
+    label: "콘텐츠",
+    children: [
+      { href: "/admin/content/documents", label: "문서" },
+      { href: "/admin/content/static", label: "정적 문헌" },
+      { href: "/admin/content/weeks", label: "주차 데이터" },
+      { href: "/admin/content/policies", label: "응답 정책" },
+    ],
+  },
+  { href: "/admin/monitoring", label: "모니터링" },
+];
 
 interface AdminConsoleShellProps {
   adminDisplayName: string;
-  attentionUserCount: number;
-  readyDocumentCount: number;
+  currentPath: string;
+  title: string;
   onLogout: () => void | Promise<void>;
   children: ReactNode;
 }
 
+function isActivePath(currentPath: string, href: string) {
+  return currentPath === href || currentPath.startsWith(`${href}/`);
+}
+
 export function AdminConsoleShell({
   adminDisplayName,
-  attentionUserCount,
-  readyDocumentCount,
+  currentPath,
+  title,
   onLogout,
   children,
 }: AdminConsoleShellProps) {
-  const [activeSectionId, setActiveSectionId] = useState<
-    (typeof NAV_ITEMS)[number]["id"]
-  >(
-    NAV_ITEMS[0]?.id ?? "operations",
-  );
-
-  useEffect(() => {
-    function syncActiveSection() {
-      const nextHash = window.location.hash.replace(/^#/, "");
-      const nextSection =
-        NAV_ITEMS.find((item) => item.id === nextHash)?.id ??
-        NAV_ITEMS[0]?.id ??
-        "operations";
-      setActiveSectionId(nextSection);
-    }
-
-    syncActiveSection();
-    window.addEventListener("hashchange", syncActiveSection);
-    return () => {
-      window.removeEventListener("hashchange", syncActiveSection);
-    };
-  }, []);
-
-  const activeSectionLabel =
-    NAV_ITEMS.find((item) => item.id === activeSectionId)?.label ?? "운영 상태";
-
   return (
     <main className={styles.consoleRoot}>
       <aside className={styles.sidebar}>
         <div>
-          <p className={styles.eyebrow}>IBM Carbon Admin</p>
           <h1 className={styles.brandHeading}>운영 제어 센터</h1>
-          <p className={styles.brandCopy}>
-            계정 큐, 문서 반영, 사용자 모니터링을 한 화면에서 정리하는 운영
-            콘솔입니다.
-          </p>
         </div>
 
         <nav aria-label="관리자 탐색" className={styles.nav}>
-          {NAV_ITEMS.map((item) => (
-            <a
-              key={item.id}
-              className={`${styles.navItem} ${activeSectionId === item.id ? styles.navItemActive : ""}`}
-              href={`#${item.id}`}
-            >
-              {item.label}
-            </a>
-          ))}
+          {NAV_ITEMS.map((item) => {
+            const active = isActivePath(currentPath, item.href);
+
+            return (
+              <div key={item.href} className={styles.navGroup}>
+                {item.children ? (
+                  <div
+                    className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}
+                  >
+                    {item.label}
+                  </div>
+                ) : (
+                  <a
+                    className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}
+                    href={item.href}
+                  >
+                    {item.label}
+                  </a>
+                )}
+
+                {item.children ? (
+                  <div className={styles.subnav}>
+                    {item.children.map((child) => (
+                      <a
+                        key={child.href}
+                        className={`${styles.subnavItem} ${
+                          currentPath === child.href ? styles.subnavItemActive : ""
+                        }`}
+                        href={child.href}
+                      >
+                        {child.label}
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
         </nav>
 
         <div className={styles.sideNote}>
-          <p className={styles.eyebrow}>Session</p>
-          <strong>운영자 세션</strong>
-          <p className={styles.panelDescription}>
-            회원가입 흐름이 아니라 권한 검증을 마친 운영 계정이 바로 진입하는
-            제어 화면입니다.
-          </p>
-        </div>
-
-        <div className={styles.badgeRow}>
-          <span className={`${styles.tag} ${styles.tagActive}`}>Gray 10</span>
-          <span className={`${styles.tag} ${styles.tagAccent}`}>Policy</span>
-          <span className={styles.tag}>Audit</span>
+          <span className={styles.metaLabel}>운영자</span>
+          <strong>{adminDisplayName}</strong>
         </div>
       </aside>
 
       <section className={styles.main}>
         <header className={styles.topbar}>
-          <div>
-            <p className={styles.eyebrow}>Operations</p>
-            <h2 className={styles.topbarHeading}>{activeSectionLabel}</h2>
-          </div>
+          <h2 className={styles.topbarHeading}>{title}</h2>
 
           <div className={styles.topbarActions}>
-            <div className={styles.metaGrid}>
-              <div className={styles.metaCard}>
-                <span className={styles.metaLabel}>운영자 세션</span>
-                <strong className={styles.metaValue}>{adminDisplayName}</strong>
-              </div>
-              <div className={styles.metaCard}>
-                <span className={styles.metaLabel}>조치 필요</span>
-                <strong className={styles.metaValue}>{attentionUserCount}</strong>
-              </div>
-              <div className={styles.metaCard}>
-                <span className={styles.metaLabel}>배포 가능 문서</span>
-                <strong className={styles.metaValue}>{readyDocumentCount}</strong>
-              </div>
-            </div>
-
             <button
               className={styles.secondaryButton}
               type="button"

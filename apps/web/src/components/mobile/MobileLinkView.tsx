@@ -23,7 +23,7 @@ export function MobileLinkView({
 }) {
   const searchParams = useSearchParams();
   const resolvedUserId = useMobileSessionGuard(
-    resolveMobileUserId(userId ?? searchParams.get("userId")),
+    resolveMobileUserId(userId ?? searchParams?.get("userId") ?? null),
   );
   const [content, setContent] = useState<LinkTargetContent | null>(null);
   const [error, setError] = useState<string | null>(null);

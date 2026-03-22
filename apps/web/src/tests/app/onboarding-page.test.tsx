@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 
-import OnboardingPage from "./page";
+import OnboardingPage from "../../../app/onboarding/page";
 
 jest.mock("@/components/mobile/MobileOnboardingView", () => ({
   MobileOnboardingView: ({ userId }: { userId: string | null }) => (

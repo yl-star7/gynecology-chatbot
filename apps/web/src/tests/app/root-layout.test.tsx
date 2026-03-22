@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 
 import { DEFAULT_MOBILE_THEME_KEY } from "@gynecology-chatbot/app-core";
 
-import RootLayout from "./layout";
+import RootLayout from "../../../app/layout";
 
 describe("RootLayout", () => {
   test("sets the default mobile theme on the html element", () => {

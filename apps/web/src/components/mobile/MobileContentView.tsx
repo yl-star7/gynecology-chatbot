@@ -25,7 +25,9 @@ export function MobileContentView({
   entityId?: string;
 }) {
   const searchParams = useSearchParams();
-  const resolvedUserId = useMobileSessionGuard(resolveMobileUserId(userId ?? searchParams.get("userId")));
+  const resolvedUserId = useMobileSessionGuard(
+    resolveMobileUserId(userId ?? searchParams?.get("userId") ?? null),
+  );
   const [body, setBody] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [sectionTitle, setSectionTitle] = useState(title);

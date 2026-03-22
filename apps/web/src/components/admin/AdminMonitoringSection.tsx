@@ -78,13 +78,8 @@ export function AdminMonitoringSection({
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <p className={styles.eyebrow}>Live Activity</p>
             <h2 className={styles.panelTitle}>실시간 사용자 이벤트</h2>
-            <p className={styles.panelDescription}>
-              사용자 흐름은 운영 피드로만 두고, 조치 큐보다 아래 순서에 배치합니다.
-            </p>
           </div>
-          <span className={styles.statusBadge}>Feed</span>
         </div>
 
         <div className={styles.formGrid}>
@@ -172,13 +167,8 @@ export function AdminMonitoringSection({
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <p className={styles.eyebrow}>Conversation Audit</p>
             <h2 className={styles.panelTitle}>채팅 세션 감사</h2>
-            <p className={styles.panelDescription}>
-              선택 사용자 기준으로 최근 세션과 감사 로그를 한 번에 조회합니다.
-            </p>
           </div>
-          <span className={styles.statusBadge}>Sessions</span>
         </div>
 
         <div className={styles.historyGrid}>
@@ -255,10 +245,8 @@ export function AdminMonitoringSection({
               <section className={styles.panel}>
                 <div className={styles.panelHeader}>
                   <div>
-                    <p className={styles.eyebrow}>User Audit</p>
                     <h3 className={styles.panelTitle}>선택 사용자 감사 로그</h3>
                   </div>
-                  <span className={styles.statusBadge}>Account</span>
                 </div>
 
                 <div className={styles.list}>
@@ -294,7 +282,6 @@ export function AdminMonitoringSection({
                   <section key={session.id} className={styles.panel}>
                     <div className={styles.panelHeader}>
                       <div>
-                        <p className={styles.eyebrow}>Conversation</p>
                         <h3 className={styles.panelTitle}>{session.title}</h3>
                       </div>
                       <span className={`${styles.statusBadge} ${styles.tagAccent}`}>

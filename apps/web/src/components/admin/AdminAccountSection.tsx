@@ -72,15 +72,8 @@ export function AdminAccountSection({
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <p className={styles.eyebrow}>Action Queue</p>
             <h2 className={styles.panelTitle}>계정 조치 큐</h2>
-            <p className={styles.panelDescription}>
-              운영자가 바로 처리해야 하는 사용자 상태를 우선순위로 정렬합니다.
-            </p>
           </div>
-          <span className={`${styles.statusBadge} ${styles.statusWarning}`}>
-            Priority
-          </span>
         </div>
 
         <div className={styles.list}>
@@ -111,13 +104,8 @@ export function AdminAccountSection({
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <p className={styles.eyebrow}>Audit Trail</p>
             <h2 className={styles.panelTitle}>운영 감사 로그</h2>
-            <p className={styles.panelDescription}>
-              최근 조치 이력과 수동 계정 업데이트를 같은 맥락에서 처리합니다.
-            </p>
           </div>
-          <span className={`${styles.statusBadge} ${styles.tagAccent}`}>Audit</span>
         </div>
 
         <div className={styles.list}>
@@ -202,13 +190,8 @@ export function AdminAccountSection({
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
             <div>
-              <p className={styles.eyebrow}>Allowlist</p>
               <h3 className={styles.panelTitle}>허용 전화번호 관리</h3>
-              <p className={styles.panelDescription}>
-                연구 참여자 번호를 화이트리스트로 관리하고, 등록된 번호만 문자 인증을 진행합니다.
-              </p>
             </div>
-            <span className={styles.statusBadge}>Whitelist</span>
           </div>
 
           <div className={styles.list}>

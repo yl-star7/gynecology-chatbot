@@ -33,7 +33,7 @@ export function MobileContentIndexView({
 }) {
   const searchParams = useSearchParams();
   const resolvedUserId = useMobileSessionGuard(
-    resolveMobileUserId(userId ?? searchParams.get("userId")),
+    resolveMobileUserId(userId ?? searchParams?.get("userId") ?? null),
   );
   const [items, setItems] = useState<MobileContentListItem[]>([]);
   const [weeks, setWeeks] = useState<WeekItem[]>([]);

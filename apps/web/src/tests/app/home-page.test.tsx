@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 
-import HomePage from "./page";
+import HomePage from "../../../app/page";
 
 jest.mock("@/components/mobile/MobileHomeView", () => ({
   MobileHomeView: ({ userId }: { userId: string | null }) => (
