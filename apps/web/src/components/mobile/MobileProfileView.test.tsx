@@ -64,6 +64,10 @@ describe("MobileProfileView", () => {
       await screen.findByRole("heading", { name: "계정과 상담 환경" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("김수연")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "뒤로 가기" })).toHaveAttribute(
+      "href",
+      "/?userId=user-1",
+    );
     expect(
       screen.getByRole("button", { name: "로그아웃" }),
     ).toBeInTheDocument();
@@ -80,5 +84,19 @@ describe("MobileProfileView", () => {
       pregnancyWeekLabel: "18주 2일",
       themeKey: "rose-sand",
     });
+  });
+
+  it("shows profile skeletons before the profile payload resolves", () => {
+    (fetchMobileProfile as jest.Mock).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+
+    render(<MobileProfileView userId="user-1" />);
+
+    expect(screen.queryByText("확인 중")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "뒤로 가기" })).toHaveAttribute(
+      "href",
+      "/?userId=user-1",
+    );
   });
 });

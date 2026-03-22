@@ -132,3 +132,19 @@ export function MobileNotice({
     </p>
   );
 }
+
+export function MobileSkeletonBlock({
+  className,
+}: {
+  className?: string;
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      className={joinClasses(
+        "animate-pulse rounded-[18px] bg-[var(--panel-muted)]/80",
+        className,
+      )}
+    />
+  );
+}

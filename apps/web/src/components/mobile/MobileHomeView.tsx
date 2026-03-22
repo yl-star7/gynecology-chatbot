@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { fetchHome, fetchSessions } from "@/lib/mobile/web-mobile-api";
 import { storeMobileProfile } from "@/lib/mobile/mobile-session";
 import { MobileShell } from "./MobileShell";
+import { MobileSkeletonBlock } from "./MobilePrimitives";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
 function linkWithUserId(path: string, userId: string) {
@@ -104,11 +105,16 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
             오늘 홈
           </p>
-          <h1 className="mt-3 text-[32px] font-semibold tracking-[-0.04em] text-[var(--text)]">
-            {home
-              ? `${home.userName}님, 오늘 기록과 상담을 이어가세요.`
-              : "오늘 상태를 불러오는 중입니다."}
-          </h1>
+          {home ? (
+            <h1 className="mt-3 text-[32px] font-semibold tracking-[-0.04em] text-[var(--text)]">
+              {`${home.userName}님, 오늘 기록과 상담을 이어가세요.`}
+            </h1>
+          ) : (
+            <div className="mt-3 grid gap-2">
+              <MobileSkeletonBlock className="h-9 w-full max-w-[18rem]" />
+              <MobileSkeletonBlock className="h-9 w-full max-w-[14rem]" />
+            </div>
+          )}
           <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
             {error ??
               "지금 필요한 기록과 이번 주 정보를 먼저 보고, 증상 상담이 필요하면 바로 이어가세요."}
@@ -116,15 +122,23 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <div className="rounded-[24px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">현재 주차</p>
-              <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
-                {home?.pregnancyWeekLabel ?? "연결 중"}
-              </p>
+              {home ? (
+                <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
+                  {home.pregnancyWeekLabel}
+                </p>
+              ) : (
+                <MobileSkeletonBlock className="mt-2 h-8 w-24" />
+              )}
             </div>
             <div className="rounded-[24px] border border-[var(--line)] bg-[var(--accent-soft)] p-4">
               <p className="text-sm text-[var(--text-soft)]">임신 경과</p>
-              <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
-                {home ? `${home.pregnancyDayCount}일` : "데이터 확인 중"}
-              </p>
+              {home ? (
+                <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
+                  {`${home.pregnancyDayCount}일`}
+                </p>
+              ) : (
+                <MobileSkeletonBlock className="mt-2 h-8 w-20 bg-white/70" />
+              )}
             </div>
           </div>
         </section>

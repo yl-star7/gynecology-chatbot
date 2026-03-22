@@ -27,6 +27,7 @@ import {
   MobileFormField,
   MobileNotice,
   MobileSectionIntro,
+  MobileSkeletonBlock,
 } from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
 import { MobileThemePresetButtons } from "./MobileThemePresetButtons";
@@ -51,6 +52,9 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
     resolveMobileUserId(userId ?? null),
   );
   const router = useRouter();
+  const backHref = resolvedUserId
+    ? `/?userId=${encodeURIComponent(resolvedUserId)}`
+    : "/";
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -187,6 +191,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
       title="설정"
       description="계정과 상담 환경을 관리해요."
       userId={resolvedUserId}
+      backHref={backHref}
       showTitleBlock={false}
       showChatFab
     >
@@ -200,15 +205,23 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">이름</p>
-              <p className="mt-2 text-xl font-semibold text-[var(--text)]">
-                {profile?.displayName ?? "확인 중"}
-              </p>
+              {profile ? (
+                <p className="mt-2 text-xl font-semibold text-[var(--text)]">
+                  {profile.displayName}
+                </p>
+              ) : (
+                <MobileSkeletonBlock className="mt-2 h-7 w-28" />
+              )}
             </div>
             <div className="rounded-[22px] border border-[var(--line)] bg-[var(--accent-soft)] p-4">
               <p className="text-sm text-[var(--text-soft)]">전화번호</p>
-              <p className="mt-2 text-xl font-semibold text-[var(--text)]">
-                {profile?.phoneNumber ?? "확인 중"}
-              </p>
+              {profile ? (
+                <p className="mt-2 text-xl font-semibold text-[var(--text)]">
+                  {profile.phoneNumber}
+                </p>
+              ) : (
+                <MobileSkeletonBlock className="mt-2 h-7 w-36 bg-white/70" />
+              )}
             </div>
           </div>
         </MobileCard>

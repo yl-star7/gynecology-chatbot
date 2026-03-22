@@ -8,7 +8,7 @@ import {
   fetchLinkTarget,
   resolveMobileUserId,
 } from "@/lib/mobile/web-mobile-api";
-import { MobileCard } from "./MobilePrimitives";
+import { MobileCard, MobileSkeletonBlock } from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
@@ -60,6 +60,7 @@ export function MobileLinkView({
       title="참고 콘텐츠"
       description="관련 정보를 확인해보세요."
       userId={resolvedUserId}
+      backHref={backHref}
       showTitleBlock={false}
       showChatFab
     >
@@ -70,9 +71,21 @@ export function MobileLinkView({
         <h2 className="mt-3 text-[28px] font-semibold tracking-[-0.03em] text-[var(--text)]">
           {content?.title ?? "콘텐츠 연결 중"}
         </h2>
-        <p className="mt-4 whitespace-pre-wrap text-[15px] leading-7 text-[var(--text-soft)]">
-          {error ?? content?.body ?? "정보를 불러오고 있어요."}
-        </p>
+        {error ? (
+          <p className="mt-4 whitespace-pre-wrap text-[15px] leading-7 text-[var(--text-soft)]">
+            {error}
+          </p>
+        ) : content?.body ? (
+          <p className="mt-4 whitespace-pre-wrap text-[15px] leading-7 text-[var(--text-soft)]">
+            {content.body}
+          </p>
+        ) : (
+          <div className="mt-4 grid gap-3">
+            <MobileSkeletonBlock className="h-4 w-full" />
+            <MobileSkeletonBlock className="h-4 w-full" />
+            <MobileSkeletonBlock className="h-4 w-5/6" />
+          </div>
+        )}
         <div className="mt-6 flex gap-3">
           <Link
             href={backHref}

@@ -18,6 +18,8 @@ export function MobileShell({
   title,
   description,
   userId,
+  backHref,
+  backLabel = "뒤로 가기",
   showTitleBlock = true,
   showChatFab = false,
 }: {
@@ -25,6 +27,8 @@ export function MobileShell({
   title: string;
   description: string;
   userId?: string | null;
+  backHref?: string | null;
+  backLabel?: string;
   showTitleBlock?: boolean;
   showChatFab?: boolean;
 }) {
@@ -44,6 +48,16 @@ export function MobileShell({
       <header className="mb-4 rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-4 shadow-[var(--shadow)]">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
+            {backHref ? (
+              <Link
+                href={backHref}
+                aria-label={backLabel}
+                className="mb-3 inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--panel-muted)] px-3 py-2 text-sm font-medium text-[var(--text)] transition hover:opacity-90"
+              >
+                <span aria-hidden="true">←</span>
+                <span>뒤로</span>
+              </Link>
+            ) : null}
             {!showTitleBlock ? (
               <p className="text-sm font-medium text-[var(--text-soft)]">
                 {title}

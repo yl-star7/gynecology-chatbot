@@ -57,5 +57,19 @@ describe("MobileLinkView", () => {
     expect(
       screen.queryByRole("link", { name: "상담으로 돌아가기" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "뒤로 가기" })).toHaveAttribute(
+      "href",
+      "/?userId=user-1",
+    );
+  });
+
+  it("shows skeletons instead of loading copy while waiting for linked content", () => {
+    (fetchLinkTarget as jest.Mock).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+
+    render(<MobileLinkView userId="user-1" target="knowledge" />);
+
+    expect(screen.queryByText("정보를 불러오고 있어요.")).not.toBeInTheDocument();
   });
 });

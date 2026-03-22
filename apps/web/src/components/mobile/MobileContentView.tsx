@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { appendUserIdToPath, fetchLinkTarget, resolveMobileUserId } from "@/lib/mobile/web-mobile-api";
 import { setNativeTitle } from "./native-bridge";
-import { MobileCard } from "./MobilePrimitives";
+import { MobileCard, MobileSkeletonBlock } from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
@@ -28,6 +28,7 @@ export function MobileContentView({
   const resolvedUserId = useMobileSessionGuard(
     resolveMobileUserId(userId ?? searchParams?.get("userId") ?? null),
   );
+  const backHref = appendUserIdToPath("/", resolvedUserId);
   const [body, setBody] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [sectionTitle, setSectionTitle] = useState(title);
@@ -65,6 +66,7 @@ export function MobileContentView({
       title="콘텐츠"
       description="상세 내용을 확인해보세요."
       userId={resolvedUserId}
+      backHref={backHref}
       showTitleBlock={false}
       showChatFab
     >
@@ -79,9 +81,20 @@ export function MobileContentView({
           <h1 className="mt-2 text-[28px] font-semibold tracking-[-0.04em] text-[var(--text)]">
             {sectionTitle}
           </h1>
-          <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
-            {error ?? "내용을 불러오고 있어요."}
-          </p>
+          {error ? (
+            <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
+              {error}
+            </p>
+          ) : body ? (
+            <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
+              내용을 확인해보세요.
+            </p>
+          ) : (
+            <div className="mt-3 grid gap-2">
+              <MobileSkeletonBlock className="h-4 w-full" />
+              <MobileSkeletonBlock className="h-4 w-5/6" />
+            </div>
+          )}
         </MobileCard>
 
         <MobileCard
@@ -91,7 +104,12 @@ export function MobileContentView({
           {body ? (
             <p className="whitespace-pre-wrap">{body}</p>
           ) : (
-            <p className="text-[var(--text-soft)]">내용을 불러오고 있어요.</p>
+            <div className="grid gap-3">
+              <MobileSkeletonBlock className="h-4 w-full" />
+              <MobileSkeletonBlock className="h-4 w-full" />
+              <MobileSkeletonBlock className="h-4 w-4/5" />
+              <MobileSkeletonBlock className="h-4 w-full" />
+            </div>
           )}
         </MobileCard>
 

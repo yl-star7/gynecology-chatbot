@@ -71,5 +71,25 @@ describe("MobileContentView", () => {
     expect(
       screen.queryByRole("link", { name: "상담으로 이동" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "뒤로 가기" })).toHaveAttribute(
+      "href",
+      "/?userId=user-1",
+    );
+  });
+
+  it("shows skeletons instead of loading copy while waiting for content", () => {
+    (fetchLinkTarget as jest.Mock).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+
+    render(
+      <MobileContentView
+        target="knowledge"
+        title="임신 지식"
+        userId="user-1"
+      />,
+    );
+
+    expect(screen.queryByText("내용을 불러오고 있어요.")).not.toBeInTheDocument();
   });
 });

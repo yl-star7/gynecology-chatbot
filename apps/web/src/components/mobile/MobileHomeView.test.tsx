@@ -107,4 +107,17 @@ describe("MobileHomeView", () => {
       pregnancyWeekLabel: "18주 6일",
     });
   });
+
+  it("renders skeleton loading blocks instead of fallback loading copy", () => {
+    (fetchHome as jest.Mock).mockImplementation(() => new Promise(() => undefined));
+    (fetchSessions as jest.Mock).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+
+    render(<MobileHomeView userId="user-1" />);
+
+    expect(screen.queryByText("오늘 상태를 불러오는 중입니다.")).not.toBeInTheDocument();
+    expect(screen.queryByText("연결 중")).not.toBeInTheDocument();
+    expect(screen.queryByText("데이터 확인 중")).not.toBeInTheDocument();
+  });
 });
