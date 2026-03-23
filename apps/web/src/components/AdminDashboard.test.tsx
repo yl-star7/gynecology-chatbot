@@ -288,65 +288,73 @@ describe("AdminDashboard", () => {
       return createJsonResponse({ week: currentWeekDetail });
     };
 
-    global.fetch = jest.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      const url =
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.pathname
-            : input.url;
-      const pathname = url.startsWith("http") ? new URL(url).pathname : url;
+    global.fetch = jest.fn(
+      async (input: string | URL | Request, init?: RequestInit) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.pathname
+              : input.url;
+        const pathname = url.startsWith("http") ? new URL(url).pathname : url;
 
-      if (pathname === "/api/admin/content/weeks" && !init?.method) {
-        return createJsonResponse({ weeks: [weekSummary] });
-      }
+        if (pathname === "/api/admin/content/weeks" && !init?.method) {
+          return createJsonResponse({ weeks: [weekSummary] });
+        }
 
-      if (pathname === "/api/admin/allowed-phone-numbers" && !init?.method) {
-        return createJsonResponse({
-          allowedPhoneNumbers: [
-            {
-              id: "allow-1",
-              phoneNumber: "01012345678",
-              displayName: "김수연",
-              note: "1차 파일럿",
-              createdAt: "2026-03-18T09:00:00.000Z",
-              updatedAt: "2026-03-18T09:00:00.000Z",
-            },
-          ],
-        });
-      }
+        if (pathname === "/api/admin/allowed-phone-numbers" && !init?.method) {
+          return createJsonResponse({
+            allowedPhoneNumbers: [
+              {
+                id: "allow-1",
+                phoneNumber: "01012345678",
+                displayName: "김수연",
+                note: "1차 파일럿",
+                createdAt: "2026-03-18T09:00:00.000Z",
+                updatedAt: "2026-03-18T09:00:00.000Z",
+              },
+            ],
+          });
+        }
 
-      if (pathname === "/api/admin/content/knowledge-items" && !init?.method) {
-        return createJsonResponse({
-          knowledgeItems: [
-            {
-              id: "knowledge-item-1",
-              slug: "warning-signs",
-              section: "knowledge",
-              title: "24주차 위험 신호",
-              body: "규칙적인 수축, 양수 유출 의심, 선명한 출혈은 즉시 확인이 필요합니다.",
-              status: "published",
-              updatedAt: "2026-03-18T09:20:00.000Z",
-            },
-          ],
-        });
-      }
+        if (
+          pathname === "/api/admin/content/knowledge-items" &&
+          !init?.method
+        ) {
+          return createJsonResponse({
+            knowledgeItems: [
+              {
+                id: "knowledge-item-1",
+                slug: "warning-signs",
+                section: "knowledge",
+                title: "24주차 위험 신호",
+                body: "규칙적인 수축, 양수 유출 의심, 선명한 출혈은 즉시 확인이 필요합니다.",
+                status: "published",
+                updatedAt: "2026-03-18T09:20:00.000Z",
+              },
+            ],
+          });
+        }
 
-      if (pathname === "/api/admin/content/weeks/1" && !init?.method) {
-        return createJsonResponse({ week: currentWeekDetail });
-      }
+        if (pathname === "/api/admin/content/weeks/1" && !init?.method) {
+          return createJsonResponse({ week: currentWeekDetail });
+        }
 
-      if (pathname === "/api/admin/content/weeks/1" && init?.method === "PATCH") {
-        const body = JSON.parse(String(init.body)) as AdminWeekUpdateInput;
-        return patchWeekDetail(body);
-      }
+        if (
+          pathname === "/api/admin/content/weeks/1" &&
+          init?.method === "PATCH"
+        ) {
+          const body = JSON.parse(String(init.body)) as AdminWeekUpdateInput;
+          return patchWeekDetail(body);
+        }
 
-      if (pathname === "/api/admin/auth/logout" && init?.method === "POST") {
-        return createJsonResponse({}, true);
-      }
+        if (pathname === "/api/admin/auth/logout" && init?.method === "POST") {
+          return createJsonResponse({}, true);
+        }
 
-      throw new Error(`Unexpected fetch call: ${pathname}`);
-    }) as typeof fetch;
+        throw new Error(`Unexpected fetch call: ${pathname}`);
+      },
+    ) as typeof fetch;
   });
 
   afterEach(() => {
@@ -365,10 +373,10 @@ describe("AdminDashboard", () => {
       screen.getByRole("heading", { name: "운영 상태" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "계정 조치 큐" }),
+      screen.getByRole("heading", { name: "조치 대상 선택" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "운영 감사 로그" }),
+      screen.getByRole("heading", { name: "최근 운영 조치" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "지식 문서 관리" }),
@@ -387,9 +395,7 @@ describe("AdminDashboard", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("운영자")).toBeInTheDocument();
     expect(await screen.findByDisplayValue("1주차 기본")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /1주차/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /1주차/i })).toBeInTheDocument();
     expect(screen.getAllByText("게시됨").length).toBeGreaterThan(0);
   });
 
@@ -416,9 +422,9 @@ describe("AdminDashboard", () => {
     expect(
       screen.getAllByRole("button", { name: "체크리스트 삭제" }),
     ).toHaveLength(2);
-    expect(
-      screen.getAllByRole("button", { name: "질문 삭제" }),
-    ).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "질문 삭제" })).toHaveLength(
+      2,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "체크리스트 추가" }));
     fireEvent.click(screen.getByRole("button", { name: "질문 추가" }));
@@ -426,11 +432,13 @@ describe("AdminDashboard", () => {
     expect(
       screen.getAllByRole("button", { name: "체크리스트 삭제" }),
     ).toHaveLength(3);
-    expect(
-      screen.getAllByRole("button", { name: "질문 삭제" }),
-    ).toHaveLength(3);
+    expect(screen.getAllByRole("button", { name: "질문 삭제" })).toHaveLength(
+      3,
+    );
 
-    fireEvent.click(screen.getAllByRole("button", { name: "체크리스트 삭제" })[2]);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "체크리스트 삭제" })[2],
+    );
     fireEvent.click(screen.getAllByRole("button", { name: "질문 삭제" })[2]);
 
     fireEvent.click(screen.getByRole("button", { name: "주차 저장" }));
@@ -441,7 +449,7 @@ describe("AdminDashboard", () => {
         expect.objectContaining({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: expect.stringContaining("\"title\":\"1주차 기본\""),
+          body: expect.stringContaining('"title":"1주차 기본"'),
         }),
       ),
     );
@@ -450,11 +458,15 @@ describe("AdminDashboard", () => {
     );
     expect(patchCall).toBeDefined();
 
-    const body = JSON.parse(String(patchCall?.[1]?.body)) as AdminWeekUpdateInput;
+    const body = JSON.parse(
+      String(patchCall?.[1]?.body),
+    ) as AdminWeekUpdateInput;
     expect(body.sections).toHaveLength(2);
     expect(body.sections[0].sectionKey).toBe("mother_change");
     expect(body.sections[0].dayNumber).toBe(1);
-    expect(body.sections.map((section) => section.displayOrder)).toEqual([1, 2]);
+    expect(body.sections.map((section) => section.displayOrder)).toEqual([
+      1, 2,
+    ]);
     expect(body.assets).toHaveLength(2);
     expect(body.assets[0].assetType).toBe("illustration");
     expect(body.assets[0].dayNumber).toBe(1);
@@ -488,7 +500,9 @@ describe("AdminDashboard", () => {
     expect(
       screen.getByRole("button", { name: "전화번호 갱신" }),
     ).not.toBeDisabled();
-    expect(screen.getByRole("button", { name: "문서 반영" })).not.toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "문서 반영" }),
+    ).not.toBeDisabled();
 
     await act(async () => {
       resolvePatch?.(
@@ -515,10 +529,16 @@ describe("AdminDashboard", () => {
 
     await screen.findByDisplayValue("1주차 기본");
 
-    expect(screen.getAllByRole("button", { name: "체크리스트 삭제" })).toHaveLength(2);
-    expect(screen.getAllByRole("button", { name: "질문 삭제" })).toHaveLength(2);
+    expect(
+      screen.getAllByRole("button", { name: "체크리스트 삭제" }),
+    ).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "질문 삭제" })).toHaveLength(
+      2,
+    );
 
-    fireEvent.click(screen.getAllByRole("button", { name: "체크리스트 삭제" })[0]);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "체크리스트 삭제" })[0],
+    );
     fireEvent.click(screen.getAllByRole("button", { name: "질문 삭제" })[0]);
     fireEvent.click(screen.getByRole("button", { name: "주차 저장" }));
 
@@ -534,7 +554,9 @@ describe("AdminDashboard", () => {
     const patchCall = (global.fetch as jest.Mock).mock.calls.find(
       ([, init]) => init?.method === "PATCH",
     );
-    const body = JSON.parse(String(patchCall?.[1]?.body)) as AdminWeekUpdateInput;
+    const body = JSON.parse(
+      String(patchCall?.[1]?.body),
+    ) as AdminWeekUpdateInput;
 
     expect(body.sections).toHaveLength(1);
     expect(body.sections[0].id).toBe("section-2");
