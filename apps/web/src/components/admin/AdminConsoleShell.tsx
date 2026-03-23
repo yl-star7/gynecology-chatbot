@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import styles from "./AdminConsoleLayout.module.css";
 
@@ -17,10 +17,8 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/content",
     label: "콘텐츠",
     children: [
-      { href: "/admin/content/documents", label: "문서" },
-      { href: "/admin/content/static", label: "정적 문헌" },
-      { href: "/admin/content/weeks", label: "주차 데이터" },
-      { href: "/admin/content/policies", label: "응답 정책" },
+      { href: "/admin/content/weeks", label: "주차별 간호 정보" },
+      { href: "/admin/content/policies", label: "응답 워크플로우" },
     ],
   },
   { href: "/admin/monitoring", label: "모니터링" },
@@ -45,9 +43,31 @@ export function AdminConsoleShell({
   onLogout,
   children,
 }: AdminConsoleShellProps) {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    function syncSidebarVisibility() {
+      setIsSidebarOpen(window.innerWidth >= 1024);
+    }
+
+    syncSidebarVisibility();
+    window.addEventListener("resize", syncSidebarVisibility);
+    return () => window.removeEventListener("resize", syncSidebarVisibility);
+  }, []);
+
   return (
     <main className={styles.consoleRoot}>
-      <aside className={styles.sidebar}>
+      {isSidebarOpen ? (
+        <button
+          aria-label="사이드바 닫기"
+          className={styles.sidebarBackdrop}
+          type="button"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      ) : null}
+      <aside
+        className={`${styles.sidebar} ${!isSidebarOpen ? styles.sidebarCollapsed : ""}`}
+      >
         <div>
           <h1 className={styles.brandHeading}>운영 제어 센터</h1>
         </div>
@@ -101,7 +121,17 @@ export function AdminConsoleShell({
 
       <section className={styles.main}>
         <header className={styles.topbar}>
-          <h2 className={styles.topbarHeading}>{title}</h2>
+          <div className={styles.topbarLead}>
+            <button
+              aria-label={isSidebarOpen ? "사이드바 닫기" : "사이드바 열기"}
+              className={styles.sidebarToggle}
+              type="button"
+              onClick={() => setIsSidebarOpen((current) => !current)}
+            >
+              {isSidebarOpen ? "닫기" : "메뉴"}
+            </button>
+            <h2 className={styles.topbarHeading}>{title}</h2>
+          </div>
 
           <div className={styles.topbarActions}>
             <button

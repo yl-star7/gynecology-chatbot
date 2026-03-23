@@ -6,6 +6,11 @@ import {
   computePhoneNumberBlindIndex,
   decryptPhoneNumber,
 } from "@/lib/privacy/phone-crypto";
+import {
+  hasDockerConfig,
+  hasSupabaseConfig,
+  resolveServerDataProvider,
+} from "@/lib/server-data-provider";
 
 const ADMIN_SESSION_COOKIE = "gc_admin_session";
 
@@ -26,7 +31,15 @@ function getAdminSessionSecret() {
 }
 
 function getAdminAuthProvider(): AdminAuthProvider {
-  return process.env.ADMIN_DATA_PROVIDER === "backend" ? "backend" : "mock";
+  if (process.env.ADMIN_DATA_PROVIDER === "mock") {
+    return "mock";
+  }
+
+  const provider = resolveServerDataProvider();
+  const hasBackendConfig =
+    provider === "docker" ? hasDockerConfig() : hasSupabaseConfig();
+
+  return hasBackendConfig ? "backend" : "mock";
 }
 
 function getAdminLoginPassword() {

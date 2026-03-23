@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { createAdminServices } from "@/lib/admin/create-admin-services";
 import type { AdminWeekUpdateInput } from "@gynecology-chatbot/app-core";
+import {
+  loadCachedAdminWeekDetail,
+  revalidateAdminWeeksCache,
+} from "@/lib/admin/admin-cache";
 
 function parseWeekNumber(weekNumber: string) {
   const numericWeekNumber = Number(weekNumber);
@@ -294,8 +298,7 @@ export async function GET(
       );
     }
 
-    const services = createAdminServices();
-    const week = await services.adminContentPort.getWeek(numericWeekNumber);
+    const week = await loadCachedAdminWeekDetail(numericWeekNumber);
     if (!week) {
       return NextResponse.json({ error: "week not found" }, { status: 404 });
     }
@@ -345,6 +348,8 @@ export async function PATCH(
     if (!week) {
       return NextResponse.json({ error: "week not found" }, { status: 404 });
     }
+
+    revalidateAdminWeeksCache(numericWeekNumber);
 
     return NextResponse.json({ week });
   } catch (error) {

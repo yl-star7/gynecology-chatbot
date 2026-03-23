@@ -21,11 +21,10 @@ export default function AdminAccountsPage({
     <AdminPageFrame
       adminDisplayName={adminDisplayName}
       currentPath="/admin/accounts"
-      title="계정"
+      title="사용자 설정"
     >
       <AdminAccountSection
         managedUsers={state.managedUsers}
-        recoveryActions={dashboard.recoveryActions}
         allowedPhoneNumbers={state.allowedPhoneNumbers}
         selectedUserId={state.selectedUserId}
         phoneNumber={state.phoneNumber}

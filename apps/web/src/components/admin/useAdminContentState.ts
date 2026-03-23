@@ -75,17 +75,17 @@ export function useAdminContentState(
   dashboard: AdminDashboardData,
   view: "documents" | "static" | "weeks" | "policies",
 ) {
-  const [knowledgeItems, setKnowledgeItems] = useState<AdminKnowledgeItem[]>([]);
+  const [knowledgeItems, setKnowledgeItems] = useState<AdminKnowledgeItem[]>(
+    [],
+  );
   const [selectedKnowledgeItemId, setSelectedKnowledgeItemId] = useState("");
   const [knowledgeSlug, setKnowledgeSlug] = useState("");
-  const [knowledgeSection, setKnowledgeSection] = useState<
-    AdminKnowledgeItem["section"]
-  >("knowledge");
+  const [knowledgeSection, setKnowledgeSection] =
+    useState<AdminKnowledgeItem["section"]>("knowledge");
   const [knowledgeTitle, setKnowledgeTitle] = useState("");
   const [knowledgeBody, setKnowledgeBody] = useState("");
-  const [knowledgeStatus, setKnowledgeStatus] = useState<
-    AdminKnowledgeItem["status"]
-  >("draft");
+  const [knowledgeStatus, setKnowledgeStatus] =
+    useState<AdminKnowledgeItem["status"]>("draft");
   const [ragDocuments, setRagDocuments] = useState(dashboard.ragDocuments);
   const [selectedRagDocumentId, setSelectedRagDocumentId] = useState("");
   const [ragTitle, setRagTitle] = useState("");
@@ -115,6 +115,7 @@ export function useAdminContentState(
   const [isRagSubmitting, setIsRagSubmitting] = useState(false);
   const [isKnowledgeSaving, setIsKnowledgeSaving] = useState(false);
   const [isWorkflowSaving, setIsWorkflowSaving] = useState(false);
+  const [isWorkflowBootstrapping, setIsWorkflowBootstrapping] = useState(false);
   const [isWeekSaving, setIsWeekSaving] = useState(false);
   const [weekSummaries, setWeekSummaries] = useState<AdminWeekSummary[]>([]);
   const [selectedWeekNumber, setSelectedWeekNumber] = useState<number | null>(
@@ -123,9 +124,68 @@ export function useAdminContentState(
   const [selectedWeekDetail, setSelectedWeekDetail] =
     useState<AdminWeekDetail | null>(null);
   const [isLoadingWeeks, setIsLoadingWeeks] = useState(false);
+  const [uploadingCoverField, setUploadingCoverField] = useState<
+    "heroImagePath" | "compareImagePath" | null
+  >(null);
   const [uploadingMediaIndex, setUploadingMediaIndex] = useState<number | null>(
     null,
   );
+
+  async function uploadFileViaSignedUrl(input: {
+    file: File;
+    bucketId: string;
+    mediaScope: "week" | "day";
+    weekNumber: number;
+    dayNumber?: number | null;
+  }) {
+    const formData = new FormData();
+    formData.set("file", input.file);
+    formData.set("bucketId", input.bucketId);
+    formData.set("mediaScope", input.mediaScope);
+    formData.set("weekNumber", String(input.weekNumber));
+    if (input.dayNumber !== null && input.dayNumber !== undefined) {
+      formData.set("dayNumber", String(input.dayNumber));
+    }
+
+    const response = await fetch("/api/admin/content/media/upload", {
+      method: "POST",
+      body: formData,
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      bucketId?: string;
+      objectPath?: string;
+      sourceFileName?: string;
+      signedUrl?: string;
+      contentType?: string;
+    };
+
+    if (
+      !response.ok ||
+      !payload.bucketId ||
+      !payload.objectPath ||
+      !payload.signedUrl
+    ) {
+      throw new Error(
+        payload.error ?? "이미지 업로드 URL 발급에 실패했습니다.",
+      );
+    }
+
+    const uploadResponse = await fetch(payload.signedUrl, {
+      method: "PUT",
+      headers: {
+        "content-type": payload.contentType ?? input.file.type,
+        "x-upsert": "true",
+      },
+      body: input.file,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error("signed URL 업로드에 실패했습니다.");
+    }
+
+    return payload;
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -141,7 +201,9 @@ export function useAdminContentState(
         };
 
         if (!response.ok) {
-          throw new Error(payload.error ?? "지식 문서 목록을 불러오지 못했습니다.");
+          throw new Error(
+            payload.error ?? "지식 문서 목록을 불러오지 못했습니다.",
+          );
         }
 
         if (cancelled) {
@@ -321,6 +383,44 @@ export function useAdminContentState(
     }));
   }
 
+  async function handleUploadWeekCoverImage(
+    field: "heroImagePath" | "compareImagePath",
+    file: File,
+  ) {
+    if (!selectedWeekDetail || !selectedWeekNumber) {
+      setContentMessage("먼저 주차를 선택해 주세요.");
+      return;
+    }
+
+    setUploadingCoverField(field);
+    setContentMessage(null);
+
+    try {
+      const payload = await uploadFileViaSignedUrl({
+        file,
+        bucketId: "pregnancy-content",
+        mediaScope: "week",
+        weekNumber: selectedWeekNumber,
+      });
+
+      updateWeekDetail((current) => ({
+        ...current,
+        [field]: `storage://${payload.bucketId}/${payload.objectPath}`,
+      }));
+      setContentMessage(
+        "대표 이미지를 업로드했습니다. 주차 저장을 눌러 반영해 주세요.",
+      );
+    } catch (error) {
+      setContentMessage(
+        error instanceof Error
+          ? error.message
+          : "대표 이미지 업로드에 실패했습니다.",
+      );
+    } finally {
+      setUploadingCoverField(null);
+    }
+  }
+
   function handleWeekSectionChange(
     index: number,
     field: keyof AdminWeekSection,
@@ -387,30 +487,14 @@ export function useAdminContentState(
     setUploadingMediaIndex(index);
     setContentMessage(null);
 
-    const formData = new FormData();
-    formData.set("file", file);
-    formData.set("bucketId", targetMedia.bucketId || "pregnancy-content");
-    formData.set("mediaScope", targetMedia.mediaScope);
-    formData.set("weekNumber", String(selectedWeekNumber));
-    if (targetMedia.dayNumber !== null && targetMedia.dayNumber !== undefined) {
-      formData.set("dayNumber", String(targetMedia.dayNumber));
-    }
-
     try {
-      const response = await fetch("/api/admin/content/media/upload", {
-        method: "POST",
-        body: formData,
+      const payload = await uploadFileViaSignedUrl({
+        file,
+        bucketId: targetMedia.bucketId || "pregnancy-content",
+        mediaScope: targetMedia.mediaScope,
+        weekNumber: selectedWeekNumber,
+        dayNumber: targetMedia.dayNumber,
       });
-      const payload = (await response.json()) as {
-        error?: string;
-        bucketId?: string;
-        objectPath?: string;
-        sourceFileName?: string;
-      };
-
-      if (!response.ok || !payload.bucketId || !payload.objectPath) {
-        throw new Error(payload.error ?? "이미지 업로드에 실패했습니다.");
-      }
 
       updateWeekDetail((current) => ({
         ...current,
@@ -425,10 +509,14 @@ export function useAdminContentState(
             : media,
         ),
       }));
-      setContentMessage("이미지를 업로드했습니다. 주차 저장을 눌러 반영해 주세요.");
+      setContentMessage(
+        "이미지를 업로드했습니다. 주차 저장을 눌러 반영해 주세요.",
+      );
     } catch (error) {
       setContentMessage(
-        error instanceof Error ? error.message : "이미지 업로드에 실패했습니다.",
+        error instanceof Error
+          ? error.message
+          : "이미지 업로드에 실패했습니다.",
       );
     } finally {
       setUploadingMediaIndex(null);
@@ -439,8 +527,9 @@ export function useAdminContentState(
     updateWeekDetail((current) => {
       const usedDayNumbers = new Set(current.days.map((day) => day.dayNumber));
       const nextDayNumber =
-        [1, 2, 3, 4, 5, 6, 7].find((dayNumber) => !usedDayNumbers.has(dayNumber)) ??
-        current.days.length + 1;
+        [1, 2, 3, 4, 5, 6, 7].find(
+          (dayNumber) => !usedDayNumbers.has(dayNumber),
+        ) ?? current.days.length + 1;
 
       if (nextDayNumber > 7) {
         return current;
@@ -685,6 +774,16 @@ export function useAdminContentState(
     setKnowledgeStatus(nextItem?.status ?? "draft");
   }
 
+  function resetKnowledgeItemForm() {
+    setSelectedKnowledgeItemId("");
+    setKnowledgeSlug("");
+    setKnowledgeSection("knowledge");
+    setKnowledgeTitle("");
+    setKnowledgeBody("");
+    setKnowledgeStatus("draft");
+    setContentMessage(null);
+  }
+
   async function syncSelectedRagDocument(id: string) {
     setSelectedRagDocumentId(id);
     setContentMessage(null);
@@ -846,7 +945,9 @@ export function useAdminContentState(
       !workflowRetrievalScope.trim() ||
       !workflowModelName.trim()
     ) {
-      setContentMessage("수정할 응답 정책을 선택하고 필수 필드를 모두 입력해 주세요.");
+      setContentMessage(
+        "수정할 응답 정책을 선택하고 필수 필드를 모두 입력해 주세요.",
+      );
       return;
     }
 
@@ -894,8 +995,46 @@ export function useAdminContentState(
     setIsWorkflowSaving(false);
   }
 
+  async function handleBootstrapWorkflowRule() {
+    setIsWorkflowBootstrapping(true);
+    setContentMessage(null);
+
+    const response = await fetch("/api/admin/workflow-rules/bootstrap", {
+      method: "POST",
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      workflowRule?: AdminWorkflowRule;
+    };
+
+    if (!response.ok || !payload.workflowRule) {
+      setContentMessage(payload.error ?? "기본 워크플로우 생성에 실패했습니다.");
+      setIsWorkflowBootstrapping(false);
+      return;
+    }
+
+    setWorkflowRules((current) => {
+      const withoutCurrent = current.filter(
+        (rule) => rule.id !== payload.workflowRule?.id,
+      );
+      return [payload.workflowRule as AdminWorkflowRule, ...withoutCurrent];
+    });
+    setSelectedWorkflowRuleId(payload.workflowRule.id);
+    setWorkflowName(payload.workflowRule.name);
+    setWorkflowTrigger(payload.workflowRule.trigger);
+    setWorkflowRetrievalScope(payload.workflowRule.retrievalScope);
+    setWorkflowModelName(payload.workflowRule.modelName);
+    setWorkflowStatus(payload.workflowRule.status);
+    setContentMessage("기본 워크플로우를 만들었습니다.");
+    setIsWorkflowBootstrapping(false);
+  }
+
   async function handleCreateKnowledgeItem() {
-    if (!knowledgeSlug.trim() || !knowledgeTitle.trim() || !knowledgeBody.trim()) {
+    if (
+      !knowledgeSlug.trim() ||
+      !knowledgeTitle.trim() ||
+      !knowledgeBody.trim()
+    ) {
       setContentMessage("슬러그, 제목, 본문을 모두 입력해 주세요.");
       return;
     }
@@ -942,7 +1081,9 @@ export function useAdminContentState(
       !knowledgeTitle.trim() ||
       !knowledgeBody.trim()
     ) {
-      setContentMessage("수정할 문서를 선택하고 슬러그, 제목, 본문을 모두 입력해 주세요.");
+      setContentMessage(
+        "수정할 문서를 선택하고 슬러그, 제목, 본문을 모두 입력해 주세요.",
+      );
       return;
     }
 
@@ -1049,13 +1190,16 @@ export function useAdminContentState(
     isRagSubmitting,
     isKnowledgeSaving,
     isWorkflowSaving,
+    isWorkflowBootstrapping,
     isWeekSaving,
     weekSummaries,
     selectedWeekNumber,
     selectedWeekDetail,
     isLoadingWeeks,
+    uploadingCoverField,
     uploadingMediaIndex,
     syncSelectedKnowledgeItem,
+    resetKnowledgeItemForm,
     syncSelectedRagDocument,
     resetRagDocumentForm,
     syncSelectedWorkflowRule,
@@ -1079,9 +1223,11 @@ export function useAdminContentState(
     handleUploadRagDocument,
     handleDeleteRagDocument,
     handleSaveWorkflowRule,
+    handleBootstrapWorkflowRule,
     handleSelectWeek,
     handleWeekFieldChange,
     handleWeekStatusChange,
+    handleUploadWeekCoverImage,
     handleWeekSectionChange,
     handleWeekAssetChange,
     handleWeekDayChange,

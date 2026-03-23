@@ -8,15 +8,11 @@ import type {
 import {
   getManagedUserStatusBadge,
   getManagedUserStatusLabel,
-  getRecoveryActionLabel,
-  getRecoveryStatusBadge,
-  getRecoveryStatusLabel,
 } from "./admin-dashboard-labels";
 import styles from "./AdminConsoleLayout.module.css";
 
 interface AdminAccountSectionProps {
   managedUsers: AdminDashboardData["managedUsers"];
-  recoveryActions: AdminDashboardData["recoveryActions"];
   allowedPhoneNumbers: AdminAllowedPhoneNumber[];
   selectedUserId: string;
   phoneNumber: string;
@@ -43,7 +39,6 @@ interface AdminAccountSectionProps {
 
 export function AdminAccountSection({
   managedUsers,
-  recoveryActions,
   allowedPhoneNumbers,
   selectedUserId,
   phoneNumber,
@@ -69,38 +64,16 @@ export function AdminAccountSection({
 }: AdminAccountSectionProps) {
   const selectedUser =
     managedUsers.find((user) => user.id === selectedUserId) ?? managedUsers[0] ?? null;
-  const activeUserCount = managedUsers.filter((user) => user.status === "active").length;
-  const attentionUserCount = managedUsers.filter((user) => user.status === "attention").length;
-  const latestRecoveryAction = recoveryActions[0]?.requestedAt ?? "기록 없음";
 
   return (
     <section className={styles.sectionStack}>
-      <section className={styles.statsGrid}>
-        <div className={styles.panelStat}>
-          <span className={styles.metaLabel}>관리 대상 계정</span>
-          <strong>{managedUsers.length}</strong>
-        </div>
-        <div className={styles.panelStat}>
-          <span className={styles.metaLabel}>즉시 대응 필요</span>
-          <strong>{attentionUserCount}</strong>
-        </div>
-        <div className={styles.panelStat}>
-          <span className={styles.metaLabel}>정상 상태</span>
-          <strong>{activeUserCount}</strong>
-        </div>
-        <div className={styles.panelStat}>
-          <span className={styles.metaLabel}>최근 조치 시각</span>
-          <strong>{latestRecoveryAction}</strong>
-        </div>
-      </section>
-
       <section className={styles.panelGrid}>
         <section className={styles.panel}>
           <div className={styles.panelHeader}>
             <div>
-              <h2 className={styles.panelTitle}>조치 대상 선택</h2>
+              <h2 className={styles.panelTitle}>사용자 선택</h2>
               <p className={styles.panelDescription}>
-                문제가 있는 계정을 먼저 고르고, 현재 상태를 확인한 뒤 조치를 진행합니다.
+                가끔 수정이 필요한 사용자를 고르고, 전화번호나 접근 문제를 바로 정리합니다.
               </p>
             </div>
           </div>
@@ -136,9 +109,9 @@ export function AdminAccountSection({
         <section className={styles.panel}>
           <div className={styles.panelHeader}>
             <div>
-              <h2 className={styles.panelTitle}>선택 계정 조치</h2>
+              <h2 className={styles.panelTitle}>선택 사용자 수정</h2>
               <p className={styles.panelDescription}>
-                대상 계정의 전화번호를 정정하거나 접근 문제를 초기화합니다.
+                선택한 사용자의 전화번호를 바꾸거나 접근 문제를 초기화합니다.
               </p>
             </div>
           </div>
@@ -218,70 +191,12 @@ export function AdminAccountSection({
         </section>
       </section>
 
-      <section className={styles.panelGrid}>
-        <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <h2 className={styles.panelTitle}>최근 운영 조치</h2>
-              <p className={styles.panelDescription}>
-                어떤 계정에 어떤 조치를 했는지 최근 이력을 빠르게 확인합니다.
-              </p>
-            </div>
-          </div>
-
-          <div className={styles.list}>
-            {recoveryActions.map((action) => (
-              <div key={action.id} className={styles.listRow}>
-                <div className={styles.listDetail}>
-                  <strong className={styles.listPrimary}>{action.userName}</strong>
-                  <span className={styles.listMeta}>
-                    {getRecoveryActionLabel(action.action)}
-                  </span>
-                </div>
-                <div className={styles.listMetaGroup}>
-                  <span
-                    className={`${styles.statusBadge} ${styles[getRecoveryStatusBadge(action.status)] ?? ""}`}
-                  >
-                    {getRecoveryStatusLabel(action.status)}
-                  </span>
-                  <span className={styles.listMeta}>{action.requestedAt}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className={styles.panel}>
-          <div className={styles.panelHeader}>
-            <div>
-              <h2 className={styles.panelTitle}>허용 번호 운영 원칙</h2>
-              <p className={styles.panelDescription}>
-                허용 목록은 가입 및 복구 가능 대상을 정하는 운영 기준입니다. 선택한 번호를
-                수정하거나 삭제하기 전에 메모와 표시 이름을 함께 확인하세요.
-              </p>
-            </div>
-          </div>
-
-          <div className={styles.detailGrid}>
-            <div className={styles.panelStat}>
-              <span className={styles.metaLabel}>허용 번호 수</span>
-              <strong>{allowedPhoneNumbers.length}</strong>
-            </div>
-            <div className={styles.panelStat}>
-              <span className={styles.metaLabel}>선택된 번호</span>
-              <strong>{allowedPhoneNumber || "선택된 번호 없음"}</strong>
-            </div>
-          </div>
-        </section>
-      </section>
-
       <section className={`${styles.panel} ${styles.panelWide}`}>
         <div className={styles.panelHeader}>
           <div>
             <h2 className={styles.panelTitle}>허용 전화번호 관리</h2>
             <p className={styles.panelDescription}>
-              가입 또는 복구를 허용할 번호를 등록하고, 선택한 번호를 바로 수정하거나
-              삭제합니다.
+              번호 추가, 수정, 삭제만 빠르게 할 수 있게 정리한 화면입니다.
             </p>
           </div>
         </div>

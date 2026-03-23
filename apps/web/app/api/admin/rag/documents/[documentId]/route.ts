@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { createAdminServices } from "@/lib/admin/create-admin-services";
 import type { AdminRagDocumentInput } from "@gynecology-chatbot/app-core";
+import { revalidateAdminDocumentsCache } from "@/lib/admin/admin-cache";
 
 function parseDocumentInput(body: unknown): AdminRagDocumentInput | null {
   if (!body || typeof body !== "object") {
@@ -49,6 +50,8 @@ export async function GET(
     if (!document) {
       return NextResponse.json({ error: "document not found" }, { status: 404 });
     }
+
+    revalidateAdminDocumentsCache();
 
     return NextResponse.json({ document });
   } catch (error) {
@@ -116,6 +119,7 @@ export async function DELETE(
 
     const services = createAdminServices();
     await services.adminContentPort.deleteDocument(documentId);
+    revalidateAdminDocumentsCache();
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("admin rag document delete route error", error);

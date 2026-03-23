@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { createAdminServices } from "@/lib/admin/create-admin-services";
+import { loadCachedAdminWeeks } from "@/lib/admin/admin-cache";
 
 export async function GET() {
   try {
@@ -9,8 +9,7 @@ export async function GET() {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const services = createAdminServices();
-    const weeks = await services.adminContentPort.listWeeks();
+    const weeks = await loadCachedAdminWeeks();
     return NextResponse.json({ weeks });
   } catch (error) {
     console.error("admin content weeks route error", error);

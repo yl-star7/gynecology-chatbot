@@ -10,7 +10,7 @@ export default async function AdminContentPoliciesRoute() {
       adminDisplayName={admin.displayName}
       dashboard={dashboard}
       currentPath="/admin/content/policies"
-      title="응답 정책"
+      title="응답 워크플로우"
       view="policies"
     />
   );

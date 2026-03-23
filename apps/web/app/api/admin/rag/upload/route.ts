@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { createAdminServices } from "@/lib/admin/create-admin-services";
+import { revalidateAdminDocumentsCache } from "@/lib/admin/admin-cache";
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +27,8 @@ export async function POST(request: NextRequest) {
       pregnancyWeek,
       category,
     });
+
+    revalidateAdminDocumentsCache();
 
     return NextResponse.json({ id: document.id, ok: true });
   } catch (error) {

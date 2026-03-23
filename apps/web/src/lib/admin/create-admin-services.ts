@@ -12,6 +12,11 @@ import {
   SupabaseAdminDashboardPortAdapter,
   SupabaseAdminUserPortAdapter,
 } from "./adapters/supabase-admin-dashboard-port";
+import {
+  hasDockerConfig,
+  hasSupabaseConfig,
+  resolveServerDataProvider,
+} from "../server-data-provider";
 
 export interface AdminServices {
   adminDashboardPort: AdminDashboardPort;
@@ -26,12 +31,21 @@ export interface CreateAdminServicesOptions {
   provider?: "mock" | "backend";
 }
 
+function hasBackendAdminConfig() {
+  const provider = resolveServerDataProvider();
+  return provider === "docker" ? hasDockerConfig() : hasSupabaseConfig();
+}
+
 export function createAdminServices(
   options: CreateAdminServicesOptions = {},
 ): AdminServices {
   const provider =
     options.provider ??
-    (process.env.ADMIN_DATA_PROVIDER === "backend" ? "backend" : "mock");
+    (process.env.ADMIN_DATA_PROVIDER === "mock"
+      ? "mock"
+      : hasBackendAdminConfig()
+        ? "backend"
+        : "mock");
 
   if (provider === "backend") {
     return {

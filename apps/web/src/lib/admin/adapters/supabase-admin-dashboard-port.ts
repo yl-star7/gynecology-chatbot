@@ -5,6 +5,7 @@ import type {
   AdminUserPort,
   UserActionType,
 } from "@gynecology-chatbot/app-core";
+import { Pool } from "pg";
 
 import {
   hasDockerConfig,
@@ -17,6 +18,7 @@ import {
   supabaseSelect,
   supabaseUpdate,
 } from "@/lib/mobile/supabase-rest";
+import { getSchiftClient } from "@/lib/mobile/schift-client";
 import {
   createPhoneNumberStorage,
   decryptPhoneNumber,
@@ -25,10 +27,48 @@ import {
 import { normalizePhoneNumberToE164 } from "@/lib/mobile/twilio-verify";
 
 import { MockAdminDashboardPortAdapter } from "./mock-admin-dashboard-port";
+import { mapSchiftWorkflowRule } from "./schift-workflow";
+import { listSchiftWorkflows } from "@/lib/mobile/schift-workflows-api";
 
 function hasBackendAdminConfig() {
   const provider = resolveServerDataProvider();
   return provider === "docker" ? hasDockerConfig() : hasSupabaseConfig();
+}
+
+let contentReadPool: Pool | null = null;
+
+function hasDirectContentDatabase() {
+  return Boolean(process.env.DATABASE_URL);
+}
+
+function getContentReadPool() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required for admin content reads");
+  }
+
+  if (!contentReadPool) {
+    const databaseUrl = new URL(process.env.DATABASE_URL);
+    const usesSsl =
+      databaseUrl.searchParams.get("sslmode") === "require" ||
+      databaseUrl.searchParams.get("sslmode") === "verify-full";
+    databaseUrl.searchParams.delete("sslmode");
+    databaseUrl.searchParams.delete("gssencmode");
+
+    contentReadPool = new Pool({
+      connectionString: databaseUrl.toString(),
+      ssl: usesSsl ? { rejectUnauthorized: false } : undefined,
+    });
+  }
+
+  return contentReadPool;
+}
+
+async function queryContentRows<T>(
+  sql: string,
+  params: unknown[] = [],
+): Promise<T[]> {
+  const result = await getContentReadPool().query(sql, params);
+  return result.rows as T[];
 }
 
 function getAdminActorId() {
@@ -190,6 +230,7 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       ragDocumentsResult,
       workflowDefinitionsResult,
       userActions,
+      schiftWorkflowRules,
     ] = await Promise.all([
       supabaseSelect<
         Array<{
@@ -198,9 +239,7 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           account_status: string;
           last_login_at: string | null;
         }>
-      >(
-        "users?select=id,phone_number_encrypted,account_status,last_login_at",
-      ),
+      >("users?select=id,phone_number_encrypted,account_status,last_login_at"),
       supabaseSelect<
         Array<{
           user_id: string;
@@ -242,17 +281,33 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       >(
         "admin_audit_logs?select=id,target_user_id,action_type,created_at&order=created_at.desc",
       ),
-      supabaseSelect<
-        Array<{
-          id: string;
-          title: string;
-          pregnancy_week: number | null;
-          category: string;
-          metadata: { chunk_count?: number } | null;
-          created_at: string;
-        }>
-      >(
-        "content.pregnancy_documents?select=id,title,pregnancy_week,category,metadata,created_at&order=created_at.desc",
+      (hasDirectContentDatabase()
+        ? queryContentRows<{
+            id: string;
+            title: string;
+            pregnancy_week: number | null;
+            category: string;
+            metadata: { chunk_count?: number } | null;
+            created_at: string;
+          }>(
+            `
+              SELECT id, title, pregnancy_week, category, metadata, created_at
+                FROM content.pregnancy_documents
+            ORDER BY created_at DESC
+            `,
+          )
+        : supabaseSelect<
+            Array<{
+              id: string;
+              title: string;
+              pregnancy_week: number | null;
+              category: string;
+              metadata: { chunk_count?: number } | null;
+              created_at: string;
+            }>
+          >(
+            "content.pregnancy_documents?select=id,title,pregnancy_week,category,metadata,created_at&order=created_at.desc",
+          )
       ).catch((error) => {
         console.error("admin dashboard rag documents unavailable", error);
         return null;
@@ -269,7 +324,10 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       >(
         "workflow_definitions?select=id,name,provider,is_active,config,metadata&order=updated_at.desc",
       ).catch((error) => {
-        console.error("admin dashboard workflow definitions unavailable", error);
+        console.error(
+          "admin dashboard workflow definitions unavailable",
+          error,
+        );
         return null;
       }),
       supabaseSelect<
@@ -285,6 +343,20 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       >(
         "user_action_logs?select=id,user_id,session_id,message_id,action_type,payload,occurred_at&order=occurred_at.desc&limit=60",
       ),
+      (async () => {
+        const schift = getSchiftClient();
+        if (!schift) {
+          return [];
+        }
+
+        try {
+          const workflows = await listSchiftWorkflows();
+          return workflows.map(mapSchiftWorkflowRule);
+        } catch (error) {
+          console.error("admin dashboard schift workflows unavailable", error);
+          return [];
+        }
+      })(),
     ]);
 
     const ragDocuments = ragDocumentsResult ?? [];
@@ -366,7 +438,7 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
               auditLogs.filter((log) =>
                 ["phone_change", "login_id_change", "session_reset"].includes(
                   log.action_type,
-                )
+                ),
               ).length,
             ),
           };
@@ -400,20 +472,17 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           requestedAt: new Date(log.created_at).toLocaleString("ko-KR"),
           status: "completed" as const,
         })),
-      ragDocuments:
-        ragDocuments.length > 0
-          ? ragDocuments.map((document) => ({
-              id: document.id,
-              title: document.title,
-              pregnancyWeekLabel: document.pregnancy_week
-                ? `${document.pregnancy_week}주차`
-                : "공통",
-              category: document.category,
-              chunkCount: document.metadata?.chunk_count ?? 1,
-              updatedAt: new Date(document.created_at).toLocaleString("ko-KR"),
-              status: "ready" as const,
-            }))
-          : dashboard.ragDocuments,
+      ragDocuments: ragDocuments.map((document) => ({
+        id: document.id,
+        title: document.title,
+        pregnancyWeekLabel: document.pregnancy_week
+          ? `${document.pregnancy_week}주차`
+          : "공통",
+        category: document.category,
+        chunkCount: document.metadata?.chunk_count ?? 1,
+        updatedAt: new Date(document.created_at).toLocaleString("ko-KR"),
+        status: "ready" as const,
+      })),
       historyUsers:
         users.length > 0
           ? users.slice(0, 6).map((user) => {
@@ -468,10 +537,15 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
         mappedUserActions.length > 0
           ? mappedUserActions
           : dashboard.userActions,
-      workflowRules:
-        workflowDefinitions.length > 0
-          ? workflowDefinitions.map(mapWorkflowRule)
-          : dashboard.workflowRules,
+      workflowRules: [
+        ...workflowDefinitions.map(mapWorkflowRule),
+        ...schiftWorkflowRules.filter(
+          (workflow) =>
+            !workflowDefinitions.some(
+              (definition) => definition.id === workflow.id,
+            ),
+        ),
+      ],
     };
   }
 }
@@ -545,7 +619,9 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       throw new Error("backend admin configuration is required");
     }
 
-    const normalizedPhoneNumber = normalizeManagedPhoneNumber(input.phoneNumber);
+    const normalizedPhoneNumber = normalizeManagedPhoneNumber(
+      input.phoneNumber,
+    );
     const storage = createPhoneNumberStorage(normalizedPhoneNumber);
     const inserted = await supabaseInsert<
       Array<{
@@ -567,10 +643,9 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
 
     const createdEntry = {
       id: inserted[0]?.id ?? "",
-      phoneNumber:
-        inserted[0]?.phone_number_encrypted
-          ? decryptPhoneNumber(inserted[0].phone_number_encrypted)
-          : normalizedPhoneNumber,
+      phoneNumber: inserted[0]?.phone_number_encrypted
+        ? decryptPhoneNumber(inserted[0].phone_number_encrypted)
+        : normalizedPhoneNumber,
       displayName: inserted[0]?.display_name ?? input.displayName ?? null,
       note: inserted[0]?.note ?? input.note ?? null,
       createdAt: inserted[0]?.created_at ?? new Date().toISOString(),
@@ -606,7 +681,9 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       throw new Error("backend admin configuration is required");
     }
 
-    const normalizedPhoneNumber = normalizeManagedPhoneNumber(input.phoneNumber);
+    const normalizedPhoneNumber = normalizeManagedPhoneNumber(
+      input.phoneNumber,
+    );
     const storage = createPhoneNumberStorage(normalizedPhoneNumber);
     const beforeRows = await supabaseSelect<
       Array<{
@@ -615,7 +692,9 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
         display_name: string | null;
         note: string | null;
       }>
-    >(`allowed_phone_numbers?select=id,phone_number_encrypted,display_name,note&id=eq.${input.id}&limit=1`);
+    >(
+      `allowed_phone_numbers?select=id,phone_number_encrypted,display_name,note&id=eq.${input.id}&limit=1`,
+    );
 
     const updated = await supabaseUpdate<
       Array<{
@@ -637,10 +716,9 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
 
     const updatedEntry = {
       id: updated[0]?.id ?? input.id,
-      phoneNumber:
-        updated[0]?.phone_number_encrypted
-          ? decryptPhoneNumber(updated[0].phone_number_encrypted)
-          : normalizedPhoneNumber,
+      phoneNumber: updated[0]?.phone_number_encrypted
+        ? decryptPhoneNumber(updated[0].phone_number_encrypted)
+        : normalizedPhoneNumber,
       displayName: updated[0]?.display_name ?? input.displayName ?? null,
       note: updated[0]?.note ?? input.note ?? null,
       createdAt: updated[0]?.created_at ?? new Date().toISOString(),
@@ -684,7 +762,9 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
         display_name: string | null;
         note: string | null;
       }>
-    >(`allowed_phone_numbers?select=id,phone_number_encrypted,display_name,note&id=eq.${input.id}&limit=1`);
+    >(
+      `allowed_phone_numbers?select=id,phone_number_encrypted,display_name,note&id=eq.${input.id}&limit=1`,
+    );
 
     await supabaseDelete(`allowed_phone_numbers?id=eq.${input.id}`);
 
@@ -719,13 +799,13 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
 
     const existingUsers = await supabaseSelect<
       Array<{ phone_number_encrypted: string }>
-    >(
-      `users?select=phone_number_encrypted&id=eq.${input.userId}&limit=1`,
-    );
+    >(`users?select=phone_number_encrypted&id=eq.${input.userId}&limit=1`);
     const beforePhoneNumber = existingUsers[0]?.phone_number_encrypted
       ? decryptPhoneNumber(existingUsers[0].phone_number_encrypted)
       : null;
-    const normalizedPhoneNumber = normalizeManagedPhoneNumber(input.phoneNumber);
+    const normalizedPhoneNumber = normalizeManagedPhoneNumber(
+      input.phoneNumber,
+    );
     const storage = createPhoneNumberStorage(normalizedPhoneNumber);
 
     await supabaseUpdate(`users?id=eq.${input.userId}`, {

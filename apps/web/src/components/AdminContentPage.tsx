@@ -59,9 +59,11 @@ export default function AdminContentPage({
         selectedWeekNumber={state.selectedWeekNumber}
         selectedWeekDetail={state.selectedWeekDetail}
         isLoadingWeeks={state.isLoadingWeeks}
+        uploadingCoverField={state.uploadingCoverField}
         isRagSubmitting={state.isRagSubmitting}
         isKnowledgeSaving={state.isKnowledgeSaving}
         isWorkflowSaving={state.isWorkflowSaving}
+        isWorkflowBootstrapping={state.isWorkflowBootstrapping}
         isWeekSaving={state.isWeekSaving}
         onSelectKnowledgeItem={state.syncSelectedKnowledgeItem}
         onKnowledgeSlugChange={state.setKnowledgeSlug}
@@ -72,6 +74,7 @@ export default function AdminContentPage({
         onCreateKnowledgeItem={state.handleCreateKnowledgeItem}
         onUpdateKnowledgeItem={state.handleUpdateKnowledgeItem}
         onDeleteKnowledgeItem={state.handleDeleteKnowledgeItem}
+        onResetKnowledgeItem={state.resetKnowledgeItemForm}
         onSelectRagDocument={state.syncSelectedRagDocument}
         onResetRagDocument={state.resetRagDocumentForm}
         onRagTitleChange={state.setRagTitle}
@@ -87,9 +90,11 @@ export default function AdminContentPage({
         onWorkflowModelNameChange={state.setWorkflowModelName}
         onWorkflowStatusChange={state.setWorkflowStatus}
         onSaveWorkflowRule={state.handleSaveWorkflowRule}
+        onBootstrapWorkflowRule={state.handleBootstrapWorkflowRule}
         onSelectWeek={state.handleSelectWeek}
         onWeekFieldChange={state.handleWeekFieldChange}
         onWeekStatusChange={state.handleWeekStatusChange}
+        onUploadWeekCoverImage={state.handleUploadWeekCoverImage}
         onWeekDayChange={state.handleWeekDayChange}
         onWeekSectionChange={state.handleWeekSectionChange}
         onWeekAssetChange={state.handleWeekAssetChange}

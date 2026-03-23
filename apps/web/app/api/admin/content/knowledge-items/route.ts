@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { createAdminServices } from "@/lib/admin/create-admin-services";
 import type { AdminKnowledgeItemInput } from "@gynecology-chatbot/app-core";
+import {
+  loadCachedAdminKnowledgeItems,
+  revalidateAdminKnowledgeCache,
+} from "@/lib/admin/admin-cache";
 
 function parseKnowledgeItemInput(body: unknown): AdminKnowledgeItemInput | null {
   if (!body || typeof body !== "object") {
@@ -41,8 +45,7 @@ export async function GET() {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const services = createAdminServices();
-    const knowledgeItems = await services.adminContentPort.listKnowledgeItems();
+    const knowledgeItems = await loadCachedAdminKnowledgeItems();
     return NextResponse.json({ knowledgeItems });
   } catch (error) {
     console.error("admin knowledge items get route error", error);
@@ -75,6 +78,7 @@ export async function POST(request: NextRequest) {
     const knowledgeItem = await services.adminContentPort.createKnowledgeItem(
       payload,
     );
+    revalidateAdminKnowledgeCache();
     return NextResponse.json({ knowledgeItem });
   } catch (error) {
     console.error("admin knowledge items post route error", error);

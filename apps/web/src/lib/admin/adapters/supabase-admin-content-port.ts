@@ -19,13 +19,23 @@ import { randomUUID } from "crypto";
 import { Pool } from "pg";
 
 import { embedPregnancyDocument } from "@/lib/mobile/rag";
-import { hasDockerConfig, hasSupabaseConfig, resolveServerDataProvider } from "@/lib/server-data-provider";
+import { getSchiftClient } from "@/lib/mobile/schift-client";
+import {
+  hasDockerConfig,
+  hasSupabaseConfig,
+  resolveServerDataProvider,
+} from "@/lib/server-data-provider";
 import {
   supabaseDelete,
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
 } from "@/lib/mobile/supabase-rest";
+import {
+  buildSchiftWorkflowDescription,
+  mapSchiftWorkflowRule,
+} from "./schift-workflow";
+import { patchSchiftWorkflow } from "@/lib/mobile/schift-workflows-api";
 
 function hasBackendAdminConfig() {
   const provider = resolveServerDataProvider();
@@ -105,9 +115,15 @@ type PublicWeekSummaryRow = SupabaseWeekRow;
 type PublicKnowledgeItemRow = SupabaseKnowledgeItemRow;
 
 let contentWritePool: Pool | null = null;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function hasDirectContentDatabase() {
   return Boolean(process.env.DATABASE_URL);
+}
+
+function isUuid(value: string) {
+  return UUID_PATTERN.test(value);
 }
 
 function getContentWritePool() {
@@ -274,9 +290,7 @@ function mapWeekDetail(
   };
 }
 
-function mapKnowledgeItem(
-  row: SupabaseKnowledgeItemRow,
-): AdminKnowledgeItem {
+function mapKnowledgeItem(row: SupabaseKnowledgeItemRow): AdminKnowledgeItem {
   return {
     id: row.id,
     slug: row.slug,
@@ -299,7 +313,9 @@ function mapRagDocument(row: SupabaseRagDocumentRow): AdminRagDocumentDetail {
   return {
     id: row.id,
     title: row.title,
-    pregnancyWeekLabel: row.pregnancy_week ? `${row.pregnancy_week}주차` : "공통",
+    pregnancyWeekLabel: row.pregnancy_week
+      ? `${row.pregnancy_week}주차`
+      : "공통",
     pregnancyWeek: row.pregnancy_week,
     category: row.category,
     chunkCount: row.metadata?.chunk_count ?? 1,
@@ -360,7 +376,10 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
         "published_knowledge_items?select=id,slug,section,title,body,status,updated_at&order=updated_at.desc",
       );
     } catch (error) {
-      console.error("public knowledge items unavailable, falling back to content schema", error);
+      console.error(
+        "public knowledge items unavailable, falling back to content schema",
+        error,
+      );
       return supabaseSelect<Array<SupabaseKnowledgeItemRow>>(
         "content.knowledge_items?select=id,slug,section,title,body,status,updated_at&order=updated_at.desc",
       );
@@ -394,7 +413,10 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
         "v_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
       );
     } catch (error) {
-      console.error("public week summaries unavailable, falling back to content schema", error);
+      console.error(
+        "public week summaries unavailable, falling back to content schema",
+        error,
+      );
       return supabaseSelect<Array<SupabaseWeekRow>>(
         "content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
       );
@@ -464,6 +486,10 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return this.fallback.getDocument(documentId);
     }
 
+    if (!isUuid(documentId)) {
+      return null;
+    }
+
     const rows = hasDirectContentDatabase()
       ? await queryContentRows<SupabaseRagDocumentRow>(
           `
@@ -487,6 +513,10 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
   ): Promise<AdminRagDocumentDetail | null> {
     if (!hasBackendAdminConfig()) {
       return this.fallback.updateDocument(documentId, input);
+    }
+
+    if (!isUuid(documentId)) {
+      return null;
     }
 
     const embedding = await embedPregnancyDocument(input.content);
@@ -530,6 +560,10 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return this.fallback.deleteDocument(documentId);
     }
 
+    if (!isUuid(documentId)) {
+      return;
+    }
+
     if (hasDirectContentDatabase()) {
       await queryContentRows(
         `DELETE FROM content.pregnancy_documents WHERE id = $1::uuid RETURNING id`,
@@ -549,12 +583,56 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return this.fallback.updateWorkflowRule(id, input);
     }
 
-    const currentRows = await supabaseSelect<Array<SupabaseWorkflowDefinitionRow>>(
+    const currentRows = await supabaseSelect<
+      Array<SupabaseWorkflowDefinitionRow>
+    >(
       `workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata,updated_at&id=eq.${id}&limit=1`,
     );
     const current = currentRows[0];
-    if (!current) {
-      return null;
+    if (!current || current.provider === "schift") {
+      const schift = getSchiftClient();
+      if (!schift) {
+        return null;
+      }
+
+      try {
+        const workflow = await schift.workflows.get(id);
+        const updatedWorkflow = await patchSchiftWorkflow(id, {
+          name: input.name,
+          description: buildSchiftWorkflowDescription(
+            input,
+            workflow.description,
+          ),
+          status: input.status === "active" ? "published" : "draft",
+        });
+
+        if (current) {
+          await supabaseUpdate<Array<SupabaseWorkflowDefinitionRow>>(
+            `workflow_definitions?id=eq.${id}`,
+            {
+              name: input.name,
+              status: input.status === "active" ? "published" : "draft",
+              is_active: input.status === "active",
+              config: {
+                ...(current.config ?? {}),
+                modelName: input.modelName,
+                retrievalScope: input.retrievalScope,
+              },
+              metadata: {
+                ...(current.metadata ?? {}),
+                trigger: input.trigger,
+                retrievalScope: input.retrievalScope,
+                modelName: input.modelName,
+              },
+              updated_at: new Date().toISOString(),
+            },
+          );
+        }
+
+        return mapSchiftWorkflowRule(updatedWorkflow);
+      } catch {
+        return null;
+      }
     }
 
     const updated = await supabaseUpdate<Array<SupabaseWorkflowDefinitionRow>>(
@@ -614,7 +692,14 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
             VALUES ($1::uuid, $2, $3, $4, $5, $6, CASE WHEN $6 = 'published' THEN NOW() ELSE NULL END, NOW())
             RETURNING id, slug, section, title, body, status, updated_at
           `,
-          [randomUUID(), input.slug, input.section, input.title, input.body, input.status],
+          [
+            randomUUID(),
+            input.slug,
+            input.section,
+            input.title,
+            input.body,
+            input.status,
+          ],
         )
       : await supabaseInsert<Array<SupabaseKnowledgeItemRow>>(
           "content.knowledge_items",
@@ -657,7 +742,14 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
              WHERE id = $1::uuid
          RETURNING id, slug, section, title, body, status, updated_at
           `,
-          [id, input.slug, input.section, input.title, input.body, input.status],
+          [
+            id,
+            input.slug,
+            input.section,
+            input.title,
+            input.body,
+            input.status,
+          ],
         )
       : await supabaseUpdate<Array<SupabaseKnowledgeItemRow>>(
           `content.knowledge_items?id=eq.${id}`,
@@ -706,15 +798,41 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     let weekRows: Array<SupabaseWeekRow>;
-    try {
-      weekRows = await supabaseSelect<Array<SupabaseWeekRow>>(
-        `v_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
+    if (hasDirectContentDatabase()) {
+      weekRows = await queryContentRows<SupabaseWeekRow>(
+        `
+          SELECT
+            id,
+            week_number,
+            title,
+            baby_size_label,
+            baby_size_compare_object,
+            baby_summary,
+            mother_summary,
+            warning_signs,
+            recommended_actions,
+            status,
+            updated_at
+          FROM content.pregnancy_week_data
+          WHERE week_number = $1
+          LIMIT 1
+        `,
+        [weekNumber],
       );
-    } catch (error) {
-      console.error("public week detail unavailable, falling back to content schema", error);
-      weekRows = await supabaseSelect<Array<SupabaseWeekRow>>(
-        `content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
-      );
+    } else {
+      try {
+        weekRows = await supabaseSelect<Array<SupabaseWeekRow>>(
+          `v_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
+        );
+      } catch (error) {
+        console.error(
+          "public week detail unavailable, falling back to content schema",
+          error,
+        );
+        weekRows = await supabaseSelect<Array<SupabaseWeekRow>>(
+          `content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
+        );
+      }
     }
 
     const week = weekRows[0];
@@ -725,39 +843,87 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     let sections: Array<SupabaseWeekSectionRow>;
     let assets: Array<SupabaseWeekAssetRow>;
     let days: Array<SupabaseWeekDayRow>;
-    try {
+    let media: Array<SupabaseWeekMediaRow> = [];
+    if (hasDirectContentDatabase()) {
       [sections, assets, days] = await Promise.all([
-        supabaseSelect<Array<SupabaseWeekSectionRow>>(
-          `v_week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+        queryContentRows<SupabaseWeekSectionRow>(
+          `
+            SELECT id, day_number, code, title, description, display_order, is_required, is_active
+            FROM content.week_checklists
+            WHERE week_data_id = $1::uuid
+            ORDER BY day_number ASC NULLS LAST, display_order ASC NULLS LAST
+          `,
+          [week.id],
         ),
-        supabaseSelect<Array<SupabaseWeekAssetRow>>(
-          `v_week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+        queryContentRows<SupabaseWeekAssetRow>(
+          `
+            SELECT id, day_number, code, question_type, question_text, help_text, display_order, is_required, is_active
+            FROM content.week_questions
+            WHERE week_data_id = $1::uuid
+            ORDER BY day_number ASC NULLS LAST, display_order ASC NULLS LAST
+          `,
+          [week.id],
         ),
-        supabaseSelect<Array<SupabaseWeekDayRow>>(
-          `v_pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${week.id}&order=day_number.asc`,
+        queryContentRows<SupabaseWeekDayRow>(
+          `
+            SELECT id, day_number, title, baby_development_payload, baby_message, mother_changes_payload, display_order
+            FROM content.pregnancy_day_contents
+            WHERE week_data_id = $1::uuid
+            ORDER BY day_number ASC
+          `,
+          [week.id],
+        ),
+        queryContentRows<SupabaseWeekMediaRow>(
+          `
+            SELECT id, day_number, media_scope, bucket_id, object_path, media_role, alt_text, source_file_name, display_order
+            FROM content.pregnancy_week_media
+            WHERE week_data_id = $1::uuid
+            ORDER BY day_number ASC NULLS LAST, display_order ASC NULLS LAST
+          `,
+          [week.id],
         ),
       ]);
-    } catch (error) {
-      console.error("public week detail children unavailable, falling back to content schema", error);
-      [sections, assets, days] = await Promise.all([
-        supabaseSelect<Array<SupabaseWeekSectionRow>>(
-          `content.week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
-        ),
-        supabaseSelect<Array<SupabaseWeekAssetRow>>(
-          `content.week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
-        ),
-        supabaseSelect<Array<SupabaseWeekDayRow>>(
-          `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${week.id}&order=day_number.asc`,
-        ),
-      ]);
-    }
+    } else {
+      try {
+        [sections, assets, days] = await Promise.all([
+          supabaseSelect<Array<SupabaseWeekSectionRow>>(
+            `v_week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+          ),
+          supabaseSelect<Array<SupabaseWeekAssetRow>>(
+            `v_week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+          ),
+          supabaseSelect<Array<SupabaseWeekDayRow>>(
+            `v_pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${week.id}&order=day_number.asc`,
+          ),
+        ]);
+      } catch (error) {
+        console.error(
+          "public week detail children unavailable, falling back to content schema",
+          error,
+        );
+        [sections, assets, days] = await Promise.all([
+          supabaseSelect<Array<SupabaseWeekSectionRow>>(
+            `content.week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+          ),
+          supabaseSelect<Array<SupabaseWeekAssetRow>>(
+            `content.week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+          ),
+          supabaseSelect<Array<SupabaseWeekDayRow>>(
+            `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${week.id}&order=day_number.asc`,
+          ),
+        ]);
+      }
 
-    const media = await supabaseSelect<Array<SupabaseWeekMediaRow>>(
-      `content.pregnancy_week_media?select=id,day_number,media_scope,bucket_id,object_path,media_role,alt_text,source_file_name,display_order&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
-    ).catch((error) => {
-      console.error("week media unavailable, returning empty media list", error);
-      return [];
-    });
+      media = await supabaseSelect<Array<SupabaseWeekMediaRow>>(
+        `content.pregnancy_week_media?select=id,day_number,media_scope,bucket_id,object_path,media_role,alt_text,source_file_name,display_order&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+      ).catch((error) => {
+        console.error(
+          "week media unavailable, returning empty media list",
+          error,
+        );
+        return [];
+      });
+    }
 
     return mapWeekDetail(week, days, sections, assets, media);
   }
@@ -775,17 +941,46 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return null;
     }
 
-    await supabaseUpdate(`content.pregnancy_week_data?id=eq.${current.id}`, {
-      title: input.title,
-      baby_size_label: input.babySizeLabel,
-      baby_size_compare_object: input.babySizeCompareObject,
-      baby_summary: input.babySummary,
-      mother_summary: input.motherSummary,
-      warning_signs: input.heroImagePath,
-      recommended_actions: input.compareImagePath,
-      status: input.status,
-      updated_at: new Date().toISOString(),
-    });
+    if (hasDirectContentDatabase()) {
+      await queryContentRows(
+        `
+          UPDATE content.pregnancy_week_data
+             SET title = $2,
+                 baby_size_label = $3,
+                 baby_size_compare_object = $4,
+                 baby_summary = $5,
+                 mother_summary = $6,
+                 warning_signs = $7,
+                 recommended_actions = $8,
+                 status = $9,
+                 updated_at = NOW()
+           WHERE id = $1::uuid
+        `,
+        [
+          current.id,
+          input.title,
+          input.babySizeLabel,
+          input.babySizeCompareObject,
+          input.babySummary,
+          input.motherSummary,
+          input.heroImagePath,
+          input.compareImagePath,
+          input.status,
+        ],
+      );
+    } else {
+      await supabaseUpdate(`content.pregnancy_week_data?id=eq.${current.id}`, {
+        title: input.title,
+        baby_size_label: input.babySizeLabel,
+        baby_size_compare_object: input.babySizeCompareObject,
+        baby_summary: input.babySummary,
+        mother_summary: input.motherSummary,
+        warning_signs: input.heroImagePath,
+        recommended_actions: input.compareImagePath,
+        status: input.status,
+        updated_at: new Date().toISOString(),
+      });
+    }
 
     const nextSectionIds = new Set(
       input.sections
@@ -822,19 +1017,47 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       .filter((mediaId) => !nextMediaIds.has(mediaId));
 
     for (const sectionId of removedSectionIds) {
-      await supabaseDelete(`content.week_checklists?id=eq.${sectionId}`);
+      if (hasDirectContentDatabase()) {
+        await queryContentRows(
+          `DELETE FROM content.week_checklists WHERE id = $1::uuid`,
+          [sectionId],
+        );
+      } else {
+        await supabaseDelete(`content.week_checklists?id=eq.${sectionId}`);
+      }
     }
 
     for (const assetId of removedAssetIds) {
-      await supabaseDelete(`content.week_questions?id=eq.${assetId}`);
+      if (hasDirectContentDatabase()) {
+        await queryContentRows(
+          `DELETE FROM content.week_questions WHERE id = $1::uuid`,
+          [assetId],
+        );
+      } else {
+        await supabaseDelete(`content.week_questions?id=eq.${assetId}`);
+      }
     }
 
     for (const mediaId of removedMediaIds) {
-      await supabaseDelete(`content.pregnancy_week_media?id=eq.${mediaId}`);
+      if (hasDirectContentDatabase()) {
+        await queryContentRows(
+          `DELETE FROM content.pregnancy_week_media WHERE id = $1::uuid`,
+          [mediaId],
+        );
+      } else {
+        await supabaseDelete(`content.pregnancy_week_media?id=eq.${mediaId}`);
+      }
     }
 
     for (const dayId of removedDayIds) {
-      await supabaseDelete(`content.pregnancy_day_contents?id=eq.${dayId}`);
+      if (hasDirectContentDatabase()) {
+        await queryContentRows(
+          `DELETE FROM content.pregnancy_day_contents WHERE id = $1::uuid`,
+          [dayId],
+        );
+      } else {
+        await supabaseDelete(`content.pregnancy_day_contents?id=eq.${dayId}`);
+      }
     }
 
     const dayIdByNumber = new Map<number, string>();
@@ -855,19 +1078,72 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       };
 
       if (day.id) {
-        await supabaseUpdate(`content.pregnancy_day_contents?id=eq.${day.id}`, payload);
+        if (hasDirectContentDatabase()) {
+          await queryContentRows(
+            `
+              UPDATE content.pregnancy_day_contents
+                 SET week_data_id = $2::uuid,
+                     day_number = $3,
+                     title = $4,
+                     baby_development_payload = $5::jsonb,
+                     baby_message = $6,
+                     mother_changes_payload = $7::jsonb,
+                     display_order = $8
+               WHERE id = $1::uuid
+            `,
+            [
+              day.id,
+              current.id,
+              day.dayNumber,
+              day.title,
+              JSON.stringify(payload.baby_development_payload),
+              day.babyMessage,
+              JSON.stringify(payload.mother_changes_payload),
+              day.displayOrder,
+            ],
+          );
+        } else {
+          await supabaseUpdate(
+            `content.pregnancy_day_contents?id=eq.${day.id}`,
+            payload,
+          );
+        }
         dayIdByNumber.set(day.dayNumber, day.id);
         continue;
       }
 
-      const inserted = await supabaseInsert<Array<{ id: string }>>(
-        "content.pregnancy_day_contents",
-        {
-          id: randomUUID(),
-          ...payload,
-        },
-      );
-      const insertedDayId = inserted[0]?.id;
+      const insertedDayId = hasDirectContentDatabase()
+        ? (
+            await queryContentRows<{ id: string }>(
+              `
+                INSERT INTO content.pregnancy_day_contents (
+                  id, week_data_id, day_number, title, baby_development_payload,
+                  baby_message, mother_changes_payload, display_order
+                )
+                VALUES ($1::uuid, $2::uuid, $3, $4, $5::jsonb, $6, $7::jsonb, $8)
+                RETURNING id
+              `,
+              [
+                randomUUID(),
+                current.id,
+                day.dayNumber,
+                day.title,
+                JSON.stringify(payload.baby_development_payload),
+                day.babyMessage,
+                JSON.stringify(payload.mother_changes_payload),
+                day.displayOrder,
+              ],
+            )
+          )[0]?.id
+        : (
+            await supabaseInsert<Array<{ id: string }>>(
+              "content.pregnancy_day_contents",
+              {
+                id: randomUUID(),
+                ...payload,
+              },
+            )
+          )[0]?.id;
       if (insertedDayId) {
         dayIdByNumber.set(day.dayNumber, insertedDayId);
       }
@@ -890,14 +1166,71 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       };
 
       if (section.id) {
-        await supabaseUpdate(`content.week_checklists?id=eq.${section.id}`, payload);
+        if (hasDirectContentDatabase()) {
+          await queryContentRows(
+            `
+              UPDATE content.week_checklists
+                 SET week_data_id = $2::uuid,
+                     day_content_id = $3::uuid,
+                     day_number = $4,
+                     code = $5,
+                     title = $6,
+                     description = $7,
+                     display_order = $8,
+                     is_required = $9,
+                     is_active = $10
+               WHERE id = $1::uuid
+            `,
+            [
+              section.id,
+              current.id,
+              payload.day_content_id,
+              section.dayNumber,
+              section.sectionKey,
+              section.title,
+              section.body,
+              section.displayOrder,
+              section.isRequired,
+              section.isActive,
+            ],
+          );
+        } else {
+          await supabaseUpdate(
+            `content.week_checklists?id=eq.${section.id}`,
+            payload,
+          );
+        }
         continue;
       }
 
-      await supabaseInsert("content.week_checklists", {
-        id: randomUUID(),
-        ...payload,
-      });
+      if (hasDirectContentDatabase()) {
+        await queryContentRows(
+          `
+            INSERT INTO content.week_checklists (
+              id, week_data_id, day_content_id, day_number, code, title,
+              description, display_order, is_required, is_active
+            )
+            VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10)
+          `,
+          [
+            randomUUID(),
+            current.id,
+            payload.day_content_id,
+            section.dayNumber,
+            section.sectionKey,
+            section.title,
+            section.body,
+            section.displayOrder,
+            section.isRequired,
+            section.isActive,
+          ],
+        );
+      } else {
+        await supabaseInsert("content.week_checklists", {
+          id: randomUUID(),
+          ...payload,
+        });
+      }
     }
 
     for (const asset of input.assets) {
@@ -918,14 +1251,74 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       };
 
       if (asset.id) {
-        await supabaseUpdate(`content.week_questions?id=eq.${asset.id}`, payload);
+        if (hasDirectContentDatabase()) {
+          await queryContentRows(
+            `
+              UPDATE content.week_questions
+                 SET week_data_id = $2::uuid,
+                     day_content_id = $3::uuid,
+                     day_number = $4,
+                     code = $5,
+                     question_type = $6,
+                     question_text = $7,
+                     help_text = $8,
+                     display_order = $9,
+                     is_required = $10,
+                     is_active = $11
+               WHERE id = $1::uuid
+            `,
+            [
+              asset.id,
+              current.id,
+              payload.day_content_id,
+              asset.dayNumber,
+              asset.styleKey,
+              asset.assetType,
+              asset.storagePath,
+              asset.altText,
+              asset.displayOrder,
+              asset.isRequired,
+              asset.isActive,
+            ],
+          );
+        } else {
+          await supabaseUpdate(
+            `content.week_questions?id=eq.${asset.id}`,
+            payload,
+          );
+        }
         continue;
       }
 
-      await supabaseInsert("content.week_questions", {
-        id: randomUUID(),
-        ...payload,
-      });
+      if (hasDirectContentDatabase()) {
+        await queryContentRows(
+          `
+            INSERT INTO content.week_questions (
+              id, week_data_id, day_content_id, day_number, code, question_type,
+              question_text, help_text, display_order, is_required, is_active
+            )
+            VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10, $11)
+          `,
+          [
+            randomUUID(),
+            current.id,
+            payload.day_content_id,
+            asset.dayNumber,
+            asset.styleKey,
+            asset.assetType,
+            asset.storagePath,
+            asset.altText,
+            asset.displayOrder,
+            asset.isRequired,
+            asset.isActive,
+          ],
+        );
+      } else {
+        await supabaseInsert("content.week_questions", {
+          id: randomUUID(),
+          ...payload,
+        });
+      }
     }
 
     for (const media of input.media) {
@@ -946,14 +1339,74 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       };
 
       if (media.id) {
-        await supabaseUpdate(`content.pregnancy_week_media?id=eq.${media.id}`, payload);
+        if (hasDirectContentDatabase()) {
+          await queryContentRows(
+            `
+              UPDATE content.pregnancy_week_media
+                 SET week_data_id = $2::uuid,
+                     day_content_id = $3::uuid,
+                     day_number = $4,
+                     media_scope = $5,
+                     bucket_id = $6,
+                     object_path = $7,
+                     media_role = $8,
+                     alt_text = $9,
+                     source_file_name = $10,
+                     display_order = $11
+               WHERE id = $1::uuid
+            `,
+            [
+              media.id,
+              current.id,
+              payload.day_content_id,
+              media.dayNumber,
+              media.mediaScope,
+              media.bucketId,
+              media.objectPath,
+              media.mediaRole,
+              media.altText,
+              media.sourceFileName,
+              media.displayOrder,
+            ],
+          );
+        } else {
+          await supabaseUpdate(
+            `content.pregnancy_week_media?id=eq.${media.id}`,
+            payload,
+          );
+        }
         continue;
       }
 
-      await supabaseInsert("content.pregnancy_week_media", {
-        id: randomUUID(),
-        ...payload,
-      });
+      if (hasDirectContentDatabase()) {
+        await queryContentRows(
+          `
+            INSERT INTO content.pregnancy_week_media (
+              id, week_data_id, day_content_id, day_number, media_scope, bucket_id,
+              object_path, media_role, alt_text, source_file_name, display_order
+            )
+            VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10, $11)
+          `,
+          [
+            randomUUID(),
+            current.id,
+            payload.day_content_id,
+            media.dayNumber,
+            media.mediaScope,
+            media.bucketId,
+            media.objectPath,
+            media.mediaRole,
+            media.altText,
+            media.sourceFileName,
+            media.displayOrder,
+          ],
+        );
+      } else {
+        await supabaseInsert("content.pregnancy_week_media", {
+          id: randomUUID(),
+          ...payload,
+        });
+      }
     }
 
     return this.getWeek(weekNumber);

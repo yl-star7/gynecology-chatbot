@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { createAdminServices } from "@/lib/admin/create-admin-services";
 import type { AdminKnowledgeItemInput } from "@gynecology-chatbot/app-core";
+import { revalidateAdminKnowledgeCache } from "@/lib/admin/admin-cache";
 
 function parseKnowledgeItemInput(body: unknown): AdminKnowledgeItemInput | null {
   if (!body || typeof body !== "object") {
@@ -69,6 +70,8 @@ export async function PATCH(
       );
     }
 
+    revalidateAdminKnowledgeCache();
+
     return NextResponse.json({ knowledgeItem });
   } catch (error) {
     console.error("admin knowledge items patch route error", error);
@@ -99,6 +102,7 @@ export async function DELETE(
 
     const services = createAdminServices();
     await services.adminContentPort.deleteKnowledgeItem(id);
+    revalidateAdminKnowledgeCache();
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("admin knowledge items delete route error", error);

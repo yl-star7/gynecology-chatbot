@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { createAdminServices } from "@/lib/admin/create-admin-services";
 import type { AdminWorkflowRuleInput } from "@gynecology-chatbot/app-core";
+import { revalidateAdminWorkflowCache } from "@/lib/admin/admin-cache";
 
 function parseWorkflowRuleInput(body: unknown): AdminWorkflowRuleInput | null {
   if (!body || typeof body !== "object") {
@@ -67,6 +68,8 @@ export async function PATCH(
     if (!workflowRule) {
       return NextResponse.json({ error: "workflow rule not found" }, { status: 404 });
     }
+
+    revalidateAdminWorkflowCache();
 
     return NextResponse.json({ workflowRule });
   } catch (error) {

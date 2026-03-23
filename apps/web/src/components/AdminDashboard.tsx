@@ -38,7 +38,6 @@ export default function AdminDashboard({
       <section id="accounts">
         <AdminAccountSection
           managedUsers={state.managedUsers}
-          recoveryActions={dashboard.recoveryActions}
           allowedPhoneNumbers={state.allowedPhoneNumbers}
           selectedUserId={state.selectedUserId}
           phoneNumber={state.phoneNumber}
@@ -90,10 +89,12 @@ export default function AdminDashboard({
           selectedWeekNumber={state.selectedWeekNumber}
           selectedWeekDetail={state.selectedWeekDetail}
           isLoadingWeeks={state.isLoadingWeeks}
+          uploadingCoverField={null}
           uploadingMediaIndex={null}
           isRagSubmitting={state.isRagSubmitting}
           isKnowledgeSaving={state.isKnowledgeSaving}
           isWorkflowSaving={state.isWorkflowSaving}
+          isWorkflowBootstrapping={state.isWorkflowSaving}
           isWeekSaving={state.isWeekSaving}
           onSelectKnowledgeItem={state.syncSelectedKnowledgeItem}
           onKnowledgeSlugChange={state.setKnowledgeSlug}
@@ -119,9 +120,11 @@ export default function AdminDashboard({
           onWorkflowModelNameChange={state.setWorkflowModelName}
           onWorkflowStatusChange={state.setWorkflowStatus}
           onSaveWorkflowRule={state.handleSaveWorkflowRule}
+          onBootstrapWorkflowRule={async () => {}}
           onSelectWeek={state.handleSelectWeek}
           onWeekFieldChange={state.handleWeekFieldChange}
           onWeekStatusChange={state.handleWeekStatusChange}
+          onUploadWeekCoverImage={async () => {}}
           onWeekDayChange={state.handleWeekDayChange}
           onWeekSectionChange={state.handleWeekSectionChange}
           onWeekAssetChange={state.handleWeekAssetChange}

@@ -1,10 +1,9 @@
 import { requireAdminSession } from "@/lib/admin/auth";
-import { createAdminServices } from "@/lib/admin/create-admin-services";
+import { loadCachedAdminDashboard } from "@/lib/admin/admin-cache";
 
 export async function loadAdminPageData() {
   const admin = await requireAdminSession();
-  const services = createAdminServices();
-  const dashboard = await services.adminDashboardPort.getDashboard();
+  const dashboard = await loadCachedAdminDashboard();
 
   return {
     admin,
