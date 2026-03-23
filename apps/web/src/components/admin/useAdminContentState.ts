@@ -71,7 +71,10 @@ function removeOrderedItem<T extends OrderedItem>(items: T[], index: number) {
     }));
 }
 
-export function useAdminContentState(dashboard: AdminDashboardData) {
+export function useAdminContentState(
+  dashboard: AdminDashboardData,
+  view: "documents" | "static" | "weeks" | "policies",
+) {
   const [knowledgeItems, setKnowledgeItems] = useState<AdminKnowledgeItem[]>([]);
   const [selectedKnowledgeItemId, setSelectedKnowledgeItemId] = useState("");
   const [knowledgeSlug, setKnowledgeSlug] = useState("");
@@ -123,6 +126,8 @@ export function useAdminContentState(dashboard: AdminDashboardData) {
 
   useEffect(() => {
     let cancelled = false;
+    const needsKnowledgeItems = view === "static";
+    const needsWeeks = view === "weeks";
 
     async function loadKnowledgeItems() {
       try {
@@ -208,13 +213,18 @@ export function useAdminContentState(dashboard: AdminDashboardData) {
       }
     }
 
-    void loadKnowledgeItems();
-    void loadWeeks();
+    if (needsKnowledgeItems) {
+      void loadKnowledgeItems();
+    }
+
+    if (needsWeeks) {
+      void loadWeeks();
+    }
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [view]);
 
   function mapDetailToSummary(detail: AdminWeekDetail): AdminWeekSummary {
     return {

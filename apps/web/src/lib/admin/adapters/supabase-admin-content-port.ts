@@ -100,6 +100,9 @@ type SupabaseKnowledgeItemRow = {
   updated_at: string;
 };
 
+type PublicWeekSummaryRow = SupabaseWeekRow;
+type PublicKnowledgeItemRow = SupabaseKnowledgeItemRow;
+
 type SupabaseRagDocumentRow = {
   id: string;
   title: string;
@@ -300,6 +303,32 @@ function mapWorkflowRule(
 export class SupabaseAdminContentPortAdapter implements AdminContentPort {
   private readonly fallback = new MockAdminContentAdapter();
 
+  private async selectKnowledgeItemRows() {
+    try {
+      return await supabaseSelect<Array<PublicKnowledgeItemRow>>(
+        "published_knowledge_items?select=id,slug,section,title,body,status,updated_at&order=updated_at.desc",
+      );
+    } catch (error) {
+      console.error("public knowledge items unavailable, falling back to content schema", error);
+      return supabaseSelect<Array<SupabaseKnowledgeItemRow>>(
+        "content.knowledge_items?select=id,slug,section,title,body,status,updated_at&order=updated_at.desc",
+      );
+    }
+  }
+
+  private async selectWeekSummaryRows() {
+    try {
+      return await supabaseSelect<Array<PublicWeekSummaryRow>>(
+        "v_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
+      );
+    } catch (error) {
+      console.error("public week summaries unavailable, falling back to content schema", error);
+      return supabaseSelect<Array<SupabaseWeekRow>>(
+        "content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
+      );
+    }
+  }
+
   async createDocument(
     input: AdminRagDocumentInput,
   ): Promise<AdminRagDocumentDetail> {
@@ -418,9 +447,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return this.fallback.listKnowledgeItems();
     }
 
-    const rows = await supabaseSelect<Array<SupabaseKnowledgeItemRow>>(
-      "content.knowledge_items?select=id,slug,section,title,body,status,updated_at&order=updated_at.desc",
-    );
+    const rows = await this.selectKnowledgeItemRows();
 
     return rows.map(mapKnowledgeItem);
   }
@@ -484,9 +511,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return this.fallback.listWeeks();
     }
 
-    const rows = await supabaseSelect<Array<SupabaseWeekRow>>(
-      "content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
-    );
+    const rows = await this.selectWeekSummaryRows();
 
     return rows.map(mapWeekSummary);
   }
@@ -496,30 +521,59 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return this.fallback.getWeek(weekNumber);
     }
 
-    const weekRows = await supabaseSelect<Array<SupabaseWeekRow>>(
-      `content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
-    );
+    let weekRows: Array<SupabaseWeekRow>;
+    try {
+      weekRows = await supabaseSelect<Array<SupabaseWeekRow>>(
+        `v_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
+      );
+    } catch (error) {
+      console.error("public week detail unavailable, falling back to content schema", error);
+      weekRows = await supabaseSelect<Array<SupabaseWeekRow>>(
+        `content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
+      );
+    }
 
     const week = weekRows[0];
     if (!week) {
       return null;
     }
 
-    const sections = await supabaseSelect<Array<SupabaseWeekSectionRow>>(
-      `content.week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
-    );
-
-    const assets = await supabaseSelect<Array<SupabaseWeekAssetRow>>(
-      `content.week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
-    );
-
-    const days = await supabaseSelect<Array<SupabaseWeekDayRow>>(
-      `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${week.id}&order=day_number.asc`,
-    );
+    let sections: Array<SupabaseWeekSectionRow>;
+    let assets: Array<SupabaseWeekAssetRow>;
+    let days: Array<SupabaseWeekDayRow>;
+    try {
+      [sections, assets, days] = await Promise.all([
+        supabaseSelect<Array<SupabaseWeekSectionRow>>(
+          `v_week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+        ),
+        supabaseSelect<Array<SupabaseWeekAssetRow>>(
+          `v_week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+        ),
+        supabaseSelect<Array<SupabaseWeekDayRow>>(
+          `v_pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${week.id}&order=day_number.asc`,
+        ),
+      ]);
+    } catch (error) {
+      console.error("public week detail children unavailable, falling back to content schema", error);
+      [sections, assets, days] = await Promise.all([
+        supabaseSelect<Array<SupabaseWeekSectionRow>>(
+          `content.week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+        ),
+        supabaseSelect<Array<SupabaseWeekAssetRow>>(
+          `content.week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+        ),
+        supabaseSelect<Array<SupabaseWeekDayRow>>(
+          `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${week.id}&order=day_number.asc`,
+        ),
+      ]);
+    }
 
     const media = await supabaseSelect<Array<SupabaseWeekMediaRow>>(
       `content.pregnancy_week_media?select=id,day_number,media_scope,bucket_id,object_path,media_role,alt_text,source_file_name,display_order&week_data_id=eq.${week.id}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
-    );
+    ).catch((error) => {
+      console.error("week media unavailable, returning empty media list", error);
+      return [];
+    });
 
     return mapWeekDetail(week, days, sections, assets, media);
   }

@@ -25,7 +25,7 @@ export default function AdminContentPage({
   title,
   view,
 }: AdminContentPageProps) {
-  const state = useAdminContentState(dashboard);
+  const state = useAdminContentState(dashboard, view);
 
   return (
     <AdminPageFrame
