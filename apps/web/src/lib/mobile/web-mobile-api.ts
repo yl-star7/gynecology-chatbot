@@ -93,7 +93,15 @@ function createSearch(params: Record<string, string | undefined>) {
 }
 
 export function createSessionId() {
-  return `session-${Date.now()}`;
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = character === "x" ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
 }
 
 export async function fetchHome(userId: string, month?: string) {
@@ -220,7 +228,7 @@ export async function sendChatMessage(input: {
     body: JSON.stringify(input),
   });
 
-  return parseJson<{ assistantMessage: ChatMessage }>(response);
+  return parseJson<{ assistantMessage: ChatMessage; sessionId?: string }>(response);
 }
 
 export async function fileToDataUrl(file: File) {

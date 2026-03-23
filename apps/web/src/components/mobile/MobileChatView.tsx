@@ -201,7 +201,7 @@ export function MobileChatView({
   initialSessionId: string;
 }) {
   const resolvedUserId = useMobileSessionGuard(userId);
-  const [resolvedSessionId] = useState(() =>
+  const [resolvedSessionId, setResolvedSessionId] = useState(() =>
     initialSessionId === "new" ? createSessionId() : initialSessionId,
   );
   const [sessionTitle, setSessionTitle] = useState("새 채팅");
@@ -332,6 +332,10 @@ export function MobileChatView({
         text,
         imageDataUris: imageDataUrl ? [imageDataUrl] : [],
       });
+
+      if (payload.sessionId && payload.sessionId !== resolvedSessionId) {
+        setResolvedSessionId(payload.sessionId);
+      }
 
       setMessages((current) =>
         current.map((message) =>

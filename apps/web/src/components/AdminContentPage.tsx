@@ -94,6 +94,8 @@ export default function AdminContentPage({
         onWeekSectionChange={state.handleWeekSectionChange}
         onWeekAssetChange={state.handleWeekAssetChange}
         onWeekMediaChange={state.handleWeekMediaChange}
+        uploadingMediaIndex={state.uploadingMediaIndex}
+        onUploadWeekMedia={state.handleUploadWeekMedia}
         onAddWeekDay={state.handleAddWeekDay}
         onAddWeekSection={state.handleAddWeekSection}
         onAddWeekAsset={state.handleAddWeekAsset}

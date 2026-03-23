@@ -90,6 +90,7 @@ export default function AdminDashboard({
           selectedWeekNumber={state.selectedWeekNumber}
           selectedWeekDetail={state.selectedWeekDetail}
           isLoadingWeeks={state.isLoadingWeeks}
+          uploadingMediaIndex={null}
           isRagSubmitting={state.isRagSubmitting}
           isKnowledgeSaving={state.isKnowledgeSaving}
           isWorkflowSaving={state.isWorkflowSaving}
@@ -125,6 +126,7 @@ export default function AdminDashboard({
           onWeekSectionChange={state.handleWeekSectionChange}
           onWeekAssetChange={state.handleWeekAssetChange}
           onWeekMediaChange={state.handleWeekMediaChange}
+          onUploadWeekMedia={async () => {}}
           onAddWeekDay={state.handleAddWeekDay}
           onAddWeekSection={state.handleAddWeekSection}
           onAddWeekAsset={state.handleAddWeekAsset}

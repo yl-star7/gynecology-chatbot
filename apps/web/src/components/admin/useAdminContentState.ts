@@ -123,6 +123,9 @@ export function useAdminContentState(
   const [selectedWeekDetail, setSelectedWeekDetail] =
     useState<AdminWeekDetail | null>(null);
   const [isLoadingWeeks, setIsLoadingWeeks] = useState(false);
+  const [uploadingMediaIndex, setUploadingMediaIndex] = useState<number | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -368,6 +371,68 @@ export function useAdminContentState(
         currentIndex === index ? { ...entry, [field]: value } : entry,
       ),
     }));
+  }
+
+  async function handleUploadWeekMedia(index: number, file: File) {
+    if (!selectedWeekDetail || !selectedWeekNumber) {
+      setContentMessage("먼저 주차를 선택해 주세요.");
+      return;
+    }
+
+    const targetMedia = selectedWeekDetail.media[index];
+    if (!targetMedia) {
+      return;
+    }
+
+    setUploadingMediaIndex(index);
+    setContentMessage(null);
+
+    const formData = new FormData();
+    formData.set("file", file);
+    formData.set("bucketId", targetMedia.bucketId || "pregnancy-content");
+    formData.set("mediaScope", targetMedia.mediaScope);
+    formData.set("weekNumber", String(selectedWeekNumber));
+    if (targetMedia.dayNumber !== null && targetMedia.dayNumber !== undefined) {
+      formData.set("dayNumber", String(targetMedia.dayNumber));
+    }
+
+    try {
+      const response = await fetch("/api/admin/content/media/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        bucketId?: string;
+        objectPath?: string;
+        sourceFileName?: string;
+      };
+
+      if (!response.ok || !payload.bucketId || !payload.objectPath) {
+        throw new Error(payload.error ?? "이미지 업로드에 실패했습니다.");
+      }
+
+      updateWeekDetail((current) => ({
+        ...current,
+        media: current.media.map((media, currentIndex) =>
+          currentIndex === index
+            ? {
+                ...media,
+                bucketId: payload.bucketId ?? media.bucketId,
+                objectPath: payload.objectPath ?? media.objectPath,
+                sourceFileName: payload.sourceFileName ?? media.sourceFileName,
+              }
+            : media,
+        ),
+      }));
+      setContentMessage("이미지를 업로드했습니다. 주차 저장을 눌러 반영해 주세요.");
+    } catch (error) {
+      setContentMessage(
+        error instanceof Error ? error.message : "이미지 업로드에 실패했습니다.",
+      );
+    } finally {
+      setUploadingMediaIndex(null);
+    }
   }
 
   function handleAddWeekDay() {
@@ -989,6 +1054,7 @@ export function useAdminContentState(
     selectedWeekNumber,
     selectedWeekDetail,
     isLoadingWeeks,
+    uploadingMediaIndex,
     syncSelectedKnowledgeItem,
     syncSelectedRagDocument,
     resetRagDocumentForm,
@@ -1020,6 +1086,7 @@ export function useAdminContentState(
     handleWeekAssetChange,
     handleWeekDayChange,
     handleWeekMediaChange,
+    handleUploadWeekMedia,
     handleAddWeekDay,
     handleAddWeekSection,
     handleAddWeekAsset,

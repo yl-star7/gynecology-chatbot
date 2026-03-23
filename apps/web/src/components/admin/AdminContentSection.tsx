@@ -47,6 +47,7 @@ interface AdminContentSectionProps {
   selectedWeekNumber: number | null;
   selectedWeekDetail: AdminWeekDetail | null;
   isLoadingWeeks: boolean;
+  uploadingMediaIndex: number | null;
   isRagSubmitting: boolean;
   isKnowledgeSaving: boolean;
   isWorkflowSaving: boolean;
@@ -110,6 +111,7 @@ interface AdminContentSectionProps {
     field: keyof AdminWeekMedia,
     value: string | number | null,
   ) => void;
+  onUploadWeekMedia: (index: number, file: File) => Promise<void>;
   onAddWeekDay: () => void;
   onAddWeekSection: () => void;
   onAddWeekAsset: () => void;
@@ -152,6 +154,7 @@ export function AdminContentSection({
   selectedWeekNumber,
   selectedWeekDetail,
   isLoadingWeeks,
+  uploadingMediaIndex,
   isRagSubmitting,
   isKnowledgeSaving,
   isWorkflowSaving,
@@ -187,6 +190,7 @@ export function AdminContentSection({
   onWeekSectionChange,
   onWeekAssetChange,
   onWeekMediaChange,
+  onUploadWeekMedia,
   onAddWeekDay,
   onAddWeekSection,
   onAddWeekAsset,
@@ -1218,6 +1222,24 @@ export function AdminContentSection({
                           />
                         </label>
 
+                        <label className={styles.fieldGroup}>
+                          <span className={styles.fieldLabel}>이미지 업로드</span>
+                          <input
+                            className={styles.fieldInput}
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp,image/gif"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              if (!file) {
+                                return;
+                              }
+
+                              void onUploadWeekMedia(index, file);
+                              event.currentTarget.value = "";
+                            }}
+                          />
+                        </label>
+
                         <div className={styles.panelGrid}>
                           <label className={styles.fieldGroup}>
                             <span className={styles.fieldLabel}>Media Role</span>
@@ -1273,6 +1295,9 @@ export function AdminContentSection({
                             }
                           />
                         </label>
+                        {uploadingMediaIndex === index ? (
+                          <p className={styles.formHint}>이미지를 업로드하는 중입니다.</p>
+                        ) : null}
                         <div className={styles.rowActions}>
                           <button
                             className={styles.secondaryButton}

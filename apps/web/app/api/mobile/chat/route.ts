@@ -22,6 +22,14 @@ const google = createGoogleGenerativeAI({
     process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
 });
 
+function normalizeSessionId(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  )
+    ? value
+    : crypto.randomUUID();
+}
+
 type PregnancyProfilePromptRow = {
   pregnancy_week: number | null;
   pregnancy_day_in_week: number | null;
@@ -527,15 +535,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const normalizedSessionId = normalizeSessionId(sessionId);
+
     const existingSessions = await supabaseSelect<
       Array<{ id: string; title: string }>
     >(
-      `chat_sessions?select=id,title&id=eq.${sessionId}&user_id=eq.${userId}&limit=1`,
+      `chat_sessions?select=id,title&id=eq.${normalizedSessionId}&user_id=eq.${userId}&limit=1`,
     );
 
     if (!existingSessions[0]) {
       await supabaseInsert("chat_sessions", {
-        id: sessionId,
+        id: normalizedSessionId,
         user_id: userId,
         title: text.slice(0, 40) || "새 상담",
         status: "active",
@@ -564,7 +574,7 @@ export async function POST(request: NextRequest) {
     const insertedUserMessages = await supabaseInsert<Array<{ id: string }>>(
       "chat_messages",
       {
-        session_id: sessionId,
+        session_id: normalizedSessionId,
         user_id: userId,
         role: "user",
         parts: userMessageParts,
@@ -575,7 +585,7 @@ export async function POST(request: NextRequest) {
     const insertedUserMessage = insertedUserMessages[0] ?? null;
     const lastMessageAt = new Date().toISOString();
 
-    await supabaseUpdate(`chat_sessions?id=eq.${sessionId}`, {
+    await supabaseUpdate(`chat_sessions?id=eq.${normalizedSessionId}`, {
       last_message_at: lastMessageAt,
       updated_at: lastMessageAt,
     });
@@ -583,7 +593,7 @@ export async function POST(request: NextRequest) {
     await recordUserAction({
       userId,
       actionType: "chat_message_sent",
-      sessionId,
+      sessionId: normalizedSessionId,
       messageId: insertedUserMessage?.id ?? null,
       payload: {
         pregnancyWeek,
@@ -594,7 +604,7 @@ export async function POST(request: NextRequest) {
 
     await markOutstandingPromptEventsAnswered({
       userId,
-      sessionId,
+      sessionId: normalizedSessionId,
       userMessageId: insertedUserMessage?.id ?? null,
     });
 
@@ -673,7 +683,7 @@ export async function POST(request: NextRequest) {
               "의료 응답은 진단 확정 표현을 피하고 필요한 경우 진료 권고를 포함하세요.",
             ].join("\n"),
             prompt: [
-              `세션 ID: ${sessionId || "(없음)"}`,
+              `세션 ID: ${normalizedSessionId || "(없음)"}`,
               `현재 임신 주차: ${currentWeek ?? "(정보 없음)"}`,
               `사용자 텍스트: ${text || "(텍스트 없음)"}`,
               `첨부 이미지 수: ${imageDataUris.length}`,
@@ -688,7 +698,7 @@ export async function POST(request: NextRequest) {
       ? !(
           await alreadyPromptedForSession({
             userId,
-            sessionId,
+            sessionId: normalizedSessionId,
             checklistIds: promptContext.checklists.map((item) => item.id),
             questionIds: promptContext.questions.map((item) => item.id),
           })
@@ -696,16 +706,16 @@ export async function POST(request: NextRequest) {
       : false;
 
     if (promptContext && shouldAppendPromptParts) {
-      assistantMessage.parts = [
-        ...assistantMessage.parts,
-        ...buildWeekPromptParts(promptContext),
+        assistantMessage.parts = [
+          ...assistantMessage.parts,
+          ...buildWeekPromptParts(promptContext),
       ];
     }
 
     const insertedAssistantMessages = await supabaseInsert<Array<{ id: string }>>(
       "chat_messages",
       {
-        session_id: sessionId,
+        session_id: normalizedSessionId,
         user_id: userId,
         role: "assistant",
         parts: assistantMessage.parts,
@@ -724,7 +734,7 @@ export async function POST(request: NextRequest) {
     if (promptContext && shouldAppendPromptParts) {
       await createPromptEvents({
         userId,
-        sessionId,
+        sessionId: normalizedSessionId,
         assistantMessageId: insertedAssistantMessage?.id ?? null,
         checklists: promptContext.checklists,
         questions: promptContext.questions,
@@ -732,13 +742,14 @@ export async function POST(request: NextRequest) {
     }
 
     const assistantMessageAt = new Date().toISOString();
-    await supabaseUpdate(`chat_sessions?id=eq.${sessionId}`, {
+    await supabaseUpdate(`chat_sessions?id=eq.${normalizedSessionId}`, {
       last_message_at: assistantMessageAt,
       updated_at: assistantMessageAt,
     });
 
     return NextResponse.json({
       assistantMessage,
+      sessionId: normalizedSessionId,
     });
   } catch (error) {
     console.error("mobile chat route error", error);

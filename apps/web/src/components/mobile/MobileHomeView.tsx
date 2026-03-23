@@ -143,47 +143,6 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
           </div>
         </section>
 
-        <section className="grid gap-4 sm:grid-cols-2">
-          {[
-            {
-              eyebrow: "오늘 할 일",
-              title: home?.notebookCard.title ?? "임신수첩",
-              body:
-                home?.notebookCard.description ??
-                "오늘의 체크리스트와 기록을 확인해보세요.",
-              href: "/notebook",
-            },
-            {
-              eyebrow: "이번 주 정보",
-              title: home?.knowledgeCard.title ?? "임신 지식",
-              body:
-                home?.knowledgeCard.description ??
-                "이번 주 변화와 놓치면 안 될 위험 신호를 먼저 봅니다.",
-              href: "/knowledge",
-            },
-          ].map((item) => (
-            <Link
-              key={item.href}
-              href={
-                resolvedUserId
-                  ? linkWithUserId(item.href, resolvedUserId)
-                  : item.href
-              }
-              className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)] transition"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
-                {item.eyebrow}
-              </p>
-              <p className="mt-3 text-xl font-semibold text-[var(--text)]">
-                {item.title}
-              </p>
-              <p className="mt-2 text-sm leading-6 text-[var(--text-soft)]">
-                {item.body}
-              </p>
-            </Link>
-          ))}
-        </section>
-
         <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)]">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -305,6 +264,47 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
           <p className="mt-3 text-xs text-[var(--text-soft)]">
             점이 있는 날짜를 누르면 기록을 볼 수 있어요.
           </p>
+        </section>
+
+        <section className="grid gap-4 sm:grid-cols-2">
+          {[
+            {
+              eyebrow: "오늘 할 일",
+              title: home?.notebookCard.title ?? "임신수첩",
+              body:
+                home?.notebookCard.description ??
+                "오늘의 체크리스트와 기록을 확인해보세요.",
+              href: "/notebook",
+            },
+            {
+              eyebrow: "오늘 정보",
+              title: home?.knowledgeCard.title ?? "임신 지식",
+              body:
+                home?.knowledgeCard.description ??
+                "이번 주 변화와 놓치면 안 될 위험 신호를 먼저 봅니다.",
+              href: "/knowledge",
+            },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={
+                resolvedUserId
+                  ? linkWithUserId(item.href, resolvedUserId)
+                  : item.href
+              }
+              className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)] transition"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
+                {item.eyebrow}
+              </p>
+              <p className="mt-3 text-xl font-semibold text-[var(--text)]">
+                {item.title}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--text-soft)]">
+                {item.body}
+              </p>
+            </Link>
+          ))}
         </section>
       </div>
     </MobileShell>
