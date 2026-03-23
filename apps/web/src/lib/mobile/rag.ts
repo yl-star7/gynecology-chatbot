@@ -15,6 +15,11 @@ type RagDocumentRow = {
 type RagProvider = "schift" | "supabase" | "auto";
 
 type ConfigRow = { key: string; value: { ragProvider?: RagProvider } };
+const PGVECTOR_DIMENSION = 1536;
+
+function normalizeEmbeddingLength(values: number[]) {
+  return values.slice(0, PGVECTOR_DIMENSION);
+}
 
 async function getRagProvider(): Promise<RagProvider> {
   try {
@@ -55,8 +60,13 @@ async function searchViaSupabase(query: string, currentWeek: number | null, matc
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) return [];
 
-  const embeddings = new GoogleGenerativeAIEmbeddings({ apiKey, modelName: "embedding-001" });
-  const queryEmbedding = await embeddings.embedQuery(query);
+  const embeddings = new GoogleGenerativeAIEmbeddings({
+    apiKey,
+    modelName: "gemini-embedding-001",
+  });
+  const queryEmbedding = normalizeEmbeddingLength(
+    await embeddings.embedQuery(query),
+  );
   return await supabaseRpc<RagDocumentRow[]>("match_pregnancy_documents", {
     query_embedding: queryEmbedding,
     current_week: currentWeek,
@@ -118,8 +128,16 @@ export async function embedPregnancyDocument(content: string): Promise<number[]>
   if (provider === "schift" || provider === "auto") {
     const schift = getSchiftClient();
     if (schift) {
-      const result = await schift.embed({ text: content });
-      return result.embedding;
+      try {
+        const result = await schift.embed({ text: content });
+        return normalizeEmbeddingLength(result.embedding);
+      } catch (error) {
+        if (provider === "schift") {
+          throw error;
+        }
+
+        console.warn("Schift embed failed in auto mode, falling back to Gemini:", error);
+      }
     }
     if (provider === "schift") throw new Error("Schift client not configured");
   }
@@ -127,8 +145,11 @@ export async function embedPregnancyDocument(content: string): Promise<number[]>
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) throw new Error("Embedding configuration is missing");
 
-  const embeddings = new GoogleGenerativeAIEmbeddings({ apiKey, modelName: "embedding-001" });
-  return embeddings.embedQuery(content);
+  const embeddings = new GoogleGenerativeAIEmbeddings({
+    apiKey,
+    modelName: "gemini-embedding-001",
+  });
+  return normalizeEmbeddingLength(await embeddings.embedQuery(content));
 }
 
 export function formatRagContext(documents: RagDocumentRow[]) {

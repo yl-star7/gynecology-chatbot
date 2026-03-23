@@ -16,6 +16,7 @@ import type {
 } from "@gynecology-chatbot/app-core";
 import { MockAdminContentAdapter } from "@gynecology-chatbot/app-core";
 import { randomUUID } from "crypto";
+import { Pool } from "pg";
 
 import { embedPregnancyDocument } from "@/lib/mobile/rag";
 import { hasDockerConfig, hasSupabaseConfig, resolveServerDataProvider } from "@/lib/server-data-provider";
@@ -102,6 +103,46 @@ type SupabaseKnowledgeItemRow = {
 
 type PublicWeekSummaryRow = SupabaseWeekRow;
 type PublicKnowledgeItemRow = SupabaseKnowledgeItemRow;
+
+let contentWritePool: Pool | null = null;
+
+function hasDirectContentDatabase() {
+  return Boolean(process.env.DATABASE_URL);
+}
+
+function getContentWritePool() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required for admin content writes");
+  }
+
+  if (!contentWritePool) {
+    const databaseUrl = new URL(process.env.DATABASE_URL);
+    const usesSsl =
+      databaseUrl.searchParams.get("sslmode") === "require" ||
+      databaseUrl.searchParams.get("sslmode") === "verify-full";
+    databaseUrl.searchParams.delete("sslmode");
+    databaseUrl.searchParams.delete("gssencmode");
+
+    contentWritePool = new Pool({
+      connectionString: databaseUrl.toString(),
+      ssl: usesSsl ? { rejectUnauthorized: false } : undefined,
+    });
+  }
+
+  return contentWritePool;
+}
+
+async function queryContentRows<T>(
+  sql: string,
+  params: unknown[] = [],
+): Promise<T[]> {
+  const result = await getContentWritePool().query(sql, params);
+  return result.rows as T[];
+}
+
+function toVectorLiteral(values: number[]) {
+  return `[${values.join(",")}]`;
+}
 
 type SupabaseRagDocumentRow = {
   id: string;
@@ -304,6 +345,16 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
   private readonly fallback = new MockAdminContentAdapter();
 
   private async selectKnowledgeItemRows() {
+    if (hasDirectContentDatabase()) {
+      return queryContentRows<SupabaseKnowledgeItemRow>(
+        `
+          SELECT id, slug, section, title, body, status, updated_at
+          FROM content.knowledge_items
+          ORDER BY updated_at DESC NULLS LAST, title ASC
+        `,
+      );
+    }
+
     try {
       return await supabaseSelect<Array<PublicKnowledgeItemRow>>(
         "published_knowledge_items?select=id,slug,section,title,body,status,updated_at&order=updated_at.desc",
@@ -317,6 +368,27 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
   }
 
   private async selectWeekSummaryRows() {
+    if (hasDirectContentDatabase()) {
+      return queryContentRows<SupabaseWeekRow>(
+        `
+          SELECT
+            id,
+            week_number,
+            title,
+            baby_size_label,
+            baby_size_compare_object,
+            baby_summary,
+            mother_summary,
+            warning_signs,
+            recommended_actions,
+            status,
+            updated_at
+          FROM content.pregnancy_week_data
+          ORDER BY week_number ASC
+        `,
+      );
+    }
+
     try {
       return await supabaseSelect<Array<PublicWeekSummaryRow>>(
         "v_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
@@ -337,22 +409,50 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const embedding = await embedPregnancyDocument(input.content);
-    const inserted = await supabaseInsert<Array<SupabaseRagDocumentRow>>(
-      "content.pregnancy_documents",
-      {
-        id: randomUUID(),
-        title: input.title,
-        content: input.content,
-        pregnancy_week: input.pregnancyWeek,
-        category: input.category,
-        embedding,
-        metadata: {
-          chunk_count: 1,
-          draft: false,
-          source: "admin_upload",
-        },
-      },
-    );
+    const documentId = randomUUID();
+    const metadata = {
+      chunk_count: 1,
+      draft: false,
+      source: "admin_upload",
+    };
+    const inserted = hasDirectContentDatabase()
+      ? await queryContentRows<SupabaseRagDocumentRow>(
+          `
+            INSERT INTO content.pregnancy_documents (
+              id,
+              title,
+              content,
+              pregnancy_week,
+              category,
+              embedding,
+              metadata,
+              created_at
+            )
+            VALUES ($1::uuid, $2, $3, $4, $5, $6::vector, $7::jsonb, NOW())
+            RETURNING id, title, content, pregnancy_week, category, metadata, created_at, NULL::timestamptz AS updated_at
+          `,
+          [
+            documentId,
+            input.title,
+            input.content,
+            input.pregnancyWeek,
+            input.category,
+            toVectorLiteral(embedding),
+            JSON.stringify(metadata),
+          ],
+        )
+      : await supabaseInsert<Array<SupabaseRagDocumentRow>>(
+          "content.pregnancy_documents",
+          {
+            id: documentId,
+            title: input.title,
+            content: input.content,
+            pregnancy_week: input.pregnancyWeek,
+            category: input.category,
+            embedding,
+            metadata,
+          },
+        );
 
     return mapRagDocument(inserted[0] as SupabaseRagDocumentRow);
   }
@@ -364,9 +464,19 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return this.fallback.getDocument(documentId);
     }
 
-    const rows = await supabaseSelect<Array<SupabaseRagDocumentRow>>(
-      `content.pregnancy_documents?select=id,title,content,pregnancy_week,category,metadata,created_at&id=eq.${documentId}&limit=1`,
-    );
+    const rows = hasDirectContentDatabase()
+      ? await queryContentRows<SupabaseRagDocumentRow>(
+          `
+            SELECT id, title, content, pregnancy_week, category, metadata, created_at, NULL::timestamptz AS updated_at
+            FROM content.pregnancy_documents
+            WHERE id = $1::uuid
+            LIMIT 1
+          `,
+          [documentId],
+        )
+      : await supabaseSelect<Array<SupabaseRagDocumentRow>>(
+          `content.pregnancy_documents?select=id,title,content,pregnancy_week,category,metadata,created_at&id=eq.${documentId}&limit=1`,
+        );
 
     return rows[0] ? mapRagDocument(rows[0]) : null;
   }
@@ -380,16 +490,37 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const embedding = await embedPregnancyDocument(input.content);
-    const updated = await supabaseUpdate<Array<SupabaseRagDocumentRow>>(
-      `content.pregnancy_documents?id=eq.${documentId}`,
-      {
-        title: input.title,
-        content: input.content,
-        pregnancy_week: input.pregnancyWeek,
-        category: input.category,
-        embedding,
-      },
-    );
+    const updated = hasDirectContentDatabase()
+      ? await queryContentRows<SupabaseRagDocumentRow>(
+          `
+            UPDATE content.pregnancy_documents
+               SET title = $2,
+                   content = $3,
+                   pregnancy_week = $4,
+                   category = $5,
+                   embedding = $6::vector
+             WHERE id = $1::uuid
+         RETURNING id, title, content, pregnancy_week, category, metadata, created_at, NULL::timestamptz AS updated_at
+          `,
+          [
+            documentId,
+            input.title,
+            input.content,
+            input.pregnancyWeek,
+            input.category,
+            toVectorLiteral(embedding),
+          ],
+        )
+      : await supabaseUpdate<Array<SupabaseRagDocumentRow>>(
+          `content.pregnancy_documents?id=eq.${documentId}`,
+          {
+            title: input.title,
+            content: input.content,
+            pregnancy_week: input.pregnancyWeek,
+            category: input.category,
+            embedding,
+          },
+        );
 
     return updated[0] ? mapRagDocument(updated[0]) : null;
   }
@@ -397,6 +528,14 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
   async deleteDocument(documentId: string): Promise<void> {
     if (!hasBackendAdminConfig()) {
       return this.fallback.deleteDocument(documentId);
+    }
+
+    if (hasDirectContentDatabase()) {
+      await queryContentRows(
+        `DELETE FROM content.pregnancy_documents WHERE id = $1::uuid RETURNING id`,
+        [documentId],
+      );
+      return;
     }
 
     await supabaseDelete(`content.pregnancy_documents?id=eq.${documentId}`);
@@ -459,18 +598,36 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return this.fallback.createKnowledgeItem(input);
     }
 
-    const inserted = await supabaseInsert<Array<SupabaseKnowledgeItemRow>>(
-      "content.knowledge_items",
-      {
-        id: randomUUID(),
-        slug: input.slug,
-        section: input.section,
-        title: input.title,
-        body: input.body,
-        status: input.status,
-        updated_at: new Date().toISOString(),
-      },
-    );
+    const inserted = hasDirectContentDatabase()
+      ? await queryContentRows<SupabaseKnowledgeItemRow>(
+          `
+            INSERT INTO content.knowledge_items (
+              id,
+              slug,
+              section,
+              title,
+              body,
+              status,
+              published_at,
+              updated_at
+            )
+            VALUES ($1::uuid, $2, $3, $4, $5, $6, CASE WHEN $6 = 'published' THEN NOW() ELSE NULL END, NOW())
+            RETURNING id, slug, section, title, body, status, updated_at
+          `,
+          [randomUUID(), input.slug, input.section, input.title, input.body, input.status],
+        )
+      : await supabaseInsert<Array<SupabaseKnowledgeItemRow>>(
+          "content.knowledge_items",
+          {
+            id: randomUUID(),
+            slug: input.slug,
+            section: input.section,
+            title: input.title,
+            body: input.body,
+            status: input.status,
+            updated_at: new Date().toISOString(),
+          },
+        );
 
     return mapKnowledgeItem(inserted[0] as SupabaseKnowledgeItemRow);
   }
@@ -483,17 +640,36 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return this.fallback.updateKnowledgeItem(id, input);
     }
 
-    const updated = await supabaseUpdate<Array<SupabaseKnowledgeItemRow>>(
-      `content.knowledge_items?id=eq.${id}`,
-      {
-        slug: input.slug,
-        section: input.section,
-        title: input.title,
-        body: input.body,
-        status: input.status,
-        updated_at: new Date().toISOString(),
-      },
-    );
+    const updated = hasDirectContentDatabase()
+      ? await queryContentRows<SupabaseKnowledgeItemRow>(
+          `
+            UPDATE content.knowledge_items
+               SET slug = $2,
+                   section = $3,
+                   title = $4,
+                   body = $5,
+                   status = $6,
+                   published_at = CASE
+                     WHEN $6 = 'published' THEN COALESCE(published_at, NOW())
+                     ELSE NULL
+                   END,
+                   updated_at = NOW()
+             WHERE id = $1::uuid
+         RETURNING id, slug, section, title, body, status, updated_at
+          `,
+          [id, input.slug, input.section, input.title, input.body, input.status],
+        )
+      : await supabaseUpdate<Array<SupabaseKnowledgeItemRow>>(
+          `content.knowledge_items?id=eq.${id}`,
+          {
+            slug: input.slug,
+            section: input.section,
+            title: input.title,
+            body: input.body,
+            status: input.status,
+            updated_at: new Date().toISOString(),
+          },
+        );
 
     return updated[0] ? mapKnowledgeItem(updated[0]) : null;
   }
@@ -501,6 +677,14 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
   async deleteKnowledgeItem(id: string): Promise<void> {
     if (!hasBackendAdminConfig()) {
       return this.fallback.deleteKnowledgeItem(id);
+    }
+
+    if (hasDirectContentDatabase()) {
+      await queryContentRows(
+        `DELETE FROM content.knowledge_items WHERE id = $1::uuid RETURNING id`,
+        [id],
+      );
+      return;
     }
 
     await supabaseDelete(`content.knowledge_items?id=eq.${id}`);
