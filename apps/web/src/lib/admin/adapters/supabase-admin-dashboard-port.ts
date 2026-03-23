@@ -187,8 +187,8 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       sessions,
       messages,
       auditLogs,
-      ragDocuments,
-      workflowDefinitions,
+      ragDocumentsResult,
+      workflowDefinitionsResult,
       userActions,
     ] = await Promise.all([
       supabaseSelect<
@@ -253,7 +253,10 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
         }>
       >(
         "content.pregnancy_documents?select=id,title,pregnancy_week,category,metadata,created_at&order=created_at.desc",
-      ),
+      ).catch((error) => {
+        console.error("admin dashboard rag documents unavailable", error);
+        return null;
+      }),
       supabaseSelect<
         Array<{
           id: string;
@@ -265,7 +268,10 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
         }>
       >(
         "workflow_definitions?select=id,name,provider,is_active,config,metadata&order=updated_at.desc",
-      ),
+      ).catch((error) => {
+        console.error("admin dashboard workflow definitions unavailable", error);
+        return null;
+      }),
       supabaseSelect<
         Array<{
           id: string;
@@ -280,6 +286,9 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
         "user_action_logs?select=id,user_id,session_id,message_id,action_type,payload,occurred_at&order=occurred_at.desc&limit=60",
       ),
     ]);
+
+    const ragDocuments = ragDocumentsResult ?? [];
+    const workflowDefinitions = workflowDefinitionsResult ?? [];
 
     const dashboard = await this.fallback.getDashboard();
     const profilesByUser = new Map(
