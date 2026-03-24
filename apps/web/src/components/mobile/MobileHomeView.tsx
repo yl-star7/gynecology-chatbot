@@ -1,56 +1,25 @@
 "use client";
 
-import type {
-  HomeViewData,
-  RecentChatSummary,
-} from "@gynecology-chatbot/app-core";
+import type { HomeViewData } from "@gynecology-chatbot/app-core";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { fetchHome, fetchSessions } from "@/lib/mobile/web-mobile-api";
+import { fetchHome, fetchMobileProfile } from "@/lib/mobile/web-mobile-api";
 import { storeMobileProfile } from "@/lib/mobile/mobile-session";
 import { MobileShell } from "./MobileShell";
 import { MobileSkeletonBlock } from "./MobilePrimitives";
+import { buildWebPatientHomeViewModel } from "./mobile-patient-view-models";
+import { getWeekBabyImagePath } from "./week-baby-images";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
-
-function linkWithUserId(path: string, userId: string) {
-  return `${path}?userId=${encodeURIComponent(userId)}`;
-}
-
-function getCalendarDotClass(
-  emotionTone: HomeViewData["calendarDays"][number]["emotionTone"],
-  hasChat: boolean,
-) {
-  if (emotionTone === "joyful") {
-    return "bg-[var(--success)]";
-  }
-
-  if (emotionTone === "calm") {
-    return "bg-[var(--accent)]";
-  }
-
-  if (emotionTone === "tired") {
-    return "bg-[var(--warning)]";
-  }
-
-  if (emotionTone === "anxious") {
-    return "bg-[var(--accent-dark)]";
-  }
-
-  if (emotionTone === "sad") {
-    return "bg-[var(--text-soft)]";
-  }
-
-  return hasChat ? "bg-[var(--accent)]" : "bg-transparent";
-}
 
 export function MobileHomeView({ userId }: { userId: string | null }) {
   const resolvedUserId = useMobileSessionGuard(userId);
   const [home, setHome] = useState<HomeViewData | null>(null);
-  const [sessions, setSessions] = useState<RecentChatSummary[]>([]);
+  const [dueDate, setDueDate] = useState<string | null>(null);
+  const [babyNickname, setBabyNickname] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    window.PhedyNative?.setTitle?.("부인과 채팅 앱");
+    window.PhedyNative?.setTitle?.("홈");
   }, []);
 
   useEffect(() => {
@@ -60,27 +29,26 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
 
     let cancelled = false;
 
-    Promise.all([fetchHome(resolvedUserId), fetchSessions(resolvedUserId)])
-      .then(([homePayload, sessionPayload]) => {
+    Promise.all([fetchHome(resolvedUserId), fetchMobileProfile(resolvedUserId)])
+      .then(([homePayload, profilePayload]) => {
         if (cancelled) {
           return;
         }
 
         setHome(homePayload.home);
-        setSessions(sessionPayload.sessions.slice(0, 4));
+        setDueDate(profilePayload.profile.dueDate ?? null);
+        setBabyNickname(profilePayload.profile.babyNickname ?? null);
         storeMobileProfile({
-          displayName: homePayload.home.userName,
-          pregnancyWeekLabel: homePayload.home.pregnancyWeekLabel,
+          userId: profilePayload.profile.userId,
+          displayName: profilePayload.profile.displayName,
+          phoneNumber: profilePayload.profile.phoneNumber,
+          pregnancyWeekLabel: profilePayload.profile.pregnancyWeekLabel,
+          themeKey: profilePayload.profile.themeKey,
         });
-        setError(null);
       })
       .catch((nextError) => {
         if (!cancelled) {
-          setError(
-            nextError instanceof Error
-              ? nextError.message
-              : "홈 정보를 불러오지 못했어요.",
-          );
+          setError(nextError instanceof Error ? nextError.message : "홈 정보를 불러오지 못했어요.");
         }
       });
 
@@ -89,223 +57,94 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
     };
   }, [resolvedUserId]);
 
+  const viewModel = buildWebPatientHomeViewModel({
+    home,
+    profile: { babyNickname, dueDate },
+  });
+  const babyImagePath = getWeekBabyImagePath(viewModel.pregnancyWeekLabel);
+
   return (
     <MobileShell
       title="홈"
-      description={
-        error ??
-        "오늘 상태와 이번 주 핵심 정보를 먼저 보고, 바로 채팅으로 이어집니다."
-      }
+      description={error ?? "오늘도 아기와 연결된 흐름을 이어가요."}
       userId={resolvedUserId}
-      showTitleBlock={false}
       showChatFab
     >
       <div className="grid gap-4">
-        <section className="rounded-[32px] border border-[var(--line)] bg-[var(--panel-strong)] p-6 shadow-[var(--shadow)]">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
-            오늘 홈
+        <section className="grid gap-2">
+          <p className="text-xs font-semibold tracking-[0.18em] text-[var(--text-soft)]">
+            {new Date().getMonth() + 1}월
           </p>
-          {home ? (
-            <h1 className="mt-3 text-[32px] font-semibold tracking-[-0.04em] text-[var(--text)]">
-              {`${home.userName}님, 오늘 기록과 상담을 이어가세요.`}
-            </h1>
-          ) : (
-            <div className="mt-3 grid gap-2">
-              <MobileSkeletonBlock className="h-9 w-full max-w-[18rem]" />
-              <MobileSkeletonBlock className="h-9 w-full max-w-[14rem]" />
-            </div>
-          )}
-          <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
-            {error ??
-              "지금 필요한 기록과 이번 주 정보를 먼저 보고, 증상 상담이 필요하면 바로 이어가세요."}
+          <p className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text)]">
+            {new Date().getDate()}
           </p>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-[24px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
-              <p className="text-sm text-[var(--text-soft)]">현재 주차</p>
-              {home ? (
-                <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
-                  {home.pregnancyWeekLabel}
-                </p>
-              ) : (
-                <MobileSkeletonBlock className="mt-2 h-8 w-24" />
-              )}
-            </div>
-            <div className="rounded-[24px] border border-[var(--line)] bg-[var(--accent-soft)] p-4">
-              <p className="text-sm text-[var(--text-soft)]">임신 경과</p>
-              {home ? (
-                <p className="mt-2 text-2xl font-semibold text-[var(--text)]">
-                  {`${home.pregnancyDayCount}일`}
-                </p>
-              ) : (
-                <MobileSkeletonBlock className="mt-2 h-8 w-20 bg-white/70" />
-              )}
+          <h1 className="-mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--text)]">
+            {viewModel.heroName}
+          </h1>
+        </section>
+
+        <section className="rounded-[30px] bg-[var(--accent)] p-6 text-white shadow-[var(--shadow)]">
+          <p className="text-xs font-semibold tracking-[0.18em] text-white/80">
+            {viewModel.heroName}의 한마디
+          </p>
+          <p className="mt-3 text-sm leading-7">{viewModel.babyMessage}</p>
+        </section>
+        <div className="flex justify-center -mt-2">
+          <div className="h-5 w-5 rotate-45 rounded-bl-[10px] bg-[var(--accent)]" />
+        </div>
+
+        <section className="flex justify-center">
+          <div className="flex h-[272px] w-[272px] items-center justify-center rounded-full bg-[var(--accent-soft)]">
+            <div className="relative h-[236px] w-[236px] overflow-hidden rounded-full bg-[var(--panel-muted)]">
+              <div className="absolute left-10 top-12 h-3 w-3 rounded-full bg-white/40" />
+              <div className="absolute right-14 top-20 h-2.5 w-2.5 rounded-full bg-white/35" />
+              <div className="absolute bottom-14 left-14 h-3.5 w-3.5 rounded-full bg-white/30" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={babyImagePath}
+                alt={`${viewModel.pregnancyWeekLabel} 태아 이미지`}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute bottom-5 left-1/2 flex h-[52px] w-[52px] -translate-x-1/2 items-center justify-center rounded-[18px] bg-white/85 shadow-[var(--shadow)]">
+                <span className="text-[24px] text-[var(--accent)]">✉</span>
+                <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent)] text-[10px] text-white">
+                  ♥
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)]">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-                이어서 보기
-              </p>
-              <h2 className="mt-2 text-xl font-semibold text-[var(--text)]">
-                최근 채팅 이어가기
-              </h2>
-            </div>
-            {resolvedUserId ? (
-              <Link
-                href={linkWithUserId("/chat/new", resolvedUserId)}
-                className="text-sm font-semibold text-[var(--accent-dark)]"
-              >
-                새 상담
-              </Link>
-            ) : null}
+        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-6 shadow-[var(--shadow)]">
+          <p className="text-sm font-medium text-[var(--accent-dark)]">
+            {viewModel.pregnancyWeekLabel}
+          </p>
+          <div className="mt-3 flex items-end gap-3">
+            <p className="text-sm text-[var(--text-soft)]">{viewModel.metricLabel}</p>
+            <p className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text)]">
+              {viewModel.metricValue}
+            </p>
           </div>
-          <div className="mt-4 grid gap-3">
-            {sessions.length > 0 ? (
-              sessions.map((session) => (
-                <Link
-                  key={session.id}
-                  href={
-                    resolvedUserId
-                      ? linkWithUserId(`/chat/${session.id}`, resolvedUserId)
-                      : `/chat/${session.id}`
-                  }
-                  className="rounded-[20px] border border-[var(--line)] bg-[var(--panel-muted)] p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-[var(--text)]">
-                        {session.title}
-                      </p>
-                      <p className="mt-1 text-sm text-[var(--text-soft)]">
-                        {session.preview}
-                      </p>
-                    </div>
-                    <span className="text-xs text-[var(--text-soft)]">
-                      {session.updatedAtLabel}
-                    </span>
-                  </div>
-                </Link>
-              ))
-            ) : (
-              <p className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--text-soft)]">
-                아직 상담 내역이 없어요. 첫 상담을 시작해보세요.
-              </p>
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)]">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-                기록 달력
-              </p>
-              <h2 className="mt-2 text-xl font-semibold text-[var(--text)]">
-                {home?.currentMonthLabel ?? "이번 달 기록"}
-              </h2>
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-7 gap-2">
-            {(home?.calendarDays ?? []).map((day) => {
-              const clickable =
-                day.hasChat || Boolean(day.emotionTone) || Boolean(day.summary);
-              const className = `flex aspect-square flex-col items-center justify-center rounded-[18px] border text-center ${
-                day.hasChat
-                  ? "border-[var(--accent)] bg-[var(--accent-soft)]"
-                  : "border-[var(--line)] bg-[var(--panel-muted)]"
-              }`;
-
-              if (!clickable) {
-                return (
-                  <div
-                    key={day.isoDate}
-                    className={className}
-                    title={day.summary ?? day.isoDate}
-                  >
-                    <span className="text-sm font-medium text-[var(--text)]">
-                      {day.dayLabel}
-                    </span>
-                    <span className="mt-1 flex h-3 items-center justify-center">
-                      <span className="h-2 w-2 rounded-full bg-transparent" />
-                    </span>
-                  </div>
-                );
-              }
-
-              return (
-                <Link
-                  key={day.isoDate}
-                  href={
-                    resolvedUserId
-                      ? linkWithUserId(
-                          `/records/${day.isoDate}`,
-                          resolvedUserId,
-                        )
-                      : `/records/${day.isoDate}`
-                  }
-                  className={className}
-                  title={day.summary ?? day.isoDate}
-                >
-                  <span className="text-sm font-medium text-[var(--text)]">
-                    {day.dayLabel}
-                  </span>
-                  <span className="mt-1 flex h-3 items-center justify-center">
-                    <span
-                      className={`h-2 w-2 rounded-full ${getCalendarDotClass(day.emotionTone, day.hasChat)}`}
-                    />
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-          <p className="mt-3 text-xs text-[var(--text-soft)]">
-            점이 있는 날짜를 누르면 기록을 볼 수 있어요.
+          <p className="mt-2 text-sm text-[var(--text-soft)]">
+            임신 {viewModel.pregnancyDayCount}일째예요.
           </p>
         </section>
 
-        <section className="grid gap-4 sm:grid-cols-2">
-          {[
-            {
-              eyebrow: "오늘 할 일",
-              title: home?.notebookCard.title ?? "임신수첩",
-              body:
-                home?.notebookCard.description ??
-                "오늘의 체크리스트와 기록을 확인해보세요.",
-              href: "/notebook",
-            },
-            {
-              eyebrow: "오늘 정보",
-              title: home?.knowledgeCard.title ?? "임신 지식",
-              body:
-                home?.knowledgeCard.description ??
-                "이번 주 변화와 놓치면 안 될 위험 신호를 먼저 봅니다.",
-              href: "/knowledge",
-            },
-          ].map((item) => (
-            <Link
-              key={item.href}
-              href={
-                resolvedUserId
-                  ? linkWithUserId(item.href, resolvedUserId)
-                  : item.href
-              }
-              className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-5 shadow-[var(--shadow)] transition"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--accent-dark)]">
-                {item.eyebrow}
-              </p>
-              <p className="mt-3 text-xl font-semibold text-[var(--text)]">
-                {item.title}
-              </p>
-              <p className="mt-2 text-sm leading-6 text-[var(--text-soft)]">
-                {item.body}
-              </p>
-            </Link>
-          ))}
+        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-6 text-center shadow-[var(--shadow)]">
+          <p className="text-[15px] leading-7 text-[var(--text)]">{viewModel.quote}</p>
         </section>
+
+        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-muted)] p-6 shadow-[var(--shadow)]">
+          <h2 className="text-xl font-semibold text-[var(--text)]">오늘의 한마디</h2>
+          <p className="mt-3 text-sm leading-7 text-[var(--text-soft)]">{viewModel.note}</p>
+        </section>
+
+        {home ? null : (
+          <div className="grid gap-3">
+            <MobileSkeletonBlock className="h-32 w-full rounded-[28px]" />
+            <MobileSkeletonBlock className="h-24 w-full rounded-[28px]" />
+          </div>
+        )}
       </div>
     </MobileShell>
   );

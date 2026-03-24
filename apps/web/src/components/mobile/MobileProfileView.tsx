@@ -8,9 +8,11 @@ import {
 } from "@gynecology-chatbot/app-core";
 import type { MobileProfileViewData } from "@gynecology-chatbot/app-core";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  fetchHome,
   fetchMobileProfile,
+  fetchSessions,
   resolveMobileUserId,
   updateMobileProfile,
 } from "@/lib/mobile/web-mobile-api";
@@ -31,6 +33,7 @@ import {
 } from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
 import { MobileThemePresetButtons } from "./MobileThemePresetButtons";
+import { getWeekBabyImagePath } from "./week-baby-images";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
 const TONE_OPTIONS = [
@@ -67,6 +70,8 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
   );
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [activityDays, setActivityDays] = useState<number[]>([]);
+  const [recentSessions, setRecentSessions] = useState<Array<{ id: string; title: string; preview: string; updatedAtLabel: string }>>([]);
 
   useEffect(() => {
     const storedThemeKey = readStoredMobileThemeKey();
@@ -83,8 +88,12 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
 
     let cancelled = false;
 
-    fetchMobileProfile(resolvedUserId)
-      .then((payload) => {
+    Promise.all([
+      fetchMobileProfile(resolvedUserId),
+      fetchHome(resolvedUserId),
+      fetchSessions(resolvedUserId),
+    ])
+      .then(([payload, homePayload, sessionsPayload]) => {
         if (cancelled) {
           return;
         }
@@ -101,6 +110,12 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
         setHospitalName(payload.profile.hospitalName ?? "");
         setNotificationTime(payload.profile.notificationTime ?? "08:30");
         setThemeKey(nextThemeKey);
+        setActivityDays(
+          homePayload.home.calendarDays
+            .filter((day) => day.hasChat || Boolean(day.emotionTone))
+            .map((day) => Number(day.dayLabel)),
+        );
+        setRecentSessions(sessionsPayload.sessions.slice(0, 5));
         storeMobileProfile({
           userId: payload.profile.userId,
           displayName: payload.profile.displayName,
@@ -186,22 +201,56 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
     applyMobileTheme(nextThemeKey);
   }
 
+  const calendarDays = useMemo(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const result: Array<number | null> = [];
+
+    for (let index = 0; index < firstDay.getDay(); index += 1) {
+      result.push(null);
+    }
+
+    for (let day = 1; day <= lastDay.getDate(); day += 1) {
+      result.push(day);
+    }
+
+    return result;
+  }, []);
+  const babyImagePath = getWeekBabyImagePath(profile?.pregnancyWeekLabel);
+
   return (
     <MobileShell
-      title="설정"
-      description="계정과 상담 환경을 관리해요."
+      title="마이페이지"
+      description="아기 정보와 활동 흐름을 한 곳에서 정리해요."
       userId={resolvedUserId}
       backHref={backHref}
       showTitleBlock={false}
       showChatFab
     >
-      <div className="grid gap-4">
-        <MobileCard className="p-5">
+      <div className="grid gap-5">
+        <MobileCard className="px-5 py-6">
           <MobileSectionIntro
-            eyebrow="내 설정"
-            title="계정과 상담 환경"
-            description="이름, 알림, 채팅 톤과 현재 임신 정보를 한곳에서 관리합니다."
+            eyebrow="내 정보"
+            title={babyNickname || "우리 아기"}
+            description={
+              profile
+                ? `${profile.pregnancyWeekLabel} · 임신 ${profile.pregnancyDayCount}일째예요.`
+                : "아기 정보와 활동 흐름을 한 곳에서 정리해요."
+            }
           />
+          <div className="mt-5 flex justify-center">
+            <div className="flex h-[132px] w-[132px] items-center justify-center rounded-full bg-[var(--accent-soft)]">
+              <div className="h-[108px] w-[108px] overflow-hidden rounded-full bg-[var(--panel-muted)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={babyImagePath}
+                  alt={`${profile?.pregnancyWeekLabel ?? "현재"} 태아 이미지`}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            </div>
+          </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
               <p className="text-sm text-[var(--text-soft)]">이름</p>
@@ -214,10 +263,10 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               )}
             </div>
             <div className="rounded-[22px] border border-[var(--line)] bg-[var(--accent-soft)] p-4">
-              <p className="text-sm text-[var(--text-soft)]">전화번호</p>
+              <p className="text-sm text-[var(--text-soft)]">예정 출산일</p>
               {profile ? (
                 <p className="mt-2 text-xl font-semibold text-[var(--text)]">
-                  {profile.phoneNumber}
+                  {profile.dueDate ?? "미설정"}
                 </p>
               ) : (
                 <MobileSkeletonBlock className="mt-2 h-7 w-36 bg-white/70" />
@@ -226,9 +275,56 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
           </div>
         </MobileCard>
 
+        <MobileCard className="px-5 py-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+            활동 캘린더
+          </p>
+          <div className="mt-5 grid grid-cols-7 gap-2">
+            {calendarDays.map((day, index) => (
+              <div
+                key={`calendar-${index}`}
+                className={`flex aspect-square items-center justify-center rounded-[12px] ${
+                  day && activityDays.includes(day)
+                    ? "bg-[#c97f98] text-white"
+                    : "bg-[#f2e8ed] text-[var(--text-soft)]"
+                }`}
+              >
+                <span className="text-[12px] font-semibold">{day ?? ""}</span>
+              </div>
+            ))}
+          </div>
+        </MobileCard>
+
+        <MobileCard className="px-5 py-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+            이전 기록
+          </p>
+          <div className="mt-4 grid gap-3">
+            {recentSessions.map((session) => (
+              <div
+                key={session.id}
+                className="rounded-[22px] border border-[var(--line)] bg-[#fffafc] px-4 py-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-[var(--text)]">{session.title}</p>
+                    <p className="mt-2 text-sm leading-6 text-[#776873]">{session.preview}</p>
+                  </div>
+                  <span className="text-xs text-[#b87089]">{session.updatedAtLabel}</span>
+                </div>
+              </div>
+            ))}
+            {recentSessions.length === 0 ? (
+              <p className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--text-soft)]">
+                아직 이전 기록이 없어요.
+              </p>
+            ) : null}
+          </div>
+        </MobileCard>
+
         <MobileCard as="section" className="p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-            설정
+            아기 정보 관리
           </p>
           <form className="mt-4 grid gap-3" onSubmit={handleSave}>
             <MobileFormField label="이름">
@@ -302,64 +398,22 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
 
         <MobileCard className="p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-            임신 정보
+            계정
           </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
-              <p className="text-sm text-[var(--text-soft)]">현재 주차</p>
-              <p className="mt-2 text-lg font-semibold text-[var(--text)]">
-                {profile?.pregnancyWeekLabel ?? "정보 없음"}
-              </p>
-            </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
-              <p className="text-sm text-[var(--text-soft)]">임신 일차</p>
-              <p className="mt-2 text-lg font-semibold text-[var(--text)]">
-                {profile ? `${profile.pregnancyDayCount}일` : "정보 없음"}
-              </p>
-            </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
-              <p className="text-sm text-[var(--text-soft)]">온보딩</p>
-              <p className="mt-2 text-lg font-semibold text-[var(--text)]">
-                {profile?.hasCompletedOnboarding ? "완료" : "미완료"}
-              </p>
-            </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4 sm:col-span-3">
-              <p className="text-sm text-[var(--text-soft)]">예정 출산일</p>
-              <p className="mt-2 text-lg font-semibold text-[var(--text)]">
-                {profile?.dueDate ?? "미설정"}
-              </p>
-            </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
-              <p className="text-sm text-[var(--text-soft)]">태명</p>
-              <p className="mt-2 text-lg font-semibold text-[var(--text)]">
-                {profile?.babyNickname ?? "미설정"}
-              </p>
-            </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
-              <p className="text-sm text-[var(--text-soft)]">주 진료 병원</p>
-              <p className="mt-2 text-lg font-semibold text-[var(--text)]">
-                {profile?.hospitalName ?? "미설정"}
-              </p>
-            </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
-              <p className="text-sm text-[var(--text-soft)]">선택 테마</p>
-              <p className="mt-2 text-lg font-semibold text-[var(--text)]">
-                {MOBILE_THEME_OPTIONS.find((option) => option.key === themeKey)
-                  ?.label ?? themeKey}
-              </p>
-            </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
-              <p className="text-sm text-[var(--text-soft)]">매일 알림 시간</p>
-              <p className="mt-2 text-lg font-semibold text-[var(--text)]">
-                {profile?.notificationTime ?? "08:30"}
-              </p>
-            </div>
-            <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4 sm:col-span-3">
-              <p className="text-sm text-[var(--text-soft)]">채팅 톤</p>
-              <p className="mt-2 text-lg font-semibold text-[var(--text)]">
-                {resolveToneLabel(profile?.tonePreference)}
-              </p>
-            </div>
+          <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
+            기기를 바꾸거나 다른 계정으로 들어갈 때 로그아웃하세요.
+          </p>
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => {
+                clearMobileSession();
+                router.replace("/auth/login");
+              }}
+              className="rounded-full px-4 py-3 text-sm font-semibold text-[var(--accent)]"
+            >
+              로그아웃
+            </button>
           </div>
         </MobileCard>
 

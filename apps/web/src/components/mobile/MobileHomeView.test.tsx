@@ -1,12 +1,12 @@
 import { render, screen } from "@testing-library/react";
 
-import { fetchHome, fetchSessions } from "@/lib/mobile/web-mobile-api";
+import { fetchHome, fetchMobileProfile } from "@/lib/mobile/web-mobile-api";
 import { storeMobileProfile } from "@/lib/mobile/mobile-session";
 import { MobileHomeView } from "./MobileHomeView";
 
 jest.mock("@/lib/mobile/web-mobile-api", () => ({
   fetchHome: jest.fn(),
-  fetchSessions: jest.fn(),
+  fetchMobileProfile: jest.fn(),
 }));
 
 jest.mock("@/lib/mobile/mobile-session", () => ({
@@ -55,15 +55,19 @@ describe("MobileHomeView", () => {
         },
       },
     });
-    (fetchSessions as jest.Mock).mockResolvedValue({
-      sessions: [
-        {
-          id: "session-1",
-          title: "철분제 복용",
-          preview: "철분제를 언제 먹는 게 좋을까요?",
-          updatedAtLabel: "방금 전",
-        },
-      ],
+    (fetchMobileProfile as jest.Mock).mockResolvedValue({
+      profile: {
+        userId: "user-1",
+        displayName: "수연",
+        phoneNumber: "01012345678",
+        pregnancyWeekLabel: "18주 6일",
+        pregnancyDayCount: 132,
+        accountStatus: "active",
+        hasCompletedOnboarding: true,
+        dueDate: "2026-08-01",
+        babyNickname: "튼튼이",
+        themeKey: "rose-sand",
+      },
     });
   });
 
@@ -71,46 +75,42 @@ describe("MobileHomeView", () => {
     jest.clearAllMocks();
   });
 
-  it("keeps screenshot-facing home copy compact and avoids repeated profile metadata", async () => {
+  it("renders the mirrored home hero and primary patient actions", async () => {
     render(<MobileHomeView userId="user-1" />);
 
     const heading = await screen.findByRole("heading", {
-      name: "수연님, 오늘 기록과 상담을 이어가세요.",
+      name: "튼튼이",
     });
 
     expect(heading).toBeInTheDocument();
-    expect(heading.closest("section")).toHaveClass("bg-[var(--panel-strong)]");
-    expect(screen.getAllByText("18주 6일")).toHaveLength(1);
-    expect(screen.getByText("철분제 복용").closest("a")).toHaveClass(
-      "bg-[var(--panel-muted)]",
-    );
-    expect(screen.getByRole("link", { name: "프로필 열기" })).toHaveAttribute(
+    expect(screen.getByText("튼튼이의 한마디")).toBeInTheDocument();
+    expect(screen.getByText("18주 6일")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "마이페이지 열기" })).toHaveAttribute(
       "href",
       "/profile?userId=user-1",
     );
     expect(
-      screen.queryByRole("link", { name: /^프로필$/ }),
+      screen.queryByRole("link", { name: "오늘 내용 보기" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "새 상담 시작" })).toHaveAttribute(
-      "href",
-      "/chat/new?userId=user-1",
-    );
     expect(
-      screen.queryByRole("link", { name: "증상 상담 시작" }),
+      screen.queryByRole("link", { name: "오늘,우리 보기" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("Today")).not.toBeInTheDocument();
-    expect(screen.queryByText("Continue")).not.toBeInTheDocument();
-    expect(screen.getByText("임신수첩")).toBeInTheDocument();
-    expect(screen.getByText("임신 지식")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "오늘,우리" })).toHaveAttribute(
+      "href",
+      "/today?userId=user-1",
+    );
     expect(storeMobileProfile).toHaveBeenCalledWith({
+      userId: "user-1",
       displayName: "수연",
+      phoneNumber: "01012345678",
       pregnancyWeekLabel: "18주 6일",
+      themeKey: "rose-sand",
     });
   });
 
   it("renders skeleton loading blocks instead of fallback loading copy", () => {
     (fetchHome as jest.Mock).mockImplementation(() => new Promise(() => undefined));
-    (fetchSessions as jest.Mock).mockImplementation(
+    (fetchMobileProfile as jest.Mock).mockImplementation(
       () => new Promise(() => undefined),
     );
 

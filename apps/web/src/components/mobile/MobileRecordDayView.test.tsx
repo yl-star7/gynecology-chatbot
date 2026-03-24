@@ -68,6 +68,7 @@ describe("MobileRecordDayView", () => {
     expect(screen.getAllByText("2026년 3월 18일")).toHaveLength(1);
     expect(screen.getByText("차분함")).toBeInTheDocument();
     expect(screen.getAllByText("1건")).toHaveLength(2);
+    expect(screen.getByText("차분")).toBeInTheDocument();
     expect(screen.getByText("하복부 통증 메모").closest("article")).toHaveClass(
       "bg-[var(--panel-muted)]",
     );
@@ -76,9 +77,12 @@ describe("MobileRecordDayView", () => {
     expect(
       screen.queryByRole("link", { name: /^프로필$/ }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "새 상담 시작" })).toHaveAttribute(
+    expect(
+      screen.queryByRole("link", { name: "오늘,우리 열기" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "오늘,우리" })).toHaveAttribute(
       "href",
-      "/chat/new?userId=user-1",
+      "/today?userId=user-1",
     );
   });
 });

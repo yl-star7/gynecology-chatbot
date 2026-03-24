@@ -1,11 +1,6 @@
 // @ts-nocheck
-import { ContentListScreen } from "../../src/screens/ContentListScreen";
+import { PatientRecordsScreen } from "../../src/screens/patient";
 
 export default function NotebookRoute() {
-  return (
-    <ContentListScreen
-      section="notebook"
-      title="임신수첩"
-    />
-  );
+  return <PatientRecordsScreen />;
 }

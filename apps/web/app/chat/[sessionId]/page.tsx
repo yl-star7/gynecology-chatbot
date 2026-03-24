@@ -1,4 +1,4 @@
-import { MobileChatView } from "@/components/mobile/MobileChatView";
+import { MobileConversationView } from "@/components/mobile/MobileConversationView";
 
 export default async function ChatPage({
   params,
@@ -9,5 +9,5 @@ export default async function ChatPage({
 }) {
   const [{ sessionId }, { userId }] = await Promise.all([params, searchParams]);
 
-  return <MobileChatView initialSessionId={sessionId} userId={userId ?? null} />;
+  return <MobileConversationView initialSessionId={sessionId} userId={userId ?? null} />;
 }

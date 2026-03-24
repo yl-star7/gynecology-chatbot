@@ -28,36 +28,31 @@ describe("MobileShell", () => {
       </MobileShell>,
     );
 
-    expect(screen.getByRole("link", { name: "프로필 열기" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "마이페이지 열기" })).toHaveAttribute(
       "href",
       "/profile?userId=user-1",
     );
-    expect(screen.getByRole("link", { name: "프로필 열기" }).closest("header")).toHaveClass(
-      "bg-[var(--panel-strong)]",
-    );
-    expect(screen.getByRole("heading", { name: "홈" })).toBeInTheDocument();
-    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    expect(screen.getAllByText("홈").length).toBeGreaterThan(0);
+    expect(screen.getByRole("navigation")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "로그아웃" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("빠른 테마")).not.toBeInTheDocument();
   });
 
-  it("renders the chat FAB only when explicitly enabled", () => {
+  it("does not render a chat FAB anymore", () => {
     render(
       <MobileShell
         title="홈"
         description="모바일 웹 기본 구조"
         userId="user-1"
-        showChatFab
       >
         <div>본문</div>
       </MobileShell>,
     );
 
-    expect(screen.getByRole("link", { name: "새 상담 시작" })).toHaveAttribute(
-      "href",
-      "/chat/new?userId=user-1",
-    );
+    expect(
+      screen.queryByRole("link", { name: "오늘,우리 열기" }),
+    ).not.toBeInTheDocument();
   });
 });

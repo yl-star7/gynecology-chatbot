@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { fetchRecordDay, resolveMobileUserId, appendUserIdToPath } from "@/lib/mobile/web-mobile-api";
 import { MobileCard, mobileInsetCardClassName, MobileSectionIntro } from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
+import { resolveRecordBadge } from "./mobile-patient-view-models";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
 function describeEntryType(entryType: string) {
@@ -50,6 +51,7 @@ export function MobileRecordDayView({
   const resolvedUserId = useMobileSessionGuard(resolveMobileUserId(userId ?? null));
   const [recordDay, setRecordDay] = useState<RecordDayView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const badge = resolveRecordBadge({ emotionTone: recordDay?.emotionTone ?? null });
 
   useEffect(() => {
     if (!resolvedUserId) {
@@ -78,8 +80,8 @@ export function MobileRecordDayView({
 
   return (
     <MobileShell
-      title="기록 상세"
-      description="하루 기록을 확인해보세요."
+      title="기록과 회고"
+      description="남겨둔 마음과 상담 기록을 하루 단위로 다시 볼 수 있어요."
       userId={resolvedUserId}
       showTitleBlock={false}
       showChatFab
@@ -114,9 +116,14 @@ export function MobileRecordDayView({
         </MobileCard>
 
         <MobileCard className="p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-            저장 기록
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+              생활 체크리스트
+            </p>
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badge.className}`}>
+              {badge.label}
+            </span>
+          </div>
           <div className="mt-4 grid gap-3">
             {recordDay && recordDay.records.length > 0 ? (
               recordDay.records.map((record) => (
@@ -146,7 +153,7 @@ export function MobileRecordDayView({
 
         <MobileCard className="p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-            연결 상담
+            대화와 회고
           </p>
           <div className="mt-4 grid gap-3">
             {recordDay && recordDay.relatedSessions.length > 0 ? (

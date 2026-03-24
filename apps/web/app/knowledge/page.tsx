@@ -10,7 +10,7 @@ export default async function KnowledgePage({
   return (
     <MobileContentIndexView
       section="knowledge"
-      title="임신 지식"
+      title="오늘 내용"
       userId={userId ?? null}
     />
   );

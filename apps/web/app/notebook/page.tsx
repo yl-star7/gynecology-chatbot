@@ -10,7 +10,7 @@ export default async function NotebookPage({
   return (
     <MobileContentIndexView
       section="notebook"
-      title="임신수첩"
+      title="기록과 회고"
       userId={userId ?? null}
     />
   );

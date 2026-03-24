@@ -63,8 +63,8 @@ export function MobileContentView({
 
   return (
     <MobileShell
-      title="콘텐츠"
-      description="상세 내용을 확인해보세요."
+      title="오늘 내용"
+      description="오늘 필요한 내용을 먼저 읽고, 아기와의 대화로 이어갈 수 있어요."
       userId={resolvedUserId}
       backHref={backHref}
       showTitleBlock={false}
@@ -87,7 +87,7 @@ export function MobileContentView({
             </p>
           ) : body ? (
             <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
-              내용을 확인해보세요.
+              오늘 필요한 내용을 먼저 읽고, 아기와의 대화로 이어갈 수 있어요.
             </p>
           ) : (
             <div className="mt-3 grid gap-2">
@@ -95,6 +95,18 @@ export function MobileContentView({
               <MobileSkeletonBlock className="h-4 w-5/6" />
             </div>
           )}
+        </MobileCard>
+
+        <MobileCard
+          as="section"
+          className="rounded-[26px] bg-[var(--accent)] p-5 text-white"
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/80">
+            오늘의 메모
+          </p>
+          <p className="mt-3 text-sm leading-7">
+            천천히 읽으면서 오늘 내 몸과 마음에 어떤 변화가 있는지 함께 살펴봐요.
+          </p>
         </MobileCard>
 
         <MobileCard
@@ -114,6 +126,12 @@ export function MobileContentView({
         </MobileCard>
 
         <div className="flex gap-3">
+          <Link
+            href={appendUserIdToPath("/today", resolvedUserId)}
+            className="rounded-full bg-[var(--accent-soft)] px-4 py-3 text-sm font-semibold text-[var(--accent-dark)]"
+          >
+            오늘,우리로 이어가기
+          </Link>
           <Link
             href={appendUserIdToPath("/", resolvedUserId)}
             className="rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white"

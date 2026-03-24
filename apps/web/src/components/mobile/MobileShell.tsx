@@ -32,9 +32,10 @@ export function MobileShell({
   showTitleBlock?: boolean;
   showChatFab?: boolean;
 }) {
-  const [displayName, setDisplayName] = useState("임부 사용자");
+  const [displayName, setDisplayName] = useState("임부");
   const profileHref = withUserId("/profile", userId);
-  const chatHref = withUserId("/chat/new", userId);
+  const todayHref = withUserId("/today", userId);
+  const homeHref = withUserId("/", userId);
 
   useEffect(() => {
     const profile = readStoredMobileProfile();
@@ -44,59 +45,59 @@ export function MobileShell({
   }, []);
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 py-6 sm:px-6">
-      <header className="mb-4 rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-4 shadow-[var(--shadow)]">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            {backHref ? (
-              <Link
-                href={backHref}
-                aria-label={backLabel}
-                className="mb-3 inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--panel-muted)] px-3 py-2 text-sm font-medium text-[var(--text)] transition hover:opacity-90"
-              >
-                <span aria-hidden="true">←</span>
-                <span>뒤로</span>
-              </Link>
-            ) : null}
-            {!showTitleBlock ? (
-              <p className="text-sm font-medium text-[var(--text-soft)]">
-                {title}
-              </p>
-            ) : null}
-          </div>
-          {userId ? (
+    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col bg-[var(--bg)] px-4 py-4 sm:px-6">
+      <header className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          {backHref ? (
             <Link
-              href={profileHref}
-              aria-label="프로필 열기"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--accent-soft)] text-sm font-semibold text-[var(--accent-dark)] transition hover:opacity-90"
+              href={backHref}
+              aria-label={backLabel}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--panel-strong)] text-[var(--text)]"
             >
-              {displayName.slice(0, 1)}
+              ←
             </Link>
-          ) : null}
-        </div>
-        {showTitleBlock ? (
-          <div className="mt-4">
-            <h1 className="text-[26px] font-semibold tracking-[-0.03em] text-[var(--text)]">
-              {title}
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-soft)]">
-              {description}
-            </p>
+          ) : (
+            <div className="h-10 w-10" />
+          )}
+          <div>
+            <p className="text-sm font-medium text-[var(--text-soft)]">{title}</p>
+            {showTitleBlock ? (
+              <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">{description}</p>
+            ) : null}
           </div>
-        ) : null}
+        </div>
+
+        {userId ? (
+          <Link
+            href={profileHref}
+            aria-label="마이페이지 열기"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-soft)] text-sm font-semibold text-[var(--accent-dark)]"
+          >
+            {displayName.slice(0, 1)}
+          </Link>
+        ) : (
+          <div className="h-10 w-10" />
+        )}
       </header>
 
-      <div className="flex-1 pb-24">{children}</div>
+      <div className="flex-1 pb-28">{children}</div>
 
-      {showChatFab && userId ? (
-        <Link
-          href={chatHref}
-          aria-label="새 상담 시작"
-          className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] text-sm font-semibold text-white shadow-[var(--shadow)]"
-        >
-          채팅
-        </Link>
-      ) : null}
+      <nav className="fixed bottom-5 left-1/2 z-50 flex w-[min(92vw,32rem)] -translate-x-1/2 items-center justify-between rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-2 py-2 shadow-[var(--shadow)] backdrop-blur">
+        <TabLink href={homeHref} label="홈" />
+        <TabLink href={todayHref} label="오늘,우리" />
+        <TabLink href={profileHref} label="마이페이지" />
+      </nav>
     </main>
+  );
+}
+
+function TabLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex min-w-[5.75rem] items-center justify-center rounded-full px-4 py-3 text-sm font-semibold text-[var(--text)]"
+    >
+      {label}
+    </Link>
   );
 }
