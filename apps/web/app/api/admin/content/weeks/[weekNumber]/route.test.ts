@@ -6,8 +6,17 @@ jest.mock("@/lib/admin/create-admin-services", () => ({
   createAdminServices: jest.fn(),
 }));
 
+jest.mock("@/lib/admin/admin-cache", () => ({
+  loadCachedAdminWeekDetail: jest.fn(),
+  revalidateAdminWeeksCache: jest.fn(),
+}));
+
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { createAdminServices } from "@/lib/admin/create-admin-services";
+import {
+  loadCachedAdminWeekDetail,
+  revalidateAdminWeeksCache,
+} from "@/lib/admin/admin-cache";
 import { GET, PATCH } from "./route";
 
 const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<
@@ -16,6 +25,14 @@ const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<
 const mockedCreateAdminServices = createAdminServices as jest.MockedFunction<
   typeof createAdminServices
 >;
+const mockedLoadCachedAdminWeekDetail =
+  loadCachedAdminWeekDetail as jest.MockedFunction<
+    typeof loadCachedAdminWeekDetail
+  >;
+const mockedRevalidateAdminWeeksCache =
+  revalidateAdminWeeksCache as jest.MockedFunction<
+    typeof revalidateAdminWeeksCache
+  >;
 
 function createAdminContentPortStub(
   overrides: Partial<ReturnType<typeof createAdminServices>["adminContentPort"]>,
@@ -41,6 +58,8 @@ describe("GET /api/admin/content/weeks/[weekNumber]", () => {
   beforeEach(() => {
     mockedReadAdminSessionUser.mockReset();
     mockedCreateAdminServices.mockReset();
+    mockedLoadCachedAdminWeekDetail.mockReset();
+    mockedRevalidateAdminWeeksCache.mockReset();
   });
 
   test("returns 404 when the week does not exist", async () => {
@@ -50,13 +69,7 @@ describe("GET /api/admin/content/weeks/[weekNumber]", () => {
       phoneNumber: "010",
       role: "admin",
     });
-    mockedCreateAdminServices.mockReturnValue({
-      adminDashboardPort: {} as never,
-      adminUserPort: {} as never,
-      adminContentPort: createAdminContentPortStub({
-        getWeek: jest.fn().mockResolvedValue(null),
-      }),
-    });
+    mockedLoadCachedAdminWeekDetail.mockResolvedValue(null);
 
     const response = await GET({} as Request, {
       params: Promise.resolve({ weekNumber: "7" }),
@@ -72,6 +85,23 @@ describe("GET /api/admin/content/weeks/[weekNumber]", () => {
       displayName: "운영자",
       phoneNumber: "010",
       role: "admin",
+    });
+    const getWeek = jest.fn().mockResolvedValue({
+      id: "week-7",
+      weekNumber: 7,
+      title: "7주차 기본",
+      babySizeLabel: "블루베리",
+      babySizeCompareObject: "큰 블루베리",
+      babySummary: "기존 아기 요약",
+      motherSummary: "기존 엄마 요약",
+      heroImagePath: "/hero.jpg",
+      compareImagePath: "/compare.jpg",
+      status: "published",
+      updatedAt: "2026-03-18T00:00:00.000Z",
+      days: [],
+      sections: [],
+      assets: [],
+      media: [],
     });
     const saveWeek = jest.fn().mockResolvedValue({
       id: "week-7",
@@ -94,6 +124,7 @@ describe("GET /api/admin/content/weeks/[weekNumber]", () => {
       adminDashboardPort: {} as never,
       adminUserPort: {} as never,
       adminContentPort: createAdminContentPortStub({
+        getWeek,
         saveWeek,
       }),
     });
@@ -136,6 +167,7 @@ describe("GET /api/admin/content/weeks/[weekNumber]", () => {
         title: "7주차 수정본",
       }),
     });
+    expect(mockedRevalidateAdminWeeksCache).toHaveBeenCalledWith(7);
   });
 
   test("rejects an empty title", async () => {

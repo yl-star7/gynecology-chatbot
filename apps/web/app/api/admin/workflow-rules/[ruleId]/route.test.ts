@@ -6,6 +6,10 @@ jest.mock("@/lib/admin/create-admin-services", () => ({
   createAdminServices: jest.fn(),
 }));
 
+jest.mock("@/lib/admin/admin-cache", () => ({
+  revalidateAdminWorkflowCache: jest.fn(),
+}));
+
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { createAdminServices } from "@/lib/admin/create-admin-services";
 import { PATCH } from "./route";

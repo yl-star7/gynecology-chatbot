@@ -10,6 +10,14 @@ jest.mock("@/lib/mobile/supabase-rest", () => ({
   supabaseUpdate: jest.fn(),
 }));
 
+jest.mock("@/lib/mobile/schift-client", () => ({
+  getSchiftClient: jest.fn(),
+}));
+
+jest.mock("@/lib/mobile/schift-workflows-api", () => ({
+  listSchiftWorkflows: jest.fn(),
+}));
+
 jest.mock("@/lib/privacy/phone-crypto", () => ({
   createPhoneNumberStorage: jest.fn((phoneNumber: string) => ({
     phoneNumberEncrypted: `enc:${phoneNumber}`,
@@ -17,10 +25,18 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
     phoneNumberLast4: phoneNumber.slice(-4),
   })),
   decryptPhoneNumber: jest.fn((value: string) => value.replace(/^enc:/, "")),
-  redactPhoneNumber: jest.fn((phoneNumber: string) => `redacted:${phoneNumber}`),
+  redactPhoneNumber: jest.fn(
+    (phoneNumber: string) => `redacted:${phoneNumber}`,
+  ),
 }));
 
-import { supabaseInsert, supabaseSelect, supabaseUpdate } from "@/lib/mobile/supabase-rest";
+import {
+  supabaseInsert,
+  supabaseSelect,
+  supabaseUpdate,
+} from "@/lib/mobile/supabase-rest";
+import { getSchiftClient } from "@/lib/mobile/schift-client";
+import { listSchiftWorkflows } from "@/lib/mobile/schift-workflows-api";
 
 import {
   SupabaseAdminDashboardPortAdapter,
@@ -30,16 +46,34 @@ import {
 const mockedSelect = supabaseSelect as jest.MockedFunction<
   typeof supabaseSelect
 >;
-const mockedInsert = supabaseInsert as jest.MockedFunction<typeof supabaseInsert>;
-const mockedUpdate = supabaseUpdate as jest.MockedFunction<typeof supabaseUpdate>;
+const mockedInsert = supabaseInsert as jest.MockedFunction<
+  typeof supabaseInsert
+>;
+const mockedUpdate = supabaseUpdate as jest.MockedFunction<
+  typeof supabaseUpdate
+>;
+const mockedGetSchiftClient = getSchiftClient as jest.MockedFunction<
+  typeof getSchiftClient
+>;
+const mockedListSchiftWorkflows = listSchiftWorkflows as jest.MockedFunction<
+  typeof listSchiftWorkflows
+>;
 
 describe("SupabaseAdminDashboardPortAdapter", () => {
   const adapter = new SupabaseAdminDashboardPortAdapter();
+  const originalDatabaseUrl = process.env.DATABASE_URL;
+
+  beforeEach(() => {
+    delete process.env.DATABASE_URL;
+  });
 
   afterEach(() => {
     mockedSelect.mockReset();
     mockedInsert.mockReset();
     mockedUpdate.mockReset();
+    mockedGetSchiftClient.mockReset();
+    mockedListSchiftWorkflows.mockReset();
+    process.env.DATABASE_URL = originalDatabaseUrl;
   });
 
   it("includes mapped user action feed data in the dashboard", async () => {
@@ -219,6 +253,89 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
     expect(dashboard.userActions[1]).toMatchObject({
       actionLabel: "문자 인증 확인",
       detail: "문자 인증 코드를 확인했습니다.",
+    });
+  });
+
+  it("does not fall back to mock document and workflow ids when backend queries are empty", async () => {
+    mockedSelect.mockResolvedValue([]);
+    mockedGetSchiftClient.mockReturnValue(null);
+
+    const dashboard = await adapter.getDashboard();
+
+    expect(dashboard.ragDocuments).toEqual([]);
+    expect(dashboard.workflowRules).toEqual([]);
+  });
+
+  it("keeps rag documents empty when backend returns no documents", async () => {
+    mockedGetSchiftClient.mockReturnValue(null);
+    mockedSelect.mockImplementation((path: string) => {
+      if (path.startsWith("users?")) {
+        return Promise.resolve([]);
+      }
+
+      if (path.startsWith("pregnancy_profiles?")) {
+        return Promise.resolve([]);
+      }
+
+      if (path.startsWith("chat_sessions?")) {
+        return Promise.resolve([]);
+      }
+
+      if (path.startsWith("chat_messages?")) {
+        return Promise.resolve([]);
+      }
+
+      if (path.startsWith("admin_audit_logs?")) {
+        return Promise.resolve([]);
+      }
+
+      if (path.startsWith("content.pregnancy_documents?")) {
+        return Promise.resolve([]);
+      }
+
+      if (path.startsWith("workflow_definitions?")) {
+        return Promise.resolve([]);
+      }
+
+      if (path.startsWith("user_action_logs?")) {
+        return Promise.resolve([]);
+      }
+
+      return Promise.resolve([]);
+    });
+
+    const dashboard = await adapter.getDashboard();
+
+    expect(dashboard.ragDocuments).toEqual([]);
+  });
+
+  it("includes Schift workflows in the dashboard when configured", async () => {
+    mockedSelect.mockResolvedValue([]);
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: {},
+    } as never);
+    mockedListSchiftWorkflows.mockResolvedValue([
+      {
+        id: "schift-wf-1",
+        name: "Schift 기본 플로우",
+        description:
+          '<!-- si-admin-workflow:{"trigger":"복통","retrievalScope":"응급 문서","modelName":"gpt-4.1"}-->\n기본 설명',
+        status: "active",
+        graph: { blocks: [], edges: [] },
+        created_at: "2026-03-23T10:00:00.000Z",
+        updated_at: "2026-03-23T10:00:00.000Z",
+      },
+    ] as never);
+
+    const dashboard = await adapter.getDashboard();
+
+    expect(dashboard.workflowRules).toContainEqual({
+      id: "schift-wf-1",
+      name: "Schift 기본 플로우",
+      trigger: "복통",
+      retrievalScope: "응급 문서",
+      modelName: "gpt-4.1",
+      status: "active",
     });
   });
 

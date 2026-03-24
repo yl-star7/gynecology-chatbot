@@ -4,6 +4,8 @@ jest.mock("@/lib/mobile/supabase-rest", () => ({
 
 jest.mock("@/lib/server-data-provider", () => ({
   resolveServerDataProvider: jest.fn(),
+  hasDockerConfig: jest.fn(() => false),
+  hasSupabaseConfig: jest.fn(() => true),
 }));
 
 jest.mock("next/headers", () => ({

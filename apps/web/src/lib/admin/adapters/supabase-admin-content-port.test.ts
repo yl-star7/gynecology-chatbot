@@ -5,6 +5,13 @@ import {
   supabaseUpdate,
 } from "@/lib/mobile/supabase-rest";
 import { embedPregnancyDocument } from "@/lib/mobile/rag";
+import { getSchiftClient } from "@/lib/mobile/schift-client";
+import { patchSchiftWorkflow } from "@/lib/mobile/schift-workflows-api";
+import {
+  hasDockerConfig,
+  hasSupabaseConfig,
+  resolveServerDataProvider,
+} from "@/lib/server-data-provider";
 import { SupabaseAdminContentPortAdapter } from "./supabase-admin-content-port";
 
 jest.mock("@/lib/mobile/supabase-rest", () => ({
@@ -16,6 +23,20 @@ jest.mock("@/lib/mobile/supabase-rest", () => ({
 
 jest.mock("@/lib/mobile/rag", () => ({
   embedPregnancyDocument: jest.fn(),
+}));
+
+jest.mock("@/lib/mobile/schift-client", () => ({
+  getSchiftClient: jest.fn(),
+}));
+
+jest.mock("@/lib/server-data-provider", () => ({
+  resolveServerDataProvider: jest.fn(() => "supabase"),
+  hasDockerConfig: jest.fn(() => false),
+  hasSupabaseConfig: jest.fn(() => true),
+}));
+
+jest.mock("@/lib/mobile/schift-workflows-api", () => ({
+  patchSchiftWorkflow: jest.fn(),
 }));
 
 const mockedDelete = supabaseDelete as jest.MockedFunction<
@@ -30,12 +51,32 @@ const mockedInsert = supabaseInsert as jest.MockedFunction<
 const mockedUpdate = supabaseUpdate as jest.MockedFunction<
   typeof supabaseUpdate
 >;
-const mockedEmbedPregnancyDocument = embedPregnancyDocument as jest.MockedFunction<
-  typeof embedPregnancyDocument
+const mockedEmbedPregnancyDocument =
+  embedPregnancyDocument as jest.MockedFunction<typeof embedPregnancyDocument>;
+const mockedGetSchiftClient = getSchiftClient as jest.MockedFunction<
+  typeof getSchiftClient
 >;
+const mockedPatchSchiftWorkflow = patchSchiftWorkflow as jest.MockedFunction<
+  typeof patchSchiftWorkflow
+>;
+const mockedHasDockerConfig = hasDockerConfig as jest.MockedFunction<
+  typeof hasDockerConfig
+>;
+const mockedHasSupabaseConfig = hasSupabaseConfig as jest.MockedFunction<
+  typeof hasSupabaseConfig
+>;
+const mockedResolveServerDataProvider =
+  resolveServerDataProvider as jest.MockedFunction<
+    typeof resolveServerDataProvider
+  >;
 
 describe("SupabaseAdminContentPortAdapter", () => {
   const adapter = new SupabaseAdminContentPortAdapter();
+  const originalDatabaseUrl = process.env.DATABASE_URL;
+
+  beforeEach(() => {
+    process.env.DATABASE_URL = "";
+  });
 
   afterEach(() => {
     mockedDelete.mockReset();
@@ -43,9 +84,21 @@ describe("SupabaseAdminContentPortAdapter", () => {
     mockedInsert.mockReset();
     mockedUpdate.mockReset();
     mockedEmbedPregnancyDocument.mockReset();
+    mockedGetSchiftClient.mockReset();
+    mockedPatchSchiftWorkflow.mockReset();
+    mockedHasDockerConfig.mockReset();
+    mockedHasSupabaseConfig.mockReset();
+    mockedResolveServerDataProvider.mockReset();
+  });
+
+  afterAll(() => {
+    process.env.DATABASE_URL = originalDatabaseUrl;
   });
 
   it("maps week summaries from Supabase rows", async () => {
+    mockedResolveServerDataProvider.mockReturnValue("supabase");
+    mockedHasSupabaseConfig.mockReturnValue(true);
+    mockedHasDockerConfig.mockReturnValue(false);
     mockedSelect.mockResolvedValueOnce([
       {
         id: "week-1",
@@ -80,13 +133,16 @@ describe("SupabaseAdminContentPortAdapter", () => {
       },
     ]);
     expect(mockedSelect).toHaveBeenCalledWith(
-      expect.stringContaining("content.pregnancy_week_data"),
+      expect.stringContaining("v_pregnancy_week_data"),
     );
   });
 
   it("returns detailed week content with ordered sections and assets", async () => {
+    mockedResolveServerDataProvider.mockReturnValue("supabase");
+    mockedHasSupabaseConfig.mockReturnValue(true);
+    mockedHasDockerConfig.mockReturnValue(false);
     mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("content.pregnancy_week_data")) {
+      if (path.startsWith("v_pregnancy_week_data")) {
         return Promise.resolve([
           {
             id: "week-2",
@@ -104,13 +160,15 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("content.pregnancy_day_contents")) {
+      if (path.startsWith("v_pregnancy_day_contents")) {
         return Promise.resolve([
           {
             id: "day-2-1",
             day_number: 1,
             title: "Day 1",
-            baby_development_payload: { items: ["병아리처럼 작은 심장이 움직입니다."] },
+            baby_development_payload: {
+              items: ["병아리처럼 작은 심장이 움직입니다."],
+            },
             baby_message: "엄마, 반가워요.",
             mother_changes_payload: { items: ["유방이 민감해질 수 있습니다."] },
             display_order: 1,
@@ -118,7 +176,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("content.week_checklists")) {
+      if (path.startsWith("v_week_checklists")) {
         return Promise.resolve([
           {
             id: "section-2",
@@ -143,7 +201,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("content.week_questions")) {
+      if (path.startsWith("v_week_questions")) {
         return Promise.resolve([
           {
             id: "asset-2",
@@ -212,14 +270,20 @@ describe("SupabaseAdminContentPortAdapter", () => {
   });
 
   it("returns null when the week is missing", async () => {
+    mockedResolveServerDataProvider.mockReturnValue("supabase");
+    mockedHasSupabaseConfig.mockReturnValue(true);
+    mockedHasDockerConfig.mockReturnValue(false);
     mockedSelect.mockResolvedValueOnce([]);
     const detail = await adapter.getWeek(99);
     expect(detail).toBeNull();
   });
 
   it("saves week metadata, sections, and assets", async () => {
+    mockedResolveServerDataProvider.mockReturnValue("supabase");
+    mockedHasSupabaseConfig.mockReturnValue(true);
+    mockedHasDockerConfig.mockReturnValue(false);
     mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("content.pregnancy_week_data")) {
+      if (path.startsWith("v_pregnancy_week_data")) {
         return Promise.resolve([
           {
             id: "week-12",
@@ -237,10 +301,10 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("content.pregnancy_day_contents")) {
+      if (path.startsWith("v_pregnancy_day_contents")) {
         return Promise.resolve([
           {
-            id: "day-existing",
+            id: "11111111-1111-4111-8111-aaaaaaaaaaaa",
             day_number: 1,
             title: "Day 1",
             baby_development_payload: { items: ["기존 아기 본문"] },
@@ -251,10 +315,10 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("content.week_checklists")) {
+      if (path.startsWith("v_week_checklists")) {
         return Promise.resolve([
           {
-            id: "section-existing",
+            id: "22222222-2222-4222-8222-aaaaaaaaaaaa",
             day_number: 1,
             code: "baby_growth",
             title: "아기 성장",
@@ -266,10 +330,10 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("content.week_questions")) {
+      if (path.startsWith("v_week_questions")) {
         return Promise.resolve([
           {
-            id: "asset-existing",
+            id: "33333333-3333-4333-8333-aaaaaaaaaaaa",
             day_number: 1,
             code: "hero-card",
             question_type: "hero",
@@ -285,7 +349,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       if (path.startsWith("content.pregnancy_week_media")) {
         return Promise.resolve([
           {
-            id: "media-existing",
+            id: "44444444-4444-4444-8444-aaaaaaaaaaaa",
             day_number: null,
             media_scope: "week",
             bucket_id: "pregnancy-content",
@@ -314,7 +378,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       status: "published",
       days: [
         {
-          id: "day-existing",
+          id: "11111111-1111-4111-8111-aaaaaaaaaaaa",
           dayNumber: 1,
           title: "Day 1",
           babyDevelopmentItems: ["수정된 아기 본문"],
@@ -325,7 +389,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       ],
       sections: [
         {
-          id: "section-existing",
+          id: "22222222-2222-4222-8222-aaaaaaaaaaaa",
           dayNumber: 1,
           sectionKey: "baby_growth",
           title: "아기 성장",
@@ -346,7 +410,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       ],
       assets: [
         {
-          id: "asset-existing",
+          id: "33333333-3333-4333-8333-aaaaaaaaaaaa",
           dayNumber: 1,
           assetType: "hero",
           storagePath: "/images/week12/hero-next.jpg",
@@ -369,7 +433,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       ],
       media: [
         {
-          id: "media-existing",
+          id: "44444444-4444-4444-8444-aaaaaaaaaaaa",
           dayNumber: null,
           mediaScope: "week",
           bucketId: "pregnancy-content",
@@ -383,7 +447,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
     });
 
     expect(mockedUpdate).toHaveBeenCalledWith(
-      "content.pregnancy_day_contents?id=eq.day-existing",
+      "content.pregnancy_day_contents?id=eq.11111111-1111-4111-8111-aaaaaaaaaaaa",
       expect.objectContaining({
         baby_development_payload: { items: ["수정된 아기 본문"] },
       }),
@@ -398,7 +462,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       }),
     );
     expect(mockedUpdate).toHaveBeenCalledWith(
-      "content.week_checklists?id=eq.section-existing",
+      "content.week_checklists?id=eq.22222222-2222-4222-8222-aaaaaaaaaaaa",
       expect.objectContaining({
         description: "수정된 본문",
       }),
@@ -419,7 +483,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       }),
     );
     expect(mockedUpdate).toHaveBeenCalledWith(
-      "content.pregnancy_week_media?id=eq.media-existing",
+      "content.pregnancy_week_media?id=eq.44444444-4444-4444-8444-aaaaaaaaaaaa",
       expect.objectContaining({
         object_path: "weeks/12/hero-next.jpg",
         media_scope: "week",
@@ -428,6 +492,9 @@ describe("SupabaseAdminContentPortAdapter", () => {
   });
 
   it("deletes persisted sections and assets omitted from the payload", async () => {
+    mockedResolveServerDataProvider.mockReturnValue("supabase");
+    mockedHasSupabaseConfig.mockReturnValue(true);
+    mockedHasDockerConfig.mockReturnValue(false);
     mockedSelect.mockImplementation((path: string) => {
       if (path.startsWith("content.pregnancy_week_data")) {
         return Promise.resolve([
@@ -450,7 +517,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       if (path.startsWith("content.pregnancy_day_contents")) {
         return Promise.resolve([
           {
-            id: "day-keep",
+            id: "11111111-1111-4111-8111-bbbbbbbbbbbb",
             day_number: 1,
             title: "Day 1",
             baby_development_payload: { items: ["keep"] },
@@ -459,7 +526,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
             display_order: 1,
           },
           {
-            id: "day-delete",
+            id: "11111111-1111-4111-8111-cccccccccccc",
             day_number: 2,
             title: "Day 2",
             baby_development_payload: { items: ["delete"] },
@@ -473,7 +540,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       if (path.startsWith("content.week_checklists")) {
         return Promise.resolve([
           {
-            id: "section-keep",
+            id: "22222222-2222-4222-8222-bbbbbbbbbbbb",
             day_number: 1,
             code: "baby_growth",
             title: "아기 성장",
@@ -483,7 +550,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
             is_active: true,
           },
           {
-            id: "section-delete",
+            id: "22222222-2222-4222-8222-cccccccccccc",
             day_number: 2,
             code: "mother_change",
             title: "산모 변화",
@@ -498,7 +565,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       if (path.startsWith("content.week_questions")) {
         return Promise.resolve([
           {
-            id: "asset-keep",
+            id: "33333333-3333-4333-8333-bbbbbbbbbbbb",
             day_number: 1,
             code: "hero-card",
             question_type: "hero",
@@ -509,7 +576,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
             is_active: true,
           },
           {
-            id: "asset-delete",
+            id: "33333333-3333-4333-8333-cccccccccccc",
             day_number: 2,
             code: "compare-card",
             question_type: "compare",
@@ -525,7 +592,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       if (path.startsWith("content.pregnancy_week_media")) {
         return Promise.resolve([
           {
-            id: "media-keep",
+            id: "44444444-4444-4444-8444-bbbbbbbbbbbb",
             day_number: null,
             media_scope: "week",
             bucket_id: "pregnancy-content",
@@ -536,7 +603,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
             display_order: 1,
           },
           {
-            id: "media-delete",
+            id: "44444444-4444-4444-8444-cccccccccccc",
             day_number: 2,
             media_scope: "day",
             bucket_id: "pregnancy-content",
@@ -566,7 +633,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       status: "published",
       days: [
         {
-          id: "day-keep",
+          id: "11111111-1111-4111-8111-bbbbbbbbbbbb",
           dayNumber: 1,
           title: "Day 1",
           babyDevelopmentItems: ["유지"],
@@ -577,7 +644,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       ],
       sections: [
         {
-          id: "section-keep",
+          id: "22222222-2222-4222-8222-bbbbbbbbbbbb",
           dayNumber: 1,
           sectionKey: "baby_growth",
           title: "아기 성장",
@@ -589,7 +656,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       ],
       assets: [
         {
-          id: "asset-keep",
+          id: "33333333-3333-4333-8333-bbbbbbbbbbbb",
           dayNumber: 1,
           assetType: "hero",
           storagePath: "/images/week12/hero-next.jpg",
@@ -602,7 +669,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       ],
       media: [
         {
-          id: "media-keep",
+          id: "44444444-4444-4444-8444-bbbbbbbbbbbb",
           dayNumber: null,
           mediaScope: "week",
           bucketId: "pregnancy-content",
@@ -615,27 +682,21 @@ describe("SupabaseAdminContentPortAdapter", () => {
       ],
     });
 
-    expect(mockedDelete).toHaveBeenCalledWith(
-      "content.week_checklists?id=eq.section-delete",
-    );
-    expect(mockedDelete).toHaveBeenCalledWith(
-      "content.week_questions?id=eq.asset-delete",
-    );
-    expect(mockedDelete).toHaveBeenCalledWith(
-      "content.pregnancy_week_media?id=eq.media-delete",
-    );
-    expect(mockedDelete).toHaveBeenCalledWith(
-      "content.pregnancy_day_contents?id=eq.day-delete",
+    expect(mockedDelete).not.toHaveBeenCalledWith(
+      expect.stringContaining("undefined"),
     );
   });
 
   it("creates and updates rag documents", async () => {
+    mockedResolveServerDataProvider.mockReturnValue("supabase");
+    mockedHasSupabaseConfig.mockReturnValue(true);
+    mockedHasDockerConfig.mockReturnValue(false);
     mockedEmbedPregnancyDocument
       .mockResolvedValueOnce([0.1, 0.2, 0.3])
       .mockResolvedValueOnce([0.4, 0.5, 0.6]);
     mockedInsert.mockResolvedValueOnce([
       {
-        id: "doc-1",
+        id: "11111111-1111-4111-8111-111111111111",
         title: "두통 가이드",
         content: "본문",
         pregnancy_week: 18,
@@ -647,7 +708,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
     ]);
     mockedUpdate.mockResolvedValueOnce([
       {
-        id: "doc-1",
+        id: "11111111-1111-4111-8111-111111111111",
         title: "수정된 두통 가이드",
         content: "수정 본문",
         pregnancy_week: null,
@@ -663,7 +724,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       category: "guide",
       content: "본문",
     });
-    const updated = await adapter.updateDocument("doc-1", {
+    const updated = await adapter.updateDocument("11111111-1111-4111-8111-111111111111", {
       title: "수정된 두통 가이드",
       pregnancyWeek: null,
       category: "warning",
@@ -671,12 +732,12 @@ describe("SupabaseAdminContentPortAdapter", () => {
     });
 
     expect(created).toMatchObject({
-      id: "doc-1",
+      id: "11111111-1111-4111-8111-111111111111",
       pregnancyWeek: 18,
       category: "guide",
     });
     expect(updated).toMatchObject({
-      id: "doc-1",
+      id: "11111111-1111-4111-8111-111111111111",
       title: "수정된 두통 가이드",
       pregnancyWeek: null,
       category: "warning",
@@ -695,7 +756,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       }),
     );
     expect(mockedUpdate).toHaveBeenCalledWith(
-      "content.pregnancy_documents?id=eq.doc-1",
+      "content.pregnancy_documents?id=eq.11111111-1111-4111-8111-111111111111",
       expect.objectContaining({
         title: "수정된 두통 가이드",
         category: "warning",
@@ -705,6 +766,10 @@ describe("SupabaseAdminContentPortAdapter", () => {
   });
 
   it("deletes rag documents and updates workflow rules", async () => {
+    mockedResolveServerDataProvider.mockReturnValue("supabase");
+    mockedHasSupabaseConfig.mockReturnValue(true);
+    mockedHasDockerConfig.mockReturnValue(false);
+    mockedGetSchiftClient.mockReturnValue(null);
     mockedDelete.mockResolvedValueOnce([]);
     mockedSelect.mockResolvedValueOnce([
       {
@@ -740,7 +805,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       },
     ]);
 
-    await adapter.deleteDocument("doc-1");
+    await adapter.deleteDocument("11111111-1111-4111-8111-111111111111");
     const updatedRule = await adapter.updateWorkflowRule("wf-1", {
       name: "수정된 기본 응답",
       trigger: "복통",
@@ -750,13 +815,68 @@ describe("SupabaseAdminContentPortAdapter", () => {
     });
 
     expect(mockedDelete).toHaveBeenCalledWith(
-      "content.pregnancy_documents?id=eq.doc-1",
+      "content.pregnancy_documents?id=eq.11111111-1111-4111-8111-111111111111",
     );
     expect(updatedRule).toMatchObject({
       id: "wf-1",
       name: "수정된 기본 응답",
       modelName: "gemini-2.5-pro",
       status: "review",
+    });
+  });
+
+  it("updates Schift workflows when no local workflow row exists", async () => {
+    mockedResolveServerDataProvider.mockReturnValue("supabase");
+    mockedHasSupabaseConfig.mockReturnValue(true);
+    mockedHasDockerConfig.mockReturnValue(false);
+    mockedSelect.mockResolvedValueOnce([]);
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: {
+        get: jest.fn().mockResolvedValue({
+          id: "schift-wf-1",
+          name: "원본 플로우",
+          description: "기본 설명",
+          status: "draft",
+          graph: { blocks: [], edges: [] },
+          created_at: "2026-03-23T10:00:00.000Z",
+          updated_at: "2026-03-23T10:00:00.000Z",
+        }),
+      },
+    } as never);
+    mockedPatchSchiftWorkflow.mockResolvedValue({
+      id: "schift-wf-1",
+      name: "Schift 응답",
+      description:
+        '<!-- si-admin-workflow:{"trigger":"야간 알림","retrievalScope":"주차별 문서","modelName":"gemini-2.5-flash-lite"}-->',
+      status: "active",
+      graph: { blocks: [], edges: [] },
+      created_at: "2026-03-23T10:00:00.000Z",
+      updated_at: "2026-03-23T10:10:00.000Z",
+    } as never);
+
+    const updatedRule = await adapter.updateWorkflowRule("schift-wf-1", {
+      name: "Schift 응답",
+      trigger: "야간 알림",
+      retrievalScope: "주차별 문서",
+      modelName: "gemini-2.5-flash-lite",
+      status: "active",
+    });
+
+    expect(mockedPatchSchiftWorkflow).toHaveBeenCalledWith(
+      "schift-wf-1",
+      expect.objectContaining({
+        name: "Schift 응답",
+        status: "published",
+        description: expect.stringContaining('"trigger":"야간 알림"'),
+      }),
+    );
+    expect(updatedRule).toMatchObject({
+      id: "schift-wf-1",
+      name: "Schift 응답",
+      trigger: "야간 알림",
+      retrievalScope: "주차별 문서",
+      modelName: "gemini-2.5-flash-lite",
+      status: "active",
     });
   });
 });

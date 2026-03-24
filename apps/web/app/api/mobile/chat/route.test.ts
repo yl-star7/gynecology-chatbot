@@ -37,12 +37,22 @@ jest.mock("@/lib/mobile/schift-client", () => ({
   getSchiftClient: jest.fn(() => null),
 }));
 
+jest.mock("@/lib/mobile/schift-workflow", () => ({
+  runSchiftWorkflow: jest.fn(),
+  formatSchiftWorkflowRun: jest.fn((run: { outputs?: { answer?: string } }) =>
+    run.outputs?.answer ?? "workflow 응답",
+  ),
+}));
+
 import { requireMobileSession } from "@/lib/mobile/session-auth";
 import {
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
 } from "@/lib/mobile/supabase-rest";
+import { generateText } from "ai";
+import { getSchiftClient } from "@/lib/mobile/schift-client";
+import { runSchiftWorkflow } from "@/lib/mobile/schift-workflow";
 import { POST } from "./route";
 
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
@@ -57,6 +67,15 @@ const mockedSupabaseInsert = supabaseInsert as jest.MockedFunction<
 const mockedSupabaseUpdate = supabaseUpdate as jest.MockedFunction<
   typeof supabaseUpdate
 >;
+const mockedGenerateText = generateText as jest.MockedFunction<
+  typeof generateText
+>;
+const mockedGetSchiftClient = getSchiftClient as jest.MockedFunction<
+  typeof getSchiftClient
+>;
+const mockedRunSchiftWorkflow = runSchiftWorkflow as jest.MockedFunction<
+  typeof runSchiftWorkflow
+>;
 
 describe("POST /api/mobile/chat", () => {
   beforeEach(() => {
@@ -64,6 +83,9 @@ describe("POST /api/mobile/chat", () => {
     mockedSupabaseSelect.mockReset();
     mockedSupabaseInsert.mockReset();
     mockedSupabaseUpdate.mockReset();
+    mockedGenerateText.mockReset();
+    mockedGetSchiftClient.mockReset();
+    mockedRunSchiftWorkflow.mockReset();
     delete process.env.GEMINI_API_KEY;
     delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   });
@@ -97,7 +119,13 @@ describe("POST /api/mobile/chat", () => {
       ) {
         return Promise.resolve(
           outstandingPromptEvents
-            ? [{ id: "event-question-1", question_id: "question-1", status: "sent" }]
+            ? [
+                {
+                  id: "event-question-1",
+                  question_id: "question-1",
+                  status: "sent",
+                },
+              ]
             : [],
         );
       }
@@ -187,7 +215,13 @@ describe("POST /api/mobile/chat", () => {
       if (path.startsWith("user_question_events?")) {
         return Promise.resolve(
           existingPromptEvents
-            ? [{ id: "event-question-1", question_id: "question-1", status: "sent" }]
+            ? [
+                {
+                  id: "event-question-1",
+                  question_id: "question-1",
+                  status: "sent",
+                },
+              ]
             : [],
         );
       }
@@ -202,22 +236,25 @@ describe("POST /api/mobile/chat", () => {
       sessionToken: "token-1",
     } as never);
     mockPromptContext({});
-    mockedSupabaseInsert.mockImplementation((table: string, payload: object | object[]) => {
-      if (table === "chat_sessions") {
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages" && !Array.isArray(payload)) {
+          const role = (payload as { role?: string }).role;
+          return Promise.resolve([
+            {
+              id:
+                role === "assistant" ? "assistant-message-1" : "user-message-1",
+            },
+          ]);
+        }
+
         return Promise.resolve([]);
-      }
-
-      if (table === "chat_messages" && !Array.isArray(payload)) {
-        const role = (payload as { role?: string }).role;
-        return Promise.resolve([
-          {
-            id: role === "assistant" ? "assistant-message-1" : "user-message-1",
-          },
-        ]);
-      }
-
-      return Promise.resolve([]);
-    });
+      },
+    );
     mockedSupabaseUpdate.mockResolvedValue([]);
 
     const response = await POST(
@@ -270,23 +307,29 @@ describe("POST /api/mobile/chat", () => {
       userId: "user-1",
       sessionToken: "token-1",
     } as never);
-    mockPromptContext({ existingPromptEvents: true, outstandingPromptEvents: true });
-    mockedSupabaseInsert.mockImplementation((table: string, payload: object | object[]) => {
-      if (table === "chat_sessions") {
-        return Promise.resolve([]);
-      }
-
-      if (table === "chat_messages" && !Array.isArray(payload)) {
-        const role = (payload as { role?: string }).role;
-        return Promise.resolve([
-          {
-            id: role === "assistant" ? "assistant-message-2" : "user-message-2",
-          },
-        ]);
-      }
-
-      return Promise.resolve([]);
+    mockPromptContext({
+      existingPromptEvents: true,
+      outstandingPromptEvents: true,
     });
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages" && !Array.isArray(payload)) {
+          const role = (payload as { role?: string }).role;
+          return Promise.resolve([
+            {
+              id:
+                role === "assistant" ? "assistant-message-2" : "user-message-2",
+            },
+          ]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
     mockedSupabaseUpdate.mockResolvedValue([]);
 
     const response = await POST(
@@ -323,5 +366,93 @@ describe("POST /api/mobile/chat", () => {
           table === "user_checklist_events" || table === "user_question_events",
       ),
     ).toBe(false);
+  });
+
+  it("uses the active Schift workflow before falling back to model generation", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({});
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages" && !Array.isArray(payload)) {
+          const role = (payload as { role?: string }).role;
+          return Promise.resolve([
+            {
+              id:
+                role === "assistant" ? "assistant-message-3" : "user-message-3",
+            },
+          ]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGenerateText.mockResolvedValue({
+      text: JSON.stringify({
+        id: "assistant-1",
+        role: "assistant",
+        createdAtLabel: "방금 전",
+        parts: [{ type: "text", id: "p1", text: "테스트 응답" }],
+      }),
+    } as never);
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: {
+        run: jest.fn(),
+      },
+    } as never);
+    mockedRunSchiftWorkflow.mockResolvedValue({
+      workflowId: "wf-active",
+      run: {
+        id: "run-1",
+        workflow_id: "wf-active",
+        status: "completed",
+        outputs: {
+          answer: "수분을 충분히 드시고 쉬어보세요.",
+          references: ["근거 1", "근거 2"],
+        },
+        block_states: [],
+        started_at: "2026-03-23T12:00:00.000Z",
+        finished_at: "2026-03-23T12:00:01.000Z",
+      },
+    } as never);
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "배가 아파요",
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+
+    expect(mockedRunSchiftWorkflow).toHaveBeenCalledWith({
+      schift: expect.any(Object),
+      inputs: {
+        query: "배가 아파요",
+        currentWeek: 13,
+        sessionId: expect.any(String),
+        hasImages: false,
+      },
+    });
+    expect(payload.assistantMessage.parts[0]).toMatchObject({
+      type: "text",
+      text: "수분을 충분히 드시고 쉬어보세요.",
+    });
+    expect(mockedGenerateText).not.toHaveBeenCalled();
   });
 });

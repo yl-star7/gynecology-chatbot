@@ -6,8 +6,13 @@ jest.mock("@/lib/admin/create-admin-services", () => ({
   createAdminServices: jest.fn(),
 }));
 
+jest.mock("@/lib/admin/admin-cache", () => ({
+  loadCachedAdminWeeks: jest.fn(),
+}));
+
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { createAdminServices } from "@/lib/admin/create-admin-services";
+import { loadCachedAdminWeeks } from "@/lib/admin/admin-cache";
 import { GET } from "./route";
 
 const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<
@@ -15,6 +20,9 @@ const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<
 >;
 const mockedCreateAdminServices = createAdminServices as jest.MockedFunction<
   typeof createAdminServices
+>;
+const mockedLoadCachedAdminWeeks = loadCachedAdminWeeks as jest.MockedFunction<
+  typeof loadCachedAdminWeeks
 >;
 
 function createAdminContentPortStub(
@@ -41,6 +49,7 @@ describe("GET /api/admin/content/weeks", () => {
   beforeEach(() => {
     mockedReadAdminSessionUser.mockReset();
     mockedCreateAdminServices.mockReset();
+    mockedLoadCachedAdminWeeks.mockReset();
   });
 
   test("rejects requests without an admin session", async () => {
@@ -59,27 +68,21 @@ describe("GET /api/admin/content/weeks", () => {
       phoneNumber: "010",
       role: "admin",
     });
-    mockedCreateAdminServices.mockReturnValue({
-      adminDashboardPort: {} as never,
-      adminUserPort: {} as never,
-      adminContentPort: createAdminContentPortStub({
-        listWeeks: jest.fn().mockResolvedValue([
-          {
-            id: "week-1",
-            weekNumber: 1,
-            title: "1주차",
-            babySizeLabel: null,
-            babySizeCompareObject: null,
-            babySummary: null,
-            motherSummary: null,
-            heroImagePath: null,
-            compareImagePath: null,
-            status: "draft",
-            updatedAt: "2026-03-17T00:00:00.000Z",
-          },
-        ]),
-      }),
-    });
+    mockedLoadCachedAdminWeeks.mockResolvedValue([
+      {
+        id: "week-1",
+        weekNumber: 1,
+        title: "1주차",
+        babySizeLabel: null,
+        babySizeCompareObject: null,
+        babySummary: null,
+        motherSummary: null,
+        heroImagePath: null,
+        compareImagePath: null,
+        status: "draft",
+        updatedAt: "2026-03-17T00:00:00.000Z",
+      },
+    ]);
 
     const response = await GET();
 
@@ -101,5 +104,6 @@ describe("GET /api/admin/content/weeks", () => {
         },
       ],
     });
+    expect(mockedCreateAdminServices).not.toHaveBeenCalled();
   });
 });
