@@ -1,9 +1,8 @@
 import type {
   ChatMessage,
-  ChatSession,
   HomeViewData,
   MobileProfileViewData,
-  RecentChatSummary,
+  TodayViewData,
 } from "@gynecology-chatbot/app-core";
 
 function getDaysUntilDue(dueDate?: string | null) {
@@ -43,32 +42,26 @@ export function buildWebPatientHomeViewModel({
 }
 
 export function buildWebPatientTodayViewModel({
-  home,
-  session,
-  recentSessions,
+  today,
 }: {
-  home: HomeViewData | null;
-  session: ChatSession | null;
-  recentSessions: RecentChatSummary[];
+  today: TodayViewData | null;
 }) {
-  const completedCount = Math.min(session?.messages.length ?? 0, 3);
+  const checklistItems = today?.checklistItems ?? [];
+  const completedCount = checklistItems.filter((item) => item.completed).length;
+  const completionRate = checklistItems.length
+    ? Math.round((completedCount / checklistItems.length) * 100)
+    : 0;
 
   return {
     sections: [
-      { id: "baby", label: "오늘 아기는요" },
-      { id: "mom", label: "오늘 엄마는요" },
-      { id: "checklist", label: "함께 해봐요" },
-      { id: "conversation", label: "아기와 나누는 마음" },
+      { id: "info", label: "정보" },
+      { id: "checklist", label: "체크" },
+      { id: "conversation", label: "대화" },
     ],
-    babyText: `${home?.pregnancyWeekLabel ?? "이번 주"}에 맞춰 오늘도 한 걸음씩 자라고 있어요.`,
-    momText: "오늘 몸과 마음의 변화를 천천히 살펴보면 좋아요.",
-    checklist: [
-      { id: "water", label: "물 한 잔을 천천히 마셔요.", completed: completedCount > 0 },
-      { id: "note", label: "몸 상태를 잠깐 기록해요.", completed: completedCount > 1 },
-      { id: "talk", label: "아기에게 짧은 인사를 건네요.", completed: completedCount > 2 },
-    ],
-    recentSessions: recentSessions.slice(0, 3),
-    messageCount: session?.messages.length ?? 0,
+    babyText: today?.babyBody ?? "오늘 아기의 변화를 준비 중이에요.",
+    momText: today?.momBody ?? "오늘 엄마의 변화를 준비 중이에요.",
+    checklist: checklistItems,
+    completionRate,
   };
 }
 

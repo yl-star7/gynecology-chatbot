@@ -3,8 +3,10 @@ import test from "node:test";
 import type {
   AuthenticatedUser,
   MobileProfileViewData,
+  RecordDayView,
+  TodayViewData,
 } from "@gynecology-chatbot/app-core";
-import { createMobileApiClient } from "./mobileApi";
+import { createMobileApiClient } from "./mobileApi.ts";
 
 const profilePayload: MobileProfileViewData = {
   userId: "user-1",
@@ -27,6 +29,25 @@ const updatedUser: AuthenticatedUser = {
   displayName: "김수연",
   phoneNumber: "01012345678",
   hasCompletedOnboarding: true,
+};
+
+const recordDayPayload: RecordDayView = {
+  isoDate: "2026-03-18",
+  dateLabel: "2026년 3월 18일 수요일",
+  emotionTone: "calm",
+  checklistItems: [
+    { id: "check-1", label: "엽산 보충제 섭취하기", completed: true },
+  ],
+  records: [],
+  relatedSessions: [],
+};
+
+const todayPayload: TodayViewData = {
+  babyBody: "아기가 자라고 있어요.",
+  momBody: "몸의 변화가 시작되고 있어요.",
+  checklistItems: [
+    { id: "water", label: "물 마시기", completed: false },
+  ],
 };
 
 test("fetchMobileProfile targets the mobile profile endpoint with the resolved user id", async () => {
@@ -84,4 +105,97 @@ test("updateMobileProfile uses PATCH and forwards the editable fields", async ()
     themeKey: "rose-sand",
   });
   assert.equal(response.user.id, "user-1");
+});
+
+test("submitProfileSurveyAnswer posts the selected answer to the profile survey endpoint", async () => {
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  const client = createMobileApiClient({
+    getApiBaseUrl: () => "http://example.com",
+    getUserId: () => "user-1",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, init });
+      return Response.json({ ok: true });
+    },
+  });
+
+  const response = await client.submitProfileSurveyAnswer({
+    userId: "user-1",
+    questionId: "question-1",
+    answer: "네",
+  });
+
+  assert.equal(calls[0]?.input, "http://example.com/api/mobile/profile/surveys");
+  assert.equal(calls[0]?.init?.method, "POST");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    userId: "user-1",
+    questionId: "question-1",
+    answer: "네",
+  });
+  assert.equal(response.ok, true);
+});
+
+test("fetchRecordDay targets the mobile records endpoint with the selected date", async () => {
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  const client = createMobileApiClient({
+    getApiBaseUrl: () => "http://example.com",
+    getUserId: () => "user-1",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, init });
+      return Response.json({ recordDay: recordDayPayload });
+    },
+  });
+
+  const response = await client.fetchRecordDay("2026-03-18");
+
+  assert.equal(
+    calls[0]?.input,
+    "http://example.com/api/mobile/records?userId=user-1&date=2026-03-18",
+  );
+  assert.equal(response.recordDay.isoDate, "2026-03-18");
+});
+
+test("fetchTodayView targets the mobile today endpoint with the resolved user id", async () => {
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  const client = createMobileApiClient({
+    getApiBaseUrl: () => "http://example.com",
+    getUserId: () => "user-1",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, init });
+      return Response.json({ today: todayPayload });
+    },
+  });
+
+  const response = await client.fetchTodayView();
+
+  assert.equal(
+    calls[0]?.input,
+    "http://example.com/api/mobile/today?userId=user-1",
+  );
+  assert.equal(response.today.checklistItems[0]?.label, "물 마시기");
+});
+
+test("updateTodayChecklistItem sends PATCH to the mobile today endpoint", async () => {
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  const client = createMobileApiClient({
+    getApiBaseUrl: () => "http://example.com",
+    getUserId: () => "user-1",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, init });
+      return Response.json({ ok: true });
+    },
+  });
+
+  const response = await client.updateTodayChecklistItem({
+    checklistId: "check-1",
+    completed: true,
+  });
+
+  assert.equal(calls[0]?.input, "http://example.com/api/mobile/today");
+  assert.equal(calls[0]?.init?.method, "PATCH");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    userId: "user-1",
+    checklistId: "check-1",
+    completed: true,
+  });
+  assert.equal(response.ok, true);
 });

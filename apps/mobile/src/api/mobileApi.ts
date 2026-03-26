@@ -8,6 +8,8 @@ import type {
   MobileProfileViewData,
   OnboardingProfileInput,
   RecentChatSummary,
+  RecordDayView,
+  TodayViewData,
 } from "@gynecology-chatbot/app-core";
 
 type MobileFetch = typeof fetch;
@@ -30,7 +32,13 @@ export interface MobileApiClient {
   completeOnboarding(input: { userId: string } & OnboardingProfileInput): Promise<{ user: AuthenticatedUser }>;
   fetchHome(month?: string): Promise<{ home: HomeViewData }>;
   fetchMobileProfile(): Promise<{ profile: MobileProfileViewData }>;
+  fetchTodayView(): Promise<{ today: TodayViewData }>;
+  updateTodayChecklistItem(input: {
+    checklistId: string;
+    completed: boolean;
+  }): Promise<{ ok: true }>;
   fetchSessions(): Promise<{ sessions: RecentChatSummary[] }>;
+  fetchRecordDay(isoDate: string): Promise<{ recordDay: RecordDayView }>;
   fetchSession(sessionId: string): Promise<{ session: ChatSession }>;
   fetchContentItems(section: "knowledge" | "notebook"): Promise<{ items: MobileContentListItem[] }>;
   fetchLinkTarget(target: string, entityId?: string): Promise<{ content: LinkTargetContent }>;
@@ -44,6 +52,11 @@ export interface MobileApiClient {
     notificationTime?: string | null;
     themeKey?: MobileProfileViewData["themeKey"];
   }): Promise<{ user: AuthenticatedUser }>;
+  submitProfileSurveyAnswer(input: {
+    userId: string;
+    questionId: string;
+    answer: string;
+  }): Promise<{ ok: true }>;
   sendChatMessage(input: {
     sessionId: string;
     text: string;
@@ -165,11 +178,64 @@ export function createMobileApiClient(options: MobileApiClientOptions = {}): Mob
       return parseJson<{ profile: MobileProfileViewData }>(response);
     },
 
+    async submitProfileSurveyAnswer(input) {
+      const response = await fetchImpl(
+        `${getApiBaseUrl()}/api/mobile/profile/surveys`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...buildMobileSessionHeaders(),
+          },
+          body: JSON.stringify(input),
+        },
+      );
+
+      return parseJson<{ ok: true }>(response);
+    },
+
+    async fetchTodayView() {
+      const response = await fetchImpl(
+        `${getApiBaseUrl()}/api/mobile/today?userId=${encodeURIComponent(getUserId())}`,
+        {
+          headers: buildMobileSessionHeaders(),
+        },
+      );
+      return parseJson<{ today: TodayViewData }>(response);
+    },
+
+    async updateTodayChecklistItem(input) {
+      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/today`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...buildMobileSessionHeaders(),
+        },
+        body: JSON.stringify({
+          userId: getUserId(),
+          checklistId: input.checklistId,
+          completed: input.completed,
+        }),
+      });
+
+      return parseJson<{ ok: true }>(response);
+    },
+
     async fetchSessions() {
       const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/sessions?userId=${encodeURIComponent(getUserId())}`, {
         headers: buildMobileSessionHeaders(),
       });
       return parseJson<{ sessions: RecentChatSummary[] }>(response);
+    },
+
+    async fetchRecordDay(isoDate) {
+      const response = await fetchImpl(
+        `${getApiBaseUrl()}/api/mobile/records?userId=${encodeURIComponent(getUserId())}&date=${encodeURIComponent(isoDate)}`,
+        {
+          headers: buildMobileSessionHeaders(),
+        },
+      );
+      return parseJson<{ recordDay: RecordDayView }>(response);
     },
 
     async fetchSession(sessionId) {
@@ -263,8 +329,23 @@ export function fetchMobileProfile() {
   return defaultClient.fetchMobileProfile();
 }
 
+export function fetchTodayView() {
+  return defaultClient.fetchTodayView();
+}
+
+export function updateTodayChecklistItem(input: {
+  checklistId: string;
+  completed: boolean;
+}) {
+  return defaultClient.updateTodayChecklistItem(input);
+}
+
 export function fetchSessions() {
   return defaultClient.fetchSessions();
+}
+
+export function fetchRecordDay(isoDate: string) {
+  return defaultClient.fetchRecordDay(isoDate);
 }
 
 export function fetchSession(sessionId: string) {

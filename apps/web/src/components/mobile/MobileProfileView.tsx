@@ -14,6 +14,7 @@ import {
   fetchMobileProfile,
   fetchSessions,
   resolveMobileUserId,
+  submitProfileSurveyAnswer,
   updateMobileProfile,
 } from "@/lib/mobile/web-mobile-api";
 import {
@@ -72,6 +73,11 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
   const [isSaving, setIsSaving] = useState(false);
   const [activityDays, setActivityDays] = useState<number[]>([]);
   const [recentSessions, setRecentSessions] = useState<Array<{ id: string; title: string; preview: string; updatedAtLabel: string }>>([]);
+  const [pendingSurveys, setPendingSurveys] = useState<
+    NonNullable<MobileProfileViewData["pendingSurveys"]>
+  >([]);
+  const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({});
+  const [submittingSurveyId, setSubmittingSurveyId] = useState<string | null>(null);
 
   useEffect(() => {
     const storedThemeKey = readStoredMobileThemeKey();
@@ -110,6 +116,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
         setHospitalName(payload.profile.hospitalName ?? "");
         setNotificationTime(payload.profile.notificationTime ?? "08:30");
         setThemeKey(nextThemeKey);
+        setPendingSurveys(payload.profile.pendingSurveys ?? []);
         setActivityDays(
           homePayload.home.calendarDays
             .filter((day) => day.hasChat || Boolean(day.emotionTone))
@@ -176,6 +183,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
       setHospitalName(refreshed.profile.hospitalName ?? "");
       setNotificationTime(refreshed.profile.notificationTime ?? "08:30");
       setThemeKey(nextThemeKey);
+      setPendingSurveys(refreshed.profile.pendingSurveys ?? []);
       storeMobileProfile({
         userId: refreshed.profile.userId,
         displayName: refreshed.profile.displayName,
@@ -192,6 +200,40 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
       );
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleSubmitSurveyAnswer(questionId: string, answer: string) {
+    if (!resolvedUserId || !answer.trim()) {
+      setError("설문 답변을 비워둘 수 없어요.");
+      return;
+    }
+
+    setSubmittingSurveyId(questionId);
+    setError(null);
+
+    try {
+      await submitProfileSurveyAnswer({
+        userId: resolvedUserId,
+        questionId,
+        answer: answer.trim(),
+      });
+      setPendingSurveys((current) =>
+        current.filter((survey) => survey.id !== questionId),
+      );
+      setSurveyAnswers((current) => {
+        const next = { ...current };
+        delete next[questionId];
+        return next;
+      });
+    } catch (nextError) {
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : "설문 답변을 저장하지 못했어요.",
+      );
+    } finally {
+      setSubmittingSurveyId(null);
     }
   }
 
@@ -227,6 +269,7 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
       backHref={backHref}
       showTitleBlock={false}
       showChatFab
+      pageTone="plain"
     >
       <div className="grid gap-5">
         <MobileCard className="px-5 py-6">
@@ -240,8 +283,8 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
             }
           />
           <div className="mt-5 flex justify-center">
-            <div className="flex h-[132px] w-[132px] items-center justify-center rounded-full bg-[var(--accent-soft)]">
-              <div className="h-[108px] w-[108px] overflow-hidden rounded-full bg-[var(--panel-muted)]">
+            <div className="flex h-[132px] w-[132px] items-center justify-center rounded-full bg-[#f5f5f7]">
+              <div className="h-[108px] w-[108px] overflow-hidden rounded-full bg-[#ececf0]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={babyImagePath}
@@ -285,8 +328,8 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
                 key={`calendar-${index}`}
                 className={`flex aspect-square items-center justify-center rounded-[12px] ${
                   day && activityDays.includes(day)
-                    ? "bg-[#c97f98] text-white"
-                    : "bg-[#f2e8ed] text-[var(--text-soft)]"
+                    ? "bg-[#d48ea5] text-white"
+                    : "bg-[#f3f3f5] text-[var(--text-soft)]"
                 }`}
               >
                 <span className="text-[12px] font-semibold">{day ?? ""}</span>
@@ -321,6 +364,84 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
             ) : null}
           </div>
         </MobileCard>
+
+        {pendingSurveys.length > 0 ? (
+          <MobileCard className="px-5 py-6">
+            <MobileSectionIntro
+              eyebrow="오늘 설문"
+              title="프로필에서 바로 답해요"
+              description="채팅으로 들어가지 않아도 지금 필요한 질문에 바로 답할 수 있어요."
+            />
+            <div className="mt-4 grid gap-4">
+              {pendingSurveys.map((survey) => {
+                const currentAnswer = surveyAnswers[survey.id] ?? "";
+                const isSubmitting = submittingSurveyId === survey.id;
+                const supportsFreeText =
+                  survey.questionType === "text" ||
+                  survey.questionType === "number" ||
+                  survey.choices.length === 0;
+
+                return (
+                  <div
+                    key={survey.id}
+                    className="rounded-[22px] border border-[var(--line)] bg-[#fffafc] p-4"
+                  >
+                    <p className="text-base font-semibold text-[var(--text)]">
+                      {survey.questionText}
+                    </p>
+                    {survey.helpText ? (
+                      <p className="mt-2 text-sm leading-6 text-[var(--text-soft)]">
+                        {survey.helpText}
+                      </p>
+                    ) : null}
+
+                    {supportsFreeText ? (
+                      <div className="mt-4 grid gap-3">
+                        <input
+                          value={currentAnswer}
+                          onChange={(event) =>
+                            setSurveyAnswers((current) => ({
+                              ...current,
+                              [survey.id]: event.target.value,
+                            }))
+                          }
+                          className={mobileFieldClassName}
+                          placeholder="답변을 적어주세요"
+                        />
+                        <button
+                          type="button"
+                          disabled={isSubmitting || !currentAnswer.trim()}
+                          onClick={() =>
+                            void handleSubmitSurveyAnswer(survey.id, currentAnswer)
+                          }
+                          className="rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                        >
+                          {isSubmitting ? "저장 중" : "답변 저장"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {survey.choices.map((choice) => (
+                          <button
+                            key={choice.id}
+                            type="button"
+                            disabled={isSubmitting}
+                            onClick={() =>
+                              void handleSubmitSurveyAnswer(survey.id, choice.label)
+                            }
+                            className="rounded-full border border-[var(--line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--text)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-60"
+                          >
+                            {choice.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </MobileCard>
+        ) : null}
 
         <MobileCard as="section" className="p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">

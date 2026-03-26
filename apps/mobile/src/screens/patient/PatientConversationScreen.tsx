@@ -1,10 +1,11 @@
 // @ts-nocheck
 import { useEffect, useMemo, useState } from "react";
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
+import { Ionicons } from "@expo/vector-icons";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
-import { Button, Card } from "../../components/ui";
+import { Card, Pressable } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
 
@@ -67,7 +68,7 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
   }
 
   return (
-    <PatientShell activeTab="today" title="아기와 대화" backHref="/today">
+    <PatientShell activeTab="today" title="아기와 대화" backHref="/today" pageTone="plain">
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Card>
@@ -114,7 +115,18 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
                 onChangeText={setText}
                 multiline
               />
-              <Button label={isSending ? "..." : "↗"} onPress={handleSend} disabled={isSending} />
+              <Pressable
+                style={[styles.sendButton, isSending ? styles.sendButtonDisabled : null]}
+                onPress={handleSend}
+                disabled={isSending}
+                accessibilityLabel="메시지 보내기"
+              >
+                <Ionicons
+                  name="paper-plane-outline"
+                  size={20}
+                  color="#ffffff"
+                />
+              </Pressable>
             </View>
           </Card>
         </ScrollView>
@@ -195,5 +207,16 @@ const styles = StyleSheet.create({
     ...typo.body,
     color: surface.textPrimary,
     textAlignVertical: "top",
+  },
+  sendButton: {
+    width: 52,
+    height: 52,
+    borderRadius: radii.lg,
+    backgroundColor: palette.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
   },
 });

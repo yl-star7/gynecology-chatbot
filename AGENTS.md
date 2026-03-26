@@ -4,6 +4,15 @@
 
 ---
 
+## Execution Rules
+
+- Never stop to ask "if you want" or "shall I" — just do it.
+- When you identify follow-up work that logically continues from the current task, execute it immediately.
+- Only stop for explicit user confirmation when the action is destructive or irreversible.
+- Do not summarize what you "could do next" — do it.
+
+---
+
 ## 모바일 앱 디자인 시스템
 
 모바일 앱(`apps/mobile/`)의 UI를 수정할 때는 반드시 기존 디자인 시스템을 사용하세요.

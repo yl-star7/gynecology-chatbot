@@ -3,45 +3,32 @@ import type { ReactNode } from "react";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { Pressable } from "../ui";
-import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../../theme";
+import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
 import { PatientTabBar } from "./PatientTabBar";
 
 export function PatientShell({
   children,
   activeTab,
-  title,
-  backHref,
   showProfileButton = true,
+  pageTone = "plain",
 }: {
   children: ReactNode;
   activeTab: "home" | "today" | "profile";
   title?: string;
   backHref?: string;
   showProfileButton?: boolean;
+  pageTone?: "main" | "plain";
 }) {
   const { currentUser } = useMobileAppSession();
   const avatarLabel = currentUser?.displayName?.slice(0, 1) ?? "나";
+  const useMainTone = pageTone === "main";
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={[styles.header, shadows.header]}>
-        <View style={styles.headerLeading}>
-          {backHref ? (
-            <Pressable
-              onPress={() => router.replace(backHref)}
-              accessibilityLabel="뒤로 이동"
-              style={styles.iconButton}
-            >
-              <Ionicons name="chevron-back" size={20} color={surface.textPrimary} />
-            </Pressable>
-          ) : (
-            <View style={styles.iconButtonPlaceholder} />
-          )}
-          <Text style={styles.headerTitle}>{title ?? ""}</Text>
-        </View>
+    <SafeAreaView style={[styles.safeArea, useMainTone ? styles.safeAreaMain : styles.safeAreaPlain]}>
+      <View style={[styles.header, useMainTone ? styles.headerMain : styles.headerPlain]}>
+        <View style={styles.headerSpacer} />
         {showProfileButton ? (
           <Pressable
             onPress={() => router.replace("/profile")}
@@ -63,37 +50,33 @@ export function PatientShell({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+  },
+  safeAreaMain: {
     backgroundColor: surface.pageBackground,
+  },
+  safeAreaPlain: {
+    backgroundColor: "#ffffff",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: space.xl,
-    paddingVertical: space.md,
+    paddingTop: space.sm,
+    paddingBottom: space.md,
+  },
+  headerMain: {
     backgroundColor: surface.pageBackground,
   },
-  headerLeading: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.sm,
+  headerPlain: {
+    backgroundColor: surface.pageBackground,
+  },
+  headerSpacer: {
     flex: 1,
   },
-  iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.full,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: surface.surfacePrimary,
-  },
   iconButtonPlaceholder: {
-    width: 36,
-    height: 36,
-  },
-  headerTitle: {
-    ...typo.label,
-    color: surface.textSecondary,
+    width: 38,
+    height: 38,
   },
   profileButton: {
     width: 38,

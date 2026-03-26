@@ -6,7 +6,7 @@ import { supabaseInsert, supabaseUpdate, supabaseSelect } from "@/lib/mobile/sup
 const DEFAULT_BUCKET = "pregnancy-knowledge";
 const DEFAULT_WORKFLOW_NAME = "내부 데이터 응답";
 const DEFAULT_WORKFLOW_DESCRIPTION =
-  "웹 관리자에서 생성한 기본 RAG 워크플로우입니다. 내부 데이터만 바탕으로 답하고, 자료에 없는 내용은 모른다고 답합니다.";
+  "웹 관리자에서 생성한 기본 RAG 워크플로우입니다. 내부 데이터만 바탕으로 답하고, guardrail 결과와 캐릭터 톤을 함께 반환합니다.";
 
 function getSchiftApiKey() {
   return process.env.SCHIFT_API_KEY ?? "";
@@ -105,9 +105,9 @@ function withUpdatedGraph(workflow: Workflow) {
         config: {
           ...(node.config ?? {}),
           system_prompt:
-            "You are a maternal nursing support assistant. Answer only from the retrieved internal context. If the context is missing or insufficient, say you do not know and ask the operator to add or review the internal data.",
+            "You are a maternal nursing support assistant. Answer only from the retrieved internal context. Return JSON with answer, guardrailStatus, guardrailReason, and characterTone. guardrailStatus must be one of safe, medical_caution, redirect. characterTone must be one of calm, joyful, anxious, tired, sad. If the context is missing or insufficient, say you do not know and ask the operator to add or review the internal data.",
           template:
-            "Internal context:\\n{{results}}\\n\\nUser question: {{query}}\\n\\nRules:\\n- Use only the internal context above.\\n- Do not invent facts.\\n- If the context does not answer the question, say so clearly.\\n\\nAnswer:",
+            "Internal context:\\n{{results}}\\n\\nUser question: {{query}}\\n\\nRules:\\n- Use only the internal context above.\\n- Do not invent facts.\\n- If the context does not answer the question, say so clearly.\\n- If the user input sounds urgent, dangerous, or medically risky, set guardrailStatus to medical_caution and explain why.\\n- If the input is abusive, unrelated, or disallowed, set guardrailStatus to redirect.\\n- Otherwise set guardrailStatus to safe.\\n- Choose the most fitting characterTone for the situation.\\n- Return JSON only.\\n\\nAnswer:",
         },
       };
     }
@@ -134,37 +134,46 @@ function withUpdatedGraph(workflow: Workflow) {
 }
 
 export async function listSchiftWorkflows(): Promise<Workflow[]> {
-  const payload = await schiftFetch("/v1/workflows");
-  if (Array.isArray(payload)) {
-    return payload as Workflow[];
-  }
+  const client = getSchiftClientOrThrow();
+  const summaries = await client.workflows.list();
 
-  return (payload?.workflows ?? []) as Workflow[];
+  // list() doesn't include graph — fetch detail via SDK in parallel
+  const detailed = await Promise.all(
+    summaries.map(async (wf) => {
+      try {
+        return await client.workflows.get(wf.id);
+      } catch {
+        return wf;
+      }
+    }),
+  );
+
+  return detailed;
 }
 
 export async function createDefaultInternalAnswerWorkflow() {
   const existing = (await listSchiftWorkflows()).find(
     (workflow) => workflow.name === DEFAULT_WORKFLOW_NAME,
   );
-  if (existing) {
-    return existing;
-  }
-
   const client = getSchiftClientOrThrow();
-  const created = await client.workflows.create({
-    name: DEFAULT_WORKFLOW_NAME,
-    description: DEFAULT_WORKFLOW_DESCRIPTION,
-    template: "basic_rag",
-  });
 
-  const updated = await patchSchiftWorkflow(created.id, {
+  const baseWorkflow =
+    existing ??
+    (await client.workflows.create({
+      name: DEFAULT_WORKFLOW_NAME,
+      description: DEFAULT_WORKFLOW_DESCRIPTION,
+      template: "basic_rag",
+    }));
+
+  const updated = await patchSchiftWorkflow(baseWorkflow.id, {
     status: "published",
+    name: DEFAULT_WORKFLOW_NAME,
     description: `<!-- si-admin-workflow:${JSON.stringify({
       trigger: "내부 데이터만 답변",
       retrievalScope: `${DEFAULT_BUCKET} 내부 자료`,
       modelName: "gemini-2.5-flash-lite",
     })}-->\n${DEFAULT_WORKFLOW_DESCRIPTION}`,
-    graph: withUpdatedGraph(created),
+    graph: withUpdatedGraph(baseWorkflow),
   });
 
   const currentRows = await supabaseSelect<WorkflowDefinitionRow[]>(

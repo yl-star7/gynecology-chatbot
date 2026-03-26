@@ -6,6 +6,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { formatRagContext, retrievePregnancyContext } from "@/lib/mobile/rag";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import {
+  formatSchiftWorkflowRun,
+  runSchiftWorkflow,
+} from "@/lib/mobile/schift-workflow";
+import {
   isMobileSessionError,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
@@ -33,10 +37,12 @@ function normalizeSessionId(value: string) {
 type PregnancyProfilePromptRow = {
   pregnancy_week: number | null;
   pregnancy_day_in_week: number | null;
-  tone_preference: string | null;
   baby_nickname: string | null;
   display_name: string | null;
   due_date: string | null;
+  onboarding_payload: {
+    tonePreference?: string | null;
+  } | null;
 };
 
 type WeekDataRow = {
@@ -78,7 +84,12 @@ type QuestionRow = {
   id: string;
   code: string;
   question_text: string;
-  question_type: "text" | "single_choice" | "multi_choice" | "yes_no" | "number";
+  question_type:
+    | "text"
+    | "single_choice"
+    | "multi_choice"
+    | "yes_no"
+    | "number";
   help_text: string | null;
   question_payload: {
     choices?: Array<{ id?: string; label?: string }>;
@@ -102,52 +113,14 @@ type UserQuestionEventRow = {
   status: "sent" | "opened" | "answered" | "skipped";
 };
 
-function resolveSurveyChoicesFromChecklist(checklist: ChecklistRow) {
-  const choices =
-    checklist.checklist_payload?.items?.map((item, index) => ({
-      id: item.id ?? `${checklist.code}-choice-${index + 1}`,
-      label: item.label ?? `항목 ${index + 1}`,
-    })) ?? [];
+type CharacterTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
 
-  return choices.length > 0
-    ? choices
-    : [
-        { id: `${checklist.code}-yes`, label: "예" },
-        { id: `${checklist.code}-no`, label: "아니오" },
-      ];
-}
-
-function resolveSurveyChoicesFromQuestion(question: QuestionRow) {
-  if (question.question_type === "yes_no") {
-    return [
-      {
-        id: `${question.code}-yes`,
-        label: question.question_payload?.yesLabel ?? "예",
-      },
-      {
-        id: `${question.code}-no`,
-        label: question.question_payload?.noLabel ?? "아니오",
-      },
-    ];
-  }
-
-  if (
-    question.question_type === "single_choice" ||
-    question.question_type === "multi_choice"
-  ) {
-    const choices =
-      question.question_payload?.choices?.map((choice, index) => ({
-        id: choice.id ?? `${question.code}-choice-${index + 1}`,
-        label: choice.label ?? `선택지 ${index + 1}`,
-      })) ?? [];
-
-    if (choices.length > 0) {
-      return choices;
-    }
-  }
-
-  return [];
-}
+type WorkflowAssistantPayload = {
+  answer?: string;
+  characterTone?: CharacterTone;
+  guardrailStatus?: "safe" | "medical_caution" | "redirect";
+  guardrailReason?: string;
+};
 
 function buildWeekPromptParts(input: {
   week: WeekDataRow;
@@ -158,34 +131,6 @@ function buildWeekPromptParts(input: {
   const parts: ChatMessage["parts"] = [];
 
   if (input.dayContent) {
-    const carouselCards = [
-      ...(input.dayContent.baby_development_payload?.items ?? []).map(
-        (item, index) => ({
-          id: `baby-${input.week.week_number}-${input.dayContent?.day_number}-${index + 1}`,
-          eyebrow: "오늘 아기는요",
-          title: input.dayContent?.title ?? `Day ${input.dayContent?.day_number}`,
-          description: item,
-        }),
-      ),
-      ...(input.dayContent.mother_changes_payload?.items ?? []).map(
-        (item, index) => ({
-          id: `mother-${input.week.week_number}-${input.dayContent?.day_number}-${index + 1}`,
-          eyebrow: "오늘 엄마는요",
-          title: input.dayContent?.title ?? `Day ${input.dayContent?.day_number}`,
-          description: item,
-        }),
-      ),
-    ];
-
-    if (carouselCards.length > 0) {
-      parts.push({
-        type: "carousel",
-        id: `week-day-carousel-${input.week.week_number}-${input.dayContent.day_number}`,
-        title: `${input.week.week_number}주차 Day ${input.dayContent.day_number}`,
-        cards: carouselCards,
-      });
-    }
-
     if (input.dayContent.baby_message) {
       parts.push({
         type: "text",
@@ -197,49 +142,37 @@ function buildWeekPromptParts(input: {
 
   for (const checklist of input.checklists) {
     parts.push({
-      type: "survey",
+      type: "text",
       id: `checklist-${checklist.id}`,
-      title: checklist.title,
-      body:
-        checklist.description ??
-        input.week.checklist_intro ??
-        "오늘 함께 해 볼 체크리스트입니다.",
-      choices: resolveSurveyChoicesFromChecklist(checklist),
+      text: `${input.week.checklist_intro ?? "오늘 할 일"}\n- ${checklist.title}${
+        checklist.description ? `\n${checklist.description}` : ""
+      }`,
     });
   }
 
   for (const question of input.questions) {
-    const choices = resolveSurveyChoicesFromQuestion(question);
-    if (choices.length > 0) {
-      parts.push({
-        type: "survey",
-        id: `question-${question.id}`,
-        title: question.question_text,
-        body:
-          question.help_text ??
-          input.week.question_intro ??
-          "아기와 나누는 마음 질문입니다.",
-        choices,
-      });
-      continue;
-    }
-
     parts.push({
       type: "text",
       id: `question-${question.id}`,
-      text: `${question.question_text}${question.help_text ? `\n${question.help_text}` : ""}`,
+      text: `${input.week.question_intro ?? "생각해볼 질문"}\n${question.question_text}${
+        question.help_text ? `\n${question.help_text}` : ""
+      }`,
     });
   }
 
   return parts;
 }
 
-async function getPromptContext(userId: string, hintedPregnancyWeek: number | null) {
+async function getPromptContext(
+  userId: string,
+  hintedPregnancyWeek: number | null,
+) {
   const profiles = await supabaseSelect<PregnancyProfilePromptRow[]>(
-    `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week,tone_preference,baby_nickname,display_name,due_date&user_id=eq.${userId}&limit=1`,
+    `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week,baby_nickname,display_name,due_date,onboarding_payload&user_id=eq.${userId}&limit=1`,
   );
 
-  const pregnancyWeek = hintedPregnancyWeek ?? profiles[0]?.pregnancy_week ?? null;
+  const pregnancyWeek =
+    hintedPregnancyWeek ?? profiles[0]?.pregnancy_week ?? null;
   if (!pregnancyWeek) {
     return null;
   }
@@ -270,7 +203,8 @@ async function getPromptContext(userId: string, hintedPregnancyWeek: number | nu
   const missingFields: string[] = [];
   if (!profile?.baby_nickname) missingFields.push("태명");
   if (!profile?.due_date) missingFields.push("출산 예정일");
-  if (!profile?.display_name || profile.display_name === "사용자") missingFields.push("이름");
+  if (!profile?.display_name || profile.display_name === "사용자")
+    missingFields.push("이름");
 
   return {
     pregnancyWeek,
@@ -279,7 +213,7 @@ async function getPromptContext(userId: string, hintedPregnancyWeek: number | nu
     dayContent,
     checklists,
     questions,
-    tonePreference: profile?.tone_preference ?? null,
+    tonePreference: profile?.onboarding_payload?.tonePreference ?? null,
     missingFields,
   };
 }
@@ -372,7 +306,9 @@ async function alreadyPromptedForSession(input: {
       )
     : [];
 
-  const checklistSet = new Set(checklistEvents.map((event) => event.checklist_id));
+  const checklistSet = new Set(
+    checklistEvents.map((event) => event.checklist_id),
+  );
   const questionSet = new Set(questionEvents.map((event) => event.question_id));
 
   return (
@@ -411,8 +347,7 @@ function buildFallbackReply(input: {
       {
         type: "text",
         id: `text-${Date.now()}`,
-        text:
-          guidance || "질문이 접수됐어요. 잠시 후 다시 시도해주세요.",
+        text: guidance || "질문이 접수됐어요. 잠시 후 다시 시도해주세요.",
       },
       {
         type: "deepLink",
@@ -423,6 +358,165 @@ function buildFallbackReply(input: {
         entityId: "visit-checklist",
       },
     ],
+  };
+}
+
+function createCharacterImageUrl(tone: CharacterTone) {
+  const config = {
+    calm: {
+      label: "차분한 안내",
+      background: "#edf4fb",
+      emoji: "😌",
+    },
+    joyful: {
+      label: "밝은 안내",
+      background: "#eef8e8",
+      emoji: "😊",
+    },
+    anxious: {
+      label: "걱정 어린 안내",
+      background: "#fff2df",
+      emoji: "😟",
+    },
+    tired: {
+      label: "쉬임이 필요한 안내",
+      background: "#f4ede6",
+      emoji: "😴",
+    },
+    sad: {
+      label: "위로하는 안내",
+      background: "#f2edf7",
+      emoji: "😢",
+    },
+  } satisfies Record<CharacterTone, {
+    label: string;
+    background: string;
+    emoji: string;
+  }>;
+
+  const selected = config[tone];
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="${selected.label}">
+      <rect width="128" height="128" rx="36" fill="${selected.background}" />
+      <text x="64" y="72" text-anchor="middle" font-size="46">${selected.emoji}</text>
+      <rect x="38" y="92" width="52" height="18" rx="9" fill="#ffffff" opacity="0.86" />
+      <text x="64" y="104" text-anchor="middle" font-family="Noto Sans KR, sans-serif" font-size="10" fill="#5a4c45">${selected.label}</text>
+    </svg>
+  `.trim();
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function parseWorkflowAssistantPayload(
+  outputs: Record<string, unknown> | undefined,
+): WorkflowAssistantPayload | null {
+  if (!outputs) {
+    return null;
+  }
+
+  const directAnswer =
+    typeof outputs.answer === "string"
+      ? outputs.answer
+      : typeof outputs.reply === "string"
+        ? outputs.reply
+        : typeof outputs.result === "string"
+          ? outputs.result
+          : null;
+
+  const directPayload = {
+    answer:
+      typeof outputs.answer === "string"
+        ? outputs.answer
+        : typeof outputs.reply === "string"
+          ? outputs.reply
+          : typeof outputs.result === "string"
+            ? outputs.result
+            : undefined,
+    characterTone:
+      typeof outputs.characterTone === "string"
+        ? (outputs.characterTone as CharacterTone)
+        : undefined,
+    guardrailStatus:
+      typeof outputs.guardrailStatus === "string"
+        ? (outputs.guardrailStatus as WorkflowAssistantPayload["guardrailStatus"])
+        : undefined,
+    guardrailReason:
+      typeof outputs.guardrailReason === "string"
+        ? outputs.guardrailReason
+        : undefined,
+  };
+
+  if (
+    directPayload.characterTone ||
+    directPayload.guardrailStatus ||
+    directPayload.guardrailReason
+  ) {
+    return directPayload;
+  }
+
+  if (!directAnswer) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(directAnswer) as WorkflowAssistantPayload;
+    if (
+      (typeof parsed.answer === "string" && parsed.answer.trim()) ||
+      typeof parsed.characterTone === "string" ||
+      typeof parsed.guardrailStatus === "string"
+    ) {
+      return parsed;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function buildAssistantMessageFromWorkflowRun(run: {
+  outputs?: Record<string, unknown>;
+}) {
+  const payload = parseWorkflowAssistantPayload(run.outputs);
+  if (!payload?.answer?.trim()) {
+    return null;
+  }
+
+  const parts: ChatMessage["parts"] = [];
+
+  if (payload.characterTone) {
+    parts.push({
+      type: "image",
+      id: `character-${Date.now()}`,
+      imageUrl: createCharacterImageUrl(payload.characterTone),
+      alt: `${payload.characterTone} 캐릭터 표현`,
+      caption: "워크플로우가 선택한 캐릭터 표정",
+    });
+  }
+
+  if (
+    payload.guardrailStatus &&
+    payload.guardrailStatus !== "safe" &&
+    payload.guardrailReason?.trim()
+  ) {
+    parts.push({
+      type: "text",
+      id: `guardrail-${Date.now()}`,
+      text: `안전 안내: ${payload.guardrailReason.trim()}`,
+    });
+  }
+
+  parts.push({
+    type: "text",
+    id: `workflow-answer-${Date.now()}`,
+    text: payload.answer.trim(),
+  });
+
+  return {
+    id: `assistant-${Date.now()}`,
+    role: "assistant" as const,
+    createdAtLabel: "방금 전",
+    parts,
   };
 }
 
@@ -528,7 +622,9 @@ export async function POST(request: NextRequest) {
         {
           status: 429,
           headers: {
-            "Retry-After": String(Math.ceil((rateCheck.resetAt - Date.now()) / 1000)),
+            "Retry-After": String(
+              Math.ceil((rateCheck.resetAt - Date.now()) / 1000),
+            ),
             "X-RateLimit-Remaining": "0",
           },
         },
@@ -613,71 +709,94 @@ export async function POST(request: NextRequest) {
     const promptContext = await getPromptContext(userId, pregnancyWeek);
     const currentWeek = promptContext?.pregnancyWeek ?? pregnancyWeek;
 
-    const ragTools = {
-      searchPregnancyKnowledge: tool({
-        description: "임신 관련 의료 지식을 검색합니다. 사용자가 증상, 주차별 변화, 검사, 영양 등에 대해 물어볼 때 호출하세요.",
-        inputSchema: z.object({
-          query: z.string().describe("검색할 질문 또는 키워드"),
-        }),
-        execute: async ({ query }) => {
-          const docs = await retrievePregnancyContext({
-            query,
-            currentWeek,
-            matchCount: 5,
-          });
-          return formatRagContext(docs);
-        },
-      }),
-      searchSchiftBucket: tool({
-        description: "Schift 벡터 DB에서 임신 관련 문서를 검색합니다. 더 넓은 범위의 문서가 필요할 때 호출하세요.",
-        inputSchema: z.object({
-          query: z.string().describe("검색 쿼리"),
-          bucketId: z.string().optional().describe("검색할 버킷 ID (기본: pregnancy-knowledge)"),
-        }),
-        execute: async ({ query, bucketId }) => {
-          const schift = getSchiftClient();
-          if (!schift) return "Schift가 설정되지 않았습니다.";
-          try {
-            const result = await schift.chat({
-              bucketId: bucketId ?? "pregnancy-knowledge",
-              message: query,
-              topK: 5,
-            });
-            const sourceSummary = result.sources.map((s, i) => `[${i + 1}] ${s.text.slice(0, 200)}`).join("\n");
-            return `답변: ${result.reply}\n\n참고 문서:\n${sourceSummary}`;
-          } catch (e) {
-            return `검색 실패: ${e instanceof Error ? e.message : "알 수 없는 오류"}`;
-          }
-        },
-      }),
-    };
+    const schift = getSchiftClient();
 
-    const assistantMessage = !apiKey
-      ? buildFallbackReply({
-          text,
-          hasImages: imageDataUris.length > 0,
-          pregnancyWeek: currentWeek,
-        })
-      : await (async () => {
+    let assistantMessage: ChatMessage;
+
+    if (schift) {
+      try {
+        const { run } = await runSchiftWorkflow({
+          schift,
+          inputs: {
+            query: text,
+            currentWeek,
+            sessionId: normalizedSessionId,
+            hasImages: imageDataUris.length > 0,
+          },
+        });
+
+        const structuredWorkflowMessage = buildAssistantMessageFromWorkflowRun(run);
+        const workflowText = formatSchiftWorkflowRun(run);
+        const isEmptyWorkflowOutput =
+          !run.outputs ||
+          Object.keys(run.outputs).length === 0 ||
+          workflowText === "답변: {}" ||
+          workflowText === "답변: workflow 출력이 없어요.";
+
+        if (isEmptyWorkflowOutput) {
+          throw new Error("Schift workflow returned empty output");
+        }
+
+        assistantMessage =
+          structuredWorkflowMessage ??
+          {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            createdAtLabel: "방금 전",
+            parts: [
+              {
+                type: "text",
+                id: `workflow-text-${Date.now()}`,
+                text: workflowText,
+              },
+            ],
+          };
+      } catch (workflowError) {
+        console.error("mobile chat workflow execution failed", workflowError);
+
+        if (!apiKey) {
+          assistantMessage = buildFallbackReply({
+            text,
+            hasImages: imageDataUris.length > 0,
+            pregnancyWeek: currentWeek,
+          });
+        } else {
+          const ragTools = {
+            searchPregnancyKnowledge: tool({
+              description:
+                "임신 관련 의료 지식을 검색합니다. 사용자가 증상, 주차별 변화, 검사, 영양 등에 대해 물어볼 때 호출하세요.",
+              inputSchema: z.object({
+                query: z.string().describe("검색할 질문 또는 키워드"),
+              }),
+              execute: async ({ query }) => {
+                const docs = await retrievePregnancyContext({
+                  query,
+                  currentWeek,
+                  matchCount: 5,
+                });
+                return formatRagContext(docs);
+              },
+            }),
+          };
+
           const { text: responseText } = await generateText({
             model: google("gemini-2.5-flash-lite"),
             tools: ragTools,
-            stopWhen: stepCountIs(3),
+            stopWhen: stepCountIs(2),
             system: [
               "당신은 임산부 채팅 앱의 어시스턴트입니다.",
               "항상 JSON 하나만 반환하세요.",
               "응답 스키마는 ChatMessage 타입과 유사하며 role은 assistant입니다.",
-              "parts는 text, carousel, survey, deepLink 중 필요한 것만 사용하세요.",
+              "parts는 text, image, carousel, deepLink 중 필요한 것만 사용하세요.",
+              "survey 파트는 사용하지 마세요.",
+              "carousel은 명시적으로 보여줄 콘텐츠 카드가 있을 때만 사용하세요. 단순 텍스트 요약을 카드로 바꾸지 마세요.",
               "deepLink target은 knowledge 또는 notebook만 사용하세요.",
-              "의료 관련 질문에는 반드시 searchPregnancyKnowledge 또는 searchSchiftBucket 도구를 호출해서 근거 기반으로 답변하세요.",
-              "일상 대화나 안부에는 도구를 호출하지 않아도 됩니다.",
-              "추가로 현재 주차 체크리스트와 질문이 있으면 survey/text part로 포함하세요.",
+              "워크플로우 실행이 실패한 경우에만 searchPregnancyKnowledge 도구를 사용하세요.",
               "대화는 세션 단위로 이어지므로 현재 세션 맥락을 유지하세요.",
               ...(promptContext?.tonePreference
-                ? [`사용자가 선호하는 상담 분위기: ${promptContext.tonePreference}. 이 톤에 맞춰 응답하세요.`]
-                : []),
-              ...(promptContext?.missingFields && promptContext.missingFields.length > 0
-                ? [`아직 비어있는 정보: ${promptContext.missingFields.join(", ")}. 대화 흐름에 자연스럽게 녹여서 한 번에 하나씩만 물어보세요. 억지로 물어보지 말고, 맥락이 맞을 때만 자연스럽게 여쭤보세요.`]
+                ? [
+                    `사용자가 선호하는 상담 분위기: ${promptContext.tonePreference}. 이 톤에 맞춰 응답하세요.`,
+                  ]
                 : []),
               "임신 주차 정보가 주어지면 그 주차와 인접 주차 기준으로 설명한다고 가정하세요.",
               "의료 응답은 진단 확정 표현을 피하고 필요한 경우 진료 권고를 포함하세요.",
@@ -691,44 +810,100 @@ export async function POST(request: NextRequest) {
             ].join("\n"),
           });
 
-          return parseAssistantResponse(responseText);
-        })();
+          assistantMessage = parseAssistantResponse(responseText);
+        }
+      }
+    } else if (!apiKey) {
+      assistantMessage = buildFallbackReply({
+        text,
+        hasImages: imageDataUris.length > 0,
+        pregnancyWeek: currentWeek,
+      });
+    } else {
+      const ragTools = {
+        searchPregnancyKnowledge: tool({
+          description:
+            "임신 관련 의료 지식을 검색합니다. 사용자가 증상, 주차별 변화, 검사, 영양 등에 대해 물어볼 때 호출하세요.",
+          inputSchema: z.object({
+            query: z.string().describe("검색할 질문 또는 키워드"),
+          }),
+          execute: async ({ query }) => {
+            const docs = await retrievePregnancyContext({
+              query,
+              currentWeek,
+              matchCount: 5,
+            });
+            return formatRagContext(docs);
+          },
+        }),
+      };
+
+      const { text: responseText } = await generateText({
+        model: google("gemini-2.5-flash-lite"),
+        tools: ragTools,
+        stopWhen: stepCountIs(2),
+        system: [
+          "당신은 임산부 채팅 앱의 어시스턴트입니다.",
+          "항상 JSON 하나만 반환하세요.",
+          "응답 스키마는 ChatMessage 타입과 유사하며 role은 assistant입니다.",
+          "parts는 text, image, carousel, deepLink 중 필요한 것만 사용하세요.",
+          "survey 파트는 사용하지 마세요.",
+          "carousel은 명시적으로 보여줄 콘텐츠 카드가 있을 때만 사용하세요. 단순 텍스트 요약을 카드로 바꾸지 마세요.",
+          "deepLink target은 knowledge 또는 notebook만 사용하세요.",
+          "의료 관련 질문에는 searchPregnancyKnowledge 도구를 사용해 근거 기반으로 답변하세요.",
+          "대화는 세션 단위로 이어지므로 현재 세션 맥락을 유지하세요.",
+          ...(promptContext?.tonePreference
+            ? [
+                `사용자가 선호하는 상담 분위기: ${promptContext.tonePreference}. 이 톤에 맞춰 응답하세요.`,
+              ]
+            : []),
+          "임신 주차 정보가 주어지면 그 주차와 인접 주차 기준으로 설명한다고 가정하세요.",
+          "의료 응답은 진단 확정 표현을 피하고 필요한 경우 진료 권고를 포함하세요.",
+        ].join("\n"),
+        prompt: [
+          `세션 ID: ${normalizedSessionId || "(없음)"}`,
+          `현재 임신 주차: ${currentWeek ?? "(정보 없음)"}`,
+          `사용자 텍스트: ${text || "(텍스트 없음)"}`,
+          `첨부 이미지 수: ${imageDataUris.length}`,
+          'JSON 예시: {"id":"assistant-1","role":"assistant","createdAtLabel":"방금 전","parts":[{"type":"text","id":"p1","text":"..."}]}',
+        ].join("\n"),
+      });
+
+      assistantMessage = parseAssistantResponse(responseText);
+    }
 
     const shouldAppendPromptParts = promptContext
-      ? !(
-          await alreadyPromptedForSession({
-            userId,
-            sessionId: normalizedSessionId,
-            checklistIds: promptContext.checklists.map((item) => item.id),
-            questionIds: promptContext.questions.map((item) => item.id),
-          })
-        )
+      ? !(await alreadyPromptedForSession({
+          userId,
+          sessionId: normalizedSessionId,
+          checklistIds: promptContext.checklists.map((item) => item.id),
+          questionIds: promptContext.questions.map((item) => item.id),
+        }))
       : false;
 
     if (promptContext && shouldAppendPromptParts) {
-        assistantMessage.parts = [
-          ...assistantMessage.parts,
-          ...buildWeekPromptParts(promptContext),
+      assistantMessage.parts = [
+        ...assistantMessage.parts,
+        ...buildWeekPromptParts(promptContext),
       ];
     }
 
-    const insertedAssistantMessages = await supabaseInsert<Array<{ id: string }>>(
-      "chat_messages",
-      {
-        session_id: normalizedSessionId,
-        user_id: userId,
-        role: "assistant",
-        parts: assistantMessage.parts,
-        plain_text: assistantMessage.parts
-          .filter(
-            (part): part is Extract<typeof part, { type: "text" }> =>
-              part.type === "text",
-          )
-          .map((part) => part.text)
-          .join("\n"),
-        model_name: apiKey ? "gemini-2.5-flash-lite" : "fallback",
-      },
-    );
+    const insertedAssistantMessages = await supabaseInsert<
+      Array<{ id: string }>
+    >("chat_messages", {
+      session_id: normalizedSessionId,
+      user_id: userId,
+      role: "assistant",
+      parts: assistantMessage.parts,
+      plain_text: assistantMessage.parts
+        .filter(
+          (part): part is Extract<typeof part, { type: "text" }> =>
+            part.type === "text",
+        )
+        .map((part) => part.text)
+        .join("\n"),
+      model_name: apiKey ? "gemini-2.5-flash-lite" : "fallback",
+    });
     const insertedAssistantMessage = insertedAssistantMessages[0] ?? null;
 
     if (promptContext && shouldAppendPromptParts) {

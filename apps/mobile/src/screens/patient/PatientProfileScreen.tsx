@@ -9,26 +9,8 @@ import { PatientTodayTabs } from "../../components/patient/PatientTodayTabs";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../../theme";
+import { buildProfileCalendarModel } from "./patientProfileCalendar";
 import { getWeekBabyImageSource } from "./week-baby-images";
-
-function buildMonthGrid(date: Date) {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const leadingEmpty = firstDay.getDay();
-  const days = [];
-
-  for (let index = 0; index < leadingEmpty; index += 1) {
-    days.push(null);
-  }
-
-  for (let day = 1; day <= lastDay.getDate(); day += 1) {
-    days.push(day);
-  }
-
-  return days;
-}
 
 export function PatientProfileScreen() {
   const { currentUser, signOut } = useMobileAppSession();
@@ -44,6 +26,8 @@ export function PatientProfileScreen() {
   const [notificationTime, setNotificationTime] = useState("08:30");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({});
+  const [submittingSurveyId, setSubmittingSurveyId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("records");
 
   useEffect(() => {
@@ -103,13 +87,51 @@ export function PatientProfileScreen() {
     router.replace("/auth/login");
   }
 
-  const calendarDays = useMemo(() => buildMonthGrid(new Date()), []);
-  const activeDays = new Set((home?.calendarDays ?? []).map((day) => Number(day.dayLabel)));
+  async function handleSubmitSurveyAnswer(questionId: string, answer: string) {
+    if (!currentUser || !answer.trim()) {
+      setError("설문 답변을 비워둘 수 없어요.");
+      return;
+    }
+
+    setSubmittingSurveyId(questionId);
+    setError(null);
+
+    try {
+      await profilePort.submitSurveyAnswer({
+        userId: currentUser.id,
+        questionId,
+        answer: answer.trim(),
+      });
+      const refreshed = await profilePort.getProfile();
+      setProfile(refreshed);
+      setSurveyAnswers((current) => {
+        const next = { ...current };
+        delete next[questionId];
+        return next;
+      });
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "설문 답변을 저장하지 못했어요.");
+    } finally {
+      setSubmittingSurveyId(null);
+    }
+  }
+
+  const calendarModel = useMemo(
+    () => buildProfileCalendarModel(home?.calendarDays),
+    [home?.calendarDays],
+  );
+  const isoDateByDay = useMemo(
+    () =>
+      new Map(
+        (home?.calendarDays ?? []).map((day) => [Number(day.dayLabel), day.isoDate]),
+      ),
+    [home?.calendarDays],
+  );
   const babyName = profile?.babyNickname?.trim() || "아기";
   const babyImageSource = getWeekBabyImageSource(profile?.pregnancyWeekLabel);
 
   return (
-    <PatientShell activeTab="profile" title="마이페이지" showProfileButton={false}>
+    <PatientShell activeTab="profile" title="마이페이지" showProfileButton={false} pageTone="plain">
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Card style={styles.heroCard}>
@@ -131,20 +153,69 @@ export function PatientProfileScreen() {
 
           <Card style={styles.calendarCard}>
             <Text style={styles.sectionTitle}>활동 캘린더</Text>
-            <Text style={styles.sectionDescription}>활동이 있었던 날을 한눈에 볼 수 있어요.</Text>
+            <Text style={styles.sectionDescription}>
+              {home?.currentMonthLabel
+                ? `${home.currentMonthLabel}에 활동이 있었던 날을 보여드려요.`
+                : "활동이 있었던 날을 한눈에 볼 수 있어요."}
+            </Text>
             <View style={styles.weekdayRow}>
               {["일", "월", "화", "수", "목", "금", "토"].map((label) => (
                 <Text key={label} style={styles.weekdayLabel}>{label}</Text>
               ))}
             </View>
             <View style={styles.calendarGrid}>
-              {calendarDays.map((day, index) => (
-                <View key={`day-${index}`} style={[styles.calendarCell, day && activeDays.has(day) ? styles.calendarCellActive : null]}>
-                  <Text style={[styles.calendarLabel, day && activeDays.has(day) ? styles.calendarLabelActive : null]}>
-                    {day ? String(day) : ""}
-                  </Text>
-                </View>
-              ))}
+              {calendarModel.gridDays.map((day, index) => {
+                const isActive = day ? calendarModel.activeDays.has(day) : false;
+                const isoDate = day ? isoDateByDay.get(day) : null;
+
+                if (!day || !isoDate) {
+                  return (
+                    <View
+                      key={`day-${index}`}
+                      style={[
+                        styles.calendarCell,
+                        { width: calendarModel.columnWidth },
+                      ]}
+                    >
+                      <View style={styles.calendarCellInner}>
+                        <Text style={styles.calendarLabel} />
+                      </View>
+                    </View>
+                  );
+                }
+
+                return (
+                  <Pressable
+                    key={`day-${index}`}
+                    style={[
+                      styles.calendarCell,
+                      { width: calendarModel.columnWidth },
+                    ]}
+                    onPress={() =>
+                      router.push(
+                        `/records/${encodeURIComponent(isoDate)}?returnTo=profile`,
+                      )
+                    }
+                    accessibilityLabel={`${day}일 기록 보기`}
+                  >
+                    <View
+                      style={[
+                        styles.calendarCellInner,
+                        isActive ? styles.calendarCellActive : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.calendarLabel,
+                          isActive ? styles.calendarLabelActive : null,
+                        ]}
+                      >
+                        {String(day)}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
           </Card>
 
@@ -164,7 +235,11 @@ export function PatientProfileScreen() {
                   <Pressable
                     key={day.isoDate}
                     style={[styles.historyCard, shadows.card]}
-                    onPress={() => router.push(`/chat/link/records?entityId=${encodeURIComponent(day.isoDate)}`)}
+                    onPress={() =>
+                      router.push(
+                        `/records/${encodeURIComponent(day.isoDate)}?returnTo=profile`,
+                      )
+                    }
                   >
                     <Text style={styles.historyDate}>{day.isoDate}</Text>
                     <Text style={styles.historyBody}>{day.summary ?? "이 날의 기록을 다시 볼 수 있어요."}</Text>
@@ -190,6 +265,66 @@ export function PatientProfileScreen() {
           </Card>
 
           <Card variant="muted">
+            {(profile?.pendingSurveys?.length ?? 0) > 0 ? (
+              <>
+                <Text style={styles.sectionTitle}>오늘 설문</Text>
+                <Text style={styles.sectionDescription}>프로필에서 바로 답하고 오늘 기록에 남길 수 있어요.</Text>
+                <View style={styles.surveyList}>
+                  {(profile?.pendingSurveys ?? []).map((survey) => {
+                    const currentAnswer = surveyAnswers[survey.id] ?? "";
+                    const supportsFreeText =
+                      survey.questionType === "text" ||
+                      survey.questionType === "number" ||
+                      survey.choices.length === 0;
+                    const isSubmitting = submittingSurveyId === survey.id;
+
+                    return (
+                      <View key={survey.id} style={styles.surveyCard}>
+                        <Text style={styles.surveyQuestion}>{survey.questionText}</Text>
+                        {survey.helpText ? (
+                          <Text style={styles.surveyHelp}>{survey.helpText}</Text>
+                        ) : null}
+
+                        {supportsFreeText ? (
+                          <View style={styles.surveyForm}>
+                            <LabeledInput
+                              label="답변"
+                              value={currentAnswer}
+                              onChangeText={(value) =>
+                                setSurveyAnswers((current) => ({
+                                  ...current,
+                                  [survey.id]: value,
+                                }))
+                              }
+                              placeholder="답변을 적어주세요"
+                            />
+                            <Button
+                              label={isSubmitting ? "저장 중이에요..." : "답변 저장"}
+                              onPress={() => handleSubmitSurveyAnswer(survey.id, currentAnswer)}
+                              disabled={isSubmitting || !currentAnswer.trim()}
+                            />
+                          </View>
+                        ) : (
+                          <View style={styles.surveyChoiceRow}>
+                            {survey.choices.map((choice) => (
+                              <Pressable
+                                key={choice.id}
+                                style={styles.surveyChoice}
+                                onPress={() => handleSubmitSurveyAnswer(survey.id, choice.label)}
+                                disabled={isSubmitting}
+                              >
+                                <Text style={styles.surveyChoiceLabel}>{choice.label}</Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              </>
+            ) : null}
+
             <Text style={styles.sectionTitle}>아기 정보 관리</Text>
             <Text style={styles.sectionDescription}>태명, 예정일, 알림과 상담 분위기를 조절할 수 있어요.</Text>
             <View style={styles.form}>
@@ -239,7 +374,7 @@ const styles = StyleSheet.create({
     width: 92,
     height: 92,
     borderRadius: radii.full,
-    backgroundColor: surface.surfaceAccent,
+    backgroundColor: "#f5f5f7",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -280,10 +415,9 @@ const styles = StyleSheet.create({
   weekdayRow: {
     marginTop: space.lg,
     flexDirection: "row",
-    justifyContent: "space-between",
   },
   weekdayLabel: {
-    width: "14%",
+    width: "14.285714%",
     textAlign: "center",
     ...typo.caption,
     color: surface.textSecondary,
@@ -292,23 +426,23 @@ const styles = StyleSheet.create({
     marginTop: space.md,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: space.xs,
-    justifyContent: "space-between",
   },
   calendarCell: {
-    width: "12.8%",
     aspectRatio: 1,
+    padding: space.xs / 2,
+  },
+  calendarCellInner: {
+    flex: 1,
     borderRadius: radii.sm,
-    backgroundColor: "#f2e8ed",
+    backgroundColor: surface.fieldSurface,
     alignItems: "center",
     justifyContent: "center",
   },
   calendarCellActive: {
-    backgroundColor: "#c97f98",
+    backgroundColor: surface.accentSolid,
   },
   calendarLabel: {
-    fontSize: 12,
-    fontWeight: "600",
+    ...typo.label,
     color: surface.textSecondary,
   },
   calendarLabelActive: {
@@ -324,7 +458,7 @@ const styles = StyleSheet.create({
   },
   historyCard: {
     borderRadius: radii.xl,
-    backgroundColor: "#fffafc",
+    backgroundColor: "#ffffff",
     padding: space.xl,
   },
   historyDate: {
@@ -344,6 +478,45 @@ const styles = StyleSheet.create({
   form: {
     marginTop: space.lg,
     gap: space.md,
+  },
+  surveyList: {
+    marginTop: space.lg,
+    gap: space.md,
+  },
+  surveyCard: {
+    borderRadius: radii.xl,
+    backgroundColor: "#ffffff",
+    padding: space.xl,
+    ...shadows.card,
+  },
+  surveyQuestion: {
+    ...typo.label,
+    color: surface.textPrimary,
+  },
+  surveyHelp: {
+    marginTop: space.xs,
+    ...typo.caption,
+    color: surface.textSecondary,
+  },
+  surveyForm: {
+    marginTop: space.md,
+    gap: space.md,
+  },
+  surveyChoiceRow: {
+    marginTop: space.md,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: space.sm,
+  },
+  surveyChoice: {
+    borderRadius: radii.full,
+    backgroundColor: surface.surfaceAccent,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+  },
+  surveyChoiceLabel: {
+    ...typo.button,
+    color: palette.accent,
   },
   accountRow: {
     marginTop: space.md,

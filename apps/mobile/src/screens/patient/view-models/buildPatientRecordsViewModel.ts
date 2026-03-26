@@ -37,10 +37,10 @@ export function buildPatientRecordsViewModel(home: HomeViewData | null) {
   }));
 
   return {
-    title: "기록과 회고",
+    title: "날짜별 기록",
     description:
       days.length > 0
-        ? "남겨둔 마음과 상담 기록을 하루 단위로 다시 볼 수 있어요."
+        ? "날짜를 누르면 그날의 체크와 대화를 함께 볼 수 있어요."
         : DEFAULT_RECORD_EMPTY,
     days,
   };

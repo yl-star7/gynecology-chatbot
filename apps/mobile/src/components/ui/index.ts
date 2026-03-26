@@ -1,4 +1,5 @@
 export { Button } from "./Button";
+export { BrandMark } from "./BrandMark";
 export { Card } from "./Card";
 export { EmotionCheckin } from "./EmotionCheckin";
 export { EmptyState } from "./EmptyState";

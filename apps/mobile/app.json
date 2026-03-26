@@ -1,12 +1,13 @@
 {
   "expo": {
-    "name": "임신 상담",
+    "name": "아가야",
     "slug": "gynecology-chatbot",
+    "icon": "./assets/branding/app-icon.png",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "gynecology-chatbot",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gynecology.chatbot",
@@ -15,7 +16,16 @@
     },
     "android": {
       "package": "com.gynecology.chatbot",
-      "versionCode": 1
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/branding/adaptive-icon.png",
+        "backgroundColor": "#f6b8c9"
+      }
+    },
+    "splash": {
+      "image": "./assets/branding/splash-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#fff7fb"
     },
     "web": {
       "bundler": "metro",

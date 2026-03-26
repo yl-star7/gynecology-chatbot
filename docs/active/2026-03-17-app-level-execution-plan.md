@@ -1,646 +1,365 @@
-# Pregnancy Companion App-Level Execution Plan
+# 모성간호 챗봇 코드 정렬 실행 계획
 
-> **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
+> 최종 정렬일: 2026-03-25
+> 목적: 현재 저장소 구현 상태를 기준으로 실행 방향을 다시 고정한다.
+> 이 문서는 기존의 "웹 중심 + Expo 래퍼" 가정을 수정한 코드 기준 문서다.
 
-**Goal:** Build the Supabase-backed pregnancy companion product to the clarified scope: week 1..40 knowledge DB, week-based daily checklist, chat-driven diary capture, Twilio OTP signup, scheduled push notifications, admin test tooling, and saved user theme preference.
+## 1. 현재 기준 결정
 
-**Architecture:** Keep `apps/web` as the main product surface for admin and mobile web UI, and keep `apps/mobile` as the Expo wrapper during this phase. Extend the existing Supabase-first schema instead of replacing it, move week content into explicit relational tables, and let admin workflows operate directly on PostgreSQL-backed content and delivery logs. Chat, diary, checklist, home, and profile all read from the same user profile and week content model so state stays consistent.
+- `apps/web`는 관리자 콘솔, 모바일 웹 화면, Next.js API route를 함께 가진다.
+- `apps/mobile`은 더 이상 단순 WebView 래퍼가 아니다. Expo Router 기반 네이티브 앱 화면과 세션, 포트, 푸시 등록 흐름을 직접 가진다.
+- `packages/app-core`는 모바일/관리자 도메인 타입, 포트, 테마 프리셋의 기준이다.
+- `packages/db`와 `supabase/migrations`는 현재 DB 계약을 반영한다.
+- 인증은 전화번호 OTP 중심이다.
+- 사용자 데이터 소스는 `mock` 또는 API 기반으로 전환 가능하다.
+- 관리자 데이터는 서버 세션 기반으로 보호된다.
 
-**Tech Stack:** Next.js 15 App Router, TypeScript, Supabase Postgres + RLS + Storage, Twilio Verify or Messaging OTP, Expo push notifications, existing `@gynecology-chatbot/app-core` ports, Expo wrapper app, Tailwind CSS.
+## 2. 코드 기준 아키텍처
 
----
+### 웹
 
-## 1. Fixed Product Decisions
+- 라우트 위치: `apps/web/app`
+- 역할:
+  - 관리자 콘솔 화면
+  - 모바일 웹 대체 화면
+  - 모바일 앱이 호출하는 서버 API
+  - 푸시 등록 및 스케줄 실행 진입점
 
-- Pregnancy progress is editable as `N주 N일` and also recalculable from due date.
-- The canonical content DB has actual week rows `1..40`.
-- Admin edits week content and checklist content in table form on PostgreSQL-backed screens.
-- Domain split is fixed:
-  - week knowledge tables
-  - checklist template tables
-  - user checklist log tables
-  - chat session/message tables
-  - diary data derived and stored from conversation answers
-- Checklist is week-bound and daily. Users perform the defined checklist during that week.
-- Twins are out of scope.
-- Onboarding/profile editable fields are due date, baby sex, baby nickname.
-- Diary stores both raw chat source and summary form.
-- Signup verification uses OTP SMS.
-- Scheduled in-app push notifications are required.
-- Admin web must be able to test notification delivery and flows.
-- Home view and ChatGPT-like chat view must support quick switching via swipe and FAB.
-- User theme is selectable and persisted.
-- Theme palette sources:
-  - rose/sand palette: [color-hex 22229](https://www.color-hex.com/color-palette/22229)
-  - soft peach palette: [color-hex 1072537](https://www.color-hex.com/color-palette/1072537)
-  - neutral green to mint gradient variant
+### 모바일
 
-## 2. Recommended Delivery Approach
+- 라우트 위치: `apps/mobile/app`
+- 역할:
+  - Expo Router 기반 사용자 앱
+  - 네이티브 세션 저장
+  - 포트 기반 서비스 조립
+  - Expo 푸시 토큰 등록
 
-### Approach A: Extend the existing `apps/web` mobile UI and keep Expo as wrapper
+### 공용 도메인
 
-Recommended.
+- 위치: `packages/app-core`
+- 책임:
+  - `HomeViewData`, `MobileProfileViewData`, `AdminDashboardData`
+  - 모바일 테마 키와 프리셋
+  - web/native 공용 포트 인터페이스
 
-- Fastest path to product because current routes, API handlers, Supabase REST helpers, and admin dashboard already exist.
-- Swipe/FAB navigation can be implemented once in the mobile web shell and reused inside Expo WebView.
-- Admin tooling, OTP setup, content operations, and profile-driven rendering stay in one backend stack.
+### 데이터 계층
 
-### Approach B: Rebuild the user app natively inside `apps/mobile`
+- 실제 스키마 기준:
+  - `public`: 인증, 프로필, 채팅, 기록, 이벤트 로그
+  - `content`: 주차별 원문, 일차 콘텐츠, 체크리스트, 질문, 미디어
+- 게시용 조회는 public view를 통해 읽는다.
 
-Not recommended for the next slice.
+## 3. 현재 구현된 사용자 표면
 
-- Gives better mobile interaction long-term.
-- Delays delivery because every existing mobile web route and serializer needs a native equivalent.
-- Doubles the immediate UI and test surface.
-
-### Approach C: Hybrid native shell plus incremental native screens
-
-Possible later.
-
-- Keep web for content-heavy screens and move only chat/home/calendar first.
-- Higher coordination cost than Approach A.
-
-## 3. Scope Decomposition
-
-This should be executed as eight implementation slices, in this order:
-
-1. Supabase schema and seedable week content model
-2. Profile and onboarding model upgrade
-3. Mobile home, week content, and theme system
-4. Checklist templates and daily user logs
-5. Chat-driven diary capture and record timeline consolidation
-6. Twilio OTP signup and reset flows
-7. Scheduled push notifications and admin delivery testing
-8. Admin console expansion for content, checklist, notifications, and QA
-
-## 4. Target Information Architecture
-
-### User surfaces
+### 모바일 웹 화면 (`apps/web/app`)
 
 - `/`
-  - mobile shell root
-  - contains home panel and chat panel with swipe or FAB switching
-- `/profile`
-  - due date
-  - baby sex
-  - baby nickname
-  - theme selection
-  - notification opt-in and time
+  - `MobileHomeView`
+- `/today`
+  - `MobileTodayView`
 - `/knowledge`
-  - current week knowledge landing
-  - drill down to week detail
+  - `MobileContentIndexView` 기반 지식 목록
 - `/notebook`
-  - current week checklist and diary hub
-- `/records/[isoDate]`
-  - day timeline with chat summary, diary, checklist status, related session link
+  - `MobileContentIndexView` 기반 기록/회고 목록
+- `/profile`
+  - `MobileProfileView`
+- `/onboarding`
+  - `MobileOnboardingView`
+- `/auth/login`
+  - `MobileLoginView`
 - `/chat/[sessionId]`
-  - direct deep link for session recovery and admin QA
+  - `MobileConversationView`
+- `/link/[target]`
+  - `MobileContentView`
+- `/records/[isoDate]`
+  - `MobileRecordDayView`
 
-### Admin surfaces
+### 네이티브 앱 화면 (`apps/mobile/app`)
+
+- `/`
+  - 세션 상태에 따라 `/auth/login`, `/onboarding`, `/home`로 리다이렉트
+- `/home`
+  - `PatientHomeScreen`
+- `/today`
+  - `PatientTodayScreen`
+- `/profile`
+  - `ProfileScreen`
+- `/(tabs)/knowledge`
+  - `ContentListScreen(section="knowledge")`
+- `/(tabs)/notebook`
+  - `PatientRecordsScreen`
+- `/chat/[sessionId]`
+  - `ChatScreen`
+- `/chat/link/[target]`
+  - `LinkTargetScreen`
+- `/onboarding`
+  - `OnboardingScreen`
+- `/auth/login`
+  - `LoginScreen`
+
+## 4. 현재 구현된 관리자 표면
+
+### 관리자 라우트 (`apps/web/app/admin`)
 
 - `/admin`
-  - overview cards
-  - content completion status
-  - push delivery status
-  - OTP delivery status
+  - `/admin/operations`로 리다이렉트
+- `/admin/operations`
+  - 운영 상태 패널
+- `/admin/accounts`
+  - 계정 관리
 - `/admin/content/weeks`
-  - week 1..40 row management
-- `/admin/content/checklists`
-  - checklist templates and items
-- `/admin/content/themes`
-  - theme tokens and preview
-- `/admin/notifications`
-  - schedule definitions
-  - test send
-  - delivery log
-- `/admin/users`
-  - search
-  - profile overrides
-  - notification state
-- `/admin/history`
-  - sessions
-  - diary extraction logs
-  - checklist activity
-
-## 5. Canonical Data Model
-
-The current migration already has `users`, `pregnancy_profiles`, `chat_sessions`, `chat_messages`, `calendar_logs`, and `pregnancy_documents`. The next migration should extend rather than replace.
-
-### Keep and extend
-
-- `public.users`
-  - keep as account root
-  - add `push_enabled`, `push_token`, `last_seen_at` if not already present in later migrations
-- `public.pregnancy_profiles`
-  - add first-class columns:
-    - `baby_sex text check ('male','female','unknown')`
-    - `baby_nickname varchar(80)`
-    - `theme_key varchar(40)`
-    - `notification_time time`
-    - `notification_enabled boolean default true`
-    - `week_override integer`
-    - `day_override integer`
-  - keep `onboarding_payload` only as raw capture, not as the primary query surface
-
-### New content tables
-
-- `public.pregnancy_weeks`
-  - one row per week `1..40`
-  - columns:
-    - `week_number unique`
-    - `title`
-    - `baby_size_label`
-    - `baby_size_compare_object`
-    - `baby_summary`
-    - `mother_summary`
-    - `hero_image_path`
-    - `compare_image_path`
-    - `status`
-    - `updated_at`
-- `public.pregnancy_week_sections`
-  - flexible content blocks for admin table editing
-  - columns:
-    - `week_id`
-    - `section_key` such as `baby_appearance`, `mother_changes`, `attachment_question`, `medical_tip`
-    - `title`
-    - `body`
-    - `display_order`
-    - `is_required`
-- `public.pregnancy_week_assets`
-  - week image metadata if one row needs multiple image variants
-  - columns:
-    - `week_id`
-    - `asset_type` such as `hero`, `compare`, `icon`
-    - `storage_path`
-    - `alt_text`
-    - `style_key`
-
-### Checklist tables
-
-- `public.checklist_templates`
-  - one or more templates per week
-  - columns:
-    - `id`
-    - `week_number`
-    - `title`
-    - `description`
-    - `status`
-    - `is_daily`
-    - `updated_at`
-- `public.checklist_template_items`
-  - columns:
-    - `template_id`
-    - `item_key`
-    - `label`
-    - `description`
-    - `display_order`
-    - `is_required`
-- `public.user_checklist_logs`
-  - per user per date per checklist item status
-  - columns:
-    - `user_id`
-    - `date`
-    - `week_number`
-    - `template_id`
-    - `item_id`
-    - `status` with `pending`, `done`, `skipped`
-    - `completed_at`
-    - `source` with `manual`, `chat`, `system`
-    - unique key on `(user_id, date, item_id)`
-
-### Diary tables
-
-- `public.diary_prompts`
-  - week-bound prompt bank for attachment and reflection questions
-  - columns:
-    - `week_number`
-    - `prompt_key`
-    - `prompt_text`
-    - `category`
-    - `display_order`
-- `public.diary_entries`
-  - daily user-facing diary record
-  - columns:
-    - `user_id`
-    - `date`
-    - `week_number`
-    - `title`
-    - `summary`
-    - `raw_transcript_excerpt`
-    - `source_session_id`
-    - `source_message_id`
-    - `created_by` with `assistant`, `user`, `system`
-- `public.diary_entry_sources`
-  - optional N:M map when one diary entry draws from multiple chat messages
-  - columns:
-    - `diary_entry_id`
-    - `message_id`
-
-### Notification and OTP tables
-
-- `public.otp_challenges`
-  - phone signup and reset verification
-  - columns:
-    - `phone_number`
-    - `purpose` with `signup`, `login`, `reset_password`
-    - `provider` with `twilio`
-    - `verification_sid`
-    - `status`
-    - `attempt_count`
-    - `expires_at`
-- `public.notification_schedules`
-  - reusable push schedule rules
-  - columns:
-    - `name`
-    - `schedule_type` with `daily`, `weekly`, `event`
-    - `default_time`
-    - `template_key`
-    - `enabled`
-- `public.user_notification_preferences`
-  - per-user opt-in and quiet hours
-  - columns:
-    - `user_id`
-    - `notification_enabled`
-    - `schedule_id`
-    - `preferred_time`
-    - `timezone`
-- `public.push_delivery_logs`
-  - delivery audit and admin QA
-  - columns:
-    - `user_id`
-    - `schedule_id`
-    - `delivery_type` with `scheduled`, `admin_test`
-    - `provider_message_id`
-    - `status`
-    - `payload`
-    - `sent_at`
-
-### Theme storage
-
-Do not create a separate table unless theme catalog becomes admin-managed. For this phase:
-
-- persist `theme_key` on `pregnancy_profiles`
-- keep theme catalog as typed frontend/server config
-- later promote to DB-backed `theme_presets` only if admin editing is required
-
-## 6. API and Port Changes
-
-### `packages/app-core/src/domain.ts`
-
-Add or extend:
-
-- `MobileProfileViewData`
-  - `babySex`
-  - `themeKey`
-  - `notificationEnabled`
-  - `notificationTime`
-- `HomeViewData`
-  - `themeKey`
-  - `currentWeekHero`
-  - `compareObjectLabel`
-  - `todayChecklistSummary`
-- new types:
-  - `WeekKnowledgeView`
-  - `ChecklistTemplate`
-  - `ChecklistDayLog`
-  - `DiaryEntry`
-  - `ThemeOption`
-  - `NotificationTestResult`
-
-### `packages/app-core/src/ports.ts`
-
-Extend with:
-
-- `KnowledgePort.getCurrentWeekContent()`
-- `ChecklistPort.getChecklistForDate()`
-- `ChecklistPort.updateChecklistItem()`
-- `DiaryPort.listDiaryEntriesForDate()`
-- `DiaryPort.saveDiaryEntryFromChat()`
-- `NotificationPort.getPreferences()`
-- `NotificationPort.updatePreferences()`
-- `AdminContentPort`
-- `AdminNotificationPort`
-- `OtpPort`
-
-### Web API routes to add
-
-- `apps/web/src/app/api/mobile/checklists/route.ts`
-- `apps/web/src/app/api/mobile/checklists/[isoDate]/route.ts`
-- `apps/web/src/app/api/mobile/diary/route.ts`
-- `apps/web/src/app/api/mobile/otp/request/route.ts`
-- `apps/web/src/app/api/mobile/otp/verify/route.ts`
-- `apps/web/src/app/api/mobile/notifications/route.ts`
-- `apps/web/src/app/api/admin/content/weeks/route.ts`
-- `apps/web/src/app/api/admin/content/checklists/route.ts`
-- `apps/web/src/app/api/admin/notifications/test/route.ts`
-- `apps/web/src/app/api/admin/notifications/logs/route.ts`
-
-## 7. UI System Plan
-
-### Theme tokens
-
-Create theme presets in `apps/web/src/components/mobile` or `apps/web/src/lib/mobile`:
-
-- `rose-sand`
-- `soft-peach`
-- `mint-neutral`
-
-Each preset should define:
-
-- shell background
-- card background
-- text primary
-- text secondary
-- accent
-- success
-- warning
-- calendar selected state
-- FAB gradient
-
-### Mobile navigation behavior
-
-Recommended:
-
-- keep current route-based pages for deep links and admin QA
-- add a root mobile shell controller that supports:
-  - horizontal swipe between home and chat
-  - persistent FAB to jump to chat composer
-  - route sync so refresh still works
-
-Implementation target:
-
-- modify [`MobileShell.tsx`](/Users/jskang/si/gynecology-chatbot/apps/web/src/components/mobile/MobileShell.tsx)
-- update [`MobileHomeView.tsx`](/Users/jskang/si/gynecology-chatbot/apps/web/src/components/mobile/MobileHomeView.tsx)
-- update [`MobileChatView.tsx`](/Users/jskang/si/gynecology-chatbot/apps/web/src/components/mobile/MobileChatView.tsx)
-
-### Week content presentation
-
-Home should show:
-
-- current week label
-- baby compare object
-- week hero illustration
-- 2 to 4 structured content sections
-- today checklist completion bar
-- quick diary prompt or latest saved diary
-
-## 8. Admin Console Plan
-
-The current [`AdminDashboard.tsx`](/Users/jskang/si/gynecology-chatbot/apps/web/src/components/AdminDashboard.tsx) is too coarse for the clarified scope. Expand it into feature panels instead of a single giant screen.
-
-Recommended split:
-
-- `AdminDashboardShell.tsx`
-- `AdminWeekContentTable.tsx`
-- `AdminChecklistTable.tsx`
-- `AdminNotificationPanel.tsx`
-- `AdminUserSearchPanel.tsx`
-- `AdminHistoryPanel.tsx`
-- `AdminThemePreviewPanel.tsx`
-
-Admin capabilities required in this phase:
-
-- create and edit week 1..40 rows
-- upload and assign week images to Supabase Storage
-- edit section blocks in table form
-- edit checklist templates and items
-- inspect per-user checklist completion
-- inspect diary entry extraction and linked session/message
-- fire test push to a selected user
-- inspect push delivery logs
-- trigger OTP send to QA number in non-production mode
-- inspect content completeness coverage by week
-
-## 9. Implementation Tasks
-
-## Chunk 1: Schema and Seed Model
-
-### Task 1: Add the missing relational week-content schema
-
-**Files:**
-- Create: `supabase/migrations/20260317_add_week_content_checklist_diary_notification_schema.sql`
-- Modify: `docs/reference/DATABASE_SCHEMA.md`
-- Test: SQL validation against existing schema expectations
-
-- [ ] Review existing tables in `20260314_create_session_based_core_schema.sql` and `20251223_extend_schema.sql`.
-- [ ] Add new tables for `pregnancy_weeks`, `pregnancy_week_sections`, `pregnancy_week_assets`, `checklist_templates`, `checklist_template_items`, `user_checklist_logs`, `diary_prompts`, `diary_entries`, `diary_entry_sources`, `otp_challenges`, `notification_schedules`, `user_notification_preferences`, and `push_delivery_logs`.
-- [ ] Extend `pregnancy_profiles` with `baby_sex`, `baby_nickname`, `theme_key`, `notification_time`, `notification_enabled`, `week_override`, and `day_override`.
-- [ ] Add indexes for week lookup, date lookup, and admin audit lookup.
-- [ ] Add RLS policies for user-owned logs and admin-only operations.
-- [ ] Seed immutable `pregnancy_weeks` rows `1..40`.
-- [ ] Update schema documentation after the SQL is settled.
-
-### Task 2: Define storage and image conventions
-
-**Files:**
-- Modify: `docs/reference/DATABASE_SCHEMA.md`
-- Modify: `supabase/migrations/20260317_add_week_content_checklist_diary_notification_schema.sql`
-
-- [ ] Define storage bucket names for week images and diary media.
-- [ ] Define naming convention for week images so admin upload does not create duplicate ambiguous keys.
-- [ ] Add storage policy notes for admin upload and public read strategy.
-
-## Chunk 2: Domain Contracts and Server Adapters
-
-### Task 3: Expand app-core domain contracts
-
-**Files:**
-- Modify: `packages/app-core/src/domain.ts`
-- Modify: `packages/app-core/src/ports.ts`
-- Modify: `packages/app-core/src/index.ts`
-- Modify: `packages/app-core/src/testing.ts`
-
-- [ ] Add types for week content, checklist, diary, OTP, notification preference, and theme selection.
-- [ ] Extend existing profile and home DTOs.
-- [ ] Add new ports for checklist, diary, notifications, OTP, and admin content.
-- [ ] Update test fixtures so mock screens still compile.
-
-### Task 4: Add Supabase-backed service adapters
-
-**Files:**
-- Create: `apps/web/src/lib/mobile/checklists.ts`
-- Create: `apps/web/src/lib/mobile/diary.ts`
-- Create: `apps/web/src/lib/mobile/notifications.ts`
-- Create: `apps/web/src/lib/mobile/otp.ts`
-- Modify: `apps/web/src/lib/mobile/auth.ts`
-- Modify: `apps/web/src/lib/mobile/serializers.ts`
-
-- [ ] Keep REST adapter style consistent with `supabase-rest.ts`.
-- [ ] Centralize week calculation so due date and manual override produce one canonical value.
-- [ ] Add serializer helpers for diary summary extraction and checklist completion rollups.
-
-## Chunk 3: Mobile Profile and Theme Foundation
-
-### Task 5: Upgrade onboarding and profile editing
-
-**Files:**
-- Modify: `apps/web/src/app/api/mobile/onboarding/route.ts`
-- Modify: `apps/web/src/app/api/mobile/profile/route.ts`
-- Modify: `apps/web/src/components/mobile/MobileOnboardingView.tsx`
-- Modify: `apps/web/src/components/mobile/MobileProfileView.tsx`
-
-- [ ] Add editable fields for due date, baby sex, baby nickname, theme, notification enabled, and notification time.
-- [ ] Persist fields on `pregnancy_profiles`.
-- [ ] Preserve backward compatibility with existing onboarding payload reads until migration is complete.
-
-### Task 6: Add theme tokens and persistence wiring
-
-**Files:**
-- Create: `apps/web/src/lib/mobile/themes.ts`
-- Modify: `apps/web/src/app/globals.css`
-- Modify: `apps/web/src/components/mobile/MobileShell.tsx`
-- Modify: `apps/web/src/components/mobile/MobileProfileView.tsx`
-
-- [ ] Define the three approved theme presets.
-- [ ] Apply theme variables at shell level.
-- [ ] Read saved `theme_key` from profile payload and persist changes through profile update route.
-
-## Chunk 4: Home, Week Content, and Navigation
-
-### Task 7: Replace placeholder home cards with week-aware content
-
-**Files:**
-- Modify: `apps/web/src/app/api/mobile/home/route.ts`
-- Modify: `apps/web/src/components/mobile/MobileHomeView.tsx`
-- Create: `apps/web/src/app/api/mobile/knowledge/current-week/route.ts`
-
-- [ ] Join profile week data with `pregnancy_weeks` and `pregnancy_week_sections`.
-- [ ] Surface baby compare object, hero image, mother summary, and attachment prompt.
-- [ ] Show checklist completion summary and latest diary summary snippet.
-
-### Task 8: Add swipe and FAB switching between home and chat
-
-**Files:**
-- Modify: `apps/web/src/components/mobile/MobileShell.tsx`
-- Modify: `apps/web/src/components/mobile/MobileChatView.tsx`
-- Modify: `apps/web/src/app/page.tsx`
-
-- [ ] Add a small two-panel controller instead of separate isolated views.
-- [ ] Keep deep links to `/chat/[sessionId]` working.
-- [ ] Make FAB always available on home and records screens.
-
-## Chunk 5: Checklist and Diary
-
-### Task 9: Implement week-based daily checklist
-
-**Files:**
-- Create: `apps/web/src/app/api/mobile/checklists/route.ts`
-- Create: `apps/web/src/app/api/mobile/checklists/[isoDate]/route.ts`
-- Create: `apps/web/src/components/mobile/MobileChecklistCard.tsx`
-- Modify: `apps/web/src/components/mobile/MobileHomeView.tsx`
-- Modify: `apps/web/src/components/mobile/MobileRecordDayView.tsx`
-
-- [ ] Resolve current week from profile.
-- [ ] Load all active checklist items for the week.
-- [ ] Upsert per-day completion state into `user_checklist_logs`.
-- [ ] Reflect checklist state on calendar day detail.
-
-### Task 10: Implement chat-derived diary storage
-
-**Files:**
-- Create: `apps/web/src/app/api/mobile/diary/route.ts`
-- Modify: `apps/web/src/app/api/mobile/chat/route.ts`
-- Modify: `apps/web/src/app/api/mobile/records/route.ts`
-- Create: `apps/web/src/lib/mobile/diary.ts`
-
-- [ ] Define which prompts or answer tags create diary entries.
-- [ ] Save raw excerpt and summary form together.
-- [ ] Link diary entries back to session and message ids.
-- [ ] Expose diary rows in day-record APIs and calendar summaries.
-
-## Chunk 6: OTP and Authentication
-
-### Task 11: Add Twilio OTP request and verification flow
-
-**Files:**
-- Create: `apps/web/src/app/api/mobile/otp/request/route.ts`
-- Create: `apps/web/src/app/api/mobile/otp/verify/route.ts`
-- Modify: `apps/web/src/lib/mobile/auth.ts`
-- Modify: `apps/web/src/components/mobile/MobileLoginView.tsx`
-- Modify: `apps/web/src/components/mobile/MobileSetPasswordView.tsx`
-- Modify: `.env.example`
-
-- [ ] Add Twilio env names without hardcoded URLs or secrets.
-- [ ] Persist OTP challenge lifecycle in `otp_challenges`.
-- [ ] Gate account activation on OTP verification success.
-- [ ] Reuse the same mechanism for password reset.
-
-## Chunk 7: Push Notifications and Admin Testing
-
-### Task 12: Add user push preference and scheduled send support
-
-**Files:**
-- Create: `apps/web/src/app/api/mobile/notifications/route.ts`
-- Create: `apps/web/src/lib/mobile/notifications.ts`
-- Modify: `apps/mobile/src/web/EmbeddedWebContent.native.tsx`
-- Modify: `apps/mobile/src/web/EmbeddedWebContent.web.tsx`
-- Modify: `apps/mobile/app/index.tsx`
-
-- [ ] Register Expo push token from the wrapper app.
-- [ ] Save push token and preference state to Supabase.
-- [ ] Define a server-side schedule executor contract.
-- [ ] Add an initial daily notification schedule for checklist or diary nudges.
-
-### Task 13: Add admin test-send and delivery inspection
-
-**Files:**
-- Create: `apps/web/src/app/api/admin/notifications/test/route.ts`
-- Create: `apps/web/src/app/api/admin/notifications/logs/route.ts`
-- Modify: `apps/web/src/components/AdminDashboard.tsx` or split components under `apps/web/src/components/admin/`
-- Modify: `apps/web/src/lib/admin/adapters/supabase-admin-dashboard-port.ts`
-
-- [ ] Allow admin to select a user and trigger a test send.
-- [ ] Record test sends in `push_delivery_logs` as `admin_test`.
-- [ ] Surface delivery result and recent failures in the admin console.
-
-## Chunk 8: Admin Content Operations
-
-### Task 14: Build week-content CRUD screens
-
-**Files:**
-- Create: `apps/web/src/app/api/admin/content/weeks/route.ts`
-- Create: `apps/web/src/app/api/admin/content/checklists/route.ts`
-- Create: `apps/web/src/components/admin/AdminWeekContentTable.tsx`
-- Create: `apps/web/src/components/admin/AdminChecklistTable.tsx`
-- Create: `apps/web/src/components/admin/AdminNotificationPanel.tsx`
-- Modify: `apps/web/src/components/AdminDashboard.tsx`
-
-- [ ] Make week 1..40 visible as rows with completion state.
-- [ ] Allow inline editing of summaries, compare objects, and image paths.
-- [ ] Allow checklist template and item editing.
-- [ ] Record changes into `admin_audit_logs`.
-
-## 10. Testing Plan
-
-- Database:
-  - validate new migration against the current Supabase project
-  - verify RLS for user-owned logs and admin-only content editing
-- Web server:
-  - route tests for profile, checklist, diary, OTP, and notification APIs
-  - serializer tests for week calculation and diary extraction
-- UI:
-  - mobile home rendering by week
-  - theme switching persistence
-  - checklist toggle optimistic update
-  - admin content table editing
-- Wrapper app:
-  - push token registration handshake
-  - notification permission handling
-
-## 11. Risks and Constraints
-
-- Existing mobile web routes already read from `pregnancy_profiles.onboarding_payload`; migrations must remain backward compatible until all readers switch to first-class columns.
-- Admin dashboard is currently one large component. Splitting it should happen as part of the feature work, not as a separate refactor.
-- Scheduled push requires an execution surface. If Supabase cron is used, keep payload generation inside server-owned code and record every send attempt.
-- Week images need one consistent visual style across 40 weeks. Storage schema must assume re-upload and version replacement.
-
-## 12. First Execution Slice
-
-Start with these deliverables before any UI expansion:
-
-- new migration for week content, checklist, diary, OTP, and push tables
-- `pregnancy_profiles` field extension
-- `packages/app-core` domain contract expansion
-- minimal admin read endpoint for week 1..40 content
-
-That slice unlocks all later screens without repainting the data model twice.
+  - 주차별 간호 정보 편집
+- `/admin/content/policies`
+  - 응답 워크플로우 관리
+- `/admin/monitoring`
+  - 사용자 행동/이력 모니터링
+- `/admin/login`
+  - 관리자 로그인
+
+### 관리자 콘솔 구조
+
+- `AdminConsoleShell`이 좌측 탐색과 상단 바를 제공한다.
+- 현재 탐색 기준은 아래 네 묶음이다.
+  - 운영 상태
+  - 계정
+  - 콘텐츠
+  - 모니터링
+- 콘텐츠 하위 탐색은 아래 두 축을 기준으로 한다.
+  - 주차별 간호 정보
+  - 응답 워크플로우
+
+## 5. 현재 동작하는 API 표면
+
+### 모바일 API (`apps/web/app/api/mobile`)
+
+- 인증
+  - `/api/mobile/auth/login`
+  - `/api/mobile/auth/session`
+  - `/api/mobile/auth/start-phone-verification`
+- 사용자 데이터
+  - `/api/mobile/home`
+  - `/api/mobile/profile`
+  - `/api/mobile/onboarding`
+  - `/api/mobile/records`
+  - `/api/mobile/weeks`
+  - `/api/mobile/content-items`
+  - `/api/mobile/link`
+- 채팅
+  - `/api/mobile/chat`
+  - `/api/mobile/sessions`
+  - `/api/mobile/sessions/[sessionId]`
+- 기타
+  - `/api/mobile/branding`
+
+### 푸시/API 보조 경로
+
+- `/api/push/register`
+  - Expo 푸시 토큰을 `pregnancy_profiles.push_token`에 저장
+- `/api/cron/proactive-chat`
+  - 서버 측 proactive 실행 진입점
+
+### 관리자 API (`apps/web/app/api/admin`)
+
+- 인증
+  - `/api/admin/auth/login`
+  - `/api/admin/auth/logout`
+- 운영/계정
+  - `/api/admin/analytics`
+  - `/api/admin/allowed-phone-numbers`
+  - `/api/admin/allowed-phone-numbers/[id]`
+  - `/api/admin/users/update-phone`
+  - `/api/admin/users/reset-session`
+- 콘텐츠
+  - `/api/admin/content/weeks`
+  - `/api/admin/content/weeks/[weekNumber]`
+  - `/api/admin/content/checklists`
+  - `/api/admin/content/knowledge-items`
+  - `/api/admin/content/knowledge-items/[id]`
+  - `/api/admin/content/media/upload`
+  - `/api/admin/content/media/preview`
+- RAG / 외부 워크플로우
+  - `/api/admin/rag/upload`
+  - `/api/admin/rag/documents/[documentId]`
+  - `/api/admin/rag-provider`
+  - `/api/admin/schift`
+  - `/api/admin/schift/chat`
+  - `/api/admin/schift/workflows/[workflowId]/run`
+  - `/api/admin/workflow-rules/bootstrap`
+  - `/api/admin/workflow-rules/[ruleId]`
+- 알림/운영
+  - `/api/admin/push/send`
+  - `/api/admin/schedule`
+  - `/api/admin/proactive/trigger`
+
+## 6. 현재 데이터 모델 기준
+
+### `public` 스키마
+
+- `users`
+- `auth_sessions`
+- `phone_verification_requests`
+- `allowed_phone_numbers`
+- `pregnancy_profiles`
+  - `baby_nickname`
+  - `baby_sex`
+  - `theme_key`
+  - `notification_time`
+  - `notification_enabled`
+  - `push_token`
+- `chat_sessions`
+- `chat_messages`
+- `calendar_logs`
+- `message_links`
+- `user_action_logs`
+- `admin_audit_logs`
+- `user_checklist_events`
+- `user_question_events`
+
+### `content` 스키마
+
+- `knowledge_items`
+- `pregnancy_documents`
+- `pregnancy_weeks`
+- `pregnancy_week_sections`
+- `pregnancy_week_assets`
+- `pregnancy_week_data`
+- `pregnancy_day_contents`
+- `pregnancy_week_media`
+- `week_checklists`
+- `week_questions`
+
+### 게시/조회용 view
+
+- `published_pregnancy_weeks`
+- `published_knowledge_items`
+- `v_pregnancy_week_data`
+- `v_pregnancy_day_contents`
+- `v_week_checklists`
+- `v_week_questions`
+
+## 7. 기존 계획서와 달라진 핵심 포인트
+
+### 모바일 앱 방향
+
+- 예전 문서:
+  - `apps/mobile`을 Expo 래퍼로 유지하는 가정이 강했다.
+- 현재 코드:
+  - 네이티브 화면이 이미 존재한다.
+  - `PatientHomeScreen`, `PatientTodayScreen`, `PatientRecordsScreen` 등 네이티브 UI가 기준 축으로 올라와 있다.
+  - WebView 전용 구조로 되돌리는 문서는 더 이상 맞지 않다.
+
+### 관리자 구조
+
+- 예전 문서:
+  - 단일 대시보드 확장 중심 설명이 많았다.
+- 현재 코드:
+  - `operations`, `accounts`, `content`, `monitoring`으로 분리된 콘솔 구조다.
+  - 사이드바 기반 탐색이 이미 고정돼 있다.
+
+### 주차 콘텐츠 모델
+
+- 예전 문서:
+  - `pregnancy_weeks` 중심의 단순 모델 설명이 강했다.
+- 현재 코드:
+  - 실제 운영 모델은 `pregnancy_week_data` + `pregnancy_day_contents` + `pregnancy_week_media` + `week_checklists` + `week_questions` 조합이다.
+  - 관리자 주차 상세 API도 이 구조를 전제로 patch payload를 받는다.
+
+### 체크리스트/기록 모델
+
+- 예전 문서:
+  - 일자별 완료 로그 테이블을 별도 설계하는 방향이 강했다.
+- 현재 코드:
+  - 사용자 반응 추적은 `user_checklist_events`, `user_question_events` 중심이다.
+  - `records` 화면은 현재 `calendar_logs`와 최근 세션 목록을 기반으로 그려진다.
+  - 별도 `diary_entries` 중심 모델은 아직 현재 구현 기준이 아니다.
+
+### 알림과 인증
+
+- 현재 코드에 이미 존재하는 것:
+  - 전화번호 OTP 시작/로그인 API
+  - Expo 푸시 토큰 등록
+  - proactive chat 실행 경로
+- 따라서 문서는 "추가 예정"보다 "기구현 + 확장 필요"로 표현해야 한다.
+
+## 8. 현재 코드 기준 우선 작업
+
+### P0. 문서 정합
+
+- `README.md`
+- `docs/reference/MONOREPO_HIERARCHY.md`
+- `docs/reference/IMPLEMENTATION_PLAN.md`
+- 이 세 문서에서 아직 남아 있는 "Expo WebView 래퍼" 표현을 현재 구조 기준으로 정리한다.
+
+### P1. 사용자 경험 정합
+
+- web과 native에서 동일한 사용자 개념을 같은 이름으로 정리한다.
+  - 홈
+  - 오늘
+  - 기록과 회고
+  - 지식
+  - 프로필
+- 현재 web은 `/`, `/today`, `/knowledge`, `/notebook`이고 native는 `/home`, `/today`, `/(tabs)/knowledge`, `/(tabs)/notebook`이다.
+- 라우트 명명과 정보 구조를 하나의 기준으로 다시 맞출 필요가 있다.
+
+### P2. 기록/체크리스트 실데이터 연결
+
+- `PatientTodayScreen`과 `PatientRecordsScreen`은 현재 view model 비중이 높다.
+- 아래를 실제 API/DB와 더 직접 연결해야 한다.
+  - 체크리스트 진행 상태
+  - 질문 응답 상태
+  - 일자별 기록 요약
+  - 최근 세션과 기록의 연결
+
+### P3. 관리자 콘텐츠 완성도 정리
+
+- 현재 강한 축:
+  - 주차별 데이터
+  - 체크리스트
+  - 워크플로우
+- 추가 정리 필요:
+  - 질문 관리 표면 일관화
+  - 문서/RAG 업로드 흐름 정리
+  - 미디어 업로드와 preview 흐름 정리
+  - 감사 로그 표시 기준 정리
+
+### P4. 데이터 계약 통합
+
+- `packages/db`
+- `supabase/migrations`
+- `docs/reference/DATABASE_SCHEMA.md`
+- 세 축의 이름과 설명을 동일하게 맞춘다.
+- 특히 아래 용어를 혼용하지 않도록 정리한다.
+  - `pregnancy_weeks` vs `pregnancy_week_data`
+  - `week_checklists` vs 사용자 완료 이벤트
+  - `notebook` vs records/회고
+
+## 9. 실행 원칙
+
+- 새 작업은 현재 라우트와 스키마를 기준으로 설명한다.
+- 이미 존재하는 네이티브 화면을 무시하고 web-only 계획으로 되돌리지 않는다.
+- 관리자 콘솔은 현재 분리된 정보 구조를 유지한 채 확장한다.
+- 게시용 조회는 public view를 우선 사용한다.
+- 문서가 코드보다 앞서 나가더라도, 코드에 없는 테이블/화면을 현재 상태처럼 쓰지 않는다.
+
+## 10. 바로 적용할 다음 문서 작업
+
+1. `README.md`의 현재 방향 설명을 native 앱 기준으로 수정
+2. `docs/reference/IMPLEMENTATION_PLAN.md`를 phone-only 인증 + native 앱 구조에 맞게 재작성
+3. `docs/reference/DATABASE_SCHEMA.md`에 `pregnancy_week_data`, `pregnancy_day_contents`, `pregnancy_week_media`, `week_questions`, `user_checklist_events`, `user_question_events`를 명시적으로 반영
+
+## 11. 참고 기준 파일
+
+- 웹 사용자 라우트: `apps/web/app`
+- 관리자 라우트: `apps/web/app/admin`
+- 모바일 앱 라우트: `apps/mobile/app`
+- 모바일 네이티브 화면: `apps/mobile/src/screens`
+- 관리자 콘솔 셸: `apps/web/src/components/admin/AdminConsoleShell.tsx`
+- 모바일 API 직렬화: `apps/web/src/lib/mobile/serializers.ts`
+- 관리자 주차 상세 API: `apps/web/app/api/admin/content/weeks/[weekNumber]/route.ts`
+- DB 계약: `packages/db/src/schema.ts`
+
+## 12. 결론
+
+- 현재 저장소는 "웹 관리자 + 모바일 웹 보조 화면 + 네이티브 Expo 앱 + 공용 도메인 + Supabase" 구조다.
+- 앞으로의 과업 지시서는 이 구조를 기준으로 작성해야 한다.
+- 특히 `apps/mobile`을 단순 래퍼로 취급하는 설명은 더 이상 사용하지 않는다.

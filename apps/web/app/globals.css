@@ -3,17 +3,17 @@
 
 [data-theme="rose-sand"],
 :root {
-  --bg: #fbf4f7;
-  --panel: #fffafc;
-  --panel-strong: #fffdfd;
-  --panel-muted: #f9eef3;
+  --bg: #fffafc;
+  --panel: #fffdfe;
+  --panel-strong: #ffffff;
+  --panel-muted: #fcf4f7;
   --field-surface: #ffffff;
   --text: #34262d;
   --text-soft: #7f6974;
-  --line: #e7d7df;
+  --line: #eadce3;
   --accent: #d48ea5;
   --accent-dark: #b67087;
-  --accent-soft: #f7e4eb;
+  --accent-soft: #faebf1;
   --success: #5b7d6a;
   --success-soft: #eef6f1;
   --success-text: #4b6b5a;

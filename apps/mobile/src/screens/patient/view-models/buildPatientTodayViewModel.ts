@@ -1,70 +1,41 @@
 import type {
-  ChatSession,
-  HomeViewData,
-  MobileProfileViewData,
-  RecentChatSummary,
+  TodayViewData,
 } from "@gynecology-chatbot/app-core";
-import {
-  DEFAULT_BABY_NAME,
-  DEFAULT_CHECKLIST,
-  DEFAULT_TODAY_GUIDE,
-} from "./patient-copy";
-
-function buildChecklist(session: ChatSession | null) {
-  const completedCount = Math.min(session?.messages.length ?? 0, DEFAULT_CHECKLIST.length);
-
-  return DEFAULT_CHECKLIST.map((label, index) => ({
-    id: `today-check-${index + 1}`,
-    label,
-    completed: index < completedCount,
-  }));
-}
+import { DEFAULT_TODAY_GUIDE } from "./patient-copy";
 
 export function buildPatientTodayViewModel({
-  home,
-  profile,
-  session,
-  recentSessions,
+  today,
 }: {
-  home: HomeViewData | null;
-  profile: MobileProfileViewData | null;
-  session: ChatSession | null;
-  recentSessions: RecentChatSummary[];
+  today: TodayViewData | null;
 }) {
-  const babyName = profile?.babyNickname?.trim() || DEFAULT_BABY_NAME;
-  const checklistItems = buildChecklist(session);
+  const checklistItems = today?.checklistItems ?? [];
   const completedCount = checklistItems.filter((item) => item.completed).length;
   const progressLabel = `${completedCount}/${checklistItems.length}`;
+  const progressPercent = checklistItems.length
+    ? Math.round((completedCount / checklistItems.length) * 100)
+    : 0;
 
   return {
     heroTitle: "오늘,우리",
     heroDescription: DEFAULT_TODAY_GUIDE,
     sections: [
-      { id: "baby", label: "오늘 아기는요" },
-      { id: "mom", label: "오늘 엄마는요" },
-      { id: "checklist", label: "함께 해봐요" },
-      { id: "conversation", label: "아기와 나누는 마음" },
+      { id: "info", label: "정보" },
+      { id: "checklist", label: "체크" },
+      { id: "conversation", label: "대화" },
     ],
     babyCard: {
       title: "오늘 아기는요",
-      body: `${babyName}는 ${home?.pregnancyWeekLabel ?? profile?.pregnancyWeekLabel ?? "지금의 주차"}에 맞춰 조금씩 자라고 있어요.`,
+      body: today?.babyBody ?? "오늘 아기의 변화를 준비 중이에요.",
     },
     momCard: {
       title: "오늘 엄마는요",
-      body:
-        profile?.tonePreference?.trim()
-          ? `오늘은 ${profile.tonePreference} 톤으로 몸 상태를 정리해드릴게요.`
-          : "오늘 몸과 마음의 변화를 천천히 살펴보면 좋아요.",
+      body: today?.momBody ?? "오늘 엄마의 변화를 준비 중이에요.",
     },
-    checklistTitle: "함께 해봐요",
+    checklistTitle: "오늘의 체크리스트",
     checklistItems,
     checklistProgressLabel: progressLabel,
+    checklistProgressPercent: progressPercent,
     conversationTitle: "아기와 나누는 마음",
-    conversationDescription:
-      session?.messages?.length
-        ? "오늘 남긴 대화를 이어서 정리해볼 수 있어요."
-        : "아기에게 하고 싶은 말을 먼저 적어보면 오늘 흐름이 더 자연스럽게 이어져요.",
-    sessionTitle: session?.title ?? "오늘의 대화",
-    recentSessions: recentSessions.slice(0, 3),
+    conversationDescription: "아기에게 하고 싶은 이야기를 나눠보세요",
   };
 }

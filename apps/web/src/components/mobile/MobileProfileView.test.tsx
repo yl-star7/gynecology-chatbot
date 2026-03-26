@@ -1,6 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
-import { fetchHome, fetchMobileProfile, fetchSessions } from "@/lib/mobile/web-mobile-api";
+import {
+  fetchHome,
+  fetchMobileProfile,
+  fetchSessions,
+  submitProfileSurveyAnswer,
+} from "@/lib/mobile/web-mobile-api";
 import { storeMobileProfile } from "@/lib/mobile/mobile-session";
 import { MobileProfileView } from "./MobileProfileView";
 
@@ -12,6 +17,7 @@ jest.mock("@/lib/mobile/web-mobile-api", () => ({
   fetchMobileProfile: jest.fn(),
   fetchSessions: jest.fn(),
   resolveMobileUserId: jest.fn((userId?: string | null) => userId),
+  submitProfileSurveyAnswer: jest.fn(),
   updateMobileProfile: jest.fn(),
 }));
 
@@ -51,6 +57,20 @@ describe("MobileProfileView", () => {
         hospitalName: "산단여성병원",
         notificationTime: "08:30",
         themeKey: "rose-sand",
+        pendingSurveys: [
+          {
+            id: "survey-1",
+            code: "daily-checkin",
+            questionText: "오늘 가장 불편한 점이 있었나요?",
+            questionType: "yes_no",
+            helpText: "프로필에서 바로 답할 수 있어요.",
+            choices: [
+              { id: "yes", label: "네" },
+              { id: "no", label: "아니요" },
+            ],
+            answered: false,
+          },
+        ],
       },
     });
     (fetchHome as jest.Mock).mockResolvedValue({
@@ -105,10 +125,7 @@ describe("MobileProfileView", () => {
       await screen.findByRole("heading", { name: "튼튼이" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("김수연")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "뒤로 가기" })).toHaveAttribute(
-      "href",
-      "/?userId=user-1",
-    );
+    expect(screen.queryByRole("link", { name: "뒤로 가기" })).not.toBeInTheDocument();
     expect(
       screen.getAllByRole("button", { name: "로그아웃" }).length,
     ).toBeGreaterThan(0);
@@ -127,6 +144,26 @@ describe("MobileProfileView", () => {
     });
   });
 
+  it("submits a pending profile survey answer from the profile screen", async () => {
+    (submitProfileSurveyAnswer as jest.Mock).mockResolvedValue({ ok: true });
+
+    render(<MobileProfileView userId="user-1" />);
+
+    expect(
+      await screen.findByText("오늘 가장 불편한 점이 있었나요?"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "네" }));
+
+    await waitFor(() =>
+      expect(submitProfileSurveyAnswer).toHaveBeenCalledWith({
+        userId: "user-1",
+        questionId: "survey-1",
+        answer: "네",
+      }),
+    );
+  });
+
   it("shows profile skeletons before the profile payload resolves", () => {
     (fetchMobileProfile as jest.Mock).mockImplementation(
       () => new Promise(() => undefined),
@@ -137,9 +174,6 @@ describe("MobileProfileView", () => {
     render(<MobileProfileView userId="user-1" />);
 
     expect(screen.queryByText("확인 중")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "뒤로 가기" })).toHaveAttribute(
-      "href",
-      "/?userId=user-1",
-    );
+    expect(screen.queryByRole("link", { name: "뒤로 가기" })).not.toBeInTheDocument();
   });
 });

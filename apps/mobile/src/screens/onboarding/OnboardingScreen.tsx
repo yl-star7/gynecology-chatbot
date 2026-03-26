@@ -2,9 +2,10 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Button, Card, KeyboardScreen, LabeledInput, Pressable } from "../../components/ui";
+import { BrandMark, Button, Card, KeyboardScreen, LabeledInput, Pressable } from "../../components/ui";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+import { ONBOARDING_LAYOUT } from "./OnboardingScreen.model";
 
 const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", "다정하게"];
 
@@ -55,14 +56,18 @@ export function OnboardingScreen() {
 
   return (
     <KeyboardScreen>
+      <View style={styles.brandBlock}>
+        <BrandMark subtitle="아가야.와 함께 시작해요" size={60} />
+      </View>
       <View style={styles.progressBar}>
         <View style={[styles.progressFill, { width: `${progress}%` }]} />
       </View>
 
       {step === 0 && (
-        <Card>
-          <Text style={styles.question}>임신 정보를 알려주세요</Text>
-
+        <Card style={styles.stepCard}>
+          <View style={styles.titleBlock}>
+            <Text style={styles.question}>임신 정보를 알려주세요</Text>
+          </View>
           <View style={styles.modeRow}>
             <Pressable
               style={[styles.modeChip, inputMode === "week" && styles.modeChipActive]}
@@ -79,30 +84,26 @@ export function OnboardingScreen() {
           </View>
 
           {inputMode === "week" && (
-            <View style={styles.field}>
-              <LabeledInput
-                label="현재 주차"
-                value={weekNumber}
-                onChangeText={setWeekNumber}
-                placeholder="예: 16"
-                keyboardType="number-pad"
-                returnKeyType="next"
-                onSubmitEditing={next}
-              />
-            </View>
+            <LabeledInput
+              label="현재 주차"
+              value={weekNumber}
+              onChangeText={setWeekNumber}
+              placeholder="예: 16"
+              keyboardType="number-pad"
+              returnKeyType="next"
+              onSubmitEditing={next}
+            />
           )}
 
           {inputMode === "dueDate" && (
-            <View style={styles.field}>
-              <LabeledInput
-                label="출산 예정일"
-                value={dueDate}
-                onChangeText={setDueDate}
-                placeholder="예: 2026-08-01"
-                returnKeyType="next"
-                onSubmitEditing={next}
-              />
-            </View>
+            <LabeledInput
+              label="출산 예정일"
+              value={dueDate}
+              onChangeText={setDueDate}
+              placeholder="예: 2026-08-01"
+              returnKeyType="next"
+              onSubmitEditing={next}
+            />
           )}
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -111,10 +112,12 @@ export function OnboardingScreen() {
       )}
 
       {step === 1 && (
-        <Card>
-          <Text style={styles.question}>태명을 지어주세요</Text>
-          <Text style={styles.hint}>아직 없다면 건너뛰어도 돼요</Text>
-          <View style={styles.field}>
+        <Card style={styles.stepCard}>
+          <View style={styles.titleBlock}>
+            <Text style={styles.question}>태명을 지어주세요</Text>
+            <Text style={styles.hint}>아직 없다면 건너뛰어도 돼요</Text>
+          </View>
+          <View style={styles.fieldBlock}>
             <LabeledInput
               label=""
               value={babyNickname}
@@ -132,8 +135,10 @@ export function OnboardingScreen() {
       )}
 
       {step === 2 && (
-        <Card>
-          <Text style={styles.question}>어떤 분위기가 좋아요?</Text>
+        <Card style={styles.stepCard}>
+          <View style={styles.titleBlock}>
+            <Text style={styles.question}>어떤 분위기가 좋아요?</Text>
+          </View>
           <View style={styles.toneGrid}>
             {TONE_OPTIONS.map((tone) => (
               <Pressable
@@ -157,21 +162,55 @@ export function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  progressBar: { height: 4, borderRadius: 2, backgroundColor: surface.strokeSubtle, overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 2, backgroundColor: palette.accent },
+  brandBlock: {
+    paddingTop: space.sm,
+  },
+  progressBar: {
+    height: ONBOARDING_LAYOUT.progressHeight,
+    borderRadius: radii.full,
+    backgroundColor: surface.strokeSubtle,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: radii.full,
+    backgroundColor: palette.accent,
+  },
+  stepCard: {
+    gap: ONBOARDING_LAYOUT.sectionGap,
+    borderRadius: ONBOARDING_LAYOUT.cardRadius,
+  },
+  titleBlock: {
+    gap: ONBOARDING_LAYOUT.titleGap,
+  },
   question: { fontSize: 22, fontWeight: "700", color: surface.textPrimary },
-  hint: { marginTop: space.xs, ...typo.caption, color: surface.textSecondary },
-  field: { marginTop: space.lg },
+  hint: { ...typo.caption, color: surface.textSecondary },
+  fieldBlock: { gap: space.sm },
   error: { marginTop: space.sm, ...typo.caption, color: palette.errorText },
-  modeRow: { flexDirection: "row", gap: space.sm, marginTop: space.lg },
-  modeChip: { flex: 1, paddingVertical: space.md, borderRadius: radii.md, borderWidth: 1.5, borderColor: surface.strokeSubtle, alignItems: "center" },
+  modeRow: { flexDirection: "row", gap: ONBOARDING_LAYOUT.choiceGap },
+  modeChip: {
+    flex: 1,
+    minHeight: 44,
+    paddingVertical: space.md,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: surface.strokeSubtle,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   modeChipActive: { borderColor: palette.accent, backgroundColor: surface.surfaceAccent },
   modeLabel: { ...typo.body, fontWeight: "600", color: surface.textSecondary },
   modeLabelActive: { color: palette.accent },
-  row: { flexDirection: "row", gap: space.md, marginTop: space.sm },
+  row: { flexDirection: "row", gap: ONBOARDING_LAYOUT.rowGap },
   half: { flex: 1 },
-  toneGrid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginTop: space.lg, marginBottom: space.sm },
-  toneChip: { paddingHorizontal: space.lg, paddingVertical: space.md, borderRadius: radii.lg, borderWidth: 1, borderColor: surface.strokeSubtle },
+  toneGrid: { flexDirection: "row", flexWrap: "wrap", gap: ONBOARDING_LAYOUT.choiceGap },
+  toneChip: {
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    borderRadius: ONBOARDING_LAYOUT.chipRadius,
+    borderWidth: 1,
+    borderColor: surface.strokeSubtle,
+  },
   toneChipActive: { borderColor: palette.accent, backgroundColor: surface.surfaceAccent },
   toneLabel: { ...typo.body, color: surface.textSecondary },
   toneLabelActive: { color: palette.accent, fontWeight: "600" },

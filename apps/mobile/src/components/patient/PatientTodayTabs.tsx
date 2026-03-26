@@ -1,15 +1,15 @@
 // @ts-nocheck
+import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 import { Pressable } from "../ui";
-import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+import { patientSurfacePalette as surface, radii, space, typo } from "../../theme";
 
-const TAB_ICONS: Record<string, string> = {
-  baby: "✦",
-  mom: "♡",
-  checklist: "✓",
-  conversation: "✉",
-  records: "◌",
-  reflections: "☰",
+const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  info: "happy-outline",
+  checklist: "checkmark-circle-outline",
+  conversation: "chatbubble-outline",
+  records: "checkbox-outline",
+  reflections: "chatbubbles-outline",
 };
 
 export function PatientTodayTabs({
@@ -32,11 +32,11 @@ export function PatientTodayTabs({
             style={[styles.tab, isActive ? styles.tabActive : null]}
             onPress={() => onChange(section.id)}
           >
-            <View style={[styles.iconWrap, isActive ? styles.iconWrapActive : null]}>
-              <Text style={[styles.iconLabel, isActive ? styles.iconLabelActive : null]}>
-                {TAB_ICONS[section.id] ?? "•"}
-              </Text>
-            </View>
+            <Ionicons
+              name={TAB_ICONS[section.id] ?? "ellipse-outline"}
+              size={18}
+              color={isActive ? surface.textPrimary : surface.textSecondary}
+            />
             <Text style={[styles.label, isActive ? styles.labelActive : null]}>{section.label}</Text>
           </Pressable>
         );
@@ -48,49 +48,31 @@ export function PatientTodayTabs({
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: space.sm,
-    backgroundColor: "rgba(255,255,255,0.5)",
+    gap: space.xs,
+    backgroundColor: surface.surfaceSecondary,
     borderRadius: radii.xxl,
     padding: space.xs,
   },
   tab: {
+    flex: 1,
     borderRadius: radii.full,
-    backgroundColor: surface.surfacePrimary,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+    paddingHorizontal: space.sm,
+    paddingVertical: 11,
     flexDirection: "row",
     alignItems: "center",
-    gap: space.sm,
+    gap: space.xs,
+    justifyContent: "center",
   },
   tabActive: {
-    backgroundColor: surface.surfaceAccent,
-  },
-  iconWrap: {
-    width: 24,
-    height: 24,
-    borderRadius: radii.full,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: surface.surfaceSecondary,
-  },
-  iconWrapActive: {
-    backgroundColor: "#ffffff",
-  },
-  iconLabel: {
-    fontSize: 12,
-    color: surface.textSecondary,
-  },
-  iconLabelActive: {
-    color: palette.accent,
-    fontWeight: "700",
+    backgroundColor: surface.surfacePrimary,
   },
   label: {
-    ...typo.caption,
+    ...typo.label,
     color: surface.textSecondary,
+    flexShrink: 1,
   },
   labelActive: {
-    color: palette.accent,
+    color: surface.textPrimary,
     fontWeight: "700",
   },
 });

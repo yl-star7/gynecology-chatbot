@@ -11,6 +11,7 @@ import type {
   MobileProfileViewData,
   RecentChatSummary,
   RecordDayView,
+  TodayViewData,
 } from "@gynecology-chatbot/app-core";
 import {
   clearMobileSession,
@@ -152,6 +153,18 @@ export async function fetchMobileProfile(userId: string) {
   return parseJson<{ profile: MobileProfileViewData }>(response);
 }
 
+export async function fetchTodayView(userId: string) {
+  const response = await fetch(
+    `/api/mobile/today?${createSearch({ userId })}`,
+    {
+      cache: "no-store",
+      headers: buildMobileSessionHeaders(),
+    },
+  );
+
+  return parseJson<{ today: TodayViewData }>(response);
+}
+
 export async function updateMobileProfile(input: {
   userId: string;
   displayName: string;
@@ -172,6 +185,23 @@ export async function updateMobileProfile(input: {
   });
 
   return parseJson<{ user: AuthenticatedUser }>(response);
+}
+
+export async function submitProfileSurveyAnswer(input: {
+  userId: string;
+  questionId: string;
+  answer: string;
+}) {
+  const response = await fetch("/api/mobile/profile/surveys", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...buildMobileSessionHeaders(),
+    },
+    body: JSON.stringify(input),
+  });
+
+  return parseJson<{ ok: true }>(response);
 }
 
 export async function fetchSession(userId: string, sessionId: string) {

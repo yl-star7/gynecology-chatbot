@@ -2,7 +2,7 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Button, Card, KeyboardScreen, LabeledInput } from "../../components/ui";
+import { BrandMark, Button, Card, KeyboardScreen, LabeledInput } from "../../components/ui";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { palette, space, typo } from "../../theme";
 
@@ -34,6 +34,9 @@ export function LoginScreen() {
 
   return (
     <KeyboardScreen centered>
+      <View style={styles.brandBlock}>
+        <BrandMark centered subtitle="산모와 아기를 위한 다정한 상담" size={68} />
+      </View>
       <Card>
         <View style={styles.form}>
           <LabeledInput
@@ -64,6 +67,9 @@ export function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  brandBlock: {
+    marginBottom: space.lg,
+  },
   form: { gap: space.lg },
   error: { ...typo.caption, color: palette.errorText, textAlign: "center" },
   status: { ...typo.caption, color: palette.accent, textAlign: "center" },

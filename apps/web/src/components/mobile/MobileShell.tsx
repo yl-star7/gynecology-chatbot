@@ -15,13 +15,8 @@ function withUserId(path: string, userId?: string | null) {
 
 export function MobileShell({
   children,
-  title,
-  description,
   userId,
-  backHref,
-  backLabel = "뒤로 가기",
-  showTitleBlock = true,
-  showChatFab = false,
+  pageTone = "plain",
 }: {
   children: ReactNode;
   title: string;
@@ -31,6 +26,7 @@ export function MobileShell({
   backLabel?: string;
   showTitleBlock?: boolean;
   showChatFab?: boolean;
+  pageTone?: "main" | "plain";
 }) {
   const [displayName, setDisplayName] = useState("임부");
   const profileHref = withUserId("/profile", userId);
@@ -45,27 +41,8 @@ export function MobileShell({
   }, []);
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col bg-[var(--bg)] px-4 py-4 sm:px-6">
-      <header className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          {backHref ? (
-            <Link
-              href={backHref}
-              aria-label={backLabel}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--panel-strong)] text-[var(--text)]"
-            >
-              ←
-            </Link>
-          ) : (
-            <div className="h-10 w-10" />
-          )}
-          <div>
-            <p className="text-sm font-medium text-[var(--text-soft)]">{title}</p>
-            {showTitleBlock ? (
-              <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">{description}</p>
-            ) : null}
-          </div>
-        </div>
+    <main className={`mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 py-4 sm:px-6 ${pageTone === "main" ? "bg-[var(--bg)]" : "bg-white"}`}>
+      <header className="mb-4 flex items-center justify-end gap-3">
 
         {userId ? (
           <Link

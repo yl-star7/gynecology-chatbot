@@ -1,7 +1,9 @@
 import { randomUUID } from "crypto";
+
 import { NextResponse } from "next/server";
+
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { ensureStorageBucket } from "@/lib/admin/supabase-storage";
+import { ensureStorageBucketWithOptions } from "@/lib/admin/supabase-storage";
 
 function sanitizeFileName(fileName: string) {
   return fileName
@@ -29,7 +31,9 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
     const file = formData.get("file");
-    const bucketId = String(formData.get("bucketId") ?? "pregnancy-content").trim();
+    const bucketId = String(
+      formData.get("bucketId") ?? "pregnancy-content",
+    ).trim();
     const mediaScope = String(formData.get("mediaScope") ?? "week").trim();
     const weekNumber = Number(formData.get("weekNumber") ?? 0);
     const dayNumberRaw = String(formData.get("dayNumber") ?? "").trim();
@@ -46,21 +50,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const client = await ensureStorageBucket(bucketId);
     const sourceFileName = sanitizeFileName(file.name || `${randomUUID()}.bin`);
     const folder =
       mediaScope === "day" && dayNumber
         ? `weeks/${String(weekNumber).padStart(2, "0")}/day-${String(dayNumber).padStart(2, "0")}`
         : `weeks/${String(weekNumber).padStart(2, "0")}`;
     const objectPath = `${folder}/${Date.now()}-${sourceFileName}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
-
-    const { error } = await client.storage.from(bucketId).upload(objectPath, buffer, {
-      contentType: guessContentType(sourceFileName, file.type),
-      upsert: true,
+    const client = await ensureStorageBucketWithOptions(bucketId, {
+      isPublic: bucketId === "pregnancy-content",
     });
+    const { data, error } = await client.storage
+      .from(bucketId)
+      .createSignedUploadUrl(objectPath, { upsert: true });
 
-    if (error) {
+    if (error || !data?.signedUrl) {
       throw error;
     }
 
@@ -69,6 +72,9 @@ export async function POST(request: Request) {
       bucketId,
       objectPath,
       sourceFileName,
+      signedUrl: data.signedUrl,
+      token: data.token,
+      contentType: guessContentType(sourceFileName, file.type),
     });
   } catch (error) {
     console.error("admin content media upload error", error);

@@ -47,14 +47,34 @@ export interface RecordDayView {
   isoDate: string;
   dateLabel: string;
   emotionTone: EmotionTone | null;
+  checklistItems: TodayChecklistItem[];
   records: RecordDayItem[];
   relatedSessions: RecentChatSummary[];
+}
+
+export interface TodayChecklistItem {
+  id: string;
+  label: string;
+  completed: boolean;
+}
+
+export interface TodayViewData {
+  babyBody: string;
+  momBody: string;
+  checklistItems: TodayChecklistItem[];
 }
 
 export interface SurveyChoice {
   id: string;
   label: string;
 }
+
+export type SurveyQuestionType =
+  | "text"
+  | "single_choice"
+  | "multi_choice"
+  | "yes_no"
+  | "number";
 
 export interface SurveyPart {
   type: "survey";
@@ -165,6 +185,17 @@ export interface MobileProfileViewData {
   hospitalName?: string | null;
   notificationTime?: string | null;
   themeKey?: MobileThemeKey | null;
+  pendingSurveys?: ProfileSurveyQuestion[];
+}
+
+export interface ProfileSurveyQuestion {
+  id: string;
+  code: string;
+  questionText: string;
+  questionType: SurveyQuestionType;
+  helpText?: string | null;
+  choices: SurveyChoice[];
+  answered: boolean;
 }
 
 export interface OnboardingProfileInput {
@@ -245,6 +276,13 @@ export interface AdminKnowledgeItemInput {
   status: AdminKnowledgeItem["status"];
 }
 
+export interface AdminWorkflowBlock {
+  id: string;
+  type: string;
+  title?: string;
+  config?: Record<string, unknown>;
+}
+
 export interface AdminWorkflowRule {
   id: string;
   name: string;
@@ -252,6 +290,7 @@ export interface AdminWorkflowRule {
   retrievalScope: string;
   modelName: string;
   status: "active" | "review";
+  blocks?: AdminWorkflowBlock[];
 }
 
 export interface AdminWorkflowRuleInput {

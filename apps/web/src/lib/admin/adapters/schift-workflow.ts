@@ -1,4 +1,5 @@
 import type {
+  AdminWorkflowBlock,
   AdminWorkflowRule,
   AdminWorkflowRuleInput,
 } from "@gynecology-chatbot/app-core";
@@ -88,6 +89,14 @@ function inferRetrievalScope(workflow: Workflow) {
 
 export function mapSchiftWorkflowRule(workflow: Workflow): AdminWorkflowRule {
   const { meta } = parseAdminMeta(workflow.description);
+  const rawBlocks = getWorkflowBlocks(workflow);
+
+  const blocks: AdminWorkflowBlock[] = rawBlocks.map((block, index) => ({
+    id: (block as { id?: string }).id ?? `block-${index}`,
+    type: block.type,
+    title: (block as { title?: string }).title,
+    config: block.config,
+  }));
 
   return {
     id: workflow.id,
@@ -105,6 +114,7 @@ export function mapSchiftWorkflowRule(workflow: Workflow): AdminWorkflowRule {
         ? meta.modelName.trim()
         : inferModelName(workflow),
     status: workflow.status === "active" ? "active" : "review",
+    blocks,
   };
 }
 

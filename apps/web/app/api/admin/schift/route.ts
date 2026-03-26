@@ -11,7 +11,25 @@ export async function GET() {
     if (!schift) return NextResponse.json({ error: "SCHIFT_API_KEY not configured" }, { status: 503 });
 
     const collections = await schift.listCollections();
-    return NextResponse.json({ collections });
+
+    // Fetch workflows via raw API (SDK may not expose list)
+    let workflows: unknown[] = [];
+    try {
+      const apiKey = process.env.SCHIFT_API_KEY;
+      if (apiKey) {
+        const wfRes = await fetch("https://api.schift.io/v1/workflows", {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (wfRes.ok) {
+          const wfData = await wfRes.json();
+          workflows = Array.isArray(wfData) ? wfData : wfData.workflows ?? [];
+        }
+      }
+    } catch {
+      // workflows fetch is best-effort
+    }
+
+    return NextResponse.json({ collections, workflows });
   } catch (error) {
     console.error("admin schift route error", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "failed" }, { status: 500 });

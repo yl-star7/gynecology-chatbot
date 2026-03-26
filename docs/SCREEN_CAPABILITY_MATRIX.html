@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>화면 기능 표</title>
+    <style>
+      :root {
+        --bg: #f6f3ee;
+        --paper: #fffdf9;
+        --text: #1f1f1f;
+        --muted: #5f6358;
+        --line: #ddd5ca;
+        --accent: #1f6fff;
+        --accent-soft: #eaf2ff;
+        --ok: #18794e;
+        --ok-soft: #e9f7ef;
+        --warn: #9a5b00;
+        --warn-soft: #fff3e0;
+        --shadow: 0 18px 40px rgba(27, 31, 35, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: linear-gradient(180deg, #f5f7f4 0%, var(--bg) 100%);
+        color: var(--text);
+        font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+        line-height: 1.6;
+      }
+
+      .page {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 48px 24px 72px;
+      }
+
+      .hero {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        padding: 32px;
+        box-shadow: var(--shadow);
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 44px;
+        line-height: 1.08;
+        letter-spacing: -0.04em;
+      }
+
+      .hero p {
+        margin: 14px 0 0;
+        max-width: 720px;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .meta {
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      section {
+        margin-top: 32px;
+      }
+
+      .section-card {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 24px;
+        box-shadow: var(--shadow);
+      }
+
+      h2 {
+        margin: 0 0 16px;
+        font-size: 28px;
+        letter-spacing: -0.03em;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+      }
+
+      thead th {
+        background: #f2eee7;
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 700;
+        text-align: left;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      tbody td {
+        padding: 16px;
+        vertical-align: top;
+        border-top: 1px solid var(--line);
+        font-size: 14px;
+      }
+
+      tbody tr:first-child td {
+        border-top: none;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .badge.ok {
+        background: var(--ok-soft);
+        color: var(--ok);
+      }
+
+      .badge.warn {
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+
+      .grid {
+        display: grid;
+        gap: 24px;
+      }
+
+      .flow-grid {
+        display: grid;
+        gap: 18px;
+      }
+
+      .flow-card {
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: #fff;
+        padding: 20px;
+      }
+
+      .flow-title {
+        margin: 0 0 16px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      .flow-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .flow-row:last-child {
+        margin-bottom: 0;
+      }
+
+      .flow-box {
+        min-width: 160px;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--accent-soft);
+        font-size: 14px;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      .flow-box.muted-box {
+        background: #f4efe8;
+      }
+
+      .flow-box.accent-box {
+        background: #dfeafe;
+        border-color: #bfd3ff;
+      }
+
+      .flow-arrow {
+        color: var(--muted);
+        font-size: 22px;
+        font-weight: 700;
+      }
+
+      .flow-note {
+        margin: 10px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 900px) {
+        .page {
+          padding: 24px 14px 40px;
+        }
+
+        .hero,
+        .section-card {
+          padding: 20px;
+          border-radius: 20px;
+        }
+
+        h1 {
+          font-size: 34px;
+        }
+
+        h2 {
+          font-size: 24px;
+        }
+
+        table,
+        thead,
+        tbody,
+        tr,
+        th,
+        td {
+          display: block;
+        }
+
+        thead {
+          display: none;
+        }
+
+        tbody tr {
+          border-top: 1px solid var(--line);
+          padding: 10px 0;
+        }
+
+        tbody tr:first-child {
+          border-top: none;
+        }
+
+        tbody td {
+          border: none;
+          padding: 6px 0;
+        }
+
+        tbody td::before {
+          content: attr(data-label);
+          display: block;
+          margin-bottom: 4px;
+          color: var(--muted);
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <section class="hero">
+        <p class="eyebrow">Capability Matrix</p>
+        <h1>화면 기능 표</h1>
+        <p>
+          현재 코드와 배포 기준으로 유저 화면과 관리자 화면에서 할 수 있는 일,
+          그리고 각 화면이 어디로 이동하는지를 표 중심으로 정리한 문서입니다.
+        </p>
+        <div class="meta">최종 업데이트: 2026-03-23</div>
+      </section>
+
+      <section class="section-card">
+        <h2>유저 화면</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>화면</th>
+              <th>경로</th>
+              <th>할 수 있는 것</th>
+              <th>이동 경로</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="화면">홈</td>
+              <td data-label="경로">`/`</td>
+              <td data-label="할 수 있는 것">현재 주차와 임신 경과 확인, 임신수첩 진입, 임신 지식 진입, 최근 채팅 이어가기, 프로필 진입, 새 상담 시작</td>
+              <td data-label="이동 경로">`/notebook`, `/knowledge`, `/chat/[sessionId]`, `/chat/new`, `/profile`</td>
+            </tr>
+            <tr>
+              <td data-label="화면">로그인</td>
+              <td data-label="경로">`/auth/login`</td>
+              <td data-label="할 수 있는 것">전화번호 입력, 인증번호 요청, 인증번호 입력 후 로그인, 테마 선택</td>
+              <td data-label="이동 경로">로그인 성공 시 `/`, 온보딩 미완 시 `/onboarding`</td>
+            </tr>
+            <tr>
+              <td data-label="화면">온보딩</td>
+              <td data-label="경로">`/onboarding`</td>
+              <td data-label="할 수 있는 것">이름, 예정 출산일, 태명, 병원, 알림 시간, 테마, 상담 톤 입력</td>
+              <td data-label="이동 경로">완료 후 `/`</td>
+            </tr>
+            <tr>
+              <td data-label="화면">프로필</td>
+              <td data-label="경로">`/profile`</td>
+              <td data-label="할 수 있는 것">이름, 태명, 예정 출산일, 병원, 채팅 톤, 알림 시간, 테마 변경, 로그아웃</td>
+              <td data-label="이동 경로">뒤로 버튼으로 `/`, FAB로 `/chat/new`</td>
+            </tr>
+            <tr>
+              <td data-label="화면">임신 지식 목록</td>
+              <td data-label="경로">`/knowledge`</td>
+              <td data-label="할 수 있는 것">지식 문서 목록 확인, 상세 진입</td>
+              <td data-label="이동 경로">상세 콘텐츠, FAB로 `/chat/new`</td>
+            </tr>
+            <tr>
+              <td data-label="화면">임신수첩</td>
+              <td data-label="경로">`/notebook`</td>
+              <td data-label="할 수 있는 것">저장 기록, 체크리스트, 관련 내용 확인</td>
+              <td data-label="이동 경로">상세 콘텐츠, FAB로 `/chat/new`</td>
+            </tr>
+            <tr>
+              <td data-label="화면">링크형 참고 콘텐츠</td>
+              <td data-label="경로">`/link/[target]`</td>
+              <td data-label="할 수 있는 것">챗봇이 연결한 참고 콘텐츠 읽기</td>
+              <td data-label="이동 경로">뒤로 버튼으로 `/`, FAB로 `/chat/new`</td>
+            </tr>
+            <tr>
+              <td data-label="화면">채팅 상세</td>
+              <td data-label="경로">`/chat/[sessionId]`</td>
+              <td data-label="할 수 있는 것">이전 대화 확인, 새 메시지 전송, 첨부/내부 링크 확인</td>
+              <td data-label="이동 경로">링크형 콘텐츠, 프로필, 다른 세션</td>
+            </tr>
+            <tr>
+              <td data-label="화면">날짜별 기록</td>
+              <td data-label="경로">`/records/[isoDate]`</td>
+              <td data-label="할 수 있는 것">날짜별 기록, 감정, 연결 채팅 확인</td>
+              <td data-label="이동 경로">연결 채팅, FAB로 `/chat/new`</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section-card">
+        <h2>관리자 화면</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>화면</th>
+              <th>경로</th>
+              <th>할 수 있는 것</th>
+              <th>이동 경로</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="화면">관리자 로그인</td>
+              <td data-label="경로">`/admin/login`</td>
+              <td data-label="할 수 있는 것">전화번호와 비밀번호로 관리자 로그인</td>
+              <td data-label="이동 경로">성공 시 `/admin` -> `/admin/operations`</td>
+            </tr>
+            <tr>
+              <td data-label="화면">운영 상태</td>
+              <td data-label="경로">`/admin/operations`</td>
+              <td data-label="할 수 있는 것">푸시 알림 발송, 안부 메시지 트리거, 벡터 검색 설정 저장, 알림 스케줄 저장, FAB 마스코트 업로드/저장</td>
+              <td data-label="이동 경로">`계정`, `콘텐츠`, `모니터링`</td>
+            </tr>
+            <tr>
+              <td data-label="화면">계정</td>
+              <td data-label="경로">`/admin/accounts`</td>
+              <td data-label="할 수 있는 것">사용자 목록 확인, 전화번호 변경, 세션 초기화, 허용 전화번호 추가/수정/삭제</td>
+              <td data-label="이동 경로">`운영 상태`, `콘텐츠`, `모니터링`, 세션 종료</td>
+            </tr>
+            <tr>
+              <td data-label="화면">모니터링</td>
+              <td data-label="경로">`/admin/monitoring`</td>
+              <td data-label="할 수 있는 것">실시간 사용자 이벤트 확인, 액션 타입 필터, 사용자별 감사 로그 확인, 채팅 세션 감사 확인</td>
+              <td data-label="이동 경로">`운영 상태`, `계정`, `콘텐츠`, 세션 종료</td>
+            </tr>
+            <tr>
+              <td data-label="화면">문서</td>
+              <td data-label="경로">`/admin/content/documents`</td>
+              <td data-label="할 수 있는 것">RAG 문서 목록 확인, 제목/카테고리/주차/본문 입력, 새 문서 생성, 문서 반영, 문서 삭제</td>
+              <td data-label="이동 경로">다른 콘텐츠 탭, 세션 종료</td>
+            </tr>
+            <tr>
+              <td data-label="화면">정적 문헌</td>
+              <td data-label="경로">`/admin/content/static`</td>
+              <td data-label="할 수 있는 것">슬러그/섹션/제목/상태/본문 입력, 정적 문헌 생성/수정/삭제</td>
+              <td data-label="이동 경로">다른 콘텐츠 탭, 세션 종료</td>
+            </tr>
+            <tr>
+              <td data-label="화면">주차 데이터</td>
+              <td data-label="경로">`/admin/content/weeks`</td>
+              <td data-label="할 수 있는 것">주차 목록 확인, Day별 본문, 체크리스트, 질문, 이미지 매핑 수정, 이미지 업로드, 주차 저장</td>
+              <td data-label="이동 경로">다른 콘텐츠 탭, 세션 종료</td>
+            </tr>
+            <tr>
+              <td data-label="화면">응답 정책</td>
+              <td data-label="경로">`/admin/content/policies`</td>
+              <td data-label="할 수 있는 것">정책 목록 확인, 정책 이름/트리거/검색 범위/모델/상태 수정, 정책 저장</td>
+              <td data-label="이동 경로">다른 콘텐츠 탭, 세션 종료</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section-card">
+        <h2>핵심 이동 관계</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>기준 화면</th>
+              <th>이동 가능 대상</th>
+              <th>상태</th>
+              <th>설명</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="기준 화면">유저 홈</td>
+              <td data-label="이동 가능 대상">임신수첩</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">홈 카드에서 `임신수첩`으로 이동합니다.</td>
+            </tr>
+            <tr>
+              <td data-label="기준 화면">유저 홈</td>
+              <td data-label="이동 가능 대상">임신 지식</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">홈 카드에서 `임신 지식`으로 이동합니다.</td>
+            </tr>
+            <tr>
+              <td data-label="기준 화면">유저 홈</td>
+              <td data-label="이동 가능 대상">최근 채팅 상세</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">최근 채팅 목록에서 기존 세션 상세로 들어갑니다.</td>
+            </tr>
+            <tr>
+              <td data-label="기준 화면">유저 홈</td>
+              <td data-label="이동 가능 대상">새 채팅</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">홈의 FAB 또는 `새 상담` 진입으로 새 채팅을 시작합니다.</td>
+            </tr>
+            <tr>
+              <td data-label="기준 화면">유저 홈</td>
+              <td data-label="이동 가능 대상">프로필</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">우상단 프로필 진입 버튼으로 설정 화면에 들어갑니다.</td>
+            </tr>
+            <tr>
+              <td data-label="기준 화면">유저 홈</td>
+              <td data-label="이동 가능 대상">기록 상세</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">기록 달력/기록 흐름을 통해 날짜별 상세로 진입합니다.</td>
+            </tr>
+            <tr>
+              <td data-label="기준 화면">유저 프로필</td>
+              <td data-label="이동 가능 대상">홈</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">상단 뒤로 버튼으로 홈으로 돌아갑니다.</td>
+            </tr>
+            <tr>
+              <td data-label="기준 화면">유저 프로필</td>
+              <td data-label="이동 가능 대상">새 채팅</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">FAB로 새 상담을 바로 시작할 수 있습니다.</td>
+            </tr>
+            <tr>
+              <td data-label="기준 화면">유저 콘텐츠/링크 상세</td>
+              <td data-label="이동 가능 대상">홈</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">상단 뒤로 버튼 또는 홈 버튼으로 홈으로 복귀합니다.</td>
+            </tr>
+            <tr>
+              <td data-label="기준 화면">유저 콘텐츠/링크 상세</td>
+              <td data-label="이동 가능 대상">새 채팅</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">FAB로 바로 상담 흐름으로 이어집니다.</td>
+            </tr>
+            <tr>
+              <td data-label="기준 화면">관리자 운영 상태</td>
+              <td data-label="이동 가능 대상">계정</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">좌측 사이드바 `계정` 탭으로 이동합니다.</td>
+            </tr>
+            <tr>
+              <td data-label="기준 화면">관리자 운영 상태</td>
+              <td data-label="이동 가능 대상">콘텐츠</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">사이드바에서 `문서`, `정적 문헌`, `주차 데이터`, `응답 정책`으로 이동합니다.</td>
+            </tr>
+            <tr>
+              <td data-label="기준 화면">관리자 운영 상태</td>
+              <td data-label="이동 가능 대상">모니터링</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">실시간 사용자 이벤트/감사 로그 화면으로 이동합니다.</td>
+            </tr>
+            <tr>
+              <td data-label="기준 화면">관리자 콘텐츠</td>
+              <td data-label="이동 가능 대상">문서 ↔ 정적 문헌 ↔ 주차 데이터 ↔ 응답 정책</td>
+              <td data-label="상태"><span class="badge ok">가능</span></td>
+              <td data-label="설명">콘텐츠 하위 탭 사이를 좌측 탐색으로 오갈 수 있습니다.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section-card">
+        <h2>큰 흐름도</h2>
+        <div class="flow-grid">
+          <div class="flow-card">
+            <h3 class="flow-title">유저 이동 흐름</h3>
+            <div class="flow-row">
+              <div class="flow-box accent-box">로그인<br />`/auth/login`</div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-box accent-box">온보딩<br />`/onboarding`</div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-box accent-box">홈<br />`/`</div>
+            </div>
+            <div class="flow-row">
+              <div class="flow-box muted-box">프로필<br />`/profile`</div>
+              <div class="flow-arrow">↔</div>
+              <div class="flow-box muted-box">임신수첩<br />`/notebook`</div>
+              <div class="flow-arrow">↔</div>
+              <div class="flow-box muted-box">임신 지식<br />`/knowledge`</div>
+              <div class="flow-arrow">↔</div>
+              <div class="flow-box muted-box">기록 상세<br />`/records/[date]`</div>
+            </div>
+            <div class="flow-row">
+              <div class="flow-box">채팅<br />`/chat/[sessionId]`</div>
+              <div class="flow-arrow">↔</div>
+              <div class="flow-box">링크형 콘텐츠<br />`/link/[target]`</div>
+              <div class="flow-arrow">↔</div>
+              <div class="flow-box">FAB 새 상담<br />`/chat/new`</div>
+            </div>
+            <p class="flow-note">대부분 유저 화면은 홈을 중심으로 뻗고, FAB로 새 상담으로 바로 이어집니다.</p>
+          </div>
+
+          <div class="flow-card">
+            <h3 class="flow-title">관리자 이동 흐름</h3>
+            <div class="flow-row">
+              <div class="flow-box accent-box">관리자 로그인<br />`/admin/login`</div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-box accent-box">운영 상태<br />`/admin/operations`</div>
+            </div>
+            <div class="flow-row">
+              <div class="flow-box muted-box">계정<br />`/admin/accounts`</div>
+              <div class="flow-arrow">↔</div>
+              <div class="flow-box muted-box">모니터링<br />`/admin/monitoring`</div>
+              <div class="flow-arrow">↔</div>
+              <div class="flow-box muted-box">콘텐츠 진입<br />`/admin/content/*`</div>
+            </div>
+            <div class="flow-row">
+              <div class="flow-box">문서<br />`/documents`</div>
+              <div class="flow-arrow">↔</div>
+              <div class="flow-box">정적 문헌<br />`/static`</div>
+              <div class="flow-arrow">↔</div>
+              <div class="flow-box">주차 데이터<br />`/weeks`</div>
+              <div class="flow-arrow">↔</div>
+              <div class="flow-box">응답 정책<br />`/policies`</div>
+            </div>
+            <p class="flow-note">관리자는 운영 상태를 기본 진입점으로 쓰고, 좌측 탐색으로 계정/모니터링/콘텐츠 하위 화면을 오갑니다.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="section-card">
+          <h2>관리자 콘텐츠 하위 분기</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>섹션</th>
+                <th>경로</th>
+                <th>기능</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td data-label="섹션">문서</td>
+                <td data-label="경로">`/admin/content/documents`</td>
+                <td data-label="기능">임베딩 기반 문서 업로드/반영/삭제</td>
+              </tr>
+              <tr>
+                <td data-label="섹션">정적 문헌</td>
+                <td data-label="경로">`/admin/content/static`</td>
+                <td data-label="기능">고정 문헌 CRUD</td>
+              </tr>
+              <tr>
+                <td data-label="섹션">주차 데이터</td>
+                <td data-label="경로">`/admin/content/weeks`</td>
+                <td data-label="기능">주차별 본문, 질문, 체크리스트, 이미지 매핑 및 업로드</td>
+              </tr>
+              <tr>
+                <td data-label="섹션">응답 정책</td>
+                <td data-label="경로">`/admin/content/policies`</td>
+                <td data-label="기능">응답 정책 CRUD</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section-card">
+          <h2>현재 상태</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>범위</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td data-label="범위">유저 주요 화면 렌더</td>
+                <td data-label="상태"><span class="badge ok">확인됨</span></td>
+              </tr>
+              <tr>
+                <td data-label="범위">관리자 주요 화면 렌더</td>
+                <td data-label="상태"><span class="badge ok">확인됨</span></td>
+              </tr>
+              <tr>
+                <td data-label="범위">관리자 설정 저장 일부</td>
+                <td data-label="상태"><span class="badge ok">확인됨</span></td>
+              </tr>
+              <tr>
+                <td data-label="범위">문서/이미지 업로드 경로</td>
+                <td data-label="상태"><span class="badge warn">로컬 검증 완료, 배포 반영 후 추가 확인 필요</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

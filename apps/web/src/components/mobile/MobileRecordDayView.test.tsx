@@ -31,6 +31,13 @@ describe("MobileRecordDayView", () => {
         isoDate: "2026-03-18",
         dateLabel: "2026년 3월 18일",
         emotionTone: "calm",
+        checklistItems: [
+          {
+            id: "check-1",
+            label: "엽산 보충제 섭취하기",
+            completed: true,
+          },
+        ],
         records: [
           {
             id: "record-1",
@@ -66,12 +73,11 @@ describe("MobileRecordDayView", () => {
     expect(heading).toBeInTheDocument();
     expect(heading.closest("section")).toHaveClass("bg-[var(--panel-strong)]");
     expect(screen.getAllByText("2026년 3월 18일")).toHaveLength(1);
-    expect(screen.getByText("차분함")).toBeInTheDocument();
-    expect(screen.getAllByText("1건")).toHaveLength(2);
-    expect(screen.getByText("차분")).toBeInTheDocument();
-    expect(screen.getByText("하복부 통증 메모").closest("article")).toHaveClass(
-      "bg-[var(--panel-muted)]",
-    );
+    expect(screen.getByText("체크리스트")).toBeInTheDocument();
+    expect(screen.getByText("대화")).toBeInTheDocument();
+    expect(screen.getByText("엽산 보충제 섭취하기")).toBeInTheDocument();
+    expect(screen.getByText("하복부 통증 상담")).toBeInTheDocument();
+    expect(screen.queryByText("하복부 통증 메모")).not.toBeInTheDocument();
     expect(screen.queryByText("Day Summary")).not.toBeInTheDocument();
     expect(screen.queryByText("Records")).not.toBeInTheDocument();
     expect(

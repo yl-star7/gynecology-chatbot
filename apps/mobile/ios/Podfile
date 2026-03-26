@@ -51,6 +51,39 @@ target 'AI' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
     )
+    fmt_header = File.join(__dir__, 'Pods', 'fmt', 'include', 'fmt', 'base.h')
+    if File.exist?(fmt_header)
+      contents = File.read(fmt_header)
+      marker = '#if !defined(__cpp_lib_is_constant_evaluated)'
+      unless contents.include?('#ifdef FMT_USE_CONSTEVAL')
+        contents = contents.sub(
+          marker,
+          "#ifdef FMT_USE_CONSTEVAL\n#elif !defined(__cpp_lib_is_constant_evaluated)"
+        )
+        File.write(fmt_header, contents)
+      end
+    end
+
+    fmt_inl = File.join(__dir__, 'Pods', 'fmt', 'include', 'fmt', 'format-inl.h')
+    if File.exist?(fmt_inl)
+      contents = File.read(fmt_inl)
+      replacements = {
+        'fmt::format_to(it, FMT_STRING("{}{}"), message, SEP);' =>
+          'fmt::format_to(it, "{}{}", message, SEP);',
+        'fmt::format_to(it, FMT_STRING("{}{}"), ERROR_STR, error_code);' =>
+          'fmt::format_to(it, "{}{}", ERROR_STR, error_code);',
+        'out = fmt::format_to(out, FMT_STRING("{:x}"), value);' =>
+          'out = fmt::format_to(out, "{:x}", value);',
+        'out = fmt::format_to(out, FMT_STRING("{:08x}"), value);' =>
+          'out = fmt::format_to(out, "{:08x}", value);',
+        'out = fmt::format_to(out, FMT_STRING("p{}"),' =>
+          'out = fmt::format_to(out, "p{}",'
+      }
+      replacements.each do |before, after|
+        contents = contents.gsub(before, after)
+      end
+      File.write(fmt_inl, contents)
+    end
 
     # This is necessary for Xcode 14, because it signs resource bundles by default
     # when building for devices.

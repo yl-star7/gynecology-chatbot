@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import type { KeyboardTypeOptions } from "react-native";
-import { palette, patientSurfacePalette as surface, radii, typo } from "../../theme";
+import { palette, patientSurfacePalette as surface, typo } from "../../theme";
+import { LABELED_INPUT_LAYOUT } from "./LabeledInput.model";
 
 export function LabeledInput({
   label,
@@ -42,25 +43,24 @@ export function LabeledInput({
 
 const styles = StyleSheet.create({
   field: {
-    gap: 6,
+    gap: LABELED_INPUT_LAYOUT.fieldGap,
   },
   label: {
     ...typo.label,
     color: surface.textPrimary,
-    marginLeft: 4,
+    marginLeft: LABELED_INPUT_LAYOUT.labelInset,
   },
   input: {
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    borderColor: surface.strokeSubtle,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    minHeight: LABELED_INPUT_LAYOUT.inputMinHeight,
+    borderRadius: LABELED_INPUT_LAYOUT.inputRadius,
+    paddingHorizontal: LABELED_INPUT_LAYOUT.inputPaddingX,
+    paddingVertical: LABELED_INPUT_LAYOUT.inputPaddingY,
     backgroundColor: surface.fieldSurface,
     color: surface.textPrimary,
     fontSize: 15,
   },
   multiline: {
-    minHeight: 80,
+    minHeight: LABELED_INPUT_LAYOUT.multilineMinHeight,
     textAlignVertical: "top",
   },
 });

@@ -39,6 +39,53 @@ type ProfileRow = {
   theme_key?: string | null;
 };
 
+type WeekRow = {
+  id: string;
+};
+
+type QuestionRow = {
+  id: string;
+  code: string;
+  question_text: string;
+  question_type: "text" | "single_choice" | "multi_choice" | "yes_no" | "number";
+  help_text: string | null;
+  question_payload: {
+    choices?: Array<{ id?: string; label?: string }>;
+    yesLabel?: string;
+    noLabel?: string;
+  } | null;
+  display_order: number;
+  is_required: boolean;
+};
+
+type QuestionEventRow = {
+  id: string;
+  question_id: string;
+  status: "sent" | "opened" | "answered" | "skipped";
+};
+
+function resolveQuestionChoices(question: QuestionRow) {
+  if (question.question_type === "yes_no") {
+    return [
+      {
+        id: "yes",
+        label: question.question_payload?.yesLabel?.trim() || "네",
+      },
+      {
+        id: "no",
+        label: question.question_payload?.noLabel?.trim() || "아니요",
+      },
+    ];
+  }
+
+  return (question.question_payload?.choices ?? [])
+    .map((choice, index) => ({
+      id: choice.id?.trim() || `choice-${index + 1}`,
+      label: choice.label?.trim() || `선택지 ${index + 1}`,
+    }))
+    .filter((choice) => choice.label.length > 0);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const hintedUserId = request.nextUrl.searchParams.get("userId");
@@ -58,6 +105,60 @@ export async function GET(request: NextRequest) {
     }
 
     const profile = profiles[0] ?? null;
+    let pendingSurveys: Array<{
+      id: string;
+      code: string;
+      questionText: string;
+      questionType: QuestionRow["question_type"];
+      helpText: string | null;
+      choices: ReturnType<typeof resolveQuestionChoices>;
+      answered: boolean;
+    }> = [];
+
+    if (profile?.pregnancy_week) {
+      const dayNumber = ((profile.pregnancy_day_in_week ?? 0) % 7) + 1;
+      const weekRows = await supabaseSelect<WeekRow[]>(
+        `v_pregnancy_week_data?select=id&week_number=eq.${profile.pregnancy_week}&status=eq.published&limit=1`,
+      );
+      const week = weekRows[0];
+
+      if (week) {
+        const [datedQuestions, genericQuestions] = await Promise.all([
+          supabaseSelect<QuestionRow[]>(
+            `v_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+          ),
+          supabaseSelect<QuestionRow[]>(
+            `v_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
+          ),
+        ]);
+
+        const questions = [...datedQuestions, ...genericQuestions];
+        const questionIds = questions.map((question) => question.id);
+        const questionEvents =
+          questionIds.length > 0
+            ? await supabaseSelect<QuestionEventRow[]>(
+                `user_question_events?select=id,question_id,status&user_id=eq.${userId}&question_id=in.(${questionIds.join(",")})`,
+              )
+            : [];
+        const answeredSet = new Set(
+          questionEvents
+            .filter((event) => event.status === "answered")
+            .map((event) => event.question_id),
+        );
+
+        pendingSurveys = questions
+          .filter((question) => !answeredSet.has(question.id))
+          .map((question) => ({
+            id: question.id,
+            code: question.code,
+            questionText: question.question_text,
+            questionType: question.question_type,
+            helpText: question.help_text,
+            choices: resolveQuestionChoices(question),
+            answered: false,
+          }));
+      }
+    }
 
     return NextResponse.json({
       profile: {
@@ -88,6 +189,7 @@ export async function GET(request: NextRequest) {
             profile?.onboarding_payload?.themeKey ??
             DEFAULT_MOBILE_THEME_KEY,
         ),
+        pendingSurveys,
       },
     });
   } catch (error) {

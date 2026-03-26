@@ -20,6 +20,7 @@ import type {
   OnboardingProfileInput,
   AdminAllowedPhoneNumber,
   RecentChatSummary,
+  TodayViewData,
 } from "./domain";
 
 export interface AuthPort {
@@ -36,6 +37,14 @@ export interface OnboardingPort {
 
 export interface MobileHomePort {
   getHomeView(): Promise<HomeViewData>;
+}
+
+export interface TodayPort {
+  getTodayView(): Promise<TodayViewData>;
+  setChecklistItemCompleted(input: {
+    checklistId: string;
+    completed: boolean;
+  }): Promise<void>;
 }
 
 export interface CalendarPort {
@@ -68,6 +77,11 @@ export interface MobileProfilePort {
     notificationTime?: string | null;
     themeKey?: MobileProfileViewData["themeKey"];
   }): Promise<AuthenticatedUser>;
+  submitSurveyAnswer(input: {
+    userId: string;
+    questionId: string;
+    answer: string;
+  }): Promise<void>;
 }
 
 export interface AdminDashboardPort {

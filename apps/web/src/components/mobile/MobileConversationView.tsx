@@ -20,6 +20,24 @@ function createDraftMessage(text: string): ChatMessage {
   };
 }
 
+function SendIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M22 2 11 13" />
+      <path d="M22 2 15 22 11 13 2 9 22 2Z" />
+    </svg>
+  );
+}
+
 export function MobileConversationView({
   userId,
   initialSessionId,
@@ -94,6 +112,7 @@ export function MobileConversationView({
       userId={resolvedUserId}
       backHref={resolvedUserId ? `/today?userId=${encodeURIComponent(resolvedUserId)}` : "/today"}
       showChatFab={false}
+      pageTone="plain"
     >
       <div className="grid gap-4">
         <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-6 shadow-[var(--shadow)]">
@@ -138,9 +157,10 @@ export function MobileConversationView({
             <button
               type="submit"
               disabled={isSending}
+              aria-label="메시지 보내기"
               className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-[18px] bg-[var(--accent)] text-white disabled:opacity-50"
             >
-              ↗
+              <SendIcon />
             </button>
           </div>
         </form>

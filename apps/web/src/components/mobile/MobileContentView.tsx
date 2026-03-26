@@ -69,6 +69,7 @@ export function MobileContentView({
       backHref={backHref}
       showTitleBlock={false}
       showChatFab
+      pageTone="plain"
     >
       <div className="grid gap-4">
         <MobileCard

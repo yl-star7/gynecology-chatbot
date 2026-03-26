@@ -21,15 +21,37 @@ function getSupabaseStorageClient() {
 }
 
 export async function ensureStorageBucket(bucketId: string) {
+  return ensureStorageBucketWithOptions(bucketId);
+}
+
+export async function ensureStorageBucketWithOptions(
+  bucketId: string,
+  options: { isPublic?: boolean } = {},
+) {
   const client = getSupabaseStorageClient();
-  const { data: buckets, error: listError } = await client.storage.listBuckets();
+  const { data: buckets, error: listError } =
+    await client.storage.listBuckets();
   if (listError) {
     throw listError;
   }
 
-  if (!buckets?.some((bucket) => bucket.name === bucketId)) {
+  const existingBucket = buckets?.find((bucket) => bucket.name === bucketId);
+  const isPublic = options.isPublic ?? false;
+
+  if (!existingBucket) {
     const { error } = await client.storage.createBucket(bucketId, {
-      public: false,
+      public: isPublic,
+      fileSizeLimit: "10MB",
+    });
+    if (error) {
+      throw error;
+    }
+  } else if (
+    typeof existingBucket.public === "boolean" &&
+    existingBucket.public !== isPublic
+  ) {
+    const { error } = await client.storage.updateBucket(bucketId, {
+      public: isPublic,
       fileSizeLimit: "10MB",
     });
     if (error) {
@@ -39,4 +61,3 @@ export async function ensureStorageBucket(bucketId: string) {
 
   return client;
 }
-

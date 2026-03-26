@@ -69,16 +69,14 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
       description={error ?? "오늘도 아기와 연결된 흐름을 이어가요."}
       userId={resolvedUserId}
       showChatFab
+      pageTone="main"
     >
       <div className="grid gap-4">
         <section className="grid gap-2">
           <p className="text-xs font-semibold tracking-[0.18em] text-[var(--text-soft)]">
-            {new Date().getMonth() + 1}월
+            {`${new Date().getMonth() + 1}월 ${new Date().getDate()}일`}
           </p>
-          <p className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text)]">
-            {new Date().getDate()}
-          </p>
-          <h1 className="-mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--text)]">
+          <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text)]">
             {viewModel.heroName}
           </h1>
         </section>
@@ -89,28 +87,16 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
           </p>
           <p className="mt-3 text-sm leading-7">{viewModel.babyMessage}</p>
         </section>
-        <div className="flex justify-center -mt-2">
-          <div className="h-5 w-5 rotate-45 rounded-bl-[10px] bg-[var(--accent)]" />
-        </div>
 
         <section className="flex justify-center">
-          <div className="flex h-[272px] w-[272px] items-center justify-center rounded-full bg-[var(--accent-soft)]">
-            <div className="relative h-[236px] w-[236px] overflow-hidden rounded-full bg-[var(--panel-muted)]">
-              <div className="absolute left-10 top-12 h-3 w-3 rounded-full bg-white/40" />
-              <div className="absolute right-14 top-20 h-2.5 w-2.5 rounded-full bg-white/35" />
-              <div className="absolute bottom-14 left-14 h-3.5 w-3.5 rounded-full bg-white/30" />
+          <div className="flex h-[272px] w-[272px] items-center justify-center rounded-full bg-[#f5f5f7]">
+            <div className="relative h-[236px] w-[236px] overflow-hidden rounded-full bg-[#ececf0]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={babyImagePath}
                 alt={`${viewModel.pregnancyWeekLabel} 태아 이미지`}
                 className="h-full w-full object-cover"
               />
-              <div className="absolute bottom-5 left-1/2 flex h-[52px] w-[52px] -translate-x-1/2 items-center justify-center rounded-[18px] bg-white/85 shadow-[var(--shadow)]">
-                <span className="text-[24px] text-[var(--accent)]">✉</span>
-                <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent)] text-[10px] text-white">
-                  ♥
-                </div>
-              </div>
             </div>
           </div>
         </section>
@@ -134,10 +120,21 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
           <p className="text-[15px] leading-7 text-[var(--text)]">{viewModel.quote}</p>
         </section>
 
-        <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-muted)] p-6 shadow-[var(--shadow)]">
+        <section className="rounded-[28px] border border-[var(--line)] bg-[#f7f7f9] p-6 shadow-[var(--shadow)]">
           <h2 className="text-xl font-semibold text-[var(--text)]">오늘의 한마디</h2>
           <p className="mt-3 text-sm leading-7 text-[var(--text-soft)]">{viewModel.note}</p>
         </section>
+
+        <Link
+          href={resolvedUserId ? `/knowledge?userId=${encodeURIComponent(resolvedUserId)}` : "/knowledge"}
+          className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-muted)] p-6 shadow-[var(--shadow)]"
+        >
+          <p className="text-xs font-semibold tracking-[0.18em] text-[var(--accent-dark)]">참고 정보</p>
+          <h2 className="mt-2 text-xl font-semibold text-[var(--text)]">임신 지식을 참고로 읽어봐요</h2>
+          <p className="mt-3 text-sm leading-7 text-[var(--text-soft)]">
+            주차별 변화와 참고 문서를 따로 읽고 싶을 때만 들어가면 돼요.
+          </p>
+        </Link>
 
         {home ? null : (
           <div className="grid gap-3">

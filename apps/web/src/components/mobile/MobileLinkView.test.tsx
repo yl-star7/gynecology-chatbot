@@ -57,10 +57,7 @@ describe("MobileLinkView", () => {
     expect(
       screen.queryByRole("link", { name: "상담으로 돌아가기" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "뒤로 가기" })).toHaveAttribute(
-      "href",
-      "/?userId=user-1",
-    );
+    expect(screen.queryByRole("link", { name: "뒤로 가기" })).not.toBeInTheDocument();
   });
 
   it("shows skeletons instead of loading copy while waiting for linked content", () => {

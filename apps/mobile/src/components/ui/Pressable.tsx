@@ -4,11 +4,14 @@ import {
   Animated,
   Pressable as RNPressable,
   type PressableProps,
+  type StyleProp,
   type ViewStyle,
 } from "react-native";
+import { buildAnimatedPressableStyle } from "./Pressable.model";
 
 const PRESS_IN_SCALE = 0.97;
 const PRESS_IN_OPACITY = 0.7;
+const AnimatedPressable = Animated.createAnimatedComponent(RNPressable);
 
 export function Pressable({
   children,
@@ -18,6 +21,10 @@ export function Pressable({
 }: PressableProps & { style?: ViewStyle | ViewStyle[] }) {
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(1)).current;
+  const animatedStyle: StyleProp<ViewStyle> = buildAnimatedPressableStyle(style, {
+    transform: [{ scale }],
+    opacity,
+  });
 
   const handlePressIn = useCallback(() => {
     Animated.parallel([
@@ -34,8 +41,9 @@ export function Pressable({
   }, [scale, opacity]);
 
   return (
-    <RNPressable
+    <AnimatedPressable
       {...rest}
+      style={animatedStyle}
       disabled={disabled}
       onPressIn={(e) => {
         if (!disabled) handlePressIn();
@@ -46,9 +54,7 @@ export function Pressable({
         rest.onPressOut?.(e);
       }}
     >
-      <Animated.View style={[style, { transform: [{ scale }], opacity }]}>
-        {children}
-      </Animated.View>
-    </RNPressable>
+      {children}
+    </AnimatedPressable>
   );
 }

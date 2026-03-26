@@ -2,11 +2,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import type { ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { Pressable } from "./ui";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useMobileAppSession } from "../core/MobileAppSessionProvider";
 import { palette, patientSurfacePalette as surface, shadows, space, typo } from "../theme";
+
+const FAB_NURSE_SOURCE = require("../../assets/branding/fab-nurse.png");
 
 export function MobileScreenFrame({
   title,
@@ -61,7 +63,12 @@ export function MobileScreenFrame({
           onPress={() => router.push("/chat/new")}
           accessibilityLabel="상담하기"
         >
-          <Ionicons name="chatbubble-ellipses" size={24} color="#ffffff" />
+          <Image
+            source={FAB_NURSE_SOURCE}
+            style={styles.fabImage}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+          />
         </Pressable>
       ) : null}
     </SafeAreaView>
@@ -121,11 +128,16 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: space.xl,
     bottom: space.xxxl,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: surface.accentSolid,
+    backgroundColor: "transparent",
+    overflow: "visible",
+  },
+  fabImage: {
+    width: 64,
+    height: 64,
   },
 });

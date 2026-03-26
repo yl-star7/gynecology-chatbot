@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { StyleSheet, Text, View } from "react-native";
 import { Card } from "../ui";
-import { palette, radii, space, typo } from "../../theme";
+import { palette, space, typo } from "../../theme";
 
 export function PatientHeroBubble({
   message,
@@ -16,17 +16,13 @@ export function PatientHeroBubble({
         <Text style={styles.bubbleLabel}>{name}의 한마디</Text>
         <Text style={styles.message}>{message}</Text>
       </Card>
-      <View style={styles.tailWrap}>
-        <View style={styles.tail} />
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
-    alignItems: "flex-end",
-    paddingRight: space.sm,
+    alignItems: "center",
   },
   bubble: {
     width: "90%",
@@ -43,17 +39,5 @@ const styles = StyleSheet.create({
     marginTop: space.sm,
     ...typo.body,
     color: "#ffffff",
-  },
-  tailWrap: {
-    width: "90%",
-    alignItems: "center",
-    marginTop: -2,
-  },
-  tail: {
-    width: 20,
-    height: 20,
-    backgroundColor: palette.accent,
-    borderBottomLeftRadius: radii.sm,
-    transform: [{ rotate: "45deg" }],
   },
 });

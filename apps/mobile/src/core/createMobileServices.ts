@@ -1,4 +1,4 @@
-import { MockKnowledgeAdapter, MockMobileChatAdapter, MockMobileHomeAdapter } from "@gynecology-chatbot/app-core";
+import { MockKnowledgeAdapter, MockMobileChatAdapter, MockMobileHomeAdapter, MockTodayAdapter } from "@gynecology-chatbot/app-core";
 import type {
   AuthPort,
   KnowledgePort,
@@ -6,6 +6,7 @@ import type {
   MobileHomePort,
   MobileProfilePort,
   OnboardingPort,
+  TodayPort,
 } from "@gynecology-chatbot/app-core";
 import { createMobileApiClient } from "../api/mobileApi";
 import {
@@ -15,6 +16,7 @@ import {
   ApiMobileHomeAdapter,
   ApiMobileProfileAdapter,
   ApiOnboardingAdapter,
+  ApiTodayAdapter,
 } from "./adapters/apiMobilePorts";
 import { MockAuthPortAdapter, MockOnboardingPortAdapter } from "./adapters/mockMobileAuthPorts";
 import {
@@ -27,6 +29,7 @@ export interface MobileServices {
   authPort: AuthPort;
   onboardingPort: OnboardingPort;
   homePort: MobileHomePort;
+  todayPort: TodayPort;
   chatPort: MobileChatPort;
   knowledgePort: KnowledgePort;
   profilePort: MobileProfilePort;
@@ -83,6 +86,7 @@ export function createMobileServices(options: CreateMobileServicesOptions = {}):
       authPort: new ApiMobileAuthAdapter(client),
       onboardingPort: new ApiOnboardingAdapter(client, resolveUserId),
       homePort: new ApiMobileHomeAdapter(client),
+      todayPort: new ApiTodayAdapter(client),
       chatPort: new ApiMobileChatAdapter(client),
       knowledgePort: new ApiKnowledgeAdapter(client),
       profilePort: new ApiMobileProfileAdapter(client),
@@ -91,11 +95,13 @@ export function createMobileServices(options: CreateMobileServicesOptions = {}):
 
   const chatPort = new MockMobileChatAdapter();
   const knowledgePort = new MockKnowledgeAdapter();
+  const todayPort = new MockTodayAdapter();
 
   return {
     authPort: new MockAuthPortAdapter(),
     onboardingPort: new MockOnboardingPortAdapter(),
     homePort: new RuntimeAwareMockMobileHomeAdapter(),
+    todayPort,
     chatPort,
     knowledgePort,
     profilePort: {
@@ -104,6 +110,9 @@ export function createMobileServices(options: CreateMobileServicesOptions = {}):
       },
       async updateProfile(input) {
         return updateMockMobileProfile(input);
+      },
+      async submitSurveyAnswer() {
+        return undefined;
       },
     },
   };

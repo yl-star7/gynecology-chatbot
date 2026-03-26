@@ -4,6 +4,7 @@ import type {
   HomeViewData,
   RecentChatSummary,
   RecordDayView,
+  TodayChecklistItem,
 } from "@gynecology-chatbot/app-core";
 
 type SessionRow = {
@@ -62,6 +63,24 @@ function toLocalDateKey(date: Date) {
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getDate()).padStart(2, "0"),
   ].join("-");
+}
+
+function parseMonth(value: string) {
+  const [yearText, monthText] = value.split("-");
+  return {
+    year: Number(yearText),
+    monthIndex: Number(monthText) - 1,
+  };
+}
+
+function getMonthStartDate(value: string) {
+  const { year, monthIndex } = parseMonth(value);
+  return new Date(year, monthIndex, 1);
+}
+
+function getDaysInMonth(value: string) {
+  const { year, monthIndex } = parseMonth(value);
+  return new Date(year, monthIndex + 1, 0).getDate();
 }
 
 function formatRecentChatLabel(value: string | null) {
@@ -131,8 +150,8 @@ export function toHomeViewData(input: {
   emotionRows?: EmotionRow[];
   month: string;
 }): HomeViewData {
-  const daysInMonth =
-    new Date(`${input.month}-01T00:00:00`).getMonth() === 1 ? 28 : 31;
+  const monthDate = getMonthStartDate(input.month);
+  const daysInMonth = getDaysInMonth(input.month);
   const calendarMap = new Map(
     input.calendarRows.map((row) => [normalizeDateKey(row.date), row]),
   );
@@ -162,9 +181,7 @@ export function toHomeViewData(input: {
     userName: input.user.display_name,
     pregnancyDayCount: input.profile?.pregnancy_day_count ?? 0,
     pregnancyWeekLabel: week ? `${week}주 ${dayInWeek ?? 0}일` : "정보 없음",
-    currentMonthLabel: new Date(
-      `${input.month}-01T00:00:00`,
-    ).toLocaleDateString("ko-KR", {
+    currentMonthLabel: monthDate.toLocaleDateString("ko-KR", {
       year: "numeric",
       month: "long",
     }),
@@ -187,6 +204,7 @@ export function toHomeViewData(input: {
 export function toRecordDayView(input: {
   isoDate: string;
   emotionTone: HomeViewData["calendarDays"][number]["emotionTone"];
+  checklistItems: TodayChecklistItem[];
   records: RecordDayRow[];
   relatedSessions: SessionRow[];
 }): RecordDayView {
@@ -202,6 +220,7 @@ export function toRecordDayView(input: {
       },
     ),
     emotionTone: input.emotionTone,
+    checklistItems: input.checklistItems,
     records: input.records.map((record) => ({
       id: record.id,
       title: record.title,

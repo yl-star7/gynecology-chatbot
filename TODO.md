@@ -26,6 +26,7 @@
 - [x] `push_token` 컬럼 마이그레이션 적용 (2026-03-20)
 - [x] `system_config` 테이블 마이그레이션 적용 (2026-03-20)
 - [x] Gemini API 키 프로덕션 설정 확인
+- [ ] `SCHIFT_API_KEY` 유효값 재설정 및 workflow 기반 채팅 응답 실검
 - [ ] Expo push notification 인증서 설정 (docs/PUSH_SETUP.md 참조)
 - [ ] pg_cron에 proactive trigger URL 교체 (내재화된 `/api/admin/proactive/trigger` 사용)
 

@@ -3,7 +3,6 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Image, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { HomeViewData, MobileProfileViewData } from "@gynecology-chatbot/app-core";
-import { Ionicons } from "@expo/vector-icons";
 import { Card, Pressable } from "../../components/ui";
 import { PatientHeroBubble } from "../../components/patient/PatientHeroBubble";
 import { PatientShell } from "../../components/patient/PatientShell";
@@ -36,7 +35,7 @@ export function PatientHomeScreen() {
   const babyImageSource = getWeekBabyImageSource(viewModel.pregnancyWeekLabel);
 
   return (
-    <PatientShell activeTab="home" title="홈">
+    <PatientShell activeTab="home" title="홈" pageTone="main">
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -47,8 +46,7 @@ export function PatientHomeScreen() {
         }} tintColor={palette.accent} />}
       >
         <View>
-          <Text style={styles.monthLabel}>{viewModel.monthLabel}</Text>
-          <Text style={styles.dayLabel}>{viewModel.dayLabel}</Text>
+          <Text style={styles.monthLabel}>{`${viewModel.monthLabel} ${viewModel.dayLabel}일`}</Text>
           <Text style={styles.heroName}>{viewModel.heroName}</Text>
         </View>
 
@@ -57,18 +55,7 @@ export function PatientHomeScreen() {
         <View style={styles.heroImageWrap}>
           <View style={styles.heroImageOuter}>
             <View style={styles.heroImageInner}>
-              <View style={[styles.floatDot, styles.floatDotOne]} />
-              <View style={[styles.floatDot, styles.floatDotTwo]} />
-              <View style={[styles.floatDot, styles.floatDotThree]} />
               <Image source={babyImageSource} style={styles.heroImage} resizeMode="cover" />
-              <View style={styles.mailBadge}>
-                <View style={styles.mailBadgeInner}>
-                  <Ionicons name="mail-outline" size={22} color={palette.accent} />
-                </View>
-                <View style={styles.heartBadge}>
-                  <Ionicons name="heart" size={11} color="#ffffff" />
-                </View>
-              </View>
             </View>
           </View>
         </View>
@@ -91,11 +78,17 @@ export function PatientHomeScreen() {
           <Text style={styles.noteBody}>{viewModel.noteBody}</Text>
         </Card>
 
+        <Pressable style={[styles.knowledgeEntryCard, shadows.card]} onPress={() => router.replace("/knowledge")}>
+          <Text style={styles.shortcutEyebrow}>참고 정보</Text>
+          <Text style={styles.shortcutTitle}>임신 지식을 참고로 읽어봐요</Text>
+          <Text style={styles.shortcutBody}>주차별 변화와 참고 문서를 따로 읽고 싶을 때만 들어가면 돼요.</Text>
+        </Pressable>
+
         <View style={styles.shortcutRow}>
           <Pressable style={[styles.shortcutCard, shadows.card]} onPress={() => router.replace("/notebook")}>
-            <Text style={styles.shortcutEyebrow}>기록과 회고</Text>
-            <Text style={styles.shortcutTitle}>오늘 남긴 마음을 다시 봐요</Text>
-            <Text style={styles.shortcutBody}>날짜별 기록과 상담 흔적을 차분히 정리해볼 수 있어요.</Text>
+            <Text style={styles.shortcutEyebrow}>날짜별 기록</Text>
+            <Text style={styles.shortcutTitle}>그날의 체크와 대화를 같이 봐요</Text>
+            <Text style={styles.shortcutBody}>날짜를 누르면 그날 남긴 체크리스트와 대화를 한 번에 볼 수 있어요.</Text>
           </Pressable>
           <Pressable style={[styles.shortcutCard, shadows.card]} onPress={() => router.replace("/profile")}>
             <Text style={styles.shortcutEyebrow}>마이페이지</Text>
@@ -119,13 +112,8 @@ const styles = StyleSheet.create({
     ...typo.eyebrow,
     color: surface.textSecondary,
   },
-  dayLabel: {
-    marginTop: space.xs,
-    ...typo.titleLg,
-    color: surface.textPrimary,
-  },
   heroName: {
-    marginTop: -4,
+    marginTop: space.xs,
     ...typo.titleLg,
     color: surface.textPrimary,
   },
@@ -140,7 +128,7 @@ const styles = StyleSheet.create({
     width: 272,
     height: 272,
     borderRadius: radii.full,
-    backgroundColor: palette.warm,
+    backgroundColor: "#f5f5f7",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -148,7 +136,7 @@ const styles = StyleSheet.create({
     width: 236,
     height: 236,
     borderRadius: radii.full,
-    backgroundColor: surface.surfaceAccent,
+    backgroundColor: "#ececf0",
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
@@ -156,56 +144,6 @@ const styles = StyleSheet.create({
   heroImage: {
     width: "100%",
     height: "100%",
-  },
-  floatDot: {
-    position: "absolute",
-    borderRadius: radii.full,
-    backgroundColor: "rgba(255,255,255,0.42)",
-    zIndex: 2,
-  },
-  floatDotOne: {
-    width: 12,
-    height: 12,
-    top: 48,
-    left: 44,
-  },
-  floatDotTwo: {
-    width: 10,
-    height: 10,
-    top: 82,
-    right: 54,
-  },
-  floatDotThree: {
-    width: 14,
-    height: 14,
-    bottom: 64,
-    left: 58,
-  },
-  mailBadge: {
-    position: "absolute",
-    bottom: 22,
-    left: "50%",
-    marginLeft: -26,
-    zIndex: 3,
-  },
-  mailBadgeInner: {
-    width: 52,
-    height: 52,
-    borderRadius: radii.lg,
-    backgroundColor: "rgba(255,255,255,0.88)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heartBadge: {
-    position: "absolute",
-    right: -6,
-    bottom: -6,
-    width: 22,
-    height: 22,
-    borderRadius: radii.full,
-    backgroundColor: palette.accent,
-    alignItems: "center",
-    justifyContent: "center",
   },
   metricWeek: {
     ...typo.label,
@@ -229,7 +167,7 @@ const styles = StyleSheet.create({
     color: surface.textSecondary,
   },
   quoteCard: {
-    backgroundColor: surface.surfacePrimary,
+    backgroundColor: "#ffffff",
   },
   quoteText: {
     ...typo.body,
@@ -237,7 +175,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   noteCard: {
-    backgroundColor: surface.surfaceSecondary,
+    backgroundColor: "#f7f7f9",
   },
   noteTitle: {
     ...typo.titleSm,
@@ -250,6 +188,11 @@ const styles = StyleSheet.create({
   },
   shortcutRow: {
     gap: space.sm,
+  },
+  knowledgeEntryCard: {
+    borderRadius: radii.xl,
+    backgroundColor: surface.surfaceSecondary,
+    padding: space.xl,
   },
   shortcutCard: {
     borderRadius: radii.xl,

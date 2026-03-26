@@ -7,6 +7,7 @@ import type {
   MobileProfileViewData,
   MobileProfilePort,
   OnboardingPort,
+  TodayPort,
 } from "@gynecology-chatbot/app-core";
 import type { MobileApiClient } from "../../api/mobileApi";
 
@@ -47,6 +48,22 @@ export class ApiMobileHomeAdapter implements MobileHomePort {
   async getHomeView() {
     const payload = await this.client.fetchHome();
     return payload.home;
+  }
+}
+
+export class ApiTodayAdapter implements TodayPort {
+  constructor(private readonly client: MobileApiClient) {}
+
+  async getTodayView() {
+    const payload = await this.client.fetchTodayView();
+    return payload.today;
+  }
+
+  async setChecklistItemCompleted(input: {
+    checklistId: string;
+    completed: boolean;
+  }) {
+    await this.client.updateTodayChecklistItem(input);
   }
 }
 
@@ -114,5 +131,13 @@ export class ApiMobileProfileAdapter implements MobileProfilePort {
   }) {
     const payload = await this.client.updateMobileProfile(input);
     return payload.user;
+  }
+
+  async submitSurveyAnswer(input: {
+    userId: string;
+    questionId: string;
+    answer: string;
+  }) {
+    await this.client.submitProfileSurveyAnswer(input);
   }
 }

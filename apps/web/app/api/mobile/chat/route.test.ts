@@ -4,13 +4,13 @@ jest.mock("@ai-sdk/google", () => ({
 
 jest.mock("ai", () => ({
   generateText: jest.fn(),
-  tool: jest.fn((config: any) => config),
-  stepCountIs: jest.fn((n: number) => n),
+  tool: jest.fn((config) => config),
+  stepCountIs: jest.fn((n) => n),
 }));
 
 jest.mock("@/lib/mobile/session-auth", () => ({
   requireMobileSession: jest.fn(),
-  isMobileSessionError: jest.fn((error: unknown) => {
+  isMobileSessionError: jest.fn((error) => {
     return (
       error instanceof Error &&
       error.message === "mobile session token is required"
@@ -39,7 +39,7 @@ jest.mock("@/lib/mobile/schift-client", () => ({
 
 jest.mock("@/lib/mobile/schift-workflow", () => ({
   runSchiftWorkflow: jest.fn(),
-  formatSchiftWorkflowRun: jest.fn((run: { outputs?: { answer?: string } }) =>
+  formatSchiftWorkflowRun: jest.fn((run) =>
     run.outputs?.answer ?? "workflow 응답",
   ),
 }));
@@ -454,5 +454,167 @@ describe("POST /api/mobile/chat", () => {
       text: "수분을 충분히 드시고 쉬어보세요.",
     });
     expect(mockedGenerateText).not.toHaveBeenCalled();
+  });
+
+  it("renders workflow guardrail notice and character expression when the workflow returns structured JSON", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({});
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages" && !Array.isArray(payload)) {
+          const role = (payload as { role?: string }).role;
+          return Promise.resolve([
+            {
+              id:
+                role === "assistant" ? "assistant-message-structured" : "user-message-structured",
+            },
+          ]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: {
+        run: jest.fn(),
+      },
+    } as never);
+    mockedRunSchiftWorkflow.mockResolvedValue({
+      workflowId: "wf-guardrail",
+      run: {
+        id: "run-guardrail",
+        workflow_id: "wf-guardrail",
+        status: "completed",
+        outputs: {
+          answer: JSON.stringify({
+            answer: "지금은 무리하지 말고 증상이 이어지면 바로 진료를 받아보세요.",
+            guardrailStatus: "medical_caution",
+            guardrailReason: "응급 신호 가능성을 먼저 안내해야 하는 입력이에요.",
+            characterTone: "anxious",
+          }),
+        },
+        block_states: [],
+        started_at: "2026-03-24T12:00:00.000Z",
+        finished_at: "2026-03-24T12:00:01.000Z",
+      },
+    } as never);
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "배가 너무 아프고 식은땀이 나요",
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.assistantMessage.parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "image",
+          alt: expect.stringContaining("캐릭터"),
+        }),
+        expect.objectContaining({
+          type: "text",
+          text: expect.stringContaining("응급 신호 가능성"),
+        }),
+        expect.objectContaining({
+          type: "text",
+          text: expect.stringContaining("지금은 무리하지 말고"),
+        }),
+      ]),
+    );
+  });
+
+  it("falls back to Gemini when Schift workflow returns empty outputs", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({});
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages" && !Array.isArray(payload)) {
+          const role = (payload as { role?: string }).role;
+          return Promise.resolve([
+            {
+              id:
+                role === "assistant" ? "assistant-message-4" : "user-message-4",
+            },
+          ]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGenerateText.mockResolvedValue({
+      text: JSON.stringify({
+        id: "assistant-gemini",
+        role: "assistant",
+        createdAtLabel: "방금 전",
+        parts: [{ type: "text", id: "p1", text: "Gemini 응답입니다." }],
+      }),
+    } as never);
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: {
+        run: jest.fn(),
+      },
+    } as never);
+    mockedRunSchiftWorkflow.mockResolvedValue({
+      workflowId: "wf-active",
+      run: {
+        id: "run-2",
+        workflow_id: "wf-active",
+        status: "completed",
+        outputs: {},
+        block_states: [],
+        started_at: "2026-03-24T12:00:00.000Z",
+        finished_at: "2026-03-24T12:00:01.000Z",
+      },
+    } as never);
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "허리가 아파요",
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+
+    expect(mockedRunSchiftWorkflow).toHaveBeenCalled();
+    expect(mockedGenerateText).toHaveBeenCalled();
+    expect(payload.assistantMessage.parts[0]).toMatchObject({
+      type: "text",
+      text: "Gemini 응답입니다.",
+    });
   });
 });

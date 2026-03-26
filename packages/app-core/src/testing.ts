@@ -31,6 +31,7 @@ import type {
   LinkTargetContent,
   OnboardingProfileInput,
   RecentChatSummary,
+  TodayViewData,
 } from "./domain";
 import type {
   AdminContentPort,
@@ -40,6 +41,7 @@ import type {
   KnowledgePort,
   MobileChatPort,
   MobileHomePort,
+  TodayPort,
   OnboardingPort,
 } from "./ports";
 
@@ -338,6 +340,10 @@ let mockWorkflowRules: AdminWorkflowRule[] = [
     retrievalScope: "현재 주차 ±1주 + 공통 문서",
     modelName: "gemini-2.5-flash-lite",
     status: "active",
+    blocks: [
+      { id: "b1", type: "retriever", config: { collection: "pregnancy-knowledge", top_k: 8 } },
+      { id: "b2", type: "llm", config: { model: "gemini-2.5-flash-lite" } },
+    ],
   },
   {
     id: "wf-image-triage",
@@ -346,6 +352,11 @@ let mockWorkflowRules: AdminWorkflowRule[] = [
     retrievalScope: "위험 신호 문서 우선",
     modelName: "gemini-2.5-flash-lite",
     status: "review",
+    blocks: [
+      { id: "b3", type: "retriever", config: { collection: "pregnancy-knowledge", top_k: 5 } },
+      { id: "b4", type: "vision", config: { model: "gemini-2.5-flash-lite" } },
+      { id: "b5", type: "llm", config: { model: "gemini-2.5-flash-lite" } },
+    ],
   },
 ];
 
@@ -416,6 +427,36 @@ export class MockMobileHomeAdapter implements MobileHomePort {
         description: "주차별 지식과 위험 신호를 확인합니다.",
         href: "/(tabs)/knowledge",
       },
+    };
+  }
+}
+
+export class MockTodayAdapter implements TodayPort {
+  private state: TodayViewData = {
+    babyBody:
+      "수정란이 자궁벽에 착상을 준비하고 있어요. 이 작은 생명은 빠르게 세포 분열을 하고 있습니다.",
+    momBody:
+      "아직 임신을 인지하지 못할 수 있어요. 몸이 임신을 준비하는 중이며, 호르몬 변화가 시작됩니다.",
+    checklistItems: [
+      { id: "folate", label: "엽산 보충제 섭취하기", completed: false },
+      { id: "water", label: "충분한 수분 섭취하기 (하루 8잔)", completed: false },
+      { id: "caffeine", label: "카페인 섭취 줄이기", completed: false },
+    ],
+  };
+
+  async getTodayView(): Promise<TodayViewData> {
+    return this.state;
+  }
+
+  async setChecklistItemCompleted(input: {
+    checklistId: string;
+    completed: boolean;
+  }): Promise<void> {
+    this.state = {
+      ...this.state,
+      checklistItems: this.state.checklistItems.map((item) =>
+        item.id === input.checklistId ? { ...item, completed: input.completed } : item,
+      ),
     };
   }
 }

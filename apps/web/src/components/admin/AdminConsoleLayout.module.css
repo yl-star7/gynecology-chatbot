@@ -561,6 +561,16 @@
 
 .weekRail {
   min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: sticky;
+  top: 18px;
+  max-height: calc(100vh - 120px);
+}
+
+.weekRail .tableToolbar {
+  grid-template-columns: 1fr;
 }
 
 .weekWorkspaceMain {
@@ -636,7 +646,7 @@
 
 .weekHeroGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.9fr);
+  grid-template-columns: minmax(0, 1fr) 160px;
   gap: 16px;
   align-items: start;
 }
@@ -775,7 +785,7 @@
 }
 
 .detailGrid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .list {
@@ -1155,18 +1165,21 @@
   flex: 0 0 auto;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1024px) {
   .metricsGrid,
   .panelGrid,
   .managementGrid,
   .weekManagementGrid,
-  .weekWorkspace,
   .weekHeroGrid,
   .tableToolbar,
   .detailGrid,
   .historyGrid,
   .sessionGrid {
     grid-template-columns: 1fr;
+  }
+
+  .weekWorkspace {
+    grid-template-columns: 220px minmax(0, 1fr);
   }
 
   .metaGrid,
@@ -1182,6 +1195,16 @@
   .consoleRoot,
   .loginRoot {
     grid-template-columns: 1fr;
+  }
+
+  .weekWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .weekRail {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
   }
 
   .sidebarBackdrop {
