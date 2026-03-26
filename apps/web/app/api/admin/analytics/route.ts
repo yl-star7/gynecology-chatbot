@@ -36,6 +36,14 @@ export async function GET() {
       `chat_messages?select=id&created_at=gte.${sevenDaysAgo}T00:00:00Z&limit=${COUNT_LIMIT}`,
     ).catch(() => []);
 
+    // Successful logins
+    const todayLoginsRows = await supabaseSelect<{ id: string }[]>(
+      `user_action_logs?select=id&action_type=eq.login_succeeded&occurred_at=gte.${today}T00:00:00Z&limit=${COUNT_LIMIT}`,
+    ).catch(() => []);
+    const weekLoginsRows = await supabaseSelect<{ id: string }[]>(
+      `user_action_logs?select=id&action_type=eq.login_succeeded&occurred_at=gte.${sevenDaysAgo}T00:00:00Z&limit=${COUNT_LIMIT}`,
+    ).catch(() => []);
+
     // Emotion check-ins today
     const todayEmotionsRows = await supabaseSelect<{ id: string }[]>(
       `calendar_logs?select=id&entry_type=eq.emotion_checkin&date=eq.${today}&limit=${COUNT_LIMIT}`,
@@ -51,6 +59,8 @@ export async function GET() {
       onboardedUsers: onboardedUsersRows.length,
       todaySessions: todaySessionsRows.length,
       weekMessages: weekMessagesRows.length,
+      todayLogins: todayLoginsRows.length,
+      weekLogins: weekLoginsRows.length,
       todayEmotions: todayEmotionsRows.length,
       pushEnabled: pushEnabledRows.length,
     });

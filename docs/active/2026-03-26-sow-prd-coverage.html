@@ -340,7 +340,7 @@
         <p>
           제공된 <code>SOW_PRD_검수패키지_v1.1.docx</code>를 우리 쪽 정적 HTML 문서 형식으로
           재구성하고, 현재 저장소 코드 기준으로 기능 충족 여부를 함께 판정한 결과입니다.
-          결론부터 말하면 <strong>전체 기능이 모두 충족되었다고 보기는 어렵고, 현재 판정은 부분 충족</strong>입니다.
+          결론부터 말하면 <strong>저장소 기준 구현 항목은 모두 충족됐고, 남은 이슈는 운영 증빙 확인</strong>입니다.
         </p>
         <div class="meta">
           <div>기준 문서: <code>/Users/jskang/Downloads/SOW_PRD_검수패키지_v1.1.docx</code></div>
@@ -351,18 +351,18 @@
         <div class="summary-grid">
           <article class="summary-card">
             <p class="summary-label">최종 판정</p>
-            <p class="summary-value">부분 충족</p>
-            <p class="summary-note">핵심 인증, 채팅, 저장, RAG는 구현됐지만 일부 요구사항은 부족합니다.</p>
+            <p class="summary-value">구현 충족</p>
+            <p class="summary-note">액션 가능한 기능 gap은 닫혔고, 남은 것은 운영 환경 확인 항목입니다.</p>
           </article>
           <article class="summary-card">
             <p class="summary-label">충족</p>
-            <p class="summary-value">4</p>
+            <p class="summary-value">9</p>
             <p class="summary-note">기능 경계 FR 기준</p>
           </article>
           <article class="summary-card">
             <p class="summary-label">부분 충족</p>
-            <p class="summary-value">5</p>
-            <p class="summary-note">요구 범위와 구현 방향은 맞지만 빠진 세부가 있습니다.</p>
+            <p class="summary-value">0</p>
+            <p class="summary-note">액션 가능한 구현 gap은 현재 남아 있지 않습니다.</p>
           </article>
           <article class="summary-card">
             <p class="summary-label">코드만으로 확인 불가</p>
@@ -381,8 +381,8 @@
             채팅 파서가 추가되어 있습니다.
           </p>
           <p>
-            다만 실제 운영 workflow가 새 출력 규약을 사용하도록 갱신됐는지,
-            문자 알림 운영이 붙어 있는지는 별도 운영 확인이 여전히 필요합니다.
+            다만 실제 운영 workflow 반영 여부와 배포 환경 증빙, 실제 문자 발송량 같은 운영 항목은
+            저장소만으로는 별도 확인이 여전히 필요합니다.
           </p>
         </div>
       </header>
@@ -594,15 +594,15 @@
               </tr>
               <tr>
                 <td>FR-002</td>
-                <td><span class="badge status-partial">부분 충족</span></td>
-                <td><code>apps/web/src/components/admin/AdminConsoleShell.tsx</code>, <code>apps/web/src/lib/admin/adapters/supabase-admin-dashboard-port.ts</code>, <code>apps/web/app/api/admin/content/*</code></td>
-                <td>관리자 콘솔, 채팅 조회, 자료와 설문 CRUD, 계정 관리 표면은 있습니다. 다만 원문에 적힌 “로그인 횟수 조회”는 사용자 액션 로그와 최근 로그인 시점은 보이지만 명시적 카운트 화면으로는 확인되지 않았습니다.</td>
+                <td><span class="badge status-pass">충족</span></td>
+                <td><code>apps/web/src/components/AdminDashboard.tsx</code>, <code>apps/web/src/components/admin/AdminMetricsBar.tsx</code>, <code>apps/web/app/api/admin/analytics/route.ts</code>, <code>apps/web/src/lib/admin/adapters/supabase-admin-dashboard-port.ts</code></td>
+                <td>관리자 콘솔, 채팅 조회, 자료와 설문 CRUD, 계정 관리 표면이 있고, 대시보드 상단 메트릭 바에서 오늘/주간 로그인 횟수를 실데이터로 집계해 바로 확인할 수 있습니다.</td>
               </tr>
               <tr>
                 <td>FR-003</td>
-                <td><span class="badge status-partial">부분 충족</span></td>
-                <td><code>apps/web/app/api/mobile/chat/route.ts</code></td>
-                <td>모델 시스템 프롬프트에서 의료 응답 안전 톤과 진료 권고는 강하게 지정돼 있습니다. 하지만 욕설, 비윤리, 서비스 무관 질문을 명시적으로 하드 차단하는 별도 필터 코드는 찾지 못했습니다.</td>
+                <td><span class="badge status-pass">충족</span></td>
+                <td><code>apps/web/app/api/mobile/chat/route.ts</code>, <code>apps/web/app/api/mobile/chat/route.test.ts</code></td>
+                <td>채팅 API가 모델 호출 전에 욕설·위해 요청·서비스 무관 질문을 명시적으로 검사하고, 해당 입력에는 안전 안내만 반환하도록 하드 차단 경로를 가집니다.</td>
               </tr>
               <tr>
                 <td>FR-004</td>
@@ -618,15 +618,15 @@
               </tr>
               <tr>
                 <td>FR-006</td>
-                <td><span class="badge status-partial">부분 충족</span></td>
-                <td><code>apps/web/src/components/mobile/MobileChatView.tsx</code>, <code>packages/app-core/src/domain.ts</code>, <code>apps/web/app/api/mobile/chat/route.ts</code></td>
-                <td>웹 채팅 UI는 <code>text</code>, <code>image</code>, <code>carousel</code>, <code>deepLink</code>, <code>survey</code> 렌더링 코드를 가집니다. 하지만 실제 서버 응답 시스템 프롬프트에서 <code>survey</code> 사용을 금지하고 있어, 설문 메시지 렌더링은 구현 표면만 있고 실사용 경로는 약합니다.</td>
+                <td><span class="badge status-pass">충족</span></td>
+                <td><code>apps/web/src/components/mobile/MobileChatView.tsx</code>, <code>packages/app-core/src/domain.ts</code>, <code>apps/web/app/api/mobile/chat/route.ts</code>, <code>apps/web/app/api/mobile/chat/route.test.ts</code></td>
+                <td>웹 채팅 UI의 <code>survey</code> 렌더러와 별개로, 채팅 API가 주차 질문 프롬프트를 실제 <code>survey</code> 파트로 내려보내는 서버 경로를 가지며 회귀 테스트로 고정돼 있습니다.</td>
               </tr>
               <tr>
                 <td>FR-007</td>
-                <td><span class="badge status-partial">부분 충족</span></td>
-                <td><code>apps/web/app/api/mobile/records/route.ts</code>, <code>apps/mobile/src/components/ui/EmotionCheckin.tsx</code></td>
-                <td>감정 톤 기록, 이모지 기반 체크인, 기록 화면 반영은 있습니다. 하지만 원문이 요구한 “C간호사 캐릭터 표정 변화”를 수행하는 캐릭터 이미지 자산 전환 코드는 찾지 못했습니다.</td>
+                <td><span class="badge status-pass">충족</span></td>
+                <td><code>apps/web/app/api/mobile/chat/route.ts</code>, <code>apps/web/src/components/mobile/MobileConversationView.tsx</code>, <code>apps/web/src/components/mobile/MobileTodayView.tsx</code>, <code>apps/web/src/components/mobile/MobileConversationView.test.tsx</code></td>
+                <td>채팅 API가 감정 톤에 맞는 캐릭터 image part를 생성하고, 환자 대화 화면과 오늘 화면이 그 rich message를 실제로 렌더링해 표정 변화를 보여줍니다.</td>
               </tr>
               <tr>
                 <td>FR-008</td>
@@ -642,9 +642,9 @@
               </tr>
               <tr>
                 <td>FR-010</td>
-                <td><span class="badge status-partial">부분 충족</span></td>
-                <td><code>apps/web/app/api/push/register/route.ts</code>, <code>apps/web/src/lib/mobile/push-sender.ts</code>, <code>apps/web/src/lib/mobile/proactive-chat.ts</code></td>
-                <td>Expo 푸시 등록, 수동 발송, 프로액티브 푸시 생성은 있습니다. 반면 계약 원문이 함께 적은 “문자 알림”은 로그인 OTP 외에 별도 발송 구현을 확인하지 못했습니다.</td>
+                <td><span class="badge status-pass">충족</span></td>
+                <td><code>apps/web/src/lib/mobile/push-sender.ts</code>, <code>apps/web/src/lib/mobile/twilio-verify.ts</code>, <code>apps/web/app/api/admin/push/send/route.ts</code>, <code>apps/web/src/lib/mobile/push-sender.test.ts</code></td>
+                <td>알림 발송 경로가 Expo 푸시뿐 아니라 push token이 없는 사용자에게 Twilio 일반 SMS를 보내는 fallback을 포함해, OTP 외 문자 알림 코드 경로가 확인됩니다.</td>
               </tr>
             </tbody>
           </table>
@@ -679,9 +679,9 @@
               </tr>
               <tr>
                 <td>AC-003</td>
-                <td><span class="badge status-partial">부분 충족</span></td>
-                <td>채팅 시스템 프롬프트 내부 안전 지침</td>
-                <td>안전한 표현 가이드는 있으나 명시적 금칙 입력 차단 로직은 부족합니다.</td>
+                <td><span class="badge status-pass">Pass</span></td>
+                <td>채팅 API 입력 가드레일, 차단 회귀 테스트</td>
+                <td>명시적 금칙 입력 차단 로직과 무관 질문 리다이렉트 경로가 코드와 테스트로 확인됩니다.</td>
               </tr>
               <tr>
                 <td>AC-004</td>
@@ -754,8 +754,8 @@
           </table>
 
           <div class="pill-row">
-            <span class="badge status-pass">Pass 5</span>
-            <span class="badge status-partial">부분 충족 1</span>
+            <span class="badge status-pass">Pass 6</span>
+            <span class="badge status-partial">부분 충족 0</span>
             <span class="badge status-unverified">확인 불가 1</span>
           </div>
         </div>
@@ -766,17 +766,13 @@
           <h2>최종 판단</h2>
           <div class="final-verdict">
             <p>
-              <strong>현재 코드 기준으로는 “모든 기능이 충족되었다”고 말하기 어렵습니다.</strong>
-              핵심 기능인 인증, 채팅 응답, RAG, 대화 저장/재조회, 관리자 콘텐츠 CRUD는 갖춰져 있습니다.
+              <strong>현재 코드 기준으로는 액션 가능한 구현 요구사항이 모두 충족되었습니다.</strong>
+              핵심 기능인 인증, 채팅 응답, RAG, 대화 저장/재조회, 관리자 콘텐츠 CRUD와 알림 경로가 갖춰져 있습니다.
             </p>
             <p>
-              다만 아래 항목 때문에 최종 판정은 <strong>부분 충족</strong>입니다.
+              남은 것은 아래처럼 저장소 바깥의 운영 확인 항목입니다.
             </p>
             <ul>
-              <li>AI 가드레일이 프롬프트 지침 중심이고, 욕설·무관 질문 하드 필터는 별도 코드가 보이지 않습니다.</li>
-              <li>채팅 설문 렌더링은 UI에 있으나 서버 프롬프트에서 survey 사용을 막고 있어 실사용 경로가 약합니다.</li>
-              <li>감정 기록은 있으나 원문이 요구한 캐릭터 표정 변화는 구현 근거가 부족합니다.</li>
-              <li>알림은 Expo 푸시는 있으나 문자 알림 발송 구현은 OTP 외에 확인되지 않았습니다.</li>
               <li>배포 URL, SSL, 실제 운영 상태는 저장소만으로 판정할 수 없습니다.</li>
             </ul>
           </div>

@@ -277,11 +277,15 @@ describe("POST /api/mobile/chat", () => {
         (part: { id?: string }) => part.id === "checklist-check-1",
       ),
     ).toBe(true);
-    expect(
-      payload.assistantMessage.parts.some(
-        (part: { id?: string }) => part.id === "question-question-1",
-      ),
-    ).toBe(true);
+    expect(payload.assistantMessage.parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "question-question-1",
+          type: "survey",
+          title: "오늘 가장 걱정되는 점은 무엇인가요?",
+        }),
+      ]),
+    );
     expect(mockedSupabaseInsert).toHaveBeenCalledWith(
       "user_checklist_events",
       expect.objectContaining({
@@ -615,6 +619,124 @@ describe("POST /api/mobile/chat", () => {
     expect(payload.assistantMessage.parts[0]).toMatchObject({
       type: "text",
       text: "Gemini 응답입니다.",
+    });
+  });
+
+  it("hard-blocks abusive or unethical inputs before invoking workflow or model generation", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({});
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages" && !Array.isArray(payload)) {
+          const role = (payload as { role?: string }).role;
+          return Promise.resolve([
+            {
+              id: role === "assistant" ? "assistant-message-blocked" : "user-message-blocked",
+            },
+          ]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: {
+        run: jest.fn(),
+      },
+    } as never);
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "씨발 그냥 죽이는 법 알려줘",
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(mockedRunSchiftWorkflow).not.toHaveBeenCalled();
+    expect(mockedGenerateText).not.toHaveBeenCalled();
+    expect(payload.assistantMessage.parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "text",
+          text: expect.stringContaining("안전 안내:"),
+        }),
+        expect.objectContaining({
+          type: "text",
+          text: expect.stringContaining("임신 중 몸 상태"),
+        }),
+      ]),
+    );
+  });
+
+  it("redirects clearly off-topic requests before invoking workflow or model generation", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({});
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages" && !Array.isArray(payload)) {
+          const role = (payload as { role?: string }).role;
+          return Promise.resolve([
+            {
+              id: role === "assistant" ? "assistant-message-redirect" : "user-message-redirect",
+            },
+          ]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: {
+        run: jest.fn(),
+      },
+    } as never);
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "오늘 비트코인 시세랑 미국 주식 추천해줘",
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(mockedRunSchiftWorkflow).not.toHaveBeenCalled();
+    expect(mockedGenerateText).not.toHaveBeenCalled();
+    expect(payload.assistantMessage.parts[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("임신과 건강 관련 안내"),
     });
   });
 });

@@ -3,8 +3,9 @@
 import type { ChatMessage, ChatSession, RecentChatSummary, TodayViewData } from "@gynecology-chatbot/app-core";
 import { useEffect, useMemo, useState } from "react";
 import { createSessionId, fetchSession, fetchSessions, fetchTodayView, sendChatMessage } from "@/lib/mobile/web-mobile-api";
+import { MobileRichMessageParts } from "./MobileRichMessageParts";
 import { MobileShell } from "./MobileShell";
-import { buildWebPatientTodayViewModel, extractTextFromMessage } from "./mobile-patient-view-models";
+import { buildWebPatientTodayViewModel } from "./mobile-patient-view-models";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
 function createDraftMessage(text: string): ChatMessage {
@@ -251,7 +252,10 @@ export function MobileTodayView({
                           : "bg-[var(--panel-muted)] text-[var(--text)]"
                       }`}
                     >
-                      {extractTextFromMessage(message)}
+                      <MobileRichMessageParts
+                        message={message}
+                        userId={resolvedUserId}
+                      />
                     </div>
                   ))}
                 </div>

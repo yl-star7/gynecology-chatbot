@@ -323,6 +323,19 @@ describe("AdminDashboard", () => {
           });
         }
 
+        if (pathname === "/api/admin/analytics" && !init?.method) {
+          return createJsonResponse({
+            totalUsers: 128,
+            onboardedUsers: 102,
+            todaySessions: 48,
+            weekMessages: 342,
+            todayLogins: 19,
+            weekLogins: 77,
+            todayEmotions: 12,
+            pushEnabled: 86,
+          });
+        }
+
         if (
           pathname === "/api/admin/content/knowledge-items" &&
           !init?.method
@@ -393,6 +406,10 @@ describe("AdminDashboard", () => {
     expect(screen.getByText("운영자")).toBeInTheDocument();
     expect(screen.getByText("주차별 간호 정보")).toBeInTheDocument();
     expect(screen.getByText("응답 워크플로우")).toBeInTheDocument();
+    expect(await screen.findByText("오늘 로그인")).toBeInTheDocument();
+    expect(screen.getByText("주간 로그인")).toBeInTheDocument();
+    expect(screen.getByText("19")).toBeInTheDocument();
+    expect(screen.getByText("77")).toBeInTheDocument();
   });
 
   it.skip("supports week row actions and keeps displayOrder in sync", async () => {

@@ -5,6 +5,7 @@ import type { AdminDashboardData } from "@gynecology-chatbot/app-core";
 import { AdminAccountSection } from "./admin/AdminAccountSection";
 import { AdminConsoleShell } from "./admin/AdminConsoleShell";
 import { AdminContentSection } from "./admin/AdminContentSection";
+import { AdminMetricsBar } from "./admin/AdminMetricsBar";
 import { AdminMonitoringSection } from "./admin/AdminMonitoringSection";
 import { AdminOperationsPanel } from "./admin/AdminOperationsPanel";
 import { useAdminDashboardState } from "./admin/useAdminDashboardState";
@@ -32,6 +33,7 @@ export default function AdminDashboard({
       title="운영 상태"
       onLogout={handleLogout}
     >
+      <AdminMetricsBar metrics={dashboard.metrics} />
       <section id="operations">
         <AdminOperationsPanel />
       </section>

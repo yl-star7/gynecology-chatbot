@@ -331,11 +331,11 @@ export function AdminOperationsPanel() {
 
   return (
     <div className={styles.panelGrid}>
-      {/* Panel 1: Push notification */}
+      {/* Panel 1: Push/SMS notification */}
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div>
-            <h2 className={styles.panelTitle}>푸시 알림 발송</h2>
+            <h2 className={styles.panelTitle}>알림 발송</h2>
           </div>
         </div>
 
@@ -347,7 +347,7 @@ export function AdminOperationsPanel() {
             disabled={pushLoading}
             aria-busy={pushLoading}
           >
-            {pushLoading ? "발송 중..." : "푸시 알림 보내기"}
+            {pushLoading ? "발송 중..." : "알림 보내기"}
           </button>
         </div>
 

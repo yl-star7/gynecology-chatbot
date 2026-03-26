@@ -15,6 +15,8 @@ interface LiveAnalytics {
   onboardedUsers: number;
   todaySessions: number;
   weekMessages: number;
+  todayLogins: number;
+  weekLogins: number;
   todayEmotions: number;
   pushEnabled: number;
 }
@@ -27,6 +29,8 @@ const ANALYTICS_CARDS: {
   { key: "onboardedUsers", label: "온보딩 완료" },
   { key: "todaySessions", label: "오늘 상담" },
   { key: "weekMessages", label: "주간 메시지" },
+  { key: "todayLogins", label: "오늘 로그인" },
+  { key: "weekLogins", label: "주간 로그인" },
   { key: "todayEmotions", label: "오늘 감정 체크인" },
   { key: "pushEnabled", label: "푸시 활성" },
 ];

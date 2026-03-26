@@ -7,8 +7,8 @@ import {
   fetchSession,
   sendChatMessage,
 } from "@/lib/mobile/web-mobile-api";
+import { MobileRichMessageParts } from "./MobileRichMessageParts";
 import { MobileShell } from "./MobileShell";
-import { extractTextFromMessage } from "./mobile-patient-view-models";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
 function createDraftMessage(text: string): ChatMessage {
@@ -139,7 +139,10 @@ export function MobileConversationView({
                       : "bg-[var(--panel-muted)] text-[var(--text)]"
                   }`}
                 >
-                  {extractTextFromMessage(message)}
+                  <MobileRichMessageParts
+                    message={message}
+                    userId={resolvedUserId}
+                  />
                 </div>
               ))}
             </div>
