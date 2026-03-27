@@ -60,6 +60,29 @@ function renderPart(
     );
   }
 
+  if (part.type === "quickReplies") {
+    return (
+      <div
+        key={part.id}
+        className="grid gap-3 rounded-[18px] border border-[var(--line)] bg-white/70 p-4"
+      >
+        {part.title ? (
+          <p className="font-semibold text-[var(--text)]">{part.title}</p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {part.choices.map((choice) => (
+            <div
+              key={choice.id}
+              className="rounded-full border border-[var(--line)] px-3 py-2 text-sm text-[var(--text)]"
+            >
+              {choice.label}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (part.type === "deepLink") {
     const href = `/link/${part.target}?${new URLSearchParams({
       ...(userId ? { userId } : {}),

@@ -44,6 +44,8 @@ export default function AdminAccountsPage({
         onAllowedNoteChange={state.setAllowedNote}
         onUpdatePhoneNumber={state.handleUpdatePhoneNumber}
         onResetSession={state.handleResetSession}
+        onPauseUser={state.handlePauseUser}
+        onResumeUser={state.handleResumeUser}
         onCreateAllowedPhoneNumber={state.handleCreateAllowedPhoneNumber}
         onUpdateAllowedPhoneNumber={state.handleUpdateAllowedPhoneNumber}
         onDeleteAllowedPhoneNumber={state.handleDeleteAllowedPhoneNumber}

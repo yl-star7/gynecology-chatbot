@@ -121,6 +121,20 @@ function formatUserActionLabel(
   actionType: UserActionType,
   payload: Record<string, unknown> | null,
 ) {
+  if (actionType === "account_paused") {
+    return {
+      actionLabel: "사용 중단",
+      detail: "운영자가 이 사용자의 채팅과 로그인을 잠시 멈췄습니다.",
+    };
+  }
+
+  if (actionType === "account_resumed") {
+    return {
+      actionLabel: "사용 재개",
+      detail: "운영자가 이 사용자의 이용을 다시 열었습니다.",
+    };
+  }
+
   if (actionType === "login_succeeded") {
     return {
       actionLabel: "로그인 완료",
@@ -177,6 +191,29 @@ function formatUserActionLabel(
         ? `이미지 ${imageCount}장을 첨부해 채팅을 시작했습니다.`
         : "새 채팅 메시지를 전송했습니다."),
   };
+}
+
+function formatAdminEventLabel(value: string | null | undefined) {
+  if (!value) {
+    return "최근 이슈 없음";
+  }
+
+  const labels: Record<string, string> = {
+    active: "정상 이용 중",
+    paused: "사용 중단 상태",
+    deleted: "삭제된 계정",
+    pending_recovery: "접근 복구 대기",
+    content_update: "콘텐츠 설정 변경",
+    phone_change: "전화번호 변경",
+    session_reset: "세션 초기화",
+    account_pause: "사용 중단",
+    account_resume: "사용 재개",
+    allowed_phone_number_create: "허용 전화번호 추가",
+    allowed_phone_number_update: "허용 전화번호 수정",
+    allowed_phone_number_delete: "허용 전화번호 삭제",
+  };
+
+  return labels[value] ?? value;
 }
 
 function mapWorkflowRule(row: {
@@ -453,7 +490,9 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           name: resolveDisplayName(user.id),
           phoneNumber: decryptPhoneNumber(user.phone_number_encrypted),
           status: toManagedUserStatus(user.account_status),
-          latestIssue: latestAudit?.action_type ?? user.account_status,
+          latestIssue: formatAdminEventLabel(
+            latestAudit?.action_type ?? user.account_status,
+          ),
         };
       }),
       recoveryActions: auditLogs
@@ -577,7 +616,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       name: profilesByUser.get(user.id)?.trim() || "알 수 없는 사용자",
       phoneNumber: decryptPhoneNumber(user.phone_number_encrypted),
       status: toManagedUserStatus(user.account_status),
-      latestIssue: user.account_status,
+      latestIssue: formatAdminEventLabel(user.account_status),
     }));
   }
 
@@ -623,6 +662,29 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       input.phoneNumber,
     );
     const storage = createPhoneNumberStorage(normalizedPhoneNumber);
+    const existingRows = await supabaseSelect<
+      Array<{
+        id: string;
+        phone_number_encrypted: string;
+        display_name: string | null;
+        note: string | null;
+        created_at: string;
+        updated_at: string;
+      }>
+    >(
+      `allowed_phone_numbers?select=id,phone_number_encrypted,display_name,note,created_at,updated_at&phone_number_blind_index=eq.${encodeURIComponent(storage.phoneNumberBlindIndex)}&limit=1`,
+    );
+
+    if (existingRows[0]) {
+      return this.updateAllowedPhoneNumber({
+        actorId: input.actorId,
+        id: existingRows[0].id,
+        phoneNumber: normalizedPhoneNumber,
+        displayName: input.displayName ?? existingRows[0].display_name,
+        note: input.note ?? existingRows[0].note,
+      });
+    }
+
     const inserted = await supabaseInsert<
       Array<{
         id: string;
@@ -854,6 +916,33 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       reason: input.reason,
       before_payload: {},
       after_payload: { account_status: "pending_recovery" },
+    });
+  }
+
+  async updateUserStatus(input: {
+    actorId?: string;
+    userId: string;
+    status: "active" | "paused";
+    reason: string;
+  }): Promise<void> {
+    if (!hasBackendAdminConfig()) {
+      return;
+    }
+
+    await supabaseUpdate(`users?id=eq.${input.userId}`, {
+      account_status: input.status,
+      updated_at: new Date().toISOString(),
+    });
+
+    await supabaseInsert("admin_audit_logs", {
+      admin_user_id: input.actorId ?? getAdminActorId(),
+      target_user_id: input.userId,
+      action_type: input.status === "paused" ? "account_pause" : "account_resume",
+      entity_type: "user",
+      entity_id: input.userId,
+      reason: input.reason,
+      before_payload: {},
+      after_payload: { account_status: input.status },
     });
   }
 }

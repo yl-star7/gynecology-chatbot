@@ -9,7 +9,7 @@ const QUICK_PROMPTS = [
   "하복부 통증",
   "출혈",
   "분비물",
-  "태동 감소",
+  "태동이 평소보다 적어요",
   "약 복용",
   "검사 결과",
 ] as const;
@@ -88,7 +88,7 @@ export function MobileChatComposer({
           />
           <button
             type="button"
-            onClick={onSend}
+            onClick={() => onSend()}
             aria-label="메시지 보내기"
             disabled={isSending || (!text.trim() && !imageDataUrl)}
             className="shrink-0 rounded-full bg-[var(--accent)] p-3 text-white disabled:cursor-not-allowed disabled:opacity-50"

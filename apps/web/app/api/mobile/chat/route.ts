@@ -122,6 +122,12 @@ type WorkflowAssistantPayload = {
   guardrailReason?: string;
 };
 
+type AssistantFollowUpMessage = {
+  role: "assistant";
+  createdAtLabel: string;
+  parts: ChatMessage["parts"];
+};
+
 const GUARDRAIL_BLOCK_RULES = [
   {
     type: "abusive",
@@ -153,66 +159,113 @@ const PREGNANCY_CONTEXT_PATTERNS = [
   /\b(pregnan|baby|fetus|labor|bleeding|contraction|ultrasound|obgyn)\b/i,
 ];
 
-function buildWeekPromptParts(input: {
+function buildQuickReplyChoices(input: {
+  baseId: string;
+  options: string[];
+}) {
+  return input.options.slice(0, 4).map((option, index) => ({
+    id: `${input.baseId}-choice-${index + 1}`,
+    label: option,
+    message: option,
+  }));
+}
+
+function buildPromptFollowUpMessages(input: {
   week: WeekDataRow;
   dayContent: DayContentRow | null;
   checklists: ChecklistRow[];
   questions: QuestionRow[];
-}): ChatMessage["parts"] {
-  const parts: ChatMessage["parts"] = [];
+}): AssistantFollowUpMessage[] {
+  const messages: AssistantFollowUpMessage[] = [];
 
-  if (input.dayContent) {
-    if (input.dayContent.baby_message) {
-      parts.push({
-        type: "text",
-        id: `baby-message-${input.week.week_number}-${input.dayContent.day_number}`,
-        text: input.dayContent.baby_message,
-      });
-    }
+  if (input.dayContent?.baby_message?.trim()) {
+    messages.push({
+      role: "assistant",
+      createdAtLabel: "방금 전",
+      parts: [
+        {
+          type: "text",
+          id: `baby-message-${input.week.week_number}-${input.dayContent.day_number}`,
+          text: input.dayContent.baby_message.trim(),
+        },
+      ],
+    });
   }
 
   for (const checklist of input.checklists) {
-    parts.push({
-      type: "text",
-      id: `checklist-${checklist.id}`,
-      text: `${input.week.checklist_intro ?? "오늘 할 일"}\n- ${checklist.title}${
-        checklist.description ? `\n${checklist.description}` : ""
-      }`,
+    messages.push({
+      role: "assistant",
+      createdAtLabel: "방금 전",
+      parts: [
+        {
+          type: "text",
+          id: `checklist-${checklist.id}`,
+          text: `${input.week.checklist_intro ?? "오늘 할 일"}\n${checklist.title}${
+            checklist.description ? `\n${checklist.description}` : ""
+          }`,
+        },
+        {
+          type: "quickReplies",
+          id: `quick-replies-checklist-${checklist.id}`,
+          title: "빠르게 답해보세요",
+          choices: buildQuickReplyChoices({
+            baseId: checklist.id,
+            options: [
+              `${checklist.title} 했어요`,
+              `${checklist.title} 아직 못 했어요`,
+              `${checklist.title} 더 설명해 주세요`,
+            ],
+          }),
+        },
+      ],
     });
   }
 
   for (const question of input.questions) {
-    const choices =
+    const questionChoices =
       question.question_type === "yes_no"
         ? [
-            {
-              id: `${question.id}-yes`,
-              label: question.question_payload?.yesLabel?.trim() || "네",
-            },
-            {
-              id: `${question.id}-no`,
-              label: question.question_payload?.noLabel?.trim() || "아니요",
-            },
+            question.question_payload?.yesLabel?.trim() || "네",
+            question.question_payload?.noLabel?.trim() || "아니요",
           ]
         : (question.question_payload?.choices ?? [])
-            .map((choice, index) => ({
-              id: choice.id ?? `${question.id}-choice-${index + 1}`,
-              label: choice.label?.trim() ?? "",
-            }))
-            .filter((choice) => choice.label);
+            .map((choice) => choice.label?.trim() ?? "")
+            .filter(Boolean);
 
-    parts.push({
-      type: "survey",
-      id: `question-${question.id}`,
-      title: question.question_text,
-      body: [input.week.question_intro ?? "생각해볼 질문", question.help_text]
-        .filter(Boolean)
-        .join("\n"),
-      choices,
+    const fallbackChoices =
+      questionChoices.length > 0
+        ? questionChoices
+        : ["괜찮아요", "조금 걱정돼요", "더 확인하고 싶어요", "잘 모르겠어요"];
+
+    messages.push({
+      role: "assistant",
+      createdAtLabel: "방금 전",
+      parts: [
+        {
+          type: "text",
+          id: `question-text-${question.id}`,
+          text: [
+            input.week.question_intro ?? "생각해볼 질문",
+            question.question_text,
+            question.help_text,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        },
+        {
+          type: "quickReplies",
+          id: `quick-replies-question-${question.id}`,
+          title: "빠르게 답해보세요",
+          choices: buildQuickReplyChoices({
+            baseId: question.id,
+            options: fallbackChoices,
+          }),
+        },
+      ],
     });
   }
 
-  return parts;
+  return messages;
 }
 
 async function getPromptContext(
@@ -598,6 +651,29 @@ function buildAssistantMessageFromWorkflowRun(run: {
   };
 }
 
+function sanitizeInlineCitationMarkers(text: string) {
+  return text
+    .replace(/\s*\[\d+\]/g, "")
+    .replace(/\s*\(\d+\)/g, "")
+    .replace(/\s*\(\d+\)\(\d+\)/g, "")
+    .replace(/\s*\((?:\d+\s*,\s*)+\d+\)/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function sanitizeChatParts(parts: ChatMessage["parts"]) {
+  return parts.map((part) => {
+    if (part.type === "text") {
+      return {
+        ...part,
+        text: sanitizeInlineCitationMarkers(part.text),
+      };
+    }
+
+    return part;
+  });
+}
+
 function parseAssistantResponse(rawText: string): ChatMessage {
   const jsonMatch = rawText.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
@@ -970,6 +1046,8 @@ export async function POST(request: NextRequest) {
       assistantMessage = parseAssistantResponse(responseText);
     }
 
+    assistantMessage.parts = sanitizeChatParts(assistantMessage.parts);
+
     const shouldAppendPromptParts = promptContext
       ? !(await alreadyPromptedForSession({
           userId,
@@ -979,36 +1057,49 @@ export async function POST(request: NextRequest) {
         }))
       : false;
 
-    if (promptContext && shouldAppendPromptParts) {
-      assistantMessage.parts = [
-        ...assistantMessage.parts,
-        ...buildWeekPromptParts(promptContext),
-      ];
+    const assistantMessages: ChatMessage[] = [assistantMessage];
+    const promptFollowUpMessages =
+      promptContext && shouldAppendPromptParts
+        ? buildPromptFollowUpMessages(promptContext)
+        : [];
+
+    for (const followUp of promptFollowUpMessages) {
+      assistantMessages.push({
+        id: `assistant-${Date.now()}-${assistantMessages.length + 1}`,
+        role: "assistant",
+        createdAtLabel: followUp.createdAtLabel,
+        parts: sanitizeChatParts(followUp.parts),
+      });
     }
 
     const insertedAssistantMessages = await supabaseInsert<
       Array<{ id: string }>
-    >("chat_messages", {
-      session_id: normalizedSessionId,
-      user_id: userId,
-      role: "assistant",
-      parts: assistantMessage.parts,
-      plain_text: assistantMessage.parts
-        .filter(
-          (part): part is Extract<typeof part, { type: "text" }> =>
-            part.type === "text",
-        )
-        .map((part) => part.text)
-        .join("\n"),
-      model_name: apiKey ? "gemini-2.5-flash-lite" : "fallback",
-    });
-    const insertedAssistantMessage = insertedAssistantMessages[0] ?? null;
+    >(
+      "chat_messages",
+      assistantMessages.map((message) => ({
+        session_id: normalizedSessionId,
+        user_id: userId,
+        role: "assistant",
+        parts: message.parts,
+        plain_text: message.parts
+          .filter(
+            (part): part is Extract<typeof part, { type: "text" }> =>
+              part.type === "text",
+          )
+          .map((part) => part.text)
+          .join("\n"),
+        model_name: apiKey ? "gemini-2.5-flash-lite" : "fallback",
+      })),
+    );
 
     if (promptContext && shouldAppendPromptParts) {
       await createPromptEvents({
         userId,
         sessionId: normalizedSessionId,
-        assistantMessageId: insertedAssistantMessage?.id ?? null,
+        assistantMessageId:
+          insertedAssistantMessages[insertedAssistantMessages.length - 1]?.id ??
+          insertedAssistantMessages[0]?.id ??
+          null,
         checklists: promptContext.checklists,
         questions: promptContext.questions,
       });
@@ -1022,6 +1113,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       assistantMessage,
+      assistantMessages,
       sessionId: normalizedSessionId,
     });
   } catch (error) {

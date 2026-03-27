@@ -47,6 +47,7 @@ function createDraftMessage(text: string, imageDataUrl?: string): ChatMessage {
 function renderMessagePart(
   part: ChatMessage["parts"][number],
   userId: string | null,
+  onQuickReplySelect: (message: string) => void,
 ) {
   if (part.type === "text") {
     return (
@@ -128,6 +129,28 @@ function renderMessagePart(
           <polyline points="9 18 15 12 9 6" />
         </svg>
       </Link>
+    );
+  }
+
+  if (part.type === "quickReplies") {
+    return (
+      <div key={part.id} className="grid gap-2">
+        {part.title ? (
+          <p className="text-sm font-semibold text-[var(--text)]">{part.title}</p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {part.choices.map((choice) => (
+            <button
+              key={choice.id}
+              type="button"
+              onClick={() => onQuickReplySelect(choice.message)}
+              className="rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
+            >
+              {choice.label}
+            </button>
+          ))}
+        </div>
+      </div>
     );
   }
 
@@ -307,20 +330,22 @@ export function MobileChatView({
     [],
   );
 
-  const handleSend = useCallback(async () => {
+  const handleSend = useCallback(async (prefilledText?: string) => {
     if (!resolvedUserId) {
       return;
     }
 
-    if (!text.trim() && !imageDataUrl) {
+    const nextText = (prefilledText ?? text).trim();
+
+    if (!nextText && !imageDataUrl) {
       return;
     }
 
-    const draftMessage = createDraftMessage(text, imageDataUrl ?? undefined);
+    const draftMessage = createDraftMessage(nextText, imageDataUrl ?? undefined);
     const draftMessageId = draftMessage.id;
     setMessages((current) => [...current, draftMessage]);
     setSessionTitle((current) =>
-      current === "새 채팅" && text.trim() ? text.trim().slice(0, 24) : current,
+      current === "새 채팅" && nextText ? nextText.slice(0, 24) : current,
     );
     setIsSending(true);
     setError(null);
@@ -329,7 +354,7 @@ export function MobileChatView({
       const payload = await sendChatMessage({
         userId: resolvedUserId,
         sessionId: resolvedSessionId,
-        text,
+        text: nextText,
         imageDataUris: imageDataUrl ? [imageDataUrl] : [],
       });
 
@@ -344,7 +369,10 @@ export function MobileChatView({
             : message,
         ),
       );
-      setMessages((current) => [...current, payload.assistantMessage]);
+      setMessages((current) => [
+        ...current,
+        ...(payload.assistantMessages ?? [payload.assistantMessage]),
+      ]);
       setText("");
       setImageDataUrl(null);
       const nextSessions = await fetchSessions(resolvedUserId);
@@ -371,6 +399,16 @@ export function MobileChatView({
     setText((current) => (current.trim() ? `${current}\n${prompt}` : prompt));
     composerRef.current?.focus();
   }, []);
+
+  const handleQuickReplySelect = useCallback(
+    (message: string) => {
+      if (isSending) {
+        return;
+      }
+      void handleSend(message);
+    },
+    [handleSend, isSending],
+  );
 
   return (
     <>
@@ -423,7 +461,11 @@ export function MobileChatView({
                   >
                     <div className="grid gap-3">
                       {message.parts.map((part) =>
-                        renderMessagePart(part, resolvedUserId),
+                        renderMessagePart(
+                          part,
+                          resolvedUserId,
+                          handleQuickReplySelect,
+                        ),
                       )}
                     </div>
                     <p className="mt-3 text-right text-xs text-[var(--text-soft)]">

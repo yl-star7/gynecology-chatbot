@@ -258,7 +258,11 @@ export async function sendChatMessage(input: {
     body: JSON.stringify(input),
   });
 
-  return parseJson<{ assistantMessage: ChatMessage; sessionId?: string }>(response);
+  return parseJson<{
+    assistantMessage: ChatMessage;
+    assistantMessages?: ChatMessage[];
+    sessionId?: string;
+  }>(response);
 }
 
 export async function fileToDataUrl(file: File) {

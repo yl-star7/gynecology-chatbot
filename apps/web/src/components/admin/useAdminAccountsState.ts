@@ -150,6 +150,57 @@ export function useAdminAccountsState(dashboard: AdminDashboardData) {
     setIsAccountSubmitting(false);
   }
 
+  async function updateUserStatus(status: "active" | "paused") {
+    setIsAccountSubmitting(true);
+    setActionMessage(null);
+
+    const response = await fetch("/api/admin/users/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: selectedUserId,
+        status,
+        reason:
+          reason ||
+          (status === "paused"
+            ? "운영자 수동 사용 중단"
+            : "운영자 수동 사용 재개"),
+      }),
+    });
+
+    const payload = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setActionMessage(
+        payload.error ??
+          (status === "paused"
+            ? "사용 중단 처리에 실패했습니다."
+            : "사용 재개 처리에 실패했습니다."),
+      );
+      setIsAccountSubmitting(false);
+      return;
+    }
+
+    setManagedUsers((current) =>
+      current.map((user) =>
+        user.id === selectedUserId
+          ? {
+              ...user,
+              status: status === "paused" ? "paused" : "active",
+              latestIssue:
+                status === "paused" ? "사용 중단 처리 완료" : "사용 재개 처리 완료",
+            }
+          : user,
+      ),
+    );
+    setReason("");
+    setActionMessage(
+      status === "paused"
+        ? "사용자 이용을 잠시 중단했습니다."
+        : "사용자 이용을 다시 열었습니다.",
+    );
+    setIsAccountSubmitting(false);
+  }
+
   async function handleCreateAllowedPhoneNumber() {
     if (!allowedPhoneNumber.trim()) {
       setActionMessage("허용할 전화번호를 먼저 입력해 주세요.");
@@ -293,6 +344,8 @@ export function useAdminAccountsState(dashboard: AdminDashboardData) {
     setAllowedNote,
     handleUpdatePhoneNumber,
     handleResetSession,
+    handlePauseUser: () => updateUserStatus("paused"),
+    handleResumeUser: () => updateUserStatus("active"),
     handleCreateAllowedPhoneNumber,
     handleUpdateAllowedPhoneNumber,
     handleDeleteAllowedPhoneNumber,

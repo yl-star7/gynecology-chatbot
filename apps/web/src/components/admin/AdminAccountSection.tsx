@@ -32,6 +32,8 @@ interface AdminAccountSectionProps {
   onAllowedNoteChange: (value: string) => void;
   onUpdatePhoneNumber: () => Promise<void>;
   onResetSession: () => Promise<void>;
+  onPauseUser: () => Promise<void>;
+  onResumeUser: () => Promise<void>;
   onCreateAllowedPhoneNumber: () => Promise<void>;
   onUpdateAllowedPhoneNumber: () => Promise<void>;
   onDeleteAllowedPhoneNumber: () => Promise<void>;
@@ -58,6 +60,8 @@ export function AdminAccountSection({
   onAllowedNoteChange,
   onUpdatePhoneNumber,
   onResetSession,
+  onPauseUser,
+  onResumeUser,
   onCreateAllowedPhoneNumber,
   onUpdateAllowedPhoneNumber,
   onDeleteAllowedPhoneNumber,
@@ -183,6 +187,22 @@ export function AdminAccountSection({
                 onClick={onResetSession}
               >
                 세션 초기화
+              </button>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                disabled={isSubmitting}
+                onClick={onPauseUser}
+              >
+                사용 중단
+              </button>
+              <button
+                className={styles.secondaryButton}
+                type="button"
+                disabled={isSubmitting}
+                onClick={onResumeUser}
+              >
+                사용 재개
               </button>
             </div>
 

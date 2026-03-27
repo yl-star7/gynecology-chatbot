@@ -119,6 +119,12 @@ export interface AdminUserPort {
     userId: string;
     reason: string;
   }): Promise<void>;
+  updateUserStatus(input: {
+    actorId?: string;
+    userId: string;
+    status: "active" | "paused";
+    reason: string;
+  }): Promise<void>;
 }
 
 export interface AdminContentPort {

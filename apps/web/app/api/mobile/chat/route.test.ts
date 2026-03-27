@@ -39,9 +39,7 @@ jest.mock("@/lib/mobile/schift-client", () => ({
 
 jest.mock("@/lib/mobile/schift-workflow", () => ({
   runSchiftWorkflow: jest.fn(),
-  formatSchiftWorkflowRun: jest.fn((run) =>
-    run.outputs?.answer ?? "workflow 응답",
-  ),
+  formatSchiftWorkflowRun: jest.fn((run) => run.outputs?.answer ?? "workflow 응답"),
 }));
 
 import { requireMobileSession } from "@/lib/mobile/session-auth";
@@ -242,12 +240,19 @@ describe("POST /api/mobile/chat", () => {
           return Promise.resolve([]);
         }
 
-        if (table === "chat_messages" && !Array.isArray(payload)) {
+        if (table === "chat_messages") {
+          if (Array.isArray(payload)) {
+            return Promise.resolve(
+              payload.map((_, index) => ({
+                id: `assistant-message-${index + 1}`,
+              })),
+            );
+          }
+
           const role = (payload as { role?: string }).role;
           return Promise.resolve([
             {
-              id:
-                role === "assistant" ? "assistant-message-1" : "user-message-1",
+              id: role === "assistant" ? "assistant-message-1" : "user-message-1",
             },
           ]);
         }
@@ -272,17 +277,31 @@ describe("POST /api/mobile/chat", () => {
 
     expect(response.status).toBe(200);
     const payload = await response.json();
-    expect(
-      payload.assistantMessage.parts.some(
-        (part: { id?: string }) => part.id === "checklist-check-1",
-      ),
-    ).toBe(true);
-    expect(payload.assistantMessage.parts).toEqual(
+    expect(payload.assistantMessages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          id: "question-question-1",
-          type: "survey",
-          title: "오늘 가장 걱정되는 점은 무엇인가요?",
+          parts: expect.arrayContaining([
+            expect.objectContaining({
+              id: "checklist-check-1",
+              type: "text",
+            }),
+            expect.objectContaining({
+              id: "quick-replies-checklist-check-1",
+              type: "quickReplies",
+            }),
+          ]),
+        }),
+        expect.objectContaining({
+          parts: expect.arrayContaining([
+            expect.objectContaining({
+              id: "question-text-question-1",
+              type: "text",
+            }),
+            expect.objectContaining({
+              id: "quick-replies-question-question-1",
+              type: "quickReplies",
+            }),
+          ]),
         }),
       ]),
     );
@@ -291,7 +310,7 @@ describe("POST /api/mobile/chat", () => {
       expect.objectContaining({
         user_id: "user-1",
         checklist_id: "check-1",
-        prompt_message_id: "assistant-message-1",
+        prompt_message_id: "assistant-message-4",
         status: "sent",
       }),
     );
@@ -300,7 +319,7 @@ describe("POST /api/mobile/chat", () => {
       expect.objectContaining({
         user_id: "user-1",
         question_id: "question-1",
-        prompt_message_id: "assistant-message-1",
+        prompt_message_id: "assistant-message-4",
         status: "sent",
       }),
     );
@@ -321,12 +340,19 @@ describe("POST /api/mobile/chat", () => {
           return Promise.resolve([]);
         }
 
-        if (table === "chat_messages" && !Array.isArray(payload)) {
+        if (table === "chat_messages") {
+          if (Array.isArray(payload)) {
+            return Promise.resolve(
+              payload.map((_, index) => ({
+                id: `assistant-message-${index + 1}`,
+              })),
+            );
+          }
+
           const role = (payload as { role?: string }).role;
           return Promise.resolve([
             {
-              id:
-                role === "assistant" ? "assistant-message-2" : "user-message-2",
+              id: role === "assistant" ? "assistant-message-2" : "user-message-2",
             },
           ]);
         }
@@ -385,12 +411,19 @@ describe("POST /api/mobile/chat", () => {
           return Promise.resolve([]);
         }
 
-        if (table === "chat_messages" && !Array.isArray(payload)) {
+        if (table === "chat_messages") {
+          if (Array.isArray(payload)) {
+            return Promise.resolve(
+              payload.map((_, index) => ({
+                id: `assistant-message-${index + 1}`,
+              })),
+            );
+          }
+
           const role = (payload as { role?: string }).role;
           return Promise.resolve([
             {
-              id:
-                role === "assistant" ? "assistant-message-3" : "user-message-3",
+              id: role === "assistant" ? "assistant-message-3" : "user-message-3",
             },
           ]);
         }
@@ -458,6 +491,65 @@ describe("POST /api/mobile/chat", () => {
       text: "수분을 충분히 드시고 쉬어보세요.",
     });
     expect(mockedGenerateText).not.toHaveBeenCalled();
+  });
+
+  it("removes inline citation markers from workflow responses", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({ existingPromptEvents: true });
+    mockedSupabaseInsert.mockImplementation((table: string, payload: object | object[]) => {
+      if (table === "chat_sessions") {
+        return Promise.resolve([]);
+      }
+
+      if (table === "chat_messages") {
+        if (Array.isArray(payload)) {
+          return Promise.resolve([{ id: "assistant-message-1" }]);
+        }
+
+        return Promise.resolve([{ id: "user-message-1" }]);
+      }
+
+      return Promise.resolve([]);
+    });
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: {
+        run: jest.fn(),
+      },
+    } as never);
+    mockedRunSchiftWorkflow.mockResolvedValue({
+      workflowId: "wf-citation",
+      run: {
+        id: "run-citation",
+        workflow_id: "wf-citation",
+        status: "completed",
+        outputs: {
+          answer: "안정을 취해 보세요 (3)(5) [91]",
+        },
+        block_states: [],
+        started_at: "2026-03-24T12:00:00.000Z",
+        finished_at: "2026-03-24T12:00:01.000Z",
+      },
+    } as never);
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "복통이 있어요",
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    const payload = await response.json();
+    expect(payload.assistantMessage.parts[0].text).toBe("안정을 취해 보세요");
   });
 
   it("renders workflow guardrail notice and character expression when the workflow returns structured JSON", async () => {

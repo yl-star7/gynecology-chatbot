@@ -4,7 +4,11 @@ import { useState } from "react";
 
 import type { AdminDashboardData, AdminHistoryUser } from "@gynecology-chatbot/app-core";
 
-import { getSessionRoleBadge, getSessionRoleLabel } from "./admin-dashboard-labels";
+import {
+  getSessionRoleBadge,
+  getSessionRoleLabel,
+  getUserActionTypeLabel,
+} from "./admin-dashboard-labels";
 import styles from "./AdminConsoleLayout.module.css";
 
 interface AdminMonitoringSectionProps {
@@ -136,7 +140,7 @@ export function AdminMonitoringSection({
                   <option value="all">전체</option>
                   {actionTypeOptions.map((actionType) => (
                     <option key={actionType} value={actionType}>
-                      {actionType}
+                      {getUserActionTypeLabel(actionType)}
                     </option>
                   ))}
                 </select>

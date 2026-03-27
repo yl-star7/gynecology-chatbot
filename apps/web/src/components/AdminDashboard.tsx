@@ -19,7 +19,12 @@ export default function AdminDashboard({
   dashboard,
   adminDisplayName,
 }: AdminDashboardProps) {
-  const state = useAdminDashboardState(dashboard);
+  const state = useAdminDashboardState(dashboard) as ReturnType<
+    typeof useAdminDashboardState
+  > & {
+    handlePauseUser: () => Promise<void>;
+    handleResumeUser: () => Promise<void>;
+  };
 
   async function handleLogout() {
     await fetch("/api/admin/auth/logout", { method: "POST" });
@@ -59,6 +64,8 @@ export default function AdminDashboard({
           onAllowedNoteChange={state.setAllowedNote}
           onUpdatePhoneNumber={state.handleUpdatePhoneNumber}
           onResetSession={state.handleResetSession}
+          onPauseUser={state.handlePauseUser}
+          onResumeUser={state.handleResumeUser}
           onCreateAllowedPhoneNumber={state.handleCreateAllowedPhoneNumber}
           onUpdateAllowedPhoneNumber={state.handleUpdateAllowedPhoneNumber}
           onDeleteAllowedPhoneNumber={state.handleDeleteAllowedPhoneNumber}

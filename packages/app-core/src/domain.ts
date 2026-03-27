@@ -104,6 +104,19 @@ export interface TextPart {
   text: string;
 }
 
+export interface QuickReplyChoice {
+  id: string;
+  label: string;
+  message: string;
+}
+
+export interface QuickRepliesPart {
+  type: "quickReplies";
+  id: string;
+  title?: string;
+  choices: QuickReplyChoice[];
+}
+
 export interface ImagePart {
   type: "image";
   id: string;
@@ -123,6 +136,7 @@ export interface DeepLinkPart {
 
 export type ChatPart =
   | TextPart
+  | QuickRepliesPart
   | SurveyPart
   | CarouselPart
   | ImagePart
@@ -341,7 +355,9 @@ export type UserActionType =
   | "phone_verified"
   | "onboarding_completed"
   | "profile_updated"
-  | "chat_message_sent";
+  | "chat_message_sent"
+  | "account_paused"
+  | "account_resumed";
 
 export interface AdminUserAction {
   id: string;

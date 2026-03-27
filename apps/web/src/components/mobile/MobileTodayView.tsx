@@ -78,7 +78,7 @@ export function MobileTodayView({
 
     const shouldLoadExisting = recentSessions.some((item) => item.id === resolvedSessionId);
     if (!shouldLoadExisting) {
-      setSession({ id: resolvedSessionId, title: "아기와 나누는 마음", messages: [] });
+      setSession({ id: resolvedSessionId, title: "아기와 대화", messages: [] });
       return;
     }
 
@@ -104,7 +104,7 @@ export function MobileTodayView({
     const draft = createDraftMessage(nextText);
     setSession((current) => ({
       id: current?.id ?? resolvedSessionId,
-      title: current?.title ?? "아기와 나누는 마음",
+      title: current?.title ?? "아기와 대화",
       messages: [...(current?.messages ?? []), draft],
     }));
     setText("");
@@ -120,11 +120,11 @@ export function MobileTodayView({
       setResolvedSessionId(payload.sessionId ?? resolvedSessionId);
       setSession((current) => ({
         id: payload.sessionId ?? current?.id ?? resolvedSessionId,
-        title: current?.title ?? "아기와 나누는 마음",
+        title: current?.title ?? "아기와 대화",
         messages: [
           ...(current?.messages ?? []).filter((message) => message.id !== draft.id),
           draft,
-          payload.assistantMessage,
+          ...(payload.assistantMessages ?? [payload.assistantMessage]),
         ],
       }));
     } catch (nextError) {
@@ -234,7 +234,7 @@ export function MobileTodayView({
             <div className="grid gap-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f4efff] text-[18px] text-[#8a3ffc]">◌</div>
-                <h2 className="text-xl font-semibold text-[var(--text)]">아기와 나누는 마음</h2>
+                <h2 className="text-xl font-semibold text-[var(--text)]">아기와 대화</h2>
               </div>
               {messages.length === 0 ? (
                 <div className="flex min-h-[220px] flex-col items-center justify-center gap-4 text-center text-[var(--text-soft)]">

@@ -86,4 +86,90 @@ describe("MobileChatView", () => {
     });
     expect(createSessionId).toHaveBeenCalled();
   });
+
+  test("sends a quick reply button as a user chat message immediately", async () => {
+    (sendChatMessage as jest.Mock).mockResolvedValueOnce({
+      assistantMessage: {
+        id: "assistant-1",
+        role: "assistant",
+        createdAtLabel: "방금 전",
+        parts: [
+          {
+            type: "quickReplies",
+            id: "quick-1",
+            title: "빠르게 답해보세요",
+            choices: [
+              {
+                id: "choice-1",
+                label: "괜찮아요",
+                message: "괜찮아요",
+              },
+            ],
+          },
+        ],
+      },
+      assistantMessages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          createdAtLabel: "방금 전",
+          parts: [
+            {
+              type: "quickReplies",
+              id: "quick-1",
+              title: "빠르게 답해보세요",
+              choices: [
+                {
+                  id: "choice-1",
+                  label: "괜찮아요",
+                  message: "괜찮아요",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      sessionId: "session-new-1",
+    });
+
+    render(<MobileChatView userId="user-1" initialSessionId="new" />);
+
+    fireEvent.change(screen.getByPlaceholderText("증상이나 검사 결과를 입력하세요."), {
+      target: { value: "오늘 상태를 알려줘" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "메시지 보내기" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "괜찮아요" })).toBeInTheDocument(),
+    );
+
+    (sendChatMessage as jest.Mock).mockResolvedValueOnce({
+      assistantMessage: {
+        id: "assistant-2",
+        role: "assistant",
+        createdAtLabel: "방금 전",
+        parts: [{ type: "text", id: "p1", text: "좋아요." }],
+      },
+      assistantMessages: [
+        {
+          id: "assistant-2",
+          role: "assistant",
+          createdAtLabel: "방금 전",
+          parts: [{ type: "text", id: "p1", text: "좋아요." }],
+        },
+      ],
+      sessionId: "session-new-1",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "괜찮아요" }));
+
+    await waitFor(() =>
+      expect(sendChatMessage).toHaveBeenLastCalledWith({
+        userId: "user-1",
+        sessionId: "session-new-1",
+        text: "괜찮아요",
+        imageDataUris: [],
+      }),
+    );
+  });
 });

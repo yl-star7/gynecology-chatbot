@@ -56,7 +56,7 @@ export function MobileConversationView({
 
   useEffect(() => {
     if (!resolvedUserId || initialSessionId === "new" || initialSessionId === "heart-talk") {
-      setSession({ id: resolvedSessionId, title: "아기와 나누는 마음", messages: [] });
+      setSession({ id: resolvedSessionId, title: "아기와 대화", messages: [] });
       return;
     }
 
@@ -77,7 +77,7 @@ export function MobileConversationView({
     const draft = createDraftMessage(nextText);
     setSession((current) => ({
       id: current?.id ?? resolvedSessionId,
-      title: current?.title ?? "아기와 나누는 마음",
+      title: current?.title ?? "아기와 대화",
       messages: [...(current?.messages ?? []), draft],
     }));
     setText("");
@@ -93,8 +93,12 @@ export function MobileConversationView({
       setResolvedSessionId(payload.sessionId ?? resolvedSessionId);
       setSession((current) => ({
         id: payload.sessionId ?? current?.id ?? resolvedSessionId,
-        title: current?.title ?? "아기와 나누는 마음",
-        messages: [...(current?.messages ?? []).filter((message) => message.id !== draft.id), draft, payload.assistantMessage],
+        title: current?.title ?? "아기와 대화",
+        messages: [
+          ...(current?.messages ?? []).filter((message) => message.id !== draft.id),
+          draft,
+          ...(payload.assistantMessages ?? [payload.assistantMessage]),
+        ],
       }));
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "메시지를 보내지 못했어요.");
@@ -118,7 +122,7 @@ export function MobileConversationView({
         <section className="rounded-[28px] border border-[var(--line)] bg-[var(--panel-strong)] p-6 shadow-[var(--shadow)]">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--panel-muted)] text-[18px] text-[var(--accent)]">✉</div>
-            <h1 className="text-xl font-semibold text-[var(--text)]">아기와 나누는 마음</h1>
+            <h1 className="text-xl font-semibold text-[var(--text)]">아기와 대화</h1>
           </div>
         </section>
 

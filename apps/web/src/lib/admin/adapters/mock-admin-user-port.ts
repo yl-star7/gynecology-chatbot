@@ -86,4 +86,10 @@ export class MockAdminUserPortAdapter implements AdminUserPort {
   ): Promise<void> {
     return;
   }
+
+  async updateUserStatus(
+    _input: Parameters<AdminUserPort["updateUserStatus"]>[0],
+  ): Promise<void> {
+    return;
+  }
 }

@@ -73,22 +73,46 @@ export function ChatPartRenderer({ part, userId }: { part: ChatPart; userId?: st
     );
   }
 
-  return (
-    <div className="rounded-[20px] border border-[var(--line)] bg-[var(--accent-soft)] p-4">
-      <p className="text-sm font-semibold text-[var(--text)]">{part.title}</p>
-      <p className="mt-2 text-sm leading-6 text-[var(--text-soft)]">
-        {part.body}
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {part.choices.map((choice) => (
-          <span
-            key={choice.id}
-            className="rounded-full bg-[var(--panel-strong)] px-3 py-1 text-sm text-[var(--accent-dark)]"
-          >
-            {choice.label}
-          </span>
-        ))}
+  if (part.type === "quickReplies") {
+    return (
+      <div className="grid gap-3">
+        {part.title ? (
+          <p className="text-sm font-semibold text-[var(--text)]">{part.title}</p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {part.choices.map((choice) => (
+            <span
+              key={choice.id}
+              className="rounded-full bg-[var(--panel-strong)] px-3 py-1 text-sm text-[var(--accent-dark)]"
+            >
+              {choice.label}
+            </span>
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (part.type === "survey") {
+    return (
+      <div className="rounded-[20px] border border-[var(--line)] bg-[var(--accent-soft)] p-4">
+        <p className="text-sm font-semibold text-[var(--text)]">{part.title}</p>
+        <p className="mt-2 text-sm leading-6 text-[var(--text-soft)]">
+          {part.body}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {part.choices.map((choice) => (
+            <span
+              key={choice.id}
+              className="rounded-full bg-[var(--panel-strong)] px-3 py-1 text-sm text-[var(--accent-dark)]"
+            >
+              {choice.label}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }

@@ -10,12 +10,18 @@ type AuthSessionRow = {
   revoked_at: string | null;
 };
 
+type SessionUserRow = {
+  id: string;
+  account_status: "active" | "paused" | "deleted" | "pending_recovery";
+};
+
 const MOBILE_SESSION_FAILURE_MESSAGES = new Set([
   "mobile session token is required",
   "invalid mobile session",
   "mobile session has been revoked",
   "mobile session has expired",
   "mobile session user mismatch",
+  "mobile session user is not active",
 ]);
 
 function hashSessionToken(value: string) {
@@ -89,6 +95,15 @@ export async function requireMobileSession(
 
   if (expectedUserId && expectedUserId !== session.user_id) {
     throw new Error("mobile session user mismatch");
+  }
+
+  const users = await supabaseSelect<SessionUserRow[]>(
+    `users?select=id,account_status&id=eq.${session.user_id}&limit=1`,
+  );
+  const user = users[0];
+
+  if (!user || user.account_status === "paused" || user.account_status === "deleted") {
+    throw new Error("mobile session user is not active");
   }
 
   await supabaseUpdate(`auth_sessions?id=eq.${session.id}`, {
