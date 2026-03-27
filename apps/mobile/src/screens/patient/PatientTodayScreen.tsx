@@ -60,6 +60,19 @@ export function PatientTodayScreen() {
   }, [services]);
 
   useEffect(() => {
+    if (activeSection !== "info" || today?.infoViewed) {
+      return;
+    }
+
+    services.todayPort
+      .markInfoViewed()
+      .then(() => {
+        setToday((current) => (current ? { ...current, infoViewed: true } : current));
+      })
+      .catch(() => undefined);
+  }, [activeSection, services, today?.infoViewed]);
+
+  useEffect(() => {
     if (conversationSessionId) {
       return;
     }
@@ -87,7 +100,7 @@ export function PatientTodayScreen() {
     () =>
       conversationSessionId
         ? getSession(conversationSessionId)
-        : { id: "pending", title: "아기와 나누는 마음", messages: [] },
+        : { id: "pending", title: "아기와 대화", messages: [] },
     [conversationSessionId, getSession],
   );
 
@@ -97,7 +110,7 @@ export function PatientTodayScreen() {
       return;
     }
 
-    appendMessage(conversationSessionId, "아기와 나누는 마음", createUserMessage(nextText));
+    appendMessage(conversationSessionId, "아기와 대화", createUserMessage(nextText));
     setText("");
     setIsSending(true);
 
@@ -107,7 +120,7 @@ export function PatientTodayScreen() {
         text: nextText,
         imageUris: [],
       });
-      appendMessage(conversationSessionId, "아기와 나누는 마음", assistantMessage);
+      appendMessage(conversationSessionId, "아기와 대화", assistantMessage);
     } finally {
       setIsSending(false);
     }
@@ -175,7 +188,7 @@ export function PatientTodayScreen() {
               <View style={styles.segmentSection}>
                 <View style={styles.iconTitleRow}>
                   <View style={[styles.sectionIconWrap, styles.babyIconWrap]}>
-                    <Ionicons name="happy-outline" size={18} color={palette.accent} />
+                    <Ionicons name="happy-outline" size={space.lg + space.xs} color={palette.accent} />
                   </View>
                   <Text style={styles.sectionTitle}>{viewModel.babyCard.title}</Text>
                 </View>
@@ -189,7 +202,7 @@ export function PatientTodayScreen() {
               <View style={styles.segmentSection}>
                 <View style={styles.iconTitleRow}>
                   <View style={[styles.sectionIconWrap, styles.momIconWrap]}>
-                    <Ionicons name="heart-outline" size={18} color={palette.accent} />
+                    <Ionicons name="heart-outline" size={space.lg + space.xs} color={palette.accent} />
                   </View>
                   <Text style={styles.sectionTitle}>{viewModel.momCard.title}</Text>
                 </View>
@@ -205,7 +218,7 @@ export function PatientTodayScreen() {
               <View style={styles.sectionHeaderRow}>
                 <View style={styles.iconTitleRow}>
                   <View style={[styles.sectionIconWrap, styles.checklistIconWrap]}>
-                    <Ionicons name="checkmark-circle-outline" size={18} color={palette.successText} />
+                    <Ionicons name="checkmark-circle-outline" size={space.lg + space.xs} color={palette.successText} />
                   </View>
                   <Text style={styles.sectionTitle}>{viewModel.checklistTitle}</Text>
                 </View>
@@ -243,14 +256,14 @@ export function PatientTodayScreen() {
             <Card style={[styles.segmentCard, styles.conversationCard]}>
               <View style={styles.iconTitleRow}>
                 <View style={[styles.sectionIconWrap, styles.conversationIconWrap]}>
-                  <Ionicons name="chatbubble-outline" size={18} color="#8a3ffc" />
+                  <Ionicons name="chatbubble-outline" size={space.lg + space.xs} color={palette.accent} />
                 </View>
                 <Text style={styles.sectionTitle}>{viewModel.conversationTitle}</Text>
               </View>
 
               {session.messages.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="chatbubble-outline" size={48} color="#d5d9e3" />
+                  <Ionicons name="chatbubble-outline" size={space.xxxl + space.lg} color={surface.strokeSubtle} />
                   <Text style={styles.emptyText}>{viewModel.conversationDescription}</Text>
                 </View>
               ) : (
@@ -297,7 +310,7 @@ export function PatientTodayScreen() {
                   disabled={isSending}
                   accessibilityLabel="메시지 보내기"
                 >
-                  <Ionicons name="paper-plane-outline" size={20} color="#ffffff" />
+                  <Ionicons name="paper-plane-outline" size={space.lg + space.sm} color={surface.surfacePrimary} />
                 </Pressable>
               </View>
             </Card>
@@ -313,20 +326,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: space.xl,
+    paddingHorizontal: space.lg,
     paddingTop: space.md,
     paddingBottom: 140,
-    gap: space.lg,
+    gap: space.md,
   },
   segmentCard: {
-    gap: space.lg,
+    gap: space.md,
+    padding: space.lg,
   },
   segmentSection: {
     gap: space.md,
   },
   segmentDivider: {
     height: 1,
-    backgroundColor: "#ececf0",
+    backgroundColor: surface.strokeSubtle,
   },
   iconTitleRow: {
     flexDirection: "row",
@@ -334,38 +348,38 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   sectionIconWrap: {
-    width: 30,
-    height: 30,
+    width: space.xxl + space.xs,
+    height: space.xxl + space.xs,
     borderRadius: radii.full,
     alignItems: "center",
     justifyContent: "center",
   },
   babyIconWrap: {
-    backgroundColor: "#f7e9ef",
+    backgroundColor: surface.surfaceAccent,
   },
   momIconWrap: {
-    backgroundColor: "#f4eef8",
+    backgroundColor: surface.surfaceSecondary,
   },
   checklistIconWrap: {
-    backgroundColor: "#eef5ef",
+    backgroundColor: palette.successBackground,
   },
   sectionTitle: {
     ...typo.titleSm,
-    color: "#1f1a1d",
+    color: surface.textPrimary,
   },
   innerPanel: {
     borderRadius: radii.xl,
     padding: space.lg,
   },
   babyPanel: {
-    backgroundColor: "#fbf1f7",
+    backgroundColor: surface.surfaceAccent,
   },
   momPanel: {
-    backgroundColor: "#f5f0fb",
+    backgroundColor: surface.surfaceSecondary,
   },
   sectionBody: {
     ...typo.body,
-    color: "#5d5a67",
+    color: surface.textSecondary,
   },
   sectionHeaderRow: {
     flexDirection: "row",
@@ -375,11 +389,11 @@ const styles = StyleSheet.create({
   },
   progressLabel: {
     ...typo.label,
-    color: "#34a853",
+    color: palette.successText,
   },
   checklist: {
-    marginTop: space.xl,
-    gap: space.xl,
+    marginTop: space.lg,
+    gap: space.lg,
   },
   checklistRow: {
     flexDirection: "row",
@@ -387,12 +401,12 @@ const styles = StyleSheet.create({
     gap: space.md,
   },
   checkbox: {
-    width: 22,
-    height: 22,
+    width: space.xl + space.xs,
+    height: space.xl + space.xs,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: "#d6d8de",
-    backgroundColor: "#f3f3f5",
+    borderColor: surface.strokeSubtle,
+    backgroundColor: surface.fieldSurface,
   },
   checkboxCompleted: {
     backgroundColor: palette.successBackground,
@@ -400,7 +414,7 @@ const styles = StyleSheet.create({
   },
   checklistLabel: {
     ...typo.titleSm,
-    color: "#30313a",
+    color: surface.textPrimary,
     flex: 1,
   },
   emptyChecklistText: {
@@ -408,10 +422,10 @@ const styles = StyleSheet.create({
     color: surface.textSecondary,
   },
   progressMetaRow: {
-    marginTop: space.xxl,
+    marginTop: space.lg,
     paddingTop: space.md,
     borderTopWidth: 1,
-    borderTopColor: "#ececf0",
+    borderTopColor: surface.strokeSubtle,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -428,7 +442,7 @@ const styles = StyleSheet.create({
     marginTop: space.md,
     height: 10,
     borderRadius: radii.full,
-    backgroundColor: "#ececf0",
+    backgroundColor: surface.strokeSubtle,
     overflow: "hidden",
   },
   progressFill: {
@@ -436,13 +450,14 @@ const styles = StyleSheet.create({
     backgroundColor: palette.successText,
   },
   conversationCard: {
-    gap: space.lg,
+    gap: space.md,
+    minHeight: space.xxxl * 16 + space.xl,
   },
   conversationIconWrap: {
-    backgroundColor: "#f4efff",
+    backgroundColor: surface.surfaceSecondary,
   },
   emptyState: {
-    minHeight: 220,
+    minHeight: space.xxxl * 6 + space.xxl,
     alignItems: "center",
     justifyContent: "center",
     gap: space.md,
@@ -453,6 +468,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   messageList: {
+    flexGrow: 1,
     gap: space.sm,
   },
   messageBubble: {
@@ -461,29 +477,30 @@ const styles = StyleSheet.create({
   },
   userBubble: {
     alignSelf: "flex-end",
-    backgroundColor: "#c084fc",
-    maxWidth: "84%",
+    backgroundColor: palette.accent,
+    maxWidth: `${100 - space.lg}%`,
   },
   assistantBubble: {
     alignSelf: "flex-start",
     backgroundColor: surface.surfaceSecondary,
-    maxWidth: "88%",
+    maxWidth: `${100 - (space.xl - space.xs)}%`,
   },
   messageText: {
     ...typo.body,
     color: surface.textPrimary,
   },
   userMessageText: {
-    color: "#ffffff",
+    color: surface.surfacePrimary,
   },
   composerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: space.sm,
+    marginTop: "auto",
   },
   input: {
     flex: 1,
-    minHeight: 56,
+    minHeight: space.xxxl + space.xxl,
     borderRadius: radii.xl,
     backgroundColor: surface.fieldSurface,
     paddingHorizontal: space.lg,
@@ -492,10 +509,10 @@ const styles = StyleSheet.create({
     color: surface.textPrimary,
   },
   sendButton: {
-    width: 52,
-    height: 52,
+    width: space.xxxl + space.xl,
+    height: space.xxxl + space.xl,
     borderRadius: radii.lg,
-    backgroundColor: "#c084fc",
+    backgroundColor: palette.accent,
     alignItems: "center",
     justifyContent: "center",
   },

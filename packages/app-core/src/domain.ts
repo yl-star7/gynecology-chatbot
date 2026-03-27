@@ -6,6 +6,7 @@ export interface CalendarDay {
   isoDate: string;
   dayLabel: string;
   hasChat: boolean;
+  hasInfo: boolean;
   emotionTone: EmotionTone | null;
   summary?: string;
 }
@@ -46,8 +47,15 @@ export interface RecordDayItem {
 export interface RecordDayView {
   isoDate: string;
   dateLabel: string;
+  infoViewed: boolean;
   emotionTone: EmotionTone | null;
   checklistItems: TodayChecklistItem[];
+  conversationSummary?: string;
+  dailyQuestion?: {
+    question: string;
+    answer: string | null;
+    aiSummary: string | null;
+  } | null;
   records: RecordDayItem[];
   relatedSessions: RecentChatSummary[];
 }
@@ -61,6 +69,7 @@ export interface TodayChecklistItem {
 export interface TodayViewData {
   babyBody: string;
   momBody: string;
+  infoViewed: boolean;
   checklistItems: TodayChecklistItem[];
 }
 

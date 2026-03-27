@@ -51,14 +51,27 @@ function resolveToneLabel(value?: string | null) {
   );
 }
 
-export function MobileProfileView({ userId }: { userId?: string | null }) {
+export function MobileProfileView({
+  userId,
+  mode = "summary",
+}: {
+  userId?: string | null;
+  mode?: "summary" | "settings";
+}) {
   const resolvedUserId = useMobileSessionGuard(
     resolveMobileUserId(userId ?? null),
   );
   const router = useRouter();
-  const backHref = resolvedUserId
+  const homeHref = resolvedUserId
     ? `/?userId=${encodeURIComponent(resolvedUserId)}`
     : "/";
+  const profileHref = resolvedUserId
+    ? `/profile?userId=${encodeURIComponent(resolvedUserId)}`
+    : "/profile";
+  const settingsHref = resolvedUserId
+    ? `/profile/settings?userId=${encodeURIComponent(resolvedUserId)}`
+    : "/profile/settings";
+  const backHref = mode === "settings" ? profileHref : homeHref;
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -263,8 +276,12 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
 
   return (
     <MobileShell
-      title="마이페이지"
-      description="아기 정보와 활동 흐름을 한 곳에서 정리해요."
+      title={mode === "settings" ? "정보 설정" : "마이페이지"}
+      description={
+        mode === "settings"
+          ? "태명과 예정일, 알림과 대화 분위기를 여기에서 바꿔요."
+          : "아기 정보와 활동 흐름을 한 곳에서 정리해요."
+      }
       userId={resolvedUserId}
       backHref={backHref}
       showTitleBlock={false}
@@ -318,27 +335,30 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
           </div>
         </MobileCard>
 
-        <MobileCard className="px-5 py-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-            활동 캘린더
-          </p>
-          <div className="mt-5 grid grid-cols-7 gap-2">
-            {calendarDays.map((day, index) => (
-              <div
-                key={`calendar-${index}`}
-                className={`flex aspect-square items-center justify-center rounded-[12px] ${
-                  day && activityDays.includes(day)
-                    ? "bg-[#d48ea5] text-white"
-                    : "bg-[#f3f3f5] text-[var(--text-soft)]"
-                }`}
-              >
-                <span className="text-[12px] font-semibold">{day ?? ""}</span>
-              </div>
-            ))}
-          </div>
-        </MobileCard>
+        {mode === "summary" ? (
+          <MobileCard className="px-5 py-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
+              활동 캘린더
+            </p>
+            <div className="mt-5 grid grid-cols-7 gap-2">
+              {calendarDays.map((day, index) => (
+                <div
+                  key={`calendar-${index}`}
+                  className={`flex aspect-square items-center justify-center rounded-[12px] ${
+                    day && activityDays.includes(day)
+                      ? "bg-[#d48ea5] text-white"
+                      : "bg-[#f3f3f5] text-[var(--text-soft)]"
+                  }`}
+                >
+                  <span className="text-[12px] font-semibold">{day ?? ""}</span>
+                </div>
+              ))}
+            </div>
+          </MobileCard>
+        ) : null}
 
-        <MobileCard className="px-5 py-6">
+        {mode === "summary" ? (
+          <MobileCard className="px-5 py-6">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
             이전 기록
           </p>
@@ -363,9 +383,10 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
               </p>
             ) : null}
           </div>
-        </MobileCard>
+          </MobileCard>
+        ) : null}
 
-        {pendingSurveys.length > 0 ? (
+        {mode === "summary" && pendingSurveys.length > 0 ? (
           <MobileCard className="px-5 py-6">
             <MobileSectionIntro
               eyebrow="오늘 설문"
@@ -445,97 +466,106 @@ export function MobileProfileView({ userId }: { userId?: string | null }) {
 
         <MobileCard as="section" className="p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-            아기 정보 관리
+            {mode === "settings" ? "정보 설정" : "아기 정보"}
           </p>
-          <form className="mt-4 grid gap-3" onSubmit={handleSave}>
-            <MobileFormField label="이름">
-              <input
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
-                className={mobileFieldClassName}
-                placeholder="이름"
+          {mode === "settings" ? (
+            <form className="mt-4 grid gap-3" onSubmit={handleSave}>
+              <MobileFormField label="이름">
+                <input
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  className={mobileFieldClassName}
+                  placeholder="이름"
+                />
+              </MobileFormField>
+              <MobileFormField label="태명">
+                <input
+                  value={babyNickname}
+                  onChange={(event) => setBabyNickname(event.target.value)}
+                  className={mobileFieldClassName}
+                  placeholder="예: 튼튼이"
+                />
+              </MobileFormField>
+              <MobileFormField label="예정 출산일">
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(event) => setDueDate(event.target.value)}
+                  className={mobileFieldClassName}
+                />
+              </MobileFormField>
+              <MobileFormField label="주 진료 병원">
+                <input
+                  value={hospitalName}
+                  onChange={(event) => setHospitalName(event.target.value)}
+                  className={mobileFieldClassName}
+                  placeholder="예: 산단여성병원"
+                />
+              </MobileFormField>
+              <MobileThemePresetButtons
+                label="테마"
+                onSelect={handleThemeSelect}
+                selectedThemeKey={themeKey}
               />
-            </MobileFormField>
-            <MobileFormField label="태명">
-              <input
-                value={babyNickname}
-                onChange={(event) => setBabyNickname(event.target.value)}
-                className={mobileFieldClassName}
-                placeholder="예: 튼튼이"
-              />
-            </MobileFormField>
-            <MobileFormField label="예정 출산일">
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(event) => setDueDate(event.target.value)}
-                className={mobileFieldClassName}
-              />
-            </MobileFormField>
-            <MobileFormField label="주 진료 병원">
-              <input
-                value={hospitalName}
-                onChange={(event) => setHospitalName(event.target.value)}
-                className={mobileFieldClassName}
-                placeholder="예: 산단여성병원"
-              />
-            </MobileFormField>
-            <MobileThemePresetButtons
-              label="테마"
-              onSelect={handleThemeSelect}
-              selectedThemeKey={themeKey}
-            />
-            <MobileFormField label="매일 알림 시간">
-              <input
-                type="time"
-                value={notificationTime}
-                onChange={(event) => setNotificationTime(event.target.value)}
-                className={mobileFieldClassName}
-              />
-            </MobileFormField>
-            <MobileFormField label="채팅 톤">
-              <select
-                value={tonePreference}
-                onChange={(event) => setTonePreference(event.target.value)}
-                className={mobileFieldClassName}
+              <MobileFormField label="매일 알림 시간">
+                <input
+                  type="time"
+                  value={notificationTime}
+                  onChange={(event) => setNotificationTime(event.target.value)}
+                  className={mobileFieldClassName}
+                />
+              </MobileFormField>
+              <MobileFormField label="채팅 톤">
+                <select
+                  value={tonePreference}
+                  onChange={(event) => setTonePreference(event.target.value)}
+                  className={mobileFieldClassName}
+                >
+                  {TONE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </MobileFormField>
+              {error ? <MobileNotice>{error}</MobileNotice> : null}
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
               >
-                {TONE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </MobileFormField>
-            {error ? <MobileNotice>{error}</MobileNotice> : null}
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              {isSaving ? "저장 중" : "저장하기"}
-            </button>
-          </form>
-        </MobileCard>
-
-        <MobileCard className="p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-soft)]">
-            계정
-          </p>
-          <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
-            기기를 바꾸거나 다른 계정으로 들어갈 때 로그아웃하세요.
-          </p>
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={() => {
-                clearMobileSession();
-                router.replace("/auth/login");
-              }}
-              className="rounded-full px-4 py-3 text-sm font-semibold text-[var(--accent)]"
-            >
-              로그아웃
-            </button>
-          </div>
+                {isSaving ? "저장 중" : "저장하기"}
+              </button>
+            </form>
+          ) : (
+            <div className="mt-4 grid gap-3">
+              <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
+                <p className="text-sm text-[var(--text-soft)]">태명</p>
+                <p className="mt-2 text-base font-semibold text-[var(--text)]">
+                  {babyNickname || "아직 정하지 않았어요."}
+                </p>
+              </div>
+              <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
+                <p className="text-sm text-[var(--text-soft)]">예정 출산일</p>
+                <p className="mt-2 text-base font-semibold text-[var(--text)]">
+                  {dueDate || "아직 입력하지 않았어요."}
+                </p>
+              </div>
+              <div className="rounded-[22px] border border-[var(--line)] bg-[var(--panel-muted)] p-4">
+                <p className="text-sm text-[var(--text-soft)]">매일 알림 시간</p>
+                <p className="mt-2 text-base font-semibold text-[var(--text)]">
+                  {notificationTime || "08:30"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push(settingsHref)}
+                className="rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white"
+              >
+                정보 설정 열기
+              </button>
+            </div>
+          )}
         </MobileCard>
 
         <MobileCard className="p-5">

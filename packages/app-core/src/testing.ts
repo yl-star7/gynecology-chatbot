@@ -31,6 +31,7 @@ import type {
   LinkTargetContent,
   OnboardingProfileInput,
   RecentChatSummary,
+  RecordDayView,
   TodayViewData,
 } from "./domain";
 import type {
@@ -72,13 +73,14 @@ const mockAuthState: {
 };
 
 function buildCalendar(): CalendarDay[] {
-  return Array.from({ length: 28 }, (_, index) => {
+  return Array.from({ length: 31 }, (_, index) => {
     const day = index + 1;
     const hasChat = day % 2 === 0 || day === 5 || day === 19;
     return {
       isoDate: `2026-03-${String(day).padStart(2, "0")}`,
       dayLabel: String(day),
       hasChat,
+      hasInfo: hasChat || day % 5 === 0,
       emotionTone: hasChat
         ? emotionPalette[index % emotionPalette.length]
         : null,
@@ -429,6 +431,34 @@ export class MockMobileHomeAdapter implements MobileHomePort {
       },
     };
   }
+
+  async getRecordDay(isoDate: string): Promise<RecordDayView> {
+    const relatedSessions = recentChats.filter((session) => session.updatedAtIso?.startsWith(isoDate));
+
+    return {
+      isoDate,
+      dateLabel: new Date(`${isoDate}T00:00:00`).toLocaleDateString("ko-KR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        weekday: "long",
+      }),
+      infoViewed: true,
+      emotionTone: "calm" satisfies EmotionTone,
+      checklistItems: [
+        { id: `${isoDate}-folate`, label: "엽산 보충제 섭취하기", completed: true },
+        { id: `${isoDate}-water`, label: "충분한 수분 섭취하기 (하루 8잔)", completed: false },
+      ],
+      conversationSummary: relatedSessions.length > 0 ? `${relatedSessions.length}개의 대화가 있었어요.` : undefined,
+      dailyQuestion: {
+        question: "오늘 가장 기억에 남는 순간은 무엇이었나요?",
+        answer: "아기가 움직이는 느낌이 또렷해서 반가웠어요.",
+        aiSummary: "아기의 움직임을 느끼며 안심하고 기뻐한 하루였어요.",
+      },
+      records: [],
+      relatedSessions,
+    };
+  }
 }
 
 export class MockTodayAdapter implements TodayPort {
@@ -437,6 +467,7 @@ export class MockTodayAdapter implements TodayPort {
       "수정란이 자궁벽에 착상을 준비하고 있어요. 이 작은 생명은 빠르게 세포 분열을 하고 있습니다.",
     momBody:
       "아직 임신을 인지하지 못할 수 있어요. 몸이 임신을 준비하는 중이며, 호르몬 변화가 시작됩니다.",
+    infoViewed: false,
     checklistItems: [
       { id: "folate", label: "엽산 보충제 섭취하기", completed: false },
       { id: "water", label: "충분한 수분 섭취하기 (하루 8잔)", completed: false },
@@ -446,6 +477,13 @@ export class MockTodayAdapter implements TodayPort {
 
   async getTodayView(): Promise<TodayViewData> {
     return this.state;
+  }
+
+  async markInfoViewed(): Promise<void> {
+    this.state = {
+      ...this.state,
+      infoViewed: true,
+    };
   }
 
   async setChecklistItemCompleted(input: {
@@ -770,6 +808,10 @@ export class MockAdminUserAdapter implements AdminUserPort {
   }
 
   async resetSession(): Promise<void> {
+    return;
+  }
+
+  async updateUserStatus(): Promise<void> {
     return;
   }
 }

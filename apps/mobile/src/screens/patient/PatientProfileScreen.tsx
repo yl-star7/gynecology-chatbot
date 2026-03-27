@@ -1,8 +1,24 @@
 // @ts-nocheck
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
-import type { HomeViewData, MobileProfileViewData, RecentChatSummary } from "@gynecology-chatbot/app-core";
+import { Ionicons } from "@expo/vector-icons";
+import {
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import type {
+  CalendarDay,
+  HomeViewData,
+  MobileProfileViewData,
+  RecordDayView,
+  TodayViewData,
+} from "@gynecology-chatbot/app-core";
 import { Button, Card, LabeledInput, Pressable } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { PatientTodayTabs } from "../../components/patient/PatientTodayTabs";
@@ -11,24 +27,146 @@ import { useMobileServices } from "../../core/MobileServicesProvider";
 import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../../theme";
 import { buildProfileCalendarModel } from "./patientProfileCalendar";
 import { getWeekBabyImageSource } from "./week-baby-images";
+import { createMobileApiClient } from "../../api/mobileApi";
+
+const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+
+function isSameIsoDate(isoDate: string, now: Date) {
+  const todayIsoDate = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  return isoDate === todayIsoDate;
+}
+
+function resolveChecklistStatus(recordDay: RecordDayView | null) {
+  const checklistItems = recordDay?.checklistItems ?? [];
+
+  if (checklistItems.length === 0) {
+    return { label: "안함", tone: "idle" };
+  }
+
+  const completedCount = checklistItems.filter((item) => item.completed).length;
+
+  if (completedCount === checklistItems.length) {
+    return { label: "완료", tone: "success" };
+  }
+
+  return { label: "미완", tone: "muted" };
+}
+
+function resolveInfoStatus(selectedDay: CalendarDay | null, isToday: boolean) {
+  if (isToday || selectedDay?.hasInfo || selectedDay?.summary) {
+    return { label: "확인함", tone: "success" };
+  }
+
+  return { label: "안함", tone: "idle" };
+}
+
+function buildConversationSummary(recordDay: RecordDayView | null) {
+  if (recordDay?.conversationSummary) {
+    return recordDay.conversationSummary;
+  }
+
+  const sessions = recordDay?.relatedSessions ?? [];
+  if (sessions.length === 0) {
+    return "이 날짜에 남겨진 대화가 아직 없어요.";
+  }
+
+  return `${sessions.length}개의 대화가 있었어요. 다음 날 정리되는 하루 요약이 준비되면 여기에서 함께 보여드릴게요.`;
+}
+
+function buildHeartShareItems(recordDay: RecordDayView | null) {
+  if (recordDay?.dailyQuestion) {
+    return [
+      {
+        id: "question",
+        question: recordDay.dailyQuestion.question,
+        answer: recordDay.dailyQuestion.answer ?? "아직 남긴 답변이 없어요.",
+        summary: recordDay.dailyQuestion.aiSummary ?? "대화 요약을 준비 중이에요.",
+      },
+    ];
+  }
+
+  const aiSummary = recordDay?.records.find((item) => item.entryType === "ai_summary");
+  const linkedSession = recordDay?.relatedSessions[0] ?? null;
+
+  if (!aiSummary && !linkedSession) {
+    return [];
+  }
+
+  return [
+    {
+      id: "question",
+      question: "하루 질문",
+      answer: aiSummary?.title ?? "이날의 질문 기록을 준비 중이에요.",
+      summary: aiSummary?.summary ?? linkedSession?.preview ?? "대화 요약을 준비 중이에요.",
+    },
+  ];
+}
+
+function hasConversation(recordDay: RecordDayView | null) {
+  if (!recordDay) {
+    return false;
+  }
+
+  if ((recordDay.relatedSessions?.length ?? 0) > 0) {
+    return true;
+  }
+
+  if (recordDay.dailyQuestion?.answer || recordDay.dailyQuestion?.aiSummary) {
+    return true;
+  }
+
+  return recordDay.records.some((item) => item.entryType === "ai_summary" || item.linkedSessionId);
+}
+
+function modalTabStyle(tone: string) {
+  if (tone === "success") return styles.modalTabSuccess;
+  if (tone === "active") return styles.modalTabConversation;
+  if (tone === "muted") return styles.modalTabMuted;
+  return styles.modalTabIdle;
+}
+
+function modalTabTextStyle(tone: string) {
+  if (tone === "success") return styles.modalTabTextSuccess;
+  if (tone === "active") return styles.modalTabTextConversation;
+  if (tone === "muted") return styles.modalTabTextMuted;
+  return styles.modalTabTextIdle;
+}
+
+function buildInfoCards(today: TodayViewData | null) {
+  return [
+    {
+      id: "baby",
+      title: "오늘 아기는요",
+      body: today?.babyBody ?? "오늘 아기의 변화를 아직 준비하지 못했어요.",
+    },
+    {
+      id: "mom",
+      title: "오늘 엄마는요",
+      body: today?.momBody ?? "오늘 엄마의 변화를 아직 준비하지 못했어요.",
+    },
+  ];
+}
 
 export function PatientProfileScreen() {
   const { currentUser, signOut } = useMobileAppSession();
-  const { profilePort, homePort, chatPort } = useMobileServices();
+  const { profilePort, homePort, todayPort } = useMobileServices();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [home, setHome] = useState<HomeViewData | null>(null);
-  const [recentSessions, setRecentSessions] = useState<RecentChatSummary[]>([]);
-  const [displayName, setDisplayName] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [tonePreference, setTonePreference] = useState("");
-  const [babyNickname, setBabyNickname] = useState("");
-  const [hospitalName, setHospitalName] = useState("");
-  const [notificationTime, setNotificationTime] = useState("08:30");
+  const [today, setToday] = useState<TodayViewData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
   const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>({});
   const [submittingSurveyId, setSubmittingSurveyId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("records");
+  const [surveyFormUrl, setSurveyFormUrl] = useState<string | null>(null);
+  const [selectedIsoDate, setSelectedIsoDate] = useState<string | null>(null);
+  const [selectedRecordDay, setSelectedRecordDay] = useState<RecordDayView | null>(null);
+  const [recordDayError, setRecordDayError] = useState<string | null>(null);
+  const [modalSection, setModalSection] = useState("conversation");
+  const [conversationSection, setConversationSection] = useState("summary");
 
   useEffect(() => {
     if (!currentUser) {
@@ -36,51 +174,62 @@ export function PatientProfileScreen() {
       return;
     }
 
-    Promise.all([
-      profilePort.getProfile(),
-      homePort.getHomeView(),
-      chatPort.listRecentChats(),
-    ]).then(([nextProfile, nextHome, nextSessions]) => {
-      setProfile(nextProfile);
-      setHome(nextHome);
-      setRecentSessions(nextSessions);
-      setDisplayName(nextProfile.displayName);
-      setDueDate(nextProfile.dueDate ?? "");
-      setTonePreference(nextProfile.tonePreference ?? "");
-      setBabyNickname(nextProfile.babyNickname ?? "");
-      setHospitalName(nextProfile.hospitalName ?? "");
-      setNotificationTime(nextProfile.notificationTime ?? "08:30");
-    }).catch((nextError) => {
-      setError(nextError instanceof Error ? nextError.message : "내 정보를 불러오지 못했어요.");
-    });
-  }, [chatPort, currentUser, homePort, profilePort]);
+    Promise.all([profilePort.getProfile(), homePort.getHomeView(), todayPort.getTodayView()])
+      .then(([nextProfile, nextHome, nextToday]) => {
+        setProfile(nextProfile);
+        setHome(nextHome);
+        setToday(nextToday);
+      })
+      .catch((nextError) => {
+        setError(nextError instanceof Error ? nextError.message : "내 정보를 불러오지 못했어요.");
+      });
+  }, [currentUser, homePort, profilePort, todayPort]);
 
-  async function handleSave() {
-    if (!currentUser) {
+  useEffect(() => {
+    let isMounted = true;
+
+    createMobileApiClient()
+      .fetchMobileBranding()
+      .then((branding) => {
+        if (!isMounted) return;
+        setSurveyFormUrl(branding.surveyFormUrl?.trim() || null);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setSurveyFormUrl(null);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedIsoDate) {
       return;
     }
 
-    setIsSaving(true);
-    setError(null);
+    let cancelled = false;
+    setRecordDayError(null);
 
-    try {
-      await profilePort.updateProfile({
-        userId: currentUser.id,
-        displayName: displayName.trim(),
-        dueDate: dueDate || null,
-        tonePreference: tonePreference.trim(),
-        babyNickname: babyNickname.trim() || null,
-        hospitalName: hospitalName.trim() || null,
-        notificationTime,
+    homePort
+      .getRecordDay(selectedIsoDate)
+      .then((nextRecordDay) => {
+        if (!cancelled) {
+          setSelectedRecordDay(nextRecordDay);
+        }
+      })
+      .catch((nextError) => {
+        if (!cancelled) {
+          setSelectedRecordDay(null);
+          setRecordDayError(nextError instanceof Error ? nextError.message : "이 날짜 기록을 불러오지 못했어요.");
+        }
       });
-      const refreshed = await profilePort.getProfile();
-      setProfile(refreshed);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "저장하지 못했어요. 다시 시도해주세요.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [homePort, selectedIsoDate]);
 
   async function handleLogout() {
     await signOut();
@@ -116,22 +265,73 @@ export function PatientProfileScreen() {
     }
   }
 
-  const calendarModel = useMemo(
-    () => buildProfileCalendarModel(home?.calendarDays),
-    [home?.calendarDays],
-  );
+  function openCalendarDay(isoDate: string) {
+    setSelectedIsoDate(isoDate);
+    setModalSection("conversation");
+    setConversationSection("summary");
+  }
+
+  function closeCalendarDayModal() {
+    setSelectedIsoDate(null);
+    setSelectedRecordDay(null);
+    setRecordDayError(null);
+  }
+
+  const calendarModel = useMemo(() => buildProfileCalendarModel(home?.calendarDays), [home?.calendarDays]);
   const isoDateByDay = useMemo(
-    () =>
-      new Map(
-        (home?.calendarDays ?? []).map((day) => [Number(day.dayLabel), day.isoDate]),
-      ),
+    () => new Map((home?.calendarDays ?? []).map((day) => [Number(day.dayLabel), day.isoDate])),
     [home?.calendarDays],
   );
   const babyName = profile?.babyNickname?.trim() || "아기";
   const babyImageSource = getWeekBabyImageSource(profile?.pregnancyWeekLabel);
+  const selectedDay = useMemo(
+    () => (home?.calendarDays ?? []).find((day) => day.isoDate === selectedIsoDate) ?? null,
+    [home?.calendarDays, selectedIsoDate],
+  );
+  const selectedIsToday = useMemo(
+    () => (selectedIsoDate ? isSameIsoDate(selectedIsoDate, new Date()) : false),
+    [selectedIsoDate],
+  );
+  const checklistStatus = useMemo(() => resolveChecklistStatus(selectedRecordDay), [selectedRecordDay]);
+  const infoStatus = useMemo(
+    () =>
+      resolveInfoStatus(
+        selectedRecordDay
+          ? ({
+              ...(selectedDay ?? {
+                isoDate: selectedIsoDate ?? "",
+                dayLabel: "",
+                hasChat: false,
+                hasInfo: false,
+                emotionTone: null,
+              }),
+              hasInfo: selectedRecordDay.infoViewed,
+            } as CalendarDay)
+          : selectedDay,
+        selectedIsToday,
+      ),
+    [selectedDay, selectedIsoDate, selectedIsToday, selectedRecordDay],
+  );
+  const conversationStatus = useMemo(
+    () => ({
+      label: hasConversation(selectedRecordDay) ? "했음" : "안함",
+      tone: hasConversation(selectedRecordDay) ? "active" : "idle",
+    }),
+    [selectedRecordDay],
+  );
+  const infoCards = useMemo(() => buildInfoCards(today), [today]);
+  const heartShareItems = useMemo(() => buildHeartShareItems(selectedRecordDay), [selectedRecordDay]);
 
   return (
-    <PatientShell activeTab="profile" title="마이페이지" showProfileButton={false} pageTone="plain">
+    <PatientShell
+      activeTab="profile"
+      title="마이페이지"
+      showProfileButton={false}
+      pageTone="plain"
+      rightActionIcon="settings-outline"
+      rightActionLabel="정보 설정 열기"
+      onRightActionPress={() => router.push("/profile-settings")}
+    >
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Card style={styles.heroCard}>
@@ -155,12 +355,14 @@ export function PatientProfileScreen() {
             <Text style={styles.sectionTitle}>활동 캘린더</Text>
             <Text style={styles.sectionDescription}>
               {home?.currentMonthLabel
-                ? `${home.currentMonthLabel}에 활동이 있었던 날을 보여드려요.`
+                ? `${home.currentMonthLabel}에 활동이 있었던 날을 눌러 하루 기록을 볼 수 있어요.`
                 : "활동이 있었던 날을 한눈에 볼 수 있어요."}
             </Text>
             <View style={styles.weekdayRow}>
-              {["일", "월", "화", "수", "목", "금", "토"].map((label) => (
-                <Text key={label} style={styles.weekdayLabel}>{label}</Text>
+              {DAY_NAMES.map((label) => (
+                <Text key={label} style={styles.weekdayLabel}>
+                  {label}
+                </Text>
               ))}
             </View>
             <View style={styles.calendarGrid}>
@@ -170,13 +372,7 @@ export function PatientProfileScreen() {
 
                 if (!day || !isoDate) {
                   return (
-                    <View
-                      key={`day-${index}`}
-                      style={[
-                        styles.calendarCell,
-                        { width: calendarModel.columnWidth },
-                      ]}
-                    >
+                    <View key={`day-${index}`} style={[styles.calendarCell, { width: calendarModel.columnWidth }]}>
                       <View style={styles.calendarCellInner}>
                         <Text style={styles.calendarLabel} />
                       </View>
@@ -187,31 +383,12 @@ export function PatientProfileScreen() {
                 return (
                   <Pressable
                     key={`day-${index}`}
-                    style={[
-                      styles.calendarCell,
-                      { width: calendarModel.columnWidth },
-                    ]}
-                    onPress={() =>
-                      router.push(
-                        `/records/${encodeURIComponent(isoDate)}?returnTo=profile`,
-                      )
-                    }
+                    style={[styles.calendarCell, { width: calendarModel.columnWidth }]}
+                    onPress={() => openCalendarDay(isoDate)}
                     accessibilityLabel={`${day}일 기록 보기`}
                   >
-                    <View
-                      style={[
-                        styles.calendarCellInner,
-                        isActive ? styles.calendarCellActive : null,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.calendarLabel,
-                          isActive ? styles.calendarLabelActive : null,
-                        ]}
-                      >
-                        {String(day)}
-                      </Text>
+                    <View style={[styles.calendarCellInner, isActive ? styles.calendarCellActive : null]}>
+                      <Text style={[styles.calendarLabel, isActive ? styles.calendarLabelActive : null]}>{String(day)}</Text>
                     </View>
                   </Pressable>
                 );
@@ -219,52 +396,26 @@ export function PatientProfileScreen() {
             </View>
           </Card>
 
-          <Card style={styles.historySectionCard}>
-            <Text style={styles.sectionTitle}>이전 기록</Text>
-            <PatientTodayTabs
-              sections={[
-                { id: "records", label: "체크리스트" },
-                { id: "reflections", label: "대화" },
-              ]}
-              activeSection={activeTab}
-              onChange={setActiveTab}
-            />
-            {activeTab === "records" ? (
-              <View style={styles.historyList}>
-                {(home?.calendarDays ?? []).filter((day) => day.hasChat || day.emotionTone).slice(0, 5).map((day) => (
-                  <Pressable
-                    key={day.isoDate}
-                    style={[styles.historyCard, shadows.card]}
-                    onPress={() =>
-                      router.push(
-                        `/records/${encodeURIComponent(day.isoDate)}?returnTo=profile`,
-                      )
-                    }
-                  >
-                    <Text style={styles.historyDate}>{day.isoDate}</Text>
-                    <Text style={styles.historyBody}>{day.summary ?? "이 날의 기록을 다시 볼 수 있어요."}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-            {activeTab === "reflections" ? (
-              <View style={styles.historyList}>
-                {recentSessions.slice(0, 5).map((session) => (
-                  <Pressable
-                    key={session.id}
-                    style={[styles.historyCard, shadows.card]}
-                    onPress={() => router.replace(`/chat/${session.id}`)}
-                  >
-                    <Text style={styles.historyDate}>{session.updatedAtLabel}</Text>
-                    <Text style={styles.historyTitle}>{session.title}</Text>
-                    <Text style={styles.historyBody}>{session.preview}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-          </Card>
-
           <Card variant="muted">
+            <Text style={styles.sectionTitle}>외부 설문</Text>
+            <Text style={styles.sectionDescription}>
+              운영팀이 준비한 구글 설문이 있을 때 여기에서 바로 열 수 있어요.
+            </Text>
+            <View style={styles.externalSurveyCard}>
+              <Text style={styles.externalSurveyTitle}>설문으로 의견 들려주세요</Text>
+              <Text style={styles.externalSurveyBody}>
+                {surveyFormUrl
+                  ? "새 창 없이 앱 안에서 바로 설문에 답할 수 있어요."
+                  : "아직 열 수 있는 설문이 없어요. 준비되면 여기에서 안내해드릴게요."}
+              </Text>
+              <Button
+                label="설문 열기"
+                variant="secondary"
+                onPress={() => router.push("/profile-survey")}
+                disabled={!surveyFormUrl}
+              />
+            </View>
+
             {(profile?.pendingSurveys?.length ?? 0) > 0 ? (
               <>
                 <Text style={styles.sectionTitle}>오늘 설문</Text>
@@ -281,9 +432,7 @@ export function PatientProfileScreen() {
                     return (
                       <View key={survey.id} style={styles.surveyCard}>
                         <Text style={styles.surveyQuestion}>{survey.questionText}</Text>
-                        {survey.helpText ? (
-                          <Text style={styles.surveyHelp}>{survey.helpText}</Text>
-                        ) : null}
+                        {survey.helpText ? <Text style={styles.surveyHelp}>{survey.helpText}</Text> : null}
 
                         {supportsFreeText ? (
                           <View style={styles.surveyForm}>
@@ -325,18 +474,6 @@ export function PatientProfileScreen() {
               </>
             ) : null}
 
-            <Text style={styles.sectionTitle}>아기 정보 관리</Text>
-            <Text style={styles.sectionDescription}>태명, 예정일, 알림과 상담 분위기를 조절할 수 있어요.</Text>
-            <View style={styles.form}>
-              <LabeledInput label="이름" value={displayName} onChangeText={setDisplayName} />
-              <LabeledInput label="태명" value={babyNickname} onChangeText={setBabyNickname} placeholder="우리 아기 별명" />
-              <LabeledInput label="출산 예정일" value={dueDate} onChangeText={setDueDate} placeholder="2026-08-01" />
-              <LabeledInput label="병원" value={hospitalName} onChangeText={setHospitalName} placeholder="다니는 병원 이름" />
-              <LabeledInput label="알림 시간" value={notificationTime} onChangeText={setNotificationTime} placeholder="08:30" />
-              <LabeledInput label="상담 분위기" value={tonePreference} onChangeText={setTonePreference} placeholder="차분하게, 따뜻하게" />
-              {error ? <Text style={styles.errorText}>{error}</Text> : null}
-              <Button label={isSaving ? "저장 중이에요..." : "저장하기"} onPress={handleSave} disabled={isSaving} />
-            </View>
           </Card>
 
           <Card>
@@ -348,6 +485,150 @@ export function PatientProfileScreen() {
           </Card>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={Boolean(selectedIsoDate)} animationType="slide" presentationStyle="fullScreen" onRequestClose={closeCalendarDayModal}>
+        <View style={styles.modalSafeArea}>
+          <View style={styles.modalHeader}>
+            <Pressable style={styles.modalCloseButton} onPress={closeCalendarDayModal} accessibilityLabel="기록 상세 닫기">
+              <Ionicons name="close" size={space.lg + space.sm} color={surface.textPrimary} />
+            </Pressable>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.modalHero}>
+              <Text style={styles.modalTitle}>{selectedRecordDay?.dateLabel ?? selectedIsoDate ?? ""}</Text>
+              <Text style={styles.modalDescription}>이 날의 활동 내역을 확인해요.</Text>
+            </View>
+
+            <View style={styles.modalTabRow}>
+              <Pressable
+                style={[styles.modalStatusTab, modalTabStyle(infoStatus.tone)]}
+                onPress={() => {
+                  closeCalendarDayModal();
+                  router.replace("/today");
+                }}
+              >
+                <View style={styles.modalStatusHeader}>
+                  <Ionicons name="book-outline" size={space.lg + space.xs} color={modalTabTextStyle(infoStatus.tone).color} />
+                  <Text style={[styles.modalStatusLabel, modalTabTextStyle(infoStatus.tone)]}>정보 확인</Text>
+                </View>
+                <Text style={[styles.modalStatusValue, modalTabTextStyle(infoStatus.tone)]}>{infoStatus.label}</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.modalStatusTab, modalTabStyle(checklistStatus.tone)]}
+                onPress={() => setModalSection("checklist")}
+              >
+                <View style={styles.modalStatusHeader}>
+                  <Ionicons name="checkmark-circle-outline" size={space.lg + space.xs} color={modalTabTextStyle(checklistStatus.tone).color} />
+                  <Text style={[styles.modalStatusLabel, modalTabTextStyle(checklistStatus.tone)]}>체크리스트</Text>
+                </View>
+                <Text style={[styles.modalStatusValue, modalTabTextStyle(checklistStatus.tone)]}>{checklistStatus.label}</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.modalStatusTab, modalTabStyle(conversationStatus.tone)]}
+                onPress={() => setModalSection("conversation")}
+              >
+                <View style={styles.modalStatusHeader}>
+                  <Ionicons name="chatbubble-outline" size={space.lg + space.xs} color={modalTabTextStyle(conversationStatus.tone).color} />
+                  <Text style={[styles.modalStatusLabel, modalTabTextStyle(conversationStatus.tone)]}>대화</Text>
+                </View>
+                <Text style={[styles.modalStatusValue, modalTabTextStyle(conversationStatus.tone)]}>{conversationStatus.label}</Text>
+              </Pressable>
+            </View>
+
+            {modalSection === "checklist" ? (
+              <Card>
+                <Text style={styles.modalSectionTitle}>체크리스트</Text>
+                <Text style={styles.modalSectionDescription}>
+                  {selectedIsToday ? "오늘 체크 흐름으로 이어서 볼 수 있어요." : "지난 날짜 기록은 확인만 할 수 있어요."}
+                </Text>
+                <View style={styles.modalChecklistList}>
+                  {(selectedRecordDay?.checklistItems ?? []).map((item) => (
+                    <View key={item.id} style={[styles.modalChecklistCard, shadows.card]}>
+                      <View style={[styles.modalCheckbox, item.completed ? styles.modalCheckboxChecked : null]} />
+                      <Text style={styles.modalChecklistLabel}>{item.label}</Text>
+                    </View>
+                  ))}
+                  {(selectedRecordDay?.checklistItems?.length ?? 0) === 0 ? (
+                    <Text style={styles.modalEmptyText}>이 날짜에 남아 있는 체크리스트가 없어요.</Text>
+                  ) : null}
+                </View>
+              </Card>
+            ) : null}
+
+            {modalSection === "conversation" ? (
+              <Card>
+                <Text style={styles.modalSectionTitle}>대화</Text>
+                <PatientTodayTabs
+                  sections={[
+                    { id: "summary", label: "대화 요약" },
+                    { id: "heart", label: "아기와 나누는 마음" },
+                  ]}
+                  activeSection={conversationSection}
+                  onChange={setConversationSection}
+                />
+
+                {conversationSection === "summary" ? (
+                  <View style={styles.modalPanel}>
+                    <Text style={styles.modalSummaryText}>{buildConversationSummary(selectedRecordDay)}</Text>
+                    {(selectedRecordDay?.relatedSessions ?? []).map((session) => (
+                      <View key={session.id} style={[styles.modalConversationCard, shadows.card]}>
+                        <Text style={styles.modalConversationMeta}>{session.updatedAtLabel}</Text>
+                        <Text style={styles.modalConversationTitle}>{session.title}</Text>
+                        <Text style={styles.modalConversationBody}>{session.preview}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
+                {conversationSection === "heart" ? (
+                  <View style={styles.modalPanel}>
+                    {heartShareItems.map((item) => (
+                      <View key={item.id} style={styles.modalQnaCard}>
+                        <Text style={styles.modalQuestion}>Q. {item.question}</Text>
+                        <Text style={styles.modalAnswer}>A. {item.answer}</Text>
+                        <View style={styles.modalAiResponse}>
+                          <Text style={styles.modalAiTitle}>AI 응답</Text>
+                          <Text style={styles.modalAiBody}>{item.summary}</Text>
+                        </View>
+                      </View>
+                    ))}
+                    {heartShareItems.length === 0 ? (
+                      <Text style={styles.modalEmptyText}>이 날짜에 보여드릴 대화 요약이 아직 없어요.</Text>
+                    ) : null}
+                  </View>
+                ) : null}
+              </Card>
+            ) : null}
+
+            {modalSection === "info" ? (
+              <Card>
+                <Text style={styles.modalSectionTitle}>정보 확인</Text>
+                <Text style={styles.modalSectionDescription}>오늘,우리에서 아기와 엄마의 정보를 다시 확인할 수 있어요.</Text>
+                <View style={styles.modalInfoList}>
+                  {infoCards.map((item) => (
+                    <View key={item.id} style={[styles.modalInfoCard, shadows.card]}>
+                      <Text style={styles.modalInfoTitle}>{item.title}</Text>
+                      <Text style={styles.modalInfoBody}>{item.body}</Text>
+                    </View>
+                  ))}
+                </View>
+                <Button
+                  label="오늘,우리로 이동"
+                  onPress={() => {
+                    closeCalendarDayModal();
+                    router.replace("/today");
+                  }}
+                />
+              </Card>
+            ) : null}
+
+            {recordDayError ? <Text style={styles.errorText}>{recordDayError}</Text> : null}
+          </ScrollView>
+        </View>
+      </Modal>
     </PatientShell>
   );
 }
@@ -357,13 +638,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: space.xl,
+    paddingHorizontal: space.lg,
     paddingTop: space.md,
     paddingBottom: 140,
-    gap: space.xl,
+    gap: space.lg,
   },
   heroCard: {
-    paddingVertical: space.xxl,
+    paddingVertical: space.xl,
   },
   heroRow: {
     flexDirection: "row",
@@ -371,10 +652,10 @@ const styles = StyleSheet.create({
     gap: space.lg,
   },
   avatarCircle: {
-    width: 92,
-    height: 92,
+    width: space.xxxl * 2 + space.xl,
+    height: space.xxxl * 2 + space.xl,
     borderRadius: radii.full,
-    backgroundColor: "#f5f5f7",
+    backgroundColor: surface.fieldSurface,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -446,47 +727,34 @@ const styles = StyleSheet.create({
     color: surface.textSecondary,
   },
   calendarLabelActive: {
-    color: "#ffffff",
+    color: surface.surfacePrimary,
     fontWeight: "700",
   },
-  historySectionCard: {
-    paddingTop: space.xl,
-  },
-  historyList: {
+  externalSurveyCard: {
     marginTop: space.lg,
-    gap: space.sm,
-  },
-  historyCard: {
     borderRadius: radii.xl,
-    backgroundColor: "#ffffff",
-    padding: space.xl,
+    backgroundColor: surface.surfacePrimary,
+    padding: space.lg,
+    gap: space.sm,
+    ...shadows.card,
   },
-  historyDate: {
-    ...typo.caption,
-    color: "#b87089",
-  },
-  historyTitle: {
-    marginTop: space.sm,
+  externalSurveyTitle: {
     ...typo.label,
     color: surface.textPrimary,
   },
-  historyBody: {
-    marginTop: space.sm,
+  externalSurveyBody: {
     ...typo.caption,
-    color: "#776873",
-  },
-  form: {
-    marginTop: space.lg,
-    gap: space.md,
+    color: surface.textSecondary,
   },
   surveyList: {
     marginTop: space.lg,
     gap: space.md,
+    marginBottom: space.xl,
   },
   surveyCard: {
     borderRadius: radii.xl,
-    backgroundColor: "#ffffff",
-    padding: space.xl,
+    backgroundColor: surface.surfacePrimary,
+    padding: space.lg,
     ...shadows.card,
   },
   surveyQuestion: {
@@ -520,9 +788,203 @@ const styles = StyleSheet.create({
   },
   accountRow: {
     marginTop: space.md,
+    alignItems: "flex-start",
   },
   errorText: {
     ...typo.caption,
     color: palette.errorText,
+  },
+  modalSafeArea: {
+    flex: 1,
+    backgroundColor: surface.surfacePrimary,
+    paddingTop: space.xl,
+  },
+  modalHeader: {
+    paddingHorizontal: space.lg,
+    paddingTop: space.sm,
+    alignItems: "flex-start",
+  },
+  modalCloseButton: {
+    width: space.xxxl + space.md,
+    height: space.xxxl + space.xs,
+    borderRadius: radii.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: surface.surfaceSecondary,
+  },
+  modalContent: {
+    paddingHorizontal: space.lg,
+    paddingTop: space.lg,
+    paddingBottom: space.xxxl,
+    gap: space.lg,
+  },
+  modalHero: {
+    gap: space.xs,
+  },
+  modalTitle: {
+    ...typo.titleMd,
+    color: surface.textPrimary,
+  },
+  modalDescription: {
+    ...typo.body,
+    color: surface.textSecondary,
+  },
+  modalTabRow: {
+    flexDirection: "row",
+    gap: space.sm,
+  },
+  modalStatusTab: {
+    flex: 1,
+    borderRadius: radii.xl,
+    paddingHorizontal: space.md,
+    paddingVertical: space.lg,
+    gap: space.sm,
+  },
+  modalStatusHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.xs,
+  },
+  modalStatusLabel: {
+    ...typo.label,
+  },
+  modalStatusValue: {
+    ...typo.titleSm,
+  },
+  modalTabSuccess: {
+    backgroundColor: palette.successBackground,
+  },
+  modalTabConversation: {
+    backgroundColor: surface.surfaceSecondary,
+  },
+  modalTabMuted: {
+    backgroundColor: surface.surfaceSecondary,
+  },
+  modalTabIdle: {
+    backgroundColor: surface.surfaceSecondary,
+  },
+  modalTabTextSuccess: {
+    color: palette.successText,
+  },
+  modalTabTextConversation: {
+    color: palette.accent,
+  },
+  modalTabTextMuted: {
+    color: surface.textSecondary,
+  },
+  modalTabTextIdle: {
+    color: surface.textSecondary,
+  },
+  modalSectionTitle: {
+    ...typo.titleSm,
+    color: surface.textPrimary,
+    marginBottom: space.xs,
+  },
+  modalSectionDescription: {
+    ...typo.caption,
+    color: surface.textSecondary,
+    marginBottom: space.lg,
+  },
+  modalChecklistList: {
+    gap: space.sm,
+  },
+  modalChecklistCard: {
+    borderRadius: radii.xl,
+    backgroundColor: surface.surfacePrimary,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+  },
+  modalCheckbox: {
+    width: space.xl + space.xs,
+    height: space.xl + space.xs,
+    borderRadius: radii.sm,
+    backgroundColor: surface.fieldSurface,
+  },
+  modalCheckboxChecked: {
+    backgroundColor: palette.accent,
+  },
+  modalChecklistLabel: {
+    ...typo.body,
+    color: surface.textPrimary,
+    flex: 1,
+  },
+  modalEmptyText: {
+    ...typo.body,
+    color: surface.textSecondary,
+  },
+  modalPanel: {
+    marginTop: space.lg,
+    gap: space.sm,
+  },
+  modalSummaryText: {
+    ...typo.body,
+    color: surface.textSecondary,
+  },
+  modalConversationCard: {
+    borderRadius: radii.xl,
+    backgroundColor: surface.surfacePrimary,
+    padding: space.xl,
+    gap: space.sm,
+  },
+  modalConversationMeta: {
+    ...typo.caption,
+    color: palette.accent,
+  },
+  modalConversationTitle: {
+    ...typo.label,
+    color: surface.textPrimary,
+  },
+  modalConversationBody: {
+    ...typo.body,
+    color: surface.textSecondary,
+  },
+  modalQnaCard: {
+    borderRadius: radii.xl,
+    backgroundColor: surface.surfacePrimary,
+    padding: space.xl,
+    gap: space.sm,
+  },
+  modalQuestion: {
+    ...typo.label,
+    color: palette.accent,
+  },
+  modalAnswer: {
+    ...typo.body,
+    color: surface.textPrimary,
+  },
+  modalAiResponse: {
+    borderRadius: radii.lg,
+    backgroundColor: surface.surfaceSecondary,
+    padding: space.lg,
+    gap: space.xs,
+  },
+  modalAiTitle: {
+    ...typo.label,
+    color: palette.accent,
+  },
+  modalAiBody: {
+    ...typo.body,
+    color: surface.textSecondary,
+  },
+  modalInfoList: {
+    gap: space.sm,
+    marginBottom: space.lg,
+  },
+  modalInfoCard: {
+    borderRadius: radii.xl,
+    backgroundColor: surface.surfacePrimary,
+    padding: space.xl,
+    gap: space.sm,
+  },
+  modalInfoTitle: {
+    ...typo.label,
+    color: surface.textPrimary,
+  },
+  modalInfoBody: {
+    ...typo.body,
+    color: surface.textSecondary,
   },
 });

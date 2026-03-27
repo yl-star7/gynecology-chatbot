@@ -1,10 +1,12 @@
+import { radii, space } from "../../theme";
+
 export const LABELED_INPUT_LAYOUT = {
-  fieldGap: 4,
-  labelInset: 4,
-  inputRadius: 14,
-  inputPaddingX: 16,
-  inputPaddingY: 16,
-  inputMinHeight: 52,
-  multilineMinHeight: 96,
+  fieldGap: space.xs,
+  labelInset: space.xs,
+  inputRadius: radii.md,
+  inputPaddingX: space.lg,
+  inputPaddingY: space.lg,
+  inputMinHeight: space.xxxl + space.xxl,
+  multilineMinHeight: space.xxxl * 3,
   usesBorder: false,
 } as const;

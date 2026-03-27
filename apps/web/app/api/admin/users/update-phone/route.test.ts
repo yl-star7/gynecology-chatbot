@@ -60,6 +60,7 @@ describe("POST /api/admin/users/update-phone", () => {
         updateAllowedPhoneNumber: jest.fn(),
         deleteAllowedPhoneNumber: jest.fn(),
         resetSession: jest.fn(),
+        updateUserStatus: jest.fn(),
       },
       adminContentPort: {} as never,
     });

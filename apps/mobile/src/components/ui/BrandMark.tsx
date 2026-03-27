@@ -1,13 +1,14 @@
 import { Image, StyleSheet, Text, View } from "react-native";
 
-import { palette, space, typo } from "../../theme";
+import { palette, radii, space, typo } from "../../theme";
 
 const BRAND_MARK_SOURCE = require("../../../assets/branding/app-mark.png");
+const DEFAULT_BRAND_MARK_SIZE = space.xxxl + space.xxl;
 
 export function BrandMark({
   subtitle,
   centered = false,
-  size = 56,
+  size = DEFAULT_BRAND_MARK_SIZE,
 }: {
   subtitle?: string;
   centered?: boolean;
@@ -17,7 +18,7 @@ export function BrandMark({
     <View style={[styles.container, centered ? styles.centered : null]}>
       <Image
         source={BRAND_MARK_SOURCE}
-        style={{ width: size, height: size, borderRadius: size * 0.22 }}
+        style={{ width: size, height: size, borderRadius: radii.md }}
       />
       <View style={centered ? styles.textCentered : null}>
         <Text style={styles.title}>아가야</Text>

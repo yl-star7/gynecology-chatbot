@@ -18,7 +18,7 @@ describe("MobileConversationView", () => {
     (fetchSession as jest.Mock).mockResolvedValue({
       session: {
         id: "session-1",
-        title: "아기와 나누는 마음",
+        title: "아기와 대화",
         messages: [
           {
             id: "assistant-1",

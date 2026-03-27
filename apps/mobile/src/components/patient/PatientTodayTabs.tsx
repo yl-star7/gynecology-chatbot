@@ -34,7 +34,7 @@ export function PatientTodayTabs({
           >
             <Ionicons
               name={TAB_ICONS[section.id] ?? "ellipse-outline"}
-              size={18}
+              size={space.lg + space.xs}
               color={isActive ? surface.textPrimary : surface.textSecondary}
             />
             <Text style={[styles.label, isActive ? styles.labelActive : null]}>{section.label}</Text>
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radii.full,
     paddingHorizontal: space.sm,
-    paddingVertical: 11,
+    paddingVertical: space.sm + space.xs,
     flexDirection: "row",
     alignItems: "center",
     gap: space.xs,

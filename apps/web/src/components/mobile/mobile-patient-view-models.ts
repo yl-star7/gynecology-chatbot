@@ -54,9 +54,9 @@ export function buildWebPatientTodayViewModel({
 
   return {
     sections: [
-      { id: "info", label: "정보" },
-      { id: "checklist", label: "체크" },
-      { id: "conversation", label: "대화" },
+      { id: "info", label: "아기와 엄마" },
+      { id: "checklist", label: "체크리스트" },
+      { id: "conversation", label: "아기와 대화" },
     ],
     babyText: today?.babyBody ?? "오늘 아기의 변화를 준비 중이에요.",
     momText: today?.momBody ?? "오늘 엄마의 변화를 준비 중이에요.",

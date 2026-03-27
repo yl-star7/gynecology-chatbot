@@ -4,6 +4,13 @@ import {
   DEFAULT_BABY_NAME,
   DEFAULT_SUPPORT_MESSAGE,
 } from "./patient-copy";
+import { pickPatientEncouragementQuote } from "./patient-encouragement-quotes";
+
+const HOURS_PER_DAY = 24;
+const MINUTES_PER_HOUR = 60;
+const SECONDS_PER_MINUTE = 60;
+const MS_PER_SECOND = 1000;
+const MS_PER_DAY = MS_PER_SECOND * SECONDS_PER_MINUTE * MINUTES_PER_HOUR * HOURS_PER_DAY;
 
 function formatMonthLabel(date: Date) {
   return `${date.getMonth() + 1}월`;
@@ -32,7 +39,7 @@ function getDaysUntilDue(dueDate?: string | null, now?: Date) {
 
   const base = now ?? new Date();
   const diff = due.getTime() - base.getTime();
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  return Math.max(0, Math.ceil(diff / MS_PER_DAY));
 }
 
 export function buildPatientHomeViewModel({
@@ -49,6 +56,13 @@ export function buildPatientHomeViewModel({
     home?.pregnancyWeekLabel ?? profile?.pregnancyWeekLabel ?? "주차 정보를 준비 중이에요";
   const pregnancyDayCount = home?.pregnancyDayCount ?? profile?.pregnancyDayCount ?? 0;
   const daysUntilDue = getDaysUntilDue(profile?.dueDate, now);
+  const quoteSeed = [
+    now.getFullYear(),
+    now.getMonth() + 1,
+    now.getDate(),
+    heroName,
+    pregnancyWeekLabel,
+  ].join("-");
 
   return {
     heroName,
@@ -60,7 +74,7 @@ export function buildPatientHomeViewModel({
     pregnancyDayCount,
     meetingLabel: daysUntilDue == null ? "함께한 시간" : "만나기까지",
     meetingValue: daysUntilDue == null ? `${pregnancyDayCount}일` : `${daysUntilDue}일`,
-    quote: `${heroName}와 함께 보내는 오늘도 충분히 잘하고 있어요.`,
+    quote: pickPatientEncouragementQuote(quoteSeed),
     noteTitle: "오늘의 한마디",
     noteBody:
       profile?.tonePreference?.trim() ||

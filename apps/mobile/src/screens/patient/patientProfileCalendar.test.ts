@@ -3,6 +3,9 @@ import test from "node:test";
 import type { CalendarDay } from "@gynecology-chatbot/app-core";
 import { buildProfileCalendarModel } from "./patientProfileCalendar.ts";
 
+const ACTIVE_ACTIVITY_DAYS = [18, 19] as const;
+const APRIL_DAY_COUNT = 30;
+
 test("buildProfileCalendarModel highlights only days with recorded activity", () => {
   const calendarDays: CalendarDay[] = [
     {
@@ -27,7 +30,7 @@ test("buildProfileCalendarModel highlights only days with recorded activity", ()
 
   const model = buildProfileCalendarModel(calendarDays, new Date(2026, 0, 1));
 
-  assert.deepEqual([...model.activeDays], [18, 19]);
+  assert.deepEqual([...model.activeDays], [...ACTIVE_ACTIVITY_DAYS]);
 });
 
 test("buildProfileCalendarModel uses the month from API data instead of the device month", () => {
@@ -46,6 +49,6 @@ test("buildProfileCalendarModel uses the month from API data instead of the devi
   );
 
   assert.equal(visibleDays[0], 1);
-  assert.equal(visibleDays.at(-1), 30);
-  assert.equal(visibleDays.length, 30);
+  assert.equal(visibleDays.at(-1), APRIL_DAY_COUNT);
+  assert.equal(visibleDays.length, APRIL_DAY_COUNT);
 });

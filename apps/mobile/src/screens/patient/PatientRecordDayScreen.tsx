@@ -56,12 +56,12 @@ async function loadRecordDay(isoDate: string) {
       {
         id: `${isoDate}-check-1`,
         label: "엽산 보충제 섭취하기",
-        completed: Boolean(currentDay?.hasChat),
+        completed: Boolean(currentDay?.hasChat || relatedSessions.length > 0),
       },
       {
         id: `${isoDate}-check-2`,
         label: "충분한 수분 섭취하기 (하루 8잔)",
-        completed: Boolean(currentDay?.emotionTone),
+        completed: Boolean(currentDay?.emotionTone || currentDay?.summary),
       },
     ],
     records: currentDay?.summary
@@ -235,10 +235,10 @@ export function PatientRecordDayScreen({
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: space.xl,
+    paddingHorizontal: space.lg,
     paddingTop: space.md,
     paddingBottom: 140,
-    gap: space.lg,
+    gap: space.md,
   },
   eyebrow: {
     ...typo.eyebrow,
@@ -289,12 +289,12 @@ const styles = StyleSheet.create({
     gap: space.md,
   },
   checkbox: {
-    width: 22,
-    height: 22,
+    width: space.xl + space.xs,
+    height: space.xl + space.xs,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: "#d6d8de",
-    backgroundColor: "#f3f3f5",
+    borderColor: surface.strokeSubtle,
+    backgroundColor: surface.fieldSurface,
   },
   checkboxCompleted: {
     backgroundColor: palette.successBackground,

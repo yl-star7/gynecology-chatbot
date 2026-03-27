@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
-import { palette, patientSurfacePalette as surface } from "../../theme";
+import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
 
 export function EmptyState({
   icon = "chatbubbles-outline",
@@ -15,7 +15,7 @@ export function EmptyState({
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
-        <Ionicons name={icon} size={32} color={palette.accent} />
+        <Ionicons name={icon} size={space.xxxl} color={palette.accent} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.description}>{description}</Text>
@@ -26,26 +26,24 @@ export function EmptyState({
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
-    paddingVertical: 60,
-    gap: 8,
+    paddingVertical: space.xxxl * 2 - space.xs,
+    gap: space.sm,
   },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: space.xxxl * 2,
+    height: space.xxxl * 2,
+    borderRadius: radii.full,
     backgroundColor: surface.surfaceAccent,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: space.sm,
   },
   title: {
-    fontSize: 18,
-    fontWeight: "700",
+    ...typo.titleSm,
     color: surface.textPrimary,
   },
   description: {
-    fontSize: 14,
-    lineHeight: 21,
+    ...typo.caption,
     color: surface.textSecondary,
     textAlign: "center",
   },

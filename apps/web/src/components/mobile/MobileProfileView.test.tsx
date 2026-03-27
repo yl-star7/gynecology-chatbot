@@ -128,13 +128,11 @@ describe("MobileProfileView", () => {
     expect(screen.queryByRole("link", { name: "뒤로 가기" })).not.toBeInTheDocument();
     expect(
       screen.getAllByRole("button", { name: "로그아웃" }).length,
-    ).toBeGreaterThan(0);
-    expect(await screen.findByDisplayValue("김수연")).toHaveClass(
-      "bg-[var(--field-surface)]",
-    );
-    expect(screen.getByDisplayValue("튼튼이")).toHaveClass(
-      "bg-[var(--field-surface)]",
-    );
+    ).toBe(1);
+    expect(screen.getByRole("button", { name: "정보 설정 열기" })).toBeInTheDocument();
+    expect(screen.getByText("김수연")).toBeInTheDocument();
+    expect(screen.getAllByText("2026-08-01").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("튼튼이").length).toBeGreaterThan(0);
     expect(storeMobileProfile).toHaveBeenCalledWith({
       userId: "user-1",
       displayName: "김수연",

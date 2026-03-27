@@ -7,9 +7,9 @@ describe("buildWebPatientTodayViewModel", () => {
     });
 
     expect(viewModel.sections).toEqual([
-      { id: "info", label: "정보" },
-      { id: "checklist", label: "체크" },
-      { id: "conversation", label: "대화" },
+      { id: "info", label: "아기와 엄마" },
+      { id: "checklist", label: "체크리스트" },
+      { id: "conversation", label: "아기와 대화" },
     ]);
   });
 });

@@ -49,6 +49,6 @@ const styles = StyleSheet.create({
     gap: space.xl,
   },
   centered: {
-    paddingTop: 60,
+    paddingTop: space.xxxl * 2 - space.xs,
   },
 });

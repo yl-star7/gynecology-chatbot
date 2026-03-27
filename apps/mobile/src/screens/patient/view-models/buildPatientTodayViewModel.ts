@@ -19,9 +19,9 @@ export function buildPatientTodayViewModel({
     heroTitle: "오늘,우리",
     heroDescription: DEFAULT_TODAY_GUIDE,
     sections: [
-      { id: "info", label: "정보" },
-      { id: "checklist", label: "체크" },
-      { id: "conversation", label: "대화" },
+      { id: "info", label: "아기와 엄마" },
+      { id: "checklist", label: "체크리스트" },
+      { id: "conversation", label: "아기와 대화" },
     ],
     babyCard: {
       title: "오늘 아기는요",
@@ -35,7 +35,7 @@ export function buildPatientTodayViewModel({
     checklistItems,
     checklistProgressLabel: progressLabel,
     checklistProgressPercent: progressPercent,
-    conversationTitle: "아기와 나누는 마음",
+    conversationTitle: "아기와 대화",
     conversationDescription: "아기에게 하고 싶은 이야기를 나눠보세요",
   };
 }

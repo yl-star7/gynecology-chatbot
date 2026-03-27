@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { StyleSheet, Text, View } from "react-native";
 import { Card } from "../ui";
-import { palette, space, typo } from "../../theme";
+import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
 
 export function PatientHeroBubble({
   message,
@@ -27,17 +27,17 @@ const styles = StyleSheet.create({
   bubble: {
     width: "90%",
     backgroundColor: palette.accent,
-    borderRadius: 28,
+    borderRadius: radii.xxl,
     paddingVertical: space.lg,
   },
   bubbleLabel: {
     ...typo.caption,
-    color: "#ffffff",
+    color: surface.surfacePrimary,
     opacity: 0.85,
   },
   message: {
     marginTop: space.sm,
     ...typo.body,
-    color: "#ffffff",
+    color: surface.surfacePrimary,
   },
 });

@@ -70,6 +70,7 @@ export function PatientHomeScreen() {
         </Card>
 
         <Card style={styles.quoteCard}>
+          <Text style={styles.quoteEyebrow}>위안되는 한마디</Text>
           <Text style={styles.quoteText}>{viewModel.quote}</Text>
         </Card>
 
@@ -77,12 +78,6 @@ export function PatientHomeScreen() {
           <Text style={styles.noteTitle}>{viewModel.noteTitle}</Text>
           <Text style={styles.noteBody}>{viewModel.noteBody}</Text>
         </Card>
-
-        <Pressable style={[styles.knowledgeEntryCard, shadows.card]} onPress={() => router.replace("/knowledge")}>
-          <Text style={styles.shortcutEyebrow}>참고 정보</Text>
-          <Text style={styles.shortcutTitle}>임신 지식을 참고로 읽어봐요</Text>
-          <Text style={styles.shortcutBody}>주차별 변화와 참고 문서를 따로 읽고 싶을 때만 들어가면 돼요.</Text>
-        </Pressable>
 
         <View style={styles.shortcutRow}>
           <Pressable style={[styles.shortcutCard, shadows.card]} onPress={() => router.replace("/notebook")}>
@@ -103,10 +98,10 @@ export function PatientHomeScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: space.xl,
+    paddingHorizontal: space.lg,
     paddingTop: space.md,
     paddingBottom: 140,
-    gap: space.lg,
+    gap: space.md,
   },
   monthLabel: {
     ...typo.eyebrow,
@@ -125,18 +120,18 @@ const styles = StyleSheet.create({
     marginTop: -space.sm,
   },
   heroImageOuter: {
-    width: 272,
-    height: 272,
+    width: space.xxxl * 8 + space.xl,
+    height: space.xxxl * 8 + space.xl,
     borderRadius: radii.full,
-    backgroundColor: "#f5f5f7",
+    backgroundColor: surface.fieldSurface,
     alignItems: "center",
     justifyContent: "center",
   },
   heroImageInner: {
-    width: 236,
-    height: 236,
+    width: space.xxxl * 7 + space.xxl,
+    height: space.xxxl * 7 + space.xxl,
     borderRadius: radii.full,
-    backgroundColor: "#ececf0",
+    backgroundColor: surface.surfaceSecondary,
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
@@ -167,7 +162,13 @@ const styles = StyleSheet.create({
     color: surface.textSecondary,
   },
   quoteCard: {
-    backgroundColor: "#ffffff",
+    backgroundColor: surface.surfacePrimary,
+    gap: space.xs,
+  },
+  quoteEyebrow: {
+    ...typo.eyebrow,
+    color: palette.accent,
+    textAlign: "center",
   },
   quoteText: {
     ...typo.body,
@@ -175,7 +176,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   noteCard: {
-    backgroundColor: "#f7f7f9",
+    backgroundColor: surface.surfaceSecondary,
   },
   noteTitle: {
     ...typo.titleSm,
@@ -189,15 +190,10 @@ const styles = StyleSheet.create({
   shortcutRow: {
     gap: space.sm,
   },
-  knowledgeEntryCard: {
-    borderRadius: radii.xl,
-    backgroundColor: surface.surfaceSecondary,
-    padding: space.xl,
-  },
   shortcutCard: {
     borderRadius: radii.xl,
     backgroundColor: surface.surfacePrimary,
-    padding: space.xl,
+    padding: space.lg,
   },
   shortcutEyebrow: {
     ...typo.eyebrow,

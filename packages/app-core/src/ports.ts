@@ -20,6 +20,7 @@ import type {
   OnboardingProfileInput,
   AdminAllowedPhoneNumber,
   RecentChatSummary,
+  RecordDayView,
   TodayViewData,
 } from "./domain";
 
@@ -37,10 +38,12 @@ export interface OnboardingPort {
 
 export interface MobileHomePort {
   getHomeView(): Promise<HomeViewData>;
+  getRecordDay(isoDate: string): Promise<RecordDayView>;
 }
 
 export interface TodayPort {
   getTodayView(): Promise<TodayViewData>;
+  markInfoViewed(): Promise<void>;
   setChecklistItemCompleted(input: {
     checklistId: string;
     completed: boolean;

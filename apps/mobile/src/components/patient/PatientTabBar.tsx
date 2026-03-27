@@ -21,7 +21,7 @@ export function PatientTabBar({ activeTab }: { activeTab: "home" | "today" | "pr
           >
             <Ionicons
               name={tab.icon}
-              size={20}
+              size={space.lg + space.sm}
               color={isActive ? palette.accent : surface.textSecondary}
             />
             <Text style={[styles.label, isActive ? styles.labelActive : null]}>{tab.label}</Text>

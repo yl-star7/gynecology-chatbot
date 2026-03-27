@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { StyleSheet, Text } from "react-native";
 import { Pressable } from "./Pressable";
-import { palette, patientSurfacePalette as surface, radii, typo } from "../../theme";
+import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
 
 export function Button({
   label,
@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radii.md,
-    paddingVertical: 16,
+    paddingVertical: space.lg,
   },
   label: {
     ...typo.button,
@@ -49,13 +49,13 @@ const variantStyles = StyleSheet.create({
   },
   text: {
     backgroundColor: "transparent",
-    paddingVertical: 12,
+    paddingVertical: space.md,
   },
 });
 
 const labelVariants = StyleSheet.create({
   primary: {
-    color: "#ffffff",
+    color: surface.surfacePrimary,
   },
   secondary: {
     color: palette.accent,

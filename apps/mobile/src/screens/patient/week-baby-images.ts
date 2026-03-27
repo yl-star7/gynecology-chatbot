@@ -1,3 +1,7 @@
+const DEFAULT_WEEK_BABY_IMAGE_WEEK = 18;
+const MIN_SUPPORTED_WEEK = 5;
+const MAX_SUPPORTED_WEEK = 40;
+
 export function parsePregnancyWeekLabel(label?: string | null) {
   if (!label) {
     return null;
@@ -19,10 +23,10 @@ export function parsePregnancyWeekLabel(label?: string | null) {
 export function resolveWeekBabyImageWeek(weekLabel?: string | null) {
   const parsedWeek = parsePregnancyWeekLabel(weekLabel);
   if (!parsedWeek) {
-    return 18;
+    return DEFAULT_WEEK_BABY_IMAGE_WEEK;
   }
 
-  return Math.max(5, Math.min(40, parsedWeek));
+  return Math.max(MIN_SUPPORTED_WEEK, Math.min(MAX_SUPPORTED_WEEK, parsedWeek));
 }
 
 export const weekBabyImages = {

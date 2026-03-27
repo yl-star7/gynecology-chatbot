@@ -39,7 +39,7 @@ export function EmotionCheckin({ onSelect, onDismiss }: EmotionCheckinProps) {
     Animated.parallel([
       Animated.spring(slideAnim, {
         toValue: 0,
-        damping: 20,
+        damping: space.xl,
         stiffness: 180,
         useNativeDriver: true,
       }),
@@ -118,9 +118,9 @@ const styles = StyleSheet.create({
     }),
   },
   handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
+    width: space.xxxl + space.xs,
+    height: space.xs,
+    borderRadius: radii.full,
     backgroundColor: surface.strokeSubtle,
     alignSelf: "center",
     marginBottom: space.lg,
@@ -143,9 +143,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   emotionButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: space.xxxl + space.lg,
+    height: space.xxxl + space.lg,
+    borderRadius: radii.full,
     backgroundColor: surface.surfaceSecondary,
     alignItems: "center",
     justifyContent: "center",
@@ -156,8 +156,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.94 }],
   },
   emotionEmoji: {
-    fontSize: 24,
-    lineHeight: 28,
+    ...typo.titleSm,
   },
   emotionLabel: {
     ...typo.caption,

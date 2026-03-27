@@ -76,8 +76,8 @@ export function PatientRecordsScreen() {
                             : day.statusTone === "muted"
                               ? "위로"
                               : day.statusTone === "calm"
-                                ? "차분"
-                                : "미기록"}
+                                ? "대화함"
+                                : "기록 대기"}
                     </Text>
                   </View>
                 </View>
@@ -96,10 +96,10 @@ export function PatientRecordsScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: space.xl,
+    paddingHorizontal: space.lg,
     paddingTop: space.md,
     paddingBottom: 140,
-    gap: space.lg,
+    gap: space.md,
   },
   title: {
     ...typo.titleMd,
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   dayCard: {
     borderRadius: radii.xl,
     backgroundColor: surface.surfaceSecondary,
-    padding: space.lg,
+    padding: space.md,
   },
   dayCardHeader: {
     flexDirection: "row",
