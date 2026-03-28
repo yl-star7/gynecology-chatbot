@@ -1,6 +1,100 @@
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
+/* ── Schift SDK WorkflowEditor: CSS utilities for SDK components ──
+ * Tailwind v4 does not scan node_modules, so SDK classes are not generated.
+ * We use @utility (Tailwind v4 API) for standard utility names and plain
+ * selectors (scoped to .schift-editor-root) for arbitrary-value classes.
+ */
+@utility schift-w-52 { width: 13rem; }
+@utility schift-w-64 { width: 16rem; }
+@utility schift-w-96 { width: 24rem; }
+
+/* Scoped SDK overrides — these use !important to win over missing TW utilities */
+.schift-editor-root .w-52 { width: 13rem !important; }
+.schift-editor-root .w-64 { width: 16rem !important; }
+.schift-editor-root .w-96 { width: 24rem !important; }
+.schift-editor-root .w-\[480px\] { width: 480px !important; }
+.schift-editor-root .h-screen { height: 100% !important; }
+.schift-editor-root .h-12 { height: 3rem !important; }
+.schift-editor-root .h-9 { height: 2.25rem !important; }
+.schift-editor-root .h-7 { height: 1.75rem !important; }
+.schift-editor-root .h-5 { height: 1.25rem !important; }
+.schift-editor-root .h-1\.5 { height: 0.375rem !important; }
+.schift-editor-root .max-w-md { max-width: 28rem !important; }
+.schift-editor-root .max-w-lg { max-width: 32rem !important; }
+.schift-editor-root .max-w-xl { max-width: 36rem !important; }
+.schift-editor-root .min-h-\[200px\] { min-height: 200px !important; }
+.schift-editor-root .text-\[10px\] { font-size: 10px !important; line-height: 1; }
+.schift-editor-root .text-\[11px\] { font-size: 11px !important; line-height: 1.4; }
+.schift-editor-root .leading-5 { line-height: 1.25rem !important; }
+.schift-editor-root .tracking-wider { letter-spacing: 0.05em !important; }
+.schift-editor-root .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0,0,0,.25) !important; }
+.schift-editor-root .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1) !important; }
+.schift-editor-root .z-50 { z-index: 50 !important; }
+.schift-editor-root .flex-shrink-0 { flex-shrink: 0 !important; }
+.schift-editor-root .overflow-hidden { overflow: hidden !important; }
+.schift-editor-root .overflow-y-auto { overflow-y: auto !important; }
+@keyframes schift-spin { to { transform: rotate(360deg); } }
+.schift-editor-root .animate-spin { animation: schift-spin 1s linear infinite !important; }
+
+/* ── Schift SDK: arbitrary-value classes with CSS custom properties ── */
+.schift-editor-root .bg-\[var\(--schift-black\)\] { background-color: var(--schift-black) !important; }
+.schift-editor-root .bg-\[var\(--schift-blue\)\] { background-color: var(--schift-blue) !important; }
+.schift-editor-root .bg-\[var\(--schift-gray-100\)\] { background-color: var(--schift-gray-100) !important; }
+.schift-editor-root .bg-\[var\(--schift-gray-70\)\] { background-color: var(--schift-gray-70) !important; }
+.schift-editor-root .bg-\[var\(--schift-gray-80\)\] { background-color: var(--schift-gray-80) !important; }
+.schift-editor-root .bg-\[var\(--schift-gray-90\)\] { background-color: var(--schift-gray-90) !important; }
+.schift-editor-root .bg-\[var\(--schift-red\)\] { background-color: var(--schift-red) !important; }
+.schift-editor-root .bg-\[var\(--schift-blue\)\]\/5 { background-color: color-mix(in srgb, var(--schift-blue) 5%, transparent) !important; }
+.schift-editor-root .bg-\[var\(--schift-blue\)\]\/10 { background-color: color-mix(in srgb, var(--schift-blue) 10%, transparent) !important; }
+.schift-editor-root .bg-\[var\(--schift-gray-70\)\]\/30 { background-color: color-mix(in srgb, var(--schift-gray-70) 30%, transparent) !important; }
+.schift-editor-root .bg-\[var\(--schift-gray-80\)\]\/50 { background-color: color-mix(in srgb, var(--schift-gray-80) 50%, transparent) !important; }
+.schift-editor-root .bg-\[var\(--schift-gray-100\)\]\/90 { background-color: color-mix(in srgb, var(--schift-gray-100) 90%, transparent) !important; }
+.schift-editor-root .bg-\[var\(--schift-gray-100\)\]\/95 { background-color: color-mix(in srgb, var(--schift-gray-100) 95%, transparent) !important; }
+.schift-editor-root .bg-\[var\(--schift-green\)\]\/5 { background-color: color-mix(in srgb, var(--schift-green) 5%, transparent) !important; }
+.schift-editor-root .bg-\[var\(--schift-green\)\]\/20 { background-color: color-mix(in srgb, var(--schift-green) 20%, transparent) !important; }
+.schift-editor-root .bg-\[var\(--schift-red\)\]\/5 { background-color: color-mix(in srgb, var(--schift-red) 5%, transparent) !important; }
+.schift-editor-root .bg-\[var\(--schift-red\)\]\/10 { background-color: color-mix(in srgb, var(--schift-red) 10%, transparent) !important; }
+.schift-editor-root .bg-\[var\(--schift-red\)\]\/20 { background-color: color-mix(in srgb, var(--schift-red) 20%, transparent) !important; }
+.schift-editor-root .bg-\[var\(--schift-yellow\)\]\/20 { background-color: color-mix(in srgb, var(--schift-yellow) 20%, transparent) !important; }
+
+.schift-editor-root .text-\[var\(--schift-blue\)\] { color: var(--schift-blue) !important; }
+.schift-editor-root .text-\[var\(--schift-blue-light\)\] { color: var(--schift-blue-light, #60a5fa) !important; }
+.schift-editor-root .text-\[var\(--schift-gray-20\)\] { color: var(--schift-gray-20, #d0d0e0) !important; }
+.schift-editor-root .text-\[var\(--schift-gray-30\)\] { color: var(--schift-gray-30) !important; }
+.schift-editor-root .text-\[var\(--schift-gray-40\)\] { color: var(--schift-gray-40, #9090a8) !important; }
+.schift-editor-root .text-\[var\(--schift-gray-50\)\] { color: var(--schift-gray-50) !important; }
+.schift-editor-root .text-\[var\(--schift-gray-60\)\] { color: var(--schift-gray-60) !important; }
+.schift-editor-root .text-\[var\(--schift-gray-70\)\] { color: var(--schift-gray-70) !important; }
+.schift-editor-root .text-\[var\(--schift-green\)\] { color: var(--schift-green) !important; }
+.schift-editor-root .text-\[var\(--schift-red\)\] { color: var(--schift-red) !important; }
+.schift-editor-root .text-\[var\(--schift-white\)\] { color: var(--schift-white) !important; }
+.schift-editor-root .text-\[var\(--schift-yellow\)\] { color: var(--schift-yellow) !important; }
+
+.schift-editor-root .border-\[var\(--schift-blue\)\] { border-color: var(--schift-blue) !important; }
+.schift-editor-root .border-\[var\(--schift-gray-50\)\] { border-color: var(--schift-gray-50) !important; }
+.schift-editor-root .border-\[var\(--schift-gray-60\)\] { border-color: var(--schift-gray-60) !important; }
+.schift-editor-root .border-\[var\(--schift-gray-70\)\] { border-color: var(--schift-gray-70) !important; }
+.schift-editor-root .border-\[var\(--schift-gray-80\)\] { border-color: var(--schift-gray-80) !important; }
+.schift-editor-root .border-\[var\(--schift-blue\)\]\/20 { border-color: color-mix(in srgb, var(--schift-blue) 20%, transparent) !important; }
+.schift-editor-root .border-\[var\(--schift-blue\)\]\/30 { border-color: color-mix(in srgb, var(--schift-blue) 30%, transparent) !important; }
+.schift-editor-root .border-\[var\(--schift-blue\)\]\/40 { border-color: color-mix(in srgb, var(--schift-blue) 40%, transparent) !important; }
+.schift-editor-root .border-\[var\(--schift-green\)\]\/30 { border-color: color-mix(in srgb, var(--schift-green) 30%, transparent) !important; }
+.schift-editor-root .border-\[var\(--schift-green\)\]\/40 { border-color: color-mix(in srgb, var(--schift-green) 40%, transparent) !important; }
+.schift-editor-root .border-\[var\(--schift-green\)\]\/50 { border-color: color-mix(in srgb, var(--schift-green) 50%, transparent) !important; }
+.schift-editor-root .border-\[var\(--schift-red\)\]\/30 { border-color: color-mix(in srgb, var(--schift-red) 30%, transparent) !important; }
+.schift-editor-root .border-\[var\(--schift-red\)\]\/50 { border-color: color-mix(in srgb, var(--schift-red) 50%, transparent) !important; }
+
+.schift-editor-root .hover\:bg-\[var\(--schift-gray-80\)\]:hover { background-color: var(--schift-gray-80) !important; }
+.schift-editor-root .hover\:bg-\[var\(--schift-red\)\]\/20:hover { background-color: color-mix(in srgb, var(--schift-red) 20%, transparent) !important; }
+.schift-editor-root .hover\:text-\[var\(--schift-gray-30\)\]:hover { color: var(--schift-gray-30) !important; }
+.schift-editor-root .hover\:text-\[var\(--schift-white\)\]:hover { color: var(--schift-white) !important; }
+.schift-editor-root .hover\:border-\[var\(--schift-gray-60\)\]:hover { border-color: var(--schift-gray-60) !important; }
+
+.schift-editor-root .focus\:border-\[var\(--schift-blue\)\]:focus { border-color: var(--schift-blue) !important; }
+.schift-editor-root .placeholder\:text-\[var\(--schift-gray-60\)\]::placeholder { color: var(--schift-gray-60) !important; }
+
 [data-theme="rose-sand"],
 :root {
   --bg: #fffafc;
