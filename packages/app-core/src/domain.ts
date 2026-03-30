@@ -272,6 +272,7 @@ export interface AdminRagDocument {
 export interface AdminRagDocumentDetail extends AdminRagDocument {
   pregnancyWeek: number | null;
   content: string;
+  imageUrl: string | null;
 }
 
 export interface AdminRagDocumentInput {
@@ -279,6 +280,7 @@ export interface AdminRagDocumentInput {
   pregnancyWeek: number | null;
   category: string;
   content: string;
+  imageUrl?: string | null;
 }
 
 export interface AdminKnowledgeItem {
@@ -287,6 +289,7 @@ export interface AdminKnowledgeItem {
   section: "knowledge" | "notebook";
   title: string;
   body: string;
+  imageUrl: string | null;
   status: "draft" | "published" | "archived";
   updatedAt: string;
 }
@@ -296,6 +299,7 @@ export interface AdminKnowledgeItemInput {
   section: "knowledge" | "notebook";
   title: string;
   body: string;
+  imageUrl?: string | null;
   status: AdminKnowledgeItem["status"];
 }
 

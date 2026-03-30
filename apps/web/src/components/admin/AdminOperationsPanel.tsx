@@ -19,6 +19,7 @@ interface BrandingData {
   mascotObjectPath: string | null;
   mascotSourceFileName: string | null;
   mascotAltText: string | null;
+  surveyFormUrl: string | null;
 }
 
 interface SchiftCollection {
@@ -69,6 +70,7 @@ const DEFAULT_BRANDING: BrandingData = {
   mascotObjectPath: null,
   mascotSourceFileName: null,
   mascotAltText: "마스코트",
+  surveyFormUrl: null,
 };
 
 export function AdminOperationsPanel() {
@@ -283,6 +285,7 @@ export function AdminOperationsPanel() {
         mascotObjectPath: uploadPayload.objectPath,
         mascotSourceFileName: uploadPayload.sourceFileName ?? file.name,
         mascotAltText: branding.mascotAltText ?? "마스코트",
+        surveyFormUrl: branding.surveyFormUrl ?? null,
       };
 
       const saveRes = await fetch("/api/admin/branding", {
@@ -302,6 +305,40 @@ export function AdminOperationsPanel() {
         error instanceof Error
           ? error.message
           : "FAB 마스코트 저장에 실패했습니다.",
+      );
+    } finally {
+      setBrandingSaving(false);
+    }
+  }
+
+  async function handleSaveSurveyFormUrl() {
+    setBrandingSaving(true);
+    setBrandingResult(null);
+    setBrandingError(null);
+    try {
+      const saveRes = await fetch("/api/admin/branding", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...branding,
+          surveyFormUrl: branding.surveyFormUrl?.trim() || null,
+        }),
+      });
+      const savePayload = (await saveRes.json()) as { error?: string };
+      if (!saveRes.ok) {
+        throw new Error(savePayload.error ?? "설문 링크 저장에 실패했습니다.");
+      }
+
+      setBranding((current) => ({
+        ...current,
+        surveyFormUrl: current.surveyFormUrl?.trim() || null,
+      }));
+      setBrandingResult("설문 링크를 저장했습니다.");
+    } catch (error) {
+      setBrandingError(
+        error instanceof Error
+          ? error.message
+          : "설문 링크 저장에 실패했습니다.",
       );
     } finally {
       setBrandingSaving(false);
@@ -465,6 +502,34 @@ export function AdminOperationsPanel() {
         ) : (
           <div className={styles.opsScheduleRows}>
             <label className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>설문 링크</span>
+              <input
+                className={styles.fieldInput}
+                type="url"
+                inputMode="url"
+                placeholder="https://forms.gle/... 또는 https://docs.google.com/forms/..."
+                value={branding.surveyFormUrl ?? ""}
+                onChange={(event) =>
+                  setBranding((current) => ({
+                    ...current,
+                    surveyFormUrl: event.target.value,
+                  }))
+                }
+                aria-label="설문 링크"
+              />
+            </label>
+            <div className={styles.actionRow}>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={() => void handleSaveSurveyFormUrl()}
+                disabled={brandingSaving}
+                aria-busy={brandingSaving}
+              >
+                {brandingSaving ? "저장 중..." : "설문 링크 저장"}
+              </button>
+            </div>
+            <label className={styles.fieldGroup}>
               <span className={styles.fieldLabel}>마스코트 업로드</span>
               <input
                 className={styles.fieldInput}
@@ -488,6 +553,9 @@ export function AdminOperationsPanel() {
                 현재 설정된 FAB 마스코트가 없습니다.
               </p>
             )}
+            <p className={styles.formHint}>
+              마이페이지에서 설문 화면을 열 때 이 링크를 사용해요.
+            </p>
           </div>
         )}
 

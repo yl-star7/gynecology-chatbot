@@ -2,7 +2,7 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { BrandMark, Button, Card, KeyboardScreen, LabeledInput, Pressable } from "../../components/ui";
+import { BrandMark, Button, Card, DueDateCalendarPicker, KeyboardScreen, Pressable } from "../../components/ui";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
 import { ONBOARDING_LAYOUT } from "./OnboardingScreen.model";
@@ -12,27 +12,15 @@ const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", "다정
 export function OnboardingScreen() {
   const { completeOnboarding } = useMobileAppSession();
   const [step, setStep] = useState(0);
-  const [inputMode, setInputMode] = useState<"week" | "dueDate" | null>(null);
-  const [weekNumber, setWeekNumber] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [babyNickname, setBabyNickname] = useState("");
   const [tonePreference, setTonePreference] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function next() {
-    if (step === 0) {
-      if (inputMode === "week" && !weekNumber.trim()) {
-        setError("주차를 입력해주세요.");
-        return;
-      }
-      if (inputMode === "dueDate" && !dueDate.trim()) {
-        setError("예정일을 입력해주세요.");
-        return;
-      }
-      if (!inputMode) {
-        setError("주차 또는 예정일 중 하나를 선택해주세요.");
-        return;
-      }
+    if (step === 0 && !dueDate) {
+      setError("출산 예정일을 선택해주세요.");
+      return;
     }
     setError(null);
     setStep((s) => s + 1);
@@ -40,7 +28,7 @@ export function OnboardingScreen() {
 
   async function handleComplete() {
     try {
-      const pregnancyInfo = inputMode === "week" ? `${weekNumber.trim()}주` : dueDate.trim();
+      const pregnancyInfo = dueDate;
       const notes = babyNickname.trim() ? `태명: ${babyNickname.trim()}` : "";
       await completeOnboarding({
         pregnancyWeekOrDueDate: [pregnancyInfo, notes].filter(Boolean).join(" / "),
@@ -66,48 +54,19 @@ export function OnboardingScreen() {
       {step === 0 && (
         <Card style={styles.stepCard}>
           <View style={styles.titleBlock}>
-            <Text style={styles.question}>임신 정보를 알려주세요</Text>
-          </View>
-          <View style={styles.modeRow}>
-            <Pressable
-              style={[styles.modeChip, inputMode === "week" && styles.modeChipActive]}
-              onPress={() => { setInputMode("week"); setError(null); }}
-            >
-              <Text style={[styles.modeLabel, inputMode === "week" && styles.modeLabelActive]}>주차로 입력</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.modeChip, inputMode === "dueDate" && styles.modeChipActive]}
-              onPress={() => { setInputMode("dueDate"); setError(null); }}
-            >
-              <Text style={[styles.modeLabel, inputMode === "dueDate" && styles.modeLabelActive]}>예정일로 입력</Text>
-            </Pressable>
+            <Text style={styles.question}>출산 예정일을 알려주세요</Text>
+            <Text style={styles.hint}>달력에서 예정일을 선택해주세요</Text>
           </View>
 
-          {inputMode === "week" && (
-            <LabeledInput
-              label="현재 주차"
-              value={weekNumber}
-              onChangeText={setWeekNumber}
-              placeholder="예: 16"
-              keyboardType="number-pad"
-              returnKeyType="next"
-              onSubmitEditing={next}
-            />
-          )}
-
-          {inputMode === "dueDate" && (
-            <LabeledInput
-              label="출산 예정일"
-              value={dueDate}
-              onChangeText={setDueDate}
-              placeholder="예: 2026-08-01"
-              returnKeyType="next"
-              onSubmitEditing={next}
-            />
-          )}
+          <DueDateCalendarPicker
+            value={dueDate}
+            onChange={setDueDate}
+            minDate={new Date()}
+            maxDate={(() => { const d = new Date(); d.setDate(d.getDate() + 294); return d; })()}
+          />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          {inputMode ? <Button label="다음" onPress={next} /> : null}
+          <Button label="다음" onPress={next} />
         </Card>
       )}
 
@@ -185,22 +144,7 @@ const styles = StyleSheet.create({
   },
   question: { fontSize: 22, fontWeight: "700", color: surface.textPrimary },
   hint: { ...typo.caption, color: surface.textSecondary },
-  fieldBlock: { gap: space.sm },
   error: { marginTop: space.sm, ...typo.caption, color: palette.errorText },
-  modeRow: { flexDirection: "row", gap: ONBOARDING_LAYOUT.choiceGap },
-  modeChip: {
-    flex: 1,
-    minHeight: 44,
-    paddingVertical: space.md,
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    borderColor: surface.strokeSubtle,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modeChipActive: { borderColor: palette.accent, backgroundColor: surface.surfaceAccent },
-  modeLabel: { ...typo.body, fontWeight: "600", color: surface.textSecondary },
-  modeLabelActive: { color: palette.accent },
   row: { flexDirection: "row", gap: ONBOARDING_LAYOUT.rowGap },
   half: { flex: 1 },
   toneGrid: { flexDirection: "row", flexWrap: "wrap", gap: ONBOARDING_LAYOUT.choiceGap },

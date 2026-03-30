@@ -29,12 +29,13 @@ export async function GET(request: NextRequest) {
           pregnancy_day_count: number;
           pregnancy_week: number | null;
           pregnancy_day_in_week: number | null;
+          due_date: string | null;
         }>
       >(
-        `pregnancy_profiles?select=display_name,pregnancy_day_count,pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
+        `pregnancy_profiles?select=display_name,pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date&user_id=eq.${userId}&limit=1`,
       ),
-      supabaseSelect<Array<{ date: string; summary: string | null }>>(
-        `calendar_logs?select=date,summary&user_id=eq.${userId}&date=gte.${month}-01&date=lte.${month}-31`,
+      supabaseSelect<Array<{ date: string; summary: string | null; entry_type: string | null }>>(
+        `calendar_logs?select=date,summary,entry_type&user_id=eq.${userId}&date=gte.${month}-01&date=lte.${month}-31`,
       ),
     ]);
 

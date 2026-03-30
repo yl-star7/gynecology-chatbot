@@ -11,7 +11,7 @@ import psycopg
 from docx import Document
 
 
-WEEK_RE = re.compile(r"^(\d{1,2})주차_7일간$")
+WEEK_RE = re.compile(r"^(\d{1,2})주(?:차)?_7일간$")
 DAY_RE = re.compile(r"^✅\s*DAY?\s*(\d)$", re.IGNORECASE)
 
 SECTION_PATTERNS = {
@@ -170,18 +170,6 @@ def import_weeks(database_url: str, weeks: list[WeekContent]) -> None:
                     ),
                 )
                 week_data_id = cur.fetchone()[0]
-
-                cur.execute(
-                    "SELECT id FROM content.pregnancy_day_contents WHERE week_data_id = %s",
-                    (week_data_id,),
-                )
-                day_content_ids = [row[0] for row in cur.fetchall()]
-
-                if day_content_ids:
-                    cur.execute(
-                        "DELETE FROM content.pregnancy_day_media WHERE day_content_id = ANY(%s)",
-                        (day_content_ids,),
-                    )
 
                 cur.execute(
                     "DELETE FROM content.week_checklists WHERE week_data_id = %s",

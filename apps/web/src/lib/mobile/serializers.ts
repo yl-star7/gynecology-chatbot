@@ -7,6 +7,26 @@ import type {
   TodayChecklistItem,
 } from "@gynecology-chatbot/app-core";
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const MAX_PREGNANCY_DAYS = 294;
+
+function computePregnancyDayCountFromDueDate(
+  dueDate?: string | null,
+  fallback?: number,
+): number {
+  if (dueDate) {
+    const due = new Date(dueDate);
+    if (!Number.isNaN(due.getTime())) {
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const diffDays = Math.round((due.getTime() - startOfToday.getTime()) / MS_PER_DAY);
+      return Math.max(0, Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diffDays));
+    }
+  }
+  const raw = fallback ?? 0;
+  return Math.max(0, Math.min(MAX_PREGNANCY_DAYS, raw));
+}
+
 type SessionRow = {
   id: string;
   title: string;
@@ -28,11 +48,13 @@ type PregnancyProfileRow = {
   pregnancy_day_count: number;
   pregnancy_week: number | null;
   pregnancy_day_in_week: number | null;
+  due_date?: string | null;
 };
 
 type CalendarRow = {
   date: string;
   summary: string | null;
+  entry_type?: string | null;
 };
 
 type EmotionRow = {
@@ -46,6 +68,7 @@ type RecordDayRow = {
   summary: string | null;
   entry_type: string;
   session_id: string | null;
+  payload?: Record<string, unknown> | null;
 };
 
 function normalizeDateKey(value: string | Date) {
@@ -155,6 +178,11 @@ export function toHomeViewData(input: {
   const calendarMap = new Map(
     input.calendarRows.map((row) => [normalizeDateKey(row.date), row]),
   );
+  const infoDates = new Set(
+    input.calendarRows
+      .filter((row) => row.entry_type === "today_info_view")
+      .map((row) => normalizeDateKey(row.date)),
+  );
   const emotionMap = new Map(
     (input.emotionRows ?? []).map((row) => [
       normalizeDateKey(row.date),
@@ -169,6 +197,7 @@ export function toHomeViewData(input: {
       isoDate,
       dayLabel: String(day),
       hasChat: calendarMap.has(isoDate),
+      hasInfo: infoDates.has(isoDate),
       emotionTone: emotionMap.get(isoDate) ?? null,
       summary: calendarMap.get(isoDate)?.summary ?? undefined,
     };
@@ -176,10 +205,14 @@ export function toHomeViewData(input: {
 
   const week = input.profile?.pregnancy_week;
   const dayInWeek = input.profile?.pregnancy_day_in_week;
+  const pregnancyDayCount = computePregnancyDayCountFromDueDate(
+    input.profile?.due_date,
+    input.profile?.pregnancy_day_count ?? 0,
+  );
 
   return {
     userName: input.user.display_name,
-    pregnancyDayCount: input.profile?.pregnancy_day_count ?? 0,
+    pregnancyDayCount,
     pregnancyWeekLabel: week ? `${week}주 ${dayInWeek ?? 0}일` : "정보 없음",
     currentMonthLabel: monthDate.toLocaleDateString("ko-KR", {
       year: "numeric",
@@ -203,8 +236,15 @@ export function toHomeViewData(input: {
 
 export function toRecordDayView(input: {
   isoDate: string;
+  infoViewed: boolean;
   emotionTone: HomeViewData["calendarDays"][number]["emotionTone"];
   checklistItems: TodayChecklistItem[];
+  conversationSummary?: string | null;
+  dailyQuestion?: {
+    question: string;
+    answer: string | null;
+    aiSummary: string | null;
+  } | null;
   records: RecordDayRow[];
   relatedSessions: SessionRow[];
 }): RecordDayView {
@@ -219,8 +259,11 @@ export function toRecordDayView(input: {
         weekday: "long",
       },
     ),
+    infoViewed: input.infoViewed,
     emotionTone: input.emotionTone,
     checklistItems: input.checklistItems,
+    conversationSummary: input.conversationSummary ?? undefined,
+    dailyQuestion: input.dailyQuestion ?? null,
     records: input.records.map((record) => ({
       id: record.id,
       title: record.title,

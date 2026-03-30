@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateAdmin, writeAdminSession } from "@/lib/admin/auth";
+import { checkRateLimit } from "@/lib/mobile/rate-limit";
+
+function getClientIp(request: NextRequest) {
+  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,6 +14,19 @@ export async function POST(request: NextRequest) {
 
     if (!phoneNumber || !password) {
       return NextResponse.json({ error: "phoneNumber and password are required" }, { status: 400 });
+    }
+
+    const rateCheck = checkRateLimit(`admin-login:${getClientIp(request)}`, 5, 60_000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: "너무 많은 요청이에요. 잠시 후 다시 시도해주세요." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((rateCheck.resetAt - Date.now()) / 1000)),
+          },
+        },
+      );
     }
 
     const admin = await authenticateAdmin({ phoneNumber, password });

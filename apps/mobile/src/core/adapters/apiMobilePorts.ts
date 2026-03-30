@@ -49,6 +49,11 @@ export class ApiMobileHomeAdapter implements MobileHomePort {
     const payload = await this.client.fetchHome();
     return payload.home;
   }
+
+  async getRecordDay(isoDate: string) {
+    const payload = await this.client.fetchRecordDay(isoDate);
+    return payload.recordDay;
+  }
 }
 
 export class ApiTodayAdapter implements TodayPort {
@@ -57,6 +62,10 @@ export class ApiTodayAdapter implements TodayPort {
   async getTodayView() {
     const payload = await this.client.fetchTodayView();
     return payload.today;
+  }
+
+  async markInfoViewed() {
+    await this.client.markTodayInfoViewed();
   }
 
   async setChecklistItemCompleted(input: {
@@ -88,7 +97,7 @@ export class ApiMobileChatAdapter implements MobileChatPort {
       imageDataUris: input.imageUris,
     });
 
-    return payload.assistantMessage;
+    return payload.assistantMessages ?? [payload.assistantMessage];
   }
 
   async resolveLink(target: string, entityId?: string) {

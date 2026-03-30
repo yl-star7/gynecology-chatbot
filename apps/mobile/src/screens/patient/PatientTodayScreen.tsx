@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChatMessage, RecentChatSummary, TodayViewData } from "@gynecology-chatbot/app-core";
 import { Ionicons } from "@expo/vector-icons";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -11,7 +12,9 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { useChatSessions } from "../../chat/store";
+import { ChatPartRenderer } from "../../components/chat";
 import { Card, Pressable } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { PatientTodayTabs } from "../../components/patient/PatientTodayTabs";
@@ -37,6 +40,7 @@ function createUserMessage(text: string): ChatMessage {
 }
 
 export function PatientTodayScreen() {
+  const router = useRouter();
   const services = useMobileServices();
   const { getSession, replaceSession, appendMessage } = useChatSessions();
   const [today, setToday] = useState<TodayViewData | null>(null);
@@ -170,6 +174,25 @@ export function PatientTodayScreen() {
     }
   }
 
+  function handleQuickReplySelect(message: string) {
+    setText(message);
+  }
+
+  function handleSurveyAnswer(surveyId: string, choiceId: string) {
+    services.chatPort?.saveSurveyAnswer?.({ surveyId, choiceId }).catch(() => undefined);
+  }
+
+  function handleDeepLinkPress(target: string, entityId?: string) {
+    try {
+      const path = entityId
+        ? `/chat/link/${target}?entityId=${encodeURIComponent(entityId)}`
+        : `/chat/link/${target}`;
+      router.push(path);
+    } catch {
+      // 탐색 불가 경우 무시
+    }
+  }
+
   return (
     <PatientShell activeTab="today" title="오늘,우리" pageTone="plain">
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -269,25 +292,40 @@ export function PatientTodayScreen() {
               ) : (
                 <View style={styles.messageList}>
                   {session.messages.map((message) => {
+                    if (message.role === "assistant") {
+                      return (
+                        <View key={message.id} style={[styles.messageBubble, styles.assistantBubble]}>
+                          <ChatPartRenderer
+                            message={message}
+                            onQuickReplySelect={handleQuickReplySelect}
+                            onSurveyAnswer={handleSurveyAnswer}
+                            onDeepLinkPress={handleDeepLinkPress}
+                          />
+                        </View>
+                      );
+                    }
+
                     const textPart = message.parts.find((part) => part.type === "text");
-                    const body =
-                      textPart?.type === "text" ? textPart.text : "이미지 또는 안내가 포함된 메시지예요.";
+                    const imageParts = message.parts.filter((part) => part.type === "image");
+                    const bodyText = textPart?.type === "text" ? textPart.text : null;
+
                     return (
-                      <View
-                        key={message.id}
-                        style={[
-                          styles.messageBubble,
-                          message.role === "user" ? styles.userBubble : styles.assistantBubble,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.messageText,
-                            message.role === "user" ? styles.userMessageText : null,
-                          ]}
-                        >
-                          {body}
-                        </Text>
+                      <View key={message.id} style={[styles.messageBubble, styles.userBubble]}>
+                        {imageParts.map((part) =>
+                          part.type === "image" ? (
+                            <View key={part.id} style={styles.userImageWrap}>
+                              <Image
+                                source={{ uri: part.imageUrl }}
+                                style={styles.userImage}
+                                resizeMode="cover"
+                                accessibilityLabel={part.alt ?? "첨부 이미지"}
+                              />
+                            </View>
+                          ) : null,
+                        )}
+                        {bodyText ? (
+                          <Text style={[styles.messageText, styles.userMessageText]}>{bodyText}</Text>
+                        ) : null}
                       </View>
                     );
                   })}
@@ -518,5 +556,16 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  userImageWrap: {
+    borderRadius: radii.lg,
+    overflow: "hidden",
+    marginBottom: space.xs,
+  },
+  userImage: {
+    width: "100%",
+    height: 160,
+    borderRadius: radii.lg,
+    backgroundColor: surface.fieldSurface,
   },
 });

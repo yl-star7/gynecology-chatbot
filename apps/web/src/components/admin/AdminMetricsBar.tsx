@@ -5,9 +5,17 @@ import { useEffect, useState } from "react";
 import type { AdminMetric } from "@gynecology-chatbot/app-core";
 
 import styles from "./AdminConsoleLayout.module.css";
+import { AdminTrendChart, AdminUserDistributionChart } from "./AdminTrendChart";
 
 interface AdminMetricsBarProps {
   metrics: AdminMetric[];
+}
+
+interface DailyTrendItem {
+  date: string;
+  sessions: number;
+  logins: number;
+  messages: number;
 }
 
 interface LiveAnalytics {
@@ -19,10 +27,13 @@ interface LiveAnalytics {
   weekLogins: number;
   todayEmotions: number;
   pushEnabled: number;
+  dailyTrend?: DailyTrendItem[];
 }
 
+type NumericAnalyticsKey = Exclude<keyof LiveAnalytics, "dailyTrend">;
+
 const ANALYTICS_CARDS: {
-  key: keyof LiveAnalytics;
+  key: NumericAnalyticsKey;
   label: string;
 }[] = [
   { key: "totalUsers", label: "전체 사용자" },
@@ -108,6 +119,18 @@ export function AdminMetricsBar({ metrics }: AdminMetricsBarProps) {
               </article>
             ))}
           </div>
+        )}
+
+        {analytics?.dailyTrend && analytics.dailyTrend.length > 0 && !loading && (
+          <AdminTrendChart dailyTrend={analytics.dailyTrend} />
+        )}
+
+        {analytics && !loading && (
+          <AdminUserDistributionChart
+            totalUsers={analytics.totalUsers}
+            onboardedUsers={analytics.onboardedUsers}
+            pushEnabled={analytics.pushEnabled}
+          />
         )}
       </div>
     </section>

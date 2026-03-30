@@ -140,12 +140,17 @@ describe("/api/admin/rag/documents/[documentId]", () => {
       },
     );
 
-    expect(updateDocument).toHaveBeenCalledWith("doc-1", {
-      title: "수정된 두통 가이드",
-      pregnancyWeek: null,
-      category: "warning",
-      content: "수정 본문",
-    });
+    expect(updateDocument).toHaveBeenCalledWith(
+      "doc-1",
+      {
+        title: "수정된 두통 가이드",
+        pregnancyWeek: null,
+        category: "warning",
+        content: "수정 본문",
+        imageUrl: null,
+      },
+      "admin-1",
+    );
     expect(response.status).toBe(200);
   });
 
@@ -180,7 +185,7 @@ describe("/api/admin/rag/documents/[documentId]", () => {
       params: Promise.resolve({ documentId: "doc-1" }),
     });
 
-    expect(deleteDocument).toHaveBeenCalledWith("doc-1");
+    expect(deleteDocument).toHaveBeenCalledWith("doc-1", "admin-1");
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ ok: true });
   });

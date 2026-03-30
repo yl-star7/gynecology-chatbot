@@ -35,7 +35,9 @@ const mockedRevalidateAdminWeeksCache =
   >;
 
 function createAdminContentPortStub(
-  overrides: Partial<ReturnType<typeof createAdminServices>["adminContentPort"]>,
+  overrides: Partial<
+    ReturnType<typeof createAdminServices>["adminContentPort"]
+  >,
 ) {
   return {
     createDocument: jest.fn(),
@@ -159,6 +161,7 @@ describe("GET /api/admin/content/weeks/[weekNumber]", () => {
         title: "7주차 수정본",
         status: "published",
       }),
+      "admin-1",
     );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({

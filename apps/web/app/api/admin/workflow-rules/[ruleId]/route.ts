@@ -52,21 +52,31 @@ export async function PATCH(
 
     const { ruleId } = await context.params;
     if (!ruleId) {
-      return NextResponse.json({ error: "ruleId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "ruleId is required" },
+        { status: 400 },
+      );
     }
 
     const payload = parseWorkflowRuleInput(await request.json());
     if (!payload) {
-      return NextResponse.json({ error: "invalid workflow payload" }, { status: 400 });
+      return NextResponse.json(
+        { error: "invalid workflow payload" },
+        { status: 400 },
+      );
     }
 
     const services = createAdminServices();
     const workflowRule = await services.adminContentPort.updateWorkflowRule(
       ruleId,
       payload,
+      admin.id,
     );
     if (!workflowRule) {
-      return NextResponse.json({ error: "workflow rule not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "workflow rule not found" },
+        { status: 404 },
+      );
     }
 
     revalidateAdminWorkflowCache();
@@ -77,7 +87,9 @@ export async function PATCH(
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "failed to update workflow rule",
+          error instanceof Error
+            ? error.message
+            : "failed to update workflow rule",
       },
       { status: 400 },
     );

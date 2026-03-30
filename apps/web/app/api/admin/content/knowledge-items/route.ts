@@ -7,7 +7,22 @@ import {
   revalidateAdminKnowledgeCache,
 } from "@/lib/admin/admin-cache";
 
-function parseKnowledgeItemInput(body: unknown): AdminKnowledgeItemInput | null {
+function parseImageUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "https:") return null;
+    return trimmed;
+  } catch {
+    return null;
+  }
+}
+
+function parseKnowledgeItemInput(
+  body: unknown,
+): AdminKnowledgeItemInput | null {
   if (!body || typeof body !== "object") {
     return null;
   }
@@ -18,6 +33,19 @@ function parseKnowledgeItemInput(body: unknown): AdminKnowledgeItemInput | null 
   const title = typeof record.title === "string" ? record.title.trim() : "";
   const bodyText = typeof record.body === "string" ? record.body.trim() : "";
   const status = record.status;
+  const imageUrl =
+    record.imageUrl === null || record.imageUrl === undefined
+      ? null
+      : parseImageUrl(record.imageUrl);
+
+  // If imageUrl was provided as a non-empty string but failed validation, reject
+  if (
+    typeof record.imageUrl === "string" &&
+    record.imageUrl.trim() !== "" &&
+    imageUrl === null
+  ) {
+    return null;
+  }
 
   if (
     !slug ||
@@ -34,6 +62,7 @@ function parseKnowledgeItemInput(body: unknown): AdminKnowledgeItemInput | null 
     section,
     title,
     body: bodyText,
+    imageUrl,
     status,
   };
 }
@@ -52,7 +81,9 @@ export async function GET() {
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "failed to load knowledge items",
+          error instanceof Error
+            ? error.message
+            : "failed to load knowledge items",
       },
       { status: 400 },
     );
@@ -77,6 +108,7 @@ export async function POST(request: NextRequest) {
     const services = createAdminServices();
     const knowledgeItem = await services.adminContentPort.createKnowledgeItem(
       payload,
+      admin.id,
     );
     revalidateAdminKnowledgeCache();
     return NextResponse.json({ knowledgeItem });
@@ -85,7 +117,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "failed to create knowledge item",
+          error instanceof Error
+            ? error.message
+            : "failed to create knowledge item",
       },
       { status: 400 },
     );

@@ -14,7 +14,7 @@ SELECT cron.schedule(
     url := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/proactive-chat',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer YOUR_SUPABASE_ANON_KEY'
+      'Authorization', 'Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY'
     ),
     body := jsonb_build_object('triggerId', 'daily_check')
   );
@@ -30,7 +30,7 @@ SELECT cron.schedule(
     url := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/proactive-chat',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer YOUR_SUPABASE_ANON_KEY'
+      'Authorization', 'Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY'
     ),
     body := jsonb_build_object('triggerId', 'weekly_milestone')
   );
@@ -46,9 +46,26 @@ SELECT cron.schedule(
     url := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/proactive-chat',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer YOUR_SUPABASE_ANON_KEY'
+      'Authorization', 'Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY'
     ),
     body := jsonb_build_object('triggerId', 'checkup_reminder')
+  );
+  $$
+);
+
+-- 5. 매일 정오(KST)에 전날 대화 요약 생성 (Edge Function으로 AI 요약)
+-- pg_cron 기본 시간대가 UTC라면 KST 12:00는 UTC 03:00 입니다.
+SELECT cron.schedule(
+  'mobile-daily-conversation-summary',
+  '0 3 * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/daily-summary',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY'
+    ),
+    body := '{}'::jsonb
   );
   $$
 );
@@ -58,3 +75,4 @@ SELECT * FROM cron.job;
 
 -- job 삭제하려면:
 -- SELECT cron.unschedule('proactive-daily-check');
+-- SELECT cron.unschedule('mobile-daily-conversation-summary');

@@ -2,12 +2,26 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import { Ionicons } from "@expo/vector-icons";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { router } from "expo-router";
+import {
+  AppState,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
-import { Card, Pressable } from "../../components/ui";
+import { Card, Pressable, EmotionCheckin } from "../../components/ui";
+import { ChatPartRenderer, ChatImagePicker, ChatImagePreview } from "../../components/chat";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+
+type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
 
 function createSessionId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
@@ -17,12 +31,21 @@ function createSessionId() {
   });
 }
 
-function createUserMessage(text: string): ChatMessage {
+function createUserMessage(text: string, imageDataUri?: string | null): ChatMessage {
+  const parts: ChatMessage["parts"] = [{ type: "text", id: `text-${Date.now()}`, text }];
+  if (imageDataUri) {
+    parts.push({
+      type: "image",
+      id: `img-${Date.now()}`,
+      imageUrl: imageDataUri,
+      alt: "첨부 이미지",
+    });
+  }
   return {
     id: `user-${Date.now()}`,
     role: "user",
     createdAtLabel: "방금 전",
-    parts: [{ type: "text", id: `text-${Date.now()}`, text }],
+    parts,
   };
 }
 
@@ -36,6 +59,11 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
   const session = getSession(resolvedSessionId);
   const [text, setText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [imageDataUri, setImageDataUri] = useState<string | null>(null);
+  const [showEmotionCheckin, setShowEmotionCheckin] = useState(
+    sessionId === "new" || sessionId === "heart-talk",
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (sessionId === "new" || sessionId === "heart-talk") {
@@ -43,28 +71,77 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
     }
 
     services.chatPort.getSession(resolvedSessionId).then(replaceSession).catch(() => undefined);
+
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active" && resolvedSessionId && sessionId !== "new" && sessionId !== "heart-talk") {
+        services.chatPort.getSession(resolvedSessionId).then(replaceSession).catch(() => undefined);
+      }
+    });
+    return () => subscription.remove();
   }, [replaceSession, resolvedSessionId, services, sessionId]);
 
-  async function handleSend() {
-    const nextText = text.trim();
+  async function handleSend(overrideText?: string) {
+    const nextText = (overrideText ?? text).trim();
     if (!nextText || isSending) {
       return;
     }
 
-    appendMessage(resolvedSessionId, "아기와 대화", createUserMessage(nextText));
+    const capturedImage = imageDataUri;
+    appendMessage(resolvedSessionId, "아기와 대화", createUserMessage(nextText, capturedImage));
     setText("");
+    setImageDataUri(null);
+    setErrorMessage(null);
     setIsSending(true);
 
     try {
-      const assistantMessage = await services.chatPort.sendMessage({
+      const assistantMessages = await services.chatPort.sendMessage({
         sessionId: resolvedSessionId,
         text: nextText,
-        imageUris: [],
+        imageUris: capturedImage ? [capturedImage] : [],
       });
-      appendMessage(resolvedSessionId, "아기와 대화", assistantMessage);
+      for (const msg of assistantMessages) {
+        appendMessage(resolvedSessionId, "아기와 대화", msg);
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "전송 실패";
+      if (msg.includes("429")) {
+        setErrorMessage("잠시 쉬어 가요. 조금 뒤에 다시 이야기해요.");
+      } else {
+        setErrorMessage("메시지를 보내지 못했어요. 다시 시도해 주세요.");
+      }
     } finally {
       setIsSending(false);
     }
+  }
+
+  function handleQuickReply(replyMessage: string) {
+    handleSend(replyMessage);
+  }
+
+  function handleSurveyAnswer(surveyId: string, choiceId: string) {
+    try {
+      services.recordsPort?.saveSurveyResponse?.(surveyId, choiceId).catch(() => undefined);
+    } catch {
+      // 기록 실패 시 조용히 무시
+    }
+  }
+
+  function handleDeepLink(target: string, entityId?: string) {
+    const params = entityId ? `?entityId=${entityId}` : "";
+    router.push(`/${target}${params}`);
+  }
+
+  async function handleEmotionSelect(tone: EmotionTone) {
+    setShowEmotionCheckin(false);
+    try {
+      await services.recordsPort?.saveEmotionCheckin?.(tone);
+    } catch {
+      // 감정 저장 실패 시 조용히 무시
+    }
+  }
+
+  function handleEmotionDismiss() {
+    setShowEmotionCheckin(false);
   }
 
   return (
@@ -85,19 +162,39 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
             ) : (
               <View style={styles.messageList}>
                 {session.messages.map((message) => {
-                  const textPart = message.parts.find((part) => part.type === "text");
-                  const body = textPart?.type === "text" ? textPart.text : "이미지 또는 안내가 포함된 메시지예요.";
+                  if (message.role === "user") {
+                    const textPart = message.parts.find((p) => p.type === "text");
+                    const imagePart = message.parts.find((p) => p.type === "image");
+                    const bodyText =
+                      textPart?.type === "text" ? textPart.text : "";
+                    return (
+                      <View key={message.id} style={[styles.messageBubble, styles.userBubble]}>
+                        {imagePart?.type === "image" ? (
+                          <Image
+                            source={{ uri: imagePart.imageUrl }}
+                            style={styles.userBubbleImage}
+                            resizeMode="cover"
+                            accessibilityLabel={imagePart.alt}
+                          />
+                        ) : null}
+                        {bodyText ? (
+                          <Text style={[styles.messageText, styles.userMessageText]}>
+                            {bodyText}
+                          </Text>
+                        ) : null}
+                      </View>
+                    );
+                  }
+
+                  // 어시스턴트 메시지 — 풍부한 렌더링
                   return (
-                    <View
-                      key={message.id}
-                      style={[
-                        styles.messageBubble,
-                        message.role === "user" ? styles.userBubble : styles.assistantBubble,
-                      ]}
-                    >
-                      <Text style={[styles.messageText, message.role === "user" ? styles.userMessageText : null]}>
-                        {body}
-                      </Text>
+                    <View key={message.id} style={styles.assistantMessageWrapper}>
+                      <ChatPartRenderer
+                        message={message}
+                        onQuickReplySelect={handleQuickReply}
+                        onSurveyAnswer={handleSurveyAnswer}
+                        onDeepLinkPress={handleDeepLink}
+                      />
                     </View>
                   );
                 })}
@@ -105,8 +202,28 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
             )}
           </Card>
 
+          {imageDataUri ? (
+            <View style={styles.imagePreviewRow}>
+              <ChatImagePreview
+                dataUri={imageDataUri}
+                onRemove={() => setImageDataUri(null)}
+              />
+            </View>
+          ) : null}
+
           <Card variant="muted">
+            {errorMessage && (
+              <Pressable onPress={() => setErrorMessage(null)}>
+                <Text style={{ color: "#b42318", fontSize: 13, textAlign: "center", paddingVertical: 8, paddingHorizontal: 16 }}>
+                  {errorMessage}
+                </Text>
+              </Pressable>
+            )}
             <View style={styles.composerRow}>
+              <ChatImagePicker
+                onImageSelected={setImageDataUri}
+                disabled={isSending}
+              />
               <TextInput
                 style={styles.input}
                 placeholder="아기에게 하고 싶은 말을 적어보세요..."
@@ -114,18 +231,26 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
                 value={text}
                 onChangeText={setText}
                 multiline
+                maxLength={3000}
               />
               <Pressable
                 style={[styles.sendButton, isSending ? styles.sendButtonDisabled : null]}
-                onPress={handleSend}
+                onPress={() => handleSend()}
                 disabled={isSending}
                 accessibilityLabel="메시지 보내기"
               >
-                  <Ionicons name="paper-plane-outline" size={space.lg + space.sm} color={surface.surfacePrimary} />
+                <Ionicons name="paper-plane-outline" size={space.lg + space.sm} color={surface.surfacePrimary} />
               </Pressable>
             </View>
           </Card>
         </ScrollView>
+
+        {showEmotionCheckin ? (
+          <EmotionCheckin
+            onSelect={handleEmotionSelect}
+            onDismiss={handleEmotionDismiss}
+          />
+        ) : null}
       </KeyboardAvoidingView>
     </PatientShell>
   );
@@ -179,10 +304,18 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
     backgroundColor: palette.accent,
     maxWidth: `${100 - space.lg}%`,
+    gap: space.sm,
   },
-  assistantBubble: {
+  userBubbleImage: {
+    width: "100%",
+    height: 160,
+    borderRadius: radii.lg,
+  },
+  assistantMessageWrapper: {
     alignSelf: "flex-start",
     backgroundColor: surface.surfaceSecondary,
+    borderRadius: radii.xl,
+    padding: space.lg,
     maxWidth: `${100 - (space.xl - space.xs)}%`,
   },
   messageText: {
@@ -191,6 +324,9 @@ const styles = StyleSheet.create({
   },
   userMessageText: {
     color: surface.surfacePrimary,
+  },
+  imagePreviewRow: {
+    paddingHorizontal: space.xs,
   },
   composerRow: {
     flexDirection: "row",

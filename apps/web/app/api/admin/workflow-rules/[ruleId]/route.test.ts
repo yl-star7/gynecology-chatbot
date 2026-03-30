@@ -102,13 +102,17 @@ describe("PATCH /api/admin/workflow-rules/[ruleId]", () => {
       },
     );
 
-    expect(updateWorkflowRule).toHaveBeenCalledWith("wf-1", {
-      name: "기본 응답",
-      trigger: "일반 채팅",
-      retrievalScope: "공통 문서",
-      modelName: "gemini-2.5-flash-lite",
-      status: "active",
-    });
+    expect(updateWorkflowRule).toHaveBeenCalledWith(
+      "wf-1",
+      {
+        name: "기본 응답",
+        trigger: "일반 채팅",
+        retrievalScope: "공통 문서",
+        modelName: "gemini-2.5-flash-lite",
+        status: "active",
+      },
+      "admin-1",
+    );
     expect(response.status).toBe(200);
   });
 });

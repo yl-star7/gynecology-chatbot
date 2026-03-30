@@ -18,6 +18,7 @@ export interface AdminStaticSectionProps {
   knowledgeSection: AdminKnowledgeItem["section"];
   knowledgeTitle: string;
   knowledgeBody: string;
+  knowledgeImageUrl: string;
   knowledgeStatus: AdminKnowledgeItem["status"];
   isKnowledgeSaving: boolean;
   onSelectKnowledgeItem: (id: string) => void;
@@ -25,6 +26,7 @@ export interface AdminStaticSectionProps {
   onKnowledgeSectionChange: (value: AdminKnowledgeItem["section"]) => void;
   onKnowledgeTitleChange: (value: string) => void;
   onKnowledgeBodyChange: (value: string) => void;
+  onKnowledgeImageUrlChange: (value: string) => void;
   onKnowledgeStatusChange: (value: AdminKnowledgeItem["status"]) => void;
   onCreateKnowledgeItem: () => Promise<void>;
   onUpdateKnowledgeItem: () => Promise<void>;
@@ -40,6 +42,7 @@ export function AdminStaticSection({
   knowledgeSection,
   knowledgeTitle,
   knowledgeBody,
+  knowledgeImageUrl,
   knowledgeStatus,
   isKnowledgeSaving,
   onSelectKnowledgeItem,
@@ -47,6 +50,7 @@ export function AdminStaticSection({
   onKnowledgeSectionChange,
   onKnowledgeTitleChange,
   onKnowledgeBodyChange,
+  onKnowledgeImageUrlChange,
   onKnowledgeStatusChange,
   onCreateKnowledgeItem,
   onUpdateKnowledgeItem,
@@ -249,6 +253,15 @@ export function AdminStaticSection({
                   className={styles.overlayTextarea}
                   value={knowledgeBody}
                   onChange={(event) => onKnowledgeBodyChange(event.target.value)}
+                />
+              </label>
+              <label className={styles.fieldGroup}>
+                <span className={styles.fieldLabel}>이미지 URL</span>
+                <input
+                  className={styles.fieldInput}
+                  value={knowledgeImageUrl}
+                  onChange={(event) => onKnowledgeImageUrlChange(event.target.value)}
+                  placeholder="https://example.com/image.png"
                 />
               </label>
             </div>

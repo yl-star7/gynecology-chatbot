@@ -40,6 +40,7 @@ jest.mock("@/lib/mobile/schift-client", () => ({
 jest.mock("@/lib/mobile/schift-workflow", () => ({
   runSchiftWorkflow: jest.fn(),
   formatSchiftWorkflowRun: jest.fn((run) => run.outputs?.answer ?? "workflow 응답"),
+  extractSchiftWorkflowOutputs: jest.fn((run) => run.outputs),
 }));
 
 import { requireMobileSession } from "@/lib/mobile/session-auth";
@@ -277,52 +278,40 @@ describe("POST /api/mobile/chat", () => {
 
     expect(response.status).toBe(200);
     const payload = await response.json();
-    expect(payload.assistantMessages).toEqual(
-      expect.arrayContaining([
+    // 체크리스트 OR 질문 중 하나만 은근슬쩍 보냄 (랜덤)
+    const followUps = payload.assistantMessages.slice(1);
+    const hasChecklist = followUps.some((m: { parts: Array<{ id: string }> }) =>
+      m.parts.some((p) => p.id === "checklist-check-1"),
+    );
+    const hasQuestion = followUps.some((m: { parts: Array<{ id: string }> }) =>
+      m.parts.some((p) => p.id === "question-text-question-1"),
+    );
+    // 둘 중 적어도 하나는 있어야 함
+    expect(hasChecklist || hasQuestion).toBe(true);
+    // 둘 다 동시에는 안 나옴
+    expect(hasChecklist && hasQuestion).toBe(false);
+
+    // 선택된 것만 이벤트 생성
+    if (hasChecklist) {
+      expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+        "user_checklist_events",
         expect.objectContaining({
-          parts: expect.arrayContaining([
-            expect.objectContaining({
-              id: "checklist-check-1",
-              type: "text",
-            }),
-            expect.objectContaining({
-              id: "quick-replies-checklist-check-1",
-              type: "quickReplies",
-            }),
-          ]),
+          user_id: "user-1",
+          checklist_id: "check-1",
+          status: "sent",
         }),
+      );
+    }
+    if (hasQuestion) {
+      expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+        "user_question_events",
         expect.objectContaining({
-          parts: expect.arrayContaining([
-            expect.objectContaining({
-              id: "question-text-question-1",
-              type: "text",
-            }),
-            expect.objectContaining({
-              id: "quick-replies-question-question-1",
-              type: "quickReplies",
-            }),
-          ]),
+          user_id: "user-1",
+          question_id: "question-1",
+          status: "sent",
         }),
-      ]),
-    );
-    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
-      "user_checklist_events",
-      expect.objectContaining({
-        user_id: "user-1",
-        checklist_id: "check-1",
-        prompt_message_id: "assistant-message-4",
-        status: "sent",
-      }),
-    );
-    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
-      "user_question_events",
-      expect.objectContaining({
-        user_id: "user-1",
-        question_id: "question-1",
-        prompt_message_id: "assistant-message-4",
-        status: "sent",
-      }),
-    );
+      );
+    }
   });
 
   it("marks outstanding prompt events as completed or answered on the next user message", async () => {
@@ -623,7 +612,7 @@ describe("POST /api/mobile/chat", () => {
       expect.arrayContaining([
         expect.objectContaining({
           type: "image",
-          alt: expect.stringContaining("캐릭터"),
+          alt: expect.stringContaining("안내"),
         }),
         expect.objectContaining({
           type: "text",
@@ -775,6 +764,72 @@ describe("POST /api/mobile/chat", () => {
         }),
       ]),
     );
+  });
+
+  it("3000자 초과 텍스트 전송 시 400 반환 및 에러 메시지에 '3,000자 이내' 포함", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+
+    const longText = "가".repeat(3001);
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: longText,
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.error).toContain("3,000자 이내");
+    expect(mockedRunSchiftWorkflow).not.toHaveBeenCalled();
+    expect(mockedGenerateText).not.toHaveBeenCalled();
+  });
+
+  it("3000자 이내 텍스트는 정상 처리됨", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({});
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") return Promise.resolve([]);
+        if (table === "chat_messages") {
+          if (Array.isArray(payload)) {
+            return Promise.resolve(payload.map((_, i) => ({ id: `msg-${i}` })));
+          }
+          const role = (payload as { role?: string }).role;
+          return Promise.resolve([{ id: role === "assistant" ? "assistant-msg-1" : "user-msg-1" }]);
+        }
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGetSchiftClient.mockReturnValue(null as never);
+
+    const boundaryText = "가".repeat(3000);
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: boundaryText,
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
   });
 
   it("redirects clearly off-topic requests before invoking workflow or model generation", async () => {

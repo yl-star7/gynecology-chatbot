@@ -41,6 +41,7 @@ describe("AdminOperationsPanel", () => {
             mascotObjectPath: null,
             mascotSourceFileName: null,
             mascotAltText: "마스코트",
+            surveyFormUrl: null,
           }),
           {
             status: 200,
@@ -128,8 +129,36 @@ describe("AdminOperationsPanel", () => {
           mascotObjectPath: "weeks/00/123-mascot.png",
           mascotSourceFileName: "mascot.png",
           mascotAltText: "마스코트",
+          surveyFormUrl: null,
         }),
       }),
     );
+  });
+
+  it("saves the survey form url through branding settings", async () => {
+    render(<AdminOperationsPanel />);
+
+    const input = await screen.findByLabelText("설문 링크");
+    fireEvent.change(input, {
+      target: { value: "https://docs.google.com/forms/d/e/example/viewform" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "설문 링크 저장" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/admin/branding",
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({
+            mascotBucketId: null,
+            mascotObjectPath: null,
+            mascotSourceFileName: null,
+            mascotAltText: "마스코트",
+            surveyFormUrl: "https://docs.google.com/forms/d/e/example/viewform",
+          }),
+        }),
+      );
+    });
   });
 });

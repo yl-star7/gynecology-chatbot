@@ -17,6 +17,10 @@ import {
 } from "../admin-dashboard-labels";
 import styles from "../AdminConsoleLayout.module.css";
 import { AdminWeekOverlay } from "./AdminWeekOverlay";
+import {
+  getWeekPublishDayStatus,
+  getWeekPublishReview,
+} from "./week-publish-review";
 
 export interface AdminWeeksSectionProps {
   weekSummaries: AdminWeekSummary[];
@@ -78,6 +82,7 @@ export interface AdminWeeksSectionProps {
   onRemoveWeekAsset: (index: number) => void;
   onRemoveWeekMedia: (index: number) => void;
   onSaveWeek: () => Promise<void>;
+  onPublishWeek: () => Promise<void>;
 }
 
 export function AdminWeeksSection({
@@ -111,6 +116,7 @@ export function AdminWeeksSection({
   onRemoveWeekAsset,
   onRemoveWeekMedia,
   onSaveWeek,
+  onPublishWeek,
 }: AdminWeeksSectionProps) {
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const [weekQuery, setWeekQuery] = useState("");
@@ -153,19 +159,19 @@ export function AdminWeeksSection({
           const hasMaternalCopy = day.motherChangesItems.some((item) =>
             item.trim(),
           );
-          const status =
-            hasFetalCopy && hasMaternalCopy && checklistCount > 0 && questionCount > 0
-              ? "complete"
-              : hasFetalCopy || hasMaternalCopy || checklistCount > 0 || questionCount > 0
-                ? "partial"
-                : "empty";
+          const status = getWeekPublishDayStatus(
+            selectedWeekDetail,
+            day.dayNumber,
+          );
 
           return {
             id: day.id || `day-${day.dayNumber}`,
             dayNumber: day.dayNumber,
             title: day.title?.trim() || `Day ${day.dayNumber}`,
-            fetalCount: day.babyDevelopmentItems.filter((item) => item.trim()).length,
-            maternalCount: day.motherChangesItems.filter((item) => item.trim()).length,
+            fetalCount: day.babyDevelopmentItems.filter((item) => item.trim())
+              .length,
+            maternalCount: day.motherChangesItems.filter((item) => item.trim())
+              .length,
             checklistCount,
             questionCount,
             babyMessage: day.babyMessage?.trim() ?? "",
@@ -181,6 +187,15 @@ export function AdminWeeksSection({
         media.mediaRole === "compare" ||
         media.mediaRole === "hero"),
   );
+
+  const publishReview = selectedWeekDetail
+    ? getWeekPublishReview(selectedWeekDetail)
+    : null;
+  const publishReviewMessage = publishReview
+    ? publishReview.isReady
+      ? "Day 1~7 검수를 마쳤어요. 지금 바로 게시할 수 있어요."
+      : `게시 전 확인이 필요한 항목 ${publishReview.missingItems.length}개`
+    : null;
 
   return (
     <section className={styles.sectionStack}>
@@ -246,6 +261,11 @@ export function AdminWeeksSection({
         <div className={styles.weekWorkspaceMain}>
           {selectedWeekDetail ? (
             <>
+              {contentMessage ? (
+                <section className={styles.panel}>
+                  <p className={styles.formHint}>{contentMessage}</p>
+                </section>
+              ) : null}
               <section className={styles.panel}>
                 <div className={styles.panelHeader}>
                   <div>
@@ -254,6 +274,22 @@ export function AdminWeeksSection({
                     </h3>
                   </div>
                   <div className={styles.topbarActions}>
+                    <a
+                      className={styles.secondaryButton}
+                      href="/admin/content/weeks-preview"
+                    >
+                      검수 프리뷰
+                    </a>
+                    <button
+                      className={styles.primaryButton}
+                      type="button"
+                      disabled={isWeekSaving}
+                      onClick={() => {
+                        void onPublishWeek();
+                      }}
+                    >
+                      검수 후 게시
+                    </button>
                     <button
                       className={styles.secondaryButton}
                       type="button"
@@ -265,6 +301,24 @@ export function AdminWeeksSection({
                 </div>
 
                 <div className={styles.weekHeroGrid}>
+                  <div className={styles.weekBabyImageWrap}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/week-baby/week-baby-w${String(selectedWeekDetail.weekNumber).padStart(2, "0")}.png`}
+                      alt={`${selectedWeekDetail.weekNumber}주 아기 일러스트`}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                        const parent = (e.target as HTMLImageElement)
+                          .parentElement;
+                        if (parent) {
+                          const placeholder = document.createElement("span");
+                          placeholder.className = styles.weekBabyPlaceholder;
+                          placeholder.textContent = "이미지 없음";
+                          parent.appendChild(placeholder);
+                        }
+                      }}
+                    />
+                  </div>
                   <div className={styles.weekHeroPrimary}>
                     <div className={styles.weekHeroHeading}>
                       <span className={styles.metaLabel}>선택 주차</span>
@@ -273,7 +327,9 @@ export function AdminWeeksSection({
                     <div className={styles.badgeRow}>
                       <span
                         className={`${styles.statusBadge} ${
-                          styles[getWeekStatusBadge(selectedWeekDetail.status)] ?? ""
+                          styles[
+                            getWeekStatusBadge(selectedWeekDetail.status)
+                          ] ?? ""
                         }`}
                       >
                         {getWeekStatusLabel(selectedWeekDetail.status)}
@@ -294,6 +350,16 @@ export function AdminWeeksSection({
                         <span className={styles.metaLabel}>오늘 엄마는요</span>
                         <p>{selectedWeekDetail.motherSummary}</p>
                       </article>
+                      <article className={styles.weekSummaryCard}>
+                        <span className={styles.metaLabel}>게시 게이트</span>
+                        <p>{publishReviewMessage}</p>
+                        {!publishReview?.isReady && publishReview ? (
+                          <small className={styles.panelDescription}>
+                            {publishReview.missingItems.slice(0, 3).join(", ")}
+                            {publishReview.missingItems.length > 3 ? " 외" : ""}
+                          </small>
+                        ) : null}
+                      </article>
                     </div>
                   </div>
 
@@ -304,11 +370,15 @@ export function AdminWeeksSection({
                     </div>
                     <div className={styles.panelStat}>
                       <span className={styles.metaLabel}>체크리스트</span>
-                      <strong>{selectedWeekOverview?.checklistCount ?? 0}</strong>
+                      <strong>
+                        {selectedWeekOverview?.checklistCount ?? 0}
+                      </strong>
                     </div>
                     <div className={styles.panelStat}>
                       <span className={styles.metaLabel}>질문</span>
-                      <strong>{selectedWeekOverview?.questionCount ?? 0}</strong>
+                      <strong>
+                        {selectedWeekOverview?.questionCount ?? 0}
+                      </strong>
                     </div>
                     <div className={styles.panelStat}>
                       <span className={styles.metaLabel}>이미지</span>
@@ -421,6 +491,7 @@ export function AdminWeeksSection({
         onRemoveWeekAsset={onRemoveWeekAsset}
         onRemoveWeekMedia={onRemoveWeekMedia}
         onSaveWeek={onSaveWeek}
+        onPublishWeek={onPublishWeek}
       />
     </section>
   );

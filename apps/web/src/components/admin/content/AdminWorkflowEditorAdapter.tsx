@@ -6,11 +6,12 @@ import {
   WorkflowBuilder,
   type WorkflowEditorAPI,
 } from "@schift-io/sdk/workflow-editor";
+import type { Workflow, WorkflowRun } from "@schift-io/sdk";
 
 function createAdminWorkflowAPI(): WorkflowEditorAPI {
   const base = "/api/admin/schift/workflows";
 
-  async function fetchJSON(url: string, init?: RequestInit) {
+  async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await fetch(url, {
       ...init,
       headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
@@ -27,25 +28,34 @@ function createAdminWorkflowAPI(): WorkflowEditorAPI {
       }
       throw new Error(body || `Request failed: ${res.status}`);
     }
-    return res.json();
+    return (await res.json()) as T;
   }
 
   /** Ensure graph always has blocks[] and edges[] arrays */
-  function normalizeWorkflow(wf: Record<string, unknown>): Record<string, unknown> {
-    const graph = (wf.graph ?? {}) as Record<string, unknown>;
-    const blocks = (graph.blocks ?? graph.nodes ?? []) as unknown[];
-    const edges = (graph.edges ?? []) as unknown[];
+  function normalizeWorkflow(wf: Workflow): Workflow {
+    const graph = wf.graph as Workflow["graph"] & {
+      nodes?: Workflow["graph"]["blocks"];
+    };
+    const blocks = graph.blocks ?? graph.nodes ?? [];
+    const edges = graph.edges ?? [];
     return { ...wf, graph: { ...graph, blocks, edges } };
   }
 
   return {
-    list: () => fetchJSON(base),
-    get: (id) => fetchJSON(`${base}/${id}`).then(normalizeWorkflow),
-    create: (req) => fetchJSON(base, { method: "POST", body: JSON.stringify(req) }),
-    update: (id, req) => fetchJSON(`${base}/${id}`, { method: "PATCH", body: JSON.stringify(req) }),
-    delete: (id) => fetchJSON(`${base}/${id}`, { method: "DELETE" }),
+    list: () => fetchJSON<Workflow[]>(base).then((items) => items.map(normalizeWorkflow)),
+    get: (id) => fetchJSON<Workflow>(`${base}/${id}`).then(normalizeWorkflow),
+    create: (req) =>
+      fetchJSON<Workflow>(base, { method: "POST", body: JSON.stringify(req) }).then(normalizeWorkflow),
+    update: (id, req) =>
+      fetchJSON<Workflow>(`${base}/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(req),
+      }).then(normalizeWorkflow),
+    delete: async (id) => {
+      await fetchJSON<unknown>(`${base}/${id}`, { method: "DELETE" });
+    },
     run: (id, inputs) =>
-      fetchJSON(`${base}/${id}/run`, {
+      fetchJSON<WorkflowRun>(`${base}/${id}/run`, {
         method: "POST",
         body: JSON.stringify({ query: "", ...inputs }),
       }),

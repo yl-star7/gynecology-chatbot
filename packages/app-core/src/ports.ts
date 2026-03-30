@@ -57,14 +57,16 @@ export interface CalendarPort {
 }
 
 export interface KnowledgePort {
-  listContentItems(section: "knowledge" | "notebook"): Promise<MobileContentListItem[]>;
+  listContentItems(
+    section: "knowledge" | "notebook",
+  ): Promise<MobileContentListItem[]>;
   getLinkTarget(target: string, entityId?: string): Promise<LinkTargetContent>;
 }
 
 export interface MobileChatPort {
   listRecentChats(): Promise<RecentChatSummary[]>;
   getSession(sessionId?: string): Promise<ChatSession>;
-  sendMessage(input: ChatComposerInput): Promise<ChatMessage>;
+  sendMessage(input: ChatComposerInput): Promise<ChatMessage[]>;
   resolveLink(target: string, entityId?: string): Promise<LinkTargetContent>;
 }
 
@@ -133,28 +135,36 @@ export interface AdminUserPort {
 export interface AdminContentPort {
   createDocument(
     input: AdminRagDocumentInput,
+    actorId?: string,
   ): Promise<AdminRagDocumentDetail>;
   getDocument(documentId: string): Promise<AdminRagDocumentDetail | null>;
   updateDocument(
     documentId: string,
     input: AdminRagDocumentInput,
+    actorId?: string,
   ): Promise<AdminRagDocumentDetail | null>;
-  deleteDocument(documentId: string): Promise<void>;
+  deleteDocument(documentId: string, actorId?: string): Promise<void>;
   updateWorkflowRule(
     id: string,
     input: AdminWorkflowRuleInput,
+    actorId?: string,
   ): Promise<AdminWorkflowRule | null>;
   listKnowledgeItems(): Promise<AdminKnowledgeItem[]>;
-  createKnowledgeItem(input: AdminKnowledgeItemInput): Promise<AdminKnowledgeItem>;
+  createKnowledgeItem(
+    input: AdminKnowledgeItemInput,
+    actorId?: string,
+  ): Promise<AdminKnowledgeItem>;
   updateKnowledgeItem(
     id: string,
     input: AdminKnowledgeItemInput,
+    actorId?: string,
   ): Promise<AdminKnowledgeItem | null>;
-  deleteKnowledgeItem(id: string): Promise<void>;
+  deleteKnowledgeItem(id: string, actorId?: string): Promise<void>;
   listWeeks(): Promise<AdminWeekSummary[]>;
   getWeek(weekNumber: number): Promise<AdminWeekDetail | null>;
   saveWeek(
     weekNumber: number,
     input: AdminWeekUpdateInput,
+    actorId?: string,
   ): Promise<AdminWeekDetail | null>;
 }

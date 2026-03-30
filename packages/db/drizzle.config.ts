@@ -2,7 +2,7 @@ import type { Config } from "drizzle-kit";
 
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL =
-    "postgresql://postgres:postgres@localhost:5432/postgres";
+    "postgresql://postgres:postgres@localhost:5300/postgres";
 }
 
 export default {

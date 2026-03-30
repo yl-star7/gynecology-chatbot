@@ -4,6 +4,10 @@ import type {
   MobileProfileViewData,
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
+import { pickPatientEncouragementQuote } from "./patient-encouragement-quotes";
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+const MAX_PREGNANCY_DAYS = 294;
 
 function getDaysUntilDue(dueDate?: string | null) {
   if (!dueDate) {
@@ -16,7 +20,21 @@ function getDaysUntilDue(dueDate?: string | null) {
   }
 
   const diff = due.getTime() - Date.now();
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  return Math.max(0, Math.ceil(diff / MS_PER_DAY));
+}
+
+function computePregnancyDayCount(dueDate?: string | null, fallback?: number): number {
+  if (dueDate) {
+    const due = new Date(dueDate);
+    if (!Number.isNaN(due.getTime())) {
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const diffDays = Math.round((due.getTime() - startOfToday.getTime()) / MS_PER_DAY);
+      return Math.max(0, Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diffDays));
+    }
+  }
+  const raw = fallback ?? 0;
+  return Math.max(0, Math.min(MAX_PREGNANCY_DAYS, raw));
 }
 
 export function buildWebPatientHomeViewModel({
@@ -28,15 +46,28 @@ export function buildWebPatientHomeViewModel({
 }) {
   const heroName = profile?.babyNickname?.trim() || "우리 아기";
   const daysUntilDue = getDaysUntilDue(profile?.dueDate);
+  const pregnancyDayCount = computePregnancyDayCount(profile?.dueDate, home?.pregnancyDayCount);
+  const pregnancyWeekLabel = home?.pregnancyWeekLabel ?? "주차 정보를 준비 중이에요";
+
+  const now = new Date();
+  const quoteSeed = [
+    now.getFullYear(),
+    now.getMonth() + 1,
+    now.getDate(),
+    heroName,
+    pregnancyWeekLabel,
+  ].join("-");
 
   return {
     heroName,
-    babyMessage: `${heroName}는 ${home?.pregnancyWeekLabel ?? "지금의 주차"}에 맞춰 차분히 자라고 있어요.`,
-    pregnancyWeekLabel: home?.pregnancyWeekLabel ?? "주차 정보를 준비 중이에요",
-    pregnancyDayCount: home?.pregnancyDayCount ?? 0,
+    babyMessage: pregnancyWeekLabel === "주차 정보를 준비 중이에요"
+      ? `${heroName}와 함께하는 오늘도 차분히 이어가요.`
+      : `${heroName}는 ${pregnancyWeekLabel}에 맞춰 차분히 자라고 있어요.`,
+    pregnancyWeekLabel,
+    pregnancyDayCount,
     metricLabel: daysUntilDue == null ? "함께한 시간" : "만나기까지",
-    metricValue: daysUntilDue == null ? `${home?.pregnancyDayCount ?? 0}일` : `${daysUntilDue}일`,
-    quote: `${heroName}와 함께 보내는 오늘도 충분히 잘하고 있어요.`,
+    metricValue: daysUntilDue == null ? `${pregnancyDayCount}일` : `${daysUntilDue}일`,
+    quote: pickPatientEncouragementQuote(quoteSeed),
     note: "몸이 보내는 신호를 너무 급하게 판단하지 말고, 오늘 느낀 것을 차분히 살펴봐요.",
   };
 }

@@ -4,7 +4,7 @@ import type { ChatPart } from "@gynecology-chatbot/app-core";
 import Link from "next/link";
 import { appendUserIdToPath } from "@/lib/mobile/web-mobile-api";
 
-export function ChatPartRenderer({ part, userId }: { part: ChatPart; userId?: string | null }) {
+export function ChatPartRenderer({ part, userId, onQuickReply }: { part: ChatPart; userId?: string | null; onQuickReply?: (message: string) => void }) {
   if (part.type === "text") {
     return (
       <p className="whitespace-pre-wrap text-[15px] leading-6 text-[var(--text)]">
@@ -81,12 +81,14 @@ export function ChatPartRenderer({ part, userId }: { part: ChatPart; userId?: st
         ) : null}
         <div className="flex flex-wrap gap-2">
           {part.choices.map((choice) => (
-            <span
+            <button
               key={choice.id}
-              className="rounded-full bg-[var(--panel-strong)] px-3 py-1 text-sm text-[var(--accent-dark)]"
+              type="button"
+              onClick={() => onQuickReply?.(choice.message)}
+              className="rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-4 py-2 text-sm font-medium text-[var(--accent-dark)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
             >
               {choice.label}
-            </span>
+            </button>
           ))}
         </div>
       </div>

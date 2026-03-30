@@ -28,6 +28,24 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    const weekNum = Number(pregnancyWeekOrDueDate);
+    if (!isNaN(weekNum)) {
+      if (weekNum < 1 || weekNum > 42) {
+        return NextResponse.json(
+          { error: "임신 주차는 1~42 사이여야 해요." },
+          { status: 400 },
+        );
+      }
+    } else {
+      const date = new Date(pregnancyWeekOrDueDate);
+      if (isNaN(date.getTime())) {
+        return NextResponse.json(
+          { error: "올바른 날짜 형식이 아니에요." },
+          { status: 400 },
+        );
+      }
+    }
     const { userId } = await requireMobileSession(request, hintedUserId);
 
     const user = await completeUserOnboarding({

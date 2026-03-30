@@ -96,12 +96,16 @@ describe("POST /api/admin/rag/upload", () => {
       }) as never,
     );
 
-    expect(createDocument).toHaveBeenCalledWith({
-      title: "문서",
-      content: "본문",
-      category: "guide",
-      pregnancyWeek: null,
-    });
+    expect(createDocument).toHaveBeenCalledWith(
+      {
+        title: "문서",
+        content: "본문",
+        category: "guide",
+        pregnancyWeek: null,
+        imageUrl: null,
+      },
+      "admin-1",
+    );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ id: "doc-1", ok: true });
   });

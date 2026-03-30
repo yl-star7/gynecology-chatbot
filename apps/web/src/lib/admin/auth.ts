@@ -27,7 +27,12 @@ type AdminProfileRow = {
 type AdminAuthProvider = "backend" | "mock";
 
 function getAdminSessionSecret() {
-  return process.env.ADMIN_SESSION_SECRET || "local-admin-session-secret";
+  const secret = process.env.ADMIN_SESSION_SECRET?.trim();
+  if (!secret) {
+    throw new Error("ADMIN_SESSION_SECRET is required");
+  }
+
+  return secret;
 }
 
 function getAdminAuthProvider(): AdminAuthProvider {
@@ -43,11 +48,13 @@ function getAdminAuthProvider(): AdminAuthProvider {
 }
 
 function getAdminLoginPassword() {
-  return (
-    process.env.ADMIN_LOGIN_PASSWORD ??
-    process.env.LOCAL_ADMIN_PASSWORD ??
-    "admin1234"
-  );
+  const password =
+    process.env.ADMIN_LOGIN_PASSWORD ?? process.env.LOCAL_ADMIN_PASSWORD;
+  if (!password?.trim()) {
+    throw new Error("ADMIN_LOGIN_PASSWORD or LOCAL_ADMIN_PASSWORD is required");
+  }
+
+  return password;
 }
 
 function getLocalAdminCredentials() {

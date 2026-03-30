@@ -50,10 +50,13 @@ describe("MobileLinkView", () => {
     expect(
       screen.queryByRole("link", { name: /^프로필$/ }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "새 상담 시작" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "홈으로 돌아가기" })).toHaveAttribute(
       "href",
-      "/chat/new?userId=user-1",
+      "/?userId=user-1",
     );
+    expect(
+      screen.queryByRole("link", { name: "새 상담 시작" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "상담으로 돌아가기" }),
     ).not.toBeInTheDocument();

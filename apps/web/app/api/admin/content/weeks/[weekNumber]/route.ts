@@ -60,7 +60,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function isValidWeekStatus(value: unknown): value is AdminWeekUpdateInput["status"] {
+function isValidWeekStatus(
+  value: unknown,
+): value is AdminWeekUpdateInput["status"] {
   return value === "draft" || value === "published" || value === "archived";
 }
 
@@ -69,12 +71,18 @@ function parseSectionInput(section: unknown) {
     return null;
   }
 
-  const dayNumber = section.dayNumber === null ? null : normalizeDayNumber(section.dayNumber);
+  const dayNumber =
+    section.dayNumber === null ? null : normalizeDayNumber(section.dayNumber);
   const sectionKey = normalizeText(section.sectionKey);
   const title = normalizeText(section.title);
   const body = normalizeText(section.body);
 
-  if (!sectionKey || !title || !body || section.dayNumber !== null && dayNumber === null) {
+  if (
+    !sectionKey ||
+    !title ||
+    !body ||
+    (section.dayNumber !== null && dayNumber === null)
+  ) {
     return null;
   }
 
@@ -87,8 +95,7 @@ function parseSectionInput(section: unknown) {
     displayOrder:
       typeof section.displayOrder === "number" ? section.displayOrder : 0,
     isRequired: Boolean(section.isRequired),
-    isActive:
-      typeof section.isActive === "boolean" ? section.isActive : true,
+    isActive: typeof section.isActive === "boolean" ? section.isActive : true,
   };
 }
 
@@ -97,11 +104,16 @@ function parseAssetInput(asset: unknown) {
     return null;
   }
 
-  const dayNumber = asset.dayNumber === null ? null : normalizeDayNumber(asset.dayNumber);
+  const dayNumber =
+    asset.dayNumber === null ? null : normalizeDayNumber(asset.dayNumber);
   const assetType = normalizeText(asset.assetType);
   const storagePath = normalizeText(asset.storagePath);
 
-  if (!assetType || !storagePath || asset.dayNumber !== null && dayNumber === null) {
+  if (
+    !assetType ||
+    !storagePath ||
+    (asset.dayNumber !== null && dayNumber === null)
+  ) {
     return null;
   }
 
@@ -115,8 +127,7 @@ function parseAssetInput(asset: unknown) {
     displayOrder:
       typeof asset.displayOrder === "number" ? asset.displayOrder : 0,
     isRequired: Boolean(asset.isRequired),
-    isActive:
-      typeof asset.isActive === "boolean" ? asset.isActive : true,
+    isActive: typeof asset.isActive === "boolean" ? asset.isActive : true,
   };
 }
 
@@ -151,7 +162,8 @@ function parseMediaInput(media: unknown) {
     media.mediaScope === "week" || media.mediaScope === "day"
       ? media.mediaScope
       : null;
-  const dayNumber = media.dayNumber === null ? null : normalizeDayNumber(media.dayNumber);
+  const dayNumber =
+    media.dayNumber === null ? null : normalizeDayNumber(media.dayNumber);
   const bucketId = normalizeText(media.bucketId);
   const objectPath = normalizeText(media.objectPath);
   const mediaRole = normalizeText(media.mediaRole);
@@ -162,7 +174,9 @@ function parseMediaInput(media: unknown) {
     !objectPath ||
     !mediaRole ||
     (mediaScope === "day" && dayNumber === null) ||
-    (media.dayNumber !== null && media.dayNumber !== undefined && dayNumber === null)
+    (media.dayNumber !== null &&
+      media.dayNumber !== undefined &&
+      dayNumber === null)
   ) {
     return null;
   }
@@ -196,12 +210,7 @@ function parseWeekUpdateInput(body: unknown): AdminWeekUpdateInput | null {
   const assets = Array.isArray(record.assets) ? record.assets : [];
   const media = Array.isArray(record.media) ? record.media : [];
 
-  if (
-    !title ||
-    !babySummary ||
-    !motherSummary ||
-    !isValidWeekStatus(status)
-  ) {
+  if (!title || !babySummary || !motherSummary || !isValidWeekStatus(status)) {
     return null;
   }
 
@@ -344,6 +353,7 @@ export async function PATCH(
     const week = await services.adminContentPort.saveWeek(
       numericWeekNumber,
       payload,
+      admin.id,
     );
     if (!week) {
       return NextResponse.json({ error: "week not found" }, { status: 404 });

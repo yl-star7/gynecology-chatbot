@@ -6,7 +6,7 @@ import type {
   RecordDayView,
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
-import { createMobileApiClient } from "./mobileApi.ts";
+import { createMobileApiClient, SessionExpiredError, RateLimitError } from "./mobileApi.ts";
 
 const profilePayload: MobileProfileViewData = {
   userId: "user-1",
@@ -34,10 +34,17 @@ const updatedUser: AuthenticatedUser = {
 const recordDayPayload: RecordDayView = {
   isoDate: "2026-03-18",
   dateLabel: "2026년 3월 18일 수요일",
+  infoViewed: true,
   emotionTone: "calm",
   checklistItems: [
     { id: "check-1", label: "엽산 보충제 섭취하기", completed: true },
   ],
+  conversationSummary: "1개의 대화가 있었어요.",
+  dailyQuestion: {
+    question: "오늘 가장 기억에 남는 순간은 무엇이었나요?",
+    answer: "아기가 움직이는 느낌이 선명했어요.",
+    aiSummary: "아기의 움직임을 느끼며 안심한 하루였어요.",
+  },
   records: [],
   relatedSessions: [],
 };
@@ -45,6 +52,7 @@ const recordDayPayload: RecordDayView = {
 const todayPayload: TodayViewData = {
   babyBody: "아기가 자라고 있어요.",
   momBody: "몸의 변화가 시작되고 있어요.",
+  infoViewed: false,
   checklistItems: [
     { id: "water", label: "물 마시기", completed: false },
   ],
@@ -196,6 +204,66 @@ test("updateTodayChecklistItem sends PATCH to the mobile today endpoint", async 
     userId: "user-1",
     checklistId: "check-1",
     completed: true,
+  });
+  assert.equal(response.ok, true);
+});
+
+test("401 응답 시 SessionExpiredError를 throw한다", async () => {
+  const client = createMobileApiClient({
+    getApiBaseUrl: () => "http://example.com",
+    getUserId: () => "user-1",
+    fetchImpl: async () => {
+      return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
+    },
+  });
+
+  await assert.rejects(
+    () => client.fetchTodayView(),
+    (err: unknown) => {
+      assert.ok(err instanceof SessionExpiredError, "SessionExpiredError여야 한다");
+      assert.ok(err.message.includes("세션이 만료"), `메시지: ${err.message}`);
+      return true;
+    },
+  );
+});
+
+test("429 응답 시 RateLimitError를 throw한다", async () => {
+  const client = createMobileApiClient({
+    getApiBaseUrl: () => "http://example.com",
+    getUserId: () => "user-1",
+    fetchImpl: async () => {
+      return new Response(JSON.stringify({ error: "rate limit exceeded" }), { status: 429 });
+    },
+  });
+
+  await assert.rejects(
+    () => client.sendChatMessage({ sessionId: "s-1", text: "안녕", imageDataUris: [] }),
+    (err: unknown) => {
+      assert.ok(err instanceof RateLimitError, "RateLimitError여야 한다");
+      assert.ok(err.message.includes("잠시 후"), `메시지: ${err.message}`);
+      return true;
+    },
+  );
+});
+
+test("markTodayInfoViewed sends PATCH action to the mobile today endpoint", async () => {
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  const client = createMobileApiClient({
+    getApiBaseUrl: () => "http://example.com",
+    getUserId: () => "user-1",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, init });
+      return Response.json({ ok: true });
+    },
+  });
+
+  const response = await client.markTodayInfoViewed();
+
+  assert.equal(calls[0]?.input, "http://example.com/api/mobile/today");
+  assert.equal(calls[0]?.init?.method, "PATCH");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    userId: "user-1",
+    action: "view_info",
   });
   assert.equal(response.ok, true);
 });

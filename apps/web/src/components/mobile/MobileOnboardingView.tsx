@@ -31,7 +31,7 @@ const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", "다정
 export function MobileOnboardingView({ userId }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [pregnancyInfo, setPregnancyInfo] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [babyNickname, setBabyNickname] = useState("");
   const [tonePreference, setTonePreference] = useState("");
   const [themeKey, setThemeKey] = useState(
@@ -47,8 +47,8 @@ export function MobileOnboardingView({ userId }: Props) {
   }, []);
 
   function next() {
-    if (step === 0 && !pregnancyInfo.trim()) {
-      setError("주차나 예정일을 알려주세요.");
+    if (step === 0 && !dueDate) {
+      setError("출산 예정일을 선택해주세요.");
       return;
     }
     setError(null);
@@ -59,10 +59,11 @@ export function MobileOnboardingView({ userId }: Props) {
     setIsSubmitting(true);
     setError(null);
     try {
+      const pregnancyInfo = dueDate;
       const notes = babyNickname.trim() ? `태명: ${babyNickname.trim()}` : "";
       const payload = await completeOnboarding({
         userId: userId!,
-        pregnancyWeekOrDueDate: [pregnancyInfo.trim(), notes].filter(Boolean).join(" / "),
+        pregnancyWeekOrDueDate: [pregnancyInfo, notes].filter(Boolean).join(" / "),
         tonePreference: tonePreference || "친근하게",
         themeKey,
       });
@@ -88,14 +89,15 @@ export function MobileOnboardingView({ userId }: Props) {
 
       {step === 0 && (
         <MobileCard className="p-6">
-          <h2 className="text-2xl font-bold text-[var(--text)]">지금 몇 주차예요?</h2>
+          <h2 className="text-2xl font-bold text-[var(--text)]">출산 예정일을 알려주세요</h2>
+          <p className="mt-1 text-sm text-[var(--text-soft)]">달력에서 예정일을 선택해주세요</p>
           <input
             className={`${mobileFieldClassName} mt-4`}
-            onChange={(e) => setPregnancyInfo(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") next(); }}
-            placeholder="예: 16주 또는 2026-08-01"
-            value={pregnancyInfo}
-            autoFocus
+            onChange={(e) => setDueDate(e.target.value)}
+            value={dueDate}
+            type="date"
+            min={new Date().toISOString().slice(0, 10)}
+            max={(() => { const d = new Date(); d.setDate(d.getDate() + 294); return d.toISOString().slice(0, 10); })()}
           />
           {error ? <MobileNotice>{error}</MobileNotice> : null}
           <button className="mt-4 w-full rounded-full bg-[var(--accent)] py-3 text-sm font-semibold text-white" onClick={next} type="button">

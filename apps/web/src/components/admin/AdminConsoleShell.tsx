@@ -17,7 +17,10 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/content",
     label: "콘텐츠",
     children: [
+      { href: "/admin/content/documents", label: "문서" },
+      { href: "/admin/content/static", label: "정적 문헌" },
       { href: "/admin/content/weeks", label: "주차별 간호 정보" },
+      { href: "/admin/content/weeks-preview", label: "주차 데이터 프리뷰" },
       { href: "/admin/content/policies", label: "응답 워크플로우" },
     ],
   },
@@ -99,7 +102,9 @@ export function AdminConsoleShell({
                       <a
                         key={child.href}
                         className={`${styles.subnavItem} ${
-                          currentPath === child.href ? styles.subnavItemActive : ""
+                          currentPath === child.href
+                            ? styles.subnavItemActive
+                            : ""
                         }`}
                         href={child.href}
                       >

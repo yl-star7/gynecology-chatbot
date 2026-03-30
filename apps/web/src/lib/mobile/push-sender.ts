@@ -58,6 +58,7 @@ export async function sendDailyPushNotifications() {
   // 4. Fallback to SMS for users without push tokens.
   const smsTargets = targets.filter((target) => !target.push_token);
   let smsSent = 0;
+  let smsMocked = 0;
   if (smsTargets.length > 0) {
     const userIds = smsTargets.map((target) => target.user_id);
     const userRows = await supabaseSelect<SmsUserRow[]>(
@@ -77,8 +78,12 @@ export async function sendDailyPushNotifications() {
         const body = target.pregnancy_week
           ? `임신 ${target.pregnancy_week}주차 오늘의 정보가 준비됐어요. 앱에서 확인해주세요.`
           : "오늘의 임신 정보를 확인해보세요.";
-        await sendSmsMessage(phoneNumber, body);
-        smsSent += 1;
+        const smsResult = await sendSmsMessage(phoneNumber, body);
+        if (smsResult.sid.startsWith("mock-")) {
+          smsMocked += 1;
+        } else {
+          smsSent += 1;
+        }
       } catch (error) {
         console.error("SMS notification failed:", error);
       }
@@ -90,5 +95,6 @@ export async function sendDailyPushNotifications() {
     total: messages.length + smsTargets.length,
     pushSent,
     smsSent,
+    smsMocked,
   };
 }

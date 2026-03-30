@@ -14,6 +14,7 @@ import styles from "./AdminConsoleLayout.module.css";
 interface AdminAccountSectionProps {
   managedUsers: AdminDashboardData["managedUsers"];
   allowedPhoneNumbers: AdminAllowedPhoneNumber[];
+  userSearchQuery: string;
   selectedUserId: string;
   phoneNumber: string;
   reason: string;
@@ -23,6 +24,7 @@ interface AdminAccountSectionProps {
   allowedNote: string;
   actionMessage: string | null;
   isSubmitting: boolean;
+  onUserSearchQueryChange: (value: string) => void;
   onSelectUser: (userId: string) => void;
   onPhoneNumberChange: (value: string) => void;
   onReasonChange: (value: string) => void;
@@ -42,6 +44,7 @@ interface AdminAccountSectionProps {
 export function AdminAccountSection({
   managedUsers,
   allowedPhoneNumbers,
+  userSearchQuery,
   selectedUserId,
   phoneNumber,
   reason,
@@ -51,6 +54,7 @@ export function AdminAccountSection({
   allowedNote,
   actionMessage,
   isSubmitting,
+  onUserSearchQueryChange,
   onSelectUser,
   onPhoneNumberChange,
   onReasonChange,
@@ -66,8 +70,22 @@ export function AdminAccountSection({
   onUpdateAllowedPhoneNumber,
   onDeleteAllowedPhoneNumber,
 }: AdminAccountSectionProps) {
+  const normalizedUserSearchQuery = userSearchQuery.trim().toLowerCase();
+  const filteredManagedUsers = managedUsers.filter((user) => {
+    if (!normalizedUserSearchQuery) {
+      return true;
+    }
+
+    return (
+      user.name.toLowerCase().includes(normalizedUserSearchQuery) ||
+      user.phoneNumber.toLowerCase().includes(normalizedUserSearchQuery) ||
+      user.latestIssue.toLowerCase().includes(normalizedUserSearchQuery)
+    );
+  });
   const selectedUser =
-    managedUsers.find((user) => user.id === selectedUserId) ?? managedUsers[0] ?? null;
+    managedUsers.find((user) => user.id === selectedUserId) ??
+    managedUsers[0] ??
+    null;
 
   return (
     <section className={styles.sectionStack}>
@@ -77,13 +95,24 @@ export function AdminAccountSection({
             <div>
               <h2 className={styles.panelTitle}>사용자 선택</h2>
               <p className={styles.panelDescription}>
-                가끔 수정이 필요한 사용자를 고르고, 전화번호나 접근 문제를 바로 정리합니다.
+                가끔 수정이 필요한 사용자를 고르고, 전화번호나 접근 문제를 바로
+                정리합니다.
               </p>
             </div>
           </div>
 
+          <label className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>사용자 검색</span>
+            <input
+              className={styles.fieldInput}
+              value={userSearchQuery}
+              onChange={(event) => onUserSearchQueryChange(event.target.value)}
+              placeholder="이름, 전화번호, 최근 이슈"
+            />
+          </label>
+
           <div className={styles.list}>
-            {managedUsers.map((user) => (
+            {filteredManagedUsers.map((user) => (
               <button
                 key={user.id}
                 className={`${styles.listButton} ${
@@ -107,6 +136,11 @@ export function AdminAccountSection({
                 </div>
               </button>
             ))}
+            {filteredManagedUsers.length === 0 ? (
+              <div className={styles.listEmpty}>
+                조건에 맞는 사용자가 없습니다.
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -124,12 +158,16 @@ export function AdminAccountSection({
             <div className={styles.panelStat}>
               <span className={styles.metaLabel}>선택 계정</span>
               <strong>{selectedUser?.name ?? "선택된 계정 없음"}</strong>
-              <span className={styles.listMeta}>{selectedUser?.phoneNumber ?? "-"}</span>
+              <span className={styles.listMeta}>
+                {selectedUser?.phoneNumber ?? "-"}
+              </span>
             </div>
             <div className={styles.panelStat}>
               <span className={styles.metaLabel}>현재 상태</span>
               <strong>
-                {selectedUser ? getManagedUserStatusLabel(selectedUser.status) : "-"}
+                {selectedUser
+                  ? getManagedUserStatusLabel(selectedUser.status)
+                  : "-"}
               </strong>
               <span className={styles.listMeta}>
                 {selectedUser?.latestIssue ?? "최근 이슈 없음"}
@@ -145,7 +183,7 @@ export function AdminAccountSection({
                 value={selectedUserId}
                 onChange={(event) => onSelectUser(event.target.value)}
               >
-                {managedUsers.map((user) => (
+                {filteredManagedUsers.map((user) => (
                   <option key={user.id} value={user.id}>
                     {user.name} · {user.phoneNumber}
                   </option>
@@ -206,7 +244,9 @@ export function AdminAccountSection({
               </button>
             </div>
 
-            {actionMessage ? <p className={styles.formHint}>{actionMessage}</p> : null}
+            {actionMessage ? (
+              <p className={styles.formHint}>{actionMessage}</p>
+            ) : null}
           </div>
         </section>
       </section>
@@ -227,7 +267,9 @@ export function AdminAccountSection({
               <button
                 key={entry.id}
                 className={`${styles.listButton} ${
-                  selectedAllowedPhoneId === entry.id ? styles.listButtonSelected : ""
+                  selectedAllowedPhoneId === entry.id
+                    ? styles.listButtonSelected
+                    : ""
                 }`}
                 type="button"
                 aria-pressed={selectedAllowedPhoneId === entry.id}
@@ -241,7 +283,9 @@ export function AdminAccountSection({
                 </div>
                 <div className={styles.listMetaGroup}>
                   <span className={styles.statusBadge}>허용</span>
-                  <span className={styles.listMeta}>{entry.note || "메모 없음"}</span>
+                  <span className={styles.listMeta}>
+                    {entry.note || "메모 없음"}
+                  </span>
                 </div>
               </button>
             ))}
@@ -253,7 +297,9 @@ export function AdminAccountSection({
               <input
                 className={styles.fieldInput}
                 value={allowedPhoneNumber}
-                onChange={(event) => onAllowedPhoneNumberChange(event.target.value)}
+                onChange={(event) =>
+                  onAllowedPhoneNumberChange(event.target.value)
+                }
               />
             </label>
 
@@ -262,7 +308,9 @@ export function AdminAccountSection({
               <input
                 className={styles.fieldInput}
                 value={allowedDisplayName}
-                onChange={(event) => onAllowedDisplayNameChange(event.target.value)}
+                onChange={(event) =>
+                  onAllowedDisplayNameChange(event.target.value)
+                }
               />
             </label>
 

@@ -1,6 +1,7 @@
 export { Button } from "./Button";
 export { BrandMark } from "./BrandMark";
 export { Card } from "./Card";
+export { DueDateCalendarPicker } from "./DueDateCalendarPicker";
 export { EmotionCheckin } from "./EmotionCheckin";
 export { EmptyState } from "./EmptyState";
 export { HeroSection } from "./HeroSection";

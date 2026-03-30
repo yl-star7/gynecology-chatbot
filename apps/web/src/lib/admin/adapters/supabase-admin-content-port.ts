@@ -107,6 +107,7 @@ type SupabaseKnowledgeItemRow = {
   section: "knowledge" | "notebook";
   title: string;
   body: string;
+  image_url: string | null;
   status: "draft" | "published" | "archived";
   updated_at: string;
 };
@@ -160,12 +161,53 @@ function toVectorLiteral(values: number[]) {
   return `[${values.join(",")}]`;
 }
 
+function getAdminActorId(actorId?: string) {
+  if (actorId) {
+    return actorId;
+  }
+
+  const fallbackActorId = process.env.ADMIN_ACTOR_USER_ID;
+  if (!fallbackActorId) {
+    throw new Error(
+      "ADMIN_ACTOR_USER_ID is required for admin write operations",
+    );
+  }
+
+  return fallbackActorId;
+}
+
+function shouldWriteAdminAuditLog(actorId?: string) {
+  return Boolean(actorId || process.env.ADMIN_ACTOR_USER_ID);
+}
+
+async function insertAdminAuditLog(input: {
+  actorId?: string;
+  actionType: string;
+  entityType: string;
+  entityId: string | null;
+  reason: string;
+  beforePayload: Record<string, unknown>;
+  afterPayload: Record<string, unknown>;
+}) {
+  await supabaseInsert("admin_audit_logs", {
+    admin_user_id: getAdminActorId(input.actorId),
+    target_user_id: null,
+    action_type: input.actionType,
+    entity_type: input.entityType,
+    entity_id: input.entityId,
+    reason: input.reason,
+    before_payload: input.beforePayload,
+    after_payload: input.afterPayload,
+  });
+}
+
 type SupabaseRagDocumentRow = {
   id: string;
   title: string;
   content: string;
   pregnancy_week: number | null;
   category: string;
+  image_url?: string | null;
   metadata: { chunk_count?: number; draft?: boolean } | null;
   created_at?: string;
   updated_at?: string | null;
@@ -297,6 +339,7 @@ function mapKnowledgeItem(row: SupabaseKnowledgeItemRow): AdminKnowledgeItem {
     section: row.section,
     title: row.title,
     body: row.body,
+    imageUrl: row.image_url ?? null,
     status: row.status,
     updatedAt: row.updated_at,
   };
@@ -322,6 +365,7 @@ function mapRagDocument(row: SupabaseRagDocumentRow): AdminRagDocumentDetail {
     updatedAt: getDocumentUpdatedAt(row),
     status,
     content: row.content,
+    imageUrl: row.image_url ?? null,
   };
 }
 
@@ -364,7 +408,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     if (hasDirectContentDatabase()) {
       return queryContentRows<SupabaseKnowledgeItemRow>(
         `
-          SELECT id, slug, section, title, body, status, updated_at
+          SELECT id, slug, section, title, body, image_url, status, updated_at
           FROM content.knowledge_items
           ORDER BY updated_at DESC NULLS LAST, title ASC
         `,
@@ -373,7 +417,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
 
     try {
       return await supabaseSelect<Array<PublicKnowledgeItemRow>>(
-        "published_knowledge_items?select=id,slug,section,title,body,status,updated_at&order=updated_at.desc",
+        "published_knowledge_items?select=id,slug,section,title,body,image_url,status,updated_at&order=updated_at.desc",
       );
     } catch (error) {
       console.error(
@@ -381,7 +425,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
         error,
       );
       return supabaseSelect<Array<SupabaseKnowledgeItemRow>>(
-        "content.knowledge_items?select=id,slug,section,title,body,status,updated_at&order=updated_at.desc",
+        "content.knowledge_items?select=id,slug,section,title,body,image_url,status,updated_at&order=updated_at.desc",
       );
     }
   }
@@ -425,6 +469,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
 
   async createDocument(
     input: AdminRagDocumentInput,
+    actorId?: string,
   ): Promise<AdminRagDocumentDetail> {
     if (!hasBackendAdminConfig()) {
       return this.fallback.createDocument(input);
@@ -432,6 +477,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
 
     const embedding = await embedPregnancyDocument(input.content);
     const documentId = randomUUID();
+    const imageUrl = input.imageUrl ?? null;
     const metadata = {
       chunk_count: 1,
       draft: false,
@@ -446,12 +492,13 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
               content,
               pregnancy_week,
               category,
+              image_url,
               embedding,
               metadata,
               created_at
             )
-            VALUES ($1::uuid, $2, $3, $4, $5, $6::vector, $7::jsonb, NOW())
-            RETURNING id, title, content, pregnancy_week, category, metadata, created_at, NULL::timestamptz AS updated_at
+            VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::vector, $8::jsonb, NOW())
+            RETURNING id, title, content, pregnancy_week, category, image_url, metadata, created_at, NULL::timestamptz AS updated_at
           `,
           [
             documentId,
@@ -459,6 +506,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
             input.content,
             input.pregnancyWeek,
             input.category,
+            imageUrl,
             toVectorLiteral(embedding),
             JSON.stringify(metadata),
           ],
@@ -471,12 +519,31 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
             content: input.content,
             pregnancy_week: input.pregnancyWeek,
             category: input.category,
+            image_url: imageUrl,
             embedding,
             metadata,
           },
         );
 
-    return mapRagDocument(inserted[0] as SupabaseRagDocumentRow);
+    const document = mapRagDocument(inserted[0] as SupabaseRagDocumentRow);
+    if (shouldWriteAdminAuditLog(actorId)) {
+      await insertAdminAuditLog({
+        actorId,
+        actionType: "content_update",
+        entityType: "pregnancy_document",
+        entityId: document.id,
+        reason: "pregnancy_document_create",
+        beforePayload: {},
+        afterPayload: {
+          title: document.title,
+          category: document.category,
+          pregnancy_week: document.pregnancyWeek,
+          chunk_count: document.chunkCount,
+        },
+      });
+    }
+
+    return document;
   }
 
   async getDocument(
@@ -493,16 +560,16 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     const rows = hasDirectContentDatabase()
       ? await queryContentRows<SupabaseRagDocumentRow>(
           `
-            SELECT id, title, content, pregnancy_week, category, metadata, created_at, NULL::timestamptz AS updated_at
+            SELECT id, title, content, pregnancy_week, category, image_url, metadata, created_at, NULL::timestamptz AS updated_at
             FROM content.pregnancy_documents
             WHERE id = $1::uuid
             LIMIT 1
           `,
           [documentId],
         )
-      : await supabaseSelect<Array<SupabaseRagDocumentRow>>(
-          `content.pregnancy_documents?select=id,title,content,pregnancy_week,category,metadata,created_at&id=eq.${documentId}&limit=1`,
-        );
+      : ((await supabaseSelect<Array<SupabaseRagDocumentRow>>(
+          `content.pregnancy_documents?select=id,title,content,pregnancy_week,category,image_url,metadata,created_at&id=eq.${documentId}&limit=1`,
+        )) ?? []);
 
     return rows[0] ? mapRagDocument(rows[0]) : null;
   }
@@ -510,6 +577,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
   async updateDocument(
     documentId: string,
     input: AdminRagDocumentInput,
+    actorId?: string,
   ): Promise<AdminRagDocumentDetail | null> {
     if (!hasBackendAdminConfig()) {
       return this.fallback.updateDocument(documentId, input);
@@ -520,6 +588,10 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const embedding = await embedPregnancyDocument(input.content);
+    const imageUrl = input.imageUrl ?? null;
+    const beforeDocument = shouldWriteAdminAuditLog(actorId)
+      ? await this.getDocument(documentId)
+      : null;
     const updated = hasDirectContentDatabase()
       ? await queryContentRows<SupabaseRagDocumentRow>(
           `
@@ -528,9 +600,10 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
                    content = $3,
                    pregnancy_week = $4,
                    category = $5,
-                   embedding = $6::vector
+                   image_url = $6,
+                   embedding = $7::vector
              WHERE id = $1::uuid
-         RETURNING id, title, content, pregnancy_week, category, metadata, created_at, NULL::timestamptz AS updated_at
+         RETURNING id, title, content, pregnancy_week, category, image_url, metadata, created_at, NULL::timestamptz AS updated_at
           `,
           [
             documentId,
@@ -538,6 +611,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
             input.content,
             input.pregnancyWeek,
             input.category,
+            imageUrl,
             toVectorLiteral(embedding),
           ],
         )
@@ -548,17 +622,46 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
             content: input.content,
             pregnancy_week: input.pregnancyWeek,
             category: input.category,
+            image_url: imageUrl,
             embedding,
           },
         );
+    const document = updated[0] ? mapRagDocument(updated[0]) : null;
+    if (document && shouldWriteAdminAuditLog(actorId)) {
+      await insertAdminAuditLog({
+        actorId,
+        actionType: "content_update",
+        entityType: "pregnancy_document",
+        entityId: document.id,
+        reason: "pregnancy_document_update",
+        beforePayload: beforeDocument
+          ? {
+              title: beforeDocument.title,
+              category: beforeDocument.category,
+              pregnancy_week: beforeDocument.pregnancyWeek,
+              chunk_count: beforeDocument.chunkCount,
+            }
+          : {},
+        afterPayload: {
+          title: document.title,
+          category: document.category,
+          pregnancy_week: document.pregnancyWeek,
+          chunk_count: document.chunkCount,
+        },
+      });
+    }
 
-    return updated[0] ? mapRagDocument(updated[0]) : null;
+    return document;
   }
 
-  async deleteDocument(documentId: string): Promise<void> {
+  async deleteDocument(documentId: string, actorId?: string): Promise<void> {
     if (!hasBackendAdminConfig()) {
       return this.fallback.deleteDocument(documentId);
     }
+
+    const beforeDocument = shouldWriteAdminAuditLog(actorId)
+      ? await this.getDocument(documentId)
+      : null;
 
     if (!isUuid(documentId)) {
       return;
@@ -569,25 +672,61 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
         `DELETE FROM content.pregnancy_documents WHERE id = $1::uuid RETURNING id`,
         [documentId],
       );
+      if (shouldWriteAdminAuditLog(actorId)) {
+        await insertAdminAuditLog({
+          actorId,
+          actionType: "content_update",
+          entityType: "pregnancy_document",
+          entityId: documentId,
+          reason: "pregnancy_document_delete",
+          beforePayload: beforeDocument
+            ? {
+                title: beforeDocument.title,
+                category: beforeDocument.category,
+                pregnancy_week: beforeDocument.pregnancyWeek,
+                chunk_count: beforeDocument.chunkCount,
+              }
+            : {},
+          afterPayload: {},
+        });
+      }
       return;
     }
 
     await supabaseDelete(`content.pregnancy_documents?id=eq.${documentId}`);
+    if (shouldWriteAdminAuditLog(actorId)) {
+      await insertAdminAuditLog({
+        actorId,
+        actionType: "content_update",
+        entityType: "pregnancy_document",
+        entityId: documentId,
+        reason: "pregnancy_document_delete",
+        beforePayload: beforeDocument
+          ? {
+              title: beforeDocument.title,
+              category: beforeDocument.category,
+              pregnancy_week: beforeDocument.pregnancyWeek,
+              chunk_count: beforeDocument.chunkCount,
+            }
+          : {},
+        afterPayload: {},
+      });
+    }
   }
 
   async updateWorkflowRule(
     id: string,
     input: AdminWorkflowRuleInput,
+    actorId?: string,
   ): Promise<AdminWorkflowRule | null> {
     if (!hasBackendAdminConfig()) {
       return this.fallback.updateWorkflowRule(id, input);
     }
 
-    const currentRows = await supabaseSelect<
-      Array<SupabaseWorkflowDefinitionRow>
-    >(
-      `workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata,updated_at&id=eq.${id}&limit=1`,
-    );
+    const currentRows =
+      (await supabaseSelect<Array<SupabaseWorkflowDefinitionRow>>(
+        `workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata,updated_at&id=eq.${id}&limit=1`,
+      )) ?? [];
     const current = currentRows[0];
     if (!current || current.provider === "schift") {
       const schift = getSchiftClient();
@@ -629,7 +768,31 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
           );
         }
 
-        return mapSchiftWorkflowRule(updatedWorkflow);
+        const workflowRule = mapSchiftWorkflowRule(updatedWorkflow);
+        if (shouldWriteAdminAuditLog(actorId)) {
+          await insertAdminAuditLog({
+            actorId,
+            actionType: "content_update",
+            entityType: "workflow_rule",
+            entityId: workflowRule.id,
+            reason: "workflow_rule_update",
+            beforePayload: current
+              ? {
+                  name: current.name,
+                  provider: current.provider,
+                  status: current.is_active ? "active" : "review",
+                }
+              : {},
+            afterPayload: {
+              name: workflowRule.name,
+              trigger: workflowRule.trigger,
+              retrieval_scope: workflowRule.retrievalScope,
+              model_name: workflowRule.modelName,
+              status: workflowRule.status,
+            },
+          });
+        }
+        return workflowRule;
       } catch {
         return null;
       }
@@ -656,7 +819,32 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       },
     );
 
-    return updated[0] ? mapWorkflowRule(updated[0]) : null;
+    const workflowRule = updated[0] ? mapWorkflowRule(updated[0]) : null;
+    if (workflowRule && shouldWriteAdminAuditLog(actorId)) {
+      await insertAdminAuditLog({
+        actorId,
+        actionType: "content_update",
+        entityType: "workflow_rule",
+        entityId: workflowRule.id,
+        reason: "workflow_rule_update",
+        beforePayload: current
+          ? {
+              name: current.name,
+              provider: current.provider,
+              status: current.is_active ? "active" : "review",
+            }
+          : {},
+        afterPayload: {
+          name: workflowRule.name,
+          trigger: workflowRule.trigger,
+          retrieval_scope: workflowRule.retrievalScope,
+          model_name: workflowRule.modelName,
+          status: workflowRule.status,
+        },
+      });
+    }
+
+    return workflowRule;
   }
 
   async listKnowledgeItems(): Promise<AdminKnowledgeItem[]> {
@@ -671,11 +859,13 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
 
   async createKnowledgeItem(
     input: AdminKnowledgeItemInput,
+    actorId?: string,
   ): Promise<AdminKnowledgeItem> {
     if (!hasBackendAdminConfig()) {
       return this.fallback.createKnowledgeItem(input);
     }
 
+    const imageUrl = input.imageUrl ?? null;
     const inserted = hasDirectContentDatabase()
       ? await queryContentRows<SupabaseKnowledgeItemRow>(
           `
@@ -685,12 +875,13 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
               section,
               title,
               body,
+              image_url,
               status,
               published_at,
               updated_at
             )
-            VALUES ($1::uuid, $2, $3, $4, $5, $6, CASE WHEN $6 = 'published' THEN NOW() ELSE NULL END, NOW())
-            RETURNING id, slug, section, title, body, status, updated_at
+            VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, CASE WHEN $7 = 'published' THEN NOW() ELSE NULL END, NOW())
+            RETURNING id, slug, section, title, body, image_url, status, updated_at
           `,
           [
             randomUUID(),
@@ -698,6 +889,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
             input.section,
             input.title,
             input.body,
+            imageUrl,
             input.status,
           ],
         )
@@ -709,22 +901,48 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
             section: input.section,
             title: input.title,
             body: input.body,
+            image_url: imageUrl,
             status: input.status,
             updated_at: new Date().toISOString(),
           },
         );
 
-    return mapKnowledgeItem(inserted[0] as SupabaseKnowledgeItemRow);
+    const knowledgeItem = mapKnowledgeItem(
+      inserted[0] as SupabaseKnowledgeItemRow,
+    );
+    if (shouldWriteAdminAuditLog(actorId)) {
+      await insertAdminAuditLog({
+        actorId,
+        actionType: "content_update",
+        entityType: "knowledge_item",
+        entityId: knowledgeItem.id,
+        reason: "knowledge_item_create",
+        beforePayload: {},
+        afterPayload: {
+          slug: knowledgeItem.slug,
+          section: knowledgeItem.section,
+          title: knowledgeItem.title,
+          status: knowledgeItem.status,
+        },
+      });
+    }
+
+    return knowledgeItem;
   }
 
   async updateKnowledgeItem(
     id: string,
     input: AdminKnowledgeItemInput,
+    actorId?: string,
   ): Promise<AdminKnowledgeItem | null> {
     if (!hasBackendAdminConfig()) {
       return this.fallback.updateKnowledgeItem(id, input);
     }
 
+    const imageUrl = input.imageUrl ?? null;
+    const beforeItem = shouldWriteAdminAuditLog(actorId)
+      ? (await this.selectKnowledgeItemRows()).find((item) => item.id === id)
+      : null;
     const updated = hasDirectContentDatabase()
       ? await queryContentRows<SupabaseKnowledgeItemRow>(
           `
@@ -733,14 +951,15 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
                    section = $3,
                    title = $4,
                    body = $5,
-                   status = $6,
+                   image_url = $6,
+                   status = $7,
                    published_at = CASE
-                     WHEN $6 = 'published' THEN COALESCE(published_at, NOW())
+                     WHEN $7 = 'published' THEN COALESCE(published_at, NOW())
                      ELSE NULL
                    END,
                    updated_at = NOW()
              WHERE id = $1::uuid
-         RETURNING id, slug, section, title, body, status, updated_at
+         RETURNING id, slug, section, title, body, image_url, status, updated_at
           `,
           [
             id,
@@ -748,6 +967,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
             input.section,
             input.title,
             input.body,
+            imageUrl,
             input.status,
           ],
         )
@@ -758,28 +978,93 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
             section: input.section,
             title: input.title,
             body: input.body,
+            image_url: imageUrl,
             status: input.status,
             updated_at: new Date().toISOString(),
           },
         );
+    const knowledgeItem = updated[0] ? mapKnowledgeItem(updated[0]) : null;
+    if (knowledgeItem && shouldWriteAdminAuditLog(actorId)) {
+      await insertAdminAuditLog({
+        actorId,
+        actionType: "content_update",
+        entityType: "knowledge_item",
+        entityId: knowledgeItem.id,
+        reason: "knowledge_item_update",
+        beforePayload: beforeItem
+          ? {
+              slug: beforeItem.slug,
+              section: beforeItem.section,
+              title: beforeItem.title,
+              status: beforeItem.status,
+            }
+          : {},
+        afterPayload: {
+          slug: knowledgeItem.slug,
+          section: knowledgeItem.section,
+          title: knowledgeItem.title,
+          status: knowledgeItem.status,
+        },
+      });
+    }
 
-    return updated[0] ? mapKnowledgeItem(updated[0]) : null;
+    return knowledgeItem;
   }
 
-  async deleteKnowledgeItem(id: string): Promise<void> {
+  async deleteKnowledgeItem(id: string, actorId?: string): Promise<void> {
     if (!hasBackendAdminConfig()) {
       return this.fallback.deleteKnowledgeItem(id);
     }
+
+    const beforeItem = shouldWriteAdminAuditLog(actorId)
+      ? (await this.selectKnowledgeItemRows()).find((item) => item.id === id)
+      : null;
 
     if (hasDirectContentDatabase()) {
       await queryContentRows(
         `DELETE FROM content.knowledge_items WHERE id = $1::uuid RETURNING id`,
         [id],
       );
+      if (shouldWriteAdminAuditLog(actorId)) {
+        await insertAdminAuditLog({
+          actorId,
+          actionType: "content_update",
+          entityType: "knowledge_item",
+          entityId: id,
+          reason: "knowledge_item_delete",
+          beforePayload: beforeItem
+            ? {
+                slug: beforeItem.slug,
+                section: beforeItem.section,
+                title: beforeItem.title,
+                status: beforeItem.status,
+              }
+            : {},
+          afterPayload: {},
+        });
+      }
       return;
     }
 
     await supabaseDelete(`content.knowledge_items?id=eq.${id}`);
+    if (shouldWriteAdminAuditLog(actorId)) {
+      await insertAdminAuditLog({
+        actorId,
+        actionType: "content_update",
+        entityType: "knowledge_item",
+        entityId: id,
+        reason: "knowledge_item_delete",
+        beforePayload: beforeItem
+          ? {
+              slug: beforeItem.slug,
+              section: beforeItem.section,
+              title: beforeItem.title,
+              status: beforeItem.status,
+            }
+          : {},
+        afterPayload: {},
+      });
+    }
   }
 
   async listWeeks(): Promise<AdminWeekSummary[]> {
@@ -931,6 +1216,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
   async saveWeek(
     weekNumber: number,
     input: AdminWeekUpdateInput,
+    actorId?: string,
   ): Promise<AdminWeekDetail | null> {
     if (!hasBackendAdminConfig()) {
       return this.fallback.saveWeek(weekNumber, input);
@@ -1409,6 +1695,36 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       }
     }
 
-    return this.getWeek(weekNumber);
+    const nextWeek = await this.getWeek(weekNumber);
+    if (nextWeek && shouldWriteAdminAuditLog(actorId)) {
+      await insertAdminAuditLog({
+        actorId,
+        actionType: "content_update",
+        entityType: "pregnancy_week",
+        entityId: nextWeek.id,
+        reason:
+          input.status === "published"
+            ? "pregnancy_week_publish"
+            : "pregnancy_week_update",
+        beforePayload: {
+          title: current.title,
+          status: current.status,
+          day_count: current.days.length,
+          checklist_count: current.sections.length,
+          question_count: current.assets.length,
+          media_count: current.media.length,
+        },
+        afterPayload: {
+          title: nextWeek.title,
+          status: nextWeek.status,
+          day_count: nextWeek.days.length,
+          checklist_count: nextWeek.sections.length,
+          question_count: nextWeek.assets.length,
+          media_count: nextWeek.media.length,
+        },
+      });
+    }
+
+    return nextWeek;
   }
 }

@@ -227,14 +227,18 @@ const linkMap: Record<string, LinkTargetContent> = {
   },
 };
 
-const contentItemMap: Record<"knowledge" | "notebook", MobileContentListItem[]> = {
+const contentItemMap: Record<
+  "knowledge" | "notebook",
+  MobileContentListItem[]
+> = {
   knowledge: [
     {
       id: "headache-alert",
       slug: "headache-alert",
       section: "knowledge",
       title: "두통 위험 신호",
-      preview: "시야 변화, 심한 부종, 갑작스러운 극심한 두통이 있으면 즉시 진료가 필요합니다.",
+      preview:
+        "시야 변화, 심한 부종, 갑작스러운 극심한 두통이 있으면 즉시 진료가 필요합니다.",
     },
   ],
   notebook: [
@@ -243,7 +247,8 @@ const contentItemMap: Record<"knowledge" | "notebook", MobileContentListItem[]> 
       slug: "visit-checklist",
       section: "notebook",
       title: "진료 전 체크리스트",
-      preview: "최근 증상 시작 시점, 복용 약, 통증 위치, 태동 변화를 기록해 두세요.",
+      preview:
+        "최근 증상 시작 시점, 복용 약, 통증 위치, 태동 변화를 기록해 두세요.",
     },
   ],
 };
@@ -307,6 +312,7 @@ let mockRagDocuments: AdminRagDocumentDetail[] = [
     status: "ready",
     content:
       "18주차 두통과 혈압 상승 위험 신호를 우선 안내합니다. 시야 변화와 부종이 동반되면 즉시 진료가 필요합니다.",
+    imageUrl: null,
   },
   {
     id: "doc-20w",
@@ -319,6 +325,7 @@ let mockRagDocuments: AdminRagDocumentDetail[] = [
     status: "ready",
     content:
       "20주차에는 철분과 단백질 섭취를 꾸준히 유지하고 속 불편이 있으면 복용 시간을 조절합니다.",
+    imageUrl: null,
   },
   {
     id: "doc-common",
@@ -331,33 +338,45 @@ let mockRagDocuments: AdminRagDocumentDetail[] = [
     status: "draft",
     content:
       "공통 응급 신호를 정리한 문서입니다. 출혈, 호흡곤란, 극심한 통증은 즉시 진료를 권합니다.",
+    imageUrl: null,
   },
 ];
 
 let mockWorkflowRules: AdminWorkflowRule[] = [
   {
-    id: "wf-chat-default",
-    name: "기본 채팅 응답",
-    trigger: "일반 채팅",
-    retrievalScope: "현재 주차 ±1주 + 공통 문서",
+    id: "53ef0e768a154fe9b31eb5ee2b558cee",
+    name: "모성간호 상담 응답",
+    trigger: "내부 데이터만 답변",
+    retrievalScope: "pregnancy-knowledge 내부 자료",
     modelName: "gemini-2.5-flash-lite",
     status: "active",
     blocks: [
-      { id: "b1", type: "retriever", config: { collection: "pregnancy-knowledge", top_k: 8 } },
-      { id: "b2", type: "llm", config: { model: "gemini-2.5-flash-lite" } },
+      { id: "start", type: "start", config: {} },
+      {
+        id: "retriever",
+        type: "retriever",
+        config: { collection: "pregnancy-knowledge", top_k: 8 },
+      },
+      { id: "prompt_template", type: "prompt_template", config: {} },
+      { id: "llm", type: "llm", config: { model: "gemini-2.5-flash-lite" } },
+      { id: "answer", type: "answer", config: { format: "json" } },
+      { id: "end", type: "end", config: {} },
     ],
   },
   {
-    id: "wf-image-triage",
-    name: "이미지 동반 채팅",
-    trigger: "이미지 + 텍스트 입력",
-    retrievalScope: "위험 신호 문서 우선",
+    id: "a989e7ed1a8d4617b980769de9692f88",
+    name: "내부 데이터 응답",
+    trigger: "일반 채팅",
+    retrievalScope: "pregnancy-knowledge 내부 자료",
     modelName: "gemini-2.5-flash-lite",
-    status: "review",
+    status: "active",
     blocks: [
-      { id: "b3", type: "retriever", config: { collection: "pregnancy-knowledge", top_k: 5 } },
-      { id: "b4", type: "vision", config: { model: "gemini-2.5-flash-lite" } },
-      { id: "b5", type: "llm", config: { model: "gemini-2.5-flash-lite" } },
+      {
+        id: "b1",
+        type: "retriever",
+        config: { collection: "pregnancy-knowledge", top_k: 8 },
+      },
+      { id: "b2", type: "llm", config: { model: "gemini-2.5-flash-lite" } },
     ],
   },
 ];
@@ -433,7 +452,9 @@ export class MockMobileHomeAdapter implements MobileHomePort {
   }
 
   async getRecordDay(isoDate: string): Promise<RecordDayView> {
-    const relatedSessions = recentChats.filter((session) => session.updatedAtIso?.startsWith(isoDate));
+    const relatedSessions = recentChats.filter((session) =>
+      session.updatedAtIso?.startsWith(isoDate),
+    );
 
     return {
       isoDate,
@@ -446,10 +467,21 @@ export class MockMobileHomeAdapter implements MobileHomePort {
       infoViewed: true,
       emotionTone: "calm" satisfies EmotionTone,
       checklistItems: [
-        { id: `${isoDate}-folate`, label: "엽산 보충제 섭취하기", completed: true },
-        { id: `${isoDate}-water`, label: "충분한 수분 섭취하기 (하루 8잔)", completed: false },
+        {
+          id: `${isoDate}-folate`,
+          label: "엽산 보충제 섭취하기",
+          completed: true,
+        },
+        {
+          id: `${isoDate}-water`,
+          label: "충분한 수분 섭취하기 (하루 8잔)",
+          completed: false,
+        },
       ],
-      conversationSummary: relatedSessions.length > 0 ? `${relatedSessions.length}개의 대화가 있었어요.` : undefined,
+      conversationSummary:
+        relatedSessions.length > 0
+          ? `${relatedSessions.length}개의 대화가 있었어요.`
+          : undefined,
       dailyQuestion: {
         question: "오늘 가장 기억에 남는 순간은 무엇이었나요?",
         answer: "아기가 움직이는 느낌이 또렷해서 반가웠어요.",
@@ -470,7 +502,11 @@ export class MockTodayAdapter implements TodayPort {
     infoViewed: false,
     checklistItems: [
       { id: "folate", label: "엽산 보충제 섭취하기", completed: false },
-      { id: "water", label: "충분한 수분 섭취하기 (하루 8잔)", completed: false },
+      {
+        id: "water",
+        label: "충분한 수분 섭취하기 (하루 8잔)",
+        completed: false,
+      },
       { id: "caffeine", label: "카페인 섭취 줄이기", completed: false },
     ],
   };
@@ -493,7 +529,9 @@ export class MockTodayAdapter implements TodayPort {
     this.state = {
       ...this.state,
       checklistItems: this.state.checklistItems.map((item) =>
-        item.id === input.checklistId ? { ...item, completed: input.completed } : item,
+        item.id === input.checklistId
+          ? { ...item, completed: input.completed }
+          : item,
       ),
     };
   }
@@ -508,27 +546,29 @@ export class MockMobileChatAdapter implements MobileChatPort {
     return toSession(sessionId);
   }
 
-  async sendMessage(input: ChatComposerInput): Promise<ChatMessage> {
-    return {
-      id: `assistant-${Date.now()}`,
-      role: "assistant",
-      createdAtLabel: "방금 전",
-      parts: [
-        {
-          type: "text",
-          id: `assistant-text-${Date.now()}`,
-          text: "지금은 목업 응답입니다. 실제 Gemini 연결 시 증상 요약, 카드 캐러셀, 내부 링크가 함께 내려옵니다.",
-        },
-        {
-          type: "deepLink",
-          id: `assistant-link-${Date.now()}`,
-          title: "진료 전 체크리스트",
-          description: "임신수첩의 체크리스트로 이동합니다.",
-          target: "notebook",
-          entityId: "visit-checklist",
-        },
-      ],
-    };
+  async sendMessage(input: ChatComposerInput): Promise<ChatMessage[]> {
+    return [
+      {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        createdAtLabel: "방금 전",
+        parts: [
+          {
+            type: "text",
+            id: `assistant-text-${Date.now()}`,
+            text: "지금은 목업 응답입니다. 실제 Gemini 연결 시 증상 요약, 카드 캐러셀, 내부 링크가 함께 내려옵니다.",
+          },
+          {
+            type: "deepLink",
+            id: `assistant-link-${Date.now()}`,
+            title: "진료 전 체크리스트",
+            description: "임신수첩의 체크리스트로 이동합니다.",
+            target: "notebook",
+            entityId: "visit-checklist",
+          },
+        ],
+      },
+    ];
   }
 
   async resolveLink(
@@ -713,7 +753,10 @@ export class MockKnowledgeAdapter implements KnowledgePort {
     return contentItemMap[section] ?? [];
   }
 
-  async getLinkTarget(target: string, entityId?: string): Promise<LinkTargetContent> {
+  async getLinkTarget(
+    target: string,
+    entityId?: string,
+  ): Promise<LinkTargetContent> {
     return (
       linkMap[`${target}:${entityId ?? ""}`] ?? {
         title: "연결된 정보",
@@ -787,7 +830,9 @@ export class MockAdminUserAdapter implements AdminUserPort {
       note: input.note ?? null,
       updatedAt: new Date().toISOString(),
     };
-    const index = mockAllowedPhoneNumbers.findIndex((entry) => entry.id === input.id);
+    const index = mockAllowedPhoneNumbers.findIndex(
+      (entry) => entry.id === input.id,
+    );
     if (index >= 0) {
       mockAllowedPhoneNumbers[index] = nextEntry;
     } else {
@@ -797,7 +842,9 @@ export class MockAdminUserAdapter implements AdminUserPort {
   }
 
   async deleteAllowedPhoneNumber(input: { id: string }): Promise<void> {
-    const index = mockAllowedPhoneNumbers.findIndex((entry) => entry.id === input.id);
+    const index = mockAllowedPhoneNumbers.findIndex(
+      (entry) => entry.id === input.id,
+    );
     if (index >= 0) {
       mockAllowedPhoneNumbers.splice(index, 1);
     }
@@ -998,6 +1045,7 @@ let mockKnowledgeItems: AdminKnowledgeItem[] = [
     section: "knowledge",
     title: "24주차 위험 신호",
     body: "규칙적인 수축, 양수 유출 의심, 선명한 출혈은 즉시 확인이 필요합니다.",
+    imageUrl: null,
     status: "published",
     updatedAt: "2026-03-18T09:20:00.000Z",
   },
@@ -1007,6 +1055,7 @@ let mockKnowledgeItems: AdminKnowledgeItem[] = [
     section: "notebook",
     title: "진료 전 체크리스트",
     body: "통증 시작 시각, 지속 시간, 출혈 여부, 태동 변화를 기록해 두세요.",
+    imageUrl: null,
     status: "published",
     updatedAt: "2026-03-18T09:25:00.000Z",
   },
@@ -1031,6 +1080,7 @@ function mapRagDocumentDetail(
     updatedAt,
     status: current?.status ?? "ready",
     content: input.content,
+    imageUrl: input.imageUrl ?? current?.imageUrl ?? null,
   };
 }
 
@@ -1092,13 +1142,16 @@ function mapMockMediaInput(input: AdminWeekMediaInput): AdminWeekMedia {
 export class MockAdminContentAdapter implements AdminContentPort {
   async createDocument(
     input: AdminRagDocumentInput,
+    _actorId?: string,
   ): Promise<AdminRagDocumentDetail> {
     const nextDocument = mapRagDocumentDetail(input);
     mockRagDocuments = [nextDocument, ...mockRagDocuments];
     return nextDocument;
   }
 
-  async getDocument(documentId: string): Promise<AdminRagDocumentDetail | null> {
+  async getDocument(
+    documentId: string,
+  ): Promise<AdminRagDocumentDetail | null> {
     return (
       mockRagDocuments.find((document) => document.id === documentId) ?? null
     );
@@ -1107,8 +1160,11 @@ export class MockAdminContentAdapter implements AdminContentPort {
   async updateDocument(
     documentId: string,
     input: AdminRagDocumentInput,
+    _actorId?: string,
   ): Promise<AdminRagDocumentDetail | null> {
-    const current = mockRagDocuments.find((document) => document.id === documentId);
+    const current = mockRagDocuments.find(
+      (document) => document.id === documentId,
+    );
     if (!current) {
       return null;
     }
@@ -1120,7 +1176,7 @@ export class MockAdminContentAdapter implements AdminContentPort {
     return nextDocument;
   }
 
-  async deleteDocument(documentId: string): Promise<void> {
+  async deleteDocument(documentId: string, _actorId?: string): Promise<void> {
     mockRagDocuments = mockRagDocuments.filter(
       (document) => document.id !== documentId,
     );
@@ -1129,6 +1185,7 @@ export class MockAdminContentAdapter implements AdminContentPort {
   async updateWorkflowRule(
     id: string,
     input: AdminWorkflowRuleInput,
+    _actorId?: string,
   ): Promise<AdminWorkflowRule | null> {
     const current = mockWorkflowRules.find((rule) => rule.id === id);
     if (!current) {
@@ -1151,6 +1208,7 @@ export class MockAdminContentAdapter implements AdminContentPort {
 
   async createKnowledgeItem(
     input: AdminKnowledgeItemInput,
+    _actorId?: string,
   ): Promise<AdminKnowledgeItem> {
     const nextItem: AdminKnowledgeItem = {
       id: `knowledge-item-${Date.now()}`,
@@ -1158,6 +1216,7 @@ export class MockAdminContentAdapter implements AdminContentPort {
       section: input.section,
       title: input.title,
       body: input.body,
+      imageUrl: input.imageUrl ?? null,
       status: input.status,
       updatedAt: new Date().toISOString(),
     };
@@ -1168,6 +1227,7 @@ export class MockAdminContentAdapter implements AdminContentPort {
   async updateKnowledgeItem(
     id: string,
     input: AdminKnowledgeItemInput,
+    _actorId?: string,
   ): Promise<AdminKnowledgeItem | null> {
     const existing = mockKnowledgeItems.find((item) => item.id === id);
     if (!existing) {
@@ -1180,6 +1240,7 @@ export class MockAdminContentAdapter implements AdminContentPort {
       section: input.section,
       title: input.title,
       body: input.body,
+      imageUrl: input.imageUrl ?? null,
       status: input.status,
       updatedAt: new Date().toISOString(),
     };
@@ -1189,7 +1250,7 @@ export class MockAdminContentAdapter implements AdminContentPort {
     return nextItem;
   }
 
-  async deleteKnowledgeItem(id: string): Promise<void> {
+  async deleteKnowledgeItem(id: string, _actorId?: string): Promise<void> {
     mockKnowledgeItems = mockKnowledgeItems.filter((item) => item.id !== id);
   }
 
@@ -1204,6 +1265,7 @@ export class MockAdminContentAdapter implements AdminContentPort {
   async saveWeek(
     weekNumber: number,
     input: AdminWeekUpdateInput,
+    _actorId?: string,
   ): Promise<AdminWeekDetail | null> {
     const current = mockWeekDetailMap[weekNumber];
     if (!current) {

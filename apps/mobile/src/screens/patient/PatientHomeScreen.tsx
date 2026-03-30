@@ -7,7 +7,7 @@ import { Card, Pressable } from "../../components/ui";
 import { PatientHeroBubble } from "../../components/patient/PatientHeroBubble";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { useMobileServices } from "../../core/MobileServicesProvider";
-import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../../theme";
+import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
 import { buildPatientHomeViewModel } from "./view-models";
 import { getWeekBabyImageSource } from "./week-baby-images";
 
@@ -79,18 +79,6 @@ export function PatientHomeScreen() {
           <Text style={styles.noteBody}>{viewModel.noteBody}</Text>
         </Card>
 
-        <View style={styles.shortcutRow}>
-          <Pressable style={[styles.shortcutCard, shadows.card]} onPress={() => router.replace("/notebook")}>
-            <Text style={styles.shortcutEyebrow}>날짜별 기록</Text>
-            <Text style={styles.shortcutTitle}>그날의 체크와 대화를 같이 봐요</Text>
-            <Text style={styles.shortcutBody}>날짜를 누르면 그날 남긴 체크리스트와 대화를 한 번에 볼 수 있어요.</Text>
-          </Pressable>
-          <Pressable style={[styles.shortcutCard, shadows.card]} onPress={() => router.replace("/profile")}>
-            <Text style={styles.shortcutEyebrow}>마이페이지</Text>
-            <Text style={styles.shortcutTitle}>내 정보와 알림을 조절해요</Text>
-            <Text style={styles.shortcutBody}>태명, 예정일, 상담 톤을 내 흐름에 맞게 바꿀 수 있어요.</Text>
-          </Pressable>
-        </View>
       </ScrollView>
     </PatientShell>
   );
@@ -185,28 +173,6 @@ const styles = StyleSheet.create({
   noteBody: {
     marginTop: space.sm,
     ...typo.body,
-    color: surface.textSecondary,
-  },
-  shortcutRow: {
-    gap: space.sm,
-  },
-  shortcutCard: {
-    borderRadius: radii.xl,
-    backgroundColor: surface.surfacePrimary,
-    padding: space.lg,
-  },
-  shortcutEyebrow: {
-    ...typo.eyebrow,
-    color: palette.accent,
-  },
-  shortcutTitle: {
-    marginTop: space.xs,
-    ...typo.titleSm,
-    color: surface.textPrimary,
-  },
-  shortcutBody: {
-    marginTop: space.sm,
-    ...typo.caption,
     color: surface.textSecondary,
   },
 });

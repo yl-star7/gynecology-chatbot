@@ -26,14 +26,11 @@ jest.mock("./native-bridge", () => ({
 }));
 
 describe("MobileOnboardingView", () => {
-  it("renders step 1 with pregnancy week input", () => {
+  it("renders step 1 with due date calendar input", () => {
     render(<MobileOnboardingView userId="user-1" />);
 
     expect(
-      screen.getByRole("heading", { name: "지금 몇 주차예요?" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByPlaceholderText("예: 16주 또는 2026-08-01"),
+      screen.getByRole("heading", { name: "출산 예정일을 알려주세요" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "다음" }),

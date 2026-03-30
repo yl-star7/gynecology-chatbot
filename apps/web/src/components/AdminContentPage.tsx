@@ -40,6 +40,7 @@ export default function AdminContentPage({
         knowledgeSection={state.knowledgeSection}
         knowledgeTitle={state.knowledgeTitle}
         knowledgeBody={state.knowledgeBody}
+        knowledgeImageUrl={state.knowledgeImageUrl}
         knowledgeStatus={state.knowledgeStatus}
         selectedRagDocumentId={state.selectedRagDocumentId}
         ragDocuments={state.ragDocuments}
@@ -64,12 +65,15 @@ export default function AdminContentPage({
         isKnowledgeSaving={state.isKnowledgeSaving}
         isWorkflowSaving={state.isWorkflowSaving}
         isWorkflowBootstrapping={state.isWorkflowBootstrapping}
+        isWorkflowRunning={state.isWorkflowRunning}
+        isWorkflowDeleting={state.isWorkflowDeleting}
         isWeekSaving={state.isWeekSaving}
         onSelectKnowledgeItem={state.syncSelectedKnowledgeItem}
         onKnowledgeSlugChange={state.setKnowledgeSlug}
         onKnowledgeSectionChange={state.setKnowledgeSection}
         onKnowledgeTitleChange={state.setKnowledgeTitle}
         onKnowledgeBodyChange={state.setKnowledgeBody}
+        onKnowledgeImageUrlChange={state.setKnowledgeImageUrl}
         onKnowledgeStatusChange={state.setKnowledgeStatus}
         onCreateKnowledgeItem={state.handleCreateKnowledgeItem}
         onUpdateKnowledgeItem={state.handleUpdateKnowledgeItem}
@@ -91,6 +95,8 @@ export default function AdminContentPage({
         onWorkflowStatusChange={state.setWorkflowStatus}
         onSaveWorkflowRule={state.handleSaveWorkflowRule}
         onBootstrapWorkflowRule={state.handleBootstrapWorkflowRule}
+        onRunWorkflowRule={state.handleRunWorkflowRule}
+        onDeleteWorkflowRule={state.handleDeleteWorkflowRule}
         onSelectWeek={state.handleSelectWeek}
         onWeekFieldChange={state.handleWeekFieldChange}
         onWeekStatusChange={state.handleWeekStatusChange}
@@ -114,6 +120,7 @@ export default function AdminContentPage({
         onRemoveWeekAsset={state.handleRemoveWeekAsset}
         onRemoveWeekMedia={state.handleRemoveWeekMedia}
         onSaveWeek={state.handleSaveWeek}
+        onPublishWeek={state.handlePublishWeek}
         view={view}
       />
     </AdminPageFrame>

@@ -13,7 +13,14 @@ type CalendarRecordRow = {
   summary: string | null;
   entry_type: string;
   session_id: string | null;
-  payload: { emotionTone?: string } | null;
+  payload:
+    | {
+        emotionTone?: string;
+        questionId?: string;
+        answer?: string;
+        viewedAt?: string;
+      }
+    | null;
 };
 
 type SessionRow = {
@@ -42,6 +49,12 @@ type ChecklistRow = {
 type ChecklistEventRow = {
   checklist_id: string;
   status: "sent" | "opened" | "completed" | "skipped";
+};
+
+type QuestionRow = {
+  id: string;
+  question_text: string;
+  day_number: number | null;
 };
 
 type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
@@ -112,6 +125,19 @@ function buildChecklistLabel(row: ChecklistRow) {
   return "그날의 체크리스트";
 }
 
+function buildConversationSummary(records: CalendarRecordRow[], relatedSessions: SessionRow[]) {
+  const aiSummary = records.find((record) => record.entry_type === "ai_summary");
+  if (aiSummary?.summary) {
+    return aiSummary.summary;
+  }
+
+  if (relatedSessions.length === 0) {
+    return null;
+  }
+
+  return `${relatedSessions.length}개의 대화가 있었어요. 하루 요약은 다음날 정리해 보여드릴게요.`;
+}
+
 async function loadChecklistItems(userId: string, isoDate: string): Promise<TodayChecklistItem[]> {
   const profiles = await supabaseSelect<ProfileRow[]>(
     `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
@@ -169,6 +195,63 @@ async function loadChecklistItems(userId: string, isoDate: string): Promise<Toda
   }));
 }
 
+async function loadDailyQuestion(userId: string, isoDate: string, records: CalendarRecordRow[]) {
+  const profiles = await supabaseSelect<ProfileRow[]>(
+    `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
+  );
+  const profile = profiles[0];
+  if (!profile) {
+    return null;
+  }
+
+  const currentPregnancyDayCount = resolveCurrentPregnancyDayCount(profile);
+  if (!currentPregnancyDayCount) {
+    return null;
+  }
+
+  const dayOffset = diffCalendarDays(isoDate, getKstDateKey());
+  const selectedPregnancyDayCount = currentPregnancyDayCount + dayOffset;
+  if (selectedPregnancyDayCount <= 0) {
+    return null;
+  }
+
+  const targetWeekNumber = Math.ceil(selectedPregnancyDayCount / 7);
+  const targetDayNumber = ((selectedPregnancyDayCount - 1) % 7) + 1;
+
+  const weeks = await supabaseSelect<WeekRow[]>(
+    `v_pregnancy_week_data?select=id&week_number=eq.${targetWeekNumber}&status=eq.published&limit=1`,
+  );
+  const week = weeks[0];
+  if (!week) {
+    return null;
+  }
+
+  const [datedQuestions, genericQuestions] = await Promise.all([
+    supabaseSelect<QuestionRow[]>(
+      `v_week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
+    ),
+    supabaseSelect<QuestionRow[]>(
+      `v_week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,
+    ),
+  ]);
+
+  const question = datedQuestions[0] ?? genericQuestions[0] ?? null;
+  if (!question) {
+    return null;
+  }
+
+  const latestAnswer = records.find(
+    (record) => record.entry_type === "survey_response" && record.payload?.questionId === question.id,
+  );
+  const aiSummary = records.find((record) => record.entry_type === "ai_summary");
+
+  return {
+    question: question.question_text,
+    answer: latestAnswer?.summary ?? latestAnswer?.payload?.answer ?? null,
+    aiSummary: aiSummary?.summary ?? null,
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const hintedUserId = request.nextUrl.searchParams.get("userId");
@@ -198,16 +281,22 @@ export async function GET(request: NextRequest) {
     }
 
     const emotionCheckinRow = records.find((record) => record.entry_type === "emotion_checkin");
+    const infoViewed = records.some((record) => record.entry_type === "today_info_view");
     const rawTone = emotionCheckinRow?.payload?.emotionTone ?? null;
     const resolvedEmotionTone = rawTone && VALID_EMOTION_TONES.includes(rawTone as EmotionTone)
       ? (rawTone as EmotionTone)
       : null;
+    const conversationSummary = buildConversationSummary(records, relatedSessions);
+    const dailyQuestion = await loadDailyQuestion(userId, isoDate, records);
 
     return NextResponse.json({
       recordDay: toRecordDayView({
         isoDate,
+        infoViewed,
         emotionTone: resolvedEmotionTone,
         checklistItems,
+        conversationSummary,
+        dailyQuestion,
         records,
         relatedSessions,
       }),

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChatMessage, ChatSession } from "@gynecology-chatbot/app-core";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createSessionId,
   fetchSession,
@@ -67,14 +67,12 @@ export function MobileConversationView({
       });
   }, [initialSessionId, resolvedSessionId, resolvedUserId]);
 
-  async function handleSend(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const nextText = text.trim();
-    if (!resolvedUserId || !nextText || isSending) {
+  const sendMessage = useCallback(async (messageText: string) => {
+    if (!resolvedUserId || !messageText || isSending) {
       return;
     }
 
-    const draft = createDraftMessage(nextText);
+    const draft = createDraftMessage(messageText);
     setSession((current) => ({
       id: current?.id ?? resolvedSessionId,
       title: current?.title ?? "아기와 대화",
@@ -87,7 +85,7 @@ export function MobileConversationView({
       const payload = await sendChatMessage({
         userId: resolvedUserId,
         sessionId: resolvedSessionId,
-        text: nextText,
+        text: messageText,
         imageDataUris: [],
       });
       setResolvedSessionId(payload.sessionId ?? resolvedSessionId);
@@ -105,7 +103,16 @@ export function MobileConversationView({
     } finally {
       setIsSending(false);
     }
+  }, [resolvedUserId, resolvedSessionId, isSending]);
+
+  async function handleSend(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await sendMessage(text.trim());
   }
+
+  const handleQuickReply = useCallback((message: string) => {
+    sendMessage(message);
+  }, [sendMessage]);
 
   const messages = useMemo(() => session?.messages ?? [], [session]);
 
@@ -146,6 +153,7 @@ export function MobileConversationView({
                   <MobileRichMessageParts
                     message={message}
                     userId={resolvedUserId}
+                    onQuickReply={handleQuickReply}
                   />
                 </div>
               ))}

@@ -9,6 +9,7 @@ type BrandingConfig = {
   mascotObjectPath: string | null;
   mascotSourceFileName: string | null;
   mascotAltText: string | null;
+  surveyFormUrl: string | null;
 };
 
 type ConfigRow = { key: string; value: BrandingConfig };
@@ -21,7 +22,11 @@ export async function GET() {
     const branding = rows[0]?.value;
 
     if (!branding?.mascotBucketId || !branding?.mascotObjectPath) {
-      return NextResponse.json({ mascotImageUrl: null, mascotAltText: null });
+      return NextResponse.json({
+        mascotImageUrl: null,
+        mascotAltText: null,
+        surveyFormUrl: branding?.surveyFormUrl ?? null,
+      });
     }
 
     const client = await ensureStorageBucket(branding.mascotBucketId);
@@ -36,11 +41,12 @@ export async function GET() {
     return NextResponse.json({
       mascotImageUrl: data.signedUrl,
       mascotAltText: branding.mascotAltText ?? "마스코트",
+      surveyFormUrl: branding.surveyFormUrl ?? null,
     });
   } catch (error) {
     console.error("mobile branding GET error", error);
     return NextResponse.json(
-      { mascotImageUrl: null, mascotAltText: null },
+      { mascotImageUrl: null, mascotAltText: null, surveyFormUrl: null },
       { status: 200 },
     );
   }

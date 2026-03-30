@@ -46,6 +46,7 @@ export default function AdminDashboard({
         <AdminAccountSection
           managedUsers={state.managedUsers}
           allowedPhoneNumbers={state.allowedPhoneNumbers}
+          userSearchQuery=""
           selectedUserId={state.selectedUserId}
           phoneNumber={state.phoneNumber}
           reason={state.reason}
@@ -55,6 +56,7 @@ export default function AdminDashboard({
           allowedNote={state.allowedNote}
           actionMessage={state.actionMessage}
           isSubmitting={state.isAccountSubmitting}
+          onUserSearchQueryChange={() => {}}
           onSelectUser={state.syncSelectedUser}
           onPhoneNumberChange={state.setPhoneNumber}
           onReasonChange={state.setReason}
@@ -79,6 +81,7 @@ export default function AdminDashboard({
           knowledgeSection={state.knowledgeSection}
           knowledgeTitle={state.knowledgeTitle}
           knowledgeBody={state.knowledgeBody}
+          knowledgeImageUrl={state.knowledgeImageUrl}
           knowledgeStatus={state.knowledgeStatus}
           selectedRagDocumentId={state.selectedRagDocumentId}
           ragDocuments={state.ragDocuments}
@@ -104,12 +107,15 @@ export default function AdminDashboard({
           isKnowledgeSaving={state.isKnowledgeSaving}
           isWorkflowSaving={state.isWorkflowSaving}
           isWorkflowBootstrapping={state.isWorkflowSaving}
+          isWorkflowRunning={false}
+          isWorkflowDeleting={false}
           isWeekSaving={state.isWeekSaving}
           onSelectKnowledgeItem={state.syncSelectedKnowledgeItem}
           onKnowledgeSlugChange={state.setKnowledgeSlug}
           onKnowledgeSectionChange={state.setKnowledgeSection}
           onKnowledgeTitleChange={state.setKnowledgeTitle}
           onKnowledgeBodyChange={state.setKnowledgeBody}
+          onKnowledgeImageUrlChange={state.setKnowledgeImageUrl}
           onKnowledgeStatusChange={state.setKnowledgeStatus}
           onCreateKnowledgeItem={state.handleCreateKnowledgeItem}
           onUpdateKnowledgeItem={state.handleUpdateKnowledgeItem}
@@ -130,6 +136,8 @@ export default function AdminDashboard({
           onWorkflowStatusChange={state.setWorkflowStatus}
           onSaveWorkflowRule={state.handleSaveWorkflowRule}
           onBootstrapWorkflowRule={async () => {}}
+          onRunWorkflowRule={async () => {}}
+          onDeleteWorkflowRule={async () => {}}
           onSelectWeek={state.handleSelectWeek}
           onWeekFieldChange={state.handleWeekFieldChange}
           onWeekStatusChange={state.handleWeekStatusChange}
@@ -152,6 +160,7 @@ export default function AdminDashboard({
           onRemoveWeekAsset={state.handleRemoveWeekAsset}
           onRemoveWeekMedia={state.handleRemoveWeekMedia}
           onSaveWeek={state.handleSaveWeek}
+          onPublishWeek={state.handlePublishWeek}
         />
       </section>
       <section id="monitoring">
@@ -160,6 +169,14 @@ export default function AdminDashboard({
           historyUsers={dashboard.historyUsers}
           focusedHistoryUser={state.focusedHistoryUser}
           focusedUserActions={state.focusedUserActions}
+          searchQuery=""
+          selectedActionType="all"
+          actionPage={1}
+          userPage={1}
+          onSearchQueryChange={() => {}}
+          onSelectedActionTypeChange={() => {}}
+          onActionPageChange={() => {}}
+          onUserPageChange={() => {}}
           onFocusUser={state.setFocusedUserId}
         />
       </section>

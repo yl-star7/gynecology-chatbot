@@ -1,0 +1,72 @@
+/*
+ * Schift SDK WorkflowEditor CSS utilities
+ * SDK uses Tailwind arbitrary-value classes that aren't generated
+ * by the host project's Tailwind config. This file provides them.
+ */
+
+/* ── Background colors ── */
+.bg-\[var\(--schift-black\)\] { background-color: var(--schift-black); }
+.bg-\[var\(--schift-blue\)\] { background-color: var(--schift-blue); }
+.bg-\[var\(--schift-gray-100\)\] { background-color: var(--schift-gray-100); }
+.bg-\[var\(--schift-gray-70\)\] { background-color: var(--schift-gray-70); }
+.bg-\[var\(--schift-gray-80\)\] { background-color: var(--schift-gray-80); }
+.bg-\[var\(--schift-gray-90\)\] { background-color: var(--schift-gray-90); }
+.bg-\[var\(--schift-red\)\] { background-color: var(--schift-red); }
+
+/* ── Background with opacity ── */
+.bg-\[var\(--schift-blue\)\]\/5 { background-color: color-mix(in srgb, var(--schift-blue) 5%, transparent); }
+.bg-\[var\(--schift-blue\)\]\/10 { background-color: color-mix(in srgb, var(--schift-blue) 10%, transparent); }
+.bg-\[var\(--schift-gray-70\)\]\/30 { background-color: color-mix(in srgb, var(--schift-gray-70) 30%, transparent); }
+.bg-\[var\(--schift-gray-80\)\]\/50 { background-color: color-mix(in srgb, var(--schift-gray-80) 50%, transparent); }
+.bg-\[var\(--schift-gray-100\)\]\/90 { background-color: color-mix(in srgb, var(--schift-gray-100) 90%, transparent); }
+.bg-\[var\(--schift-gray-100\)\]\/95 { background-color: color-mix(in srgb, var(--schift-gray-100) 95%, transparent); }
+.bg-\[var\(--schift-green\)\]\/5 { background-color: color-mix(in srgb, var(--schift-green) 5%, transparent); }
+.bg-\[var\(--schift-green\)\]\/20 { background-color: color-mix(in srgb, var(--schift-green) 20%, transparent); }
+.bg-\[var\(--schift-red\)\]\/5 { background-color: color-mix(in srgb, var(--schift-red) 5%, transparent); }
+.bg-\[var\(--schift-red\)\]\/10 { background-color: color-mix(in srgb, var(--schift-red) 10%, transparent); }
+.bg-\[var\(--schift-red\)\]\/20 { background-color: color-mix(in srgb, var(--schift-red) 20%, transparent); }
+.bg-\[var\(--schift-yellow\)\]\/20 { background-color: color-mix(in srgb, var(--schift-yellow) 20%, transparent); }
+
+/* ── Text colors ── */
+.text-\[var\(--schift-blue\)\] { color: var(--schift-blue); }
+.text-\[var\(--schift-blue-light\)\] { color: var(--schift-blue-light, #60a5fa); }
+.text-\[var\(--schift-gray-20\)\] { color: var(--schift-gray-20, #d0d0e0); }
+.text-\[var\(--schift-gray-30\)\] { color: var(--schift-gray-30); }
+.text-\[var\(--schift-gray-40\)\] { color: var(--schift-gray-40, #9090a8); }
+.text-\[var\(--schift-gray-50\)\] { color: var(--schift-gray-50); }
+.text-\[var\(--schift-gray-60\)\] { color: var(--schift-gray-60); }
+.text-\[var\(--schift-gray-70\)\] { color: var(--schift-gray-70); }
+.text-\[var\(--schift-green\)\] { color: var(--schift-green); }
+.text-\[var\(--schift-red\)\] { color: var(--schift-red); }
+.text-\[var\(--schift-white\)\] { color: var(--schift-white); }
+.text-\[var\(--schift-yellow\)\] { color: var(--schift-yellow); }
+
+/* ── Border colors ── */
+.border-\[var\(--schift-blue\)\] { border-color: var(--schift-blue); }
+.border-\[var\(--schift-gray-50\)\] { border-color: var(--schift-gray-50); }
+.border-\[var\(--schift-gray-60\)\] { border-color: var(--schift-gray-60); }
+.border-\[var\(--schift-gray-70\)\] { border-color: var(--schift-gray-70); }
+.border-\[var\(--schift-gray-80\)\] { border-color: var(--schift-gray-80); }
+
+/* ── Border with opacity ── */
+.border-\[var\(--schift-blue\)\]\/20 { border-color: color-mix(in srgb, var(--schift-blue) 20%, transparent); }
+.border-\[var\(--schift-blue\)\]\/30 { border-color: color-mix(in srgb, var(--schift-blue) 30%, transparent); }
+.border-\[var\(--schift-blue\)\]\/40 { border-color: color-mix(in srgb, var(--schift-blue) 40%, transparent); }
+.border-\[var\(--schift-green\)\]\/30 { border-color: color-mix(in srgb, var(--schift-green) 30%, transparent); }
+.border-\[var\(--schift-green\)\]\/40 { border-color: color-mix(in srgb, var(--schift-green) 40%, transparent); }
+.border-\[var\(--schift-green\)\]\/50 { border-color: color-mix(in srgb, var(--schift-green) 50%, transparent); }
+.border-\[var\(--schift-red\)\]\/30 { border-color: color-mix(in srgb, var(--schift-red) 30%, transparent); }
+.border-\[var\(--schift-red\)\]\/50 { border-color: color-mix(in srgb, var(--schift-red) 50%, transparent); }
+
+/* ── Hover states ── */
+.hover\:bg-\[var\(--schift-gray-80\)\]:hover { background-color: var(--schift-gray-80); }
+.hover\:bg-\[var\(--schift-red\)\]\/20:hover { background-color: color-mix(in srgb, var(--schift-red) 20%, transparent); }
+.hover\:text-\[var\(--schift-gray-30\)\]:hover { color: var(--schift-gray-30); }
+.hover\:text-\[var\(--schift-white\)\]:hover { color: var(--schift-white); }
+.hover\:border-\[var\(--schift-gray-60\)\]:hover { border-color: var(--schift-gray-60); }
+
+/* ── Focus states ── */
+.focus\:border-\[var\(--schift-blue\)\]:focus { border-color: var(--schift-blue); }
+
+/* ── Placeholder ── */
+.placeholder\:text-\[var\(--schift-gray-60\)\]::placeholder { color: var(--schift-gray-60); }

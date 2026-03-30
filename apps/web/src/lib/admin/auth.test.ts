@@ -51,6 +51,7 @@ function createCookieStore() {
 describe("admin auth provider awareness", () => {
   const originalEnv = {
     ADMIN_DATA_PROVIDER: process.env.ADMIN_DATA_PROVIDER,
+    ADMIN_SESSION_SECRET: process.env.ADMIN_SESSION_SECRET,
     ADMIN_LOGIN_PASSWORD: process.env.ADMIN_LOGIN_PASSWORD,
     LOCAL_ADMIN_USER_ID: process.env.LOCAL_ADMIN_USER_ID,
     LOCAL_ADMIN_PHONE_NUMBER: process.env.LOCAL_ADMIN_PHONE_NUMBER,
@@ -62,6 +63,7 @@ describe("admin auth provider awareness", () => {
     mockedSelect.mockReset();
     mockedCookies.mockReset();
     process.env.ADMIN_DATA_PROVIDER = originalEnv.ADMIN_DATA_PROVIDER;
+    process.env.ADMIN_SESSION_SECRET = originalEnv.ADMIN_SESSION_SECRET;
     process.env.ADMIN_LOGIN_PASSWORD = originalEnv.ADMIN_LOGIN_PASSWORD;
     process.env.LOCAL_ADMIN_USER_ID = originalEnv.LOCAL_ADMIN_USER_ID;
     process.env.LOCAL_ADMIN_PHONE_NUMBER = originalEnv.LOCAL_ADMIN_PHONE_NUMBER;
@@ -71,6 +73,7 @@ describe("admin auth provider awareness", () => {
 
   afterAll(() => {
     process.env.ADMIN_DATA_PROVIDER = originalEnv.ADMIN_DATA_PROVIDER;
+    process.env.ADMIN_SESSION_SECRET = originalEnv.ADMIN_SESSION_SECRET;
     process.env.ADMIN_LOGIN_PASSWORD = originalEnv.ADMIN_LOGIN_PASSWORD;
     process.env.LOCAL_ADMIN_USER_ID = originalEnv.LOCAL_ADMIN_USER_ID;
     process.env.LOCAL_ADMIN_PHONE_NUMBER = originalEnv.LOCAL_ADMIN_PHONE_NUMBER;
@@ -80,10 +83,12 @@ describe("admin auth provider awareness", () => {
 
   test("mock mode authenticates and restores the session without touching users table", async () => {
     process.env.ADMIN_DATA_PROVIDER = "mock";
+    process.env.ADMIN_LOGIN_PASSWORD = "mock-pass";
     process.env.LOCAL_ADMIN_USER_ID = "local-admin-test";
     process.env.LOCAL_ADMIN_PHONE_NUMBER = "01011112222";
     process.env.LOCAL_ADMIN_PASSWORD = "mock-pass";
     process.env.LOCAL_ADMIN_NAME = "운영자";
+    process.env.ADMIN_SESSION_SECRET = "session-secret";
 
     const cookieStore = createCookieStore();
     mockedCookies.mockImplementation(async () => cookieStore as never);
@@ -132,6 +137,7 @@ describe("admin auth provider awareness", () => {
       return Promise.resolve([]);
     });
     process.env.ADMIN_LOGIN_PASSWORD = "backend-pass";
+    process.env.ADMIN_SESSION_SECRET = "session-secret";
 
     const cookieStore = createCookieStore();
     mockedCookies.mockImplementation(async () => cookieStore as never);
@@ -158,6 +164,29 @@ describe("admin auth provider awareness", () => {
     );
     expect(mockedSelect.mock.calls[1]?.[0]).toContain(
       "pregnancy_profiles?select=display_name&user_id=eq.admin-backend&limit=1",
+    );
+  });
+
+  test("requires explicit admin credentials and session secret configuration", async () => {
+    process.env.ADMIN_DATA_PROVIDER = "mock";
+    delete process.env.ADMIN_LOGIN_PASSWORD;
+    delete process.env.LOCAL_ADMIN_PASSWORD;
+    delete process.env.ADMIN_SESSION_SECRET;
+
+    await expect(
+      authenticateAdmin({
+        phoneNumber: "01011112222",
+        password: "mock-pass",
+      }),
+    ).rejects.toThrow("ADMIN_LOGIN_PASSWORD or LOCAL_ADMIN_PASSWORD is required");
+
+    process.env.LOCAL_ADMIN_PASSWORD = "mock-pass";
+
+    const cookieStore = createCookieStore();
+    mockedCookies.mockImplementation(async () => cookieStore as never);
+
+    await expect(writeAdminSession("admin-1")).rejects.toThrow(
+      "ADMIN_SESSION_SECRET is required",
     );
   });
 });

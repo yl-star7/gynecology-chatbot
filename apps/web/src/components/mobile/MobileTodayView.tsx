@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChatMessage, ChatSession, RecentChatSummary, TodayViewData } from "@gynecology-chatbot/app-core";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSessionId, fetchSession, fetchSessions, fetchTodayView, sendChatMessage } from "@/lib/mobile/web-mobile-api";
 import { MobileRichMessageParts } from "./MobileRichMessageParts";
 import { MobileShell } from "./MobileShell";
@@ -94,14 +94,12 @@ export function MobileTodayView({
   });
   const messages = useMemo(() => session?.messages ?? [], [session]);
 
-  async function handleSend(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const nextText = text.trim();
-    if (!resolvedUserId || !nextText || isSending) {
+  const sendMessage = useCallback(async (messageText: string) => {
+    if (!resolvedUserId || !messageText || isSending) {
       return;
     }
 
-    const draft = createDraftMessage(nextText);
+    const draft = createDraftMessage(messageText);
     setSession((current) => ({
       id: current?.id ?? resolvedSessionId,
       title: current?.title ?? "아기와 대화",
@@ -114,7 +112,7 @@ export function MobileTodayView({
       const payload = await sendChatMessage({
         userId: resolvedUserId,
         sessionId: resolvedSessionId,
-        text: nextText,
+        text: messageText,
         imageDataUris: [],
       });
       setResolvedSessionId(payload.sessionId ?? resolvedSessionId);
@@ -132,7 +130,16 @@ export function MobileTodayView({
     } finally {
       setIsSending(false);
     }
+  }, [resolvedUserId, resolvedSessionId, isSending]);
+
+  async function handleSend(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await sendMessage(text.trim());
   }
+
+  const handleQuickReply = useCallback((message: string) => {
+    sendMessage(message);
+  }, [sendMessage]);
 
   return (
     <MobileShell
@@ -255,6 +262,7 @@ export function MobileTodayView({
                       <MobileRichMessageParts
                         message={message}
                         userId={resolvedUserId}
+                        onQuickReply={handleQuickReply}
                       />
                     </div>
                   ))}

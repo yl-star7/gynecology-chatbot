@@ -1,12 +1,73 @@
-import type { Workflow } from "@schift-io/sdk";
+import type { Workflow, WorkflowGraph } from "@schift-io/sdk";
 
-import { Schift } from "@schift-io/sdk";
+import { Schift, WorkflowBuilder } from "@schift-io/sdk";
 import { supabaseInsert, supabaseUpdate, supabaseSelect } from "@/lib/mobile/supabase-rest";
 
 const DEFAULT_BUCKET = "pregnancy-knowledge";
-const DEFAULT_WORKFLOW_NAME = "내부 데이터 응답";
+const DEFAULT_WORKFLOW_NAME = "모성간호 상담 응답";
 const DEFAULT_WORKFLOW_DESCRIPTION =
-  "웹 관리자에서 생성한 기본 RAG 워크플로우입니다. 내부 데이터만 바탕으로 답하고, guardrail 결과와 캐릭터 톤을 함께 반환합니다.";
+  "모성간호 교수자 감수 기반 RAG 워크플로우입니다. 임신 주차별 내부 데이터만 바탕으로 답하고, 가드레일(safe/medical_caution/redirect), 감정 체크인, 상담 분기, 캐릭터 톤을 함께 반환합니다.";
+
+const SYSTEM_PROMPT = [
+  "당신은 모성간호학 교수자가 감수한 임산부 상담 어시스턴트입니다.",
+  "반드시 내부 데이터(검색된 문맥)만 근거로 답변하세요.",
+  "응답은 반드시 JSON 하나만 반환하세요.",
+  "",
+  "## JSON 스키마",
+  "{ answer: string, guardrailStatus: 'safe' | 'medical_caution' | 'redirect', guardrailReason?: string, characterTone: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', scenario?: 'emotion_checkin' | 'week_info' | 'symptom_counsel' | 'general' }",
+  "",
+  "## 가드레일 규칙",
+  "- 욕설, 비윤리적 요청, 자해/타해 관련 입력: guardrailStatus='redirect', guardrailReason에 안전 안내 문구",
+  "- 출혈, 극심한 통증, 호흡곤란, 의식 저하 등 응급 징후: guardrailStatus='medical_caution', guardrailReason에 즉시 119 또는 의료기관 방문 권고",
+  "- 임신/건강과 무관한 주제(주식, 코인, 맛집, 영화 등): guardrailStatus='redirect', guardrailReason에 상담 범위 안내",
+  "- 그 외 안전한 질문: guardrailStatus='safe'",
+  "",
+  "## 상담 분기 (scenario)",
+  "- 감정 표현(힘들다, 불안하다, 우울하다 등): scenario='emotion_checkin' — 공감 먼저, 그 다음 주차 맞춤 정보 안내",
+  "- 주차별 정보 요청(n주차 아기, 검사, 변화 등): scenario='week_info' — 해당 주차 데이터 기반 설명",
+  "- 증상 상담(통증, 출혈, 입덧, 부종 등): scenario='symptom_counsel' — 증상 설명 + 병원 방문 기준 안내 + 진단 확정 표현 금지",
+  "- 기타: scenario='general'",
+  "",
+  "## 캐릭터 톤 (characterTone)",
+  "- calm: 일반 정보 안내",
+  "- joyful: 긍정적 소식, 성장 변화",
+  "- anxious: 걱정/불안 표현 시 공감",
+  "- tired: 피로/수면 관련",
+  "- sad: 우울/슬픔 표현 시 위로",
+  "",
+  "## 문체 규칙",
+  "- -어요/-해요 체 사용 (산모 대상)",
+  "- 개발자 용어 금지",
+  "- 의료 진단 확정 표현 금지 ('~일 수 있어요', '담당 의료진과 상의해보세요')",
+  "- 문맥이 부족하면 '아직 관련 자료가 준비되지 않았어요'라고 솔직히 안내",
+].join("\n");
+
+const PROMPT_TEMPLATE = [
+  "## 검색된 내부 데이터",
+  "{{results}}",
+  "",
+  "## 사용자 질문",
+  "{{query}}",
+  "",
+  "## 규칙",
+  "1. 위 내부 데이터만 사용하세요. 데이터에 없는 내용을 지어내지 마세요.",
+  "2. 가드레일 규칙에 따라 guardrailStatus를 판단하세요.",
+  "3. 상담 분기(scenario)를 판단하고 해당 분기에 맞는 응답 구조를 따르세요.",
+  "4. 상황에 가장 적합한 characterTone을 선택하세요.",
+  "5. JSON만 반환하세요.",
+].join("\n");
+
+const LLM_MODEL = "gemini-2.5-flash-lite";
+
+function hasRunnableGraph(workflow: Workflow) {
+  const graph = workflow.graph as Workflow["graph"] & {
+    nodes?: Workflow["graph"]["blocks"];
+  };
+
+  const blockCount = Array.isArray(graph.blocks) ? graph.blocks.length : 0;
+  const nodeCount = Array.isArray(graph.nodes) ? graph.nodes.length : 0;
+  return blockCount > 0 || nodeCount > 0;
+}
 
 function getSchiftApiKey() {
   return process.env.SCHIFT_API_KEY ?? "";
@@ -58,23 +119,6 @@ export async function patchSchiftWorkflow(
   });
 }
 
-type WorkflowNode = {
-  id: string;
-  type: string;
-  title?: string;
-  config?: Record<string, unknown>;
-};
-
-type WorkflowGraphLike = {
-  blocks?: WorkflowNode[];
-  nodes?: WorkflowNode[];
-  edges?: unknown[];
-};
-
-function getWorkflowNodes(graph: WorkflowGraphLike | undefined) {
-  return graph?.blocks ?? graph?.nodes ?? [];
-}
-
 type WorkflowDefinitionRow = {
   id: string;
   name: string;
@@ -86,62 +130,84 @@ type WorkflowDefinitionRow = {
   metadata: Record<string, unknown> | null;
 };
 
-function withUpdatedGraph(workflow: Workflow) {
-  const nodes = getWorkflowNodes(workflow.graph as WorkflowGraphLike).map((node) => {
-    if (node.type === "vector_store" || node.type === "retriever") {
-      return {
-        ...node,
-        config: {
-          ...(node.config ?? {}),
-          collection: DEFAULT_BUCKET,
-          ...(node.type === "retriever" ? { top_k: 8 } : {}),
-        },
-      };
-    }
+/**
+ * WorkflowBuilder로 모성간호 상담 RAG 파이프라인 그래프를 구성한다.
+ *
+ * 블록 구조:
+ *   start → retriever → prompt_template → llm → answer → end
+ *
+ * - retriever: pregnancy-knowledge 컬렉션에서 top_k=8 검색
+ * - prompt_template: 가드레일 + 시나리오 분기 + 캐릭터 톤 시스템 프롬프트
+ * - llm: gemini-2.5-flash-lite (temperature 0.1)
+ * - answer: JSON 포맷 출력
+ */
+function buildMaternalNursingGraph(): WorkflowGraph {
+  const graph = new WorkflowBuilder(DEFAULT_WORKFLOW_NAME)
+    .description(DEFAULT_WORKFLOW_DESCRIPTION)
+    .addBlock("start", {
+      type: "start",
+      title: "사용자 질문 입력",
+    })
+    .addBlock("retriever", {
+      type: "retriever",
+      title: "임신 지식 검색",
+      config: {
+        collection: DEFAULT_BUCKET,
+        top_k: 8,
+        endpoint_url:
+          process.env.SCHIFT_EMBEDDING_BASE_URL ?? getSchiftBaseUrl(),
+      },
+    })
+    .addBlock("prompt_template", {
+      type: "prompt_template",
+      title: "교수자 감수 프롬프트",
+      config: {
+        system_prompt: SYSTEM_PROMPT,
+        template: PROMPT_TEMPLATE,
+      },
+    })
+    .addBlock("llm", {
+      type: "llm",
+      title: "LLM 응답 생성",
+      config: {
+        model: LLM_MODEL,
+        temperature: 0.1,
+        max_tokens: 1024,
+      },
+    })
+    .addBlock("answer", {
+      type: "answer",
+      title: "JSON 응답 포맷",
+      config: {
+        format: "json",
+        include_sources: true,
+      },
+    })
+    .addBlock("end", {
+      type: "end",
+      title: "종료",
+    })
+    .connect("start", "retriever")
+    .connect("retriever", "prompt_template")
+    .connect("prompt_template", "llm")
+    .connect("llm", "answer")
+    .connect("answer", "end")
+    .buildGraph();
 
-    if (node.type === "prompt_template") {
-      return {
-        ...node,
-        config: {
-          ...(node.config ?? {}),
-          system_prompt:
-            "You are a maternal nursing support assistant. Answer only from the retrieved internal context. Return JSON with answer, guardrailStatus, guardrailReason, and characterTone. guardrailStatus must be one of safe, medical_caution, redirect. characterTone must be one of calm, joyful, anxious, tired, sad. If the context is missing or insufficient, say you do not know and ask the operator to add or review the internal data.",
-          template:
-            "Internal context:\\n{{results}}\\n\\nUser question: {{query}}\\n\\nRules:\\n- Use only the internal context above.\\n- Do not invent facts.\\n- If the context does not answer the question, say so clearly.\\n- If the user input sounds urgent, dangerous, or medically risky, set guardrailStatus to medical_caution and explain why.\\n- If the input is abusive, unrelated, or disallowed, set guardrailStatus to redirect.\\n- Otherwise set guardrailStatus to safe.\\n- Choose the most fitting characterTone for the situation.\\n- Return JSON only.\\n\\nAnswer:",
-        },
-      };
-    }
-
-    if (node.type === "llm") {
-      return {
-        ...node,
-        config: {
-          ...(node.config ?? {}),
-          model: "gemini-2.5-flash-lite",
-          temperature: 0.1,
-          max_tokens: 1024,
-        },
-      };
-    }
-
-    return node;
-  });
-
+  // Schift API가 일부 경로에서 graph.nodes만 영속하는 경우가 있어 동기화해서 전달한다.
   return {
-    ...(workflow.graph ?? {}),
-    nodes,
-  };
+    ...graph,
+    nodes: graph.blocks,
+  } as WorkflowGraph;
 }
 
 export async function listSchiftWorkflows(): Promise<Workflow[]> {
-  const client = getSchiftClientOrThrow();
-  const summaries = await client.workflows.list();
+  const summaries = (await schiftFetch("/v1/workflows")) as Workflow[];
 
-  // list() doesn't include graph — fetch detail via SDK in parallel
   const detailed = await Promise.all(
     summaries.map(async (wf) => {
       try {
-        return await client.workflows.get(wf.id);
+        return (await schiftFetch(`/v1/workflows/${wf.id}`)) as Workflow;
       } catch {
         return wf;
       }
@@ -152,33 +218,56 @@ export async function listSchiftWorkflows(): Promise<Workflow[]> {
 }
 
 export async function createDefaultInternalAnswerWorkflow() {
-  const existing = (await listSchiftWorkflows()).find(
+  const workflows = await listSchiftWorkflows();
+  const existing = workflows.find(
     (workflow) => workflow.name === DEFAULT_WORKFLOW_NAME,
   );
   const client = getSchiftClientOrThrow();
 
-  const baseWorkflow =
-    existing ??
-    (await client.workflows.create({
+  const graph = buildMaternalNursingGraph();
+
+  let baseWorkflow = existing;
+
+  if (!baseWorkflow || !hasRunnableGraph(baseWorkflow)) {
+    if (baseWorkflow && !hasRunnableGraph(baseWorkflow)) {
+      try {
+        await patchSchiftWorkflow(baseWorkflow.id, {
+          status: "archived",
+        });
+      } catch (error) {
+        console.error("failed to archive malformed Schift workflow", error);
+      }
+    }
+
+    baseWorkflow = await client.workflows.create({
       name: DEFAULT_WORKFLOW_NAME,
       description: DEFAULT_WORKFLOW_DESCRIPTION,
-      template: "basic_rag",
-    }));
+      graph,
+    });
+  }
 
+  const adminMetadata = {
+    trigger: "내부 데이터만 답변",
+    retrievalScope: `${DEFAULT_BUCKET} 내부 자료`,
+    modelName: LLM_MODEL,
+  };
+
+  // Schift API graph PATCH에서 nodes/blocks가 유실될 수 있어 메타데이터만 업데이트한다.
   const updated = await patchSchiftWorkflow(baseWorkflow.id, {
     status: "published",
     name: DEFAULT_WORKFLOW_NAME,
-    description: `<!-- si-admin-workflow:${JSON.stringify({
-      trigger: "내부 데이터만 답변",
-      retrievalScope: `${DEFAULT_BUCKET} 내부 자료`,
-      modelName: "gemini-2.5-flash-lite",
-    })}-->\n${DEFAULT_WORKFLOW_DESCRIPTION}`,
-    graph: withUpdatedGraph(baseWorkflow),
+    description: `<!-- si-admin-workflow:${JSON.stringify(adminMetadata)}-->\n${DEFAULT_WORKFLOW_DESCRIPTION}`,
   });
 
-  const currentRows = await supabaseSelect<WorkflowDefinitionRow[]>(
+  const currentRowsById = await supabaseSelect<WorkflowDefinitionRow[]>(
     `workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata&id=eq.${updated.id}&limit=1`,
   );
+  const currentRowsBySlug =
+    currentRowsById.length > 0
+      ? currentRowsById
+      : await supabaseSelect<WorkflowDefinitionRow[]>(
+          "workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata&slug=eq.internal-data-answer&limit=1",
+        );
   const payload = {
     id: updated.id,
     name: updated.name,
@@ -187,19 +276,18 @@ export async function createDefaultInternalAnswerWorkflow() {
     status: "published",
     is_active: true,
     config: {
-      modelName: "gemini-2.5-flash-lite",
+      modelName: LLM_MODEL,
       retrievalScope: `${DEFAULT_BUCKET} 내부 자료`,
     },
-    metadata: {
-      trigger: "내부 데이터만 답변",
-      retrievalScope: `${DEFAULT_BUCKET} 내부 자료`,
-      modelName: "gemini-2.5-flash-lite",
-    },
+    metadata: adminMetadata,
     updated_at: new Date().toISOString(),
   };
 
-  if (currentRows[0]) {
-    await supabaseUpdate(`workflow_definitions?id=eq.${updated.id}`, payload);
+  if (currentRowsBySlug[0]) {
+    await supabaseUpdate(
+      `workflow_definitions?id=eq.${currentRowsBySlug[0].id}`,
+      payload,
+    );
   } else {
     await supabaseInsert("workflow_definitions", {
       ...payload,

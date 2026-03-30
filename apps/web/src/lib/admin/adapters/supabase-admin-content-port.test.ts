@@ -724,12 +724,15 @@ describe("SupabaseAdminContentPortAdapter", () => {
       category: "guide",
       content: "본문",
     });
-    const updated = await adapter.updateDocument("11111111-1111-4111-8111-111111111111", {
-      title: "수정된 두통 가이드",
-      pregnancyWeek: null,
-      category: "warning",
-      content: "수정 본문",
-    });
+    const updated = await adapter.updateDocument(
+      "11111111-1111-4111-8111-111111111111",
+      {
+        title: "수정된 두통 가이드",
+        pregnancyWeek: null,
+        category: "warning",
+        content: "수정 본문",
+      },
+    );
 
     expect(created).toMatchObject({
       id: "11111111-1111-4111-8111-111111111111",
@@ -771,19 +774,28 @@ describe("SupabaseAdminContentPortAdapter", () => {
     mockedHasDockerConfig.mockReturnValue(false);
     mockedGetSchiftClient.mockReturnValue(null);
     mockedDelete.mockResolvedValueOnce([]);
-    mockedSelect.mockResolvedValueOnce([
-      {
-        id: "wf-1",
-        name: "기본 응답",
-        slug: "default-chat",
-        provider: "flowise",
-        status: "published",
-        is_active: true,
-        config: { modelName: "gemini-2.5-flash-lite" },
-        metadata: { trigger: "일반 채팅" },
-        updated_at: "2026-03-18T10:00:00.000Z",
-      },
-    ]);
+    mockedSelect.mockImplementation(async (path) => {
+      if (
+        typeof path === "string" &&
+        path.startsWith("workflow_definitions?select=")
+      ) {
+        return [
+          {
+            id: "wf-1",
+            name: "기본 응답",
+            slug: "default-chat",
+            provider: "flowise",
+            status: "published",
+            is_active: true,
+            config: { modelName: "gemini-2.5-flash-lite" },
+            metadata: { trigger: "일반 채팅" },
+            updated_at: "2026-03-18T10:00:00.000Z",
+          },
+        ];
+      }
+
+      return [];
+    });
     mockedUpdate.mockResolvedValueOnce([
       {
         id: "wf-1",

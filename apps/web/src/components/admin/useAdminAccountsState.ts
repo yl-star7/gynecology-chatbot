@@ -7,13 +7,23 @@ import type {
   AdminDashboardData,
 } from "@gynecology-chatbot/app-core";
 
-export function useAdminAccountsState(dashboard: AdminDashboardData) {
+export function useAdminAccountsState(
+  dashboard: AdminDashboardData,
+  initialSelectedUserId?: string,
+  initialSelectedAllowedPhoneId?: string,
+) {
   const [managedUsers, setManagedUsers] = useState(dashboard.managedUsers);
   const [selectedUserId, setSelectedUserId] = useState(
-    dashboard.managedUsers[0]?.id ?? "",
+    initialSelectedUserId &&
+      dashboard.managedUsers.some((user) => user.id === initialSelectedUserId)
+      ? initialSelectedUserId
+      : (dashboard.managedUsers[0]?.id ?? ""),
   );
   const [phoneNumber, setPhoneNumber] = useState(
-    dashboard.managedUsers[0]?.phoneNumber ?? "",
+    dashboard.managedUsers.find((user) => user.id === initialSelectedUserId)
+      ?.phoneNumber ??
+      dashboard.managedUsers[0]?.phoneNumber ??
+      "",
   );
   const [reason, setReason] = useState("");
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -50,7 +60,12 @@ export function useAdminAccountsState(dashboard: AdminDashboardData) {
         const nextAllowedPhoneNumbers = payload.allowedPhoneNumbers ?? [];
         setAllowedPhoneNumbers(nextAllowedPhoneNumbers);
 
-        const firstEntry = nextAllowedPhoneNumbers[0];
+        const initialEntry = initialSelectedAllowedPhoneId
+          ? nextAllowedPhoneNumbers.find(
+              (entry) => entry.id === initialSelectedAllowedPhoneId,
+            )
+          : null;
+        const firstEntry = initialEntry ?? nextAllowedPhoneNumbers[0];
         if (firstEntry) {
           setSelectedAllowedPhoneId(firstEntry.id);
           setAllowedPhoneNumber(firstEntry.phoneNumber);
@@ -73,7 +88,7 @@ export function useAdminAccountsState(dashboard: AdminDashboardData) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialSelectedAllowedPhoneId]);
 
   function syncSelectedUser(userId: string) {
     setSelectedUserId(userId);
@@ -187,7 +202,9 @@ export function useAdminAccountsState(dashboard: AdminDashboardData) {
               ...user,
               status: status === "paused" ? "paused" : "active",
               latestIssue:
-                status === "paused" ? "사용 중단 처리 완료" : "사용 재개 처리 완료",
+                status === "paused"
+                  ? "사용 중단 처리 완료"
+                  : "사용 재개 처리 완료",
             }
           : user,
       ),

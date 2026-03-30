@@ -9,6 +9,7 @@ type BrandingConfig = {
   mascotObjectPath: string | null;
   mascotSourceFileName: string | null;
   mascotAltText: string | null;
+  surveyFormUrl: string | null;
 };
 
 const DEFAULT_BRANDING: BrandingConfig = {
@@ -16,9 +17,34 @@ const DEFAULT_BRANDING: BrandingConfig = {
   mascotObjectPath: null,
   mascotSourceFileName: null,
   mascotAltText: "마스코트",
+  surveyFormUrl: null,
 };
 
 type ConfigRow = { key: string; value: BrandingConfig };
+
+function normalizeSurveyFormUrl(input: unknown) {
+  if (typeof input !== "string" || !input.trim()) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(input.trim());
+    const isAllowedHost =
+      parsedUrl.hostname === "docs.google.com" ||
+      parsedUrl.hostname === "forms.gle";
+    const isAllowedPath =
+      parsedUrl.hostname === "forms.gle" ||
+      parsedUrl.pathname.startsWith("/forms/");
+
+    if (parsedUrl.protocol !== "https:" || !isAllowedHost || !isAllowedPath) {
+      return null;
+    }
+
+    return parsedUrl.toString();
+  } catch {
+    return null;
+  }
+}
 
 export async function GET() {
   try {
@@ -46,9 +72,17 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = (await request.json()) as Partial<BrandingConfig>;
+    const normalizedSurveyFormUrl = normalizeSurveyFormUrl(body.surveyFormUrl);
+    if (body.surveyFormUrl && !normalizedSurveyFormUrl) {
+      return NextResponse.json(
+        { error: "survey form url must be a valid Google Forms https URL" },
+        { status: 400 },
+      );
+    }
     const branding: BrandingConfig = {
       ...DEFAULT_BRANDING,
       ...body,
+      surveyFormUrl: normalizedSurveyFormUrl,
     };
 
     const existing = await supabaseSelect<ConfigRow[]>(

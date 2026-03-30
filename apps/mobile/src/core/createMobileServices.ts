@@ -54,6 +54,10 @@ class RuntimeAwareMockMobileHomeAdapter implements MobileHomePort {
       pregnancyDayCount: runtime.pregnancyDayCount,
     };
   }
+
+  async getRecordDay(isoDate: string) {
+    return this.delegate.getRecordDay(isoDate);
+  }
 }
 
 export function createMobileServices(options: CreateMobileServicesOptions = {}): MobileServices {

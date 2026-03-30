@@ -12,6 +12,20 @@ import type {
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
 
+export class SessionExpiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SessionExpiredError";
+  }
+}
+
+export class RateLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RateLimitError";
+  }
+}
+
 type MobileFetch = typeof fetch;
 
 let currentMobileSessionToken: string | null = null;
@@ -32,11 +46,17 @@ export interface MobileApiClient {
   completeOnboarding(input: { userId: string } & OnboardingProfileInput): Promise<{ user: AuthenticatedUser }>;
   fetchHome(month?: string): Promise<{ home: HomeViewData }>;
   fetchMobileProfile(): Promise<{ profile: MobileProfileViewData }>;
+  fetchMobileBranding(): Promise<{
+    mascotImageUrl: string | null;
+    mascotAltText: string | null;
+    surveyFormUrl: string | null;
+  }>;
   fetchTodayView(): Promise<{ today: TodayViewData }>;
   updateTodayChecklistItem(input: {
     checklistId: string;
     completed: boolean;
   }): Promise<{ ok: true }>;
+  markTodayInfoViewed(): Promise<{ ok: true }>;
   fetchSessions(): Promise<{ sessions: RecentChatSummary[] }>;
   fetchRecordDay(isoDate: string): Promise<{ recordDay: RecordDayView }>;
   fetchSession(sessionId: string): Promise<{ session: ChatSession }>;
@@ -62,7 +82,7 @@ export interface MobileApiClient {
     text: string;
     pregnancyWeek?: number;
     imageDataUris: string[];
-  }): Promise<{ assistantMessage: ChatMessage }>;
+  }): Promise<{ assistantMessage: ChatMessage; assistantMessages?: ChatMessage[] }>;
 }
 
 function getEnvApiBaseUrl() {
@@ -86,6 +106,12 @@ function getEnvUserId() {
 async function parseJson<T>(response: Response) {
   const payload = (await response.json()) as T & { error?: string };
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new SessionExpiredError("세션이 만료되었어요. 다시 로그인해 주세요.");
+    }
+    if (response.status === 429) {
+      throw new RateLimitError("잠시 후 다시 시도해 주세요.");
+    }
     throw new Error(payload.error ?? `Request failed: ${response.status}`);
   }
 
@@ -178,6 +204,20 @@ export function createMobileApiClient(options: MobileApiClientOptions = {}): Mob
       return parseJson<{ profile: MobileProfileViewData }>(response);
     },
 
+    async fetchMobileBranding() {
+      const response = await fetchImpl(
+        `${getApiBaseUrl()}/api/mobile/branding`,
+        {
+          headers: buildMobileSessionHeaders(),
+        },
+      );
+      return parseJson<{
+        mascotImageUrl: string | null;
+        mascotAltText: string | null;
+        surveyFormUrl: string | null;
+      }>(response);
+    },
+
     async submitProfileSurveyAnswer(input) {
       const response = await fetchImpl(
         `${getApiBaseUrl()}/api/mobile/profile/surveys`,
@@ -215,6 +255,22 @@ export function createMobileApiClient(options: MobileApiClientOptions = {}): Mob
           userId: getUserId(),
           checklistId: input.checklistId,
           completed: input.completed,
+        }),
+      });
+
+      return parseJson<{ ok: true }>(response);
+    },
+
+    async markTodayInfoViewed() {
+      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/today`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...buildMobileSessionHeaders(),
+        },
+        body: JSON.stringify({
+          userId: getUserId(),
+          action: "view_info",
         }),
       });
 
@@ -280,22 +336,28 @@ export function createMobileApiClient(options: MobileApiClientOptions = {}): Mob
     },
 
     async sendChatMessage(input) {
-      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...buildMobileSessionHeaders(),
-        },
-        body: JSON.stringify({
-          userId: getUserId(),
-          sessionId: input.sessionId,
-          text: input.text,
-          pregnancyWeek: input.pregnancyWeek,
-          imageDataUris: input.imageDataUris,
-        }),
-      });
-
-      return parseJson<{ assistantMessage: ChatMessage }>(response);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30_000);
+      try {
+        const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/chat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...buildMobileSessionHeaders(),
+          },
+          body: JSON.stringify({
+            userId: getUserId(),
+            sessionId: input.sessionId,
+            text: input.text,
+            pregnancyWeek: input.pregnancyWeek,
+            imageDataUris: input.imageDataUris,
+          }),
+          signal: controller.signal,
+        });
+        return parseJson<{ assistantMessage: ChatMessage; assistantMessages?: ChatMessage[] }>(response);
+      } finally {
+        clearTimeout(timeoutId);
+      }
     },
   };
 }
@@ -338,6 +400,10 @@ export function updateTodayChecklistItem(input: {
   completed: boolean;
 }) {
   return defaultClient.updateTodayChecklistItem(input);
+}
+
+export function markTodayInfoViewed() {
+  return defaultClient.markTodayInfoViewed();
 }
 
 export function fetchSessions() {

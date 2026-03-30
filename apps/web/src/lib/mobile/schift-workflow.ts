@@ -1,10 +1,26 @@
 import type { Schift, Workflow, WorkflowRun } from "@schift-io/sdk";
 import { listSchiftWorkflows } from "./schift-workflows-api";
 
+function hasRunnableGraph(workflow: Workflow) {
+  const graph = workflow.graph as Workflow["graph"] & {
+    nodes?: Workflow["graph"]["blocks"];
+  };
+
+  const blockCount = Array.isArray(graph.blocks) ? graph.blocks.length : 0;
+  const nodeCount = Array.isArray(graph.nodes) ? graph.nodes.length : 0;
+  return blockCount > 0 || nodeCount > 0;
+}
+
 function pickActiveWorkflow(workflows: Workflow[]) {
+  const runnable = workflows.filter(hasRunnableGraph);
+
   return (
-    workflows.find((workflow) => workflow.status === "active") ??
-    workflows[0] ??
+    runnable.find(
+      (workflow) =>
+        workflow.status === "active" ||
+        (workflow.status as string) === "published",
+    ) ??
+    runnable[0] ??
     null
   );
 }
@@ -46,24 +62,95 @@ export async function runSchiftWorkflow(input: {
   };
 }
 
+type WorkflowRunLike = {
+  outputs?: Record<string, unknown>;
+  block_states?: unknown;
+};
+
+function readObjectAnswerText(value: Record<string, unknown>) {
+  const answerCandidates = [
+    value.answer,
+    value.reply,
+    value.result,
+    value.output,
+    value.text,
+    value.response,
+    value.content,
+    value.message,
+  ];
+
+  const answer = answerCandidates.find(
+    (candidate) => typeof candidate === "string" && candidate.trim(),
+  );
+
+  return typeof answer === "string" ? answer : null;
+}
+
+function readBlockStateOutputs(blockState: unknown) {
+  if (!blockState || typeof blockState !== "object") {
+    return null;
+  }
+
+  const state = blockState as {
+    output?: unknown;
+    outputs?: unknown;
+  };
+
+  const candidates = [state.outputs, state.output];
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+      continue;
+    }
+
+    const outputRecord = candidate as Record<string, unknown>;
+    if (Object.keys(outputRecord).length > 0) {
+      return outputRecord;
+    }
+  }
+
+  return null;
+}
+
+export function extractSchiftWorkflowOutputs(run: WorkflowRunLike) {
+  if (run.outputs && Object.keys(run.outputs).length > 0) {
+    return run.outputs;
+  }
+
+  const blockStates = run.block_states;
+  if (!blockStates) {
+    return undefined;
+  }
+
+  if (Array.isArray(blockStates)) {
+    for (const blockState of blockStates) {
+      const output = readBlockStateOutputs(blockState);
+      if (output) {
+        return output;
+      }
+    }
+
+    return undefined;
+  }
+
+  if (typeof blockStates === "object") {
+    for (const blockState of Object.values(blockStates as Record<string, unknown>)) {
+      const output = readBlockStateOutputs(blockState);
+      if (output) {
+        return output;
+      }
+    }
+  }
+
+  return undefined;
+}
+
 function summarizeOutput(outputs: Record<string, unknown> | undefined) {
   if (!outputs) {
     return "workflow 출력이 없어요.";
   }
 
-  const answerCandidates = [
-    outputs.answer,
-    outputs.reply,
-    outputs.result,
-    outputs.output,
-    outputs.text,
-    outputs.response,
-  ];
-  const answer = answerCandidates.find(
-    (candidate) => typeof candidate === "string" && candidate.trim(),
-  );
-
-  if (typeof answer === "string") {
+  const answer = readObjectAnswerText(outputs);
+  if (answer) {
     return answer;
   }
 
@@ -88,8 +175,9 @@ function summarizeReferences(outputs: Record<string, unknown> | undefined) {
 }
 
 export function formatSchiftWorkflowRun(run: WorkflowRun) {
-  const answer = summarizeOutput(run.outputs);
-  const references = summarizeReferences(run.outputs);
+  const outputs = extractSchiftWorkflowOutputs(run);
+  const answer = summarizeOutput(outputs);
+  const references = summarizeReferences(outputs);
 
   return references
     ? `답변: ${answer}\n\n참고:\n${references}`

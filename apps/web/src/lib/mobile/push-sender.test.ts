@@ -66,10 +66,11 @@ describe("sendDailyPushNotifications", () => {
       expect.stringContaining("임신 18주차"),
     );
     expect(result).toEqual({
-      sent: 1,
+      sent: 0,
       total: 1,
       pushSent: 0,
-      smsSent: 1,
+      smsSent: 0,
+      smsMocked: 1,
     });
   });
 
@@ -95,6 +96,7 @@ describe("sendDailyPushNotifications", () => {
       total: 1,
       pushSent: 1,
       smsSent: 0,
+      smsMocked: 0,
     });
   });
 });

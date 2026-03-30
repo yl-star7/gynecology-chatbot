@@ -81,7 +81,8 @@ describe("GET /api/admin/analytics", () => {
     const response = await GET();
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
+    const body = await response.json();
+    expect(body).toMatchObject({
       totalUsers: 2,
       onboardedUsers: 1,
       todaySessions: 3,
@@ -91,5 +92,16 @@ describe("GET /api/admin/analytics", () => {
       todayEmotions: 1,
       pushEnabled: 2,
     });
+    expect(body.dailyTrend).toHaveLength(7);
+    for (const day of body.dailyTrend) {
+      expect(day).toEqual(
+        expect.objectContaining({
+          date: expect.any(String),
+          sessions: expect.any(Number),
+          logins: expect.any(Number),
+          messages: expect.any(Number),
+        }),
+      );
+    }
   });
 });

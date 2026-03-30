@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { AdminDashboardData } from "@gynecology-chatbot/app-core";
 
@@ -22,6 +22,8 @@ export interface AdminPoliciesSectionProps {
   workflowStatus: AdminDashboardData["workflowRules"][number]["status"];
   isWorkflowSaving: boolean;
   isWorkflowBootstrapping: boolean;
+  isWorkflowRunning: boolean;
+  isWorkflowDeleting: boolean;
   onSelectWorkflowRule: (id: string) => void;
   onWorkflowNameChange: (value: string) => void;
   onWorkflowTriggerChange: (value: string) => void;
@@ -32,6 +34,8 @@ export interface AdminPoliciesSectionProps {
   ) => void;
   onSaveWorkflowRule: () => Promise<void>;
   onBootstrapWorkflowRule: () => Promise<void>;
+  onRunWorkflowRule: (query: string) => Promise<void>;
+  onDeleteWorkflowRule: () => Promise<void>;
 }
 
 type View = { mode: "list" } | { mode: "editor"; workflowId: string | null };
@@ -47,6 +51,8 @@ export function AdminPoliciesSection({
   workflowStatus,
   isWorkflowSaving,
   isWorkflowBootstrapping,
+  isWorkflowRunning,
+  isWorkflowDeleting,
   onSelectWorkflowRule,
   onWorkflowNameChange,
   onWorkflowTriggerChange,
@@ -55,11 +61,69 @@ export function AdminPoliciesSection({
   onWorkflowStatusChange,
   onSaveWorkflowRule,
   onBootstrapWorkflowRule,
+  onRunWorkflowRule,
+  onDeleteWorkflowRule,
 }: AdminPoliciesSectionProps) {
   const [view, setView] = useState<View>({ mode: "list" });
   const [activeOverlay, setActiveOverlay] = useState(false);
   const [workflowQuery, setWorkflowQuery] = useState("");
   const [workflowStatusFilter, setWorkflowStatusFilter] = useState("all");
+  const [isWorkflowEditorAvailable, setIsWorkflowEditorAvailable] =
+    useState(true);
+  const [workflowEditorMessage, setWorkflowEditorMessage] = useState<
+    string | null
+  >(null);
+  const [testQuery, setTestQuery] = useState("산모 복통이 심해요");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadWorkflowEditorStatus() {
+      try {
+        const response = await fetch("/api/admin/schift");
+        if (!response.ok) {
+          let message = "워크플로우 편집기를 지금 불러오지 못했어요.";
+          try {
+            const payload = (await response.json()) as { error?: string };
+            if (payload.error === "SCHIFT_API_KEY not configured") {
+              message = "SCHIFT_API_KEY가 없어 노드 에디터를 열 수 없어요.";
+            } else if (
+              typeof payload.error === "string" &&
+              payload.error.trim()
+            ) {
+              message = payload.error.trim();
+            }
+          } catch {
+            // Keep the fallback message when the response body is unreadable.
+          }
+
+          if (!cancelled) {
+            setIsWorkflowEditorAvailable(false);
+            setWorkflowEditorMessage(message);
+          }
+          return;
+        }
+
+        if (!cancelled) {
+          setIsWorkflowEditorAvailable(true);
+          setWorkflowEditorMessage(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setIsWorkflowEditorAvailable(false);
+          setWorkflowEditorMessage(
+            "워크플로우 편집기를 지금 불러오지 못했어요.",
+          );
+        }
+      }
+    }
+
+    void loadWorkflowEditorStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredWorkflowRules = workflowRules.filter((rule) => {
     const query = workflowQuery.trim().toLowerCase();
@@ -76,7 +140,10 @@ export function AdminPoliciesSection({
   if (view.mode === "editor") {
     return (
       <section className={styles.sectionStack}>
-        <section className={styles.panel} style={{ padding: 0, overflow: "hidden" }}>
+        <section
+          className={styles.panel}
+          style={{ padding: 0, overflow: "hidden" }}
+        >
           <div style={{ height: "calc(100vh - 100px)", minHeight: 500 }}>
             <AdminWorkflowEditorAdapter
               workflowId={view.workflowId}
@@ -113,6 +180,7 @@ export function AdminPoliciesSection({
             <button
               className={styles.secondaryButton}
               type="button"
+              disabled={!isWorkflowEditorAvailable}
               onClick={() => setView({ mode: "editor", workflowId: null })}
             >
               노드 에디터
@@ -123,15 +191,51 @@ export function AdminPoliciesSection({
               disabled={isWorkflowBootstrapping}
               onClick={() => void onBootstrapWorkflowRule()}
             >
-              {isWorkflowBootstrapping
-                ? "만드는 중…"
-                : "기본 워크플로우"}
+              {isWorkflowBootstrapping ? "만드는 중…" : "기본 워크플로우"}
+            </button>
+            <button
+              className={styles.secondaryButton}
+              type="button"
+              disabled={isWorkflowDeleting || !selectedWorkflowRuleId}
+              onClick={() => void onDeleteWorkflowRule()}
+            >
+              {isWorkflowDeleting ? "삭제 중…" : "선택 삭제"}
+            </button>
+          </div>
+        </div>
+        {workflowEditorMessage ? (
+          <p className={styles.formHint} role="status">
+            {workflowEditorMessage}
+          </p>
+        ) : null}
+
+        <div className={styles.tableToolbar}>
+          <label className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>테스트 질문</span>
+            <input
+              className={styles.fieldInput}
+              value={testQuery}
+              onChange={(event) => setTestQuery(event.target.value)}
+              placeholder="워크플로우로 검증할 질문"
+            />
+          </label>
+          <div className={styles.topbarActions}>
+            <button
+              className={styles.primaryButton}
+              type="button"
+              disabled={isWorkflowRunning || !selectedWorkflowRuleId}
+              onClick={() => void onRunWorkflowRule(testQuery)}
+            >
+              {isWorkflowRunning ? "실행 중…" : "테스트 실행"}
             </button>
           </div>
         </div>
 
         <div className={styles.dataTable}>
-          <div className={styles.dataTableHeader} style={{ gridTemplateColumns: "1.5fr 1fr 1fr 80px" }}>
+          <div
+            className={styles.dataTableHeader}
+            style={{ gridTemplateColumns: "1.5fr 1fr 1fr 80px" }}
+          >
             <span>워크플로우</span>
             <span>트리거</span>
             <span>모델</span>
@@ -147,7 +251,9 @@ export function AdminPoliciesSection({
               }`}
               type="button"
               style={{ gridTemplateColumns: "1.5fr 1fr 1fr 80px" }}
+              disabled={!isWorkflowEditorAvailable}
               onClick={() => {
+                onSelectWorkflowRule(rule.id);
                 setView({ mode: "editor", workflowId: rule.id });
               }}
             >
@@ -168,7 +274,9 @@ export function AdminPoliciesSection({
             </button>
           ))}
           {filteredWorkflowRules.length === 0 ? (
-            <div className={styles.listEmpty}>조건에 맞는 워크플로우가 없습니다.</div>
+            <div className={styles.listEmpty}>
+              조건에 맞는 워크플로우가 없습니다.
+            </div>
           ) : null}
         </div>
       </section>
@@ -190,7 +298,8 @@ export function AdminPoliciesSection({
                   value={workflowStatus}
                   onChange={(event) =>
                     onWorkflowStatusChange(
-                      event.target.value as AdminDashboardData["workflowRules"][number]["status"],
+                      event.target
+                        .value as AdminDashboardData["workflowRules"][number]["status"],
                     )
                   }
                 >
@@ -207,7 +316,9 @@ export function AdminPoliciesSection({
               </div>
             </div>
             <div className={styles.overlayBody}>
-              {contentMessage ? <p className={styles.formHint}>{contentMessage}</p> : null}
+              {contentMessage ? (
+                <p className={styles.formHint}>{contentMessage}</p>
+              ) : null}
               <label className={styles.fieldGroup}>
                 <span className={styles.fieldLabel}>이름</span>
                 <input
@@ -221,7 +332,9 @@ export function AdminPoliciesSection({
                 <input
                   className={styles.fieldInput}
                   value={workflowTrigger}
-                  onChange={(event) => onWorkflowTriggerChange(event.target.value)}
+                  onChange={(event) =>
+                    onWorkflowTriggerChange(event.target.value)
+                  }
                 />
               </label>
               <div className={styles.panelGrid}>
@@ -240,7 +353,9 @@ export function AdminPoliciesSection({
                   <input
                     className={styles.fieldInput}
                     value={workflowModelName}
-                    onChange={(event) => onWorkflowModelNameChange(event.target.value)}
+                    onChange={(event) =>
+                      onWorkflowModelNameChange(event.target.value)
+                    }
                   />
                 </label>
               </div>

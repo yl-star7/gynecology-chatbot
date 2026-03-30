@@ -524,12 +524,9 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       })),
       historyUsers:
         users.length > 0
-          ? users.slice(0, 6).map((user) => {
+          ? users.map((user) => {
               const profile = profilesByUser.get(user.id);
-              const userSessions = (sessionsByUser.get(user.id) ?? []).slice(
-                0,
-                3,
-              );
+              const userSessions = sessionsByUser.get(user.id) ?? [];
 
               return {
                 id: user.id,
@@ -554,9 +551,8 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
                     profile?.pregnancy_week ?? null,
                     profile?.pregnancy_day_in_week ?? null,
                   ),
-                  messages: (messagesBySession.get(session.id) ?? [])
-                    .slice(0, 5)
-                    .map((message) => ({
+                  messages: (messagesBySession.get(session.id) ?? []).map(
+                    (message) => ({
                       id: message.id,
                       role:
                         message.role === "system" ? "assistant" : message.role,
@@ -662,7 +658,8 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       input.phoneNumber,
     );
     const storage = createPhoneNumberStorage(normalizedPhoneNumber);
-    const existingRows = await supabaseSelect<
+    const existingRows =
+      (await supabaseSelect<
       Array<{
         id: string;
         phone_number_encrypted: string;
@@ -673,7 +670,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       }>
     >(
       `allowed_phone_numbers?select=id,phone_number_encrypted,display_name,note,created_at,updated_at&phone_number_blind_index=eq.${encodeURIComponent(storage.phoneNumberBlindIndex)}&limit=1`,
-    );
+      )) ?? [];
 
     if (existingRows[0]) {
       return this.updateAllowedPhoneNumber({

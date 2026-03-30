@@ -71,6 +71,7 @@ export interface AdminWeekOverlayProps {
   onRemoveWeekAsset: (index: number) => void;
   onRemoveWeekMedia: (index: number) => void;
   onSaveWeek: () => Promise<void>;
+  onPublishWeek: () => Promise<void>;
 }
 
 export function AdminWeekOverlay({
@@ -104,6 +105,7 @@ export function AdminWeekOverlay({
   onRemoveWeekAsset,
   onRemoveWeekMedia,
   onSaveWeek,
+  onPublishWeek,
 }: AdminWeekOverlayProps) {
   const publicStorageBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL.replace(/\/$/, "")}/storage/v1/object/public`
@@ -155,7 +157,9 @@ export function AdminWeekOverlay({
       !input.value && selectedWeekReferenceMedia
         ? `storage://${selectedWeekReferenceMedia.bucketId}/${selectedWeekReferenceMedia.objectPath}`
         : null;
-    const previewSrc = resolveImagePreviewSrc(input.value ?? fallbackStoragePath);
+    const previewSrc = resolveImagePreviewSrc(
+      input.value ?? fallbackStoragePath,
+    );
     const isUploading = uploadingCoverField === input.field;
 
     return (
@@ -225,7 +229,9 @@ export function AdminWeekOverlay({
           </button>
         </div>
         <div className={styles.overlayBody}>
-          {contentMessage ? <p className={styles.formHint}>{contentMessage}</p> : null}
+          {contentMessage ? (
+            <p className={styles.formHint}>{contentMessage}</p>
+          ) : null}
           {selectedWeekDetail ? (
             <>
               <div className={styles.detailGrid}>
@@ -246,9 +252,14 @@ export function AdminWeekOverlay({
                     style={{ marginTop: 4, fontWeight: 600 }}
                   >
                     <option value="draft">초안</option>
-                    <option value="published">게시됨</option>
+                    {selectedWeekDetail.status === "published" ? (
+                      <option value="published">게시됨</option>
+                    ) : null}
                     <option value="archived">보관됨</option>
                   </select>
+                  <small style={{ color: "var(--admin-text-soft)" }}>
+                    게시는 검수 후 게시 버튼으로만 진행해 주세요.
+                  </small>
                 </div>
                 <div className={styles.panelStat}>
                   <span className={styles.metaLabel}>Day 수</span>
@@ -256,8 +267,18 @@ export function AdminWeekOverlay({
                 </div>
                 <div className={styles.panelStat}>
                   <span className={styles.metaLabel}>최근 수정</span>
-                  <strong>{(() => { const d = new Date(selectedWeekDetail.updatedAt); return `${d.getMonth() + 1}월 ${d.getDate()}일`; })()}</strong>
-                  <small style={{ color: "var(--admin-text-soft)" }}>{(() => { const d = new Date(selectedWeekDetail.updatedAt); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; })()}</small>
+                  <strong>
+                    {(() => {
+                      const d = new Date(selectedWeekDetail.updatedAt);
+                      return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+                    })()}
+                  </strong>
+                  <small style={{ color: "var(--admin-text-soft)" }}>
+                    {(() => {
+                      const d = new Date(selectedWeekDetail.updatedAt);
+                      return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+                    })()}
+                  </small>
                 </div>
               </div>
 
@@ -280,7 +301,10 @@ export function AdminWeekOverlay({
                     value={selectedWeekDetail.babySizeLabel ?? ""}
                     onChange={(event) => {
                       onWeekFieldChange("babySizeLabel", event.target.value);
-                      onWeekFieldChange("babySizeCompareObject", event.target.value);
+                      onWeekFieldChange(
+                        "babySizeCompareObject",
+                        event.target.value,
+                      );
                     }}
                   />
                 </label>
@@ -338,7 +362,9 @@ export function AdminWeekOverlay({
                       <h4 style={{ margin: 0 }}>Day {day.dayNumber}</h4>
 
                       <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>아기 발달 항목</span>
+                        <span className={styles.fieldLabel}>
+                          아기 발달 항목
+                        </span>
                         <textarea
                           className={styles.fieldTextarea}
                           value={day.babyDevelopmentItems.join("\n")}
@@ -371,7 +397,9 @@ export function AdminWeekOverlay({
                       </label>
 
                       <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>산모 변화 항목</span>
+                        <span className={styles.fieldLabel}>
+                          산모 변화 항목
+                        </span>
                         <textarea
                           className={styles.fieldTextarea}
                           value={day.motherChangesItems.join("\n")}
@@ -390,12 +418,20 @@ export function AdminWeekOverlay({
 
                       {(() => {
                         const daySections = selectedWeekDetail.sections
-                          .map((section, sectionIndex) => ({ section, sectionIndex }))
-                          .filter(({ section }) => section.dayNumber === day.dayNumber);
+                          .map((section, sectionIndex) => ({
+                            section,
+                            sectionIndex,
+                          }))
+                          .filter(
+                            ({ section }) =>
+                              section.dayNumber === day.dayNumber,
+                          );
                         if (daySections.length === 0) return null;
                         return (
                           <div className={styles.fieldGroup}>
-                            <span className={styles.fieldLabel}>체크리스트</span>
+                            <span className={styles.fieldLabel}>
+                              체크리스트
+                            </span>
                             {daySections.map(({ section, sectionIndex }, i) => (
                               <input
                                 key={section.id || `section-${sectionIndex}`}
@@ -403,7 +439,11 @@ export function AdminWeekOverlay({
                                 placeholder={`항목 ${i + 1}`}
                                 value={section.title}
                                 onChange={(event) =>
-                                  onWeekSectionChange(sectionIndex, "title", event.target.value)
+                                  onWeekSectionChange(
+                                    sectionIndex,
+                                    "title",
+                                    event.target.value,
+                                  )
                                 }
                               />
                             ))}
@@ -414,7 +454,9 @@ export function AdminWeekOverlay({
                       {(() => {
                         const dayAssets = selectedWeekDetail.assets
                           .map((asset, assetIndex) => ({ asset, assetIndex }))
-                          .filter(({ asset }) => asset.dayNumber === day.dayNumber);
+                          .filter(
+                            ({ asset }) => asset.dayNumber === day.dayNumber,
+                          );
                         if (dayAssets.length === 0) return null;
                         return (
                           <div className={styles.fieldGroup}>
@@ -426,7 +468,11 @@ export function AdminWeekOverlay({
                                 placeholder={`질문 ${i + 1}`}
                                 value={asset.storagePath}
                                 onChange={(event) =>
-                                  onWeekAssetChange(assetIndex, "storagePath", event.target.value)
+                                  onWeekAssetChange(
+                                    assetIndex,
+                                    "storagePath",
+                                    event.target.value,
+                                  )
                                 }
                               />
                             ))}
@@ -434,7 +480,6 @@ export function AdminWeekOverlay({
                         );
                       })()}
                     </div>
-
                   </div>
                 ))}
               </div>
@@ -481,7 +526,9 @@ export function AdminWeekOverlay({
                         />
                       </label>
                       <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>체크리스트 코드</span>
+                        <span className={styles.fieldLabel}>
+                          체크리스트 코드
+                        </span>
                         <input
                           className={styles.fieldInput}
                           value={section.sectionKey}
@@ -495,7 +542,9 @@ export function AdminWeekOverlay({
                         />
                       </label>
                       <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>체크리스트 제목</span>
+                        <span className={styles.fieldLabel}>
+                          체크리스트 제목
+                        </span>
                         <input
                           className={styles.fieldInput}
                           value={section.title}
@@ -588,7 +637,9 @@ export function AdminWeekOverlay({
                         <button
                           className={styles.secondaryButton}
                           type="button"
-                          disabled={index === selectedWeekDetail.sections.length - 1}
+                          disabled={
+                            index === selectedWeekDetail.sections.length - 1
+                          }
                           onClick={() => onMoveWeekSection(index, 1)}
                           aria-label="체크리스트 아래로"
                         >
@@ -771,7 +822,9 @@ export function AdminWeekOverlay({
                         <button
                           className={styles.secondaryButton}
                           type="button"
-                          disabled={index === selectedWeekDetail.assets.length - 1}
+                          disabled={
+                            index === selectedWeekDetail.assets.length - 1
+                          }
                           onClick={() => onMoveWeekAsset(index, 1)}
                           aria-label="질문 아래로"
                         >
@@ -795,7 +848,8 @@ export function AdminWeekOverlay({
                 <div>
                   <h3 className={styles.panelTitle}>이미지 매핑</h3>
                   <p className={styles.panelDescription}>
-                    Storage bucket/object path 기준으로 주차 또는 day 이미지를 연결합니다.
+                    Storage bucket/object path 기준으로 주차 또는 day 이미지를
+                    연결합니다.
                   </p>
                 </div>
                 <button
@@ -983,7 +1037,9 @@ export function AdminWeekOverlay({
                         <button
                           className={styles.secondaryButton}
                           type="button"
-                          disabled={index === selectedWeekDetail.media.length - 1}
+                          disabled={
+                            index === selectedWeekDetail.media.length - 1
+                          }
                           onClick={() => onMoveWeekMedia(index, 1)}
                           aria-label="이미지 아래로"
                         >
@@ -1012,6 +1068,14 @@ export function AdminWeekOverlay({
           )}
         </div>
         <div className={styles.overlayFooter}>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            disabled={isWeekSaving || isLoadingWeeks || !selectedWeekDetail}
+            onClick={onPublishWeek}
+          >
+            검수 후 게시
+          </button>
           <button
             className={styles.primaryButton}
             type="button"

@@ -13,6 +13,7 @@ import type {
   AdminWeekSummary,
   AdminWorkflowRule,
 } from "@gynecology-chatbot/app-core";
+import { getWeekPublishReview } from "./content/week-publish-review";
 
 type OrderedItem = { displayOrder: number };
 
@@ -84,6 +85,7 @@ export function useAdminContentState(
     useState<AdminKnowledgeItem["section"]>("knowledge");
   const [knowledgeTitle, setKnowledgeTitle] = useState("");
   const [knowledgeBody, setKnowledgeBody] = useState("");
+  const [knowledgeImageUrl, setKnowledgeImageUrl] = useState("");
   const [knowledgeStatus, setKnowledgeStatus] =
     useState<AdminKnowledgeItem["status"]>("draft");
   const [ragDocuments, setRagDocuments] = useState(dashboard.ragDocuments);
@@ -116,6 +118,8 @@ export function useAdminContentState(
   const [isKnowledgeSaving, setIsKnowledgeSaving] = useState(false);
   const [isWorkflowSaving, setIsWorkflowSaving] = useState(false);
   const [isWorkflowBootstrapping, setIsWorkflowBootstrapping] = useState(false);
+  const [isWorkflowRunning, setIsWorkflowRunning] = useState(false);
+  const [isWorkflowDeleting, setIsWorkflowDeleting] = useState(false);
   const [isWeekSaving, setIsWeekSaving] = useState(false);
   const [weekSummaries, setWeekSummaries] = useState<AdminWeekSummary[]>([]);
   const [selectedWeekNumber, setSelectedWeekNumber] = useState<number | null>(
@@ -220,6 +224,7 @@ export function useAdminContentState(
           setKnowledgeSection(firstItem.section);
           setKnowledgeTitle(firstItem.title);
           setKnowledgeBody(firstItem.body);
+          setKnowledgeImageUrl(firstItem.imageUrl ?? "");
           setKnowledgeStatus(firstItem.status);
         }
       } catch (error) {
@@ -377,6 +382,11 @@ export function useAdminContentState(
   }
 
   function handleWeekStatusChange(value: AdminWeekDetail["status"]) {
+    if (value === "published") {
+      setContentMessage("게시는 검수 후 게시 버튼으로만 진행해 주세요.");
+      return;
+    }
+
     updateWeekDetail((current) => ({
       ...current,
       status: value,
@@ -669,6 +679,13 @@ export function useAdminContentState(
   }
 
   async function handleSaveWeek() {
+    await saveWeekWithStatus(selectedWeekDetail?.status);
+  }
+
+  async function saveWeekWithStatus(
+    statusOverride?: AdminWeekDetail["status"],
+    successMessage?: string,
+  ) {
     if (!selectedWeekDetail || !selectedWeekNumber) {
       return;
     }
@@ -689,7 +706,7 @@ export function useAdminContentState(
           motherSummary: selectedWeekDetail.motherSummary,
           heroImagePath: selectedWeekDetail.heroImagePath,
           compareImagePath: selectedWeekDetail.compareImagePath,
-          status: selectedWeekDetail.status,
+          status: statusOverride ?? selectedWeekDetail.status,
           days: sortOrderedItems(selectedWeekDetail.days).map((day) => ({
             id: day.id,
             dayNumber: day.dayNumber,
@@ -760,8 +777,28 @@ export function useAdminContentState(
         week.weekNumber === nextSummary.weekNumber ? nextSummary : week,
       );
     });
-    setContentMessage(`${payload.week.weekNumber}주차 데이터를 저장했습니다.`);
+    setContentMessage(
+      successMessage ?? `${payload.week.weekNumber}주차 데이터를 저장했습니다.`,
+    );
     setIsWeekSaving(false);
+  }
+
+  async function handlePublishWeek() {
+    if (!selectedWeekDetail) {
+      setContentMessage("먼저 주차를 선택해 주세요.");
+      return;
+    }
+
+    const review = getWeekPublishReview(selectedWeekDetail);
+    if (!review.isReady) {
+      setContentMessage("게시 전에 검수 보드의 빈 항목을 먼저 채워 주세요.");
+      return;
+    }
+
+    await saveWeekWithStatus(
+      "published",
+      `${selectedWeekDetail.weekNumber}주차를 검수 후 게시했습니다.`,
+    );
   }
 
   function syncSelectedKnowledgeItem(id: string) {
@@ -771,6 +808,7 @@ export function useAdminContentState(
     setKnowledgeSection(nextItem?.section ?? "knowledge");
     setKnowledgeTitle(nextItem?.title ?? "");
     setKnowledgeBody(nextItem?.body ?? "");
+    setKnowledgeImageUrl(nextItem?.imageUrl ?? "");
     setKnowledgeStatus(nextItem?.status ?? "draft");
   }
 
@@ -780,6 +818,7 @@ export function useAdminContentState(
     setKnowledgeSection("knowledge");
     setKnowledgeTitle("");
     setKnowledgeBody("");
+    setKnowledgeImageUrl("");
     setKnowledgeStatus("draft");
     setContentMessage(null);
   }
@@ -1008,7 +1047,9 @@ export function useAdminContentState(
     };
 
     if (!response.ok || !payload.workflowRule) {
-      setContentMessage(payload.error ?? "기본 워크플로우 생성에 실패했습니다.");
+      setContentMessage(
+        payload.error ?? "기본 워크플로우 생성에 실패했습니다.",
+      );
       setIsWorkflowBootstrapping(false);
       return;
     }
@@ -1027,6 +1068,80 @@ export function useAdminContentState(
     setWorkflowStatus(payload.workflowRule.status);
     setContentMessage("기본 워크플로우를 만들었습니다.");
     setIsWorkflowBootstrapping(false);
+  }
+
+  async function handleRunWorkflowRule(query: string) {
+    if (!selectedWorkflowRuleId || !query.trim()) {
+      setContentMessage("테스트할 워크플로우와 질문을 먼저 확인해 주세요.");
+      return;
+    }
+
+    setIsWorkflowRunning(true);
+    setContentMessage(null);
+
+    const response = await fetch(
+      `/api/admin/schift/workflows/${encodeURIComponent(selectedWorkflowRuleId)}/run`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: query.trim() }),
+      },
+    );
+    const payload = (await response.json()) as {
+      error?: string;
+      run?: { id?: string | null };
+    };
+
+    if (!response.ok) {
+      setContentMessage(
+        payload.error ?? "워크플로우 테스트 실행에 실패했습니다.",
+      );
+      setIsWorkflowRunning(false);
+      return;
+    }
+
+    setContentMessage(
+      payload.run?.id
+        ? `워크플로우 테스트를 실행했습니다. 실행 ID ${payload.run.id}`
+        : "워크플로우 테스트를 실행했습니다.",
+    );
+    setIsWorkflowRunning(false);
+  }
+
+  async function handleDeleteWorkflowRule() {
+    if (!selectedWorkflowRuleId) {
+      setContentMessage("삭제할 워크플로우를 먼저 선택해 주세요.");
+      return;
+    }
+
+    setIsWorkflowDeleting(true);
+    setContentMessage(null);
+
+    const response = await fetch(
+      `/api/admin/schift/workflows/${encodeURIComponent(selectedWorkflowRuleId)}`,
+      { method: "DELETE" },
+    );
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setContentMessage(payload.error ?? "워크플로우 삭제에 실패했습니다.");
+      setIsWorkflowDeleting(false);
+      return;
+    }
+
+    const nextWorkflowRules = workflowRules.filter(
+      (rule) => rule.id !== selectedWorkflowRuleId,
+    );
+    setWorkflowRules(nextWorkflowRules);
+    const nextRule = nextWorkflowRules[0];
+    setSelectedWorkflowRuleId(nextRule?.id ?? "");
+    setWorkflowName(nextRule?.name ?? "");
+    setWorkflowTrigger(nextRule?.trigger ?? "");
+    setWorkflowRetrievalScope(nextRule?.retrievalScope ?? "");
+    setWorkflowModelName(nextRule?.modelName ?? "");
+    setWorkflowStatus(nextRule?.status ?? "review");
+    setContentMessage("워크플로우를 삭제했습니다.");
+    setIsWorkflowDeleting(false);
   }
 
   async function handleCreateKnowledgeItem() {
@@ -1050,6 +1165,7 @@ export function useAdminContentState(
         section: knowledgeSection,
         title: knowledgeTitle,
         body: knowledgeBody,
+        imageUrl: knowledgeImageUrl.trim() || null,
         status: knowledgeStatus,
       }),
     });
@@ -1070,7 +1186,8 @@ export function useAdminContentState(
       ...current.filter((item) => item.id !== payload.knowledgeItem?.id),
     ]);
     setSelectedKnowledgeItemId(payload.knowledgeItem.id);
-    setContentMessage("지식 문서를 생성했습니다.");
+    setKnowledgeImageUrl(payload.knowledgeItem.imageUrl ?? "");
+    setContentMessage("지식 문서를 생성���습니다.");
     setIsKnowledgeSaving(false);
   }
 
@@ -1100,6 +1217,7 @@ export function useAdminContentState(
           section: knowledgeSection,
           title: knowledgeTitle,
           body: knowledgeBody,
+          imageUrl: knowledgeImageUrl.trim() || null,
           status: knowledgeStatus,
         }),
       },
@@ -1123,6 +1241,7 @@ export function useAdminContentState(
           : item,
       ),
     );
+    setKnowledgeImageUrl(payload.knowledgeItem.imageUrl ?? "");
     setContentMessage("지식 문서를 수정했습니다.");
     setIsKnowledgeSaving(false);
   }
@@ -1160,6 +1279,7 @@ export function useAdminContentState(
     setKnowledgeSection(nextItem?.section ?? "knowledge");
     setKnowledgeTitle(nextItem?.title ?? "");
     setKnowledgeBody(nextItem?.body ?? "");
+    setKnowledgeImageUrl(nextItem?.imageUrl ?? "");
     setKnowledgeStatus(nextItem?.status ?? "draft");
     setContentMessage("지식 문서를 삭제했습니다.");
     setIsKnowledgeSaving(false);
@@ -1172,6 +1292,7 @@ export function useAdminContentState(
     knowledgeSection,
     knowledgeTitle,
     knowledgeBody,
+    knowledgeImageUrl,
     knowledgeStatus,
     ragDocuments,
     selectedRagDocumentId,
@@ -1191,6 +1312,8 @@ export function useAdminContentState(
     isKnowledgeSaving,
     isWorkflowSaving,
     isWorkflowBootstrapping,
+    isWorkflowRunning,
+    isWorkflowDeleting,
     isWeekSaving,
     weekSummaries,
     selectedWeekNumber,
@@ -1207,6 +1330,7 @@ export function useAdminContentState(
     setKnowledgeSection,
     setKnowledgeTitle,
     setKnowledgeBody,
+    setKnowledgeImageUrl,
     setKnowledgeStatus,
     setRagTitle,
     setRagCategory,
@@ -1224,6 +1348,8 @@ export function useAdminContentState(
     handleDeleteRagDocument,
     handleSaveWorkflowRule,
     handleBootstrapWorkflowRule,
+    handleRunWorkflowRule,
+    handleDeleteWorkflowRule,
     handleSelectWeek,
     handleWeekFieldChange,
     handleWeekStatusChange,
@@ -1246,5 +1372,6 @@ export function useAdminContentState(
     handleRemoveWeekAsset,
     handleRemoveWeekMedia,
     handleSaveWeek,
+    handlePublishWeek,
   };
 }

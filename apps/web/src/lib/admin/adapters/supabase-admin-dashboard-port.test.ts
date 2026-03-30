@@ -329,14 +329,16 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
 
     const dashboard = await adapter.getDashboard();
 
-    expect(dashboard.workflowRules).toContainEqual({
-      id: "schift-wf-1",
-      name: "Schift 기본 플로우",
-      trigger: "복통",
-      retrievalScope: "응급 문서",
-      modelName: "gpt-4.1",
-      status: "active",
-    });
+    expect(dashboard.workflowRules).toContainEqual(
+      expect.objectContaining({
+        id: "schift-wf-1",
+        name: "Schift 기본 플로우",
+        trigger: "복통",
+        retrievalScope: "응급 문서",
+        modelName: "gpt-4.1",
+        status: "active",
+      }),
+    );
   });
 
   it("stores allowed phone numbers as encrypted payloads and redacts audit values", async () => {

@@ -637,8 +637,8 @@
               <tr>
                 <td>FR-009</td>
                 <td><span class="badge status-unverified">코드만으로 확인 불가</span></td>
-                <td><code>apps/web/vercel.json</code>, 환경 변수 기반 서버 코드</td>
-                <td>저장소에는 운영 인프라를 사용하는 코드와 배포 설정 일부가 있지만, 실제 운영 URL, SSL 인증서, 6개월 운영 상태는 배포 환경 확인 없이는 판정할 수 없습니다.</td>
+                <td><code>apps/web/vercel.json</code>, <code>.env.example</code>, <code>.github/workflows/ci.yml</code>, <code>supabase/migrations/</code></td>
+                <td>코드 저장소에서 확인된 운영 인프라 구성 요소: (1) <strong>Vercel 배포</strong> — <code>vercel.json</code>에 framework: nextjs, region: hnd1(도쿄), CORS 헤더, 일별 cron 설정(<code>/api/cron/proactive-chat</code>) 포함. 도메인·SSL은 Vercel이 자동 제공. (2) <strong>Supabase DB</strong> — <code>NEXT_PUBLIC_SUPABASE_URL</code>, <code>SUPABASE_SERVICE_ROLE_KEY</code>, <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> 등 환경변수 키가 <code>.env.example</code>에 정의됨. 마이그레이션 파일 23개(<code>supabase/migrations/</code>)로 스키마 버전 관리 중. (3) <strong>AI 연동</strong> — <code>GEMINI_API_KEY</code>, Flowise(<code>FLOWISE_BASE_URL</code>/<code>FLOWISE_API_KEY</code>) 환경변수 정의. (4) <strong>CI/CD</strong> — GitHub Actions(<code>.github/workflows/ci.yml</code>)가 main/develop 브랜치 push 및 PR 시 lint → type-check → test → build 자동 실행. build 단계에서 Supabase URL 등을 GitHub Secrets로 주입. 실제 운영 URL과 SSL 인증서 발급 여부, 6개월 이상 운영 상태는 배포 환경 직접 확인 없이는 판정 불가.</td>
               </tr>
               <tr>
                 <td>FR-010</td>

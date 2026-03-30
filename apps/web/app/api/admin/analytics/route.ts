@@ -54,6 +54,41 @@ export async function GET() {
       `pregnancy_profiles?select=user_id&push_token=not.is.null&notification_enabled=eq.true&limit=${COUNT_LIMIT}`,
     ).catch(() => []);
 
+    // Daily trend for last 7 days
+    const dailyTrend: Array<{
+      date: string;
+      sessions: number;
+      logins: number;
+      messages: number;
+    }> = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const dayStart = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      const dayEnd = new Date(Date.now() - (i - 1) * 24 * 60 * 60 * 1000);
+      const dayStartStr = dayStart.toISOString().slice(0, 10);
+      const dayEndStr = dayEnd.toISOString().slice(0, 10);
+      const dateLabel = `${String(dayStart.getMonth() + 1).padStart(2, "0")}/${String(dayStart.getDate()).padStart(2, "0")}`;
+
+      const [daySessions, dayLogins, dayMessages] = await Promise.all([
+        supabaseSelect<{ id: string }[]>(
+          `chat_sessions?select=id&created_at=gte.${dayStartStr}T00:00:00Z&created_at=lt.${dayEndStr}T00:00:00Z&limit=${COUNT_LIMIT}`,
+        ).catch(() => []),
+        supabaseSelect<{ id: string }[]>(
+          `user_action_logs?select=id&action_type=eq.login_succeeded&occurred_at=gte.${dayStartStr}T00:00:00Z&occurred_at=lt.${dayEndStr}T00:00:00Z&limit=${COUNT_LIMIT}`,
+        ).catch(() => []),
+        supabaseSelect<{ id: string }[]>(
+          `chat_messages?select=id&created_at=gte.${dayStartStr}T00:00:00Z&created_at=lt.${dayEndStr}T00:00:00Z&limit=${COUNT_LIMIT}`,
+        ).catch(() => []),
+      ]);
+
+      dailyTrend.push({
+        date: dateLabel,
+        sessions: daySessions.length,
+        logins: dayLogins.length,
+        messages: dayMessages.length,
+      });
+    }
+
     return NextResponse.json({
       totalUsers: totalUsersRows.length,
       onboardedUsers: onboardedUsersRows.length,
@@ -63,6 +98,7 @@ export async function GET() {
       weekLogins: weekLoginsRows.length,
       todayEmotions: todayEmotionsRows.length,
       pushEnabled: pushEnabledRows.length,
+      dailyTrend,
     });
   } catch (error) {
     console.error("admin analytics route error", error);

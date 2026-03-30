@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { MobileProfileViewData } from "@gynecology-chatbot/app-core";
-import { Button, Card, LabeledInput } from "../../components/ui";
+import { Button, Card, DueDateCalendarPicker, LabeledInput } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
@@ -93,7 +93,15 @@ export function PatientProfileSettingsScreen() {
             <View style={styles.form}>
               <LabeledInput label="이름" value={displayName} onChangeText={setDisplayName} />
               <LabeledInput label="태명" value={babyNickname} onChangeText={setBabyNickname} placeholder="우리 아기 별명" />
-              <LabeledInput label="출산 예정일" value={dueDate} onChangeText={setDueDate} placeholder="2026-08-01" />
+              <View style={styles.fieldBlock}>
+                <Text style={styles.fieldLabel}>출산 예정일</Text>
+                <DueDateCalendarPicker
+                  value={dueDate}
+                  onChange={setDueDate}
+                  minDate={new Date()}
+                  maxDate={(() => { const d = new Date(); d.setDate(d.getDate() + 294); return d; })()}
+                />
+              </View>
               <LabeledInput label="병원" value={hospitalName} onChangeText={setHospitalName} placeholder="다니는 병원 이름" />
               <LabeledInput label="알림 시간" value={notificationTime} onChangeText={setNotificationTime} placeholder={DEFAULT_NOTIFICATION_TIME} />
               <LabeledInput label="상담 분위기" value={tonePreference} onChangeText={setTonePreference} placeholder="차분하게, 따뜻하게" />
@@ -140,6 +148,14 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: space.md,
+  },
+  fieldBlock: {
+    gap: space.xs,
+  },
+  fieldLabel: {
+    ...typo.caption,
+    color: surface.textSecondary,
+    fontWeight: "600",
   },
   errorText: {
     ...typo.caption,

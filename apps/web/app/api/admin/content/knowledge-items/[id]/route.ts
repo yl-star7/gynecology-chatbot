@@ -4,7 +4,22 @@ import { createAdminServices } from "@/lib/admin/create-admin-services";
 import type { AdminKnowledgeItemInput } from "@gynecology-chatbot/app-core";
 import { revalidateAdminKnowledgeCache } from "@/lib/admin/admin-cache";
 
-function parseKnowledgeItemInput(body: unknown): AdminKnowledgeItemInput | null {
+function parseImageUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "https:") return null;
+    return trimmed;
+  } catch {
+    return null;
+  }
+}
+
+function parseKnowledgeItemInput(
+  body: unknown,
+): AdminKnowledgeItemInput | null {
   if (!body || typeof body !== "object") {
     return null;
   }
@@ -15,6 +30,19 @@ function parseKnowledgeItemInput(body: unknown): AdminKnowledgeItemInput | null 
   const title = typeof record.title === "string" ? record.title.trim() : "";
   const bodyText = typeof record.body === "string" ? record.body.trim() : "";
   const status = record.status;
+  const imageUrl =
+    record.imageUrl === null || record.imageUrl === undefined
+      ? null
+      : parseImageUrl(record.imageUrl);
+
+  // If imageUrl was provided as a non-empty string but failed validation, reject
+  if (
+    typeof record.imageUrl === "string" &&
+    record.imageUrl.trim() !== "" &&
+    imageUrl === null
+  ) {
+    return null;
+  }
 
   if (
     !slug ||
@@ -31,6 +59,7 @@ function parseKnowledgeItemInput(body: unknown): AdminKnowledgeItemInput | null 
     section,
     title,
     body: bodyText,
+    imageUrl,
     status,
   };
 }
@@ -62,6 +91,7 @@ export async function PATCH(
     const knowledgeItem = await services.adminContentPort.updateKnowledgeItem(
       id,
       payload,
+      admin.id,
     );
     if (!knowledgeItem) {
       return NextResponse.json(
@@ -78,7 +108,9 @@ export async function PATCH(
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "failed to update knowledge item",
+          error instanceof Error
+            ? error.message
+            : "failed to update knowledge item",
       },
       { status: 400 },
     );
@@ -101,7 +133,7 @@ export async function DELETE(
     }
 
     const services = createAdminServices();
-    await services.adminContentPort.deleteKnowledgeItem(id);
+    await services.adminContentPort.deleteKnowledgeItem(id, admin.id);
     revalidateAdminKnowledgeCache();
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -109,7 +141,9 @@ export async function DELETE(
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "failed to delete knowledge item",
+          error instanceof Error
+            ? error.message
+            : "failed to delete knowledge item",
       },
       { status: 400 },
     );

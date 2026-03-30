@@ -23,6 +23,7 @@ export interface AdminContentSectionProps {
   knowledgeSection: AdminKnowledgeItem["section"];
   knowledgeTitle: string;
   knowledgeBody: string;
+  knowledgeImageUrl: string;
   knowledgeStatus: AdminKnowledgeItem["status"];
   selectedRagDocumentId: string;
   ragDocuments: AdminDashboardData["ragDocuments"];
@@ -48,12 +49,15 @@ export interface AdminContentSectionProps {
   isKnowledgeSaving: boolean;
   isWorkflowSaving: boolean;
   isWorkflowBootstrapping?: boolean;
+  isWorkflowRunning?: boolean;
+  isWorkflowDeleting?: boolean;
   isWeekSaving: boolean;
   onSelectKnowledgeItem: (id: string) => void;
   onKnowledgeSlugChange: (value: string) => void;
   onKnowledgeSectionChange: (value: AdminKnowledgeItem["section"]) => void;
   onKnowledgeTitleChange: (value: string) => void;
   onKnowledgeBodyChange: (value: string) => void;
+  onKnowledgeImageUrlChange: (value: string) => void;
   onKnowledgeStatusChange: (value: AdminKnowledgeItem["status"]) => void;
   onCreateKnowledgeItem: () => Promise<void>;
   onUpdateKnowledgeItem: () => Promise<void>;
@@ -77,6 +81,8 @@ export interface AdminContentSectionProps {
   ) => void;
   onSaveWorkflowRule: () => Promise<void>;
   onBootstrapWorkflowRule?: () => Promise<void>;
+  onRunWorkflowRule?: (query: string) => Promise<void>;
+  onDeleteWorkflowRule?: () => Promise<void>;
   onSelectWeek: (weekNumber: number) => void;
   onWeekFieldChange: (
     field:
@@ -128,6 +134,7 @@ export interface AdminContentSectionProps {
   onRemoveWeekAsset: (index: number) => void;
   onRemoveWeekMedia: (index: number) => void;
   onSaveWeek: () => Promise<void>;
+  onPublishWeek: () => Promise<void>;
   view?: "all" | "documents" | "static" | "weeks" | "policies";
 }
 
@@ -138,6 +145,7 @@ export function AdminContentSection({
   knowledgeSection,
   knowledgeTitle,
   knowledgeBody,
+  knowledgeImageUrl,
   knowledgeStatus,
   selectedRagDocumentId,
   ragDocuments,
@@ -163,12 +171,15 @@ export function AdminContentSection({
   isKnowledgeSaving,
   isWorkflowSaving,
   isWorkflowBootstrapping = false,
+  isWorkflowRunning = false,
+  isWorkflowDeleting = false,
   isWeekSaving,
   onSelectKnowledgeItem,
   onKnowledgeSlugChange,
   onKnowledgeSectionChange,
   onKnowledgeTitleChange,
   onKnowledgeBodyChange,
+  onKnowledgeImageUrlChange,
   onKnowledgeStatusChange,
   onCreateKnowledgeItem,
   onUpdateKnowledgeItem,
@@ -190,6 +201,8 @@ export function AdminContentSection({
   onWorkflowStatusChange,
   onSaveWorkflowRule,
   onBootstrapWorkflowRule = async () => {},
+  onRunWorkflowRule = async () => {},
+  onDeleteWorkflowRule = async () => {},
   onSelectWeek,
   onWeekFieldChange,
   onWeekStatusChange,
@@ -212,6 +225,7 @@ export function AdminContentSection({
   onRemoveWeekAsset,
   onRemoveWeekMedia,
   onSaveWeek,
+  onPublishWeek,
   view = "all",
 }: AdminContentSectionProps) {
   if (view === "documents") {
@@ -247,6 +261,7 @@ export function AdminContentSection({
         knowledgeSection={knowledgeSection}
         knowledgeTitle={knowledgeTitle}
         knowledgeBody={knowledgeBody}
+        knowledgeImageUrl={knowledgeImageUrl}
         knowledgeStatus={knowledgeStatus}
         isKnowledgeSaving={isKnowledgeSaving}
         onSelectKnowledgeItem={onSelectKnowledgeItem}
@@ -254,6 +269,7 @@ export function AdminContentSection({
         onKnowledgeSectionChange={onKnowledgeSectionChange}
         onKnowledgeTitleChange={onKnowledgeTitleChange}
         onKnowledgeBodyChange={onKnowledgeBodyChange}
+        onKnowledgeImageUrlChange={onKnowledgeImageUrlChange}
         onKnowledgeStatusChange={onKnowledgeStatusChange}
         onCreateKnowledgeItem={onCreateKnowledgeItem}
         onUpdateKnowledgeItem={onUpdateKnowledgeItem}
@@ -276,6 +292,8 @@ export function AdminContentSection({
         workflowStatus={workflowStatus}
         isWorkflowSaving={isWorkflowSaving}
         isWorkflowBootstrapping={isWorkflowBootstrapping}
+        isWorkflowRunning={isWorkflowRunning}
+        isWorkflowDeleting={isWorkflowDeleting}
         onSelectWorkflowRule={onSelectWorkflowRule}
         onWorkflowNameChange={onWorkflowNameChange}
         onWorkflowTriggerChange={onWorkflowTriggerChange}
@@ -284,6 +302,8 @@ export function AdminContentSection({
         onWorkflowStatusChange={onWorkflowStatusChange}
         onSaveWorkflowRule={onSaveWorkflowRule}
         onBootstrapWorkflowRule={onBootstrapWorkflowRule}
+        onRunWorkflowRule={onRunWorkflowRule}
+        onDeleteWorkflowRule={onDeleteWorkflowRule}
       />
     );
   }
@@ -321,6 +341,7 @@ export function AdminContentSection({
         onRemoveWeekAsset={onRemoveWeekAsset}
         onRemoveWeekMedia={onRemoveWeekMedia}
         onSaveWeek={onSaveWeek}
+        onPublishWeek={onPublishWeek}
       />
     );
   }

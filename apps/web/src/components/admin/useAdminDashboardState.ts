@@ -13,6 +13,7 @@ import type {
   AdminWeekSummary,
 } from "@gynecology-chatbot/app-core";
 import { useEffect, useMemo, useState } from "react";
+import { getWeekPublishReview } from "./content/week-publish-review";
 
 type OrderedItem = { displayOrder: number };
 
@@ -94,17 +95,18 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
   const [allowedPhoneNumber, setAllowedPhoneNumber] = useState("");
   const [allowedDisplayName, setAllowedDisplayName] = useState("");
   const [allowedNote, setAllowedNote] = useState("");
-  const [knowledgeItems, setKnowledgeItems] = useState<AdminKnowledgeItem[]>([]);
+  const [knowledgeItems, setKnowledgeItems] = useState<AdminKnowledgeItem[]>(
+    [],
+  );
   const [selectedKnowledgeItemId, setSelectedKnowledgeItemId] = useState("");
   const [knowledgeSlug, setKnowledgeSlug] = useState("");
-  const [knowledgeSection, setKnowledgeSection] = useState<
-    AdminKnowledgeItem["section"]
-  >("knowledge");
+  const [knowledgeSection, setKnowledgeSection] =
+    useState<AdminKnowledgeItem["section"]>("knowledge");
   const [knowledgeTitle, setKnowledgeTitle] = useState("");
   const [knowledgeBody, setKnowledgeBody] = useState("");
-  const [knowledgeStatus, setKnowledgeStatus] = useState<
-    AdminKnowledgeItem["status"]
-  >("draft");
+  const [knowledgeImageUrl, setKnowledgeImageUrl] = useState("");
+  const [knowledgeStatus, setKnowledgeStatus] =
+    useState<AdminKnowledgeItem["status"]>("draft");
   const [ragDocuments, setRagDocuments] = useState(dashboard.ragDocuments);
   const [selectedRagDocumentId, setSelectedRagDocumentId] = useState("");
   const [ragTitle, setRagTitle] = useState("");
@@ -175,7 +177,9 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
         };
 
         if (!response.ok) {
-          throw new Error(payload.error ?? "지식 문서 목록을 불러오지 못했습니다.");
+          throw new Error(
+            payload.error ?? "지식 문서 목록을 불러오지 못했습니다.",
+          );
         }
 
         if (cancelled) {
@@ -192,6 +196,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
           setKnowledgeSection(firstItem.section);
           setKnowledgeTitle(firstItem.title);
           setKnowledgeBody(firstItem.body);
+          setKnowledgeImageUrl(firstItem.imageUrl ?? "");
           setKnowledgeStatus(firstItem.status);
         }
       } catch (error) {
@@ -384,6 +389,11 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
   }
 
   function handleWeekStatusChange(value: AdminWeekDetail["status"]) {
+    if (value === "published") {
+      setContentMessage("게시는 검수 후 게시 버튼으로만 진행해 주세요.");
+      return;
+    }
+
     updateWeekDetail((current) => ({
       ...current,
       status: value,
@@ -446,8 +456,9 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     updateWeekDetail((current) => {
       const usedDayNumbers = new Set(current.days.map((day) => day.dayNumber));
       const nextDayNumber =
-        [1, 2, 3, 4, 5, 6, 7].find((dayNumber) => !usedDayNumbers.has(dayNumber)) ??
-        current.days.length + 1;
+        [1, 2, 3, 4, 5, 6, 7].find(
+          (dayNumber) => !usedDayNumbers.has(dayNumber),
+        ) ?? current.days.length + 1;
 
       if (nextDayNumber > 7) {
         return current;
@@ -587,6 +598,13 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
   }
 
   async function handleSaveWeek() {
+    await saveWeekWithStatus(selectedWeekDetail?.status);
+  }
+
+  async function saveWeekWithStatus(
+    statusOverride?: AdminWeekDetail["status"],
+    successMessage?: string,
+  ) {
     if (!selectedWeekDetail || !selectedWeekNumber) {
       return;
     }
@@ -607,7 +625,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
           motherSummary: selectedWeekDetail.motherSummary,
           heroImagePath: selectedWeekDetail.heroImagePath,
           compareImagePath: selectedWeekDetail.compareImagePath,
-          status: selectedWeekDetail.status,
+          status: statusOverride ?? selectedWeekDetail.status,
           days: sortOrderedItems(selectedWeekDetail.days).map((day) => ({
             id: day.id,
             dayNumber: day.dayNumber,
@@ -678,8 +696,28 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
         week.weekNumber === nextSummary.weekNumber ? nextSummary : week,
       );
     });
-    setContentMessage(`${payload.week.weekNumber}주차 데이터를 저장했습니다.`);
+    setContentMessage(
+      successMessage ?? `${payload.week.weekNumber}주차 데이터를 저장했습니다.`,
+    );
     setIsWeekSaving(false);
+  }
+
+  async function handlePublishWeek() {
+    if (!selectedWeekDetail) {
+      setContentMessage("먼저 주차를 선택해 주세요.");
+      return;
+    }
+
+    const review = getWeekPublishReview(selectedWeekDetail);
+    if (!review.isReady) {
+      setContentMessage("게시 전에 검수 보드의 빈 항목을 먼저 채워 주세요.");
+      return;
+    }
+
+    await saveWeekWithStatus(
+      "published",
+      `${selectedWeekDetail.weekNumber}주차를 검수 후 게시했습니다.`,
+    );
   }
 
   function syncSelectedUser(userId: string) {
@@ -703,6 +741,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     setKnowledgeSection(nextItem?.section ?? "knowledge");
     setKnowledgeTitle(nextItem?.title ?? "");
     setKnowledgeBody(nextItem?.body ?? "");
+    setKnowledgeImageUrl(nextItem?.imageUrl ?? "");
     setKnowledgeStatus(nextItem?.status ?? "draft");
   }
 
@@ -858,7 +897,9 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
               ...user,
               status: status === "paused" ? "paused" : "active",
               latestIssue:
-                status === "paused" ? "사용 중단 처리 완료" : "사용 재개 처리 완료",
+                status === "paused"
+                  ? "사용 중단 처리 완료"
+                  : "사용 재개 처리 완료",
             }
           : user,
       ),
@@ -1101,7 +1142,9 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
       !workflowRetrievalScope.trim() ||
       !workflowModelName.trim()
     ) {
-      setContentMessage("수정할 응답 정책을 선택하고 필수 필드를 모두 입력해 주세요.");
+      setContentMessage(
+        "수정할 응답 정책을 선택하고 필수 필드를 모두 입력해 주세요.",
+      );
       return;
     }
 
@@ -1150,7 +1193,11 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
   }
 
   async function handleCreateKnowledgeItem() {
-    if (!knowledgeSlug.trim() || !knowledgeTitle.trim() || !knowledgeBody.trim()) {
+    if (
+      !knowledgeSlug.trim() ||
+      !knowledgeTitle.trim() ||
+      !knowledgeBody.trim()
+    ) {
       setContentMessage("슬러그, 제목, 본문을 모두 입력해 주세요.");
       return;
     }
@@ -1166,6 +1213,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
         section: knowledgeSection,
         title: knowledgeTitle,
         body: knowledgeBody,
+        imageUrl: knowledgeImageUrl.trim() || null,
         status: knowledgeStatus,
       }),
     });
@@ -1186,6 +1234,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
       ...current.filter((item) => item.id !== payload.knowledgeItem?.id),
     ]);
     setSelectedKnowledgeItemId(payload.knowledgeItem.id);
+    setKnowledgeImageUrl(payload.knowledgeItem.imageUrl ?? "");
     setContentMessage("지식 문서를 생성했습니다.");
     setIsKnowledgeSaving(false);
   }
@@ -1197,7 +1246,9 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
       !knowledgeTitle.trim() ||
       !knowledgeBody.trim()
     ) {
-      setContentMessage("수정할 문서를 선택하고 슬러그, 제목, 본문을 모두 입력해 주세요.");
+      setContentMessage(
+        "수정할 문서를 선택하고 슬러그, 제목, 본문을 모두 입력해 주세요.",
+      );
       return;
     }
 
@@ -1214,6 +1265,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
           section: knowledgeSection,
           title: knowledgeTitle,
           body: knowledgeBody,
+          imageUrl: knowledgeImageUrl.trim() || null,
           status: knowledgeStatus,
         }),
       },
@@ -1237,6 +1289,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
           : item,
       ),
     );
+    setKnowledgeImageUrl(payload.knowledgeItem.imageUrl ?? "");
     setContentMessage("지식 문서를 수정했습니다.");
     setIsKnowledgeSaving(false);
   }
@@ -1274,6 +1327,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     setKnowledgeSection(nextItem?.section ?? "knowledge");
     setKnowledgeTitle(nextItem?.title ?? "");
     setKnowledgeBody(nextItem?.body ?? "");
+    setKnowledgeImageUrl(nextItem?.imageUrl ?? "");
     setKnowledgeStatus(nextItem?.status ?? "draft");
     setContentMessage("지식 문서를 삭제했습니다.");
     setIsKnowledgeSaving(false);
@@ -1299,6 +1353,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     knowledgeSection,
     knowledgeTitle,
     knowledgeBody,
+    knowledgeImageUrl,
     knowledgeStatus,
     ragDocuments,
     selectedRagDocumentId,
@@ -1340,6 +1395,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     setKnowledgeSection,
     setKnowledgeTitle,
     setKnowledgeBody,
+    setKnowledgeImageUrl,
     setKnowledgeStatus,
     handleUpdatePhoneNumber,
     handleResetSession,
@@ -1383,5 +1439,6 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     handleRemoveWeekAsset,
     handleRemoveWeekMedia,
     handleSaveWeek,
+    handlePublishWeek,
   };
 }
