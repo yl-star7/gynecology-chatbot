@@ -475,14 +475,15 @@ export async function completePhoneSignIn(
   if (!allowedPhoneNumber) {
     throw new Error("허용된 전화번호가 아닙니다. 관리자에게 문의해 주세요.");
   }
-  const verification =
-    isMobileAuthTestModeEnabled() && verificationCode.trim() === "000000"
-      ? {
-          sid: `test-${randomUUID()}`,
-          status: "approved",
-          to: normalizedPhoneNumber,
-        }
-      : await checkSmsVerification(normalizedPhoneNumber, verificationCode);
+  const isTestBypassLogin =
+    isMobileAuthTestModeEnabled() && verificationCode.trim() === "000000";
+  const verification = isTestBypassLogin
+    ? {
+        sid: `test-${randomUUID()}`,
+        status: "approved",
+        to: normalizedPhoneNumber,
+      }
+    : await checkSmsVerification(normalizedPhoneNumber, verificationCode);
 
   const verifiedAt = nowIso();
   await recordPhoneVerificationRequest({
@@ -519,6 +520,10 @@ export async function completePhoneSignIn(
     allowedPhoneNumber.display_name?.trim()
   ) {
     nextUser.displayName = allowedPhoneNumber.display_name.trim();
+  }
+
+  if (isTestBypassLogin) {
+    nextUser.hasCompletedOnboarding = false;
   }
 
   return {

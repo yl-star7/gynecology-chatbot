@@ -91,4 +91,51 @@ describe("completePhoneSignIn test mode bypass", () => {
     expect(result.user.id).toBe("user-1");
     expect(mockedCheckSmsVerification).not.toHaveBeenCalled();
   });
+
+  test("forces onboarding flow after test-mode 000000 login", async () => {
+    mockedSupabaseSelect.mockReset();
+    mockedSupabaseInsert.mockReset();
+    mockedSupabaseUpdate.mockReset();
+    mockedCheckSmsVerification.mockReset();
+
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedSupabaseSelect
+      .mockResolvedValueOnce([
+        {
+          id: "allow-1",
+          phone_number_encrypted: "enc:+821012345678",
+          phone_number_last4: "5678",
+          phone_number_blind_index: "idx:+821012345678",
+          display_name: "테스트 사용자",
+          note: null,
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "user-1",
+          phone_number_encrypted: "enc:+821012345678",
+          phone_number_last4: "5678",
+          account_status: "active",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          user_id: "user-1",
+          due_date: "2026-10-01",
+          onboarding_payload: {
+            tonePreference: "차분하게",
+            pregnancyWeekOrDueDate: "2026-10-01",
+          },
+        },
+      ] as never);
+    mockedSupabaseInsert.mockResolvedValue([]);
+
+    const result = await completePhoneSignIn("01012345678", "000000");
+
+    expect(result.user.hasCompletedOnboarding).toBe(false);
+  });
 });
