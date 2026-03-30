@@ -214,6 +214,27 @@ function isMobileAuthTestModeEnabled() {
   return process.env.MOBILE_AUTH_TEST_MODE === "true";
 }
 
+function isMobileAuthBypassPhoneNumber(phoneNumber: string) {
+  if (!isMobileAuthTestModeEnabled()) {
+    return false;
+  }
+
+  const bypassPhoneNumber = process.env.LOCAL_DEV_USER_PHONE_NUMBER?.trim();
+  if (!bypassPhoneNumber) {
+    return false;
+  }
+
+  const inputCandidates = createPhoneCandidates(phoneNumber);
+  const bypassCandidates = createPhoneCandidates(bypassPhoneNumber);
+  for (const candidate of inputCandidates) {
+    if (bypassCandidates.includes(candidate)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function createPhoneCandidates(phoneNumber: string) {
   const trimmed = phoneNumber.trim();
   const candidates = new Set<string>();
@@ -431,6 +452,14 @@ async function upsertPhoneUser(
 
 export async function startPhoneVerification(phoneNumber: string) {
   const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+  const isBypassPhoneNumber = isMobileAuthBypassPhoneNumber(
+    normalizedPhoneNumber,
+  );
+
+  if (isBypassPhoneNumber) {
+    return { ok: true as const };
+  }
+
   const allowedPhoneNumber = await findAllowedPhoneNumber(
     normalizedPhoneNumber,
   );
@@ -469,9 +498,23 @@ export async function completePhoneSignIn(
   verificationCode: string,
 ) {
   const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
-  const allowedPhoneNumber = await findAllowedPhoneNumber(
+  const isBypassPhoneNumber = isMobileAuthBypassPhoneNumber(
     normalizedPhoneNumber,
   );
+
+  const allowedPhoneNumber = isBypassPhoneNumber
+    ? {
+        id: "local-bypass-number",
+        phone_number_encrypted: createPhoneNumberStorage(normalizedPhoneNumber)
+          .phoneNumberEncrypted,
+        phone_number_last4: normalizedPhoneNumber.replace(/\D/g, "").slice(-4),
+        phone_number_blind_index: computePhoneNumberBlindIndex(
+          normalizedPhoneNumber,
+        ),
+        display_name: process.env.LOCAL_DEV_USER_NAME?.trim() || "사용자",
+        note: "local bypass",
+      }
+    : await findAllowedPhoneNumber(normalizedPhoneNumber);
   if (!allowedPhoneNumber) {
     throw new Error("허용된 전화번호가 아닙니다. 관리자에게 문의해 주세요.");
   }

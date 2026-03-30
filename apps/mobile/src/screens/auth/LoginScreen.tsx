@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { router } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import {
   BrandMark,
@@ -20,10 +20,25 @@ export function LoginScreen() {
   );
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hasRequestedCode, setHasRequestedCode] = useState(false);
+
+  const isBypassPhoneNumber = useMemo(
+    () => __DEV__ && phoneNumber.trim() === "01026784241",
+    [phoneNumber],
+  );
 
   async function handleRequestCode() {
     try {
+      if (isBypassPhoneNumber) {
+        setVerificationCode("000000");
+        setHasRequestedCode(true);
+        setStatusMessage("테스트 번호 확인을 마쳤어요. 바로 시작할 수 있어요.");
+        setError(null);
+        return;
+      }
+
       await requestVerificationCode({ phoneNumber });
+      setHasRequestedCode(true);
       setStatusMessage("인증번호를 보냈어요.");
       setError(null);
     } catch (nextError) {
@@ -36,6 +51,16 @@ export function LoginScreen() {
   }
 
   async function handleLogin() {
+    if (!hasRequestedCode) {
+      setError("먼저 인증번호 받기를 눌러주세요.");
+      return;
+    }
+
+    if (!verificationCode.trim()) {
+      setError("인증번호를 입력해 주세요.");
+      return;
+    }
+
     try {
       const user = await signIn({ phoneNumber, verificationCode });
       router.replace(user.hasCompletedOnboarding ? "/home" : "/onboarding");
@@ -60,7 +85,12 @@ export function LoginScreen() {
           <LabeledInput
             label="전화번호"
             value={phoneNumber}
-            onChangeText={setPhoneNumber}
+            onChangeText={(next) => {
+              setPhoneNumber(next);
+              setHasRequestedCode(false);
+              setStatusMessage(null);
+              setError(null);
+            }}
             placeholder="01012345678"
             keyboardType="phone-pad"
             returnKeyType="next"
