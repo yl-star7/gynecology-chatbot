@@ -1,6 +1,10 @@
 // @ts-nocheck
 import { useEffect, useMemo, useState } from "react";
-import type { ChatMessage, RecentChatSummary, TodayViewData } from "@gynecology-chatbot/app-core";
+import type {
+  ChatMessage,
+  RecentChatSummary,
+  TodayViewData,
+} from "@gynecology-chatbot/app-core";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Image,
@@ -19,15 +23,24 @@ import { Card, Pressable } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { PatientTodayTabs } from "../../components/patient/PatientTodayTabs";
 import { useMobileServices } from "../../core/MobileServicesProvider";
-import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+import {
+  palette,
+  patientSurfacePalette as surface,
+  radii,
+  space,
+  typo,
+} from "../../theme";
 import { buildPatientTodayViewModel } from "./view-models";
 
 function createSessionId() {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
-    const random = Math.floor(Math.random() * 16);
-    const value = character === "x" ? random : (random & 0x3) | 0x8;
-    return value.toString(16);
-  });
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+    /[xy]/g,
+    (character) => {
+      const random = Math.floor(Math.random() * 16);
+      const value = character === "x" ? random : (random & 0x3) | 0x8;
+      return value.toString(16);
+    },
+  );
 }
 
 function createUserMessage(text: string): ChatMessage {
@@ -46,7 +59,9 @@ export function PatientTodayScreen() {
   const [today, setToday] = useState<TodayViewData | null>(null);
   const [recentSessions, setRecentSessions] = useState<RecentChatSummary[]>([]);
   const [activeSection, setActiveSection] = useState("info");
-  const [conversationSessionId, setConversationSessionId] = useState<string | null>(null);
+  const [conversationSessionId, setConversationSessionId] = useState<
+    string | null
+  >(null);
   const [text, setText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [pendingChecklistIds, setPendingChecklistIds] = useState<string[]>([]);
@@ -71,7 +86,9 @@ export function PatientTodayScreen() {
     services.todayPort
       .markInfoViewed()
       .then(() => {
-        setToday((current) => (current ? { ...current, infoViewed: true } : current));
+        setToday((current) =>
+          current ? { ...current, infoViewed: true } : current,
+        );
       })
       .catch(() => undefined);
   }, [activeSection, services, today?.infoViewed]);
@@ -89,12 +106,17 @@ export function PatientTodayScreen() {
       return;
     }
 
-    const hasExistingSession = recentSessions.some((session) => session.id === conversationSessionId);
+    const hasExistingSession = recentSessions.some(
+      (session) => session.id === conversationSessionId,
+    );
     if (!hasExistingSession) {
       return;
     }
 
-    services.chatPort.getSession(conversationSessionId).then(replaceSession).catch(() => undefined);
+    services.chatPort
+      .getSession(conversationSessionId)
+      .then(replaceSession)
+      .catch(() => undefined);
   }, [conversationSessionId, recentSessions, replaceSession, services]);
 
   const viewModel = buildPatientTodayViewModel({
@@ -114,7 +136,11 @@ export function PatientTodayScreen() {
       return;
     }
 
-    appendMessage(conversationSessionId, "아기와 대화", createUserMessage(nextText));
+    appendMessage(
+      conversationSessionId,
+      "아기와 대화",
+      createUserMessage(nextText),
+    );
     setText("");
     setIsSending(true);
 
@@ -147,7 +173,9 @@ export function PatientTodayScreen() {
         ? {
             ...current,
             checklistItems: current.checklistItems.map((item) =>
-              item.id === checklistId ? { ...item, completed: nextCompleted } : item,
+              item.id === checklistId
+                ? { ...item, completed: nextCompleted }
+                : item,
             ),
           }
         : current,
@@ -164,13 +192,17 @@ export function PatientTodayScreen() {
           ? {
               ...current,
               checklistItems: current.checklistItems.map((item) =>
-                item.id === checklistId ? { ...item, completed: target.completed } : item,
+                item.id === checklistId
+                  ? { ...item, completed: target.completed }
+                  : item,
               ),
             }
           : current,
       );
     } finally {
-      setPendingChecklistIds((current) => current.filter((id) => id !== checklistId));
+      setPendingChecklistIds((current) =>
+        current.filter((id) => id !== checklistId),
+      );
     }
   }
 
@@ -179,7 +211,9 @@ export function PatientTodayScreen() {
   }
 
   function handleSurveyAnswer(surveyId: string, choiceId: string) {
-    services.chatPort?.saveSurveyAnswer?.({ surveyId, choiceId }).catch(() => undefined);
+    services.chatPort
+      ?.saveSurveyAnswer?.({ surveyId, choiceId })
+      .catch(() => undefined);
   }
 
   function handleDeepLinkPress(target: string, entityId?: string) {
@@ -194,8 +228,16 @@ export function PatientTodayScreen() {
   }
 
   return (
-    <PatientShell activeTab="today" title="오늘,우리" pageTone="plain">
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <PatientShell
+      activeTab="today"
+      title="오늘,우리"
+      pageTone="plain"
+      headerCompact
+    >
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <ScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
@@ -211,12 +253,20 @@ export function PatientTodayScreen() {
               <View style={styles.segmentSection}>
                 <View style={styles.iconTitleRow}>
                   <View style={[styles.sectionIconWrap, styles.babyIconWrap]}>
-                    <Ionicons name="happy-outline" size={space.lg + space.xs} color={palette.accent} />
+                    <Ionicons
+                      name="happy-outline"
+                      size={space.lg + space.xs}
+                      color={palette.accent}
+                    />
                   </View>
-                  <Text style={styles.sectionTitle}>{viewModel.babyCard.title}</Text>
+                  <Text style={styles.sectionTitle}>
+                    {viewModel.babyCard.title}
+                  </Text>
                 </View>
                 <View style={[styles.innerPanel, styles.babyPanel]}>
-                  <Text style={styles.sectionBody}>{viewModel.babyCard.body}</Text>
+                  <Text style={styles.sectionBody}>
+                    {viewModel.babyCard.body}
+                  </Text>
                 </View>
               </View>
 
@@ -225,12 +275,20 @@ export function PatientTodayScreen() {
               <View style={styles.segmentSection}>
                 <View style={styles.iconTitleRow}>
                   <View style={[styles.sectionIconWrap, styles.momIconWrap]}>
-                    <Ionicons name="heart-outline" size={space.lg + space.xs} color={palette.accent} />
+                    <Ionicons
+                      name="heart-outline"
+                      size={space.lg + space.xs}
+                      color={palette.accent}
+                    />
                   </View>
-                  <Text style={styles.sectionTitle}>{viewModel.momCard.title}</Text>
+                  <Text style={styles.sectionTitle}>
+                    {viewModel.momCard.title}
+                  </Text>
                 </View>
                 <View style={[styles.innerPanel, styles.momPanel]}>
-                  <Text style={styles.sectionBody}>{viewModel.momCard.body}</Text>
+                  <Text style={styles.sectionBody}>
+                    {viewModel.momCard.body}
+                  </Text>
                 </View>
               </View>
             </Card>
@@ -240,10 +298,18 @@ export function PatientTodayScreen() {
             <Card style={styles.segmentCard}>
               <View style={styles.sectionHeaderRow}>
                 <View style={styles.iconTitleRow}>
-                  <View style={[styles.sectionIconWrap, styles.checklistIconWrap]}>
-                    <Ionicons name="checkmark-circle-outline" size={space.lg + space.xs} color={palette.successText} />
+                  <View
+                    style={[styles.sectionIconWrap, styles.checklistIconWrap]}
+                  >
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={space.lg + space.xs}
+                      color={palette.successText}
+                    />
                   </View>
-                  <Text style={styles.sectionTitle}>{viewModel.checklistTitle}</Text>
+                  <Text style={styles.sectionTitle}>
+                    {viewModel.checklistTitle}
+                  </Text>
                 </View>
               </View>
 
@@ -256,21 +322,35 @@ export function PatientTodayScreen() {
                     disabled={pendingChecklistIds.includes(item.id)}
                     accessibilityLabel={`${item.label} ${item.completed ? "완료됨" : "미완료"}`}
                   >
-                    <View style={[styles.checkbox, item.completed ? styles.checkboxCompleted : null]} />
+                    <View
+                      style={[
+                        styles.checkbox,
+                        item.completed ? styles.checkboxCompleted : null,
+                      ]}
+                    />
                     <Text style={styles.checklistLabel}>{item.label}</Text>
                   </Pressable>
                 ))}
                 {viewModel.checklistItems.length === 0 ? (
-                  <Text style={styles.emptyChecklistText}>오늘 체크리스트를 준비 중이에요.</Text>
+                  <Text style={styles.emptyChecklistText}>
+                    오늘 체크리스트를 준비 중이에요.
+                  </Text>
                 ) : null}
               </View>
 
               <View style={styles.progressMetaRow}>
                 <Text style={styles.progressMetaLabel}>완료율</Text>
-                <Text style={styles.progressPercent}>{`${viewModel.checklistProgressPercent}%`}</Text>
+                <Text
+                  style={styles.progressPercent}
+                >{`${viewModel.checklistProgressPercent}%`}</Text>
               </View>
               <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${viewModel.checklistProgressPercent}%` }]} />
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${viewModel.checklistProgressPercent}%` },
+                  ]}
+                />
               </View>
             </Card>
           ) : null}
@@ -278,23 +358,40 @@ export function PatientTodayScreen() {
           {activeSection === "conversation" ? (
             <Card style={[styles.segmentCard, styles.conversationCard]}>
               <View style={styles.iconTitleRow}>
-                <View style={[styles.sectionIconWrap, styles.conversationIconWrap]}>
-                  <Ionicons name="chatbubble-outline" size={space.lg + space.xs} color={palette.accent} />
+                <View
+                  style={[styles.sectionIconWrap, styles.conversationIconWrap]}
+                >
+                  <Ionicons
+                    name="chatbubble-outline"
+                    size={space.lg + space.xs}
+                    color={palette.accent}
+                  />
                 </View>
-                <Text style={styles.sectionTitle}>{viewModel.conversationTitle}</Text>
+                <Text style={styles.sectionTitle}>
+                  {viewModel.conversationTitle}
+                </Text>
               </View>
 
               {session.messages.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="chatbubble-outline" size={space.xxxl + space.lg} color={surface.strokeSubtle} />
-                  <Text style={styles.emptyText}>{viewModel.conversationDescription}</Text>
+                  <Ionicons
+                    name="chatbubble-outline"
+                    size={space.xxxl + space.lg}
+                    color={surface.strokeSubtle}
+                  />
+                  <Text style={styles.emptyText}>
+                    {viewModel.conversationDescription}
+                  </Text>
                 </View>
               ) : (
                 <View style={styles.messageList}>
                   {session.messages.map((message) => {
                     if (message.role === "assistant") {
                       return (
-                        <View key={message.id} style={[styles.messageBubble, styles.assistantBubble]}>
+                        <View
+                          key={message.id}
+                          style={[styles.messageBubble, styles.assistantBubble]}
+                        >
                           <ChatPartRenderer
                             message={message}
                             onQuickReplySelect={handleQuickReplySelect}
@@ -305,12 +402,20 @@ export function PatientTodayScreen() {
                       );
                     }
 
-                    const textPart = message.parts.find((part) => part.type === "text");
-                    const imageParts = message.parts.filter((part) => part.type === "image");
-                    const bodyText = textPart?.type === "text" ? textPart.text : null;
+                    const textPart = message.parts.find(
+                      (part) => part.type === "text",
+                    );
+                    const imageParts = message.parts.filter(
+                      (part) => part.type === "image",
+                    );
+                    const bodyText =
+                      textPart?.type === "text" ? textPart.text : null;
 
                     return (
-                      <View key={message.id} style={[styles.messageBubble, styles.userBubble]}>
+                      <View
+                        key={message.id}
+                        style={[styles.messageBubble, styles.userBubble]}
+                      >
                         {imageParts.map((part) =>
                           part.type === "image" ? (
                             <View key={part.id} style={styles.userImageWrap}>
@@ -324,7 +429,11 @@ export function PatientTodayScreen() {
                           ) : null,
                         )}
                         {bodyText ? (
-                          <Text style={[styles.messageText, styles.userMessageText]}>{bodyText}</Text>
+                          <Text
+                            style={[styles.messageText, styles.userMessageText]}
+                          >
+                            {bodyText}
+                          </Text>
                         ) : null}
                       </View>
                     );
@@ -343,12 +452,19 @@ export function PatientTodayScreen() {
                   onChangeText={setText}
                 />
                 <Pressable
-                  style={[styles.sendButton, isSending ? styles.sendButtonDisabled : null]}
+                  style={[
+                    styles.sendButton,
+                    isSending ? styles.sendButtonDisabled : null,
+                  ]}
                   onPress={handleSend}
                   disabled={isSending}
                   accessibilityLabel="메시지 보내기"
                 >
-                  <Ionicons name="paper-plane-outline" size={space.lg + space.sm} color={surface.surfacePrimary} />
+                  <Ionicons
+                    name="paper-plane-outline"
+                    size={space.lg + space.sm}
+                    color={surface.surfacePrimary}
+                  />
                 </Pressable>
               </View>
             </Card>
@@ -365,7 +481,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: space.lg,
-    paddingTop: space.md,
+    paddingTop: space.xs,
     paddingBottom: 140,
     gap: space.md,
   },
@@ -504,6 +620,7 @@ const styles = StyleSheet.create({
     ...typo.body,
     color: surface.textSecondary,
     textAlign: "center",
+    paddingHorizontal: space.md,
   },
   messageList: {
     flexGrow: 1,

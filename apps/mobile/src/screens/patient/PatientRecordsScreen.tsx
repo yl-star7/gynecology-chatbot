@@ -6,7 +6,14 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Card, Pressable } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { useMobileServices } from "../../core/MobileServicesProvider";
-import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../../theme";
+import {
+  palette,
+  patientSurfacePalette as surface,
+  radii,
+  shadows,
+  space,
+  typo,
+} from "../../theme";
 import { buildPatientRecordsViewModel } from "./view-models";
 
 function badgeStyle(tone: string) {
@@ -32,7 +39,10 @@ export function PatientRecordsScreen() {
   const [home, setHome] = useState<HomeViewData | null>(null);
 
   useEffect(() => {
-    services.homePort.getHomeView().then(setHome).catch(() => undefined);
+    services.homePort
+      .getHomeView()
+      .then(setHome)
+      .catch(() => undefined);
   }, [services]);
 
   const viewModel = buildPatientRecordsViewModel(home);
@@ -42,8 +52,17 @@ export function PatientRecordsScreen() {
   );
 
   return (
-    <PatientShell activeTab="home" title="날짜별 기록" backHref="/home" pageTone="plain">
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <PatientShell
+      activeTab="home"
+      title="날짜별 기록"
+      backHref="/home"
+      pageTone="plain"
+      headerCompact
+    >
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <Card variant="muted">
           <Text style={styles.title}>{viewModel.title}</Text>
           <Text style={styles.description}>{viewModel.description}</Text>
@@ -51,7 +70,9 @@ export function PatientRecordsScreen() {
 
         <Card>
           <Text style={styles.sectionTitle}>기록이 있는 날짜</Text>
-          <Text style={styles.sectionDescription}>날짜를 누르면 그날의 체크와 대화를 함께 볼 수 있어요.</Text>
+          <Text style={styles.sectionDescription}>
+            날짜를 누르면 그날의 체크와 대화를 함께 볼 수 있어요.
+          </Text>
           <View style={styles.list}>
             {activeDays.map((day) => (
               <Pressable
@@ -66,7 +87,9 @@ export function PatientRecordsScreen() {
                 <View style={styles.dayCardHeader}>
                   <Text style={styles.dayLabel}>{day.isoDate}</Text>
                   <View style={[styles.badge, badgeStyle(day.statusTone)]}>
-                    <Text style={[styles.badgeText, badgeTextStyle(day.statusTone)]}>
+                    <Text
+                      style={[styles.badgeText, badgeTextStyle(day.statusTone)]}
+                    >
                       {day.statusTone === "success"
                         ? "실천함"
                         : day.statusTone === "warning"
@@ -85,7 +108,10 @@ export function PatientRecordsScreen() {
               </Pressable>
             ))}
             {activeDays.length === 0 ? (
-              <Text style={styles.emptyText}>아직 기록이 있는 날짜가 없어요.</Text>
+              <Text style={styles.emptyText}>
+                아직 기록이 쌓이지 않았어요. 오늘 대화를 시작하면 여기에
+                차곡차곡 보여드릴게요.
+              </Text>
             ) : null}
           </View>
         </Card>
@@ -97,7 +123,7 @@ export function PatientRecordsScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: space.lg,
-    paddingTop: space.md,
+    paddingTop: space.xs,
     paddingBottom: 140,
     gap: space.md,
   },
