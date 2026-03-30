@@ -23,7 +23,9 @@ function requireDevUserId() {
     return expoPublic;
   }
 
-  throw new Error("NEXT_PUBLIC_DEV_USER_ID or EXPO_PUBLIC_DEV_USER_ID is required");
+  throw new Error(
+    "NEXT_PUBLIC_DEV_USER_ID or EXPO_PUBLIC_DEV_USER_ID is required",
+  );
 }
 
 function getLocalSchema() {
@@ -134,7 +136,9 @@ function getPool() {
 }
 
 function resolveLocalTableName(table: string) {
-  const normalizedTable = table.includes(".") ? table.split(".").pop() ?? table : table;
+  const normalizedTable = table.includes(".")
+    ? (table.split(".").pop() ?? table)
+    : table;
 
   if (!LOCAL_TABLES.has(normalizedTable)) {
     throw new Error(`Unsupported local table: ${table}`);
@@ -204,7 +208,9 @@ async function ensureSeedData() {
   );
   const hasLegacyDisplayNameColumn = Boolean(displayNameColumnRow?.exists);
   const defaultUserPhone = createPhoneNumberStorage(getDefaultPhoneNumber());
-  const defaultAdminPhone = createPhoneNumberStorage(getDefaultAdminPhoneNumber());
+  const defaultAdminPhone = createPhoneNumberStorage(
+    getDefaultAdminPhoneNumber(),
+  );
 
   const userInsertSql = hasLegacyDisplayNameColumn
     ? `
@@ -321,7 +327,7 @@ async function ensureSeedData() {
         created_at,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $6)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
       ON CONFLICT (phone_number_blind_index) DO UPDATE
       SET
         display_name = EXCLUDED.display_name,
@@ -840,7 +846,7 @@ function splitPath(path: string) {
   }
 
   const table = rawTable.includes(".")
-    ? rawTable.split(".").at(-1) ?? rawTable
+    ? (rawTable.split(".").at(-1) ?? rawTable)
     : rawTable;
 
   return {
