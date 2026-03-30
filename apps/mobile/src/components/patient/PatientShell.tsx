@@ -6,7 +6,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, Text, View } from "react-native";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { Pressable } from "../ui";
-import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+import {
+  palette,
+  patientSurfacePalette as surface,
+  radii,
+  space,
+  typo,
+} from "../../theme";
 import { PatientTabBar } from "./PatientTabBar";
 
 export function PatientShell({
@@ -17,6 +23,7 @@ export function PatientShell({
   rightActionIcon,
   rightActionLabel,
   onRightActionPress,
+  backHref,
 }: {
   children: ReactNode;
   activeTab: "home" | "today" | "profile";
@@ -33,9 +40,34 @@ export function PatientShell({
   const useMainTone = pageTone === "main";
 
   return (
-    <SafeAreaView style={[styles.safeArea, useMainTone ? styles.safeAreaMain : styles.safeAreaPlain]}>
-      <View style={[styles.header, useMainTone ? styles.headerMain : styles.headerPlain]}>
-        <View style={styles.headerSpacer} />
+    <SafeAreaView
+      style={[
+        styles.safeArea,
+        useMainTone ? styles.safeAreaMain : styles.safeAreaPlain,
+      ]}
+    >
+      <View
+        style={[
+          styles.header,
+          useMainTone ? styles.headerMain : styles.headerPlain,
+        ]}
+      >
+        {backHref ? (
+          <Pressable
+            onPress={() => router.replace(backHref)}
+            accessibilityLabel="뒤로가기"
+            style={styles.iconButton}
+            hitSlop={12}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={space.lg + space.sm}
+              color={surface.textPrimary}
+            />
+          </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
         {showProfileButton ? (
           <Pressable
             onPress={() => router.replace("/profile")}
@@ -51,7 +83,11 @@ export function PatientShell({
             style={styles.iconButton}
             hitSlop={12}
           >
-            <Ionicons name={rightActionIcon} size={space.lg + space.sm} color={surface.textPrimary} />
+            <Ionicons
+              name={rightActionIcon}
+              size={space.lg + space.sm}
+              color={surface.textPrimary}
+            />
           </Pressable>
         ) : (
           <View style={styles.iconButtonPlaceholder} />

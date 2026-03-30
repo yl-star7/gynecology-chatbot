@@ -15,6 +15,7 @@ import {
   Card,
   DueDateCalendarPicker,
   LabeledInput,
+  Pressable,
 } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
@@ -27,6 +28,7 @@ import {
 } from "../../theme";
 
 const DEFAULT_NOTIFICATION_TIME = ["0", "8", ":", "3", "0"].join("");
+const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", "다정하게"];
 
 export function PatientProfileSettingsScreen() {
   const { currentUser } = useMobileAppSession();
@@ -35,6 +37,7 @@ export function PatientProfileSettingsScreen() {
   const [displayName, setDisplayName] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [tonePreference, setTonePreference] = useState("");
+  const [isToneDropdownOpen, setIsToneDropdownOpen] = useState(false);
   const [babyNickname, setBabyNickname] = useState("");
   const [hospitalName, setHospitalName] = useState("");
   const [notificationTime, setNotificationTime] = useState(
@@ -63,11 +66,15 @@ export function PatientProfileSettingsScreen() {
         );
       })
       .catch((nextError) => {
-        setError(
+        const message =
           nextError instanceof Error
             ? nextError.message
-            : "내 정보를 불러오지 못했어요.",
-        );
+            : "내 정보를 불러오지 못했어요.";
+        if (message.includes("세션이 만료되었어요")) {
+          router.replace("/auth/login");
+          return;
+        }
+        setError(message);
       });
   }, [currentUser, profilePort]);
 
@@ -78,8 +85,8 @@ export function PatientProfileSettingsScreen() {
 
     const trimmedDisplayName = displayName.trim();
     const trimmedTonePreference = tonePreference.trim();
-    if (!trimmedDisplayName || !trimmedTonePreference) {
-      setError("이름과 상담 분위기를 모두 입력해주세요.");
+    if (!trimmedTonePreference) {
+      setError("상담 분위기를 선택해주세요.");
       return;
     }
 
@@ -100,11 +107,15 @@ export function PatientProfileSettingsScreen() {
       setProfile(refreshed);
       router.back();
     } catch (nextError) {
-      setError(
+      const message =
         nextError instanceof Error
           ? nextError.message
-          : "저장하지 못했어요. 다시 시도해주세요.",
-      );
+          : "저장하지 못했어요. 다시 시도해주세요.";
+      if (message.includes("세션이 만료되었어요")) {
+        router.replace("/auth/login");
+        return;
+      }
+      setError(message);
     } finally {
       setIsSaving(false);
     }
@@ -143,11 +154,6 @@ export function PatientProfileSettingsScreen() {
           <Card variant="muted">
             <View style={styles.form}>
               <LabeledInput
-                label="이름"
-                value={displayName}
-                onChangeText={setDisplayName}
-              />
-              <LabeledInput
                 label="태명"
                 value={babyNickname}
                 onChangeText={setBabyNickname}
@@ -178,12 +184,52 @@ export function PatientProfileSettingsScreen() {
                 onChangeText={setNotificationTime}
                 placeholder={DEFAULT_NOTIFICATION_TIME}
               />
-              <LabeledInput
-                label="상담 분위기"
-                value={tonePreference}
-                onChangeText={setTonePreference}
-                placeholder="차분하게, 따뜻하게"
-              />
+              <View style={styles.fieldBlock}>
+                <Text style={styles.fieldLabel}>상담 분위기</Text>
+                <Pressable
+                  style={styles.dropdownTrigger}
+                  onPress={() => setIsToneDropdownOpen((prev) => !prev)}
+                  accessibilityLabel="상담 분위기 선택"
+                >
+                  <Text
+                    style={
+                      tonePreference
+                        ? styles.dropdownValue
+                        : styles.dropdownPlaceholder
+                    }
+                  >
+                    {tonePreference || "상담 분위기를 선택해주세요"}
+                  </Text>
+                </Pressable>
+                {isToneDropdownOpen ? (
+                  <View style={styles.dropdownList}>
+                    {TONE_OPTIONS.map((tone) => (
+                      <Pressable
+                        key={tone}
+                        style={[
+                          styles.dropdownItem,
+                          tonePreference === tone && styles.dropdownItemActive,
+                        ]}
+                        onPress={() => {
+                          setTonePreference(tone);
+                          setIsToneDropdownOpen(false);
+                          setError(null);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.dropdownItemLabel,
+                            tonePreference === tone &&
+                              styles.dropdownItemLabelActive,
+                          ]}
+                        >
+                          {tone}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
               <Button
                 label={isSaving ? "저장 중이에요..." : "저장하기"}
@@ -238,6 +284,46 @@ const styles = StyleSheet.create({
   fieldLabel: {
     ...typo.caption,
     color: surface.textSecondary,
+    fontWeight: "600",
+  },
+  dropdownTrigger: {
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: surface.strokeSubtle,
+    backgroundColor: surface.surfacePrimary,
+    justifyContent: "center",
+    paddingHorizontal: space.md,
+  },
+  dropdownValue: {
+    ...typo.body,
+    color: surface.textPrimary,
+  },
+  dropdownPlaceholder: {
+    ...typo.body,
+    color: surface.textSecondary,
+  },
+  dropdownList: {
+    marginTop: space.xs,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: surface.strokeSubtle,
+    backgroundColor: surface.surfacePrimary,
+    overflow: "hidden",
+  },
+  dropdownItem: {
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+  },
+  dropdownItemActive: {
+    backgroundColor: surface.surfaceAccent,
+  },
+  dropdownItemLabel: {
+    ...typo.body,
+    color: surface.textPrimary,
+  },
+  dropdownItemLabelActive: {
+    color: palette.accent,
     fontWeight: "600",
   },
   errorText: {

@@ -47,7 +47,12 @@ type QuestionRow = {
   id: string;
   code: string;
   question_text: string;
-  question_type: "text" | "single_choice" | "multi_choice" | "yes_no" | "number";
+  question_type:
+    | "text"
+    | "single_choice"
+    | "multi_choice"
+    | "yes_no"
+    | "number";
   help_text: string | null;
   question_payload: {
     choices?: Array<{ id?: string; label?: string }>;
@@ -201,7 +206,8 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const hintedUserId = typeof body.userId === "string" ? body.userId.trim() : "";
+    const hintedUserId =
+      typeof body.userId === "string" ? body.userId.trim() : "";
     const displayName =
       typeof body.displayName === "string" ? body.displayName.trim() : "";
     const dueDate = typeof body.dueDate === "string" ? body.dueDate.trim() : "";
@@ -218,9 +224,9 @@ export async function PATCH(request: NextRequest) {
     const themeKey =
       typeof body.themeKey === "string" ? body.themeKey.trim() : "";
 
-    if (!displayName || !tonePreference) {
+    if (!tonePreference) {
       return NextResponse.json(
-        { error: "displayName and tonePreference are required" },
+        { error: "tonePreference is required" },
         { status: 400 },
       );
     }
