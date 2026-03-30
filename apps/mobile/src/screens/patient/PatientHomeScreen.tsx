@@ -120,7 +120,7 @@ export function PatientHomeScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: space.lg,
-    paddingTop: space.md,
+    paddingTop: space.xs,
     paddingBottom: 140,
     gap: space.md,
   },

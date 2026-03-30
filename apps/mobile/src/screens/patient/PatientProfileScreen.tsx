@@ -377,6 +377,7 @@ export function PatientProfileScreen() {
       title="마이페이지"
       showProfileButton={false}
       pageTone="plain"
+      headerCompact
     >
       <KeyboardAvoidingView
         style={styles.flex}
@@ -387,20 +388,17 @@ export function PatientProfileScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Card style={styles.heroCard}>
-            <View style={styles.heroHeaderRow}>
-              <View style={styles.heroHeaderSpacer} />
-              <Pressable
-                style={styles.heroSettingsButton}
-                onPress={() => router.push("/profile-settings")}
-                accessibilityLabel="정보 설정 열기"
-              >
-                <Ionicons
-                  name="settings-outline"
-                  size={space.lg + space.sm}
-                  color={surface.textPrimary}
-                />
-              </Pressable>
-            </View>
+            <Pressable
+              style={styles.heroSettingsButton}
+              onPress={() => router.push("/profile-settings")}
+              accessibilityLabel="정보 설정 열기"
+            >
+              <Ionicons
+                name="settings-outline"
+                size={space.lg + space.sm}
+                color={surface.textPrimary}
+              />
+            </Pressable>
             <View style={styles.heroRow}>
               <View style={styles.avatarCircle}>
                 <Image
@@ -879,29 +877,25 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: space.lg,
-    paddingTop: space.md,
+    paddingTop: space.xs,
     paddingBottom: 140,
     gap: space.lg,
   },
   heroCard: {
     paddingVertical: space.xl,
-  },
-  heroHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: space.md,
-  },
-  heroHeaderSpacer: {
-    flex: 1,
+    position: "relative",
   },
   heroSettingsButton: {
+    position: "absolute",
+    top: space.md,
+    right: space.md,
     width: space.xxxl + space.md,
     height: space.xxxl + space.md,
     borderRadius: radii.full,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: surface.surfaceSecondary,
+    zIndex: 1,
   },
   heroRow: {
     flexDirection: "row",
