@@ -41,9 +41,11 @@ const mockedCheckSmsVerification = jest.mocked(checkSmsVerification);
 
 describe("completePhoneSignIn test mode bypass", () => {
   const originalMode = process.env.MOBILE_AUTH_TEST_MODE;
+  const originalBypassPhone = process.env.LOCAL_DEV_USER_PHONE_NUMBER;
 
   beforeEach(() => {
     process.env.MOBILE_AUTH_TEST_MODE = "true";
+    process.env.LOCAL_DEV_USER_PHONE_NUMBER = "01012345678";
     mockedSupabaseSelect.mockReset();
     mockedSupabaseInsert.mockReset();
     mockedSupabaseUpdate.mockReset();
@@ -53,16 +55,14 @@ describe("completePhoneSignIn test mode bypass", () => {
     mockedSupabaseSelect
       .mockResolvedValueOnce([
         {
-          id: "allow-1",
+          id: "user-1",
           phone_number_encrypted: "enc:+821012345678",
           phone_number_last4: "5678",
-          phone_number_blind_index: "idx:+821012345678",
-          display_name: "테스트 사용자",
-          note: null,
+          account_status: "active",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
         },
       ])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         {
           id: "user-1",
@@ -80,9 +80,15 @@ describe("completePhoneSignIn test mode bypass", () => {
   afterAll(() => {
     if (originalMode === undefined) {
       delete process.env.MOBILE_AUTH_TEST_MODE;
+    } else {
+      process.env.MOBILE_AUTH_TEST_MODE = originalMode;
+    }
+
+    if (originalBypassPhone === undefined) {
+      delete process.env.LOCAL_DEV_USER_PHONE_NUMBER;
       return;
     }
-    process.env.MOBILE_AUTH_TEST_MODE = originalMode;
+    process.env.LOCAL_DEV_USER_PHONE_NUMBER = originalBypassPhone;
   });
 
   test("accepts verification code 000000 without Twilio check in test mode", async () => {
@@ -102,16 +108,14 @@ describe("completePhoneSignIn test mode bypass", () => {
     mockedSupabaseSelect
       .mockResolvedValueOnce([
         {
-          id: "allow-1",
+          id: "user-1",
           phone_number_encrypted: "enc:+821012345678",
           phone_number_last4: "5678",
-          phone_number_blind_index: "idx:+821012345678",
-          display_name: "테스트 사용자",
-          note: null,
+          account_status: "active",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
         },
       ])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
         {
           id: "user-1",

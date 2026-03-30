@@ -1,18 +1,23 @@
 jest.mock("@/lib/mobile/session-auth", () => ({
   requireMobileSession: jest.fn(),
   isMobileSessionError: jest.fn((error: unknown) => {
-    return error instanceof Error && error.message === "mobile session token is required";
+    return (
+      error instanceof Error &&
+      error.message === "mobile session token is required"
+    );
   }),
-  mobileRouteErrorResponse: jest.fn((error: unknown, fallbackMessage: string, status?: number) =>
-    Response.json(
-      { error: error instanceof Error ? error.message : fallbackMessage },
-      {
-        status:
-          error instanceof Error && error.message === "mobile session token is required"
-            ? 401
-            : (status ?? 500),
-      },
-    ),
+  mobileRouteErrorResponse: jest.fn(
+    (error: unknown, fallbackMessage: string, status?: number) =>
+      Response.json(
+        { error: error instanceof Error ? error.message : fallbackMessage },
+        {
+          status:
+            error instanceof Error &&
+            error.message === "mobile session token is required"
+              ? 401
+              : (status ?? 500),
+        },
+      ),
   ),
 }));
 
@@ -27,9 +32,8 @@ import { POST } from "./route";
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
   typeof requireMobileSession
 >;
-const mockedCompleteUserOnboarding = completeUserOnboarding as jest.MockedFunction<
-  typeof completeUserOnboarding
->;
+const mockedCompleteUserOnboarding =
+  completeUserOnboarding as jest.MockedFunction<typeof completeUserOnboarding>;
 
 describe("POST /api/mobile/onboarding", () => {
   beforeEach(() => {
@@ -89,6 +93,25 @@ describe("POST /api/mobile/onboarding", () => {
     expect(response.status).toBe(400);
     const payload = await response.json();
     expect(payload.error).toBeTruthy();
+  });
+
+  it("날짜 뒤에 다른 문구가 붙으면 400 반환", async () => {
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          pregnancyWeekOrDueDate: "2026-08-15 / 태명: 콩이",
+          tonePreference: "calm",
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "올바른 날짜 형식이 아니에요.",
+    });
   });
 
   it("정상 주차(20주)이면 onboarding 완료 후 200 반환", async () => {
