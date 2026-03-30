@@ -51,4 +51,19 @@ test("buildProfileCalendarModel uses the month from API data instead of the devi
   assert.equal(visibleDays[0], 1);
   assert.equal(visibleDays.at(-1), APRIL_DAY_COUNT);
   assert.equal(visibleDays.length, APRIL_DAY_COUNT);
+  assert.equal(model.isoDateByDay.get(1), "2026-04-01");
+  assert.equal(model.isoDateByDay.get(APRIL_DAY_COUNT), "2026-04-30");
+});
+
+test("buildProfileCalendarModel builds full month dates even when activity data is empty", () => {
+  const model = buildProfileCalendarModel([], new Date(2026, 4, 1));
+  const visibleDays = model.gridDays.filter(
+    (day): day is number => typeof day === "number",
+  );
+
+  assert.equal(visibleDays[0], 1);
+  assert.equal(visibleDays.at(-1), 31);
+  assert.equal(visibleDays.length, 31);
+  assert.equal(model.isoDateByDay.get(1), "2026-05-01");
+  assert.equal(model.isoDateByDay.get(31), "2026-05-31");
 });

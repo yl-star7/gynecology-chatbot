@@ -20,6 +20,7 @@ export function PatientShell({
   activeTab,
   showProfileButton = true,
   pageTone = "plain",
+  headerCompact = false,
   rightActionIcon,
   rightActionLabel,
   onRightActionPress,
@@ -31,6 +32,7 @@ export function PatientShell({
   backHref?: string;
   showProfileButton?: boolean;
   pageTone?: "main" | "plain";
+  headerCompact?: boolean;
   rightActionIcon?: keyof typeof Ionicons.glyphMap;
   rightActionLabel?: string;
   onRightActionPress?: () => void;
@@ -50,6 +52,7 @@ export function PatientShell({
         style={[
           styles.header,
           useMainTone ? styles.headerMain : styles.headerPlain,
+          headerCompact ? styles.headerCompact : null,
         ]}
       >
         {backHref ? (
@@ -122,6 +125,10 @@ const styles = StyleSheet.create({
   },
   headerPlain: {
     backgroundColor: surface.pageBackground,
+  },
+  headerCompact: {
+    paddingTop: space.sm,
+    paddingBottom: space.xs,
   },
   headerSpacer: {
     flex: 1,

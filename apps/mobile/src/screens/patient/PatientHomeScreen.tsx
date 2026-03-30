@@ -51,7 +51,13 @@ export function PatientHomeScreen() {
   const babyImageSource = getWeekBabyImageSource(viewModel.pregnancyWeekLabel);
 
   return (
-    <PatientShell activeTab="home" title="홈" pageTone="main">
+    <PatientShell
+      activeTab="home"
+      title="홈"
+      pageTone="main"
+      showProfileButton={false}
+      headerCompact
+    >
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
