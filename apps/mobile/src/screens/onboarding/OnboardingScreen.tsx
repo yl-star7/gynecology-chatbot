@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import {
   BrandMark,
@@ -30,6 +30,10 @@ export function OnboardingScreen() {
   const [babyNickname, setBabyNickname] = useState("");
   const [tonePreference, setTonePreference] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setError(null);
+  }, [step]);
 
   function next() {
     if (step === 0 && !dueDate) {
