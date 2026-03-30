@@ -210,6 +210,10 @@ function normalizePhoneNumber(phoneNumber: string) {
   }
 }
 
+function isMobileAuthTestModeEnabled() {
+  return process.env.MOBILE_AUTH_TEST_MODE === "true";
+}
+
 function createPhoneCandidates(phoneNumber: string) {
   const trimmed = phoneNumber.trim();
   const candidates = new Set<string>();
@@ -251,7 +255,9 @@ async function findPregnancyProfile(userId: string) {
   return profiles[0] ?? null;
 }
 
-function toDecryptedPhoneRow<T extends { phone_number_encrypted: string }>(row: T) {
+function toDecryptedPhoneRow<T extends { phone_number_encrypted: string }>(
+  row: T,
+) {
   return {
     ...row,
     phone_number: decryptPhoneNumber(row.phone_number_encrypted),
@@ -425,7 +431,9 @@ async function upsertPhoneUser(
 
 export async function startPhoneVerification(phoneNumber: string) {
   const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
-  const allowedPhoneNumber = await findAllowedPhoneNumber(normalizedPhoneNumber);
+  const allowedPhoneNumber = await findAllowedPhoneNumber(
+    normalizedPhoneNumber,
+  );
   if (!allowedPhoneNumber) {
     throw new Error("허용된 전화번호가 아닙니다. 관리자에게 문의해 주세요.");
   }
@@ -461,14 +469,20 @@ export async function completePhoneSignIn(
   verificationCode: string,
 ) {
   const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
-  const allowedPhoneNumber = await findAllowedPhoneNumber(normalizedPhoneNumber);
+  const allowedPhoneNumber = await findAllowedPhoneNumber(
+    normalizedPhoneNumber,
+  );
   if (!allowedPhoneNumber) {
     throw new Error("허용된 전화번호가 아닙니다. 관리자에게 문의해 주세요.");
   }
-  const verification = await checkSmsVerification(
-    normalizedPhoneNumber,
-    verificationCode,
-  );
+  const verification =
+    isMobileAuthTestModeEnabled() && verificationCode.trim() === "000000"
+      ? {
+          sid: `test-${randomUUID()}`,
+          status: "approved",
+          to: normalizedPhoneNumber,
+        }
+      : await checkSmsVerification(normalizedPhoneNumber, verificationCode);
 
   const verifiedAt = nowIso();
   await recordPhoneVerificationRequest({
