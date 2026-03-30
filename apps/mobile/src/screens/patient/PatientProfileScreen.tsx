@@ -597,7 +597,7 @@ export function PatientProfileScreen() {
           <Card>
             <Text style={styles.sectionTitle}>계정</Text>
             <Text style={styles.sectionDescription}>
-              기기를 바꾸거나 다른 계정으로 들어갈 때 로그아웃하세요.
+              기기를 바꾸거나 다른 계정으로 로그인할 때만 로그아웃해요.
             </Text>
             <View style={styles.accountRow}>
               <Button label="로그아웃" variant="text" onPress={handleLogout} />
@@ -838,7 +838,7 @@ export function PatientProfileScreen() {
               <Card>
                 <Text style={styles.modalSectionTitle}>정보 확인</Text>
                 <Text style={styles.modalSectionDescription}>
-                  오늘,우리에서 아기와 엄마의 정보를 다시 확인할 수 있어요.
+                  오늘 우리에서 아기와 엄마의 정보를 다시 확인할 수 있어요.
                 </Text>
                 <View style={styles.modalInfoList}>
                   {infoCards.map((item) => (

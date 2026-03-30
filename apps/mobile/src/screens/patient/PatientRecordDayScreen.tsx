@@ -179,7 +179,7 @@ export function PatientRecordDayScreen({
           <Text style={styles.eyebrow}>하루 기록</Text>
           <Text style={styles.title}>{recordDay?.dateLabel ?? isoDate}</Text>
           <Text style={styles.description}>
-            {error ?? "이 날짜의 체크와 대화를 날짜 기준으로 모아봤어요."}
+            {error ?? "이 날짜의 체크와 대화를 한눈에 볼 수 있도록 모아봤어요."}
           </Text>
         </Card>
 

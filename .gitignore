@@ -54,3 +54,5 @@ supabase/migrations/drizzle/
 
 # local secrets
 secrets/
+
+autoresearch-results.tsv

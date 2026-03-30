@@ -36,6 +36,6 @@ export function buildPatientTodayViewModel({
     checklistProgressLabel: progressLabel,
     checklistProgressPercent: progressPercent,
     conversationTitle: "아기와 대화",
-    conversationDescription: "아기에게 하고 싶은 이야기를 나눠보세요",
+    conversationDescription: "아기에게 하고 싶은 이야기를 나눠보세요.",
   };
 }

@@ -103,11 +103,11 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
         appendMessage(resolvedSessionId, "아기와 대화", msg);
       }
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : "전송 실패";
+      const msg = error instanceof Error ? error.message : "메시지를 보내지 못했어요.";
       if (msg.includes("429")) {
         setErrorMessage("잠시 쉬어 가요. 조금 뒤에 다시 이야기해요.");
       } else {
-        setErrorMessage("메시지를 보내지 못했어요. 다시 시도해 주세요.");
+        setErrorMessage("메시지를 보내지 못했어요. 다시 시도해주세요.");
       }
     } finally {
       setIsSending(false);
@@ -150,7 +150,7 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Card>
             <Text style={styles.title}>아기와 대화</Text>
-            <Text style={styles.description}>아기에게 하고 싶은 이야기를 나눠보세요</Text>
+            <Text style={styles.description}>아기에게 하고 싶은 이야기를 나눠보세요.</Text>
           </Card>
 
           <Card style={styles.chatCard}>
@@ -214,7 +214,7 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
           <Card variant="muted">
             {errorMessage && (
               <Pressable onPress={() => setErrorMessage(null)}>
-                <Text style={{ color: "#b42318", fontSize: 13, textAlign: "center", paddingVertical: 8, paddingHorizontal: 16 }}>
+                <Text style={styles.errorMessageText}>
                   {errorMessage}
                 </Text>
               </Pressable>
@@ -353,5 +353,12 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  errorMessageText: {
+    ...typo.caption,
+    color: palette.errorText,
+    textAlign: "center",
+    paddingVertical: space.sm,
+    paddingHorizontal: space.lg,
   },
 });
