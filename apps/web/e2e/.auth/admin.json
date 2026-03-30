@@ -1,0 +1,15 @@
+{
+  "cookies": [
+    {
+      "name": "gc_admin_session",
+      "value": "44a3103f-18b0-47be-b3c0-355272cdea64.c3a910da0611309acb134c3dd4713a500c41cb2ca155dbc10656d30d9bc70a84",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1774873466.82,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}

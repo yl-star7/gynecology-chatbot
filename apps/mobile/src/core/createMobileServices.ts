@@ -61,7 +61,11 @@ class RuntimeAwareMockMobileHomeAdapter implements MobileHomePort {
 }
 
 export function createMobileServices(options: CreateMobileServicesOptions = {}): MobileServices {
-  const provider = options.provider ?? ((process.env.EXPO_PUBLIC_MOBILE_DATA_PROVIDER as "mock" | "api" | undefined) ?? "mock");
+  const configuredProvider = options.provider ?? (process.env.EXPO_PUBLIC_MOBILE_DATA_PROVIDER as "mock" | "api" | undefined);
+  if (configuredProvider !== "api" && configuredProvider !== "mock") {
+    throw new Error("EXPO_PUBLIC_MOBILE_DATA_PROVIDER must be explicitly set to \"api\" or \"mock\"");
+  }
+  const provider = configuredProvider;
   const resolveUserId = () => {
     const userId = options.getUserId?.();
     if (userId) {

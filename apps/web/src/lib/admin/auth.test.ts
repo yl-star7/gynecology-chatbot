@@ -167,6 +167,19 @@ describe("admin auth provider awareness", () => {
     );
   });
 
+  test("requires explicit local admin profile configuration in mock mode", async () => {
+    process.env.ADMIN_DATA_PROVIDER = "mock";
+    process.env.ADMIN_LOGIN_PASSWORD = "mock-pass";
+    delete process.env.LOCAL_ADMIN_USER_ID;
+
+    await expect(
+      authenticateAdmin({
+        phoneNumber: "01011112222",
+        password: "mock-pass",
+      }),
+    ).rejects.toThrow("LOCAL_ADMIN_USER_ID is required when ADMIN_DATA_PROVIDER=mock");
+  });
+
   test("requires explicit admin credentials and session secret configuration", async () => {
     process.env.ADMIN_DATA_PROVIDER = "mock";
     delete process.env.ADMIN_LOGIN_PASSWORD;

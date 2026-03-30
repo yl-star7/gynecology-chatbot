@@ -70,7 +70,12 @@ function hasRunnableGraph(workflow: Workflow) {
 }
 
 function getSchiftApiKey() {
-  return process.env.SCHIFT_API_KEY ?? "";
+  const apiKey = process.env.SCHIFT_API_KEY;
+  if (!apiKey) {
+    throw new Error("SCHIFT_API_KEY not configured");
+  }
+
+  return apiKey;
 }
 
 function getSchiftBaseUrl() {

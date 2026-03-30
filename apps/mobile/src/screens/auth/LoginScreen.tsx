@@ -2,14 +2,22 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { BrandMark, Button, Card, KeyboardScreen, LabeledInput } from "../../components/ui";
+import {
+  BrandMark,
+  Button,
+  Card,
+  KeyboardScreen,
+  LabeledInput,
+} from "../../components/ui";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { palette, space, typo } from "../../theme";
 
 export function LoginScreen() {
   const { requestVerificationCode, signIn } = useMobileAppSession();
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState(__DEV__ ? "01012345678" : "");
+  const [verificationCode, setVerificationCode] = useState(
+    __DEV__ ? "000000" : "",
+  );
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +27,11 @@ export function LoginScreen() {
       setStatusMessage("인증번호를 보냈어요.");
       setError(null);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "인증번호 발송에 실패했어요.");
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : "인증번호 발송에 실패했어요.",
+      );
     }
   }
 
@@ -28,14 +40,20 @@ export function LoginScreen() {
       const user = await signIn({ phoneNumber, verificationCode });
       router.replace(user.hasCompletedOnboarding ? "/home" : "/onboarding");
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "로그인에 실패했어요.");
+      setError(
+        nextError instanceof Error ? nextError.message : "로그인에 실패했어요.",
+      );
     }
   }
 
   return (
     <KeyboardScreen centered>
       <View style={styles.brandBlock}>
-        <BrandMark centered subtitle="산모와 아기를 위한 다정한 상담" size={68} />
+        <BrandMark
+          centered
+          subtitle="산모와 아기를 위한 다정한 상담"
+          size={68}
+        />
       </View>
       <Card>
         <View style={styles.form}>
@@ -57,8 +75,14 @@ export function LoginScreen() {
             onSubmitEditing={handleLogin}
           />
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          {statusMessage && !error ? <Text style={styles.status}>{statusMessage}</Text> : null}
-          <Button label="인증번호 받기" variant="secondary" onPress={handleRequestCode} />
+          {statusMessage && !error ? (
+            <Text style={styles.status}>{statusMessage}</Text>
+          ) : null}
+          <Button
+            label="인증번호 받기"
+            variant="secondary"
+            onPress={handleRequestCode}
+          />
           <Button label="시작하기" onPress={handleLogin} />
         </View>
       </Card>

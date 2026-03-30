@@ -56,9 +56,17 @@ async function searchViaSchift(query: string, matchCount: number): Promise<RagDo
   }));
 }
 
-async function searchViaSupabase(query: string, currentWeek: number | null, matchCount: number): Promise<RagDocumentRow[]> {
+function getEmbeddingApiKey() {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey) return [];
+  if (!apiKey) {
+    throw new Error("Embedding configuration is missing");
+  }
+
+  return apiKey;
+}
+
+async function searchViaSupabase(query: string, currentWeek: number | null, matchCount: number): Promise<RagDocumentRow[]> {
+  const apiKey = getEmbeddingApiKey();
 
   const embeddings = new GoogleGenerativeAIEmbeddings({
     apiKey,
@@ -85,39 +93,20 @@ export async function retrievePregnancyContext(input: {
   const count = input.matchCount ?? 5;
 
   if (provider === "schift") {
-    try {
-      return await searchViaSchift(input.query, count);
-    } catch (e) {
-      console.error("Schift search failed:", e);
-      return [] as RagDocumentRow[];
-    }
+    return await searchViaSchift(input.query, count);
   }
 
   if (provider === "supabase") {
-    try {
-      return await searchViaSupabase(input.query, input.currentWeek, count);
-    } catch (e) {
-      console.warn("Supabase search failed:", e);
-      return [] as RagDocumentRow[];
-    }
-  }
-
-  // auto: try Schift first, fall back to Supabase
-  const schift = getSchiftClient();
-  if (schift) {
-    try {
-      return await searchViaSchift(input.query, count);
-    } catch (e) {
-      console.warn("Schift failed in auto mode, trying Supabase:", e);
-    }
-  }
-
-  try {
     return await searchViaSupabase(input.query, input.currentWeek, count);
-  } catch (e) {
-    console.warn("Supabase search also failed:", e);
-    return [] as RagDocumentRow[];
   }
+
+  // auto: try Schift first, then explicit failure if unavailable/fails
+  const schift = getSchiftClient();
+  if (!schift) {
+    throw new Error("RAG provider auto mode requires Schift client configuration");
+  }
+
+  return await searchViaSchift(input.query, count);
 }
 
 export async function embedPregnancyDocument(content: string): Promise<number[]> {
@@ -142,8 +131,7 @@ export async function embedPregnancyDocument(content: string): Promise<number[]>
     if (provider === "schift") throw new Error("Schift client not configured");
   }
 
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey) throw new Error("Embedding configuration is missing");
+  const apiKey = getEmbeddingApiKey();
 
   const embeddings = new GoogleGenerativeAIEmbeddings({
     apiKey,

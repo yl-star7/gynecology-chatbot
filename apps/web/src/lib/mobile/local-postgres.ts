@@ -3,20 +3,60 @@ import { Pool, types } from "pg";
 import { createPhoneNumberStorage } from "@/lib/privacy/phone-crypto";
 import { buildLocalPostgresBootstrapSql } from "./local-postgres-schema";
 
-const LOCAL_SCHEMA = process.env.LOCAL_DB_SCHEMA ?? "gynecology_local";
-const DEFAULT_USER_ID =
-  process.env.NEXT_PUBLIC_DEV_USER_ID ??
-  process.env.EXPO_PUBLIC_DEV_USER_ID ??
-  "local-user-demo";
-const DEFAULT_PHONE_NUMBER =
-  process.env.LOCAL_DEV_USER_PHONE_NUMBER ?? "01012345678";
-const DEFAULT_USER_NAME = process.env.LOCAL_DEV_USER_NAME ?? "김수아";
-const DEFAULT_ADMIN_USER_ID =
-  process.env.LOCAL_ADMIN_USER_ID ?? "local-admin-1";
-const DEFAULT_ADMIN_PHONE_NUMBER =
-  process.env.LOCAL_ADMIN_PHONE_NUMBER ?? "01099998888";
-const DEFAULT_ADMIN_NAME = process.env.LOCAL_ADMIN_NAME ?? "운영자";
-const DEFAULT_DUE_DATE = process.env.LOCAL_DEV_DUE_DATE ?? "2026-07-01";
+function requireEnv(name: keyof NodeJS.ProcessEnv, message?: string) {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(message ?? `${name} is required`);
+  }
+
+  return value;
+}
+
+function requireDevUserId() {
+  const nextPublic = process.env.NEXT_PUBLIC_DEV_USER_ID?.trim();
+  const expoPublic = process.env.EXPO_PUBLIC_DEV_USER_ID?.trim();
+  if (nextPublic) {
+    return nextPublic;
+  }
+
+  if (expoPublic) {
+    return expoPublic;
+  }
+
+  throw new Error("NEXT_PUBLIC_DEV_USER_ID or EXPO_PUBLIC_DEV_USER_ID is required");
+}
+
+function getLocalSchema() {
+  return requireEnv("LOCAL_DB_SCHEMA");
+}
+
+function getDefaultUserId() {
+  return requireDevUserId();
+}
+
+function getDefaultPhoneNumber() {
+  return requireEnv("LOCAL_DEV_USER_PHONE_NUMBER");
+}
+
+function getDefaultUserName() {
+  return requireEnv("LOCAL_DEV_USER_NAME");
+}
+
+function getDefaultAdminUserId() {
+  return requireEnv("LOCAL_ADMIN_USER_ID");
+}
+
+function getDefaultAdminPhoneNumber() {
+  return requireEnv("LOCAL_ADMIN_PHONE_NUMBER");
+}
+
+function getDefaultAdminName() {
+  return requireEnv("LOCAL_ADMIN_NAME");
+}
+
+function getDefaultDueDate() {
+  return requireEnv("LOCAL_DEV_DUE_DATE");
+}
 const PREGNANCY_WEEK_FRUIT_COMPARISON_BY_WEEK: Record<number, string> = {
   5: "참깨알",
   6: "완두콩",
@@ -104,7 +144,7 @@ function resolveLocalTableName(table: string) {
 }
 
 function getQualifiedTable(table: string) {
-  return `${assertIdentifier(LOCAL_SCHEMA)}.${assertIdentifier(resolveLocalTableName(table))}`;
+  return `${assertIdentifier(getLocalSchema())}.${assertIdentifier(resolveLocalTableName(table))}`;
 }
 
 function toIsoDate(input: Date) {
@@ -147,7 +187,7 @@ async function ensureSeedData() {
   const db = getPool();
   const { now, yesterday, twoDaysAgo, fourDaysAgo } = createSeedDates();
   const pregnancyMetrics =
-    calculatePregnancyMetricsFromDueDate(DEFAULT_DUE_DATE);
+    calculatePregnancyMetricsFromDueDate(getDefaultDueDate());
   const {
     rows: [displayNameColumnRow],
   } = await db.query<{ exists: boolean }>(
@@ -160,11 +200,11 @@ async function ensureSeedData() {
           AND column_name = 'display_name'
       ) AS exists
     `,
-    [LOCAL_SCHEMA],
+    [getLocalSchema()],
   );
   const hasLegacyDisplayNameColumn = Boolean(displayNameColumnRow?.exists);
-  const defaultUserPhone = createPhoneNumberStorage(DEFAULT_PHONE_NUMBER);
-  const defaultAdminPhone = createPhoneNumberStorage(DEFAULT_ADMIN_PHONE_NUMBER);
+  const defaultUserPhone = createPhoneNumberStorage(getDefaultPhoneNumber());
+  const defaultAdminPhone = createPhoneNumberStorage(getDefaultAdminPhoneNumber());
 
   const userInsertSql = hasLegacyDisplayNameColumn
     ? `
@@ -222,16 +262,16 @@ async function ensureSeedData() {
     userInsertSql,
     hasLegacyDisplayNameColumn
       ? [
-          DEFAULT_USER_ID,
+          getDefaultUserId(),
           "user",
-          DEFAULT_USER_NAME,
+          getDefaultUserName(),
           defaultUserPhone.phoneNumberEncrypted,
           defaultUserPhone.phoneNumberBlindIndex,
           defaultUserPhone.phoneNumberLast4,
           yesterday.toISOString(),
         ]
       : [
-          DEFAULT_USER_ID,
+          getDefaultUserId(),
           "user",
           defaultUserPhone.phoneNumberEncrypted,
           defaultUserPhone.phoneNumberBlindIndex,
@@ -244,16 +284,16 @@ async function ensureSeedData() {
     userInsertSql,
     hasLegacyDisplayNameColumn
       ? [
-          DEFAULT_ADMIN_USER_ID,
+          getDefaultAdminUserId(),
           "admin",
-          DEFAULT_ADMIN_NAME,
+          getDefaultAdminName(),
           defaultAdminPhone.phoneNumberEncrypted,
           defaultAdminPhone.phoneNumberBlindIndex,
           defaultAdminPhone.phoneNumberLast4,
           yesterday.toISOString(),
         ]
       : [
-          DEFAULT_ADMIN_USER_ID,
+          getDefaultAdminUserId(),
           "admin",
           defaultAdminPhone.phoneNumberEncrypted,
           defaultAdminPhone.phoneNumberBlindIndex,
@@ -293,7 +333,7 @@ async function ensureSeedData() {
       defaultUserPhone.phoneNumberEncrypted,
       defaultUserPhone.phoneNumberBlindIndex,
       defaultUserPhone.phoneNumberLast4,
-      DEFAULT_USER_NAME,
+      getDefaultUserName(),
       "로컬 개발 허용 번호",
       yesterday.toISOString(),
     ],
@@ -339,14 +379,14 @@ async function ensureSeedData() {
     `,
     [
       "profile-local-user-demo",
-      DEFAULT_USER_ID,
-      DEFAULT_USER_NAME,
+      getDefaultUserId(),
+      getDefaultUserName(),
       pregnancyMetrics.pregnancyDayCount,
       pregnancyMetrics.pregnancyWeek,
       pregnancyMetrics.pregnancyDayInWeek,
-      DEFAULT_DUE_DATE,
+      getDefaultDueDate(),
       JSON.stringify({
-        pregnancyWeekOrDueDate: DEFAULT_DUE_DATE,
+        pregnancyWeekOrDueDate: getDefaultDueDate(),
         tonePreference: "calm",
         babyNickname: "튼튼이",
         hospitalName: "산단여성병원",
@@ -371,7 +411,7 @@ async function ensureSeedData() {
     `,
     [
       "local-session-welcome",
-      DEFAULT_USER_ID,
+      getDefaultUserId(),
       "24주차 컨디션 채팅",
       now.toISOString(),
     ],
@@ -417,7 +457,7 @@ async function ensureSeedData() {
       `,
       [
         id,
-        DEFAULT_USER_ID,
+        getDefaultUserId(),
         "local-session-welcome",
         date,
         title,
@@ -489,7 +529,7 @@ async function ensureSeedData() {
       [
         message.id,
         "local-session-welcome",
-        DEFAULT_USER_ID,
+        getDefaultUserId(),
         message.role,
         JSON.stringify(message.parts),
         message.plainText,
@@ -742,9 +782,9 @@ export async function ensureLocalPostgresReady() {
       const db = getPool();
 
       await db.query(
-        `CREATE SCHEMA IF NOT EXISTS ${assertIdentifier(LOCAL_SCHEMA)}`,
+        `CREATE SCHEMA IF NOT EXISTS ${assertIdentifier(getLocalSchema())}`,
       );
-      await db.query(buildLocalPostgresBootstrapSql(LOCAL_SCHEMA));
+      await db.query(buildLocalPostgresBootstrapSql(getLocalSchema()));
 
       await db.query(`
         ALTER TABLE ${getQualifiedTable("users")} ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'user';

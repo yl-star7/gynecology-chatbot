@@ -5,6 +5,15 @@ import { supabaseInsert, supabaseSelect } from "./supabase-rest";
 
 const expo = new Expo();
 
+function getGoogleApiKey() {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is required for proactive chat");
+  }
+
+  return apiKey;
+}
+
 type PushTargetRow = {
   user_id: string;
   push_token: string;
@@ -55,7 +64,7 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
   );
 
   const google = createGoogleGenerativeAI({
-    apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+    apiKey: getGoogleApiKey(),
   });
 
   let scheduled = 0;
@@ -66,24 +75,15 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
       const pregnancyWeek = target.pregnancy_week!;
 
       // 3. Generate personalized message via Gemini
-      const apiKey =
-        process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-
-      let messageContent: string;
-
-      if (apiKey) {
-        const { text } = await generateText({
-          model: google("gemini-2.0-flash"),
-          prompt: [
-            `당신은 임산부 돌봄 어시스턴트입니다.`,
-            `사용자의 임신 ${pregnancyWeek}주차에 맞는 짧은 안부 메시지를 한국어로 작성하세요.`,
-            `50자 이내로, 따뜻하고 격려하는 톤으로 작성하세요.`,
-          ].join("\n"),
-        });
-        messageContent = text.trim();
-      } else {
-        messageContent = `임신 ${pregnancyWeek}주차 맘, 오늘 하루 어떠셨나요?`;
-      }
+      const { text } = await generateText({
+        model: google("gemini-2.0-flash"),
+        prompt: [
+          `당신은 임산부 돌봄 어시스턴트입니다.`,
+          `사용자의 임신 ${pregnancyWeek}주차에 맞는 짧은 안부 메시지를 한국어로 작성하세요.`,
+          `50자 이내로, 따뜻하고 격려하는 톤으로 작성하세요.`,
+        ].join("\n"),
+      });
+      const messageContent = text.trim();
 
       // 4. Create a proactive session for this user (needed for calendar_logs FK)
       const now = new Date().toISOString();

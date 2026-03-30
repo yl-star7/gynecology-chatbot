@@ -22,9 +22,18 @@ import {
 import { checkRateLimit } from "@/lib/mobile/rate-limit";
 import { recordUserAction } from "@/lib/mobile/user-action-log";
 
+function getGoogleApiKey() {
+  const apiKey =
+    process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is required for mobile chat responses");
+  }
+
+  return apiKey;
+}
+
 const google = createGoogleGenerativeAI({
-  apiKey:
-    process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+  apiKey: getGoogleApiKey(),
 });
 
 function normalizeSessionId(value: string) {
@@ -977,8 +986,7 @@ export async function POST(request: NextRequest) {
 
     const hardGuardrailReason = detectHardGuardrailReason(text);
 
-    const apiKey =
-      process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    const apiKey = getGoogleApiKey();
     const promptContext = await getPromptContext(userId, pregnancyWeek);
     const currentWeek = promptContext?.pregnancyWeek ?? pregnancyWeek;
 
@@ -1052,13 +1060,7 @@ export async function POST(request: NextRequest) {
       } catch (workflowError) {
         console.error("mobile chat workflow execution failed", workflowError);
 
-        if (!apiKey) {
-          assistantMessage = buildFallbackReply({
-            text,
-            hasImages: imageDataUris.length > 0,
-            pregnancyWeek: currentWeek,
-          });
-        } else {
+        {
           const ragTools = {
             searchPregnancyKnowledge: tool({
               description:
@@ -1120,12 +1122,6 @@ export async function POST(request: NextRequest) {
           assistantMessage = parseAssistantResponse(responseText);
         }
       }
-    } else if (!apiKey) {
-      assistantMessage = buildFallbackReply({
-        text,
-        hasImages: imageDataUris.length > 0,
-        pregnancyWeek: currentWeek,
-      });
     } else {
       const ragTools = {
         searchPregnancyKnowledge: tool({
@@ -1244,7 +1240,7 @@ export async function POST(request: NextRequest) {
           )
           .map((part) => part.text)
           .join("\n"),
-        model_name: apiKey ? "gemini-2.5-flash-lite" : "fallback",
+        model_name: "gemini-2.5-flash-lite",
       })),
     );
 
@@ -1284,12 +1280,9 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json(
       {
-        assistantMessage: buildFallbackReply({
-          text: "잠시 후 다시 시도해주세요.",
-          hasImages: false,
-        }),
+        error: error instanceof Error ? error.message : "채팅 응답 생성에 실패했습니다.",
       },
-      { status: 200 },
+      { status: 500 },
     );
   }
 }

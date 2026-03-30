@@ -1,13 +1,29 @@
 // @ts-nocheck
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Image, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import type { HomeViewData, MobileProfileViewData } from "@gynecology-chatbot/app-core";
+import {
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import type {
+  HomeViewData,
+  MobileProfileViewData,
+} from "@gynecology-chatbot/app-core";
 import { Card, Pressable } from "../../components/ui";
 import { PatientHeroBubble } from "../../components/patient/PatientHeroBubble";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { useMobileServices } from "../../core/MobileServicesProvider";
-import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+import {
+  palette,
+  patientSurfacePalette as surface,
+  radii,
+  space,
+  typo,
+} from "../../theme";
 import { buildPatientHomeViewModel } from "./view-models";
 import { getWeekBabyImageSource } from "./week-baby-images";
 
@@ -39,23 +55,38 @@ export function PatientHomeScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => {
-          setRefreshing(true);
-          await fetchData().catch(() => undefined);
-          setRefreshing(false);
-        }} tintColor={palette.accent} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await fetchData().catch(() => undefined);
+              setRefreshing(false);
+            }}
+            tintColor={palette.accent}
+          />
+        }
       >
         <View>
-          <Text style={styles.monthLabel}>{`${viewModel.monthLabel} ${viewModel.dayLabel}일`}</Text>
+          <Text
+            style={styles.monthLabel}
+          >{`${viewModel.monthLabel} ${viewModel.dayLabel}일`}</Text>
           <Text style={styles.heroName}>{viewModel.heroName}</Text>
         </View>
 
-        <PatientHeroBubble message={viewModel.babyMessage} name={viewModel.heroName} />
+        <PatientHeroBubble
+          message={viewModel.babyMessage}
+          name={viewModel.heroName}
+        />
 
         <View style={styles.heroImageWrap}>
           <View style={styles.heroImageOuter}>
             <View style={styles.heroImageInner}>
-              <Image source={babyImageSource} style={styles.heroImage} resizeMode="cover" />
+              <Image
+                source={babyImageSource}
+                style={styles.heroImage}
+                resizeMode="cover"
+              />
             </View>
           </View>
         </View>
@@ -66,19 +97,15 @@ export function PatientHomeScreen() {
             <Text style={styles.metricCaption}>{viewModel.meetingLabel}</Text>
             <Text style={styles.metricValue}>{viewModel.meetingValue}</Text>
           </View>
-          <Text style={styles.metricSubLabel}>{`임신 ${viewModel.pregnancyDayCount}일째예요.`}</Text>
-        </Card>
-
-        <Card style={styles.quoteCard}>
-          <Text style={styles.quoteEyebrow}>위안되는 한마디</Text>
-          <Text style={styles.quoteText}>{viewModel.quote}</Text>
+          <Text
+            style={styles.metricSubLabel}
+          >{`임신 ${viewModel.pregnancyDayCount}일째예요.`}</Text>
         </Card>
 
         <Card style={styles.noteCard}>
           <Text style={styles.noteTitle}>{viewModel.noteTitle}</Text>
           <Text style={styles.noteBody}>{viewModel.noteBody}</Text>
         </Card>
-
       </ScrollView>
     </PatientShell>
   );
@@ -148,20 +175,6 @@ const styles = StyleSheet.create({
   metricSubLabel: {
     ...typo.caption,
     color: surface.textSecondary,
-  },
-  quoteCard: {
-    backgroundColor: surface.surfacePrimary,
-    gap: space.xs,
-  },
-  quoteEyebrow: {
-    ...typo.eyebrow,
-    color: palette.accent,
-    textAlign: "center",
-  },
-  quoteText: {
-    ...typo.body,
-    color: surface.textPrimary,
-    textAlign: "center",
   },
   noteCard: {
     backgroundColor: surface.surfaceSecondary,

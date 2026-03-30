@@ -30,9 +30,12 @@ function resolveActiveTab(returnTo?: string) {
 }
 
 async function loadRecordDay(isoDate: string) {
-  const provider = process.env.EXPO_PUBLIC_MOBILE_DATA_PROVIDER ?? "mock";
+  const provider = process.env.EXPO_PUBLIC_MOBILE_DATA_PROVIDER;
+  if (provider !== "api" && provider !== "mock") {
+    throw new Error("EXPO_PUBLIC_MOBILE_DATA_PROVIDER must be explicitly set to \"api\" or \"mock\"");
+  }
 
-  if (provider !== "mock") {
+  if (provider === "api") {
     const payload = await fetchRecordDay(isoDate);
     return payload.recordDay;
   }

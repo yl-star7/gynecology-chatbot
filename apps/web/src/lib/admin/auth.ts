@@ -57,12 +57,21 @@ function getAdminLoginPassword() {
   return password;
 }
 
+function getRequiredMockAdminEnv(name: keyof NodeJS.ProcessEnv) {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`${name} is required when ADMIN_DATA_PROVIDER=mock`);
+  }
+
+  return value;
+}
+
 function getLocalAdminCredentials() {
   return {
-    id: process.env.LOCAL_ADMIN_USER_ID ?? "local-admin-1",
-    phoneNumber: process.env.LOCAL_ADMIN_PHONE_NUMBER ?? "01099998888",
+    id: getRequiredMockAdminEnv("LOCAL_ADMIN_USER_ID"),
+    phoneNumber: getRequiredMockAdminEnv("LOCAL_ADMIN_PHONE_NUMBER"),
     password: getAdminLoginPassword(),
-    displayName: process.env.LOCAL_ADMIN_NAME ?? "운영자",
+    displayName: getRequiredMockAdminEnv("LOCAL_ADMIN_NAME"),
   };
 }
 

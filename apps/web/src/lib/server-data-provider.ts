@@ -18,15 +18,7 @@ export function resolveServerDataProvider(): ServerDataProvider {
     return explicitProvider;
   }
 
-  if (getSupabaseServiceRoleKey() && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    return "supabase";
-  }
-
-  if (process.env.DATABASE_URL) {
-    return "docker";
-  }
-
-  return "supabase";
+  throw new Error('SERVER_DATA_PROVIDER must be explicitly set to "docker" or "supabase"');
 }
 
 export function hasSupabaseConfig() {

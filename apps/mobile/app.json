@@ -12,6 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.gynecology.chatbot",
       "buildNumber": "1",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {}
     },
     "android": {
@@ -20,7 +21,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/branding/adaptive-icon.png",
         "backgroundColor": "#f6b8c9"
-      }
+      },
+      "googleServicesFile": "./google-services.json"
     },
     "splash": {
       "image": "./assets/branding/splash-logo.png",
