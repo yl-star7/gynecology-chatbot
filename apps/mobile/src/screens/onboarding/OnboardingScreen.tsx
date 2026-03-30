@@ -2,9 +2,23 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { BrandMark, Button, Card, DueDateCalendarPicker, KeyboardScreen, LabeledInput, Pressable } from "../../components/ui";
+import {
+  BrandMark,
+  Button,
+  Card,
+  DueDateCalendarPicker,
+  KeyboardScreen,
+  LabeledInput,
+  Pressable,
+} from "../../components/ui";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
-import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+import {
+  palette,
+  patientSurfacePalette as surface,
+  radii,
+  space,
+  typo,
+} from "../../theme";
 import { ONBOARDING_LAYOUT } from "./OnboardingScreen.model";
 
 const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", "다정하게"];
@@ -28,10 +42,8 @@ export function OnboardingScreen() {
 
   async function handleComplete() {
     try {
-      const pregnancyInfo = dueDate;
-      const notes = babyNickname.trim() ? `태명: ${babyNickname.trim()}` : "";
       await completeOnboarding({
-        pregnancyWeekOrDueDate: [pregnancyInfo, notes].filter(Boolean).join(" / "),
+        pregnancyWeekOrDueDate: dueDate,
         tonePreference: tonePreference || "친근하게",
       });
       router.replace("/home");
@@ -62,7 +74,11 @@ export function OnboardingScreen() {
             value={dueDate}
             onChange={setDueDate}
             minDate={new Date()}
-            maxDate={(() => { const d = new Date(); d.setDate(d.getDate() + 294); return d; })()}
+            maxDate={(() => {
+              const d = new Date();
+              d.setDate(d.getDate() + 294);
+              return d;
+            })()}
           />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -83,12 +99,29 @@ export function OnboardingScreen() {
               onChangeText={setBabyNickname}
               placeholder="예: 콩이, 달이"
               returnKeyType="next"
-              onSubmitEditing={() => { setError(null); setStep(2); }}
+              onSubmitEditing={() => {
+                setError(null);
+                setStep(2);
+              }}
             />
           </View>
           <View style={styles.row}>
-            <View style={styles.half}><Button label="이전" variant="secondary" onPress={() => setStep(0)} /></View>
-            <View style={styles.half}><Button label={babyNickname.trim() ? "다음" : "건너뛰기"} onPress={() => { setError(null); setStep(2); }} /></View>
+            <View style={styles.half}>
+              <Button
+                label="이전"
+                variant="secondary"
+                onPress={() => setStep(0)}
+              />
+            </View>
+            <View style={styles.half}>
+              <Button
+                label={babyNickname.trim() ? "다음" : "건너뛰기"}
+                onPress={() => {
+                  setError(null);
+                  setStep(2);
+                }}
+              />
+            </View>
           </View>
         </Card>
       )}
@@ -102,17 +135,35 @@ export function OnboardingScreen() {
             {TONE_OPTIONS.map((tone) => (
               <Pressable
                 key={tone}
-                style={[styles.toneChip, tonePreference === tone && styles.toneChipActive]}
+                style={[
+                  styles.toneChip,
+                  tonePreference === tone && styles.toneChipActive,
+                ]}
                 onPress={() => setTonePreference(tone)}
               >
-                <Text style={[styles.toneLabel, tonePreference === tone && styles.toneLabelActive]}>{tone}</Text>
+                <Text
+                  style={[
+                    styles.toneLabel,
+                    tonePreference === tone && styles.toneLabelActive,
+                  ]}
+                >
+                  {tone}
+                </Text>
               </Pressable>
             ))}
           </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <View style={styles.row}>
-            <View style={styles.half}><Button label="이전" variant="secondary" onPress={() => setStep(1)} /></View>
-            <View style={styles.half}><Button label="시작하기" onPress={handleComplete} /></View>
+            <View style={styles.half}>
+              <Button
+                label="이전"
+                variant="secondary"
+                onPress={() => setStep(1)}
+              />
+            </View>
+            <View style={styles.half}>
+              <Button label="시작하기" onPress={handleComplete} />
+            </View>
           </View>
         </Card>
       )}
@@ -147,7 +198,11 @@ const styles = StyleSheet.create({
   error: { marginTop: space.sm, ...typo.caption, color: palette.errorText },
   row: { flexDirection: "row", gap: ONBOARDING_LAYOUT.rowGap },
   half: { flex: 1 },
-  toneGrid: { flexDirection: "row", flexWrap: "wrap", gap: ONBOARDING_LAYOUT.choiceGap },
+  toneGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: ONBOARDING_LAYOUT.choiceGap,
+  },
   toneChip: {
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
@@ -155,7 +210,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: surface.strokeSubtle,
   },
-  toneChipActive: { borderColor: palette.accent, backgroundColor: surface.surfaceAccent },
+  toneChipActive: {
+    borderColor: palette.accent,
+    backgroundColor: surface.surfaceAccent,
+  },
   toneLabel: { ...typo.body, color: surface.textSecondary },
   toneLabelActive: { color: palette.accent, fontWeight: "600" },
 });
