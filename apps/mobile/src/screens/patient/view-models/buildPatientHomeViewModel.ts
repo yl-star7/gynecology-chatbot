@@ -56,20 +56,43 @@ function isPostDue(dueDate?: string | null, now?: Date): boolean {
 
 const MIN_PREGNANCY_WEEK = 1;
 const MAX_PREGNANCY_WEEK = 42;
+const MAX_PREGNANCY_DAYS = 294;
 
-function sanitizePregnancyWeekLabel(label: string | null | undefined): string {
-  if (!label) {
-    return "주차 정보를 준비 중이에요";
-  }
+function computePregnancyDayFromDueDate(dueDate?: string | null, now?: Date): number | null {
+  if (!dueDate) return null;
+  const due = new Date(dueDate);
+  if (Number.isNaN(due.getTime())) return null;
+  const base = now ?? new Date();
+  const startOfBase = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  const diff = Math.round((due.getTime() - startOfBase.getTime()) / MS_PER_DAY);
+  return Math.max(0, Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diff));
+}
+
+function computeWeekLabelFromDueDate(dueDate?: string | null, now?: Date): string | null {
+  const dayCount = computePregnancyDayFromDueDate(dueDate, now);
+  if (dayCount == null || dayCount <= 0) return null;
+  const week = Math.floor(dayCount / 7);
+  const dayInWeek = dayCount % 7;
+  if (week < MIN_PREGNANCY_WEEK || week > MAX_PREGNANCY_WEEK) return null;
+  return `${week}주 ${dayInWeek}일`;
+}
+
+function sanitizePregnancyWeekLabel(label: string | null | undefined): string | null {
+  if (!label) return null;
   const match = label.match(/^(\d+)/);
   if (match) {
     const week = Number(match[1]);
-    if (week < MIN_PREGNANCY_WEEK || week > MAX_PREGNANCY_WEEK) {
-      return "주차 정보를 준비 중이에요";
-    }
+    if (week < MIN_PREGNANCY_WEEK || week > MAX_PREGNANCY_WEEK) return null;
   }
   return label;
 }
+
+const TONE_MESSAGES: Record<string, string> = {
+  "차분하게": "지금 이 순간, 깊게 숨을 들이쉬고 내쉬어 보세요. 오늘 하루도 잘 해내고 있어요.",
+  "친근하게": "오늘도 수고 많았어요! 아기도 엄마 옆에서 편안하게 하루를 보내고 있을 거예요.",
+  "전문적으로": "규칙적인 태동 확인과 충분한 수분 섭취를 유지하면 건강한 임신 경과에 도움이 됩니다.",
+  "다정하게": "엄마가 느끼는 모든 감정은 소중해요. 오늘도 아기와 함께 따뜻한 하루 보내세요.",
+};
 
 export function buildPatientHomeViewModel({
   home,
@@ -81,12 +104,21 @@ export function buildPatientHomeViewModel({
   now?: Date;
 }) {
   const heroName = profile?.babyNickname?.trim() || DEFAULT_BABY_NAME;
-  const rawWeekLabel = home?.pregnancyWeekLabel ?? profile?.pregnancyWeekLabel ?? null;
   const postDue = isPostDue(profile?.dueDate, now);
+
+  // 주차 라벨: 서버 값 → due_date 계산 → null 순으로 폴백
+  const sanitized = sanitizePregnancyWeekLabel(
+    home?.pregnancyWeekLabel ?? profile?.pregnancyWeekLabel ?? null,
+  );
+  const computedWeekLabel = sanitized ?? computeWeekLabelFromDueDate(profile?.dueDate, now);
   const pregnancyWeekLabel = postDue
     ? "출산 예정일이 지났어요"
-    : sanitizePregnancyWeekLabel(rawWeekLabel);
-  const pregnancyDayCount = home?.pregnancyDayCount ?? profile?.pregnancyDayCount ?? 0;
+    : computedWeekLabel ?? "주차 정보를 준비 중이에요";
+
+  // 임신 일수: due_date 기반 계산 우선, 서버 값은 폴백
+  const computedDayCount = computePregnancyDayFromDueDate(profile?.dueDate, now);
+  const pregnancyDayCount = computedDayCount ?? home?.pregnancyDayCount ?? profile?.pregnancyDayCount ?? 0;
+
   const daysUntilDue = getDaysUntilDue(profile?.dueDate, now);
   const quoteSeed = [
     now.getFullYear(),
@@ -96,11 +128,21 @@ export function buildPatientHomeViewModel({
     pregnancyWeekLabel,
   ].join("-");
 
+  // babyMessage: 실제 주차가 있을 때만 주차 멘트, 아니면 기본 메시지
+  const babyMessage = computedWeekLabel
+    ? buildBabyMessage({ pregnancyWeekLabel: computedWeekLabel, babyName: heroName })
+    : DEFAULT_BABY_MESSAGE;
+
+  // noteBody: tonePreference를 실제 문구로 매핑
+  const tone = profile?.tonePreference?.trim() ?? "";
+  const noteBody = TONE_MESSAGES[tone]
+    ?? "몸이 보내는 신호를 너무 급하게 판단하지 말고, 오늘 느낀 것을 차분히 살펴봐요.";
+
   return {
     heroName,
     monthLabel: formatMonthLabel(now),
     dayLabel: String(now.getDate()),
-    babyMessage: buildBabyMessage({ pregnancyWeekLabel, babyName: heroName }),
+    babyMessage,
     supportMessage: DEFAULT_SUPPORT_MESSAGE,
     pregnancyWeekLabel,
     pregnancyDayCount,
@@ -109,9 +151,7 @@ export function buildPatientHomeViewModel({
       postDue || daysUntilDue == null ? `${pregnancyDayCount}일` : `${daysUntilDue}일`,
     quote: pickPatientEncouragementQuote(quoteSeed),
     noteTitle: "오늘의 한마디",
-    noteBody:
-      profile?.tonePreference?.trim() ||
-      "몸이 보내는 신호를 너무 급하게 판단하지 말고, 오늘 느낀 것을 차분히 살펴봐요.",
+    noteBody,
     primaryActionLabel: "오늘,우리 보기",
     secondaryActionLabel: "오늘 내용 보기",
   };

@@ -2,7 +2,7 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { BrandMark, Button, Card, DueDateCalendarPicker, KeyboardScreen, Pressable } from "../../components/ui";
+import { BrandMark, Button, Card, DueDateCalendarPicker, KeyboardScreen, LabeledInput, Pressable } from "../../components/ui";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
 import { ONBOARDING_LAYOUT } from "./OnboardingScreen.model";

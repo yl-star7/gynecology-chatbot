@@ -2,6 +2,48 @@ const DEFAULT_WEEK_BABY_IMAGE_WEEK = 18;
 const MIN_SUPPORTED_WEEK = 5;
 const MAX_SUPPORTED_WEEK = 40;
 
+const SUPABASE_STORAGE_URL =
+  "https://wmguogzglxktsxnqrqjd.supabase.co/storage/v1/object/public/pregnancy-content/weeks";
+
+const weekBabyFileNames: Record<number, string> = {
+  5: "w05-sesame-seed.png",
+  6: "w06-pea.png",
+  7: "w07-blueberry.png",
+  8: "w08-cherry.png",
+  9: "w09-grape.png",
+  10: "w10-strawberry.png",
+  11: "w11-fig.png",
+  12: "w12-plum.png",
+  13: "w13-lemon.png",
+  14: "w14-peach.png",
+  15: "w15-apple.png",
+  16: "w16-avocado.png",
+  17: "w17-pear.png",
+  18: "w18-bell-pepper.png",
+  19: "w19-pomegranate.png",
+  20: "w20-banana.png",
+  21: "w21-mango.png",
+  22: "w22-sweet-potato.png",
+  23: "w23-grapefruit.png",
+  24: "w24-corn.png",
+  25: "w25-kabocha-squash.png",
+  26: "w26-lettuce.png",
+  27: "w27-cauliflower.png",
+  28: "w28-eggplant.png",
+  29: "w29-butternut-squash.png",
+  30: "w30-cabbage.png",
+  31: "w31-coconut.png",
+  32: "w32-celery.png",
+  33: "w33-pineapple.png",
+  34: "w34-melon.png",
+  35: "w35-honeydew-melon.png",
+  36: "w36-romaine-lettuce.png",
+  37: "w37-green-onion.png",
+  38: "w38-radish.png",
+  39: "w39-watermelon.png",
+  40: "w40-pumpkin.png",
+};
+
 export function parsePregnancyWeekLabel(label?: string | null) {
   if (!label) {
     return null;
@@ -29,46 +71,9 @@ export function resolveWeekBabyImageWeek(weekLabel?: string | null) {
   return Math.max(MIN_SUPPORTED_WEEK, Math.min(MAX_SUPPORTED_WEEK, parsedWeek));
 }
 
-export const weekBabyImages = {
-  5: require("../../../assets/week-baby/week-baby-w05.png"),
-  6: require("../../../assets/week-baby/week-baby-w06.png"),
-  7: require("../../../assets/week-baby/week-baby-w07.png"),
-  8: require("../../../assets/week-baby/week-baby-w08.png"),
-  9: require("../../../assets/week-baby/week-baby-w09.png"),
-  10: require("../../../assets/week-baby/week-baby-w10.png"),
-  11: require("../../../assets/week-baby/week-baby-w11.png"),
-  12: require("../../../assets/week-baby/week-baby-w12.png"),
-  13: require("../../../assets/week-baby/week-baby-w13.png"),
-  14: require("../../../assets/week-baby/week-baby-w14.png"),
-  15: require("../../../assets/week-baby/week-baby-w15.png"),
-  16: require("../../../assets/week-baby/week-baby-w16.png"),
-  17: require("../../../assets/week-baby/week-baby-w17.png"),
-  18: require("../../../assets/week-baby/week-baby-w18.png"),
-  19: require("../../../assets/week-baby/week-baby-w19.png"),
-  20: require("../../../assets/week-baby/week-baby-w20.png"),
-  21: require("../../../assets/week-baby/week-baby-w21.png"),
-  22: require("../../../assets/week-baby/week-baby-w22.png"),
-  23: require("../../../assets/week-baby/week-baby-w23.png"),
-  24: require("../../../assets/week-baby/week-baby-w24.png"),
-  25: require("../../../assets/week-baby/week-baby-w25.png"),
-  26: require("../../../assets/week-baby/week-baby-w26.png"),
-  27: require("../../../assets/week-baby/week-baby-w27.png"),
-  28: require("../../../assets/week-baby/week-baby-w28.png"),
-  29: require("../../../assets/week-baby/week-baby-w29.png"),
-  30: require("../../../assets/week-baby/week-baby-w30.png"),
-  31: require("../../../assets/week-baby/week-baby-w31.png"),
-  32: require("../../../assets/week-baby/week-baby-w32.png"),
-  33: require("../../../assets/week-baby/week-baby-w33.png"),
-  34: require("../../../assets/week-baby/week-baby-w34.png"),
-  35: require("../../../assets/week-baby/week-baby-w35.png"),
-  36: require("../../../assets/week-baby/week-baby-w36.png"),
-  37: require("../../../assets/week-baby/week-baby-w37.png"),
-  38: require("../../../assets/week-baby/week-baby-w38.png"),
-  39: require("../../../assets/week-baby/week-baby-w39.png"),
-  40: require("../../../assets/week-baby/week-baby-w40.png"),
-} as const;
-
 export function getWeekBabyImageSource(weekLabel?: string | null) {
   const week = resolveWeekBabyImageWeek(weekLabel);
-  return weekBabyImages[week as keyof typeof weekBabyImages];
+  const paddedWeek = String(week).padStart(2, "0");
+  const fileName = weekBabyFileNames[week] ?? `w${paddedWeek}-baby.png`;
+  return { uri: `${SUPABASE_STORAGE_URL}/${paddedWeek}/${fileName}` };
 }
