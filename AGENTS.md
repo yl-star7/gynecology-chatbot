@@ -127,5 +127,5 @@ const styles = StyleSheet.create({
 
 - `supabaseSelect`, `supabaseInsert`, `supabaseUpdate` 사용 (`@/lib/mobile/supabase-rest`)
 - content 스키마 테이블은 **직접 쿼리 금지** (Supabase REST가 406 반환)
-- 대신 public view 사용: `published_pregnancy_weeks`, `published_knowledge_items`, `v_pregnancy_week_data`, `v_pregnancy_day_contents`, `v_week_checklists`, `v_week_questions`
+- 대신 public view 사용: `published_knowledge_items`, `v_pregnancy_week_data`, `v_pregnancy_day_contents`, `v_week_checklists`, `v_week_questions`
 - public 스키마는 prefix 없이 사용 (예: `calendar_logs`)

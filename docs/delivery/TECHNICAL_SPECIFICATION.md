@@ -269,9 +269,8 @@
 
 ### 3.3 발행 뷰 (모바일 읽기 전용)
 
-- `published_pregnancy_weeks` - 발행된 주차 목록
 - `published_knowledge_items` - 발행된 지식 항목
-- `v_pregnancy_week_data` - 주차 통합 데이터
+- `v_pregnancy_week_data` - 발행된 주차 목록 및 주차 통합 데이터
 - `v_pregnancy_day_contents` - 일별 콘텐츠
 - `v_week_checklists` - 주차 체크리스트
 - `v_week_questions` - 주차 질문

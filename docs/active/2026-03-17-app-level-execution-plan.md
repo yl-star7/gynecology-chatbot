@@ -230,7 +230,6 @@
 
 ### 게시/조회용 view
 
-- `published_pregnancy_weeks`
 - `published_knowledge_items`
 - `v_pregnancy_week_data`
 - `v_pregnancy_day_contents`
