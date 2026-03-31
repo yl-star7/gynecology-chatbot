@@ -59,6 +59,7 @@ export function PatientHomeScreen() {
       headerCompact
     >
       <ScrollView
+        scrollEnabled={false}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
