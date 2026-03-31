@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { supabaseSelect, supabaseInsert } from "@/lib/mobile/supabase-rest";
 
-const VALID_QUESTION_TYPES = ["text", "single_choice", "multi_choice", "yes_no", "number"] as const;
+const VALID_QUESTION_TYPES = [
+  "text",
+  "single_choice",
+  "multi_choice",
+  "yes_no",
+  "number",
+] as const;
 type QuestionType = (typeof VALID_QUESTION_TYPES)[number];
 
 type QuestionRow = {
@@ -48,9 +54,11 @@ function parseInsertBody(body: unknown): QuestionInsertPayload | null {
     return null;
   }
 
-  const weekDataId = typeof body.weekDataId === "string" ? body.weekDataId.trim() : "";
+  const weekDataId =
+    typeof body.weekDataId === "string" ? body.weekDataId.trim() : "";
   const code = typeof body.code === "string" ? body.code.trim() : "";
-  const questionText = typeof body.questionText === "string" ? body.questionText.trim() : "";
+  const questionText =
+    typeof body.questionText === "string" ? body.questionText.trim() : "";
 
   if (!weekDataId || !code || !questionText) {
     return null;
@@ -84,8 +92,7 @@ function parseInsertBody(body: unknown): QuestionInsertPayload | null {
   const isRequired =
     typeof body.isRequired === "boolean" ? body.isRequired : false;
 
-  const isActive =
-    typeof body.isActive === "boolean" ? body.isActive : true;
+  const isActive = typeof body.isActive === "boolean" ? body.isActive : true;
 
   return {
     week_data_id: weekDataId,
@@ -111,9 +118,10 @@ export async function GET(request: NextRequest) {
     const weekDataId = request.nextUrl.searchParams.get("weekDataId");
 
     const baseQuery =
-      "content.week_questions?select=id,week_data_id,day_content_id,day_number,code,question_text,question_type,help_text,question_payload,display_order,is_required,is_active,created_at,updated_at";
+      "content_week_questions?select=id,week_data_id,day_content_id,day_number,code,question_text,question_type,help_text,question_payload,display_order,is_required,is_active,created_at,updated_at";
     const filter = weekDataId ? `&week_data_id=eq.${weekDataId}` : "";
-    const order = "&order=week_data_id.asc,day_number.asc.nullsfirst,display_order.asc";
+    const order =
+      "&order=week_data_id.asc,day_number.asc.nullsfirst,display_order.asc";
 
     const rows = await supabaseSelect<QuestionRow[]>(
       `${baseQuery}${filter}${order}`,
@@ -146,7 +154,7 @@ export async function POST(request: NextRequest) {
     }
 
     const rows = await supabaseInsert<QuestionRow[]>(
-      "content.week_questions",
+      "content_week_questions",
       payload,
     );
 

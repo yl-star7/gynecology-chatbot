@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     const { userId } = await requireMobileSession(request, hintedUserId);
 
     const questions = await supabaseSelect<QuestionRow[]>(
-      `content.week_questions?select=id,question_text,question_type,help_text,question_payload&id=eq.${questionId}&limit=1`,
+      `content_week_questions?select=id,question_text,question_type,help_text,question_payload&id=eq.${questionId}&limit=1`,
     );
     const question = questions[0];
 

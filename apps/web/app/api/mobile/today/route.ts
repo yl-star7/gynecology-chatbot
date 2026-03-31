@@ -149,13 +149,13 @@ export async function GET(request: NextRequest) {
     const [dayRows, datedChecklistRows, genericChecklistRows, infoViewRows] =
       await Promise.all([
         supabaseSelect<DayContentRow[]>(
-          `content.pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
+          `content_pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
         ),
         supabaseSelect<ChecklistRow[]>(
-          `content.week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+          `content_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
         ),
         supabaseSelect<ChecklistRow[]>(
-          `content.week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
+          `content_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
         ),
         supabaseSelect<CalendarLogRow[]>(
           `calendar_logs?select=id&user_id=eq.${userId}&date=eq.${todayDate}&entry_type=eq.today_info_view&limit=1`,

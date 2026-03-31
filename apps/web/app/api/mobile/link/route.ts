@@ -12,16 +12,24 @@ export async function GET(request: NextRequest) {
     const entityId = request.nextUrl.searchParams.get("entityId");
 
     if (!target) {
-      return NextResponse.json({ error: "target is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "target is required" },
+        { status: 400 },
+      );
     }
 
-    const column = entityId ? `id=eq.${entityId}` : `section=eq.${target}&status=eq.published`;
-    const items = await supabaseSelect<Array<{ title: string; section: string; body: string }>>(
-      `published_knowledge_items?select=title,section,body&${column}&limit=1`,
-    );
+    const column = entityId
+      ? `id=eq.${entityId}`
+      : `section=eq.${target}&status=eq.published`;
+    const items = await supabaseSelect<
+      Array<{ title: string; section: string; body: string }>
+    >(`content_knowledge_items?select=title,section,body&${column}&limit=1`);
 
     if (!items[0]) {
-      return NextResponse.json({ error: "link target not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "link target not found" },
+        { status: 404 },
+      );
     }
 
     return NextResponse.json({

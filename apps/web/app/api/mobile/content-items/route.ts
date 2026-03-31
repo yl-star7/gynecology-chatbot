@@ -13,13 +13,17 @@ type ContentItemRow = {
   body: string;
 };
 
-function isValidSection(value: string | null): value is "knowledge" | "notebook" {
+function isValidSection(
+  value: string | null,
+): value is "knowledge" | "notebook" {
   return value === "knowledge" || value === "notebook";
 }
 
 function buildPreview(body: string) {
   const normalized = body.replace(/\s+/g, " ").trim();
-  return normalized.length > 120 ? `${normalized.slice(0, 120)}...` : normalized;
+  return normalized.length > 120
+    ? `${normalized.slice(0, 120)}...`
+    : normalized;
 }
 
 export async function GET(request: NextRequest) {
@@ -28,11 +32,14 @@ export async function GET(request: NextRequest) {
 
     const section = request.nextUrl.searchParams.get("section");
     if (!isValidSection(section)) {
-      return NextResponse.json({ error: "valid section is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "valid section is required" },
+        { status: 400 },
+      );
     }
 
     const rows = await supabaseSelect<ContentItemRow[]>(
-      `published_knowledge_items?select=id,slug,section,title,body&section=eq.${section}&order=updated_at.desc`,
+      `content_knowledge_items?select=id,slug,section,title,body&section=eq.${section}&order=updated_at.desc`,
     );
 
     return NextResponse.json({

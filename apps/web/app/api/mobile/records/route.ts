@@ -191,10 +191,10 @@ async function loadChecklistItems(
 
   const [datedChecklistRows, genericChecklistRows] = await Promise.all([
     supabaseSelect<ChecklistRow[]>(
-      `content.week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc`,
+      `content_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc`,
     ),
     supabaseSelect<ChecklistRow[]>(
-      `content.week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
+      `content_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
     ),
   ]);
 
@@ -252,10 +252,10 @@ async function loadDailyQuestion(
 
   const [datedQuestions, genericQuestions] = await Promise.all([
     supabaseSelect<QuestionRow[]>(
-      `content.week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
+      `content_week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
     ),
     supabaseSelect<QuestionRow[]>(
-      `content.week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,
+      `content_week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,
     ),
   ]);
 

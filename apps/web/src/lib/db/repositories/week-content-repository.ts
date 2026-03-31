@@ -155,7 +155,7 @@ export class WeekContentRepository {
             recommended_actions,
             status,
             updated_at
-          FROM content.pregnancy_week_data
+          FROM content_week_data
           ORDER BY week_number ASC
         `,
       );
@@ -171,7 +171,7 @@ export class WeekContentRepository {
         error,
       );
       return this.select<Array<SupabaseWeekRow>>(
-        "content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
+        "content_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
       );
     }
   }
@@ -193,7 +193,7 @@ export class WeekContentRepository {
             recommended_actions,
             status,
             updated_at
-          FROM content.pregnancy_week_data
+          FROM content_week_data
           WHERE week_number = $1
           LIMIT 1
         `,
@@ -210,7 +210,7 @@ export class WeekContentRepository {
           error,
         );
         weekRows = await this.select<Array<SupabaseWeekRow>>(
-          `content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
+          `content_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
         );
       }
     }
@@ -229,7 +229,7 @@ export class WeekContentRepository {
         this.queryRows<SupabaseWeekSectionRow>(
           `
             SELECT id, day_number, code, title, description, display_order, is_required, is_active
-            FROM content.week_checklists
+            FROM content_week_checklists
             WHERE week_data_id = $1::uuid
             ORDER BY day_number ASC NULLS LAST, display_order ASC NULLS LAST
           `,
@@ -238,7 +238,7 @@ export class WeekContentRepository {
         this.queryRows<SupabaseWeekAssetRow>(
           `
             SELECT id, day_number, code, question_type, question_text, help_text, display_order, is_required, is_active
-            FROM content.week_questions
+            FROM content_week_questions
             WHERE week_data_id = $1::uuid
             ORDER BY day_number ASC NULLS LAST, display_order ASC NULLS LAST
           `,
@@ -274,10 +274,10 @@ export class WeekContentRepository {
     try {
       [sections, assets, days] = await Promise.all([
         this.select<Array<SupabaseWeekSectionRow>>(
-          `content.week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+          `content_week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
         this.select<Array<SupabaseWeekAssetRow>>(
-          `content.week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+          `content_week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
         this.select<Array<SupabaseWeekDayRow>>(
           `v_pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${weekId}&order=day_number.asc`,
@@ -290,10 +290,10 @@ export class WeekContentRepository {
       );
       [sections, assets, days] = await Promise.all([
         this.select<Array<SupabaseWeekSectionRow>>(
-          `content.week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+          `content_week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
         this.select<Array<SupabaseWeekAssetRow>>(
-          `content.week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+          `content_week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
         this.select<Array<SupabaseWeekDayRow>>(
           `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${weekId}&order=day_number.asc`,
@@ -333,7 +333,7 @@ export class WeekContentRepository {
     if (this.hasDirectContentDatabase()) {
       await this.queryRows(
         `
-          UPDATE content.pregnancy_week_data
+          UPDATE content_week_data
              SET title = $2,
                  baby_size_label = $3,
                  baby_size_compare_object = $4,
@@ -360,7 +360,7 @@ export class WeekContentRepository {
       return;
     }
 
-    await this.update(`content.pregnancy_week_data?id=eq.${weekId}`, {
+    await this.update(`content_week_data?id=eq.${weekId}`, {
       title: input.title,
       baby_size_label: input.babySizeLabel,
       baby_size_compare_object: input.babySizeCompareObject,
@@ -497,7 +497,7 @@ export class WeekContentRepository {
         if (this.hasDirectContentDatabase()) {
           await this.queryRows(
             `
-              UPDATE content.week_checklists
+              UPDATE content_week_checklists
                  SET week_data_id = $2::uuid,
                      day_content_id = $3::uuid,
                      day_number = $4,
@@ -524,7 +524,7 @@ export class WeekContentRepository {
           );
         } else {
           await this.update(
-            `content.week_checklists?id=eq.${section.id}`,
+            `content_week_checklists?id=eq.${section.id}`,
             payload,
           );
         }
@@ -536,7 +536,7 @@ export class WeekContentRepository {
       if (this.hasDirectContentDatabase()) {
         await this.queryRows(
           `
-            INSERT INTO content.week_checklists (
+            INSERT INTO content_week_checklists (
               id, week_data_id, day_content_id, day_number, code, title,
               description, display_order, is_required, is_active
             )
@@ -556,7 +556,7 @@ export class WeekContentRepository {
           ],
         );
       } else {
-        await this.insert("content.week_checklists", {
+        await this.insert("content_week_checklists", {
           id: newId,
           ...payload,
         });
@@ -590,7 +590,7 @@ export class WeekContentRepository {
         if (this.hasDirectContentDatabase()) {
           await this.queryRows(
             `
-              UPDATE content.week_questions
+              UPDATE content_week_questions
                  SET week_data_id = $2::uuid,
                      day_content_id = $3::uuid,
                      day_number = $4,
@@ -619,7 +619,7 @@ export class WeekContentRepository {
           );
         } else {
           await this.update(
-            `content.week_questions?id=eq.${asset.id}`,
+            `content_week_questions?id=eq.${asset.id}`,
             payload,
           );
         }
@@ -631,7 +631,7 @@ export class WeekContentRepository {
       if (this.hasDirectContentDatabase()) {
         await this.queryRows(
           `
-            INSERT INTO content.week_questions (
+            INSERT INTO content_week_questions (
               id, week_data_id, day_content_id, day_number, code, question_type,
               question_text, help_text, display_order, is_required, is_active
             )
@@ -652,7 +652,7 @@ export class WeekContentRepository {
           ],
         );
       } else {
-        await this.insert("content.week_questions", {
+        await this.insert("content_week_questions", {
           id: newId,
           ...payload,
         });
@@ -771,25 +771,25 @@ export class WeekContentRepository {
   async deleteChecklist(id: string): Promise<void> {
     if (this.hasDirectContentDatabase()) {
       await this.queryRows(
-        `DELETE FROM content.week_checklists WHERE id = $1::uuid`,
+        `DELETE FROM content_week_checklists WHERE id = $1::uuid`,
         [id],
       );
       return;
     }
 
-    await this.remove(`content.week_checklists?id=eq.${id}`);
+    await this.remove(`content_week_checklists?id=eq.${id}`);
   }
 
   async deleteQuestion(id: string): Promise<void> {
     if (this.hasDirectContentDatabase()) {
       await this.queryRows(
-        `DELETE FROM content.week_questions WHERE id = $1::uuid`,
+        `DELETE FROM content_week_questions WHERE id = $1::uuid`,
         [id],
       );
       return;
     }
 
-    await this.remove(`content.week_questions?id=eq.${id}`);
+    await this.remove(`content_week_questions?id=eq.${id}`);
   }
 
   async deleteMedia(id: string): Promise<void> {

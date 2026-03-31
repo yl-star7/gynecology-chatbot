@@ -39,7 +39,8 @@ function parseInsertBody(body: unknown): ChecklistInsertPayload | null {
     return null;
   }
 
-  const weekDataId = typeof body.weekDataId === "string" ? body.weekDataId.trim() : "";
+  const weekDataId =
+    typeof body.weekDataId === "string" ? body.weekDataId.trim() : "";
   const code = typeof body.code === "string" ? body.code.trim() : "";
   const title = typeof body.title === "string" ? body.title.trim() : "";
 
@@ -71,8 +72,7 @@ function parseInsertBody(body: unknown): ChecklistInsertPayload | null {
   const isRequired =
     typeof body.isRequired === "boolean" ? body.isRequired : false;
 
-  const isActive =
-    typeof body.isActive === "boolean" ? body.isActive : true;
+  const isActive = typeof body.isActive === "boolean" ? body.isActive : true;
 
   return {
     week_data_id: weekDataId,
@@ -97,9 +97,10 @@ export async function GET(request: NextRequest) {
     const weekDataId = request.nextUrl.searchParams.get("weekDataId");
 
     const baseQuery =
-      "content.week_checklists?select=id,week_data_id,day_content_id,day_number,code,title,description,checklist_payload,display_order,is_required,is_active,created_at,updated_at";
+      "content_week_checklists?select=id,week_data_id,day_content_id,day_number,code,title,description,checklist_payload,display_order,is_required,is_active,created_at,updated_at";
     const filter = weekDataId ? `&week_data_id=eq.${weekDataId}` : "";
-    const order = "&order=week_data_id.asc,day_number.asc.nullsfirst,display_order.asc";
+    const order =
+      "&order=week_data_id.asc,day_number.asc.nullsfirst,display_order.asc";
 
     const rows = await supabaseSelect<ChecklistRow[]>(
       `${baseQuery}${filter}${order}`,
@@ -132,7 +133,7 @@ export async function POST(request: NextRequest) {
     }
 
     const rows = await supabaseInsert<ChecklistRow[]>(
-      "content.week_checklists",
+      "content_week_checklists",
       payload,
     );
 
