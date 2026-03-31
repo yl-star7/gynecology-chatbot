@@ -30,6 +30,11 @@ export async function POST(request: NextRequest) {
     }
 
     const weekNum = Number(pregnancyWeekOrDueDate);
+    const extractedDueDate =
+      dueDate ||
+      pregnancyWeekOrDueDate.match(/^(\d{4}-\d{2}-\d{2})(?:\s*\/.*)?$/)?.[1] ||
+      "";
+
     if (!isNaN(weekNum)) {
       if (weekNum < 1 || weekNum > 42) {
         return NextResponse.json(
@@ -38,7 +43,7 @@ export async function POST(request: NextRequest) {
         );
       }
     } else {
-      const date = new Date(pregnancyWeekOrDueDate);
+      const date = new Date(extractedDueDate || pregnancyWeekOrDueDate);
       if (isNaN(date.getTime())) {
         return NextResponse.json(
           { error: "올바른 날짜 형식이 아니에요." },
@@ -52,7 +57,7 @@ export async function POST(request: NextRequest) {
       userId,
       pregnancyWeekOrDueDate,
       tonePreference,
-      dueDate: dueDate || null,
+      dueDate: extractedDueDate || null,
       themeKey: themeKey || DEFAULT_MOBILE_THEME_KEY,
     });
 
