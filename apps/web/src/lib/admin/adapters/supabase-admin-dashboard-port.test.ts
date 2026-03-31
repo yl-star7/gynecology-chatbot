@@ -8,6 +8,40 @@ jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseInsert: jest.fn(),
   supabaseSelect: jest.fn(),
   supabaseUpdate: jest.fn(),
+  getSupabaseAdminClient: jest.fn(() => {
+    const mockResult = { data: [], error: null };
+    const createMockBuilder = (): Record<string, unknown> => ({
+      select: createMockBuilder,
+      insert: jest.fn(() => {
+        const builder = createMockBuilder();
+        return { ...builder, ...mockResult };
+      }),
+      update: jest.fn(() => {
+        const builder = createMockBuilder();
+        return { ...builder, ...mockResult };
+      }),
+      delete: jest.fn(() => mockResult),
+      eq: createMockBuilder,
+      neq: createMockBuilder,
+      gt: createMockBuilder,
+      gte: createMockBuilder,
+      lt: createMockBuilder,
+      lte: createMockBuilder,
+      in: createMockBuilder,
+      is: createMockBuilder,
+      not: createMockBuilder,
+      like: createMockBuilder,
+      ilike: createMockBuilder,
+      order: createMockBuilder,
+      limit: createMockBuilder,
+      range: createMockBuilder,
+      single: () => mockResult,
+      maybeSingle: () => mockResult,
+    });
+    return {
+      from: () => createMockBuilder(),
+    };
+  }),
 }));
 
 jest.mock("@/lib/mobile/schift-client", () => ({

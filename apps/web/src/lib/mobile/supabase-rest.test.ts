@@ -129,13 +129,12 @@ describe("supabase admin client helpers", () => {
     const { supabaseSelect } = await import("@/lib/supabase/admin-client");
 
     await supabaseSelect(
-      "content.week_questions?select=id&phone_number_blind_index=eq.idx%3A%2B8210&push_token=not.is.null&question_id=in.(q1,q2)&created_at=gte.2026-03-01T00:00:00Z&order=day_number.asc.nullslast,display_order.desc.nullsfirst&limit=1",
+      "content_week_questions?select=id&phone_number_blind_index=eq.idx%3A%2B8210&push_token=not.is.null&question_id=in.(q1,q2)&created_at=gte.2026-03-01T00:00:00Z&order=day_number.asc.nullslast,display_order.desc.nullsfirst&limit=1",
     );
 
     expect(operations).toEqual(
       expect.arrayContaining([
-        { type: "schema", value: "content" },
-        { type: "from", value: "week_questions" },
+        { type: "from", value: "content_week_questions" },
         { type: "select", value: "id" },
         {
           type: "eq",
@@ -164,19 +163,19 @@ describe("supabase admin client helpers", () => {
     );
   });
 
-  it("uses public schema by default", async () => {
+  it("uses public schema for content_* tables", async () => {
     const { supabaseSelect } = await import("@/lib/supabase/admin-client");
 
     await supabaseSelect(
-      "published_weeks?select=week_number&week_number=eq.5&limit=1",
+      "content_pregnancy_week_data?select=week_number&week_number=eq.5&status=eq.published&limit=1",
     );
 
     expect(operations).toEqual(
       expect.arrayContaining([
-        { type: "schema", value: "public" },
-        { type: "from", value: "published_weeks" },
+        { type: "from", value: "content_pregnancy_week_data" },
         { type: "select", value: "week_number" },
         { type: "eq", column: "week_number", value: "5" },
+        { type: "eq", column: "status", value: "published" },
         { type: "limit", value: 1 },
       ]),
     );
