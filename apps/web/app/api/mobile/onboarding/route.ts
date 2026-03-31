@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     const user = await completeUserOnboarding({
       userId,
-      pregnancyWeekOrDueDate,
+      pregnancyWeekOrDueDate: normalizedPregnancyWeekOrDueDate,
       babyNickname: babyNickname || null,
       tonePreference,
       dueDate: extractedDueDate || null,
