@@ -163,7 +163,7 @@ export class WeekContentRepository {
 
     try {
       return await this.select<Array<SupabaseWeekRow>>(
-        "v_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
+        "published_weeks?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
       );
     } catch (error) {
       console.error(
@@ -202,7 +202,7 @@ export class WeekContentRepository {
     } else {
       try {
         weekRows = await this.select<Array<SupabaseWeekRow>>(
-          `v_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
+          `published_weeks?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
         );
       } catch (error) {
         console.error(

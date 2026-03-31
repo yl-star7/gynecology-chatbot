@@ -182,7 +182,7 @@ async function loadChecklistItems(
   const targetDayNumber = ((selectedPregnancyDayCount - 1) % 7) + 1;
 
   const weeks = await supabaseSelect<WeekRow[]>(
-    `v_pregnancy_week_data?select=id&week_number=eq.${targetWeekNumber}&status=eq.published&limit=1`,
+    `published_weeks?select=id&week_number=eq.${targetWeekNumber}&limit=1`,
   );
   const week = weeks[0];
   if (!week) {
@@ -191,10 +191,10 @@ async function loadChecklistItems(
 
   const [datedChecklistRows, genericChecklistRows] = await Promise.all([
     supabaseSelect<ChecklistRow[]>(
-      `active_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc`,
+      `content.week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc`,
     ),
     supabaseSelect<ChecklistRow[]>(
-      `active_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
+      `content.week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
     ),
   ]);
 
@@ -243,7 +243,7 @@ async function loadDailyQuestion(
   const targetDayNumber = ((selectedPregnancyDayCount - 1) % 7) + 1;
 
   const weeks = await supabaseSelect<WeekRow[]>(
-    `v_pregnancy_week_data?select=id&week_number=eq.${targetWeekNumber}&status=eq.published&limit=1`,
+    `published_weeks?select=id&week_number=eq.${targetWeekNumber}&limit=1`,
   );
   const week = weeks[0];
   if (!week) {
@@ -252,10 +252,10 @@ async function loadDailyQuestion(
 
   const [datedQuestions, genericQuestions] = await Promise.all([
     supabaseSelect<QuestionRow[]>(
-      `active_week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
+      `content.week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
     ),
     supabaseSelect<QuestionRow[]>(
-      `active_week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,
+      `content.week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,
     ),
   ]);
 

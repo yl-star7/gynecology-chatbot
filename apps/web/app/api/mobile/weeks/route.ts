@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     await requireMobileSession(request);
 
     const rows = await supabaseSelect<WeekRow[]>(
-      `v_pregnancy_week_data?select=week_number,title,baby_size_label,baby_summary,mother_summary&status=eq.published&order=week_number.asc`,
+      `published_weeks?select=week_number,title,baby_size_label,baby_summary,mother_summary&order=week_number.asc`,
     );
 
     return NextResponse.json({

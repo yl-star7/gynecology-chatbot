@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
 
     const dayNumber = (currentDayInWeek % 7) + 1;
     const weeks = await supabaseSelect<WeekRow[]>(
-      `v_pregnancy_week_data?select=id,baby_summary,mother_summary&week_number=eq.${currentWeek}&status=eq.published&limit=1`,
+      `published_weeks?select=id,baby_summary,mother_summary&week_number=eq.${currentWeek}&limit=1`,
     );
     const week = weeks[0];
 
@@ -149,13 +149,13 @@ export async function GET(request: NextRequest) {
     const [dayRows, datedChecklistRows, genericChecklistRows, infoViewRows] =
       await Promise.all([
         supabaseSelect<DayContentRow[]>(
-          `v_pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
+          `content.pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
         ),
         supabaseSelect<ChecklistRow[]>(
-          `active_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+          `content.week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
         ),
         supabaseSelect<ChecklistRow[]>(
-          `active_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
+          `content.week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
         ),
         supabaseSelect<CalendarLogRow[]>(
           `calendar_logs?select=id&user_id=eq.${userId}&date=eq.${todayDate}&entry_type=eq.today_info_view&limit=1`,

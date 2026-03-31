@@ -123,17 +123,17 @@ export async function GET(request: NextRequest) {
     if (profile?.pregnancy_week) {
       const dayNumber = ((profile.pregnancy_day_in_week ?? 0) % 7) + 1;
       const weekRows = await supabaseSelect<WeekRow[]>(
-        `v_pregnancy_week_data?select=id&week_number=eq.${profile.pregnancy_week}&status=eq.published&limit=1`,
+        `published_weeks?select=id&week_number=eq.${profile.pregnancy_week}&limit=1`,
       );
       const week = weekRows[0];
 
       if (week) {
         const [datedQuestions, genericQuestions] = await Promise.all([
           supabaseSelect<QuestionRow[]>(
-            `active_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+            `content.week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
           ),
           supabaseSelect<QuestionRow[]>(
-            `active_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
+            `content.week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
           ),
         ]);
 
