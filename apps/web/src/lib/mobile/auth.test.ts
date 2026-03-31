@@ -15,7 +15,9 @@ jest.mock("@/lib/mobile/twilio-verify", () => {
 });
 
 jest.mock("@/lib/privacy/phone-crypto", () => ({
-  computePhoneNumberBlindIndex: jest.fn((phoneNumber: string) => `idx:${phoneNumber}`),
+  computePhoneNumberBlindIndex: jest.fn(
+    (phoneNumber: string) => `idx:${phoneNumber}`,
+  ),
   createPhoneNumberStorage: jest.fn((phoneNumber: string) => ({
     phoneNumberEncrypted: `enc:${phoneNumber}`,
     phoneNumberBlindIndex: `idx:${phoneNumber}`,
@@ -27,6 +29,7 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
 import {
   buildPregnancyProfilePayload,
   completePhoneSignIn,
+  completeUserOnboarding,
 } from "@/lib/mobile/auth";
 import {
   supabaseInsert,
@@ -201,11 +204,15 @@ describe("completePhoneSignIn", () => {
 
     expect(mockedSupabaseSelect).toHaveBeenNthCalledWith(
       1,
-      expect.stringContaining("phone_number_blind_index=eq.idx%3A%2B821099998888"),
+      expect.stringContaining(
+        "phone_number_blind_index=eq.idx%3A%2B821099998888",
+      ),
     );
     expect(mockedSupabaseSelect).toHaveBeenNthCalledWith(
       2,
-      expect.stringContaining("phone_number_blind_index=eq.idx%3A%2B821099998888"),
+      expect.stringContaining(
+        "phone_number_blind_index=eq.idx%3A%2B821099998888",
+      ),
     );
   });
 });

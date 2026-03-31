@@ -95,7 +95,7 @@ describe("POST /api/mobile/onboarding", () => {
     expect(payload.error).toBeTruthy();
   });
 
-  it("날짜 뒤에 다른 문구가 붙어도 예정일만 추출해 onboarding 완료 후 200 반환", async () => {
+  it("태명을 별도 필드로 받아 onboarding 완료 후 200 반환", async () => {
     mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
     mockedCompleteUserOnboarding.mockResolvedValue({
       id: "user-1",
@@ -110,7 +110,8 @@ describe("POST /api/mobile/onboarding", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: "user-1",
-          pregnancyWeekOrDueDate: "2026-08-15 / 태명: 콩이",
+          pregnancyWeekOrDueDate: "2026-08-15",
+          babyNickname: "콩이",
           tonePreference: "calm",
         }),
       }) as never,
@@ -127,7 +128,8 @@ describe("POST /api/mobile/onboarding", () => {
     });
     expect(mockedCompleteUserOnboarding).toHaveBeenCalledWith({
       userId: "user-1",
-      pregnancyWeekOrDueDate: "2026-08-15 / 태명: 콩이",
+      pregnancyWeekOrDueDate: "2026-08-15",
+      babyNickname: "콩이",
       tonePreference: "calm",
       dueDate: "2026-08-15",
       themeKey: "rose-sand",

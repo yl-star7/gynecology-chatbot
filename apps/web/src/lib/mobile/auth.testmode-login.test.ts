@@ -91,6 +91,15 @@ describe("completePhoneSignIn test mode bypass", () => {
     process.env.LOCAL_DEV_USER_PHONE_NUMBER = originalBypassPhone;
   });
 
+  test("accepts any verification code for LOCAL_DEV_USER_PHONE_NUMBER without Twilio check in test mode", async () => {
+    process.env.LOCAL_DEV_USER_PHONE_NUMBER = "01026784241";
+
+    const result = await completePhoneSignIn("01026784241", "123456");
+
+    expect(result.user.id).toBe("user-1");
+    expect(mockedCheckSmsVerification).not.toHaveBeenCalled();
+  });
+
   test("accepts verification code 000000 without Twilio check in test mode", async () => {
     const result = await completePhoneSignIn("01012345678", "000000");
 

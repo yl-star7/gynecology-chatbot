@@ -17,6 +17,8 @@ export async function POST(request: NextRequest) {
     const tonePreference =
       typeof body.tonePreference === "string" ? body.tonePreference.trim() : "";
     const dueDate = typeof body.dueDate === "string" ? body.dueDate.trim() : "";
+    const babyNickname =
+      typeof body.babyNickname === "string" ? body.babyNickname.trim() : "";
     const themeKey =
       typeof body.themeKey === "string" ? body.themeKey.trim() : "";
 
@@ -56,6 +58,7 @@ export async function POST(request: NextRequest) {
     const user = await completeUserOnboarding({
       userId,
       pregnancyWeekOrDueDate,
+      babyNickname: babyNickname || null,
       tonePreference,
       dueDate: extractedDueDate || null,
       themeKey: themeKey || DEFAULT_MOBILE_THEME_KEY,
