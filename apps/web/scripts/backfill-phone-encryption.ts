@@ -77,9 +77,9 @@ async function main() {
 
   try {
     const usersUpdated = await backfillTable(pool, "users");
-    const allowedPhoneNumbersUpdated = await backfillTable(
+    const blockedPhoneNumbersUpdated = await backfillTable(
       pool,
-      "allowed_phone_numbers",
+      "blocked_phone_numbers",
     );
     const verificationRequestsUpdated = await backfillTable(
       pool,
@@ -90,7 +90,7 @@ async function main() {
       JSON.stringify(
         {
           usersUpdated,
-          allowedPhoneNumbersUpdated,
+          blockedPhoneNumbersUpdated,
           verificationRequestsUpdated,
         },
         null,

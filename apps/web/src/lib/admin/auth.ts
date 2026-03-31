@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseSelect } from "@/lib/supabase/admin-client";
+import { normalizePhoneNumberToE164 } from "@/lib/mobile/twilio-verify";
 import {
   computePhoneNumberBlindIndex,
   decryptPhoneNumber,
@@ -25,6 +26,27 @@ type AdminProfileRow = {
 };
 
 type AdminAuthProvider = "backend" | "mock";
+
+function createAdminPhoneCandidates(phoneNumber: string) {
+  const trimmed = phoneNumber.trim();
+  const digitsOnly = trimmed.replace(/\D/g, "");
+  const candidates = new Set<string>();
+  if (trimmed) candidates.add(trimmed);
+  if (digitsOnly) candidates.add(digitsOnly);
+
+  const normalizedCandidate = (() => {
+    try {
+      return normalizePhoneNumberToE164(trimmed);
+    } catch {
+      return null;
+    }
+  })();
+  if (normalizedCandidate) {
+    candidates.add(normalizedCandidate);
+  }
+
+  return Array.from(candidates);
+}
 
 function getAdminSessionSecret() {
   const secret = process.env.ADMIN_SESSION_SECRET?.trim();
@@ -76,7 +98,9 @@ function getLocalAdminCredentials() {
 }
 
 function signValue(value: string) {
-  return createHmac("sha256", getAdminSessionSecret()).update(value).digest("hex");
+  return createHmac("sha256", getAdminSessionSecret())
+    .update(value)
+    .digest("hex");
 }
 
 function encodeAdminSession(userId: string) {
@@ -126,22 +150,29 @@ export async function findAdminUserByPhoneNumber(phoneNumber: string) {
     };
   }
 
-  const users = await supabaseSelect<AdminUserRow[]>(
-    `users?select=id,phone_number_encrypted,role&phone_number_blind_index=eq.${encodeURIComponent(computePhoneNumberBlindIndex(phoneNumber))}&limit=1`,
-  );
-  const user = users[0];
-  if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
-    return null;
+  for (const candidate of createAdminPhoneCandidates(phoneNumber)) {
+    const users = await supabaseSelect<AdminUserRow[]>(
+      `users?select=id,phone_number_encrypted,role&phone_number_blind_index=eq.${encodeURIComponent(computePhoneNumberBlindIndex(candidate))}&limit=1`,
+    );
+    const user = users[0];
+    if (!user || (user.role !== "admin" && user.role !== "super_admin")) {
+      continue;
+    }
+
+    return {
+      ...user,
+      phone_number: decryptPhoneNumber(user.phone_number_encrypted),
+      displayName: (await findAdminProfileDisplayName(user.id)) ?? "운영자",
+    };
   }
 
-  return {
-    ...user,
-    phone_number: decryptPhoneNumber(user.phone_number_encrypted),
-    displayName: (await findAdminProfileDisplayName(user.id)) ?? "운영자",
-  };
+  return null;
 }
 
-export async function authenticateAdmin(input: { phoneNumber: string; password: string }) {
+export async function authenticateAdmin(input: {
+  phoneNumber: string;
+  password: string;
+}) {
   const user = await findAdminUserByPhoneNumber(input.phoneNumber);
   if (!user || input.password !== getAdminLoginPassword()) {
     throw new Error("입력한 정보를 다시 확인해주세요.");
@@ -173,7 +204,9 @@ export async function clearAdminSession() {
 
 export async function readAdminSessionUser() {
   const cookieStore = await cookies();
-  const userId = decodeAdminSession(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
+  const userId = decodeAdminSession(
+    cookieStore.get(ADMIN_SESSION_COOKIE)?.value,
+  );
   if (!userId) {
     return null;
   }

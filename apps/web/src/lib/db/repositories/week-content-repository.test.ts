@@ -73,13 +73,12 @@ describe("WeekContentRepository", () => {
 
     expect(result).toEqual(rows);
     expect(mockedSelect).toHaveBeenCalledWith(
-      "published_weeks?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
+      "content_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&status=eq.published&order=week_number.asc",
     );
   });
 
   it("returns week detail rows and falls back to content schema reads", async () => {
     mockedSelect
-      .mockRejectedValueOnce(new Error("view missing"))
       .mockResolvedValueOnce([
         {
           id: "week-2",
@@ -154,7 +153,7 @@ describe("WeekContentRepository", () => {
     expect(children.days).toHaveLength(1);
     expect(children.media).toHaveLength(1);
     expect(mockedSelect).toHaveBeenCalledWith(
-      "content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.2&limit=1",
+      "content_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.2&status=eq.published&limit=1",
     );
     expect(mockedSelect).toHaveBeenCalledWith(
       "content.week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.week-2&order=day_number.asc.nullslast,display_order.asc.nullslast",

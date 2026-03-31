@@ -131,7 +131,7 @@ describe("GET /api/mobile/profile", () => {
         ] as never);
       }
 
-      if (path.startsWith("published_weeks?")) {
+      if (path.startsWith("content_pregnancy_week_data?")) {
         return Promise.resolve([{ id: "week-19" }] as never);
       }
 

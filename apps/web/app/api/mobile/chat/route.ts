@@ -344,11 +344,12 @@ async function getPromptContext(
   const dayNumber = ((profiles[0]?.pregnancy_day_in_week ?? 0) % 7) + 1;
 
   const { data: weekRows, error: weekError } = await client
-    .from("published_weeks")
+    .from("content_pregnancy_week_data")
     .select(
       "id,week_number,title,baby_summary,mother_summary,warning_signs,recommended_actions,checklist_intro,question_intro,status",
     )
     .eq("week_number", pregnancyWeek)
+    .eq("status", "published")
     .limit(1);
   if (weekError) {
     throw weekError;
@@ -358,9 +359,9 @@ async function getPromptContext(
     return null;
   }
 
-  const content = client.schema("content");
+  const content = client;
   const { data: dayContentRows, error: dayContentError } = await content
-    .from("pregnancy_day_contents")
+    .from("content_pregnancy_day_contents")
     .select(
       "id,day_number,title,baby_development_payload,baby_message,mother_changes_payload",
     )
@@ -373,7 +374,7 @@ async function getPromptContext(
   const dayContent = dayContentRows[0] ?? null;
 
   const { data: checklists, error: checklistError } = await content
-    .from("week_checklists")
+    .from("content_week_checklists")
     .select(
       "id,code,title,description,checklist_payload,display_order,is_required",
     )
@@ -385,7 +386,7 @@ async function getPromptContext(
     throw checklistError;
   }
   const { data: questions, error: questionError } = await content
-    .from("week_questions")
+    .from("content_week_questions")
     .select(
       "id,code,question_text,question_type,help_text,question_payload,display_order,is_required",
     )

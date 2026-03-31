@@ -133,9 +133,10 @@ export async function GET(request: NextRequest) {
 
     const dayNumber = (currentDayInWeek % 7) + 1;
     const { data: weeks, error: weekError } = await client
-      .from("published_weeks")
+      .from("content_pregnancy_week_data")
       .select("id,baby_summary,mother_summary")
       .eq("week_number", currentWeek)
+      .eq("status", "published")
       .limit(1);
     if (weekError) {
       throw weekError;
@@ -153,7 +154,7 @@ export async function GET(request: NextRequest) {
     }
 
     const todayDate = getKstDate();
-    const content = client.schema("content");
+    const content = client;
     const [
       dayResult,
       datedChecklistResult,
@@ -161,20 +162,20 @@ export async function GET(request: NextRequest) {
       infoViewResult,
     ] = await Promise.all([
       content
-        .from("pregnancy_day_contents")
+        .from("content_pregnancy_day_contents")
         .select("baby_development_payload,baby_message,mother_changes_payload")
         .eq("week_data_id", week.id)
         .eq("day_number", dayNumber)
         .limit(1),
       content
-        .from("week_checklists")
+        .from("content_week_checklists")
         .select("id,title,description,display_order")
         .eq("week_data_id", week.id)
         .eq("day_number", dayNumber)
         .eq("is_active", true)
         .order("display_order", { ascending: true }),
       content
-        .from("week_checklists")
+        .from("content_week_checklists")
         .select("id,title,description,display_order")
         .eq("week_data_id", week.id)
         .is("day_number", null)

@@ -203,9 +203,9 @@ function formatAdminEventLabel(value: string | null | undefined) {
     session_reset: "세션 초기화",
     account_pause: "사용 중단",
     account_resume: "사용 재개",
-    allowed_phone_number_create: "허용 전화번호 추가",
-    allowed_phone_number_update: "허용 전화번호 수정",
-    allowed_phone_number_delete: "허용 전화번호 삭제",
+    blocked_phone_number_create: "중지 번호 추가",
+    blocked_phone_number_update: "중지 번호 수정",
+    blocked_phone_number_delete: "중지 번호 삭제",
   };
 
   return labels[value] ?? value;
@@ -379,15 +379,14 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
             }>(
               `
                 SELECT id, title, pregnancy_week, category, metadata, created_at
-                  FROM content.pregnancy_documents
+            FROM public.content_pregnancy_documents
               ORDER BY created_at DESC
               `,
             );
           }
 
           const { data, error } = await client
-            .schema("content")
-            .from("pregnancy_documents")
+            .from("content_pregnancy_documents")
             .select("id,title,pregnancy_week,category,metadata,created_at")
             .order("created_at", { ascending: false });
           if (error) throw error;
@@ -689,7 +688,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
 
     const client = getSupabaseAdminClient();
     const { data: rows, error } = await client
-      .from("allowed_phone_numbers")
+      .from("blocked_phone_numbers")
       .select(
         "id,phone_number_encrypted,display_name,note,created_at,updated_at",
       )
@@ -724,7 +723,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     const existingRows =
       (
         await client
-          .from("allowed_phone_numbers")
+          .from("blocked_phone_numbers")
           .select(
             "id,phone_number_encrypted,display_name,note,created_at,updated_at",
           )
@@ -743,7 +742,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     }
 
     const { data: inserted, error: insertError } = await client
-      .from("allowed_phone_numbers")
+      .from("blocked_phone_numbers")
       .insert({
         phone_number_encrypted: storage.phoneNumberEncrypted,
         phone_number_blind_index: storage.phoneNumberBlindIndex,
@@ -774,9 +773,9 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
         admin_user_id: input.actorId ?? getAdminActorId(),
         target_user_id: null,
         action_type: "content_update",
-        entity_type: "allowed_phone_number",
+        entity_type: "blocked_phone_number",
         entity_id: createdEntry.id || null,
-        reason: "allowed_phone_number_create",
+        reason: "blocked_phone_number_create",
         before_payload: {},
         after_payload: {
           phone_number: redactPhoneNumber(createdEntry.phoneNumber),
@@ -806,14 +805,14 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     const client = getSupabaseAdminClient();
     const storage = createPhoneNumberStorage(normalizedPhoneNumber);
     const { data: beforeRows, error: beforeError } = await client
-      .from("allowed_phone_numbers")
+      .from("blocked_phone_numbers")
       .select("id,phone_number_encrypted,display_name,note")
       .eq("id", input.id)
       .limit(1);
     if (beforeError) throw beforeError;
 
     const { data: updated, error: updateError } = await client
-      .from("allowed_phone_numbers")
+      .from("blocked_phone_numbers")
       .update({
         phone_number_encrypted: storage.phoneNumberEncrypted,
         phone_number_blind_index: storage.phoneNumberBlindIndex,
@@ -845,9 +844,9 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
         admin_user_id: input.actorId ?? getAdminActorId(),
         target_user_id: null,
         action_type: "content_update",
-        entity_type: "allowed_phone_number",
+        entity_type: "blocked_phone_number",
         entity_id: updatedEntry.id,
-        reason: "allowed_phone_number_update",
+        reason: "blocked_phone_number_update",
         before_payload: beforeRows[0]
           ? {
               ...beforeRows[0],
@@ -875,14 +874,14 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     const client = getSupabaseAdminClient();
 
     const { data: beforeRows, error: beforeError } = await client
-      .from("allowed_phone_numbers")
+      .from("blocked_phone_numbers")
       .select("id,phone_number_encrypted,display_name,note")
       .eq("id", input.id)
       .limit(1);
     if (beforeError) throw beforeError;
 
     const { error: deleteError } = await client
-      .from("allowed_phone_numbers")
+      .from("blocked_phone_numbers")
       .delete()
       .eq("id", input.id);
     if (deleteError) throw deleteError;
@@ -893,9 +892,9 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
         admin_user_id: input.actorId ?? getAdminActorId(),
         target_user_id: null,
         action_type: "content_update",
-        entity_type: "allowed_phone_number",
+        entity_type: "blocked_phone_number",
         entity_id: input.id,
-        reason: "allowed_phone_number_delete",
+        reason: "blocked_phone_number_delete",
         before_payload: beforeRows[0]
           ? {
               ...beforeRows[0],

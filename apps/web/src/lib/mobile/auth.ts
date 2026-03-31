@@ -37,7 +37,7 @@ type PregnancyProfileRow = {
   theme_key?: string | null;
 };
 
-type AllowedPhoneNumberRow = {
+type BlockedPhoneNumberRow = {
   id: string;
   phone_number_encrypted: string;
   phone_number_last4: string;
@@ -289,14 +289,14 @@ function toDecryptedPhoneRow<T extends { phone_number_encrypted: string }>(
   };
 }
 
-export async function findAllowedPhoneNumber(phoneNumber: string) {
+export async function findBlockedPhoneNumber(phoneNumber: string) {
   const client = getSupabaseAdminClient();
   const candidates = createPhoneCandidates(phoneNumber);
 
   for (const candidate of candidates) {
     const blindIndex = computePhoneNumberBlindIndex(candidate);
     const { data: rows, error } = await client
-      .from("allowed_phone_numbers")
+      .from("blocked_phone_numbers")
       .select(
         "id,phone_number_encrypted,phone_number_last4,phone_number_blind_index,display_name,note",
       )
@@ -312,6 +312,14 @@ export async function findAllowedPhoneNumber(phoneNumber: string) {
   }
 
   return null;
+}
+
+function ensurePhoneNumberNotBlocked(phoneNumber: string) {
+  return findBlockedPhoneNumber(phoneNumber).then((blockedPhoneNumber) => {
+    if (blockedPhoneNumber) {
+      throw new Error("중지된 번호입니다. 관리자에게 문의해주세요.");
+    }
+  });
 }
 
 function toAuthenticatedUser(
@@ -518,12 +526,7 @@ export async function startPhoneVerification(phoneNumber: string) {
     return { ok: true as const };
   }
 
-  const allowedPhoneNumber = await findAllowedPhoneNumber(
-    normalizedPhoneNumber,
-  );
-  if (!allowedPhoneNumber) {
-    throw new Error("허가 받지 않은 번호입니다. 제가 허락할게요.");
-  }
+  await ensurePhoneNumberNotBlocked(normalizedPhoneNumber);
   const existingUser = await findUserByPhoneNumber(normalizedPhoneNumber);
 
   if (existingUser) {
@@ -560,21 +563,8 @@ export async function completePhoneSignIn(
     normalizedPhoneNumber,
   );
 
-  const allowedPhoneNumber = isBypassPhoneNumber
-    ? {
-        id: "local-bypass-number",
-        phone_number_encrypted: createPhoneNumberStorage(normalizedPhoneNumber)
-          .phoneNumberEncrypted,
-        phone_number_last4: normalizedPhoneNumber.replace(/\D/g, "").slice(-4),
-        phone_number_blind_index: computePhoneNumberBlindIndex(
-          normalizedPhoneNumber,
-        ),
-        display_name: process.env.LOCAL_DEV_USER_NAME?.trim() || "사용자",
-        note: "local bypass",
-      }
-    : await findAllowedPhoneNumber(normalizedPhoneNumber);
-  if (!allowedPhoneNumber) {
-    throw new Error("허가 받지 않은 번호입니다. 제가 허락할게요.");
+  if (!isBypassPhoneNumber) {
+    await ensurePhoneNumberNotBlocked(normalizedPhoneNumber);
   }
   const isTestBypassLogin =
     isBypassPhoneNumber ||
@@ -598,7 +588,7 @@ export async function completePhoneSignIn(
 
   const userId = await upsertPhoneUser(
     verification.to ?? normalizedPhoneNumber,
-    allowedPhoneNumber.display_name,
+    null,
   );
   const sessionToken = await createOrUpdateSession(userId);
 
@@ -615,13 +605,6 @@ export async function completePhoneSignIn(
   const nextUser = await getAuthenticatedUser(userId);
   if (!nextUser) {
     throw new Error("로그인 사용자 정보를 확인하지 못했습니다.");
-  }
-
-  if (
-    nextUser.displayName === "사용자" &&
-    allowedPhoneNumber.display_name?.trim()
-  ) {
-    nextUser.displayName = allowedPhoneNumber.display_name.trim();
   }
 
   return {

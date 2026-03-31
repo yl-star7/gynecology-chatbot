@@ -81,7 +81,7 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           created_at timestamptz NOT NULL DEFAULT now()
         );
 
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "allowed_phone_numbers")} (
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "blocked_phone_numbers")} (
           id text PRIMARY KEY,
           phone_number_encrypted text NOT NULL,
           phone_number_blind_index text NOT NULL UNIQUE,
@@ -116,7 +116,7 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           created_at timestamptz NOT NULL DEFAULT now()
         );
 
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "knowledge_items")} (
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "content_knowledge_items")} (
           id text PRIMARY KEY,
           title text NOT NULL,
           section text NOT NULL,
@@ -144,7 +144,7 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           updated_at timestamptz NOT NULL DEFAULT now()
         );
 
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "pregnancy_documents")} (
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "content_pregnancy_documents")} (
           id text PRIMARY KEY,
           title text NOT NULL,
           content text NOT NULL,
@@ -172,7 +172,7 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           CONSTRAINT pregnancy_weeks_status_check CHECK (status IN ('draft', 'published', 'archived'))
         );
 
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "pregnancy_week_data")} (
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "content_pregnancy_week_data")} (
           id text PRIMARY KEY,
           week_number integer NOT NULL UNIQUE,
           title text,
@@ -191,9 +191,9 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           CONSTRAINT pregnancy_week_data_status_check CHECK (status IN ('draft', 'published', 'archived'))
         );
 
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "pregnancy_day_contents")} (
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "content_pregnancy_day_contents")} (
           id text PRIMARY KEY,
-          week_data_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "pregnancy_week_data")}(id) ON DELETE CASCADE,
+          week_data_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "content_pregnancy_week_data")}(id) ON DELETE CASCADE,
           day_number integer NOT NULL,
           title text,
           baby_development_payload jsonb NOT NULL DEFAULT '{"items":[]}'::jsonb,
@@ -206,10 +206,10 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           CONSTRAINT pregnancy_day_contents_day_number_range CHECK (day_number BETWEEN 1 AND 7)
         );
 
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "pregnancy_week_media")} (
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "content_pregnancy_week_media")} (
           id text PRIMARY KEY,
-          week_data_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "pregnancy_week_data")}(id) ON DELETE CASCADE,
-          day_content_id text REFERENCES ${getQualifiedTable(schema, "pregnancy_day_contents")}(id) ON DELETE CASCADE,
+          week_data_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "content_pregnancy_week_data")}(id) ON DELETE CASCADE,
+          day_content_id text REFERENCES ${getQualifiedTable(schema, "content_pregnancy_day_contents")}(id) ON DELETE CASCADE,
           day_number integer,
           media_scope text NOT NULL DEFAULT 'week',
           bucket_id text NOT NULL,
@@ -225,10 +225,10 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           CONSTRAINT pregnancy_week_media_scope_check CHECK (media_scope IN ('week', 'day'))
         );
 
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "week_checklists")} (
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "content_week_checklists")} (
           id text PRIMARY KEY,
-          week_data_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "pregnancy_week_data")}(id) ON DELETE CASCADE,
-          day_content_id text REFERENCES ${getQualifiedTable(schema, "pregnancy_day_contents")}(id) ON DELETE CASCADE,
+          week_data_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "content_pregnancy_week_data")}(id) ON DELETE CASCADE,
+          day_content_id text REFERENCES ${getQualifiedTable(schema, "content_pregnancy_day_contents")}(id) ON DELETE CASCADE,
           day_number integer,
           code text NOT NULL,
           title text NOT NULL,
@@ -243,10 +243,10 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           CONSTRAINT week_checklists_day_number_range CHECK (day_number IS NULL OR day_number BETWEEN 1 AND 7)
         );
 
-        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "week_questions")} (
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "content_week_questions")} (
           id text PRIMARY KEY,
-          week_data_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "pregnancy_week_data")}(id) ON DELETE CASCADE,
-          day_content_id text REFERENCES ${getQualifiedTable(schema, "pregnancy_day_contents")}(id) ON DELETE CASCADE,
+          week_data_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "content_pregnancy_week_data")}(id) ON DELETE CASCADE,
+          day_content_id text REFERENCES ${getQualifiedTable(schema, "content_pregnancy_day_contents")}(id) ON DELETE CASCADE,
           day_number integer,
           code text NOT NULL,
           question_text text NOT NULL,
@@ -309,7 +309,7 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "user_checklist_events")} (
           id text PRIMARY KEY,
           user_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "users")}(id) ON DELETE CASCADE,
-          checklist_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "week_checklists")}(id) ON DELETE CASCADE,
+          checklist_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "content_week_checklists")}(id) ON DELETE CASCADE,
           session_id text REFERENCES ${getQualifiedTable(schema, "chat_sessions")}(id) ON DELETE SET NULL,
           prompt_message_id text REFERENCES ${getQualifiedTable(schema, "chat_messages")}(id) ON DELETE SET NULL,
           completion_message_id text REFERENCES ${getQualifiedTable(schema, "chat_messages")}(id) ON DELETE SET NULL,
@@ -323,7 +323,7 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "user_question_events")} (
           id text PRIMARY KEY,
           user_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "users")}(id) ON DELETE CASCADE,
-          question_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "week_questions")}(id) ON DELETE CASCADE,
+          question_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "content_week_questions")}(id) ON DELETE CASCADE,
           session_id text REFERENCES ${getQualifiedTable(schema, "chat_sessions")}(id) ON DELETE SET NULL,
           prompt_message_id text REFERENCES ${getQualifiedTable(schema, "chat_messages")}(id) ON DELETE SET NULL,
           answer_message_id text REFERENCES ${getQualifiedTable(schema, "chat_messages")}(id) ON DELETE SET NULL,

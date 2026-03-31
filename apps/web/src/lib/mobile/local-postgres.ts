@@ -89,18 +89,20 @@ const LOCAL_TABLES = new Set([
   "pregnancy_profiles",
   "auth_sessions",
   "phone_verification_requests",
-  "allowed_phone_numbers",
+  "blocked_phone_numbers",
   "calendar_logs",
   "chat_sessions",
   "chat_messages",
-  "knowledge_items",
-  "pregnancy_documents",
+  "content_knowledge_items",
+  "content_pregnancy_documents",
   "pregnancy_weeks",
-  "pregnancy_week_data",
+  "content_pregnancy_week_data",
   "pregnancy_week_sections",
   "pregnancy_week_assets",
-  "week_checklists",
-  "week_questions",
+  "content_week_checklists",
+  "content_week_questions",
+  "content_pregnancy_day_contents",
+  "content_pregnancy_week_media",
   "user_checklist_events",
   "user_question_events",
   "admin_audit_logs",
@@ -140,11 +142,30 @@ function resolveLocalTableName(table: string) {
     ? (table.split(".").pop() ?? table)
     : table;
 
-  if (!LOCAL_TABLES.has(normalizedTable)) {
+  const aliasTable =
+    normalizedTable === "allowed_phone_numbers"
+      ? "blocked_phone_numbers"
+      : normalizedTable === "pregnancy_documents"
+        ? "content_pregnancy_documents"
+        : normalizedTable === "knowledge_items"
+          ? "content_knowledge_items"
+          : normalizedTable === "pregnancy_week_data"
+            ? "content_pregnancy_week_data"
+            : normalizedTable === "pregnancy_day_contents"
+              ? "content_pregnancy_day_contents"
+              : normalizedTable === "week_checklists"
+                ? "content_week_checklists"
+                : normalizedTable === "week_questions"
+                  ? "content_week_questions"
+                  : normalizedTable === "pregnancy_week_media"
+                    ? "content_pregnancy_week_media"
+                    : normalizedTable;
+
+  if (!LOCAL_TABLES.has(aliasTable)) {
     throw new Error(`Unsupported local table: ${table}`);
   }
 
-  return normalizedTable;
+  return aliasTable;
 }
 
 function getQualifiedTable(table: string) {
@@ -317,7 +338,7 @@ async function ensureSeedData() {
 
   await db.query(
     `
-      INSERT INTO ${getQualifiedTable("allowed_phone_numbers")} (
+        INSERT INTO ${getQualifiedTable("blocked_phone_numbers")} (
         id,
         phone_number_encrypted,
         phone_number_blind_index,
@@ -562,7 +583,7 @@ async function ensureSeedData() {
   for (const item of knowledgeItems) {
     await db.query(
       `
-        INSERT INTO ${getQualifiedTable("knowledge_items")} (id, title, section, body, status)
+        INSERT INTO ${getQualifiedTable("content_knowledge_items")} (id, title, section, body, status)
         VALUES ($1, $2, $3, $4, 'published')
         ON CONFLICT (id) DO UPDATE
         SET
@@ -674,7 +695,7 @@ async function ensureSeedData() {
   for (const document of ragDocuments) {
     await db.query(
       `
-        INSERT INTO ${getQualifiedTable("pregnancy_documents")} (
+        INSERT INTO ${getQualifiedTable("content_pregnancy_documents")} (
           id,
           title,
           content,
@@ -746,7 +767,7 @@ async function ensureSeedData() {
 
     await db.query(
       `
-        INSERT INTO ${getQualifiedTable("pregnancy_week_data")} (
+        INSERT INTO ${getQualifiedTable("content_pregnancy_week_data")} (
           id,
           week_number,
           title,
@@ -760,11 +781,11 @@ async function ensureSeedData() {
         ON CONFLICT (week_number) DO UPDATE
         SET
           baby_size_label = COALESCE(
-            ${getQualifiedTable("pregnancy_week_data")}.baby_size_label,
+          ${getQualifiedTable("content_pregnancy_week_data")}.baby_size_label,
             EXCLUDED.baby_size_label
           ),
           baby_size_compare_object = COALESCE(
-            ${getQualifiedTable("pregnancy_week_data")}.baby_size_compare_object,
+          ${getQualifiedTable("content_pregnancy_week_data")}.baby_size_compare_object,
             EXCLUDED.baby_size_compare_object
           )
       `,
@@ -806,13 +827,13 @@ export async function ensureLocalPostgresReady() {
         ALTER TABLE ${getQualifiedTable("phone_verification_requests")} ADD COLUMN IF NOT EXISTS phone_number_encrypted text;
         ALTER TABLE ${getQualifiedTable("phone_verification_requests")} ADD COLUMN IF NOT EXISTS phone_number_blind_index text;
         ALTER TABLE ${getQualifiedTable("phone_verification_requests")} ADD COLUMN IF NOT EXISTS phone_number_last4 text;
-        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS phone_number_encrypted text;
-        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS phone_number_blind_index text;
-        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS phone_number_last4 text;
-        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS display_name text;
-        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS note text;
-        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
-        ALTER TABLE ${getQualifiedTable("allowed_phone_numbers")} ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+    ALTER TABLE ${getQualifiedTable("blocked_phone_numbers")} ADD COLUMN IF NOT EXISTS phone_number_encrypted text;
+    ALTER TABLE ${getQualifiedTable("blocked_phone_numbers")} ADD COLUMN IF NOT EXISTS phone_number_blind_index text;
+    ALTER TABLE ${getQualifiedTable("blocked_phone_numbers")} ADD COLUMN IF NOT EXISTS phone_number_last4 text;
+    ALTER TABLE ${getQualifiedTable("blocked_phone_numbers")} ADD COLUMN IF NOT EXISTS display_name text;
+    ALTER TABLE ${getQualifiedTable("blocked_phone_numbers")} ADD COLUMN IF NOT EXISTS note text;
+    ALTER TABLE ${getQualifiedTable("blocked_phone_numbers")} ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+    ALTER TABLE ${getQualifiedTable("blocked_phone_numbers")} ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
         ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS display_name text;
         ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS due_date date;
         ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS baby_sex text CHECK (baby_sex IN ('male', 'female', 'unknown') OR baby_sex IS NULL);
@@ -1111,7 +1132,7 @@ export async function localSupabaseRpc<T>(
           WHEN ABS(pregnancy_week - $1::int) <= 3 THEN 0.86
           ELSE 0.68
         END AS similarity
-      FROM ${getQualifiedTable("pregnancy_documents")}
+            FROM ${getQualifiedTable("content_pregnancy_documents")}
       WHERE $1::int IS NULL OR pregnancy_week IS NULL OR ABS(pregnancy_week - $1::int) <= 3
       ORDER BY similarity DESC, created_at DESC
       LIMIT $2

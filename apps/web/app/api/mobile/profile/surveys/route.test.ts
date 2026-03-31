@@ -186,7 +186,7 @@ describe("POST /api/mobile/profile/surveys", () => {
     } as never);
 
     mockedSupabaseSelect.mockImplementation((path: string) => {
-      if (path.startsWith("content.week_questions?")) {
+      if (path.startsWith("content_week_questions?")) {
         return Promise.resolve([
           {
             id: "question-1",

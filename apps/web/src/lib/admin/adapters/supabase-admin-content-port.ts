@@ -68,7 +68,7 @@ let contentWritePool: Pool | null = null;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CONTENT_SCHEMA = "content";
-const KNOWLEDGE_ITEMS_TABLE = `${CONTENT_SCHEMA}.knowledge_items`;
+const KNOWLEDGE_ITEMS_TABLE = `public.content_knowledge_items`;
 
 function hasDirectContentDatabase() {
   return Boolean(process.env.DATABASE_URL);
@@ -374,7 +374,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
 
     try {
       return await supabaseSelect<Array<PublicKnowledgeItemRow>>(
-        "published_knowledge_items?select=id,slug,section,title,body,image_url,status,updated_at&order=updated_at.desc",
+        "content_knowledge_items?select=id,slug,section,title,body,image_url,status,updated_at&order=updated_at.desc",
       );
     } catch (error) {
       console.error(
@@ -407,7 +407,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     const inserted = hasDirectContentDatabase()
       ? await queryContentRows<SupabaseRagDocumentRow>(
           `
-            INSERT INTO content.pregnancy_documents (
+            INSERT INTO public.content_pregnancy_documents (
               id,
               title,
               content,
@@ -433,7 +433,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
           ],
         )
       : await supabaseInsert<Array<SupabaseRagDocumentRow>>(
-          "content.pregnancy_documents",
+          "content_pregnancy_documents",
           {
             id: documentId,
             title: input.title,
@@ -482,14 +482,14 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       ? await queryContentRows<SupabaseRagDocumentRow>(
           `
             SELECT id, title, content, pregnancy_week, category, image_url, metadata, created_at, NULL::timestamptz AS updated_at
-            FROM content.pregnancy_documents
+            FROM public.content_pregnancy_documents
             WHERE id = $1::uuid
             LIMIT 1
           `,
           [documentId],
         )
       : ((await supabaseSelect<Array<SupabaseRagDocumentRow>>(
-          `content.pregnancy_documents?select=id,title,content,pregnancy_week,category,image_url,metadata,created_at&id=eq.${documentId}&limit=1`,
+          `content_pregnancy_documents?select=id,title,content,pregnancy_week,category,image_url,metadata,created_at&id=eq.${documentId}&limit=1`,
         )) ?? []);
 
     return rows[0] ? mapRagDocument(rows[0]) : null;
@@ -516,7 +516,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     const updated = hasDirectContentDatabase()
       ? await queryContentRows<SupabaseRagDocumentRow>(
           `
-            UPDATE content.pregnancy_documents
+            UPDATE public.content_pregnancy_documents
                SET title = $2,
                    content = $3,
                    pregnancy_week = $4,
@@ -537,7 +537,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
           ],
         )
       : await supabaseUpdate<Array<SupabaseRagDocumentRow>>(
-          `content.pregnancy_documents?id=eq.${documentId}`,
+          `content_pregnancy_documents?id=eq.${documentId}`,
           {
             title: input.title,
             content: input.content,
@@ -590,7 +590,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
 
     if (hasDirectContentDatabase()) {
       await queryContentRows(
-        `DELETE FROM content.pregnancy_documents WHERE id = $1::uuid RETURNING id`,
+        `DELETE FROM public.content_pregnancy_documents WHERE id = $1::uuid RETURNING id`,
         [documentId],
       );
       if (shouldWriteAdminAuditLog(actorId)) {
@@ -615,8 +615,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const { error } = await getSupabaseAdminClient()
-      .schema("content")
-      .from("pregnancy_documents")
+      .from("content_pregnancy_documents")
       .delete()
       .eq("id", documentId);
     if (error) {
@@ -983,8 +982,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const { error } = await getSupabaseAdminClient()
-      .schema("content")
-      .from("knowledge_items")
+      .from("content_knowledge_items")
       .delete()
       .eq("id", id);
     if (error) {

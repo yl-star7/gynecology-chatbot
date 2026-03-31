@@ -1,8 +1,105 @@
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseInsert: jest.fn(),
-  supabaseSelect: jest.fn(),
-  supabaseUpdate: jest.fn(),
-}));
+jest.mock("@/lib/supabase/admin-client", () => {
+  const supabaseInsert = jest.fn();
+  const supabaseSelect = jest.fn();
+  const supabaseUpdate = jest.fn();
+
+  class QueryBuilder {
+    constructor(
+      private readonly table: string,
+      private readonly mode: "select" | "insert" | "update",
+      private readonly payload?: unknown,
+      private readonly columns?: string,
+      private readonly filters: string[] = [],
+      private readonly limitValue?: number,
+    ) {}
+
+    eq(column: string, value: string | number | boolean) {
+      return new QueryBuilder(
+        this.table,
+        this.mode,
+        this.payload,
+        this.columns,
+        [...this.filters, `${column}=eq.${value}`],
+        this.limitValue,
+      );
+    }
+
+    limit(value: number) {
+      return new QueryBuilder(
+        this.table,
+        this.mode,
+        this.payload,
+        this.columns,
+        this.filters,
+        value,
+      );
+    }
+
+    select(columns?: string) {
+      if (this.mode === "insert" || this.mode === "update") {
+        return new QueryBuilder(
+          this.table,
+          this.mode,
+          this.payload,
+          columns,
+          this.filters,
+          this.limitValue,
+        );
+      }
+
+      return new QueryBuilder(
+        this.table,
+        "select",
+        undefined,
+        columns,
+        this.filters,
+        this.limitValue,
+      );
+    }
+
+    insert(payload: unknown) {
+      return new QueryBuilder(this.table, "insert", payload);
+    }
+
+    update(payload: unknown) {
+      return new QueryBuilder(this.table, "update", payload);
+    }
+
+    then(
+      resolve: (value: { data: unknown; error: null }) => unknown,
+      reject?: (reason: unknown) => unknown,
+    ) {
+      const query = [
+        this.columns ? `select=${this.columns}` : null,
+        ...this.filters,
+        this.limitValue ? `limit=${this.limitValue}` : null,
+      ]
+        .filter(Boolean)
+        .join("&");
+      const path = query ? `${this.table}?${query}` : this.table;
+      const source =
+        this.mode === "select"
+          ? supabaseSelect(path)
+          : this.mode === "insert"
+            ? supabaseInsert(this.table, this.payload)
+            : supabaseUpdate(path, this.payload);
+
+      return Promise.resolve(source).then(
+        (data) => resolve({ data, error: null }),
+        reject,
+      );
+    }
+  }
+
+  return {
+    getSupabaseAdminClient: () => ({
+      from: (table: string) => new QueryBuilder(table, "select"),
+    }),
+    supabaseInsert,
+    supabaseSelect,
+    supabaseUpdate,
+  };
+});
 
 jest.mock("@/lib/mobile/twilio-verify", () => {
   const actual = jest.requireActual("@/lib/mobile/twilio-verify");
@@ -49,26 +146,18 @@ describe("completePhoneSignIn", () => {
     mockedSupabaseSelect.mockReset();
     mockedSupabaseUpdate.mockReset();
     mockedCheckSmsVerification.mockReset();
+    mockedSupabaseSelect.mockResolvedValue([]);
+    mockedSupabaseInsert.mockResolvedValue([]);
     mockedSupabaseUpdate.mockResolvedValue([]);
   });
 
-  test("retries user creation with the allowed phone display name when a legacy users schema still requires it", async () => {
+  test('creates a new user and falls back to "사용자" display name', async () => {
     mockedCheckSmsVerification.mockResolvedValue({
       sid: "check-1",
       status: "approved",
       to: "+821012345678",
     });
     mockedSupabaseSelect
-      .mockResolvedValueOnce([
-        {
-          id: "allow-1",
-          phone_number_encrypted: "enc:+821012345678",
-          phone_number_last4: "5678",
-          phone_number_blind_index: "idx:+821012345678",
-          display_name: "김수연",
-          note: null,
-        },
-      ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
@@ -81,52 +170,32 @@ describe("completePhoneSignIn", () => {
           last_login_at: "2026-03-19T00:00:00.000Z",
         },
       ])
+      .mockResolvedValueOnce([
+        {
+          id: "user-1",
+          phone_number_encrypted: "enc:+821012345678",
+          phone_number_last4: "5678",
+          account_status: "active",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
-    mockedSupabaseInsert
-      .mockResolvedValueOnce([])
-      .mockRejectedValueOnce(
-        new Error(
-          'null value in column "display_name" of relation "users" violates not-null constraint',
-        ),
-      )
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
+    mockedSupabaseInsert.mockResolvedValue([]);
 
     const result = await completePhoneSignIn("01012345678", "1234");
 
-    expect(mockedSupabaseInsert).toHaveBeenNthCalledWith(
-      3,
-      "users",
-      expect.objectContaining({
-        display_name: "김수연",
-        phone_number_encrypted: "enc:+821012345678",
-        phone_number_blind_index: "idx:+821012345678",
-        phone_number_last4: "5678",
-        role: "user",
-      }),
-    );
-    expect(result.user.displayName).toBe("김수연");
+    expect(result.user.displayName).toBe("사용자");
   });
 
-  test('falls back to "사용자" when the legacy schema requires display_name but no allowed-phone display name exists', async () => {
+  test("creates a second new user with the same default display-name fallback", async () => {
     mockedCheckSmsVerification.mockResolvedValue({
       sid: "check-2",
       status: "approved",
       to: "+821055566677",
     });
     mockedSupabaseSelect
-      .mockResolvedValueOnce([
-        {
-          id: "allow-2",
-          phone_number_encrypted: "enc:+821055566677",
-          phone_number_last4: "6677",
-          phone_number_blind_index: "idx:+821055566677",
-          display_name: null,
-          note: null,
-        },
-      ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
@@ -139,52 +208,32 @@ describe("completePhoneSignIn", () => {
           last_login_at: "2026-03-19T00:00:00.000Z",
         },
       ])
+      .mockResolvedValueOnce([
+        {
+          id: "user-2",
+          phone_number_encrypted: "enc:+821055566677",
+          phone_number_last4: "6677",
+          account_status: "active",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
-    mockedSupabaseInsert
-      .mockResolvedValueOnce([])
-      .mockRejectedValueOnce(
-        new Error(
-          'null value in column "display_name" of relation "users" violates not-null constraint',
-        ),
-      )
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
+    mockedSupabaseInsert.mockResolvedValue([]);
 
     const result = await completePhoneSignIn("01055566677", "1234");
 
-    expect(mockedSupabaseInsert).toHaveBeenNthCalledWith(
-      3,
-      "users",
-      expect.objectContaining({
-        display_name: "사용자",
-        phone_number_encrypted: "enc:+821055566677",
-        phone_number_blind_index: "idx:+821055566677",
-        phone_number_last4: "6677",
-        role: "user",
-      }),
-    );
     expect(result.user.displayName).toBe("사용자");
   });
 
-  test("queries allowed numbers and users by blind index instead of plaintext phone number", async () => {
+  test("queries blocked numbers and users by blind index instead of plaintext phone number", async () => {
     mockedCheckSmsVerification.mockResolvedValue({
       sid: "check-3",
       status: "approved",
       to: "+821099998888",
     });
     mockedSupabaseSelect
-      .mockResolvedValueOnce([
-        {
-          id: "allow-3",
-          phone_number_encrypted: "enc:+821099998888",
-          phone_number_last4: "8888",
-          phone_number_blind_index: "idx:+821099998888",
-          display_name: "운영자",
-          note: null,
-        },
-      ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
@@ -197,6 +246,17 @@ describe("completePhoneSignIn", () => {
           last_login_at: "2026-03-19T00:00:00.000Z",
         },
       ])
+      .mockResolvedValueOnce([
+        {
+          id: "user-3",
+          phone_number_encrypted: "enc:+821099998888",
+          phone_number_last4: "8888",
+          account_status: "active",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
     mockedSupabaseInsert.mockResolvedValue([]);
 
@@ -204,15 +264,11 @@ describe("completePhoneSignIn", () => {
 
     expect(mockedSupabaseSelect).toHaveBeenNthCalledWith(
       1,
-      expect.stringContaining(
-        "phone_number_blind_index=eq.idx%3A%2B821099998888",
-      ),
+      expect.stringContaining("phone_number_blind_index=eq.idx:+821099998888"),
     );
     expect(mockedSupabaseSelect).toHaveBeenNthCalledWith(
-      2,
-      expect.stringContaining(
-        "phone_number_blind_index=eq.idx%3A%2B821099998888",
-      ),
+      3,
+      expect.stringContaining("phone_number_blind_index=eq.idx:+821099998888"),
     );
   });
 });

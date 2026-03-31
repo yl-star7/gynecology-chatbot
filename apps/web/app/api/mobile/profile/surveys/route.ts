@@ -56,8 +56,7 @@ export async function POST(request: NextRequest) {
     const { userId } = await requireMobileSession(request, hintedUserId);
 
     const { data: questions, error: questionError } = await client
-      .schema("content")
-      .from("week_questions")
+      .from("content_week_questions")
       .select("id,question_text,question_type,help_text,question_payload")
       .eq("id", questionId)
       .limit(1);

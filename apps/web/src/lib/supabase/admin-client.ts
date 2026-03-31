@@ -18,6 +18,16 @@ type SchemaScopedTarget = {
   search?: string;
 };
 
+const CONTENT_PUBLIC_RELATION_MAP: Record<string, string> = {
+  "content.pregnancy_week_data": "content_pregnancy_week_data",
+  "content.pregnancy_day_contents": "content_pregnancy_day_contents",
+  "content.week_checklists": "content_week_checklists",
+  "content.week_questions": "content_week_questions",
+  "content.pregnancy_week_media": "content_pregnancy_week_media",
+  "content.pregnancy_documents": "content_pregnancy_documents",
+  "content.knowledge_items": "content_knowledge_items",
+};
+
 export type SupabaseRequestOptions = {
   schema?: "public" | "content";
 };
@@ -105,16 +115,37 @@ function parseSchemaScopedTarget(target: string): SchemaScopedTarget {
   };
 }
 
-function applySchema(target: string, schema?: "public" | "content") {
-  if (
-    !schema ||
-    target.startsWith("public.") ||
-    target.startsWith("content.")
-  ) {
-    return target;
+function remapLegacyTarget(target: string) {
+  if (target.startsWith("published_weeks")) {
+    const suffix = target.slice("published_weeks".length);
+    const joiner = suffix ? "&" : "?";
+    return `content_pregnancy_week_data${suffix}${joiner}status=eq.published`;
   }
 
-  return `${schema}.${target}`;
+  for (const [legacy, next] of Object.entries(CONTENT_PUBLIC_RELATION_MAP)) {
+    if (target === legacy) {
+      return next;
+    }
+
+    if (target.startsWith(`${legacy}?`)) {
+      return `${next}${target.slice(legacy.length)}`;
+    }
+  }
+
+  return target;
+}
+
+function applySchema(target: string, schema?: "public" | "content") {
+  const remappedTarget = remapLegacyTarget(target);
+  if (
+    !schema ||
+    remappedTarget.startsWith("public.") ||
+    remappedTarget.startsWith("content.")
+  ) {
+    return remappedTarget;
+  }
+
+  return `${schema}.${remappedTarget}`;
 }
 
 function parseIsValue(value: string) {

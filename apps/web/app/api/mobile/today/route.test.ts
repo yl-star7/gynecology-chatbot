@@ -340,7 +340,9 @@ describe("GET /api/mobile/today", () => {
     expect(response.status).toBe(200);
     const weekQueryCall = mockedSupabaseSelect.mock.calls.find(
       ([path]: [string, unknown?]) =>
-        path.includes("published_weeks") && path.includes("week_number=eq.1"),
+        path.includes("content_pregnancy_week_data") &&
+        path.includes("week_number=eq.1") &&
+        path.includes("status=eq.published"),
     );
     expect(weekQueryCall).toBeDefined();
   });
@@ -377,7 +379,9 @@ describe("GET /api/mobile/today", () => {
     expect(response.status).toBe(200);
     const weekQueryCall = mockedSupabaseSelect.mock.calls.find(
       ([path]: [string, unknown?]) =>
-        path.includes("published_weeks") && path.includes("week_number=eq.42"),
+        path.includes("content_pregnancy_week_data") &&
+        path.includes("week_number=eq.42") &&
+        path.includes("status=eq.published"),
     );
     expect(weekQueryCall).toBeDefined();
   });
