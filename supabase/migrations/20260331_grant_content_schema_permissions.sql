@@ -1,5 +1,0 @@
-GRANT USAGE ON SCHEMA content TO service_role;
-GRANT SELECT ON ALL TABLES IN SCHEMA content TO service_role;
-GRANT INSERT ON ALL TABLES IN SCHEMA content TO service_role;
-GRANT UPDATE ON ALL TABLES IN SCHEMA content TO service_role;
-GRANT DELETE ON ALL TABLES IN SCHEMA content TO service_role;
