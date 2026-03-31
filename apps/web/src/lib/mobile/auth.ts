@@ -464,7 +464,7 @@ export async function startPhoneVerification(phoneNumber: string) {
     normalizedPhoneNumber,
   );
   if (!allowedPhoneNumber) {
-    throw new Error("허용된 전화번호가 아닙니다. 관리자에게 문의해 주세요.");
+    throw new Error("허가 받지 않은 번호입니다. 제가 허락할게요.");
   }
   const existingUser = await findUserByPhoneNumber(normalizedPhoneNumber);
 
@@ -516,7 +516,7 @@ export async function completePhoneSignIn(
       }
     : await findAllowedPhoneNumber(normalizedPhoneNumber);
   if (!allowedPhoneNumber) {
-    throw new Error("허용된 전화번호가 아닙니다. 관리자에게 문의해 주세요.");
+    throw new Error("허가 받지 않은 번호입니다. 제가 허락할게요.");
   }
   const isTestBypassLogin =
     isBypassPhoneNumber ||
