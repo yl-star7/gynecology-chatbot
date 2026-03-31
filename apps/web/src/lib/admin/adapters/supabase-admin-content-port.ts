@@ -380,43 +380,6 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
   }
 
-  private async selectWeekSummaryRows() {
-    if (hasDirectContentDatabase()) {
-      return queryContentRows<SupabaseWeekRow>(
-        `
-          SELECT
-            id,
-            week_number,
-            title,
-            baby_size_label,
-            baby_size_compare_object,
-            baby_summary,
-            mother_summary,
-            warning_signs,
-            recommended_actions,
-            status,
-            updated_at
-          FROM content.pregnancy_week_data
-          ORDER BY week_number ASC
-        `,
-      );
-    }
-
-    try {
-      return await supabaseSelect<Array<PublicWeekSummaryRow>>(
-        "v_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
-      );
-    } catch (error) {
-      console.error(
-        "public week summaries unavailable, falling back to content schema",
-        error,
-      );
-      return supabaseSelect<Array<SupabaseWeekRow>>(
-        "content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
-      );
-    }
-  }
-
   async createDocument(
     input: AdminRagDocumentInput,
     actorId?: string,
