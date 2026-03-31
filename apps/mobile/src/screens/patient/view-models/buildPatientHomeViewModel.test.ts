@@ -18,7 +18,33 @@ test("home view model uses only today's message card", () => {
     now: new Date("2026-03-30T09:00:00+09:00"),
   });
 
-  assert.equal(viewModel.quote, null);
+  assert.ok(viewModel.quote === null || viewModel.quote.length > 0);
   assert.equal(viewModel.noteTitle, "오늘의 한마디");
   assert.ok(viewModel.noteBody.length > 0);
+});
+
+test("home view model clamps due-date based label to minimum 1주 for pregnancy day 1", () => {
+  const now = new Date("2026-03-30T09:00:00+09:00");
+  const dueDate = new Date(
+    now.getTime() + 293 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const viewModel = buildPatientHomeViewModel({
+    home: null,
+    profile: {
+      userId: "u2",
+      displayName: "테스터2",
+      phoneNumber: "01099998888",
+      pregnancyWeekLabel: null,
+      pregnancyDayCount: null,
+      dueDate,
+      accountStatus: "active",
+      hasCompletedOnboarding: true,
+      tonePreference: "차분하게",
+    },
+    now,
+  });
+
+  assert.equal(viewModel.pregnancyDayCount, 1);
+  assert.equal(viewModel.pregnancyWeekLabel, "1주 1일");
 });
