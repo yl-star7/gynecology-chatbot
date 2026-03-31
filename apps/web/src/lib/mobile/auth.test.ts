@@ -217,6 +217,79 @@ describe("completePhoneSignIn", () => {
   });
 });
 
+describe("completeUserOnboarding", () => {
+  beforeEach(() => {
+    mockedSupabaseInsert.mockReset();
+    mockedSupabaseSelect.mockReset();
+    mockedSupabaseUpdate.mockReset();
+    mockedCheckSmsVerification.mockReset();
+  });
+
+  test("stores babyNickname in first-class column and onboarding_payload", async () => {
+    mockedSupabaseSelect
+      .mockResolvedValueOnce([
+        {
+          id: "user-onboarding-1",
+          phone_number_encrypted: "enc:+821026784241",
+          phone_number_last4: "4241",
+          account_status: "active",
+          phone_verified_at: "2026-03-31T00:00:00.000Z",
+          last_login_at: "2026-03-31T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "user-onboarding-1",
+          phone_number_encrypted: "enc:+821026784241",
+          phone_number_last4: "4241",
+          account_status: "active",
+          phone_verified_at: "2026-03-31T00:00:00.000Z",
+          last_login_at: "2026-03-31T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "profile-1",
+          user_id: "user-onboarding-1",
+          display_name: null,
+          due_date: "2026-10-01",
+          onboarding_payload: {
+            pregnancyWeekOrDueDate: "임신 20주",
+            tonePreference: "차분하게",
+            babyNickname: "콩이",
+          },
+          baby_nickname: "콩이",
+          notification_time: "08:30",
+          theme_key: "rose-sand",
+        },
+      ] as never);
+
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedSupabaseInsert.mockResolvedValue([]);
+
+    await completeUserOnboarding({
+      userId: "user-onboarding-1",
+      pregnancyWeekOrDueDate: "임신 20주",
+      tonePreference: "차분하게",
+      dueDate: "2026-10-01",
+      babyNickname: "콩이",
+    });
+
+    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+      "pregnancy_profiles",
+      expect.objectContaining({
+        user_id: "user-onboarding-1",
+        baby_nickname: "콩이",
+        onboarding_payload: expect.objectContaining({
+          babyNickname: "콩이",
+        }),
+      }),
+    );
+  });
+});
+
 describe("buildPregnancyProfilePayload", () => {
   const baseMetrics = {
     pregnancyDayCount: 120,

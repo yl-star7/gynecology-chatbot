@@ -588,6 +588,7 @@ export async function completeUserOnboarding(input: {
   pregnancyWeekOrDueDate: string;
   tonePreference: string;
   dueDate?: string | null;
+  babyNickname?: string | null;
   themeKey?: string | null;
 }) {
   const user = await getAuthenticatedUser(input.userId);
@@ -609,7 +610,7 @@ export async function completeUserOnboarding(input: {
     dueDate: metrics.dueDate,
     pregnancyWeekOrDueDate: input.pregnancyWeekOrDueDate ?? null,
     tonePreference: input.tonePreference,
-    inputBabyNickname: null,
+    inputBabyNickname: input.babyNickname ?? null,
     inputHospitalName: null,
     inputNotificationTime: "08:30",
     inputThemeKey: input.themeKey ?? DEFAULT_MOBILE_THEME_KEY,
