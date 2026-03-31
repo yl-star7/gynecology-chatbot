@@ -20,21 +20,20 @@ jest.mock("@/lib/mobile/session-auth", () => ({
   ),
 }));
 
-jest.mock("@/lib/mobile/supabase-rest", () => ({
+jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseSelect: jest.fn(),
   supabaseInsert: jest.fn(),
   supabaseUpdate: jest.fn(),
 }));
 
-jest.mock("@/lib/supabase/admin-client", () => {
-  const { supabaseInsert, supabaseSelect, supabaseUpdate } = jest.requireMock(
-    "@/lib/mobile/supabase-rest",
-  ) as {
-    supabaseInsert: jest.Mock;
-    supabaseSelect: jest.Mock;
-    supabaseUpdate: jest.Mock;
-  };
+var adminSupabaseSelectMock: jest.Mock;
+var adminSupabaseInsertMock: jest.Mock;
+var adminSupabaseUpdateMock: jest.Mock;
 
+jest.mock("@/lib/supabase/admin-client", () => {
+  adminSupabaseSelectMock = jest.fn();
+  adminSupabaseInsertMock = jest.fn();
+  adminSupabaseUpdateMock = jest.fn();
   class QueryBuilder {
     private readonly schema?: string;
     private readonly table: string;
@@ -145,10 +144,10 @@ jest.mock("@/lib/supabase/admin-client", () => {
         params.length > 0 ? `${relation}?${params.join("&")}` : relation;
       const source =
         this.mode === "select"
-          ? supabaseSelect(path)
+          ? adminSupabaseSelectMock(path)
           : this.mode === "insert"
-            ? supabaseInsert(relation, this.payload)
-            : supabaseUpdate(path, this.payload);
+            ? adminSupabaseInsertMock(relation, this.payload)
+            : adminSupabaseUpdateMock(path, this.payload);
       return Promise.resolve(source).then((data) =>
         resolve({ data, error: null }),
       );
@@ -156,6 +155,9 @@ jest.mock("@/lib/supabase/admin-client", () => {
   }
 
   return {
+    supabaseSelect: adminSupabaseSelectMock,
+    supabaseInsert: adminSupabaseInsertMock,
+    supabaseUpdate: adminSupabaseUpdateMock,
     getSupabaseAdminClient: () => ({
       from: (table: string) =>
         new QueryBuilder({ table, mode: "select", schema: undefined }),
@@ -168,7 +170,11 @@ jest.mock("@/lib/supabase/admin-client", () => {
 });
 
 import { requireMobileSession } from "@/lib/mobile/session-auth";
-import { supabaseInsert, supabaseSelect } from "@/lib/mobile/supabase-rest";
+import {
+  supabaseInsert,
+  supabaseSelect,
+  supabaseUpdate,
+} from "@/lib/supabase/admin-client";
 import { GET, PATCH } from "./route";
 
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
@@ -180,6 +186,9 @@ const mockedSupabaseSelect = supabaseSelect as jest.MockedFunction<
 const mockedSupabaseInsert = supabaseInsert as jest.MockedFunction<
   typeof supabaseInsert
 >;
+const mockedSupabaseUpdate = supabaseUpdate as jest.MockedFunction<
+  typeof supabaseUpdate
+>;
 
 describe("GET /api/mobile/today", () => {
   let consoleErrorSpy: jest.SpyInstance;
@@ -188,6 +197,18 @@ describe("GET /api/mobile/today", () => {
     mockedRequireMobileSession.mockReset();
     mockedSupabaseSelect.mockReset();
     mockedSupabaseInsert.mockReset();
+    mockedSupabaseUpdate.mockReset();
+    adminSupabaseSelectMock.mockImplementation((path: string) =>
+      mockedSupabaseSelect(path),
+    );
+    adminSupabaseInsertMock.mockImplementation(
+      (table: string, payload: unknown) =>
+        mockedSupabaseInsert(table, payload as never),
+    );
+    adminSupabaseUpdateMock.mockImplementation(
+      (path: string, payload: unknown) =>
+        mockedSupabaseUpdate(path, payload as never),
+    );
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
   });
 

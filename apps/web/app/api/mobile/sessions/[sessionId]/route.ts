@@ -3,7 +3,7 @@ import {
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+import { supabaseSelect } from "@/lib/supabase/admin-client";
 import { toChatSession } from "@/lib/mobile/serializers";
 
 export async function GET(

@@ -4,7 +4,7 @@ jest.mock("@/lib/server-data-provider", () => ({
   resolveServerDataProvider: jest.fn(() => "backend"),
 }));
 
-jest.mock("@/lib/mobile/supabase-rest", () => ({
+jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseInsert: jest.fn(),
   supabaseSelect: jest.fn(),
   supabaseUpdate: jest.fn(),
@@ -34,7 +34,7 @@ import {
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
-} from "@/lib/mobile/supabase-rest";
+} from "@/lib/supabase/admin-client";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import { listSchiftWorkflows } from "@/lib/mobile/schift-workflows-api";
 

@@ -20,7 +20,7 @@ jest.mock("@/lib/mobile/session-auth", () => ({
   ),
 }));
 
-jest.mock("@/lib/mobile/supabase-rest", () => ({
+jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseSelect: jest.fn(),
 }));
 
@@ -52,11 +52,9 @@ describe("GET /api/mobile/home", () => {
       new Error("mobile session token is required"),
     );
 
-    const response = await GET(
-      {
-        nextUrl: new URL("http://localhost:3000/api/mobile/home?userId=user-1"),
-      } as never,
-    );
+    const response = await GET({
+      nextUrl: new URL("http://localhost:3000/api/mobile/home?userId=user-1"),
+    } as never);
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({

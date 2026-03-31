@@ -1,4 +1,4 @@
-jest.mock("@/lib/mobile/supabase-rest", () => ({
+jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseInsert: jest.fn(),
   supabaseSelect: jest.fn(),
   supabaseUpdate: jest.fn(),
@@ -31,7 +31,7 @@ import {
   supabaseSelect,
   supabaseInsert,
   supabaseUpdate,
-} from "@/lib/mobile/supabase-rest";
+} from "@/lib/supabase/admin-client";
 import { checkSmsVerification } from "@/lib/mobile/twilio-verify";
 
 const mockedSupabaseSelect = jest.mocked(supabaseSelect);

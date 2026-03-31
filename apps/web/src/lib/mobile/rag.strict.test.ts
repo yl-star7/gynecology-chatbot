@@ -2,12 +2,9 @@ jest.mock("./schift-client", () => ({
   getSchiftClient: () => null,
 }));
 
-jest.mock("./supabase-rest", () => ({
+jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseSelect: jest.fn(async () => [
-    {
-      key: "rag_provider",
-      value: { ragProvider: "supabase" },
-    },
+    { key: "rag_provider", value: { ragProvider: "supabase" } },
   ]),
   supabaseRpc: jest.fn(),
 }));

@@ -3,7 +3,7 @@ import {
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
-} from "@/lib/mobile/supabase-rest";
+} from "@/lib/supabase/admin-client";
 import { embedPregnancyDocument } from "@/lib/mobile/rag";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import { patchSchiftWorkflow } from "@/lib/mobile/schift-workflows-api";
@@ -27,7 +27,7 @@ const mockedWeekRepositoryDeleteChecklist = jest.fn();
 const mockedWeekRepositoryDeleteQuestion = jest.fn();
 const mockedWeekRepositoryDeleteMedia = jest.fn();
 
-jest.mock("@/lib/mobile/supabase-rest", () => ({
+jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseDelete: jest.fn(),
   supabaseSelect: jest.fn(),
   supabaseInsert: jest.fn(),

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+import { supabaseSelect } from "@/lib/supabase/admin-client";
 
 const COUNT_LIMIT = 10000;
 

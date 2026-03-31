@@ -2,12 +2,12 @@ jest.mock("@/lib/admin/auth", () => ({
   readAdminSessionUser: jest.fn(),
 }));
 
-jest.mock("@/lib/mobile/supabase-rest", () => ({
+jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseSelect: jest.fn(),
 }));
 
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+import { supabaseSelect } from "@/lib/supabase/admin-client";
 
 import { GET } from "./route";
 

@@ -1,8 +1,8 @@
-jest.mock("@/lib/mobile/supabase-rest", () => ({
+jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseInsert: jest.fn(),
 }));
 
-import { supabaseInsert } from "@/lib/mobile/supabase-rest";
+import { supabaseInsert } from "@/lib/supabase/admin-client";
 
 import { recordUserAction } from "./user-action-log";
 

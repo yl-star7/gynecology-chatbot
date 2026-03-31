@@ -12,7 +12,7 @@ import {
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
-} from "@/lib/mobile/supabase-rest";
+} from "@/lib/supabase/admin-client";
 
 export type SupabaseWeekRow = {
   id: string;

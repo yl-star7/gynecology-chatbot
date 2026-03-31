@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { supabaseSelect, supabaseInsert } from "@/lib/mobile/supabase-rest";
+import { supabaseSelect, supabaseInsert } from "@/lib/supabase/admin-client";
 
 const VALID_QUESTION_TYPES = [
   "text",

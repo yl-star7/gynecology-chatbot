@@ -116,7 +116,7 @@ jest.mock("@supabase/supabase-js", () => ({
   createClient,
 }));
 
-describe("supabase-rest", () => {
+describe("supabase admin client helpers", () => {
   beforeEach(() => {
     operations.length = 0;
     createClient.mockClear();
@@ -126,7 +126,7 @@ describe("supabase-rest", () => {
   });
 
   it("routes content schema reads through supabase-js with current filter semantics", async () => {
-    const { supabaseSelect } = await import("./supabase-rest");
+    const { supabaseSelect } = await import("@/lib/supabase/admin-client");
 
     await supabaseSelect(
       "content.week_questions?select=id&phone_number_blind_index=eq.idx%3A%2B8210&push_token=not.is.null&question_id=in.(q1,q2)&created_at=gte.2026-03-01T00:00:00Z&order=day_number.asc.nullslast,display_order.desc.nullsfirst&limit=1",
@@ -165,7 +165,7 @@ describe("supabase-rest", () => {
   });
 
   it("uses public schema by default", async () => {
-    const { supabaseSelect } = await import("./supabase-rest");
+    const { supabaseSelect } = await import("@/lib/supabase/admin-client");
 
     await supabaseSelect(
       "published_weeks?select=week_number&week_number=eq.5&limit=1",

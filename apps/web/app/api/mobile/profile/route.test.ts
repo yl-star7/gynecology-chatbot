@@ -26,7 +26,7 @@ jest.mock("@/lib/mobile/session-auth", () => ({
   ),
 }));
 
-jest.mock("@/lib/mobile/supabase-rest", () => ({
+jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseSelect: jest.fn(),
 }));
 
@@ -35,7 +35,7 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
 }));
 
 import { requireMobileSession } from "@/lib/mobile/session-auth";
-import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+import { supabaseSelect } from "@/lib/supabase/admin-client";
 import { GET } from "./route";
 
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<

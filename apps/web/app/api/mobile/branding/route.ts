@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureStorageBucket } from "@/lib/admin/supabase-storage";
-import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+import { supabaseSelect } from "@/lib/supabase/admin-client";
 
 const BRANDING_KEY = "ui_branding";
 

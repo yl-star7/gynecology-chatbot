@@ -1,5 +1,5 @@
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
-import { supabaseRpc, supabaseSelect } from "./supabase-rest";
+import { supabaseRpc, supabaseSelect } from "@/lib/supabase/admin-client";
 import { getSchiftClient } from "./schift-client";
 
 type RagDocumentRow = {

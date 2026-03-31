@@ -1,4 +1,4 @@
-jest.mock("@/lib/mobile/supabase-rest", () => ({
+jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseSelect: jest.fn(),
 }));
 
@@ -17,12 +17,14 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/lib/privacy/phone-crypto", () => ({
-  computePhoneNumberBlindIndex: jest.fn((phoneNumber: string) => `idx:${phoneNumber}`),
+  computePhoneNumberBlindIndex: jest.fn(
+    (phoneNumber: string) => `idx:${phoneNumber}`,
+  ),
   decryptPhoneNumber: jest.fn((value: string) => value.replace(/^enc:/, "")),
 }));
 
 import { cookies } from "next/headers";
-import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+import { supabaseSelect } from "@/lib/supabase/admin-client";
 import {
   authenticateAdmin,
   readAdminSessionUser,
@@ -177,7 +179,9 @@ describe("admin auth provider awareness", () => {
         phoneNumber: "01011112222",
         password: "mock-pass",
       }),
-    ).rejects.toThrow("LOCAL_ADMIN_USER_ID is required when ADMIN_DATA_PROVIDER=mock");
+    ).rejects.toThrow(
+      "LOCAL_ADMIN_USER_ID is required when ADMIN_DATA_PROVIDER=mock",
+    );
   });
 
   test("requires explicit admin credentials and session secret configuration", async () => {
@@ -191,7 +195,9 @@ describe("admin auth provider awareness", () => {
         phoneNumber: "01011112222",
         password: "mock-pass",
       }),
-    ).rejects.toThrow("ADMIN_LOGIN_PASSWORD or LOCAL_ADMIN_PASSWORD is required");
+    ).rejects.toThrow(
+      "ADMIN_LOGIN_PASSWORD or LOCAL_ADMIN_PASSWORD is required",
+    );
 
     process.env.LOCAL_ADMIN_PASSWORD = "mock-pass";
 

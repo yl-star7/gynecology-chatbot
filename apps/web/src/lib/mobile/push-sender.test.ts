@@ -1,11 +1,13 @@
 jest.mock("expo-server-sdk", () => {
   return jest.fn().mockImplementation(() => ({
     chunkPushNotifications: (messages: unknown[]) => [messages],
-    sendPushNotificationsAsync: jest.fn(async (messages: unknown[]) => messages),
+    sendPushNotificationsAsync: jest.fn(
+      async (messages: unknown[]) => messages,
+    ),
   }));
 });
 
-jest.mock("./supabase-rest", () => ({
+jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseSelect: jest.fn(),
 }));
 
@@ -23,7 +25,7 @@ jest.mock("./twilio-verify", () => ({
 
 import Expo from "expo-server-sdk";
 
-import { supabaseSelect } from "./supabase-rest";
+import { supabaseSelect } from "@/lib/supabase/admin-client";
 import { sendDailyPushNotifications } from "./push-sender";
 import { sendSmsMessage } from "./twilio-verify";
 
@@ -75,9 +77,8 @@ describe("sendDailyPushNotifications", () => {
   });
 
   test("keeps push delivery for users with valid Expo tokens", async () => {
-    (Expo as unknown as { isExpoPushToken: jest.Mock }).isExpoPushToken = jest.fn(
-      () => true,
-    );
+    (Expo as unknown as { isExpoPushToken: jest.Mock }).isExpoPushToken =
+      jest.fn(() => true);
     (supabaseSelect as jest.Mock).mockResolvedValue([
       {
         user_id: "user-1",

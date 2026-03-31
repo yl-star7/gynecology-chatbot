@@ -1,5 +1,5 @@
 import Expo from "expo-server-sdk";
-import { supabaseSelect } from "./supabase-rest";
+import { supabaseSelect } from "@/lib/supabase/admin-client";
 import { decryptPhoneNumber } from "@/lib/privacy/phone-crypto";
 import { sendSmsMessage } from "./twilio-verify";
 

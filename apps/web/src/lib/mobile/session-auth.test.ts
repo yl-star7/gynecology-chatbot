@@ -1,13 +1,17 @@
-jest.mock("./supabase-rest", () => ({
+jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseSelect: jest.fn(),
   supabaseUpdate: jest.fn(),
 }));
 
-import { supabaseSelect, supabaseUpdate } from "./supabase-rest";
+import { supabaseSelect, supabaseUpdate } from "@/lib/supabase/admin-client";
 import { requireMobileSession } from "./session-auth";
 
-const mockedSupabaseSelect = supabaseSelect as jest.MockedFunction<typeof supabaseSelect>;
-const mockedSupabaseUpdate = supabaseUpdate as jest.MockedFunction<typeof supabaseUpdate>;
+const mockedSupabaseSelect = supabaseSelect as jest.MockedFunction<
+  typeof supabaseSelect
+>;
+const mockedSupabaseUpdate = supabaseUpdate as jest.MockedFunction<
+  typeof supabaseUpdate
+>;
 
 describe("requireMobileSession", () => {
   beforeEach(() => {
@@ -38,8 +42,8 @@ describe("requireMobileSession", () => {
       },
     });
 
-    await expect(requireMobileSession(request as never, "user-1")).rejects.toThrow(
-      "mobile session user is not active",
-    );
+    await expect(
+      requireMobileSession(request as never, "user-1"),
+    ).rejects.toThrow("mobile session user is not active");
   });
 });

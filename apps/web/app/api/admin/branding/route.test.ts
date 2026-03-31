@@ -2,7 +2,7 @@ jest.mock("@/lib/admin/auth", () => ({
   readAdminSessionUser: jest.fn(),
 }));
 
-jest.mock("@/lib/mobile/supabase-rest", () => ({
+jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseInsert: jest.fn(),
   supabaseSelect: jest.fn(),
   supabaseUpdate: jest.fn(),
@@ -13,7 +13,7 @@ import {
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
-} from "@/lib/mobile/supabase-rest";
+} from "@/lib/supabase/admin-client";
 import { PUT } from "./route";
 
 const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<

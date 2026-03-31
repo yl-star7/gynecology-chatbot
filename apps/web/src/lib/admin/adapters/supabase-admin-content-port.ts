@@ -30,7 +30,7 @@ import {
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
-} from "@/lib/mobile/supabase-rest";
+} from "@/lib/supabase/admin-client";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 import {
   buildSchiftWorkflowDescription,
