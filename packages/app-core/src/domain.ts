@@ -224,6 +224,7 @@ export interface ProfileSurveyQuestion {
 export interface OnboardingProfileInput {
   pregnancyWeekOrDueDate: string;
   tonePreference: string;
+  babyNickname?: string | null;
   themeKey?: MobileThemeKey | null;
 }
 

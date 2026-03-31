@@ -39,7 +39,9 @@ jest.mock("@/lib/mobile/schift-client", () => ({
 
 jest.mock("@/lib/mobile/schift-workflow", () => ({
   runSchiftWorkflow: jest.fn(),
-  formatSchiftWorkflowRun: jest.fn((run) => run.outputs?.answer ?? "workflow 응답"),
+  formatSchiftWorkflowRun: jest.fn(
+    (run) => run.outputs?.answer ?? "workflow 응답",
+  ),
   extractSchiftWorkflowOutputs: jest.fn((run) => run.outputs),
 }));
 
@@ -85,8 +87,17 @@ describe("POST /api/mobile/chat", () => {
     mockedGenerateText.mockReset();
     mockedGetSchiftClient.mockReset();
     mockedRunSchiftWorkflow.mockReset();
-    delete process.env.GEMINI_API_KEY;
+    process.env.GEMINI_API_KEY = "test-key";
     delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    mockedGetSchiftClient.mockReturnValue(null as never);
+    mockedGenerateText.mockResolvedValue({
+      text: JSON.stringify({
+        id: "assistant-default",
+        role: "assistant",
+        createdAtLabel: "방금 전",
+        parts: [{ type: "text", id: "p-default", text: "테스트 응답" }],
+      }),
+    } as never);
   });
 
   function mockPromptContext({
@@ -253,7 +264,8 @@ describe("POST /api/mobile/chat", () => {
           const role = (payload as { role?: string }).role;
           return Promise.resolve([
             {
-              id: role === "assistant" ? "assistant-message-1" : "user-message-1",
+              id:
+                role === "assistant" ? "assistant-message-1" : "user-message-1",
             },
           ]);
         }
@@ -341,7 +353,8 @@ describe("POST /api/mobile/chat", () => {
           const role = (payload as { role?: string }).role;
           return Promise.resolve([
             {
-              id: role === "assistant" ? "assistant-message-2" : "user-message-2",
+              id:
+                role === "assistant" ? "assistant-message-2" : "user-message-2",
             },
           ]);
         }
@@ -412,7 +425,8 @@ describe("POST /api/mobile/chat", () => {
           const role = (payload as { role?: string }).role;
           return Promise.resolve([
             {
-              id: role === "assistant" ? "assistant-message-3" : "user-message-3",
+              id:
+                role === "assistant" ? "assistant-message-3" : "user-message-3",
             },
           ]);
         }
@@ -488,21 +502,23 @@ describe("POST /api/mobile/chat", () => {
       sessionToken: "token-1",
     } as never);
     mockPromptContext({ existingPromptEvents: true });
-    mockedSupabaseInsert.mockImplementation((table: string, payload: object | object[]) => {
-      if (table === "chat_sessions") {
-        return Promise.resolve([]);
-      }
-
-      if (table === "chat_messages") {
-        if (Array.isArray(payload)) {
-          return Promise.resolve([{ id: "assistant-message-1" }]);
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
         }
 
-        return Promise.resolve([{ id: "user-message-1" }]);
-      }
+        if (table === "chat_messages") {
+          if (Array.isArray(payload)) {
+            return Promise.resolve([{ id: "assistant-message-1" }]);
+          }
 
-      return Promise.resolve([]);
-    });
+          return Promise.resolve([{ id: "user-message-1" }]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
     mockedSupabaseUpdate.mockResolvedValue([]);
     mockedGetSchiftClient.mockReturnValue({
       workflows: {
@@ -559,7 +575,9 @@ describe("POST /api/mobile/chat", () => {
           return Promise.resolve([
             {
               id:
-                role === "assistant" ? "assistant-message-structured" : "user-message-structured",
+                role === "assistant"
+                  ? "assistant-message-structured"
+                  : "user-message-structured",
             },
           ]);
         }
@@ -581,9 +599,11 @@ describe("POST /api/mobile/chat", () => {
         status: "completed",
         outputs: {
           answer: JSON.stringify({
-            answer: "지금은 무리하지 말고 증상이 이어지면 바로 진료를 받아보세요.",
+            answer:
+              "지금은 무리하지 말고 증상이 이어지면 바로 진료를 받아보세요.",
             guardrailStatus: "medical_caution",
-            guardrailReason: "응급 신호 가능성을 먼저 안내해야 하는 입력이에요.",
+            guardrailReason:
+              "응급 신호 가능성을 먼저 안내해야 하는 입력이에요.",
             characterTone: "anxious",
           }),
         },
@@ -720,7 +740,10 @@ describe("POST /api/mobile/chat", () => {
           const role = (payload as { role?: string }).role;
           return Promise.resolve([
             {
-              id: role === "assistant" ? "assistant-message-blocked" : "user-message-blocked",
+              id:
+                role === "assistant"
+                  ? "assistant-message-blocked"
+                  : "user-message-blocked",
             },
           ]);
         }
@@ -807,7 +830,9 @@ describe("POST /api/mobile/chat", () => {
             return Promise.resolve(payload.map((_, i) => ({ id: `msg-${i}` })));
           }
           const role = (payload as { role?: string }).role;
-          return Promise.resolve([{ id: role === "assistant" ? "assistant-msg-1" : "user-msg-1" }]);
+          return Promise.resolve([
+            { id: role === "assistant" ? "assistant-msg-1" : "user-msg-1" },
+          ]);
         }
         return Promise.resolve([]);
       },
@@ -849,7 +874,10 @@ describe("POST /api/mobile/chat", () => {
           const role = (payload as { role?: string }).role;
           return Promise.resolve([
             {
-              id: role === "assistant" ? "assistant-message-redirect" : "user-message-redirect",
+              id:
+                role === "assistant"
+                  ? "assistant-message-redirect"
+                  : "user-message-redirect",
             },
           ]);
         }
