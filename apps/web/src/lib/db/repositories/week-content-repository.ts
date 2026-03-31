@@ -301,15 +301,18 @@ export class WeekContentRepository {
       ]);
     }
 
-    const media = await this.select<Array<SupabaseWeekMediaRow>>(
-      `content.pregnancy_week_media?select=id,day_number,media_scope,bucket_id,object_path,media_role,alt_text,source_file_name,display_order&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
-    ).catch((error) => {
+    let media: Array<SupabaseWeekMediaRow>;
+    try {
+      media = await this.select<Array<SupabaseWeekMediaRow>>(
+        `content.pregnancy_week_media?select=id,day_number,media_scope,bucket_id,object_path,media_role,alt_text,source_file_name,display_order&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+      );
+    } catch (error) {
       console.error(
         "week media unavailable, returning empty media list",
         error,
       );
-      return [];
-    });
+      media = [];
+    }
 
     return { sections, assets, days, media };
   }

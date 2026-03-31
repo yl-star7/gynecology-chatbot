@@ -141,7 +141,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
     mockedResolveServerDataProvider.mockReturnValue("supabase");
     mockedHasSupabaseConfig.mockReturnValue(true);
     mockedHasDockerConfig.mockReturnValue(false);
-    mockedSelect.mockResolvedValueOnce([
+    mockedWeekRepositoryListWeeks.mockResolvedValueOnce([
       {
         id: "week-1",
         week_number: 1,
@@ -174,119 +174,99 @@ describe("SupabaseAdminContentPortAdapter", () => {
         updatedAt: "2026-03-17T10:00:00.000Z",
       },
     ]);
-    expect(mockedSelect).toHaveBeenCalledWith(
-      expect.stringContaining("v_pregnancy_week_data"),
-    );
+    expect(mockedWeekRepositoryListWeeks).toHaveBeenCalled();
   });
 
   it("returns detailed week content with ordered sections and assets", async () => {
     mockedResolveServerDataProvider.mockReturnValue("supabase");
     mockedHasSupabaseConfig.mockReturnValue(true);
     mockedHasDockerConfig.mockReturnValue(false);
-    mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("v_pregnancy_week_data")) {
-        return Promise.resolve([
-          {
-            id: "week-2",
-            week_number: 2,
-            title: "두 번째 주",
-            baby_size_label: "체리",
-            baby_size_compare_object: "작은 체리",
-            baby_summary: "병아리처럼 작은 심장이 움직입니다.",
-            mother_summary: "유방이 민감해질 수 있습니다.",
-            warning_signs: "위험 신호 정리",
-            recommended_actions: "권장 액션 정리",
-            status: "draft",
-            updated_at: "2026-03-18T08:00:00.000Z",
+    mockedWeekRepositoryGetWeek.mockResolvedValueOnce({
+      id: "week-2",
+      week_number: 2,
+      title: "두 번째 주",
+      baby_size_label: "체리",
+      baby_size_compare_object: "작은 체리",
+      baby_summary: "병아리처럼 작은 심장이 움직입니다.",
+      mother_summary: "유방이 민감해질 수 있습니다.",
+      warning_signs: "위험 신호 정리",
+      recommended_actions: "권장 액션 정리",
+      status: "draft",
+      updated_at: "2026-03-18T08:00:00.000Z",
+    });
+    mockedWeekRepositoryGetWeekChildren.mockResolvedValueOnce({
+      days: [
+        {
+          id: "day-2-1",
+          day_number: 1,
+          title: "Day 1",
+          baby_development_payload: {
+            items: ["병아리처럼 작은 심장이 움직입니다."],
           },
-        ]);
-      }
-
-      if (path.startsWith("v_pregnancy_day_contents")) {
-        return Promise.resolve([
-          {
-            id: "day-2-1",
-            day_number: 1,
-            title: "Day 1",
-            baby_development_payload: {
-              items: ["병아리처럼 작은 심장이 움직입니다."],
-            },
-            baby_message: "엄마, 반가워요.",
-            mother_changes_payload: { items: ["유방이 민감해질 수 있습니다."] },
-            display_order: 1,
-          },
-        ]);
-      }
-
-      if (path.startsWith("v_week_checklists")) {
-        return Promise.resolve([
-          {
-            id: "section-2",
-            day_number: 2,
-            code: "baby_appearance",
-            title: "아기 모양",
-            description: "작은 체리처럼 생겼어요.",
-            display_order: 2,
-            is_required: true,
-            is_active: true,
-          },
-          {
-            id: "section-1",
-            day_number: 1,
-            code: "attachment_question",
-            title: "애착 질문",
-            description: "오늘 느낀 감정을 적어주세요.",
-            display_order: 1,
-            is_required: false,
-            is_active: true,
-          },
-        ]);
-      }
-
-      if (path.startsWith("v_week_questions")) {
-        return Promise.resolve([
-          {
-            id: "asset-2",
-            day_number: 2,
-            code: "compare-card",
-            question_type: "compare",
-            question_text: "/images/week2/compare.jpg",
-            help_text: "비교 이미지",
-            display_order: 2,
-            is_required: false,
-            is_active: true,
-          },
-          {
-            id: "asset-1",
-            day_number: 1,
-            code: "hero-card",
-            question_type: "hero",
-            question_text: "/images/week2/hero.jpg",
-            help_text: "히어로 이미지",
-            display_order: 1,
-            is_required: true,
-            is_active: true,
-          },
-        ]);
-      }
-
-      if (path.startsWith("content.pregnancy_week_media")) {
-        return Promise.resolve([
-          {
-            id: "media-1",
-            day_number: null,
-            media_scope: "week",
-            bucket_id: "pregnancy-content",
-            object_path: "weeks/2/hero.jpg",
-            media_role: "hero",
-            alt_text: "주차 대표 이미지",
-            source_file_name: "week2-hero.jpg",
-            display_order: 1,
-          },
-        ]);
-      }
-
-      return Promise.resolve([]);
+          baby_message: "엄마, 반가워요.",
+          mother_changes_payload: { items: ["유방이 민감해질 수 있습니다."] },
+          display_order: 1,
+        },
+      ],
+      sections: [
+        {
+          id: "section-2",
+          day_number: 2,
+          code: "baby_appearance",
+          title: "아기 모양",
+          description: "작은 체리처럼 생겼어요.",
+          display_order: 2,
+          is_required: true,
+          is_active: true,
+        },
+        {
+          id: "section-1",
+          day_number: 1,
+          code: "attachment_question",
+          title: "애착 질문",
+          description: "오늘 느낀 감정을 적어주세요.",
+          display_order: 1,
+          is_required: false,
+          is_active: true,
+        },
+      ],
+      assets: [
+        {
+          id: "asset-2",
+          day_number: 2,
+          code: "compare-card",
+          question_type: "compare",
+          question_text: "/images/week2/compare.jpg",
+          help_text: "비교 이미지",
+          display_order: 2,
+          is_required: false,
+          is_active: true,
+        },
+        {
+          id: "asset-1",
+          day_number: 1,
+          code: "hero-card",
+          question_type: "hero",
+          question_text: "/images/week2/hero.jpg",
+          help_text: "히어로 이미지",
+          display_order: 1,
+          is_required: true,
+          is_active: true,
+        },
+      ],
+      media: [
+        {
+          id: "media-1",
+          day_number: null,
+          media_scope: "week",
+          bucket_id: "pregnancy-content",
+          object_path: "weeks/2/hero.jpg",
+          media_role: "hero",
+          alt_text: "주차 대표 이미지",
+          source_file_name: "week2-hero.jpg",
+          display_order: 1,
+        },
+      ],
     });
 
     const detail = await adapter.getWeek(2);
@@ -315,7 +295,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
     mockedResolveServerDataProvider.mockReturnValue("supabase");
     mockedHasSupabaseConfig.mockReturnValue(true);
     mockedHasDockerConfig.mockReturnValue(false);
-    mockedSelect.mockResolvedValueOnce([]);
+    mockedWeekRepositoryGetWeek.mockResolvedValueOnce(null);
     const detail = await adapter.getWeek(99);
     expect(detail).toBeNull();
   });
