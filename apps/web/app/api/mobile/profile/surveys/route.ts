@@ -3,11 +3,7 @@ import {
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import {
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/mobile/supabase-rest";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 
 type QuestionRow = {
   id: string;
@@ -43,6 +39,7 @@ function getKstDateKey() {
 
 export async function POST(request: NextRequest) {
   try {
+    const client = getSupabaseAdminClient();
     const body = await request.json().catch(() => ({}));
     const hintedUserId = typeof body.userId === "string" ? body.userId : "";
     const questionId =
@@ -58,9 +55,15 @@ export async function POST(request: NextRequest) {
 
     const { userId } = await requireMobileSession(request, hintedUserId);
 
-    const questions = await supabaseSelect<QuestionRow[]>(
-      `content.week_questions?select=id,question_text,question_type,help_text,question_payload&id=eq.${questionId}&limit=1`,
-    );
+    const { data: questions, error: questionError } = await client
+      .schema("content")
+      .from("week_questions")
+      .select("id,question_text,question_type,help_text,question_payload")
+      .eq("id", questionId)
+      .limit(1);
+    if (questionError) {
+      throw questionError;
+    }
     const question = questions[0];
 
     if (!question) {
@@ -72,7 +75,7 @@ export async function POST(request: NextRequest) {
 
     const now = new Date().toISOString();
 
-    await supabaseInsert("calendar_logs", {
+    const { error: logError } = await client.from("calendar_logs").insert({
       user_id: userId,
       session_id: null,
       date: getKstDateKey(),
@@ -86,33 +89,51 @@ export async function POST(request: NextRequest) {
         source: "profile_survey",
       },
     });
+    if (logError) {
+      throw logError;
+    }
 
-    const existingEvents = await supabaseSelect<QuestionEventRow[]>(
-      `user_question_events?select=id,question_id,status&user_id=eq.${userId}&question_id=eq.${questionId}&order=updated_at.desc&limit=1`,
-    );
+    const { data: existingEvents, error: eventError } = await client
+      .from("user_question_events")
+      .select("id,question_id,status")
+      .eq("user_id", userId)
+      .eq("question_id", questionId)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    if (eventError) {
+      throw eventError;
+    }
 
     if (existingEvents[0]) {
-      await supabaseUpdate(
-        `user_question_events?id=eq.${existingEvents[0].id}`,
-        {
+      const { error: updateError } = await client
+        .from("user_question_events")
+        .update({
           status: "answered",
           answer_message_id: null,
           answered_at: now,
           updated_at: now,
-        },
-      );
+        })
+        .eq("id", existingEvents[0].id);
+      if (updateError) {
+        throw updateError;
+      }
     } else {
-      await supabaseInsert("user_question_events", {
-        user_id: userId,
-        question_id: questionId,
-        session_id: null,
-        prompt_message_id: null,
-        answer_message_id: null,
-        status: "answered",
-        sent_at: now,
-        answered_at: now,
-        updated_at: now,
-      });
+      const { error: insertError } = await client
+        .from("user_question_events")
+        .insert({
+          user_id: userId,
+          question_id: questionId,
+          session_id: null,
+          prompt_message_id: null,
+          answer_message_id: null,
+          status: "answered",
+          sent_at: now,
+          answered_at: now,
+          updated_at: now,
+        });
+      if (insertError) {
+        throw insertError;
+      }
     }
 
     return NextResponse.json({ ok: true });

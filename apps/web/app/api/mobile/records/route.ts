@@ -4,7 +4,7 @@ import {
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { supabaseInsert, supabaseSelect } from "@/lib/mobile/supabase-rest";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 import { toRecordDayView } from "@/lib/mobile/serializers";
 
 type CalendarRecordRow = {
@@ -159,9 +159,15 @@ async function loadChecklistItems(
   userId: string,
   isoDate: string,
 ): Promise<TodayChecklistItem[]> {
-  const profiles = await supabaseSelect<ProfileRow[]>(
-    `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
-  );
+  const client = getSupabaseAdminClient();
+  const { data: profiles, error: profileError } = await client
+    .from("pregnancy_profiles")
+    .select("pregnancy_day_count,pregnancy_week,pregnancy_day_in_week")
+    .eq("user_id", userId)
+    .limit(1);
+  if (profileError) {
+    throw profileError;
+  }
   const profile = profiles[0];
   if (!profile) {
     return [];
@@ -181,30 +187,52 @@ async function loadChecklistItems(
   const targetWeekNumber = Math.ceil(selectedPregnancyDayCount / 7);
   const targetDayNumber = ((selectedPregnancyDayCount - 1) % 7) + 1;
 
-  const weeks = await supabaseSelect<WeekRow[]>(
-    `published_weeks?select=id&week_number=eq.${targetWeekNumber}&limit=1`,
-  );
+  const { data: weeks, error: weekError } = await client
+    .from("published_weeks")
+    .select("id")
+    .eq("week_number", targetWeekNumber)
+    .limit(1);
+  if (weekError) {
+    throw weekError;
+  }
   const week = weeks[0];
   if (!week) {
     return [];
   }
 
-  const [datedChecklistRows, genericChecklistRows] = await Promise.all([
-    supabaseSelect<ChecklistRow[]>(
-      `content.week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc`,
-    ),
-    supabaseSelect<ChecklistRow[]>(
-      `content.week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
-    ),
+  const content = client.schema("content");
+  const [datedChecklistResult, genericChecklistResult] = await Promise.all([
+    content
+      .from("week_checklists")
+      .select("id,title,description,display_order")
+      .eq("week_data_id", week.id)
+      .eq("day_number", targetDayNumber)
+      .eq("is_active", true)
+      .order("display_order", { ascending: true }),
+    content
+      .from("week_checklists")
+      .select("id,title,description,display_order")
+      .eq("week_data_id", week.id)
+      .is("day_number", null)
+      .eq("is_active", true)
+      .order("display_order", { ascending: true }),
   ]);
+  if (datedChecklistResult.error) throw datedChecklistResult.error;
+  if (genericChecklistResult.error) throw genericChecklistResult.error;
+  const datedChecklistRows = datedChecklistResult.data;
+  const genericChecklistRows = genericChecklistResult.data;
 
   const checklistRows = [...datedChecklistRows, ...genericChecklistRows];
   const checklistIds = checklistRows.map((row) => row.id);
   const checklistEvents =
     checklistIds.length > 0
-      ? await supabaseSelect<ChecklistEventRow[]>(
-          `user_checklist_events?select=checklist_id,status&user_id=eq.${userId}&checklist_id=in.(${checklistIds.join(",")})`,
-        )
+      ? ((
+          await client
+            .from("user_checklist_events")
+            .select("checklist_id,status")
+            .eq("user_id", userId)
+            .in("checklist_id", checklistIds)
+        ).data ?? [])
       : [];
   const completedByChecklistId = buildChecklistStatusMap(checklistEvents);
 
@@ -220,9 +248,15 @@ async function loadDailyQuestion(
   isoDate: string,
   records: CalendarRecordRow[],
 ) {
-  const profiles = await supabaseSelect<ProfileRow[]>(
-    `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
-  );
+  const client = getSupabaseAdminClient();
+  const { data: profiles, error: profileError } = await client
+    .from("pregnancy_profiles")
+    .select("pregnancy_day_count,pregnancy_week,pregnancy_day_in_week")
+    .eq("user_id", userId)
+    .limit(1);
+  if (profileError) {
+    throw profileError;
+  }
   const profile = profiles[0];
   if (!profile) {
     return null;
@@ -242,22 +276,42 @@ async function loadDailyQuestion(
   const targetWeekNumber = Math.ceil(selectedPregnancyDayCount / 7);
   const targetDayNumber = ((selectedPregnancyDayCount - 1) % 7) + 1;
 
-  const weeks = await supabaseSelect<WeekRow[]>(
-    `published_weeks?select=id&week_number=eq.${targetWeekNumber}&limit=1`,
-  );
+  const { data: weeks, error: weekError } = await client
+    .from("published_weeks")
+    .select("id")
+    .eq("week_number", targetWeekNumber)
+    .limit(1);
+  if (weekError) {
+    throw weekError;
+  }
   const week = weeks[0];
   if (!week) {
     return null;
   }
 
-  const [datedQuestions, genericQuestions] = await Promise.all([
-    supabaseSelect<QuestionRow[]>(
-      `content.week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
-    ),
-    supabaseSelect<QuestionRow[]>(
-      `content.week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,
-    ),
+  const content = client.schema("content");
+  const [datedQuestionResult, genericQuestionResult] = await Promise.all([
+    content
+      .from("week_questions")
+      .select("id,question_text,day_number")
+      .eq("week_data_id", week.id)
+      .eq("day_number", targetDayNumber)
+      .eq("is_active", true)
+      .order("display_order", { ascending: true })
+      .limit(1),
+    content
+      .from("week_questions")
+      .select("id,question_text,day_number")
+      .eq("week_data_id", week.id)
+      .is("day_number", null)
+      .eq("is_active", true)
+      .order("display_order", { ascending: true })
+      .limit(1),
   ]);
+  if (datedQuestionResult.error) throw datedQuestionResult.error;
+  if (genericQuestionResult.error) throw genericQuestionResult.error;
+  const datedQuestions = datedQuestionResult.data;
+  const genericQuestions = genericQuestionResult.data;
 
   const question = datedQuestions[0] ?? genericQuestions[0] ?? null;
   if (!question) {
@@ -282,6 +336,7 @@ async function loadDailyQuestion(
 
 export async function GET(request: NextRequest) {
   try {
+    const client = getSupabaseAdminClient();
     const hintedUserId = request.nextUrl.searchParams.get("userId");
     const isoDate = request.nextUrl.searchParams.get("date");
 
@@ -291,9 +346,15 @@ export async function GET(request: NextRequest) {
     const { userId } = await requireMobileSession(request, hintedUserId);
     const checklistItems = await loadChecklistItems(userId, isoDate);
 
-    const records = await supabaseSelect<CalendarRecordRow[]>(
-      `calendar_logs?select=id,title,summary,entry_type,session_id,payload&user_id=eq.${userId}&date=eq.${isoDate}&order=created_at.desc`,
-    );
+    const { data: records, error: recordError } = await client
+      .from("calendar_logs")
+      .select("id,title,summary,entry_type,session_id,payload")
+      .eq("user_id", userId)
+      .eq("date", isoDate)
+      .order("created_at", { ascending: false });
+    if (recordError) {
+      throw recordError;
+    }
 
     const sessionIds = [
       ...new Set(
@@ -305,9 +366,15 @@ export async function GET(request: NextRequest) {
     const relatedSessions: SessionRow[] = [];
 
     for (const sessionId of sessionIds) {
-      const sessions = await supabaseSelect<SessionRow[]>(
-        `chat_sessions?select=id,title,last_message_at&id=eq.${sessionId}&user_id=eq.${userId}&limit=1`,
-      );
+      const { data: sessions, error: sessionError } = await client
+        .from("chat_sessions")
+        .select("id,title,last_message_at")
+        .eq("id", sessionId)
+        .eq("user_id", userId)
+        .limit(1);
+      if (sessionError) {
+        throw sessionError;
+      }
 
       if (sessions[0]) {
         relatedSessions.push(sessions[0]);
@@ -351,6 +418,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const client = getSupabaseAdminClient();
     const hintedUserId = request.nextUrl.searchParams.get("userId");
     const { userId } = await requireMobileSession(request, hintedUserId);
 
@@ -372,7 +440,7 @@ export async function POST(request: NextRequest) {
 
     const today = new Date().toISOString().slice(0, 10);
 
-    await supabaseInsert("calendar_logs", {
+    const { error: insertError } = await client.from("calendar_logs").insert({
       user_id: userId,
       session_id: sessionId,
       date: today,
@@ -380,6 +448,9 @@ export async function POST(request: NextRequest) {
       title: EMOTION_TONE_LABELS[emotionTone as EmotionTone],
       payload: { emotionTone },
     });
+    if (insertError) {
+      throw insertError;
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

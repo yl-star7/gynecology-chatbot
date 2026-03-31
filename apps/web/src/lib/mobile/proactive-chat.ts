@@ -1,12 +1,13 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText } from "ai";
 import Expo from "expo-server-sdk";
-import { supabaseInsert, supabaseSelect } from "./supabase-rest";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 
 const expo = new Expo();
 
 function getGoogleApiKey() {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const apiKey =
+    process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is required for proactive chat");
   }
@@ -34,10 +35,16 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
   scheduled: number;
   errors: string[];
 }> {
+  const client = getSupabaseAdminClient();
   // 1. Query users with push enabled
-  const targets = await supabaseSelect<PushTargetRow[]>(
-    `pregnancy_profiles?select=user_id,push_token,pregnancy_week,display_name&push_token=not.is.null&notification_enabled=eq.true`,
-  );
+  const { data: targets, error: targetError } = await client
+    .from("pregnancy_profiles")
+    .select("user_id,push_token,pregnancy_week,display_name")
+    .not("push_token", "is", null)
+    .eq("notification_enabled", true);
+  if (targetError) {
+    throw targetError;
+  }
 
   if (targets.length === 0) {
     return { scheduled: 0, errors: [] };
@@ -50,9 +57,14 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
   const eligibleUserIds = targets.map((t) => t.user_id);
 
   // Fetch the most recent session per user to check last_message_at
-  const recentSessions = await supabaseSelect<ChatSessionRow[]>(
-    `chat_sessions?select=user_id,last_message_at&user_id=in.(${eligibleUserIds.join(",")})&last_message_at=gte.${twentyFourHoursAgo.toISOString()}`,
-  );
+  const { data: recentSessions, error: sessionError } = await client
+    .from("chat_sessions")
+    .select("user_id,last_message_at")
+    .in("user_id", eligibleUserIds)
+    .gte("last_message_at", twentyFourHoursAgo.toISOString());
+  if (sessionError) {
+    throw sessionError;
+  }
 
   const activeUserIds = new Set(recentSessions.map((s) => s.user_id));
 
@@ -87,16 +99,19 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
 
       // 4. Create a proactive session for this user (needed for calendar_logs FK)
       const now = new Date().toISOString();
-      const insertedSessions = await supabaseInsert<InsertedSessionRow[]>(
-        "chat_sessions",
-        {
+      const { data: insertedSessions, error: insertSessionError } = await client
+        .from("chat_sessions")
+        .insert({
           user_id: target.user_id,
           title: "일일 안부",
           status: "active",
           last_message_at: now,
           updated_at: now,
-        },
-      );
+        })
+        .select("id");
+      if (insertSessionError) {
+        throw insertSessionError;
+      }
       const sessionId = insertedSessions[0]?.id;
 
       if (!sessionId) {
@@ -105,7 +120,7 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
 
       // 5. Store a calendar_logs record with entry_type "ai_summary"
       const today = new Date().toISOString().slice(0, 10);
-      await supabaseInsert("calendar_logs", {
+      const { error: logError } = await client.from("calendar_logs").insert({
         user_id: target.user_id,
         session_id: sessionId,
         date: today,
@@ -114,6 +129,9 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
         summary: messageContent,
         payload: { source: "proactive_chat", pregnancyWeek },
       });
+      if (logError) {
+        throw logError;
+      }
 
       // 6. Send push notification via Expo SDK
       await expo.sendPushNotificationsAsync([

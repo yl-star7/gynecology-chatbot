@@ -14,11 +14,7 @@ import {
   isMobileSessionError,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import {
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/mobile/supabase-rest";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 import { checkRateLimit } from "@/lib/mobile/rate-limit";
 import { recordUserAction } from "@/lib/mobile/user-action-log";
 
@@ -327,9 +323,17 @@ async function getPromptContext(
   userId: string,
   hintedPregnancyWeek: number | null,
 ) {
-  const profiles = await supabaseSelect<PregnancyProfilePromptRow[]>(
-    `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week,baby_nickname,display_name,due_date,onboarding_payload&user_id=eq.${userId}&limit=1`,
-  );
+  const client = getSupabaseAdminClient();
+  const { data: profiles, error: profileError } = await client
+    .from("pregnancy_profiles")
+    .select(
+      "pregnancy_week,pregnancy_day_in_week,baby_nickname,display_name,due_date,onboarding_payload",
+    )
+    .eq("user_id", userId)
+    .limit(1);
+  if (profileError) {
+    throw profileError;
+  }
 
   const pregnancyWeek =
     hintedPregnancyWeek ?? profiles[0]?.pregnancy_week ?? null;
@@ -339,25 +343,59 @@ async function getPromptContext(
 
   const dayNumber = ((profiles[0]?.pregnancy_day_in_week ?? 0) % 7) + 1;
 
-  const weekRows = await supabaseSelect<WeekDataRow[]>(
-    `published_weeks?select=id,week_number,title,baby_summary,mother_summary,warning_signs,recommended_actions,checklist_intro,question_intro&week_number=eq.${pregnancyWeek}&limit=1`,
-  );
+  const { data: weekRows, error: weekError } = await client
+    .from("published_weeks")
+    .select(
+      "id,week_number,title,baby_summary,mother_summary,warning_signs,recommended_actions,checklist_intro,question_intro,status",
+    )
+    .eq("week_number", pregnancyWeek)
+    .limit(1);
+  if (weekError) {
+    throw weekError;
+  }
   const week = weekRows[0];
   if (!week) {
     return null;
   }
 
-  const dayContentRows = await supabaseSelect<DayContentRow[]>(
-    `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
-  );
+  const content = client.schema("content");
+  const { data: dayContentRows, error: dayContentError } = await content
+    .from("pregnancy_day_contents")
+    .select(
+      "id,day_number,title,baby_development_payload,baby_message,mother_changes_payload",
+    )
+    .eq("week_data_id", week.id)
+    .eq("day_number", dayNumber)
+    .limit(1);
+  if (dayContentError) {
+    throw dayContentError;
+  }
   const dayContent = dayContentRows[0] ?? null;
 
-  const checklists = await supabaseSelect<ChecklistRow[]>(
-    `content.week_checklists?select=id,code,title,description,checklist_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
-  );
-  const questions = await supabaseSelect<QuestionRow[]>(
-    `content.week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
-  );
+  const { data: checklists, error: checklistError } = await content
+    .from("week_checklists")
+    .select(
+      "id,code,title,description,checklist_payload,display_order,is_required",
+    )
+    .eq("week_data_id", week.id)
+    .eq("day_number", dayNumber)
+    .eq("is_active", true)
+    .order("display_order", { ascending: true });
+  if (checklistError) {
+    throw checklistError;
+  }
+  const { data: questions, error: questionError } = await content
+    .from("week_questions")
+    .select(
+      "id,code,question_text,question_type,help_text,question_payload,display_order,is_required",
+    )
+    .eq("week_data_id", week.id)
+    .eq("day_number", dayNumber)
+    .eq("is_active", true)
+    .order("display_order", { ascending: true });
+  if (questionError) {
+    throw questionError;
+  }
 
   const profile = profiles[0];
   const missingFields: string[] = [];
@@ -384,33 +422,50 @@ async function markOutstandingPromptEventsAnswered(input: {
   userMessageId: string | null;
   userMessageText: string;
 }) {
-  const checklistEvents = await supabaseSelect<UserChecklistEventRow[]>(
-    `user_checklist_events?select=id,checklist_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}&status=eq.sent`,
-  );
-  const questionEvents = await supabaseSelect<UserQuestionEventRow[]>(
-    `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}&status=eq.sent`,
-  );
+  const client = getSupabaseAdminClient();
+  const { data: checklistEvents, error: checklistError } = await client
+    .from("user_checklist_events")
+    .select("id,checklist_id,status")
+    .eq("user_id", input.userId)
+    .eq("session_id", input.sessionId)
+    .eq("status", "sent");
+  if (checklistError) throw checklistError;
+  const { data: questionEvents, error: questionError } = await client
+    .from("user_question_events")
+    .select("id,question_id,status")
+    .eq("user_id", input.userId)
+    .eq("session_id", input.sessionId)
+    .eq("status", "sent");
+  if (questionError) throw questionError;
 
   const now = new Date().toISOString();
 
   for (const event of checklistEvents) {
-    await supabaseUpdate(`user_checklist_events?id=eq.${event.id}`, {
-      status: "completed",
-      completion_message_id: input.userMessageId,
-      answer_text: input.userMessageText,
-      completed_at: now,
-      updated_at: now,
-    });
+    const { error } = await client
+      .from("user_checklist_events")
+      .update({
+        status: "completed",
+        completion_message_id: input.userMessageId,
+        answer_text: input.userMessageText,
+        completed_at: now,
+        updated_at: now,
+      })
+      .eq("id", event.id);
+    if (error) throw error;
   }
 
   for (const event of questionEvents) {
-    await supabaseUpdate(`user_question_events?id=eq.${event.id}`, {
-      status: "answered",
-      answer_message_id: input.userMessageId,
-      answer_text: input.userMessageText,
-      answered_at: now,
-      updated_at: now,
-    });
+    const { error } = await client
+      .from("user_question_events")
+      .update({
+        status: "answered",
+        answer_message_id: input.userMessageId,
+        answer_text: input.userMessageText,
+        answered_at: now,
+        updated_at: now,
+      })
+      .eq("id", event.id);
+    if (error) throw error;
   }
 }
 
@@ -421,10 +476,11 @@ async function createPromptEvents(input: {
   checklists: ChecklistRow[];
   questions: QuestionRow[];
 }) {
+  const client = getSupabaseAdminClient();
   const now = new Date().toISOString();
 
   for (const checklist of input.checklists) {
-    await supabaseInsert("user_checklist_events", {
+    const { error } = await client.from("user_checklist_events").insert({
       user_id: input.userId,
       checklist_id: checklist.id,
       session_id: input.sessionId,
@@ -433,10 +489,11 @@ async function createPromptEvents(input: {
       sent_at: now,
       updated_at: now,
     });
+    if (error) throw error;
   }
 
   for (const question of input.questions) {
-    await supabaseInsert("user_question_events", {
+    const { error } = await client.from("user_question_events").insert({
       user_id: input.userId,
       question_id: question.id,
       session_id: input.sessionId,
@@ -445,6 +502,7 @@ async function createPromptEvents(input: {
       sent_at: now,
       updated_at: now,
     });
+    if (error) throw error;
   }
 }
 
@@ -452,13 +510,26 @@ async function getAlreadyPromptedIds(input: {
   userId: string;
   sessionId: string;
 }): Promise<{ checklistIds: Set<string>; questionIds: Set<string> }> {
+  const client = getSupabaseAdminClient();
   const [checklistEvents, questionEvents] = await Promise.all([
-    supabaseSelect<UserChecklistEventRow[]>(
-      `user_checklist_events?select=id,checklist_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}`,
-    ),
-    supabaseSelect<UserQuestionEventRow[]>(
-      `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}`,
-    ),
+    (async () => {
+      const { data, error } = await client
+        .from("user_checklist_events")
+        .select("id,checklist_id,status")
+        .eq("user_id", input.userId)
+        .eq("session_id", input.sessionId);
+      if (error) throw error;
+      return data as UserChecklistEventRow[];
+    })(),
+    (async () => {
+      const { data, error } = await client
+        .from("user_question_events")
+        .select("id,question_id,status")
+        .eq("user_id", input.userId)
+        .eq("session_id", input.sessionId);
+      if (error) throw error;
+      return data as UserQuestionEventRow[];
+    })(),
   ]);
 
   return {
@@ -539,9 +610,13 @@ function detectHardGuardrailReason(text: string) {
 
 async function loadCharacterImages(): Promise<Record<string, string | null>> {
   try {
-    const rows = await supabaseSelect<
-      { key: string; value: Record<string, string | null> }[]
-    >(`system_config?select=key,value&key=eq.character_images&limit=1`);
+    const client = getSupabaseAdminClient();
+    const { data: rows, error } = await client
+      .from("system_config")
+      .select("key,value")
+      .eq("key", "character_images")
+      .limit(1);
+    if (error) throw error;
     return rows[0]?.value ?? {};
   } catch {
     return {};
@@ -895,6 +970,7 @@ function parseAssistantResponse(rawText: string): ChatMessage {
 
 export async function POST(request: NextRequest) {
   try {
+    const client = getSupabaseAdminClient();
     const body = await request.json();
     const hintedUserId = typeof body.userId === "string" ? body.userId : "";
     const text = typeof body.text === "string" ? body.text : "";
@@ -938,19 +1014,22 @@ export async function POST(request: NextRequest) {
 
     const normalizedSessionId = normalizeSessionId(sessionId);
 
-    const existingSessions = await supabaseSelect<
-      Array<{ id: string; title: string }>
-    >(
-      `chat_sessions?select=id,title&id=eq.${normalizedSessionId}&user_id=eq.${userId}&limit=1`,
-    );
+    const { data: existingSessions, error: existingSessionError } = await client
+      .from("chat_sessions")
+      .select("id,title")
+      .eq("id", normalizedSessionId)
+      .eq("user_id", userId)
+      .limit(1);
+    if (existingSessionError) throw existingSessionError;
 
     if (!existingSessions[0]) {
-      await supabaseInsert("chat_sessions", {
+      const { error } = await client.from("chat_sessions").insert({
         id: normalizedSessionId,
         user_id: userId,
         title: text.slice(0, 40) || "새 상담",
         status: "active",
       });
+      if (error) throw error;
     }
 
     const userMessageParts: ChatMessage["parts"] = [
@@ -972,24 +1051,27 @@ export async function POST(request: NextRequest) {
       })),
     ];
 
-    const insertedUserMessages = await supabaseInsert<Array<{ id: string }>>(
-      "chat_messages",
-      {
-        session_id: normalizedSessionId,
-        user_id: userId,
-        role: "user",
-        parts: userMessageParts,
-        plain_text: text,
-        image_attachments: imageDataUris.map((uri: string) => ({ uri })),
-      },
-    );
+    const { data: insertedUserMessages, error: userMessageInsertError } =
+      await client
+        .from("chat_messages")
+        .insert({
+          session_id: normalizedSessionId,
+          user_id: userId,
+          role: "user",
+          parts: userMessageParts,
+          plain_text: text,
+          image_attachments: imageDataUris.map((uri: string) => ({ uri })),
+        })
+        .select("id");
+    if (userMessageInsertError) throw userMessageInsertError;
     const insertedUserMessage = insertedUserMessages[0] ?? null;
     const lastMessageAt = new Date().toISOString();
 
-    await supabaseUpdate(`chat_sessions?id=eq.${normalizedSessionId}`, {
-      last_message_at: lastMessageAt,
-      updated_at: lastMessageAt,
-    });
+    const { error: sessionUpdateError } = await client
+      .from("chat_sessions")
+      .update({ last_message_at: lastMessageAt, updated_at: lastMessageAt })
+      .eq("id", normalizedSessionId);
+    if (sessionUpdateError) throw sessionUpdateError;
 
     await recordUserAction({
       userId,
@@ -1247,25 +1329,29 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const insertedAssistantMessages = await supabaseInsert<
-      Array<{ id: string }>
-    >(
-      "chat_messages",
-      assistantMessages.map((message) => ({
-        session_id: normalizedSessionId,
-        user_id: userId,
-        role: "assistant",
-        parts: message.parts,
-        plain_text: message.parts
-          .filter(
-            (part): part is Extract<typeof part, { type: "text" }> =>
-              part.type === "text",
-          )
-          .map((part) => part.text)
-          .join("\n"),
-        model_name: "gemini-2.5-flash-lite",
-      })),
-    );
+    const {
+      data: insertedAssistantMessages,
+      error: assistantMessageInsertError,
+    } = await client
+      .from("chat_messages")
+      .insert(
+        assistantMessages.map((message) => ({
+          session_id: normalizedSessionId,
+          user_id: userId,
+          role: "assistant",
+          parts: message.parts,
+          plain_text: message.parts
+            .filter(
+              (part): part is Extract<typeof part, { type: "text" }> =>
+                part.type === "text",
+            )
+            .map((part) => part.text)
+            .join("\n"),
+          model_name: "gemini-2.5-flash-lite",
+        })),
+      )
+      .select("id");
+    if (assistantMessageInsertError) throw assistantMessageInsertError;
 
     if (followUpResult && hasFollowUps) {
       await createPromptEvents({
@@ -1281,10 +1367,14 @@ export async function POST(request: NextRequest) {
     }
 
     const assistantMessageAt = new Date().toISOString();
-    await supabaseUpdate(`chat_sessions?id=eq.${normalizedSessionId}`, {
-      last_message_at: assistantMessageAt,
-      updated_at: assistantMessageAt,
-    });
+    const { error: finalSessionUpdateError } = await client
+      .from("chat_sessions")
+      .update({
+        last_message_at: assistantMessageAt,
+        updated_at: assistantMessageAt,
+      })
+      .eq("id", normalizedSessionId);
+    if (finalSessionUpdateError) throw finalSessionUpdateError;
 
     return NextResponse.json({
       assistantMessage,

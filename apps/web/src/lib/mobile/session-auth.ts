@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { supabaseSelect, supabaseUpdate } from "./supabase-rest";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 
 type AuthSessionRow = {
   id: string;
@@ -44,8 +44,7 @@ function extractBearerToken(request: NextRequest) {
 
 export function isMobileSessionError(error: unknown): error is Error {
   return (
-    error instanceof Error &&
-    MOBILE_SESSION_FAILURE_MESSAGES.has(error.message)
+    error instanceof Error && MOBILE_SESSION_FAILURE_MESSAGES.has(error.message)
   );
 }
 
@@ -70,15 +69,21 @@ export async function requireMobileSession(
   request: NextRequest,
   expectedUserId?: string | null,
 ) {
+  const client = getSupabaseAdminClient();
   const sessionToken = extractBearerToken(request);
   if (!sessionToken) {
     throw new Error("mobile session token is required");
   }
 
   const sessionHash = hashSessionToken(sessionToken);
-  const sessions = await supabaseSelect<AuthSessionRow[]>(
-    `auth_sessions?select=id,user_id,expires_at,revoked_at&refresh_token_hash=eq.${encodeURIComponent(sessionHash)}&limit=1`,
-  );
+  const { data: sessions, error: sessionError } = await client
+    .from("auth_sessions")
+    .select("id,user_id,expires_at,revoked_at")
+    .eq("refresh_token_hash", sessionHash)
+    .limit(1);
+  if (sessionError) {
+    throw sessionError;
+  }
   const session = sessions[0];
 
   if (!session) {
@@ -97,18 +102,31 @@ export async function requireMobileSession(
     throw new Error("mobile session user mismatch");
   }
 
-  const users = await supabaseSelect<SessionUserRow[]>(
-    `users?select=id,account_status&id=eq.${session.user_id}&limit=1`,
-  );
+  const { data: users, error: userError } = await client
+    .from("users")
+    .select("id,account_status")
+    .eq("id", session.user_id)
+    .limit(1);
+  if (userError) {
+    throw userError;
+  }
   const user = users[0];
 
-  if (!user || user.account_status === "paused" || user.account_status === "deleted") {
+  if (
+    !user ||
+    user.account_status === "paused" ||
+    user.account_status === "deleted"
+  ) {
     throw new Error("mobile session user is not active");
   }
 
-  await supabaseUpdate(`auth_sessions?id=eq.${session.id}`, {
-    last_used_at: new Date().toISOString(),
-  });
+  const { error: updateError } = await client
+    .from("auth_sessions")
+    .update({ last_used_at: new Date().toISOString() })
+    .eq("id", session.id);
+  if (updateError) {
+    throw updateError;
+  }
 
   return {
     sessionId: session.id,

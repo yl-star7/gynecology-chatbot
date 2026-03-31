@@ -12,12 +12,7 @@ import {
   hasSupabaseConfig,
   resolveServerDataProvider,
 } from "@/lib/server-data-provider";
-import {
-  supabaseDelete,
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/mobile/supabase-rest";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import {
   createPhoneNumberStorage,
@@ -258,6 +253,8 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       return this.fallback.getDashboard();
     }
 
+    const client = getSupabaseAdminClient();
+
     const [
       users,
       profiles,
@@ -269,35 +266,65 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       userActions,
       schiftWorkflowRules,
     ] = await Promise.all([
-      supabaseSelect<
+      (async (): Promise<
         Array<{
           id: string;
           phone_number_encrypted: string;
           account_status: string;
           last_login_at: string | null;
         }>
-      >("users?select=id,phone_number_encrypted,account_status,last_login_at"),
-      supabaseSelect<
+      > => {
+        const { data, error } = await client
+          .from("users")
+          .select("id,phone_number_encrypted,account_status,last_login_at");
+        if (error) throw error;
+        return data as Array<{
+          id: string;
+          phone_number_encrypted: string;
+          account_status: string;
+          last_login_at: string | null;
+        }>;
+      })(),
+      (async (): Promise<
         Array<{
           user_id: string;
           display_name: string | null;
           pregnancy_week: number | null;
           pregnancy_day_in_week: number | null;
         }>
-      >(
-        "pregnancy_profiles?select=user_id,display_name,pregnancy_week,pregnancy_day_in_week",
-      ),
-      supabaseSelect<
+      > => {
+        const { data, error } = await client
+          .from("pregnancy_profiles")
+          .select("user_id,display_name,pregnancy_week,pregnancy_day_in_week");
+        if (error) throw error;
+        return data as Array<{
+          user_id: string;
+          display_name: string | null;
+          pregnancy_week: number | null;
+          pregnancy_day_in_week: number | null;
+        }>;
+      })(),
+      (async (): Promise<
         Array<{
           id: string;
           user_id: string;
           title: string;
           last_message_at: string | null;
         }>
-      >(
-        "chat_sessions?select=id,user_id,title,last_message_at&order=last_message_at.desc.nullslast",
-      ),
-      supabaseSelect<
+      > => {
+        const { data, error } = await client
+          .from("chat_sessions")
+          .select("id,user_id,title,last_message_at")
+          .order("last_message_at", { ascending: false, nullsFirst: false });
+        if (error) throw error;
+        return data as Array<{
+          id: string;
+          user_id: string;
+          title: string;
+          last_message_at: string | null;
+        }>;
+      })(),
+      (async (): Promise<
         Array<{
           id: string;
           session_id: string;
@@ -305,70 +332,111 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           plain_text: string;
           created_at: string;
         }>
-      >(
-        "chat_messages?select=id,session_id,role,plain_text,created_at&order=created_at.desc",
-      ),
-      supabaseSelect<
+      > => {
+        const { data, error } = await client
+          .from("chat_messages")
+          .select("id,session_id,role,plain_text,created_at")
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        return data as Array<{
+          id: string;
+          session_id: string;
+          role: "user" | "assistant" | "system";
+          plain_text: string;
+          created_at: string;
+        }>;
+      })(),
+      (async (): Promise<
         Array<{
           id: string;
           target_user_id: string | null;
           action_type: string;
           created_at: string;
         }>
-      >(
-        "admin_audit_logs?select=id,target_user_id,action_type,created_at&order=created_at.desc",
-      ),
-      (hasDirectContentDatabase()
-        ? queryContentRows<{
-            id: string;
-            title: string;
-            pregnancy_week: number | null;
-            category: string;
-            metadata: { chunk_count?: number } | null;
-            created_at: string;
-          }>(
-            `
-              SELECT id, title, pregnancy_week, category, metadata, created_at
-                FROM content.pregnancy_documents
-            ORDER BY created_at DESC
-            `,
-          )
-        : supabaseSelect<
-            Array<{
+      > => {
+        const { data, error } = await client
+          .from("admin_audit_logs")
+          .select("id,target_user_id,action_type,created_at")
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        return data as Array<{
+          id: string;
+          target_user_id: string | null;
+          action_type: string;
+          created_at: string;
+        }>;
+      })(),
+      (async () => {
+        try {
+          if (hasDirectContentDatabase()) {
+            return await queryContentRows<{
               id: string;
               title: string;
               pregnancy_week: number | null;
               category: string;
               metadata: { chunk_count?: number } | null;
               created_at: string;
-            }>
-          >(
-            "content.pregnancy_documents?select=id,title,pregnancy_week,category,metadata,created_at&order=created_at.desc",
+            }>(
+              `
+                SELECT id, title, pregnancy_week, category, metadata, created_at
+                  FROM content.pregnancy_documents
+              ORDER BY created_at DESC
+              `,
+            );
+          }
+
+          const { data, error } = await client
+            .schema("content")
+            .from("pregnancy_documents")
+            .select("id,title,pregnancy_week,category,metadata,created_at")
+            .order("created_at", { ascending: false });
+          if (error) throw error;
+          return data as Array<{
+            id: string;
+            title: string;
+            pregnancy_week: number | null;
+            category: string;
+            metadata: { chunk_count?: number } | null;
+            created_at: string;
+          }>;
+        } catch (error) {
+          console.error("admin dashboard rag documents unavailable", error);
+          return null;
+        }
+      })(),
+      (async () => {
+        try {
+          const { data, error } = await client
+            .from("workflow_definitions")
+            .select("id,name,provider,is_active,config,metadata")
+            .order("updated_at", { ascending: false });
+          if (error) throw error;
+          return data as Array<{
+            id: string;
+            name: string;
+            provider: string;
+            is_active: boolean;
+            config: Record<string, unknown> | null;
+            metadata: Record<string, unknown> | null;
+          }>;
+        } catch (error) {
+          console.error(
+            "admin dashboard workflow definitions unavailable",
+            error,
+          );
+          return null;
+        }
+      })(),
+      (async () => {
+        const { data, error } = await client
+          .from("user_action_logs")
+          .select(
+            "id,user_id,session_id,message_id,action_type,payload,occurred_at",
           )
-      ).catch((error) => {
-        console.error("admin dashboard rag documents unavailable", error);
-        return null;
-      }),
-      supabaseSelect<
-        Array<{
-          id: string;
-          name: string;
-          provider: string;
-          is_active: boolean;
-          config: Record<string, unknown> | null;
-          metadata: Record<string, unknown> | null;
-        }>
-      >(
-        "workflow_definitions?select=id,name,provider,is_active,config,metadata&order=updated_at.desc",
-      ).catch((error) => {
-        console.error(
-          "admin dashboard workflow definitions unavailable",
-          error,
-        );
-        return null;
-      }),
-      supabaseSelect<
-        Array<{
+          .order("occurred_at", { ascending: false })
+          .limit(60);
+        if (error) throw error;
+        return data as Array<{
           id: string;
           user_id: string;
           session_id: string | null;
@@ -376,10 +444,8 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           action_type: UserActionType;
           payload: Record<string, unknown> | null;
           occurred_at: string;
-        }>
-      >(
-        "user_action_logs?select=id,user_id,session_id,message_id,action_type,payload,occurred_at&order=occurred_at.desc&limit=60",
-      ),
+        }>;
+      })(),
       (async () => {
         const schift = getSchiftClient();
         if (!schift) {
@@ -563,7 +629,8 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
                         minute: "2-digit",
                       }),
                       summary: message.plain_text || "요약 없음",
-                    })),
+                    }),
+                  ),
                 })),
               };
             })
@@ -593,16 +660,15 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       return dashboard.managedUsers;
     }
 
-    const users = await supabaseSelect<
-      Array<{
-        id: string;
-        phone_number_encrypted: string;
-        account_status: string;
-      }>
-    >("users?select=id,phone_number_encrypted,account_status");
-    const profiles = await supabaseSelect<
-      Array<{ user_id: string; display_name: string | null }>
-    >("pregnancy_profiles?select=user_id,display_name");
+    const client = getSupabaseAdminClient();
+    const { data: users, error: usersError } = await client
+      .from("users")
+      .select("id,phone_number_encrypted,account_status");
+    if (usersError) throw usersError;
+    const { data: profiles, error: profilesError } = await client
+      .from("pregnancy_profiles")
+      .select("user_id,display_name");
+    if (profilesError) throw profilesError;
     const profilesByUser = new Map(
       profiles.map((profile) => [profile.user_id, profile.display_name]),
     );
@@ -621,18 +687,14 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       return [];
     }
 
-    const rows = await supabaseSelect<
-      Array<{
-        id: string;
-        phone_number_encrypted: string;
-        display_name: string | null;
-        note: string | null;
-        created_at: string;
-        updated_at: string;
-      }>
-    >(
-      "allowed_phone_numbers?select=id,phone_number_encrypted,display_name,note,created_at,updated_at&order=updated_at.desc",
-    );
+    const client = getSupabaseAdminClient();
+    const { data: rows, error } = await client
+      .from("allowed_phone_numbers")
+      .select(
+        "id,phone_number_encrypted,display_name,note,created_at,updated_at",
+      )
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
 
     return rows.map((row) => ({
       id: row.id,
@@ -657,20 +719,18 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     const normalizedPhoneNumber = normalizeManagedPhoneNumber(
       input.phoneNumber,
     );
+    const client = getSupabaseAdminClient();
     const storage = createPhoneNumberStorage(normalizedPhoneNumber);
     const existingRows =
-      (await supabaseSelect<
-      Array<{
-        id: string;
-        phone_number_encrypted: string;
-        display_name: string | null;
-        note: string | null;
-        created_at: string;
-        updated_at: string;
-      }>
-    >(
-      `allowed_phone_numbers?select=id,phone_number_encrypted,display_name,note,created_at,updated_at&phone_number_blind_index=eq.${encodeURIComponent(storage.phoneNumberBlindIndex)}&limit=1`,
-      )) ?? [];
+      (
+        await client
+          .from("allowed_phone_numbers")
+          .select(
+            "id,phone_number_encrypted,display_name,note,created_at,updated_at",
+          )
+          .eq("phone_number_blind_index", storage.phoneNumberBlindIndex)
+          .limit(1)
+      ).data ?? [];
 
     if (existingRows[0]) {
       return this.updateAllowedPhoneNumber({
@@ -682,23 +742,20 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       });
     }
 
-    const inserted = await supabaseInsert<
-      Array<{
-        id: string;
-        phone_number_encrypted: string;
-        display_name: string | null;
-        note: string | null;
-        created_at: string;
-        updated_at: string;
-      }>
-    >("allowed_phone_numbers", {
-      phone_number_encrypted: storage.phoneNumberEncrypted,
-      phone_number_blind_index: storage.phoneNumberBlindIndex,
-      phone_number_last4: storage.phoneNumberLast4,
-      display_name: input.displayName ?? null,
-      note: input.note ?? null,
-      updated_at: new Date().toISOString(),
-    });
+    const { data: inserted, error: insertError } = await client
+      .from("allowed_phone_numbers")
+      .insert({
+        phone_number_encrypted: storage.phoneNumberEncrypted,
+        phone_number_blind_index: storage.phoneNumberBlindIndex,
+        phone_number_last4: storage.phoneNumberLast4,
+        display_name: input.displayName ?? null,
+        note: input.note ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .select(
+        "id,phone_number_encrypted,display_name,note,created_at,updated_at",
+      );
+    if (insertError) throw insertError;
 
     const createdEntry = {
       id: inserted[0]?.id ?? "",
@@ -711,20 +768,23 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       updatedAt: inserted[0]?.updated_at ?? new Date().toISOString(),
     };
 
-    await supabaseInsert("admin_audit_logs", {
-      admin_user_id: input.actorId ?? getAdminActorId(),
-      target_user_id: null,
-      action_type: "content_update",
-      entity_type: "allowed_phone_number",
-      entity_id: createdEntry.id || null,
-      reason: "allowed_phone_number_create",
-      before_payload: {},
-      after_payload: {
-        phone_number: redactPhoneNumber(createdEntry.phoneNumber),
-        display_name: createdEntry.displayName,
-        note: createdEntry.note,
-      },
-    });
+    const { error: auditInsertError } = await client
+      .from("admin_audit_logs")
+      .insert({
+        admin_user_id: input.actorId ?? getAdminActorId(),
+        target_user_id: null,
+        action_type: "content_update",
+        entity_type: "allowed_phone_number",
+        entity_id: createdEntry.id || null,
+        reason: "allowed_phone_number_create",
+        before_payload: {},
+        after_payload: {
+          phone_number: redactPhoneNumber(createdEntry.phoneNumber),
+          display_name: createdEntry.displayName,
+          note: createdEntry.note,
+        },
+      });
+    if (auditInsertError) throw auditInsertError;
 
     return createdEntry;
   }
@@ -743,35 +803,30 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     const normalizedPhoneNumber = normalizeManagedPhoneNumber(
       input.phoneNumber,
     );
+    const client = getSupabaseAdminClient();
     const storage = createPhoneNumberStorage(normalizedPhoneNumber);
-    const beforeRows = await supabaseSelect<
-      Array<{
-        id: string;
-        phone_number_encrypted: string;
-        display_name: string | null;
-        note: string | null;
-      }>
-    >(
-      `allowed_phone_numbers?select=id,phone_number_encrypted,display_name,note&id=eq.${input.id}&limit=1`,
-    );
+    const { data: beforeRows, error: beforeError } = await client
+      .from("allowed_phone_numbers")
+      .select("id,phone_number_encrypted,display_name,note")
+      .eq("id", input.id)
+      .limit(1);
+    if (beforeError) throw beforeError;
 
-    const updated = await supabaseUpdate<
-      Array<{
-        id: string;
-        phone_number_encrypted: string;
-        display_name: string | null;
-        note: string | null;
-        created_at: string;
-        updated_at: string;
-      }>
-    >(`allowed_phone_numbers?id=eq.${input.id}`, {
-      phone_number_encrypted: storage.phoneNumberEncrypted,
-      phone_number_blind_index: storage.phoneNumberBlindIndex,
-      phone_number_last4: storage.phoneNumberLast4,
-      display_name: input.displayName ?? null,
-      note: input.note ?? null,
-      updated_at: new Date().toISOString(),
-    });
+    const { data: updated, error: updateError } = await client
+      .from("allowed_phone_numbers")
+      .update({
+        phone_number_encrypted: storage.phoneNumberEncrypted,
+        phone_number_blind_index: storage.phoneNumberBlindIndex,
+        phone_number_last4: storage.phoneNumberLast4,
+        display_name: input.displayName ?? null,
+        note: input.note ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", input.id)
+      .select(
+        "id,phone_number_encrypted,display_name,note,created_at,updated_at",
+      );
+    if (updateError) throw updateError;
 
     const updatedEntry = {
       id: updated[0]?.id ?? input.id,
@@ -784,27 +839,30 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       updatedAt: updated[0]?.updated_at ?? new Date().toISOString(),
     };
 
-    await supabaseInsert("admin_audit_logs", {
-      admin_user_id: input.actorId ?? getAdminActorId(),
-      target_user_id: null,
-      action_type: "content_update",
-      entity_type: "allowed_phone_number",
-      entity_id: updatedEntry.id,
-      reason: "allowed_phone_number_update",
-      before_payload: beforeRows[0]
-        ? {
-            ...beforeRows[0],
-            phone_number: redactPhoneNumber(
-              decryptPhoneNumber(beforeRows[0].phone_number_encrypted),
-            ),
-          }
-        : {},
-      after_payload: {
-        phone_number: redactPhoneNumber(updatedEntry.phoneNumber),
-        display_name: updatedEntry.displayName,
-        note: updatedEntry.note,
-      },
-    });
+    const { error: auditInsertError } = await client
+      .from("admin_audit_logs")
+      .insert({
+        admin_user_id: input.actorId ?? getAdminActorId(),
+        target_user_id: null,
+        action_type: "content_update",
+        entity_type: "allowed_phone_number",
+        entity_id: updatedEntry.id,
+        reason: "allowed_phone_number_update",
+        before_payload: beforeRows[0]
+          ? {
+              ...beforeRows[0],
+              phone_number: redactPhoneNumber(
+                decryptPhoneNumber(beforeRows[0].phone_number_encrypted),
+              ),
+            }
+          : {},
+        after_payload: {
+          phone_number: redactPhoneNumber(updatedEntry.phoneNumber),
+          display_name: updatedEntry.displayName,
+          note: updatedEntry.note,
+        },
+      });
+    if (auditInsertError) throw auditInsertError;
 
     return updatedEntry;
   }
@@ -814,36 +872,41 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       return;
     }
 
-    const beforeRows = await supabaseSelect<
-      Array<{
-        id: string;
-        phone_number_encrypted: string;
-        display_name: string | null;
-        note: string | null;
-      }>
-    >(
-      `allowed_phone_numbers?select=id,phone_number_encrypted,display_name,note&id=eq.${input.id}&limit=1`,
-    );
+    const client = getSupabaseAdminClient();
 
-    await supabaseDelete(`allowed_phone_numbers?id=eq.${input.id}`);
+    const { data: beforeRows, error: beforeError } = await client
+      .from("allowed_phone_numbers")
+      .select("id,phone_number_encrypted,display_name,note")
+      .eq("id", input.id)
+      .limit(1);
+    if (beforeError) throw beforeError;
 
-    await supabaseInsert("admin_audit_logs", {
-      admin_user_id: input.actorId ?? getAdminActorId(),
-      target_user_id: null,
-      action_type: "content_update",
-      entity_type: "allowed_phone_number",
-      entity_id: input.id,
-      reason: "allowed_phone_number_delete",
-      before_payload: beforeRows[0]
-        ? {
-            ...beforeRows[0],
-            phone_number: redactPhoneNumber(
-              decryptPhoneNumber(beforeRows[0].phone_number_encrypted),
-            ),
-          }
-        : {},
-      after_payload: {},
-    });
+    const { error: deleteError } = await client
+      .from("allowed_phone_numbers")
+      .delete()
+      .eq("id", input.id);
+    if (deleteError) throw deleteError;
+
+    const { error: auditInsertError } = await client
+      .from("admin_audit_logs")
+      .insert({
+        admin_user_id: input.actorId ?? getAdminActorId(),
+        target_user_id: null,
+        action_type: "content_update",
+        entity_type: "allowed_phone_number",
+        entity_id: input.id,
+        reason: "allowed_phone_number_delete",
+        before_payload: beforeRows[0]
+          ? {
+              ...beforeRows[0],
+              phone_number: redactPhoneNumber(
+                decryptPhoneNumber(beforeRows[0].phone_number_encrypted),
+              ),
+            }
+          : {},
+        after_payload: {},
+      });
+    if (auditInsertError) throw auditInsertError;
   }
 
   async updatePhoneNumber(input: {
@@ -856,9 +919,14 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       return;
     }
 
-    const existingUsers = await supabaseSelect<
-      Array<{ phone_number_encrypted: string }>
-    >(`users?select=phone_number_encrypted&id=eq.${input.userId}&limit=1`);
+    const client = getSupabaseAdminClient();
+
+    const { data: existingUsers, error: existingUserError } = await client
+      .from("users")
+      .select("phone_number_encrypted")
+      .eq("id", input.userId)
+      .limit(1);
+    if (existingUserError) throw existingUserError;
     const beforePhoneNumber = existingUsers[0]?.phone_number_encrypted
       ? decryptPhoneNumber(existingUsers[0].phone_number_encrypted)
       : null;
@@ -867,27 +935,36 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     );
     const storage = createPhoneNumberStorage(normalizedPhoneNumber);
 
-    await supabaseUpdate(`users?id=eq.${input.userId}`, {
-      phone_number_encrypted: storage.phoneNumberEncrypted,
-      phone_number_blind_index: storage.phoneNumberBlindIndex,
-      phone_number_last4: storage.phoneNumberLast4,
-      updated_at: new Date().toISOString(),
-    });
+    const { error: updateError } = await client
+      .from("users")
+      .update({
+        phone_number_encrypted: storage.phoneNumberEncrypted,
+        phone_number_blind_index: storage.phoneNumberBlindIndex,
+        phone_number_last4: storage.phoneNumberLast4,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", input.userId);
+    if (updateError) throw updateError;
 
-    await supabaseInsert("admin_audit_logs", {
-      admin_user_id: input.actorId ?? getAdminActorId(),
-      target_user_id: input.userId,
-      action_type: "phone_change",
-      entity_type: "user",
-      entity_id: input.userId,
-      reason: input.reason,
-      before_payload: {
-        phone_number: beforePhoneNumber
-          ? redactPhoneNumber(beforePhoneNumber)
-          : null,
-      },
-      after_payload: { phone_number: redactPhoneNumber(normalizedPhoneNumber) },
-    });
+    const { error: auditInsertError } = await client
+      .from("admin_audit_logs")
+      .insert({
+        admin_user_id: input.actorId ?? getAdminActorId(),
+        target_user_id: input.userId,
+        action_type: "phone_change",
+        entity_type: "user",
+        entity_id: input.userId,
+        reason: input.reason,
+        before_payload: {
+          phone_number: beforePhoneNumber
+            ? redactPhoneNumber(beforePhoneNumber)
+            : null,
+        },
+        after_payload: {
+          phone_number: redactPhoneNumber(normalizedPhoneNumber),
+        },
+      });
+    if (auditInsertError) throw auditInsertError;
   }
 
   async resetSession(input: {
@@ -899,21 +976,30 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       return;
     }
 
-    await supabaseUpdate(`users?id=eq.${input.userId}`, {
-      account_status: "pending_recovery",
-      updated_at: new Date().toISOString(),
-    });
+    const client = getSupabaseAdminClient();
 
-    await supabaseInsert("admin_audit_logs", {
-      admin_user_id: input.actorId ?? getAdminActorId(),
-      target_user_id: input.userId,
-      action_type: "session_reset",
-      entity_type: "user",
-      entity_id: input.userId,
-      reason: input.reason,
-      before_payload: {},
-      after_payload: { account_status: "pending_recovery" },
-    });
+    const { error: updateError } = await client
+      .from("users")
+      .update({
+        account_status: "pending_recovery",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", input.userId);
+    if (updateError) throw updateError;
+
+    const { error: auditInsertError } = await client
+      .from("admin_audit_logs")
+      .insert({
+        admin_user_id: input.actorId ?? getAdminActorId(),
+        target_user_id: input.userId,
+        action_type: "session_reset",
+        entity_type: "user",
+        entity_id: input.userId,
+        reason: input.reason,
+        before_payload: {},
+        after_payload: { account_status: "pending_recovery" },
+      });
+    if (auditInsertError) throw auditInsertError;
   }
 
   async updateUserStatus(input: {
@@ -926,20 +1012,30 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       return;
     }
 
-    await supabaseUpdate(`users?id=eq.${input.userId}`, {
-      account_status: input.status,
-      updated_at: new Date().toISOString(),
-    });
+    const client = getSupabaseAdminClient();
 
-    await supabaseInsert("admin_audit_logs", {
-      admin_user_id: input.actorId ?? getAdminActorId(),
-      target_user_id: input.userId,
-      action_type: input.status === "paused" ? "account_pause" : "account_resume",
-      entity_type: "user",
-      entity_id: input.userId,
-      reason: input.reason,
-      before_payload: {},
-      after_payload: { account_status: input.status },
-    });
+    const { error: updateError } = await client
+      .from("users")
+      .update({
+        account_status: input.status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", input.userId);
+    if (updateError) throw updateError;
+
+    const { error: auditInsertError } = await client
+      .from("admin_audit_logs")
+      .insert({
+        admin_user_id: input.actorId ?? getAdminActorId(),
+        target_user_id: input.userId,
+        action_type:
+          input.status === "paused" ? "account_pause" : "account_resume",
+        entity_type: "user",
+        entity_id: input.userId,
+        reason: input.reason,
+        before_payload: {},
+        after_payload: { account_status: input.status },
+      });
+    if (auditInsertError) throw auditInsertError;
   }
 }

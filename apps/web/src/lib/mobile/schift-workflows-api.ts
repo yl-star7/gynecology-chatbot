@@ -1,7 +1,7 @@
 import type { Workflow, WorkflowGraph } from "@schift-io/sdk";
 
 import { Schift, WorkflowBuilder } from "@schift-io/sdk";
-import { supabaseInsert, supabaseUpdate, supabaseSelect } from "@/lib/mobile/supabase-rest";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 
 const DEFAULT_BUCKET = "pregnancy-knowledge";
 const DEFAULT_WORKFLOW_NAME = "모성간호 상담 응답";
@@ -227,7 +227,7 @@ export async function createDefaultInternalAnswerWorkflow() {
   const existing = workflows.find(
     (workflow) => workflow.name === DEFAULT_WORKFLOW_NAME,
   );
-  const client = getSchiftClientOrThrow();
+  const schiftClient = getSchiftClientOrThrow();
 
   const graph = buildMaternalNursingGraph();
 
@@ -244,7 +244,7 @@ export async function createDefaultInternalAnswerWorkflow() {
       }
     }
 
-    baseWorkflow = await client.workflows.create({
+    baseWorkflow = await schiftClient.workflows.create({
       name: DEFAULT_WORKFLOW_NAME,
       description: DEFAULT_WORKFLOW_DESCRIPTION,
       graph,
@@ -264,15 +264,25 @@ export async function createDefaultInternalAnswerWorkflow() {
     description: `<!-- si-admin-workflow:${JSON.stringify(adminMetadata)}-->\n${DEFAULT_WORKFLOW_DESCRIPTION}`,
   });
 
-  const currentRowsById = await supabaseSelect<WorkflowDefinitionRow[]>(
-    `workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata&id=eq.${updated.id}&limit=1`,
-  );
+  const supabase = getSupabaseAdminClient();
+  const { data: currentRowsById, error: currentByIdError } = await supabase
+    .from("workflow_definitions")
+    .select("id,name,slug,provider,status,is_active,config,metadata")
+    .eq("id", updated.id)
+    .limit(1);
+  if (currentByIdError) {
+    throw currentByIdError;
+  }
   const currentRowsBySlug =
     currentRowsById.length > 0
       ? currentRowsById
-      : await supabaseSelect<WorkflowDefinitionRow[]>(
-          "workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata&slug=eq.internal-data-answer&limit=1",
-        );
+      : ((
+          await supabase
+            .from("workflow_definitions")
+            .select("id,name,slug,provider,status,is_active,config,metadata")
+            .eq("slug", "internal-data-answer")
+            .limit(1)
+        ).data ?? []);
   const payload = {
     id: updated.id,
     name: updated.name,
@@ -289,15 +299,23 @@ export async function createDefaultInternalAnswerWorkflow() {
   };
 
   if (currentRowsBySlug[0]) {
-    await supabaseUpdate(
-      `workflow_definitions?id=eq.${currentRowsBySlug[0].id}`,
-      payload,
-    );
+    const { error: updateError } = await supabase
+      .from("workflow_definitions")
+      .update(payload)
+      .eq("id", currentRowsBySlug[0].id);
+    if (updateError) {
+      throw updateError;
+    }
   } else {
-    await supabaseInsert("workflow_definitions", {
-      ...payload,
-      created_at: new Date().toISOString(),
-    });
+    const { error: insertError } = await supabase
+      .from("workflow_definitions")
+      .insert({
+        ...payload,
+        created_at: new Date().toISOString(),
+      });
+    if (insertError) {
+      throw insertError;
+    }
   }
 
   return updated;

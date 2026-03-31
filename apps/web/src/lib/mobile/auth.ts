@@ -9,11 +9,7 @@ import {
   createPhoneNumberStorage,
   decryptPhoneNumber,
 } from "@/lib/privacy/phone-crypto";
-import {
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "./supabase-rest";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 import {
   checkSmsVerification,
   normalizePhoneNumberToE164,
@@ -269,9 +265,17 @@ function ensureUserCanSignIn(
 }
 
 async function findPregnancyProfile(userId: string) {
-  const profiles = await supabaseSelect<PregnancyProfileRow[]>(
-    `pregnancy_profiles?select=id,user_id,display_name,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${userId}&limit=1`,
-  );
+  const client = getSupabaseAdminClient();
+  const { data: profiles, error } = await client
+    .from("pregnancy_profiles")
+    .select(
+      "id,user_id,display_name,onboarding_payload,baby_nickname,notification_time,theme_key",
+    )
+    .eq("user_id", userId)
+    .limit(1);
+  if (error) {
+    throw error;
+  }
 
   return profiles[0] ?? null;
 }
@@ -286,13 +290,21 @@ function toDecryptedPhoneRow<T extends { phone_number_encrypted: string }>(
 }
 
 export async function findAllowedPhoneNumber(phoneNumber: string) {
+  const client = getSupabaseAdminClient();
   const candidates = createPhoneCandidates(phoneNumber);
 
   for (const candidate of candidates) {
     const blindIndex = computePhoneNumberBlindIndex(candidate);
-    const rows = await supabaseSelect<AllowedPhoneNumberRow[]>(
-      `allowed_phone_numbers?select=id,phone_number_encrypted,phone_number_last4,phone_number_blind_index,display_name,note&phone_number_blind_index=eq.${encodeURIComponent(blindIndex)}&limit=1`,
-    );
+    const { data: rows, error } = await client
+      .from("allowed_phone_numbers")
+      .select(
+        "id,phone_number_encrypted,phone_number_last4,phone_number_blind_index,display_name,note",
+      )
+      .eq("phone_number_blind_index", blindIndex)
+      .limit(1);
+    if (error) {
+      throw error;
+    }
 
     if (rows[0]) {
       return toDecryptedPhoneRow(rows[0]);
@@ -330,13 +342,21 @@ export function hasCompletedProfileOnboarding(
 }
 
 export async function findUserByPhoneNumber(phoneNumber: string) {
+  const client = getSupabaseAdminClient();
   const candidates = createPhoneCandidates(phoneNumber);
 
   for (const candidate of candidates) {
     const blindIndex = computePhoneNumberBlindIndex(candidate);
-    const users = await supabaseSelect<UserRow[]>(
-      `users?select=id,phone_number_encrypted,phone_number_last4,account_status,phone_verified_at,last_login_at&phone_number_blind_index=eq.${encodeURIComponent(blindIndex)}&limit=1`,
-    );
+    const { data: users, error } = await client
+      .from("users")
+      .select(
+        "id,phone_number_encrypted,phone_number_last4,account_status,phone_verified_at,last_login_at",
+      )
+      .eq("phone_number_blind_index", blindIndex)
+      .limit(1);
+    if (error) {
+      throw error;
+    }
 
     if (users[0]) {
       return toDecryptedPhoneRow(users[0]);
@@ -347,10 +367,21 @@ export async function findUserByPhoneNumber(phoneNumber: string) {
 }
 
 export async function getAuthenticatedUser(userId: string) {
+  const client = getSupabaseAdminClient();
   const [users, profile] = await Promise.all([
-    supabaseSelect<UserRow[]>(
-      `users?select=id,phone_number_encrypted,phone_number_last4,account_status,phone_verified_at,last_login_at&id=eq.${userId}&limit=1`,
-    ),
+    (async () => {
+      const { data, error } = await client
+        .from("users")
+        .select(
+          "id,phone_number_encrypted,phone_number_last4,account_status,phone_verified_at,last_login_at",
+        )
+        .eq("id", userId)
+        .limit(1);
+      if (error) {
+        throw error;
+      }
+      return data as UserRow[];
+    })(),
     findPregnancyProfile(userId),
   ]);
 
@@ -362,20 +393,28 @@ export async function getAuthenticatedUser(userId: string) {
 }
 
 async function createOrUpdateSession(userId: string) {
+  const client = getSupabaseAdminClient();
   const sessionToken = buildSessionToken();
   const currentTimestamp = nowIso();
 
-  await supabaseUpdate(`auth_sessions?user_id=eq.${userId}`, {
-    revoked_at: currentTimestamp,
-  });
+  const { error: revokeError } = await client
+    .from("auth_sessions")
+    .update({ revoked_at: currentTimestamp })
+    .eq("user_id", userId);
+  if (revokeError) {
+    throw revokeError;
+  }
 
-  await supabaseInsert("auth_sessions", {
+  const { error: insertError } = await client.from("auth_sessions").insert({
     user_id: userId,
     refresh_token_hash: hashSessionToken(sessionToken),
     expires_at: oneYearFromNowIso(),
     last_used_at: currentTimestamp,
     created_at: currentTimestamp,
   });
+  if (insertError) {
+    throw insertError;
+  }
 
   return sessionToken;
 }
@@ -387,8 +426,9 @@ async function recordPhoneVerificationRequest(input: {
   channel?: string;
   verifiedAt?: string | null;
 }) {
+  const client = getSupabaseAdminClient();
   const storage = createPhoneNumberStorage(input.phoneNumber);
-  await supabaseInsert("phone_verification_requests", {
+  const { error } = await client.from("phone_verification_requests").insert({
     phone_number_encrypted: storage.phoneNumberEncrypted,
     phone_number_blind_index: storage.phoneNumberBlindIndex,
     phone_number_last4: storage.phoneNumberLast4,
@@ -398,6 +438,9 @@ async function recordPhoneVerificationRequest(input: {
     verified_at: input.verifiedAt ?? null,
     expires_at: tenMinutesFromNowIso(),
   });
+  if (error) {
+    throw error;
+  }
 }
 
 async function upsertPhoneUser(
@@ -411,15 +454,22 @@ async function upsertPhoneUser(
     ensureUserCanSignIn(existingUser.account_status, "sign_in");
     const storage = createPhoneNumberStorage(phoneNumber);
 
-    await supabaseUpdate(`users?id=eq.${existingUser.id}`, {
-      account_status: "active",
-      phone_number_encrypted: storage.phoneNumberEncrypted,
-      phone_number_blind_index: storage.phoneNumberBlindIndex,
-      phone_number_last4: storage.phoneNumberLast4,
-      phone_verified_at: nextTimestamp,
-      last_login_at: nextTimestamp,
-      updated_at: nextTimestamp,
-    });
+    const client = getSupabaseAdminClient();
+    const { error } = await client
+      .from("users")
+      .update({
+        account_status: "active",
+        phone_number_encrypted: storage.phoneNumberEncrypted,
+        phone_number_blind_index: storage.phoneNumberBlindIndex,
+        phone_number_last4: storage.phoneNumberLast4,
+        phone_verified_at: nextTimestamp,
+        last_login_at: nextTimestamp,
+        updated_at: nextTimestamp,
+      })
+      .eq("id", existingUser.id);
+    if (error) {
+      throw error;
+    }
 
     return existingUser.id;
   }
@@ -439,12 +489,20 @@ async function upsertPhoneUser(
   };
 
   try {
-    await supabaseInsert("users", payload);
+    const client = getSupabaseAdminClient();
+    const { error } = await client.from("users").insert(payload);
+    if (error) {
+      throw error;
+    }
   } catch {
-    await supabaseInsert("users", {
+    const client = getSupabaseAdminClient();
+    const { error } = await client.from("users").insert({
       ...payload,
       display_name: legacyDisplayName?.trim() || "사용자",
     });
+    if (error) {
+      throw error;
+    }
   }
 
   return userId;
@@ -598,9 +656,15 @@ export async function completeUserOnboarding(input: {
     dueDate: input.dueDate,
   });
 
-  const existingProfiles = await supabaseSelect<Array<{ id: string }>>(
-    `pregnancy_profiles?select=id&user_id=eq.${input.userId}&limit=1`,
-  );
+  const client = getSupabaseAdminClient();
+  const { data: existingProfiles, error: existingProfileError } = await client
+    .from("pregnancy_profiles")
+    .select("id")
+    .eq("user_id", input.userId)
+    .limit(1);
+  if (existingProfileError) {
+    throw existingProfileError;
+  }
 
   const payload = buildPregnancyProfilePayload({
     pregnancyMetrics: metrics,
@@ -614,15 +678,24 @@ export async function completeUserOnboarding(input: {
   });
 
   if (existingProfiles[0]) {
-    await supabaseUpdate(`pregnancy_profiles?user_id=eq.${input.userId}`, {
-      ...payload,
-      updated_at: nowIso(),
-    });
+    const { error } = await client
+      .from("pregnancy_profiles")
+      .update({
+        ...payload,
+        updated_at: nowIso(),
+      })
+      .eq("user_id", input.userId);
+    if (error) {
+      throw error;
+    }
   } else {
-    await supabaseInsert("pregnancy_profiles", {
+    const { error } = await client.from("pregnancy_profiles").insert({
       user_id: input.userId,
       ...payload,
     });
+    if (error) {
+      throw error;
+    }
   }
 
   await recordUserAction({
@@ -663,9 +736,17 @@ export async function updateMobileProfile(input: {
     pregnancyWeekOrDueDate: input.dueDate ?? undefined,
   });
 
-  const existingProfiles = await supabaseSelect<Array<PregnancyProfileRow>>(
-    `pregnancy_profiles?select=id,user_id,display_name,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${input.userId}&limit=1`,
-  );
+  const client = getSupabaseAdminClient();
+  const { data: existingProfiles, error: existingProfilesError } = await client
+    .from("pregnancy_profiles")
+    .select(
+      "id,user_id,display_name,onboarding_payload,baby_nickname,notification_time,theme_key",
+    )
+    .eq("user_id", input.userId)
+    .limit(1);
+  if (existingProfilesError) {
+    throw existingProfilesError;
+  }
 
   const existingProfile = existingProfiles[0];
   const existingPayload = existingProfile?.onboarding_payload ?? {};
@@ -692,17 +773,26 @@ export async function updateMobileProfile(input: {
   const nextDisplayName = input.displayName.trim() || null;
 
   if (existingProfile) {
-    await supabaseUpdate(`pregnancy_profiles?user_id=eq.${input.userId}`, {
-      ...profilePayload,
-      display_name: nextDisplayName,
-      updated_at: nowIso(),
-    });
+    const { error } = await client
+      .from("pregnancy_profiles")
+      .update({
+        ...profilePayload,
+        display_name: nextDisplayName,
+        updated_at: nowIso(),
+      })
+      .eq("user_id", input.userId);
+    if (error) {
+      throw error;
+    }
   } else {
-    await supabaseInsert("pregnancy_profiles", {
+    const { error } = await client.from("pregnancy_profiles").insert({
       user_id: input.userId,
       display_name: nextDisplayName,
       ...profilePayload,
     });
+    if (error) {
+      throw error;
+    }
   }
 
   await recordUserAction({

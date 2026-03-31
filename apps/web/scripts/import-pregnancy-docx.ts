@@ -11,12 +11,7 @@ import {
   parsePregnancyWeekDocText,
   type ParsedPregnancyWeek,
 } from "../src/lib/content/pregnancy-docx-import";
-import {
-  supabaseDelete,
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "../src/lib/mobile/supabase-rest";
+import { getSupabaseAdminClient } from "../src/lib/supabase/admin-client";
 
 type CliOptions = {
   input: string;
@@ -151,7 +146,9 @@ function deriveSizeLabel(week: ParsedPregnancyWeek) {
     if (lemonMatch) {
       return lemonMatch[1].trim();
     }
-    const sizeMatch = candidate.match(/([가-힣A-Za-z0-9~]+)\s*크기(?:예요|에요|예요\.)?/);
+    const sizeMatch = candidate.match(
+      /([가-힣A-Za-z0-9~]+)\s*크기(?:예요|에요|예요\.)?/,
+    );
     if (sizeMatch) {
       return sizeMatch[1].trim();
     }
@@ -160,7 +157,8 @@ function deriveSizeLabel(week: ParsedPregnancyWeek) {
 }
 
 function toWeekPayload(week: ParsedPregnancyWeek) {
-  const summaryDay = week.days.find((day) => day.dayNumber === 7) ?? week.days[0];
+  const summaryDay =
+    week.days.find((day) => day.dayNumber === 7) ?? week.days[0];
   const sizeLabel = deriveSizeLabel(week);
 
   return {
@@ -179,7 +177,9 @@ function toWeekPayload(week: ParsedPregnancyWeek) {
 function toDayPayload(week: ParsedPregnancyWeek, dayNumber: number) {
   const day = week.days.find((entry) => entry.dayNumber === dayNumber);
   if (!day) {
-    throw new Error(`Missing parsed day ${dayNumber} for week ${week.weekNumber}`);
+    throw new Error(
+      `Missing parsed day ${dayNumber} for week ${week.weekNumber}`,
+    );
   }
 
   return {
@@ -192,7 +192,10 @@ function toDayPayload(week: ParsedPregnancyWeek, dayNumber: number) {
   };
 }
 
-function buildDryRunSummary(weeks: ParsedPregnancyWeek[], placements: ImagePlacementRecord[]) {
+function buildDryRunSummary(
+  weeks: ParsedPregnancyWeek[],
+  placements: ImagePlacementRecord[],
+) {
   return {
     weeks: weeks.map((week) => ({
       weekNumber: week.weekNumber,
@@ -237,7 +240,8 @@ async function ensureBucket(bucketId: string) {
   const client = createClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data: buckets, error: listError } = await client.storage.listBuckets();
+  const { data: buckets, error: listError } =
+    await client.storage.listBuckets();
   if (listError) {
     throw listError;
   }
@@ -254,33 +258,48 @@ async function ensureBucket(bucketId: string) {
 }
 
 async function upsertWeek(week: ParsedPregnancyWeek) {
-  const existing = await supabaseSelect<WeekRow[]>(
-    `content.pregnancy_week_data?select=id,week_number&week_number=eq.${week.weekNumber}&limit=1`,
-  );
+  const content = getSupabaseAdminClient().schema("content");
+  const { data: existing, error: existingError } = await content
+    .from("pregnancy_week_data")
+    .select("id,week_number")
+    .eq("week_number", week.weekNumber)
+    .limit(1);
+  if (existingError) throw existingError;
   const payload = {
     week_number: week.weekNumber,
     ...toWeekPayload(week),
   };
 
   if (existing[0]) {
-    await supabaseUpdate(
-      `content.pregnancy_week_data?id=eq.${existing[0].id}`,
-      payload,
-    );
+    const { error } = await content
+      .from("pregnancy_week_data")
+      .update(payload)
+      .eq("id", existing[0].id);
+    if (error) throw error;
     return existing[0].id;
   }
 
-  const inserted = await supabaseInsert<WeekRow[]>("content.pregnancy_week_data", {
-    id: randomUUID(),
-    ...payload,
-  });
+  const { data: inserted, error: insertError } = await content
+    .from("pregnancy_week_data")
+    .insert({ id: randomUUID(), ...payload })
+    .select("id,week_number");
+  if (insertError) throw insertError;
   return inserted[0].id;
 }
 
-async function upsertDay(weekDataId: string, week: ParsedPregnancyWeek, dayNumber: number) {
-  const existing = await supabaseSelect<DayRow[]>(
-    `content.pregnancy_day_contents?select=id,day_number&week_data_id=eq.${weekDataId}&day_number=eq.${dayNumber}&limit=1`,
-  );
+async function upsertDay(
+  weekDataId: string,
+  week: ParsedPregnancyWeek,
+  dayNumber: number,
+) {
+  const content = getSupabaseAdminClient().schema("content");
+  const { data: existing, error: existingError } = await content
+    .from("pregnancy_day_contents")
+    .select("id,day_number")
+    .eq("week_data_id", weekDataId)
+    .eq("day_number", dayNumber)
+    .limit(1);
+  if (existingError) throw existingError;
   const payload = {
     week_data_id: weekDataId,
     day_number: dayNumber,
@@ -288,17 +307,19 @@ async function upsertDay(weekDataId: string, week: ParsedPregnancyWeek, dayNumbe
   };
 
   if (existing[0]) {
-    await supabaseUpdate(
-      `content.pregnancy_day_contents?id=eq.${existing[0].id}`,
-      payload,
-    );
+    const { error } = await content
+      .from("pregnancy_day_contents")
+      .update(payload)
+      .eq("id", existing[0].id);
+    if (error) throw error;
     return existing[0].id;
   }
 
-  const inserted = await supabaseInsert<DayRow[]>("content.pregnancy_day_contents", {
-    id: randomUUID(),
-    ...payload,
-  });
+  const { data: inserted, error: insertError } = await content
+    .from("pregnancy_day_contents")
+    .insert({ id: randomUUID(), ...payload })
+    .select("id,day_number");
+  if (insertError) throw insertError;
   return inserted[0].id;
 }
 
@@ -308,18 +329,22 @@ async function replaceChecklistRows(
   week: ParsedPregnancyWeek,
   dayNumber: number,
 ) {
+  const content = getSupabaseAdminClient().schema("content");
   const day = week.days.find((entry) => entry.dayNumber === dayNumber);
   if (!day) {
     return;
   }
 
-  await supabaseDelete(`content.week_checklists?day_content_id=eq.${dayContentId}`);
+  const { error: deleteError } = await content
+    .from("week_checklists")
+    .delete()
+    .eq("day_content_id", dayContentId);
+  if (deleteError) throw deleteError;
   if (day.checklistItems.length === 0) {
     return;
   }
 
-  await supabaseInsert(
-    "content.week_checklists",
+  const { error: insertError } = await content.from("week_checklists").insert(
     day.checklistItems.map((item, index) => ({
       id: randomUUID(),
       week_data_id: weekDataId,
@@ -342,6 +367,7 @@ async function replaceChecklistRows(
       updated_at: new Date().toISOString(),
     })),
   );
+  if (insertError) throw insertError;
 }
 
 async function replaceQuestionRows(
@@ -350,18 +376,22 @@ async function replaceQuestionRows(
   week: ParsedPregnancyWeek,
   dayNumber: number,
 ) {
+  const content = getSupabaseAdminClient().schema("content");
   const day = week.days.find((entry) => entry.dayNumber === dayNumber);
   if (!day) {
     return;
   }
 
-  await supabaseDelete(`content.week_questions?day_content_id=eq.${dayContentId}`);
+  const { error: deleteError } = await content
+    .from("week_questions")
+    .delete()
+    .eq("day_content_id", dayContentId);
+  if (deleteError) throw deleteError;
   if (day.questions.length === 0) {
     return;
   }
 
-  await supabaseInsert(
-    "content.week_questions",
+  const { error: insertError } = await content.from("week_questions").insert(
     day.questions.map((item, index) => ({
       id: randomUUID(),
       week_data_id: weekDataId,
@@ -380,6 +410,7 @@ async function replaceQuestionRows(
       updated_at: new Date().toISOString(),
     })),
   );
+  if (insertError) throw insertError;
 }
 
 async function replaceWeekMediaRows(
@@ -390,7 +421,12 @@ async function replaceWeekMediaRows(
   docxPath: string,
   placements: ImagePlacementRecord[],
 ) {
-  await supabaseDelete(`content.pregnancy_week_media?week_data_id=eq.${weekDataId}`);
+  const content = getSupabaseAdminClient().schema("content");
+  const { error: deleteError } = await content
+    .from("pregnancy_week_media")
+    .delete()
+    .eq("week_data_id", weekDataId);
+  if (deleteError) throw deleteError;
 
   if (placements.length === 0) {
     return;
@@ -429,7 +465,7 @@ async function replaceWeekMediaRows(
         week_data_id: weekDataId,
         day_content_id:
           group.scope === "day" && group.dayNumber !== null
-            ? dayContentIds.get(group.dayNumber) ?? null
+            ? (dayContentIds.get(group.dayNumber) ?? null)
             : null,
         day_number: group.scope === "day" ? group.dayNumber : null,
         media_scope: group.scope,
@@ -444,7 +480,10 @@ async function replaceWeekMediaRows(
     }
   }
 
-  await supabaseInsert("content.pregnancy_week_media", rows);
+  const { error: insertError } = await content
+    .from("pregnancy_week_media")
+    .insert(rows);
+  if (insertError) throw insertError;
 }
 
 async function main() {
@@ -456,24 +495,31 @@ async function main() {
   const rawText = await extractRawText(options.input);
   const allWeeks = parsePregnancyWeekDocText(rawText);
   const parsedWeeks = allWeeks.filter((week) => {
-    if (options.weekFrom !== null && week.weekNumber < options.weekFrom) return false;
-    if (options.weekTo !== null && week.weekNumber > options.weekTo) return false;
+    if (options.weekFrom !== null && week.weekNumber < options.weekFrom)
+      return false;
+    if (options.weekTo !== null && week.weekNumber > options.weekTo)
+      return false;
     return true;
   });
-  const documentXml = readZipEntry(options.input, "word/document.xml").toString("utf8");
+  const documentXml = readZipEntry(options.input, "word/document.xml").toString(
+    "utf8",
+  );
   const relsXml = readZipEntry(
     options.input,
     "word/_rels/document.xml.rels",
   ).toString("utf8");
   const allImagePlacements = extractImagePlacements(documentXml, relsXml);
   const imagePlacements = allImagePlacements.filter((p) => {
-    if (options.weekFrom !== null && p.weekNumber < options.weekFrom) return false;
+    if (options.weekFrom !== null && p.weekNumber < options.weekFrom)
+      return false;
     if (options.weekTo !== null && p.weekNumber > options.weekTo) return false;
     return true;
   });
 
   if (options.weekFrom !== null || options.weekTo !== null) {
-    console.log(`Week filter: ${options.weekFrom ?? 1} ~ ${options.weekTo ?? 40}`);
+    console.log(
+      `Week filter: ${options.weekFrom ?? 1} ~ ${options.weekTo ?? 40}`,
+    );
   }
 
   if (options.output) {
@@ -486,11 +532,7 @@ async function main() {
   }
 
   console.log(
-    JSON.stringify(
-      buildDryRunSummary(parsedWeeks, imagePlacements),
-      null,
-      2,
-    ),
+    JSON.stringify(buildDryRunSummary(parsedWeeks, imagePlacements), null, 2),
   );
 
   if (!options.apply) {

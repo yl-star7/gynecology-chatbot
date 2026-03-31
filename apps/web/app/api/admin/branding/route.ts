@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { supabaseInsert, supabaseSelect, supabaseUpdate } from "@/lib/mobile/supabase-rest";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 
 const BRANDING_KEY = "ui_branding";
 
@@ -48,24 +48,34 @@ function normalizeSurveyFormUrl(input: unknown) {
 
 export async function GET() {
   try {
+    const client = getSupabaseAdminClient();
     const admin = await readAdminSessionUser();
     if (!admin) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const rows = await supabaseSelect<ConfigRow[]>(
-      `system_config?select=key,value&key=eq.${BRANDING_KEY}&limit=1`,
-    );
+    const { data: rows, error } = await client
+      .from("system_config")
+      .select("key,value")
+      .eq("key", BRANDING_KEY)
+      .limit(1);
+    if (error) {
+      throw error;
+    }
 
     return NextResponse.json(rows[0]?.value ?? DEFAULT_BRANDING);
   } catch (error) {
     console.error("admin branding GET error", error);
-    return NextResponse.json({ error: "failed to load branding" }, { status: 500 });
+    return NextResponse.json(
+      { error: "failed to load branding" },
+      { status: 500 },
+    );
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
+    const client = getSupabaseAdminClient();
     const admin = await readAdminSessionUser();
     if (!admin) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -85,26 +95,40 @@ export async function PUT(request: NextRequest) {
       surveyFormUrl: normalizedSurveyFormUrl,
     };
 
-    const existing = await supabaseSelect<ConfigRow[]>(
-      `system_config?select=key&key=eq.${BRANDING_KEY}&limit=1`,
-    );
+    const { data: existing, error: existingError } = await client
+      .from("system_config")
+      .select("key")
+      .eq("key", BRANDING_KEY)
+      .limit(1);
+    if (existingError) {
+      throw existingError;
+    }
 
     if (existing.length > 0) {
-      await supabaseUpdate(`system_config?key=eq.${BRANDING_KEY}`, {
-        value: branding,
-        updated_at: new Date().toISOString(),
-      });
+      const { error } = await client
+        .from("system_config")
+        .update({ value: branding, updated_at: new Date().toISOString() })
+        .eq("key", BRANDING_KEY);
+      if (error) {
+        throw error;
+      }
     } else {
-      await supabaseInsert("system_config", {
+      const { error } = await client.from("system_config").insert({
         key: BRANDING_KEY,
         value: branding,
         updated_at: new Date().toISOString(),
       });
+      if (error) {
+        throw error;
+      }
     }
 
     return NextResponse.json({ ok: true, branding });
   } catch (error) {
     console.error("admin branding PUT error", error);
-    return NextResponse.json({ error: "failed to save branding" }, { status: 500 });
+    return NextResponse.json(
+      { error: "failed to save branding" },
+      { status: 500 },
+    );
   }
 }

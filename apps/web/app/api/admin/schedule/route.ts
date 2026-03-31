@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { supabaseSelect, supabaseInsert, supabaseUpdate } from "@/lib/mobile/supabase-rest";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 
 const SCHEDULE_KEY = "notification_schedule";
 
@@ -20,13 +20,22 @@ type ConfigRow = { key: string; value: ScheduleConfig };
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function validateSchedule(body: Partial<ScheduleConfig>): string | null {
-  if (body.dailyCheckTime !== undefined && !TIME_PATTERN.test(body.dailyCheckTime)) {
+  if (
+    body.dailyCheckTime !== undefined &&
+    !TIME_PATTERN.test(body.dailyCheckTime)
+  ) {
     return "invalid dailyCheckTime format (HH:MM)";
   }
-  if (body.weeklyMilestoneTime !== undefined && !TIME_PATTERN.test(body.weeklyMilestoneTime)) {
+  if (
+    body.weeklyMilestoneTime !== undefined &&
+    !TIME_PATTERN.test(body.weeklyMilestoneTime)
+  ) {
     return "invalid weeklyMilestoneTime format (HH:MM)";
   }
-  if (body.checkupReminderTime !== undefined && !TIME_PATTERN.test(body.checkupReminderTime)) {
+  if (
+    body.checkupReminderTime !== undefined &&
+    !TIME_PATTERN.test(body.checkupReminderTime)
+  ) {
     return "invalid checkupReminderTime format (HH:MM)";
   }
   if (
@@ -42,24 +51,34 @@ function validateSchedule(body: Partial<ScheduleConfig>): string | null {
 
 export async function GET() {
   try {
+    const client = getSupabaseAdminClient();
     const admin = await readAdminSessionUser();
     if (!admin) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const rows = await supabaseSelect<ConfigRow[]>(
-      `system_config?select=key,value&key=eq.${SCHEDULE_KEY}&limit=1`,
-    );
+    const { data: rows, error } = await client
+      .from("system_config")
+      .select("key,value")
+      .eq("key", SCHEDULE_KEY)
+      .limit(1);
+    if (error) {
+      throw error;
+    }
 
     return NextResponse.json(rows[0]?.value ?? DEFAULT_SCHEDULE);
   } catch (error) {
     console.error("admin schedule GET error", error);
-    return NextResponse.json({ error: "failed to load schedule" }, { status: 500 });
+    return NextResponse.json(
+      { error: "failed to load schedule" },
+      { status: 500 },
+    );
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
+    const client = getSupabaseAdminClient();
     const admin = await readAdminSessionUser();
     if (!admin) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -74,26 +93,40 @@ export async function PUT(request: NextRequest) {
 
     const schedule: ScheduleConfig = { ...DEFAULT_SCHEDULE, ...body };
 
-    const existing = await supabaseSelect<ConfigRow[]>(
-      `system_config?select=key&key=eq.${SCHEDULE_KEY}&limit=1`,
-    );
+    const { data: existing, error: existingError } = await client
+      .from("system_config")
+      .select("key")
+      .eq("key", SCHEDULE_KEY)
+      .limit(1);
+    if (existingError) {
+      throw existingError;
+    }
 
     if (existing.length > 0) {
-      await supabaseUpdate(`system_config?key=eq.${SCHEDULE_KEY}`, {
-        value: schedule,
-        updated_at: new Date().toISOString(),
-      });
+      const { error } = await client
+        .from("system_config")
+        .update({ value: schedule, updated_at: new Date().toISOString() })
+        .eq("key", SCHEDULE_KEY);
+      if (error) {
+        throw error;
+      }
     } else {
-      await supabaseInsert("system_config", {
+      const { error } = await client.from("system_config").insert({
         key: SCHEDULE_KEY,
         value: schedule,
         updated_at: new Date().toISOString(),
       });
+      if (error) {
+        throw error;
+      }
     }
 
     return NextResponse.json({ ok: true, schedule });
   } catch (error) {
     console.error("admin schedule PUT error", error);
-    return NextResponse.json({ error: "failed to save schedule" }, { status: 500 });
+    return NextResponse.json(
+      { error: "failed to save schedule" },
+      { status: 500 },
+    );
   }
 }
