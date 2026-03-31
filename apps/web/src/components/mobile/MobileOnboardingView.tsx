@@ -28,6 +28,37 @@ type Props = { userId?: string | null };
 
 const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", "다정하게"];
 
+function normalizeDueDateToIsoDate(value: string) {
+  const trimmed = value.trim();
+  const ymd = trimmed.match(/^(\d{4}-\d{2}-\d{2})/)?.[1];
+  if (ymd) {
+    return ymd;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return trimmed;
+  }
+
+  return parsed.toISOString().slice(0, 10);
+}
+
+export function buildWebOnboardingCompletionInput(input: {
+  userId: string;
+  dueDate: string;
+  babyNickname: string;
+  tonePreference: string;
+  themeKey: string;
+}) {
+  return {
+    userId: input.userId,
+    pregnancyWeekOrDueDate: normalizeDueDateToIsoDate(input.dueDate),
+    babyNickname: input.babyNickname.trim() || null,
+    tonePreference: input.tonePreference || "친근하게",
+    themeKey: input.themeKey,
+  };
+}
+
 export function MobileOnboardingView({ userId }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -64,13 +95,15 @@ export function MobileOnboardingView({ userId }: Props) {
     setIsSubmitting(true);
     setError(null);
     try {
-      const payload = await completeOnboarding({
-        userId: userId!,
-        pregnancyWeekOrDueDate: dueDate,
-        babyNickname: babyNickname.trim() || null,
-        tonePreference: tonePreference || "친근하게",
-        themeKey,
-      });
+      const payload = await completeOnboarding(
+        buildWebOnboardingCompletionInput({
+          userId: userId!,
+          dueDate,
+          babyNickname,
+          tonePreference,
+          themeKey,
+        }),
+      );
       storeMobileUserId(payload.user.id);
       storeMobileProfile({ userId: payload.user.id, themeKey });
       applyMobileTheme(themeKey);
