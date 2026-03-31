@@ -36,70 +36,19 @@ import {
   mapSchiftWorkflowRule,
 } from "./schift-workflow";
 import { patchSchiftWorkflow } from "@/lib/mobile/schift-workflows-api";
+import {
+  WeekContentRepository,
+  type SupabaseWeekAssetRow,
+  type SupabaseWeekDayRow,
+  type SupabaseWeekMediaRow,
+  type SupabaseWeekRow,
+  type SupabaseWeekSectionRow,
+} from "@/lib/db/repositories/week-content-repository";
 
 function hasBackendAdminConfig() {
   const provider = resolveServerDataProvider();
   return provider === "docker" ? hasDockerConfig() : hasSupabaseConfig();
 }
-
-type SupabaseWeekRow = {
-  id: string;
-  week_number: number;
-  title: string | null;
-  baby_size_label: string | null;
-  baby_size_compare_object: string | null;
-  baby_summary: string | null;
-  mother_summary: string | null;
-  warning_signs: string | null;
-  recommended_actions: string | null;
-  status: "draft" | "published" | "archived";
-  updated_at: string;
-};
-
-type SupabaseWeekSectionRow = {
-  id: string;
-  day_number: number | null;
-  code: string;
-  title: string | null;
-  description: string | null;
-  display_order: number | null;
-  is_required: boolean | null;
-  is_active: boolean | null;
-};
-
-type SupabaseWeekAssetRow = {
-  id: string;
-  day_number: number | null;
-  code: string;
-  question_type: string;
-  question_text: string;
-  help_text: string | null;
-  display_order: number | null;
-  is_required: boolean | null;
-  is_active: boolean | null;
-};
-
-type SupabaseWeekDayRow = {
-  id: string;
-  day_number: number;
-  title: string | null;
-  baby_development_payload: { items?: string[] } | null;
-  baby_message: string | null;
-  mother_changes_payload: { items?: string[] } | null;
-  display_order: number | null;
-};
-
-type SupabaseWeekMediaRow = {
-  id: string;
-  day_number: number | null;
-  media_scope: "week" | "day";
-  bucket_id: string;
-  object_path: string;
-  media_role: string;
-  alt_text: string | null;
-  source_file_name: string | null;
-  display_order: number | null;
-};
 
 type SupabaseKnowledgeItemRow = {
   id: string;
@@ -403,6 +352,7 @@ function mapWorkflowRule(
 
 export class SupabaseAdminContentPortAdapter implements AdminContentPort {
   private readonly fallback = new MockAdminContentAdapter();
+  private readonly weekContentRepository = new WeekContentRepository();
 
   private async selectKnowledgeItemRows() {
     if (hasDirectContentDatabase()) {
