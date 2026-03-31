@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
     const [dayRows, datedChecklistRows, genericChecklistRows, infoViewRows] =
       await Promise.all([
         supabaseSelect<DayContentRow[]>(
-          `content_pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
+          `content.pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
         ),
         supabaseSelect<ChecklistRow[]>(
           `content_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
