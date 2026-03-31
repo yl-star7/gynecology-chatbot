@@ -3,7 +3,11 @@ import {
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { supabaseInsert, supabaseSelect, supabaseUpdate } from "@/lib/mobile/supabase-rest";
+import {
+  supabaseInsert,
+  supabaseSelect,
+  supabaseUpdate,
+} from "@/lib/mobile/supabase-rest";
 
 type ProfileRow = {
   pregnancy_week: number | null;
@@ -12,7 +16,9 @@ type ProfileRow = {
 };
 
 function getKstDate(): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date());
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(
+    new Date(),
+  );
 }
 
 function calculateCurrentPregnancyWeek(dueDate: string): {
@@ -22,7 +28,11 @@ function calculateCurrentPregnancyWeek(dueDate: string): {
 } {
   const due = new Date(`${dueDate}T00:00:00`);
   const today = new Date();
-  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
   const diffDays = Math.round(
     (due.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24),
   );
@@ -69,8 +79,9 @@ type CalendarLogRow = {
 
 function firstText(...values: Array<string | null | undefined>) {
   return (
-    values.find((value) => typeof value === "string" && value.trim().length > 0)?.trim() ??
-    ""
+    values
+      .find((value) => typeof value === "string" && value.trim().length > 0)
+      ?.trim() ?? ""
   );
 }
 
@@ -94,15 +105,13 @@ export async function GET(request: NextRequest) {
     const profile = profiles[0];
 
     if (!profile?.pregnancy_week && !profile?.due_date) {
-      return NextResponse.json(
-        {
-          today: {
-            babyBody: "오늘 아기의 변화를 준비 중이에요.",
-            momBody: "오늘 엄마의 변화를 준비 중이에요.",
-            checklistItems: [],
-          },
+      return NextResponse.json({
+        today: {
+          babyBody: "오늘 아기의 변화를 준비 중이에요.",
+          momBody: "오늘 엄마의 변화를 준비 중이에요.",
+          checklistItems: [],
         },
-      );
+      });
     }
 
     // due_date가 있으면 현재 날짜 기준으로 주차 동적 재계산, 없으면 DB 정적 값 사용
@@ -122,37 +131,36 @@ export async function GET(request: NextRequest) {
 
     const dayNumber = (currentDayInWeek % 7) + 1;
     const weeks = await supabaseSelect<WeekRow[]>(
-      `v_pregnancy_week_data?select=id,baby_summary,mother_summary&week_number=eq.${currentWeek}&status=eq.published&limit=1`,
+      `published_weeks?select=id,baby_summary,mother_summary&week_number=eq.${currentWeek}&status=eq.published&limit=1`,
     );
     const week = weeks[0];
 
     if (!week) {
-      return NextResponse.json(
-        {
-          today: {
-            babyBody: "오늘 아기의 변화를 준비 중이에요.",
-            momBody: "오늘 엄마의 변화를 준비 중이에요.",
-            checklistItems: [],
-          },
+      return NextResponse.json({
+        today: {
+          babyBody: "오늘 아기의 변화를 준비 중이에요.",
+          momBody: "오늘 엄마의 변화를 준비 중이에요.",
+          checklistItems: [],
         },
-      );
+      });
     }
 
     const todayDate = getKstDate();
-    const [dayRows, datedChecklistRows, genericChecklistRows, infoViewRows] = await Promise.all([
-      supabaseSelect<DayContentRow[]>(
-        `v_pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
-      ),
-      supabaseSelect<ChecklistRow[]>(
-        `v_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
-      ),
-      supabaseSelect<ChecklistRow[]>(
-        `v_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
-      ),
-      supabaseSelect<CalendarLogRow[]>(
-        `calendar_logs?select=id&user_id=eq.${userId}&date=eq.${todayDate}&entry_type=eq.today_info_view&limit=1`,
-      ),
-    ]);
+    const [dayRows, datedChecklistRows, genericChecklistRows, infoViewRows] =
+      await Promise.all([
+        supabaseSelect<DayContentRow[]>(
+          `v_pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
+        ),
+        supabaseSelect<ChecklistRow[]>(
+          `active_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+        ),
+        supabaseSelect<ChecklistRow[]>(
+          `active_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
+        ),
+        supabaseSelect<CalendarLogRow[]>(
+          `calendar_logs?select=id&user_id=eq.${userId}&date=eq.${todayDate}&entry_type=eq.today_info_view&limit=1`,
+        ),
+      ]);
 
     const day = dayRows[0] ?? null;
     const checklistRows = [...datedChecklistRows, ...genericChecklistRows];
@@ -198,7 +206,8 @@ export async function PATCH(request: NextRequest) {
     const hintedUserId = request.nextUrl.searchParams.get("userId");
     const { userId } = await requireMobileSession(request, hintedUserId);
     const body = await request.json();
-    const checklistId = typeof body.checklistId === "string" ? body.checklistId : "";
+    const checklistId =
+      typeof body.checklistId === "string" ? body.checklistId : "";
     const completed = Boolean(body.completed);
     const action = typeof body.action === "string" ? body.action : "";
 
@@ -223,7 +232,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (!checklistId) {
-      return NextResponse.json({ error: "checklistId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "checklistId is required" },
+        { status: 400 },
+      );
     }
 
     const existingEvents = await supabaseSelect<Array<{ id: string }>>(
@@ -234,11 +246,14 @@ export async function PATCH(request: NextRequest) {
     const nextStatus = completed ? "completed" : "opened";
 
     if (existingEvents[0]?.id) {
-      await supabaseUpdate(`user_checklist_events?id=eq.${existingEvents[0].id}`, {
-        status: nextStatus,
-        completed_at: completed ? now : null,
-        updated_at: now,
-      });
+      await supabaseUpdate(
+        `user_checklist_events?id=eq.${existingEvents[0].id}`,
+        {
+          status: nextStatus,
+          completed_at: completed ? now : null,
+          updated_at: now,
+        },
+      );
     } else {
       await supabaseInsert("user_checklist_events", {
         user_id: userId,

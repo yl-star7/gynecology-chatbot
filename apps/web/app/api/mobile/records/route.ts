@@ -13,14 +13,12 @@ type CalendarRecordRow = {
   summary: string | null;
   entry_type: string;
   session_id: string | null;
-  payload:
-    | {
-        emotionTone?: string;
-        questionId?: string;
-        answer?: string;
-        viewedAt?: string;
-      }
-    | null;
+  payload: {
+    emotionTone?: string;
+    questionId?: string;
+    answer?: string;
+    viewedAt?: string;
+  } | null;
 };
 
 type SessionRow = {
@@ -59,7 +57,13 @@ type QuestionRow = {
 
 type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
 
-const VALID_EMOTION_TONES: EmotionTone[] = ["calm", "joyful", "anxious", "tired", "sad"];
+const VALID_EMOTION_TONES: EmotionTone[] = [
+  "calm",
+  "joyful",
+  "anxious",
+  "tired",
+  "sad",
+];
 
 const EMOTION_TONE_LABELS: Record<EmotionTone, string> = {
   calm: "차분함",
@@ -83,7 +87,9 @@ function getKstDateKey() {
 }
 
 function diffCalendarDays(targetIsoDate: string, baseIsoDate: string) {
-  const [targetYear, targetMonth, targetDay] = targetIsoDate.split("-").map(Number);
+  const [targetYear, targetMonth, targetDay] = targetIsoDate
+    .split("-")
+    .map(Number);
   const [baseYear, baseMonth, baseDay] = baseIsoDate.split("-").map(Number);
   const target = Date.UTC(targetYear, targetMonth - 1, targetDay);
   const base = Date.UTC(baseYear, baseMonth - 1, baseDay);
@@ -91,11 +97,17 @@ function diffCalendarDays(targetIsoDate: string, baseIsoDate: string) {
 }
 
 function resolveCurrentPregnancyDayCount(profile: ProfileRow) {
-  if (typeof profile.pregnancy_day_count === "number" && profile.pregnancy_day_count > 0) {
+  if (
+    typeof profile.pregnancy_day_count === "number" &&
+    profile.pregnancy_day_count > 0
+  ) {
     return profile.pregnancy_day_count;
   }
 
-  if (typeof profile.pregnancy_week === "number" && typeof profile.pregnancy_day_in_week === "number") {
+  if (
+    typeof profile.pregnancy_week === "number" &&
+    typeof profile.pregnancy_day_in_week === "number"
+  ) {
     return (profile.pregnancy_week - 1) * 7 + profile.pregnancy_day_in_week;
   }
 
@@ -125,8 +137,13 @@ function buildChecklistLabel(row: ChecklistRow) {
   return "그날의 체크리스트";
 }
 
-function buildConversationSummary(records: CalendarRecordRow[], relatedSessions: SessionRow[]) {
-  const aiSummary = records.find((record) => record.entry_type === "ai_summary");
+function buildConversationSummary(
+  records: CalendarRecordRow[],
+  relatedSessions: SessionRow[],
+) {
+  const aiSummary = records.find(
+    (record) => record.entry_type === "ai_summary",
+  );
   if (aiSummary?.summary) {
     return aiSummary.summary;
   }
@@ -138,7 +155,10 @@ function buildConversationSummary(records: CalendarRecordRow[], relatedSessions:
   return `${relatedSessions.length}개의 대화가 있었어요. 하루 요약은 다음날 정리해 보여드릴게요.`;
 }
 
-async function loadChecklistItems(userId: string, isoDate: string): Promise<TodayChecklistItem[]> {
+async function loadChecklistItems(
+  userId: string,
+  isoDate: string,
+): Promise<TodayChecklistItem[]> {
   const profiles = await supabaseSelect<ProfileRow[]>(
     `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
   );
@@ -162,7 +182,7 @@ async function loadChecklistItems(userId: string, isoDate: string): Promise<Toda
   const targetDayNumber = ((selectedPregnancyDayCount - 1) % 7) + 1;
 
   const weeks = await supabaseSelect<WeekRow[]>(
-    `v_pregnancy_week_data?select=id&week_number=eq.${targetWeekNumber}&status=eq.published&limit=1`,
+    `published_weeks?select=id&week_number=eq.${targetWeekNumber}&status=eq.published&limit=1`,
   );
   const week = weeks[0];
   if (!week) {
@@ -171,10 +191,10 @@ async function loadChecklistItems(userId: string, isoDate: string): Promise<Toda
 
   const [datedChecklistRows, genericChecklistRows] = await Promise.all([
     supabaseSelect<ChecklistRow[]>(
-      `v_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc`,
+      `active_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc`,
     ),
     supabaseSelect<ChecklistRow[]>(
-      `v_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
+      `active_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
     ),
   ]);
 
@@ -195,7 +215,11 @@ async function loadChecklistItems(userId: string, isoDate: string): Promise<Toda
   }));
 }
 
-async function loadDailyQuestion(userId: string, isoDate: string, records: CalendarRecordRow[]) {
+async function loadDailyQuestion(
+  userId: string,
+  isoDate: string,
+  records: CalendarRecordRow[],
+) {
   const profiles = await supabaseSelect<ProfileRow[]>(
     `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
   );
@@ -219,7 +243,7 @@ async function loadDailyQuestion(userId: string, isoDate: string, records: Calen
   const targetDayNumber = ((selectedPregnancyDayCount - 1) % 7) + 1;
 
   const weeks = await supabaseSelect<WeekRow[]>(
-    `v_pregnancy_week_data?select=id&week_number=eq.${targetWeekNumber}&status=eq.published&limit=1`,
+    `published_weeks?select=id&week_number=eq.${targetWeekNumber}&status=eq.published&limit=1`,
   );
   const week = weeks[0];
   if (!week) {
@@ -228,10 +252,10 @@ async function loadDailyQuestion(userId: string, isoDate: string, records: Calen
 
   const [datedQuestions, genericQuestions] = await Promise.all([
     supabaseSelect<QuestionRow[]>(
-      `v_week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
+      `active_week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
     ),
     supabaseSelect<QuestionRow[]>(
-      `v_week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,
+      `active_week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,
     ),
   ]);
 
@@ -241,9 +265,13 @@ async function loadDailyQuestion(userId: string, isoDate: string, records: Calen
   }
 
   const latestAnswer = records.find(
-    (record) => record.entry_type === "survey_response" && record.payload?.questionId === question.id,
+    (record) =>
+      record.entry_type === "survey_response" &&
+      record.payload?.questionId === question.id,
   );
-  const aiSummary = records.find((record) => record.entry_type === "ai_summary");
+  const aiSummary = records.find(
+    (record) => record.entry_type === "ai_summary",
+  );
 
   return {
     question: question.question_text,
@@ -267,7 +295,13 @@ export async function GET(request: NextRequest) {
       `calendar_logs?select=id,title,summary,entry_type,session_id,payload&user_id=eq.${userId}&date=eq.${isoDate}&order=created_at.desc`,
     );
 
-    const sessionIds = [...new Set(records.map((record) => record.session_id).filter((value): value is string => Boolean(value)))];
+    const sessionIds = [
+      ...new Set(
+        records
+          .map((record) => record.session_id)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ];
     const relatedSessions: SessionRow[] = [];
 
     for (const sessionId of sessionIds) {
@@ -280,13 +314,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const emotionCheckinRow = records.find((record) => record.entry_type === "emotion_checkin");
-    const infoViewed = records.some((record) => record.entry_type === "today_info_view");
+    const emotionCheckinRow = records.find(
+      (record) => record.entry_type === "emotion_checkin",
+    );
+    const infoViewed = records.some(
+      (record) => record.entry_type === "today_info_view",
+    );
     const rawTone = emotionCheckinRow?.payload?.emotionTone ?? null;
-    const resolvedEmotionTone = rawTone && VALID_EMOTION_TONES.includes(rawTone as EmotionTone)
-      ? (rawTone as EmotionTone)
-      : null;
-    const conversationSummary = buildConversationSummary(records, relatedSessions);
+    const resolvedEmotionTone =
+      rawTone && VALID_EMOTION_TONES.includes(rawTone as EmotionTone)
+        ? (rawTone as EmotionTone)
+        : null;
+    const conversationSummary = buildConversationSummary(
+      records,
+      relatedSessions,
+    );
     const dailyQuestion = await loadDailyQuestion(userId, isoDate, records);
 
     return NextResponse.json({
@@ -313,11 +355,17 @@ export async function POST(request: NextRequest) {
     const { userId } = await requireMobileSession(request, hintedUserId);
 
     const body = await request.json();
-    const { sessionId, emotionTone } = body as { sessionId: string; emotionTone: string };
+    const { sessionId, emotionTone } = body as {
+      sessionId: string;
+      emotionTone: string;
+    };
 
     if (!VALID_EMOTION_TONES.includes(emotionTone as EmotionTone)) {
       return NextResponse.json(
-        { error: "emotionTone must be one of: calm, joyful, anxious, tired, sad" },
+        {
+          error:
+            "emotionTone must be one of: calm, joyful, anxious, tired, sad",
+        },
         { status: 400 },
       );
     }

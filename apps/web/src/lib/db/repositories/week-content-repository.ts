@@ -163,7 +163,7 @@ export class WeekContentRepository {
 
     try {
       return await this.select<Array<SupabaseWeekRow>>(
-        "v_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
+        "published_weeks?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
       );
     } catch (error) {
       console.error(
@@ -202,7 +202,7 @@ export class WeekContentRepository {
     } else {
       try {
         weekRows = await this.select<Array<SupabaseWeekRow>>(
-          `v_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
+          `published_weeks?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
         );
       } catch (error) {
         console.error(
@@ -274,10 +274,10 @@ export class WeekContentRepository {
     try {
       [sections, assets, days] = await Promise.all([
         this.select<Array<SupabaseWeekSectionRow>>(
-          `v_week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+          `active_week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
         this.select<Array<SupabaseWeekAssetRow>>(
-          `v_week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
+          `active_week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
         this.select<Array<SupabaseWeekDayRow>>(
           `v_pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${weekId}&order=day_number.asc`,

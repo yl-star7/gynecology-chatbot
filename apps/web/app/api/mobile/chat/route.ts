@@ -340,7 +340,7 @@ async function getPromptContext(
   const dayNumber = ((profiles[0]?.pregnancy_day_in_week ?? 0) % 7) + 1;
 
   const weekRows = await supabaseSelect<WeekDataRow[]>(
-    `v_pregnancy_week_data?select=id,week_number,title,baby_summary,mother_summary,warning_signs,recommended_actions,checklist_intro,question_intro,status&week_number=eq.${pregnancyWeek}&status=eq.published&limit=1`,
+    `published_weeks?select=id,week_number,title,baby_summary,mother_summary,warning_signs,recommended_actions,checklist_intro,question_intro,status&week_number=eq.${pregnancyWeek}&status=eq.published&limit=1`,
   );
   const week = weekRows[0];
   if (!week) {
@@ -353,10 +353,10 @@ async function getPromptContext(
   const dayContent = dayContentRows[0] ?? null;
 
   const checklists = await supabaseSelect<ChecklistRow[]>(
-    `v_week_checklists?select=id,code,title,description,checklist_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+    `active_week_checklists?select=id,code,title,description,checklist_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
   );
   const questions = await supabaseSelect<QuestionRow[]>(
-    `v_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+    `active_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
   );
 
   const profile = profiles[0];

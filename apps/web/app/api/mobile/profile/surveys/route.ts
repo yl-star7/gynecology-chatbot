@@ -12,7 +12,12 @@ import {
 type QuestionRow = {
   id: string;
   question_text: string;
-  question_type: "text" | "single_choice" | "multi_choice" | "yes_no" | "number";
+  question_type:
+    | "text"
+    | "single_choice"
+    | "multi_choice"
+    | "yes_no"
+    | "number";
   help_text: string | null;
   question_payload: Record<string, unknown> | null;
 };
@@ -54,12 +59,15 @@ export async function POST(request: NextRequest) {
     const { userId } = await requireMobileSession(request, hintedUserId);
 
     const questions = await supabaseSelect<QuestionRow[]>(
-      `v_week_questions?select=id,question_text,question_type,help_text,question_payload&id=eq.${questionId}&limit=1`,
+      `active_week_questions?select=id,question_text,question_type,help_text,question_payload&id=eq.${questionId}&limit=1`,
     );
     const question = questions[0];
 
     if (!question) {
-      return NextResponse.json({ error: "question not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "question not found" },
+        { status: 404 },
+      );
     }
 
     const now = new Date().toISOString();
@@ -84,12 +92,15 @@ export async function POST(request: NextRequest) {
     );
 
     if (existingEvents[0]) {
-      await supabaseUpdate(`user_question_events?id=eq.${existingEvents[0].id}`, {
-        status: "answered",
-        answer_message_id: null,
-        answered_at: now,
-        updated_at: now,
-      });
+      await supabaseUpdate(
+        `user_question_events?id=eq.${existingEvents[0].id}`,
+        {
+          status: "answered",
+          answer_message_id: null,
+          answered_at: now,
+          updated_at: now,
+        },
+      );
     } else {
       await supabaseInsert("user_question_events", {
         user_id: userId,
@@ -107,6 +118,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("mobile profile surveys route error", error);
-    return mobileRouteErrorResponse(error, "failed to submit survey answer", 400);
+    return mobileRouteErrorResponse(
+      error,
+      "failed to submit survey answer",
+      400,
+    );
   }
 }
