@@ -14,6 +14,19 @@ import {
 } from "@/lib/server-data-provider";
 import { SupabaseAdminContentPortAdapter } from "./supabase-admin-content-port";
 
+const mockedWeekRepositoryListWeeks = jest.fn();
+const mockedWeekRepositoryGetWeek = jest.fn();
+const mockedWeekRepositoryGetWeekChildren = jest.fn();
+const mockedWeekRepositoryUpdateWeekSummary = jest.fn();
+const mockedWeekRepositoryUpsertDayContents = jest.fn();
+const mockedWeekRepositoryUpsertChecklists = jest.fn();
+const mockedWeekRepositoryUpsertQuestions = jest.fn();
+const mockedWeekRepositoryUpsertMedia = jest.fn();
+const mockedWeekRepositoryDeleteDay = jest.fn();
+const mockedWeekRepositoryDeleteChecklist = jest.fn();
+const mockedWeekRepositoryDeleteQuestion = jest.fn();
+const mockedWeekRepositoryDeleteMedia = jest.fn();
+
 jest.mock("@/lib/mobile/supabase-rest", () => ({
   supabaseDelete: jest.fn(),
   supabaseSelect: jest.fn(),
@@ -37,6 +50,23 @@ jest.mock("@/lib/server-data-provider", () => ({
 
 jest.mock("@/lib/mobile/schift-workflows-api", () => ({
   patchSchiftWorkflow: jest.fn(),
+}));
+
+jest.mock("@/lib/db/repositories/week-content-repository", () => ({
+  WeekContentRepository: jest.fn(() => ({
+    listWeeks: mockedWeekRepositoryListWeeks,
+    getWeek: mockedWeekRepositoryGetWeek,
+    getWeekChildren: mockedWeekRepositoryGetWeekChildren,
+    updateWeekSummary: mockedWeekRepositoryUpdateWeekSummary,
+    upsertDayContents: mockedWeekRepositoryUpsertDayContents,
+    upsertChecklists: mockedWeekRepositoryUpsertChecklists,
+    upsertQuestions: mockedWeekRepositoryUpsertQuestions,
+    upsertMedia: mockedWeekRepositoryUpsertMedia,
+    deleteDay: mockedWeekRepositoryDeleteDay,
+    deleteChecklist: mockedWeekRepositoryDeleteChecklist,
+    deleteQuestion: mockedWeekRepositoryDeleteQuestion,
+    deleteMedia: mockedWeekRepositoryDeleteMedia,
+  })),
 }));
 
 const mockedDelete = supabaseDelete as jest.MockedFunction<
@@ -89,6 +119,18 @@ describe("SupabaseAdminContentPortAdapter", () => {
     mockedHasDockerConfig.mockReset();
     mockedHasSupabaseConfig.mockReset();
     mockedResolveServerDataProvider.mockReset();
+    mockedWeekRepositoryListWeeks.mockReset();
+    mockedWeekRepositoryGetWeek.mockReset();
+    mockedWeekRepositoryGetWeekChildren.mockReset();
+    mockedWeekRepositoryUpdateWeekSummary.mockReset();
+    mockedWeekRepositoryUpsertDayContents.mockReset();
+    mockedWeekRepositoryUpsertChecklists.mockReset();
+    mockedWeekRepositoryUpsertQuestions.mockReset();
+    mockedWeekRepositoryUpsertMedia.mockReset();
+    mockedWeekRepositoryDeleteDay.mockReset();
+    mockedWeekRepositoryDeleteChecklist.mockReset();
+    mockedWeekRepositoryDeleteQuestion.mockReset();
+    mockedWeekRepositoryDeleteMedia.mockReset();
   });
 
   afterAll(() => {
