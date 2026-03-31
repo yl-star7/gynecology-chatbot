@@ -3,7 +3,7 @@ import {
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+import { loadCachedAdminKnowledgeItems } from "@/lib/admin/admin-cache";
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,12 +18,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const column = entityId
-      ? `id=eq.${entityId}`
-      : `section=eq.${target}&status=eq.published`;
-    const items = await supabaseSelect<
-      Array<{ title: string; section: string; body: string }>
-    >(`content.knowledge_items?select=title,section,body&${column}&limit=1`);
+    const items = (await loadCachedAdminKnowledgeItems()).filter((item) => {
+      if (entityId) {
+        return item.id === entityId;
+      }
+
+      return item.section === target && item.status === "published";
+    });
 
     if (!items[0]) {
       return NextResponse.json(

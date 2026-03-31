@@ -3,9 +3,9 @@ import {
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { supabaseSelect } from "@/lib/mobile/supabase-rest";
+import { loadCachedAdminKnowledgeItems } from "@/lib/admin/admin-cache";
 
-type ContentItemRow = {
+type ContentItem = {
   id: string;
   slug: string;
   section: "knowledge" | "notebook";
@@ -38,9 +38,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const rows = await supabaseSelect<ContentItemRow[]>(
-      `content.knowledge_items?select=id,slug,section,title,body&section=eq.${section}&order=updated_at.desc`,
-    );
+    const rows = (await loadCachedAdminKnowledgeItems())
+      .filter((item) => item.section === section && item.status === "published")
+      .map<ContentItem>((item) => ({
+        id: item.id,
+        slug: item.slug,
+        section: item.section,
+        title: item.title,
+        body: item.body,
+      }));
 
     return NextResponse.json({
       items: rows.map((row) => ({
