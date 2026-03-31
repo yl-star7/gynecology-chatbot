@@ -340,7 +340,7 @@ async function getPromptContext(
   const dayNumber = ((profiles[0]?.pregnancy_day_in_week ?? 0) % 7) + 1;
 
   const weekRows = await supabaseSelect<WeekDataRow[]>(
-    `published_weeks?select=id,week_number,title,baby_summary,mother_summary,warning_signs,recommended_actions,checklist_intro,question_intro,status&week_number=eq.${pregnancyWeek}&status=eq.published&limit=1`,
+    `v_pregnancy_week_data?select=id,week_number,title,baby_summary,mother_summary,warning_signs,recommended_actions,checklist_intro,question_intro,status&week_number=eq.${pregnancyWeek}&status=eq.published&limit=1`,
   );
   const week = weekRows[0];
   if (!week) {

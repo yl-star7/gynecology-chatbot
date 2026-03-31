@@ -182,7 +182,7 @@ async function loadChecklistItems(
   const targetDayNumber = ((selectedPregnancyDayCount - 1) % 7) + 1;
 
   const weeks = await supabaseSelect<WeekRow[]>(
-    `published_weeks?select=id&week_number=eq.${targetWeekNumber}&status=eq.published&limit=1`,
+    `v_pregnancy_week_data?select=id&week_number=eq.${targetWeekNumber}&status=eq.published&limit=1`,
   );
   const week = weeks[0];
   if (!week) {
@@ -243,7 +243,7 @@ async function loadDailyQuestion(
   const targetDayNumber = ((selectedPregnancyDayCount - 1) % 7) + 1;
 
   const weeks = await supabaseSelect<WeekRow[]>(
-    `published_weeks?select=id&week_number=eq.${targetWeekNumber}&status=eq.published&limit=1`,
+    `v_pregnancy_week_data?select=id&week_number=eq.${targetWeekNumber}&status=eq.published&limit=1`,
   );
   const week = weeks[0];
   if (!week) {

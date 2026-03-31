@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
 
     const dayNumber = (currentDayInWeek % 7) + 1;
     const weeks = await supabaseSelect<WeekRow[]>(
-      `published_weeks?select=id,baby_summary,mother_summary&week_number=eq.${currentWeek}&status=eq.published&limit=1`,
+      `v_pregnancy_week_data?select=id,baby_summary,mother_summary&week_number=eq.${currentWeek}&status=eq.published&limit=1`,
     );
     const week = weeks[0];
 
