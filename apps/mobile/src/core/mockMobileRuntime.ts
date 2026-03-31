@@ -77,6 +77,35 @@ export function clearMockMobileCurrentUser() {
   runtimeState.currentUser = null;
 }
 
+function toIsoDateOnly(input: string) {
+  const trimmed = input.trim();
+  const ymd = trimmed.match(/^(\d{4}-\d{2}-\d{2})/)?.[1];
+  if (ymd) {
+    return ymd;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString().slice(0, 10);
+}
+
+function calculatePregnancyFromDueDate(isoDate: string) {
+  const dueDate = new Date(`${isoDate}T00:00:00`);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round(
+    (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  const pregnancyDayCount = Math.max(0, Math.min(280, 280 - diffDays));
+  const pregnancyWeek = Math.max(1, Math.floor(pregnancyDayCount / 7));
+  const pregnancyDay = pregnancyDayCount % 7;
+
+  return { pregnancyWeek, pregnancyDayCount, pregnancyDay };
+}
+
 export function completeMockOnboarding(input: OnboardingProfileInput) {
   const currentUser =
     runtimeState.currentUser ??
@@ -91,13 +120,26 @@ export function completeMockOnboarding(input: OnboardingProfileInput) {
   };
 
   runtimeState.currentUser = nextUser;
-  runtimeState.tonePreference = input.tonePreference.trim() || runtimeState.tonePreference;
+  runtimeState.tonePreference =
+    input.tonePreference.trim() || runtimeState.tonePreference;
   runtimeState.themeKey = input.themeKey ?? runtimeState.themeKey;
+  runtimeState.babyNickname = input.babyNickname?.trim() || null;
+
+  const dueDate = toIsoDateOnly(input.pregnancyWeekOrDueDate);
+  if (dueDate) {
+    runtimeState.dueDate = dueDate;
+    const { pregnancyWeek, pregnancyDay } =
+      calculatePregnancyFromDueDate(dueDate);
+    runtimeState.pregnancyWeekLabel = `${pregnancyWeek}주 ${pregnancyDay}일`;
+    runtimeState.pregnancyDayCount = pregnancyWeek * 7 + pregnancyDay;
+    return nextUser;
+  }
 
   const weekMatch = input.pregnancyWeekOrDueDate.match(/(\d+)/);
   if (weekMatch) {
-    runtimeState.pregnancyWeekLabel = `${weekMatch[1]}주차`;
-    runtimeState.pregnancyDayCount = Number(weekMatch[1]) * 7;
+    const week = Number(weekMatch[1]);
+    runtimeState.pregnancyWeekLabel = `${week}주차`;
+    runtimeState.pregnancyDayCount = week * 7;
   }
 
   return nextUser;

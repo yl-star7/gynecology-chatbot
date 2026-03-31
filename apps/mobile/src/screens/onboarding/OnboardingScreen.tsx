@@ -19,7 +19,10 @@ import {
   space,
   typo,
 } from "../../theme";
-import { ONBOARDING_LAYOUT } from "./OnboardingScreen.model";
+import {
+  ONBOARDING_LAYOUT,
+  buildOnboardingCompletionInput,
+} from "./OnboardingScreen.model";
 
 const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", "다정하게"];
 
@@ -46,10 +49,13 @@ export function OnboardingScreen() {
 
   async function handleComplete() {
     try {
-      await completeOnboarding({
-        pregnancyWeekOrDueDate: dueDate,
-        tonePreference: tonePreference || "친근하게",
-      });
+      await completeOnboarding(
+        buildOnboardingCompletionInput({
+          dueDate,
+          babyNickname,
+          tonePreference,
+        }),
+      );
       router.replace("/home");
     } catch (e) {
       setError(e instanceof Error ? e.message : "저장에 실패했어요.");
