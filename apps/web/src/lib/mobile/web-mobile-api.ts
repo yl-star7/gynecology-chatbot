@@ -94,15 +94,21 @@ function createSearch(params: Record<string, string | undefined>) {
 }
 
 export function createSessionId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
 
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
-    const random = Math.floor(Math.random() * 16);
-    const value = character === "x" ? random : (random & 0x3) | 0x8;
-    return value.toString(16);
-  });
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+    /[xy]/g,
+    (character) => {
+      const random = Math.floor(Math.random() * 16);
+      const value = character === "x" ? random : (random & 0x3) | 0x8;
+      return value.toString(16);
+    },
+  );
 }
 
 export async function fetchHome(userId: string, month?: string) {
@@ -216,9 +222,7 @@ export async function fetchSession(userId: string, sessionId: string) {
   return parseJson<{ session: ChatSession }>(response);
 }
 
-export async function fetchContentItems(
-  section: "knowledge" | "notebook",
-) {
+export async function fetchContentItems(section: "knowledge" | "notebook") {
   const response = await fetch(
     `/api/mobile/content-items?${createSearch({ section })}`,
     {
@@ -286,9 +290,7 @@ export async function fileToDataUrl(file: File) {
   });
 }
 
-export async function requestPhoneVerification(input: {
-  phoneNumber: string;
-}) {
+export async function requestPhoneVerification(input: { phoneNumber: string }) {
   const response = await fetch("/api/mobile/auth/start-phone-verification", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -308,7 +310,9 @@ export async function signInWithPhoneVerification(input: {
     body: JSON.stringify(input),
   });
 
-  return parseJson<{ user: AuthenticatedUser; sessionToken?: string }>(response);
+  return parseJson<{ user: AuthenticatedUser; sessionToken?: string }>(
+    response,
+  );
 }
 
 export async function fetchCurrentMobileSession() {
@@ -324,6 +328,7 @@ export async function fetchCurrentMobileSession() {
 export async function completeOnboarding(input: {
   userId: string;
   pregnancyWeekOrDueDate: string;
+  babyNickname?: string | null;
   tonePreference: string;
   themeKey?: MobileThemeKey | null;
 }) {
