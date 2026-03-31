@@ -1,15 +1,18 @@
 jest.mock("@/lib/mobile/auth", () => ({
   updateMobileProfile: jest.fn(),
-  hasCompletedProfileOnboarding: jest.fn((profile: {
-    onboarding_payload?: {
-      tonePreference?: string;
-      pregnancyWeekOrDueDate?: string;
-    } | null;
-  } | null) =>
-    Boolean(
-      profile?.onboarding_payload?.tonePreference?.trim() &&
+  hasCompletedProfileOnboarding: jest.fn(
+    (
+      profile: {
+        onboarding_payload?: {
+          tonePreference?: string;
+          pregnancyWeekOrDueDate?: string;
+        } | null;
+      } | null,
+    ) =>
+      Boolean(
+        profile?.onboarding_payload?.tonePreference?.trim() &&
         profile?.onboarding_payload?.pregnancyWeekOrDueDate?.trim(),
-    ),
+      ),
   ),
 }));
 
@@ -77,11 +80,11 @@ describe("GET /api/mobile/profile", () => {
         },
       ] as never);
 
-    const response = await GET(
-      {
-        nextUrl: new URL("http://localhost:3000/api/mobile/profile?userId=user-1"),
-      } as never,
-    );
+    const response = await GET({
+      nextUrl: new URL(
+        "http://localhost:3000/api/mobile/profile?userId=user-1",
+      ),
+    } as never);
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -128,11 +131,14 @@ describe("GET /api/mobile/profile", () => {
         ] as never);
       }
 
-      if (path.startsWith("v_pregnancy_week_data?")) {
+      if (path.startsWith("published_weeks?")) {
         return Promise.resolve([{ id: "week-19" }] as never);
       }
 
-      if (path.includes("v_week_questions?") && path.includes("day_number=eq.2")) {
+      if (
+        path.includes("content.week_questions?") &&
+        path.includes("day_number=eq.2")
+      ) {
         return Promise.resolve([
           {
             id: "question-1",
@@ -150,7 +156,10 @@ describe("GET /api/mobile/profile", () => {
         ] as never);
       }
 
-      if (path.includes("v_week_questions?") && path.includes("day_number=is.null")) {
+      if (
+        path.includes("content.week_questions?") &&
+        path.includes("day_number=is.null")
+      ) {
         return Promise.resolve([] as never);
       }
 
@@ -161,11 +170,11 @@ describe("GET /api/mobile/profile", () => {
       return Promise.resolve([] as never);
     });
 
-    const response = await GET(
-      {
-        nextUrl: new URL("http://localhost:3000/api/mobile/profile?userId=user-1"),
-      } as never,
-    );
+    const response = await GET({
+      nextUrl: new URL(
+        "http://localhost:3000/api/mobile/profile?userId=user-1",
+      ),
+    } as never);
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({

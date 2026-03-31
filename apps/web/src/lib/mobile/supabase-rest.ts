@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import {
   localSupabaseDelete,
   localSupabaseInsert,
@@ -11,11 +12,6 @@ import {
   resolveServerDataProvider,
 } from "../server-data-provider";
 
-const jsonHeaders = {
-  "Content-Type": "application/json",
-  Accept: "application/json",
-};
-
 type SchemaScopedTarget = {
   schema: "public" | "content";
   relation: string;
@@ -24,6 +20,22 @@ type SchemaScopedTarget = {
 
 type SupabaseRequestOptions = {
   schema?: "public" | "content";
+};
+
+type QueryLike<T> = {
+  eq(column: string, value: string): T;
+  is(column: string, value: boolean | null): T;
+  not(column: string, operator: string, value: string): T;
+  in(column: string, values: string[]): T;
+  gte(column: string, value: string): T;
+  lte(column: string, value: string): T;
+  lt(column: string, value: string): T;
+  gt(column: string, value: string): T;
+  order(
+    column: string,
+    options?: { ascending?: boolean; nullsFirst?: boolean },
+  ): T;
+  limit(count: number): T;
 };
 
 function getSupabaseServiceRoleKey() {
@@ -43,6 +55,18 @@ function getConfig() {
   }
 
   return { url: url.replace(/\/$/, ""), serviceRoleKey };
+}
+
+function getSupabaseAdminClient() {
+  const { url, serviceRoleKey } = getConfig();
+
+  return createClient(url, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
 }
 
 function shouldUseLocalPostgres() {
@@ -97,23 +121,115 @@ function applySchema(target: string, schema?: "public" | "content") {
   return `${schema}.${target}`;
 }
 
-function buildHeaders(
-  prefer?: string,
-  schema: "public" | "content" = "public",
+function parseIsValue(value: string) {
+  if (value === "null") {
+    return null;
+  }
+
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  throw new Error(`Unsupported is filter value: ${value}`);
+}
+
+function parseInValues(value: string) {
+  const trimmed = value.trim();
+  const withoutParens =
+    trimmed.startsWith("(") && trimmed.endsWith(")")
+      ? trimmed.slice(1, -1)
+      : trimmed;
+
+  if (!withoutParens) {
+    return [];
+  }
+
+  return withoutParens.split(",").map((entry) => entry.trim());
+}
+
+function applyFilters<T extends QueryLike<T>>(
+  query: T,
+  searchParams: URLSearchParams,
 ) {
-  const { serviceRoleKey } = getConfig();
-  return {
-    ...jsonHeaders,
-    apikey: serviceRoleKey,
-    Authorization: `Bearer ${serviceRoleKey}`,
-    ...(schema !== "public"
-      ? {
-          "Accept-Profile": schema,
-          "Content-Profile": schema,
-        }
-      : {}),
-    ...(prefer ? { Prefer: prefer } : {}),
-  };
+  let nextQuery = query;
+
+  for (const [column, rawValue] of searchParams.entries()) {
+    if (column === "select" || column === "order" || column === "limit") {
+      continue;
+    }
+
+    if (rawValue.startsWith("eq.")) {
+      nextQuery = nextQuery.eq(column, rawValue.slice(3));
+      continue;
+    }
+
+    if (rawValue.startsWith("is.")) {
+      nextQuery = nextQuery.is(column, parseIsValue(rawValue.slice(3)));
+      continue;
+    }
+
+    if (rawValue.startsWith("not.is.")) {
+      nextQuery = nextQuery.not(column, "is", rawValue.slice(7));
+      continue;
+    }
+
+    if (rawValue.startsWith("in.")) {
+      nextQuery = nextQuery.in(column, parseInValues(rawValue.slice(3)));
+      continue;
+    }
+
+    if (rawValue.startsWith("gte.")) {
+      nextQuery = nextQuery.gte(column, rawValue.slice(4));
+      continue;
+    }
+
+    if (rawValue.startsWith("lte.")) {
+      nextQuery = nextQuery.lte(column, rawValue.slice(4));
+      continue;
+    }
+
+    if (rawValue.startsWith("lt.")) {
+      nextQuery = nextQuery.lt(column, rawValue.slice(3));
+      continue;
+    }
+
+    if (rawValue.startsWith("gt.")) {
+      nextQuery = nextQuery.gt(column, rawValue.slice(3));
+      continue;
+    }
+
+    throw new Error(`Unsupported Supabase filter: ${column}=${rawValue}`);
+  }
+
+  const orderValue = searchParams.get("order");
+  if (orderValue) {
+    const specs = orderValue
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    for (const spec of specs) {
+      const [column, direction = "asc", nulls] = spec.split(".");
+      nextQuery = nextQuery.order(column, {
+        ascending: direction !== "desc",
+        ...(nulls === "nullsfirst"
+          ? { nullsFirst: true }
+          : nulls === "nullslast"
+            ? { nullsFirst: false }
+            : {}),
+      });
+    }
+  }
+
+  const limitValue = searchParams.get("limit");
+  if (limitValue) {
+    nextQuery = nextQuery.limit(Number(limitValue));
+  }
+
+  return nextQuery;
 }
 
 export async function supabaseSelect<T>(
@@ -125,22 +241,24 @@ export async function supabaseSelect<T>(
     return localSupabaseSelect<T>(applySchema(path, options.schema));
   }
 
-  const { url } = getConfig();
   const target = parseSchemaScopedTarget(applySchema(path, options.schema));
-  const pathWithSearch = target.search
-    ? `${target.relation}?${target.search}`
-    : target.relation;
-  const response = await fetch(`${url}/rest/v1/${pathWithSearch}`, {
-    method: "GET",
-    headers: buildHeaders(undefined, target.schema),
-    cache: "no-store",
-  });
+  const client = getSupabaseAdminClient();
+  const searchParams = new URLSearchParams(target.search);
+  const selectClause = searchParams.get("select") ?? "*";
 
-  if (!response.ok) {
-    throw new Error(`Supabase select failed: ${response.status}`);
+  let query = client
+    .schema(target.schema)
+    .from(target.relation)
+    .select(selectClause);
+
+  query = applyFilters(query, searchParams);
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`Supabase select failed: ${error.message}`);
   }
 
-  return (await response.json()) as T;
+  return (data ?? []) as T;
 }
 
 export async function supabaseInsert<T>(
@@ -153,20 +271,19 @@ export async function supabaseInsert<T>(
     return localSupabaseInsert<T>(applySchema(table, options.schema), payload);
   }
 
-  const { url } = getConfig();
   const target = parseSchemaScopedTarget(applySchema(table, options.schema));
-  const response = await fetch(`${url}/rest/v1/${target.relation}`, {
-    method: "POST",
-    headers: buildHeaders("return=representation", target.schema),
-    body: JSON.stringify(payload),
-    cache: "no-store",
-  });
+  const client = getSupabaseAdminClient();
+  const { data, error } = await client
+    .schema(target.schema)
+    .from(target.relation)
+    .insert(payload)
+    .select();
 
-  if (!response.ok) {
-    throw new Error(`Supabase insert failed: ${response.status}`);
+  if (error) {
+    throw new Error(`Supabase insert failed: ${error.message}`);
   }
 
-  return (await response.json()) as T;
+  return (data ?? []) as T;
 }
 
 export async function supabaseUpdate<T>(
@@ -179,23 +296,24 @@ export async function supabaseUpdate<T>(
     return localSupabaseUpdate<T>(applySchema(path, options.schema), payload);
   }
 
-  const { url } = getConfig();
   const target = parseSchemaScopedTarget(applySchema(path, options.schema));
-  const pathWithSearch = target.search
-    ? `${target.relation}?${target.search}`
-    : target.relation;
-  const response = await fetch(`${url}/rest/v1/${pathWithSearch}`, {
-    method: "PATCH",
-    headers: buildHeaders("return=representation", target.schema),
-    body: JSON.stringify(payload),
-    cache: "no-store",
-  });
+  const client = getSupabaseAdminClient();
+  const searchParams = new URLSearchParams(target.search);
 
-  if (!response.ok) {
-    throw new Error(`Supabase update failed: ${response.status}`);
+  let query = client
+    .schema(target.schema)
+    .from(target.relation)
+    .update(payload)
+    .select();
+
+  query = applyFilters(query, searchParams);
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`Supabase update failed: ${error.message}`);
   }
 
-  return (await response.json()) as T;
+  return (data ?? []) as T;
 }
 
 export async function supabaseDelete<T>(
@@ -207,22 +325,23 @@ export async function supabaseDelete<T>(
     return localSupabaseDelete<T>(applySchema(path, options.schema));
   }
 
-  const { url } = getConfig();
   const target = parseSchemaScopedTarget(applySchema(path, options.schema));
-  const pathWithSearch = target.search
-    ? `${target.relation}?${target.search}`
-    : target.relation;
-  const response = await fetch(`${url}/rest/v1/${pathWithSearch}`, {
-    method: "DELETE",
-    headers: buildHeaders("return=representation", target.schema),
-    cache: "no-store",
-  });
+  const client = getSupabaseAdminClient();
+  const searchParams = new URLSearchParams(target.search);
 
-  if (!response.ok) {
-    throw new Error(`Supabase delete failed: ${response.status}`);
+  let query = client
+    .schema(target.schema)
+    .from(target.relation)
+    .delete()
+    .select();
+  query = applyFilters(query, searchParams);
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`Supabase delete failed: ${error.message}`);
   }
 
-  return (await response.json()) as T;
+  return (data ?? []) as T;
 }
 
 export async function supabaseRpc<T>(fn: string, payload: object) {
@@ -231,17 +350,12 @@ export async function supabaseRpc<T>(fn: string, payload: object) {
     return localSupabaseRpc<T>(fn, payload as Record<string, unknown>);
   }
 
-  const { url } = getConfig();
-  const response = await fetch(`${url}/rest/v1/rpc/${fn}`, {
-    method: "POST",
-    headers: buildHeaders(),
-    body: JSON.stringify(payload),
-    cache: "no-store",
-  });
+  const client = getSupabaseAdminClient();
+  const { data, error } = await client.rpc(fn, payload);
 
-  if (!response.ok) {
-    throw new Error(`Supabase rpc failed: ${response.status}`);
+  if (error) {
+    throw new Error(`Supabase rpc failed: ${error.message}`);
   }
 
-  return (await response.json()) as T;
+  return data as T;
 }

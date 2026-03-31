@@ -73,7 +73,7 @@ describe("WeekContentRepository", () => {
 
     expect(result).toEqual(rows);
     expect(mockedSelect).toHaveBeenCalledWith(
-      "v_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
+      "published_weeks?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
     );
   });
 
@@ -95,7 +95,6 @@ describe("WeekContentRepository", () => {
           updated_at: "2026-03-20T10:00:00.000Z",
         },
       ])
-      .mockRejectedValueOnce(new Error("child view missing"))
       .mockResolvedValueOnce([
         {
           id: "section-1",

@@ -153,7 +153,7 @@ describe("POST /api/mobile/chat", () => {
         ]);
       }
 
-      if (path.startsWith("v_pregnancy_week_data?")) {
+      if (path.startsWith("published_weeks?")) {
         return Promise.resolve([
           {
             id: "week-13",
@@ -170,7 +170,7 @@ describe("POST /api/mobile/chat", () => {
         ]);
       }
 
-      if (path.startsWith("v_pregnancy_day_contents?")) {
+      if (path.startsWith("content.pregnancy_day_contents?")) {
         return Promise.resolve([
           {
             id: "day-13-1",
@@ -183,7 +183,7 @@ describe("POST /api/mobile/chat", () => {
         ]);
       }
 
-      if (path.startsWith("v_week_checklists?")) {
+      if (path.startsWith("content.week_checklists?")) {
         return Promise.resolve([
           {
             id: "check-1",
@@ -199,7 +199,7 @@ describe("POST /api/mobile/chat", () => {
         ]);
       }
 
-      if (path.startsWith("v_week_questions?")) {
+      if (path.startsWith("content.week_questions?")) {
         return Promise.resolve([
           {
             id: "question-1",

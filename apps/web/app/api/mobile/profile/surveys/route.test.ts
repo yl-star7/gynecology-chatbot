@@ -50,7 +50,7 @@ describe("POST /api/mobile/profile/surveys", () => {
     } as never);
 
     mockedSupabaseSelect.mockImplementation((path: string) => {
-      if (path.startsWith("v_week_questions?")) {
+      if (path.startsWith("content.week_questions?")) {
         return Promise.resolve([
           {
             id: "question-1",
@@ -85,15 +85,18 @@ describe("POST /api/mobile/profile/surveys", () => {
     mockedSupabaseUpdate.mockResolvedValue([] as never);
 
     const response = await POST(
-      new Request("http://localhost:3000/api/mobile/profile/surveys?userId=user-1", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: "user-1",
-          questionId: "question-1",
-          answer: "네",
-        }),
-      }) as never,
+      new Request(
+        "http://localhost:3000/api/mobile/profile/surveys?userId=user-1",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: "user-1",
+            questionId: "question-1",
+            answer: "네",
+          }),
+        },
+      ) as never,
     );
 
     expect(response.status).toBe(200);

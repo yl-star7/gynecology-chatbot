@@ -280,7 +280,7 @@ export class WeekContentRepository {
           `content.week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
         this.select<Array<SupabaseWeekDayRow>>(
-          `v_pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${weekId}&order=day_number.asc`,
+          `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${weekId}&order=day_number.asc`,
         ),
       ]);
     } catch (error) {

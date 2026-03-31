@@ -305,7 +305,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
     mockedHasSupabaseConfig.mockReturnValue(true);
     mockedHasDockerConfig.mockReturnValue(false);
     mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("v_pregnancy_week_data")) {
+      if (path.startsWith("published_weeks")) {
         return Promise.resolve([
           {
             id: "week-12",
@@ -323,7 +323,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("v_pregnancy_day_contents")) {
+      if (path.startsWith("content.pregnancy_day_contents")) {
         return Promise.resolve([
           {
             id: "11111111-1111-4111-8111-aaaaaaaaaaaa",
@@ -337,7 +337,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("v_week_checklists")) {
+      if (path.startsWith("content.week_checklists")) {
         return Promise.resolve([
           {
             id: "22222222-2222-4222-8222-aaaaaaaaaaaa",
@@ -352,7 +352,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
         ]);
       }
 
-      if (path.startsWith("v_week_questions")) {
+      if (path.startsWith("content.week_questions")) {
         return Promise.resolve([
           {
             id: "33333333-3333-4333-8333-aaaaaaaaaaaa",

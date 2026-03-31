@@ -348,7 +348,7 @@ async function getPromptContext(
   }
 
   const dayContentRows = await supabaseSelect<DayContentRow[]>(
-    `content_pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
+    `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
   );
   const dayContent = dayContentRows[0] ?? null;
 
