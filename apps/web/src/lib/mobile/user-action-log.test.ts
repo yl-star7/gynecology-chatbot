@@ -1,5 +1,10 @@
 jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseInsert: jest.fn(),
+  supabaseInsert: jest.fn().mockResolvedValue([]),
+  getSupabaseAdminClient: jest.fn(() => ({
+    from: jest.fn(() => ({
+      insert: jest.fn().mockResolvedValue({ data: [], error: null }),
+    })),
+  })),
 }));
 
 import { supabaseInsert } from "@/lib/supabase/admin-client";

@@ -2,6 +2,28 @@ jest.mock("@/lib/supabase/admin-client", () => ({
   supabaseInsert: jest.fn(),
   supabaseSelect: jest.fn(),
   supabaseUpdate: jest.fn(),
+  getSupabaseAdminClient: jest.fn(() => {
+    const mockResult = { data: [], error: null };
+    const createBuilder = () => ({
+      select: createBuilder,
+      insert: jest.fn(() => ({ ...mockResult, select: createBuilder })),
+      update: jest.fn(() => ({ ...mockResult, select: createBuilder })),
+      eq: createBuilder,
+      neq: createBuilder,
+      gt: createBuilder,
+      gte: createBuilder,
+      lt: createBuilder,
+      lte: createBuilder,
+      in: createBuilder,
+      is: createBuilder,
+      not: createBuilder,
+      order: createBuilder,
+      limit: createBuilder,
+      single: () => mockResult,
+      maybeSingle: () => mockResult,
+    });
+    return { from: () => createBuilder() };
+  }),
 }));
 
 jest.mock("@/lib/mobile/twilio-verify", () => {

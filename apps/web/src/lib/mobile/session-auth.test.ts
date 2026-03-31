@@ -1,7 +1,29 @@
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseSelect: jest.fn(),
-  supabaseUpdate: jest.fn(),
-}));
+jest.mock("@/lib/supabase/admin-client", () => {
+  const mockSelect = jest.fn();
+  return {
+    supabaseSelect: mockSelect,
+    supabaseUpdate: jest.fn(),
+    getSupabaseAdminClient: jest.fn(() => {
+      const mockResult = { data: [], error: null };
+      const createBuilder = () => ({
+        select: createBuilder,
+        eq: createBuilder,
+        neq: createBuilder,
+        gt: createBuilder,
+        gte: createBuilder,
+        lt: createBuilder,
+        lte: createBuilder,
+        in: createBuilder,
+        order: createBuilder,
+        limit: () => mockResult,
+        single: () => mockResult,
+        maybeSingle: () => mockResult,
+      });
+      const mockClient = { from: () => createBuilder() };
+      return mockClient;
+    }),
+  };
+});
 
 import { supabaseSelect, supabaseUpdate } from "@/lib/supabase/admin-client";
 import { requireMobileSession } from "./session-auth";

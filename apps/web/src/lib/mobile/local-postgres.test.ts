@@ -104,9 +104,10 @@ describe("ensureLocalPostgresReady", () => {
 
     await ensureLocalPostgresReady();
 
-    const pregnancyWeekDataCalls = queryMock.mock.calls.filter(
-      ([sql]) =>
-        String(sql).includes('INSERT INTO "gynecology_local"."pregnancy_week_data"'),
+    const pregnancyWeekDataCalls = queryMock.mock.calls.filter(([sql]) =>
+      String(sql).includes(
+        'INSERT INTO "gynecology_local"."content_pregnancy_week_data"',
+      ),
     );
     const week5Params = pregnancyWeekDataCalls.find(
       ([, params]) => Array.isArray(params) && params[1] === 5,
