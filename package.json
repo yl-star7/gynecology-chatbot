@@ -21,6 +21,7 @@
   "dependencies": {
     "@schift-io/sdk": "0.2.0",
     "drizzle-orm": "^0.44.5",
-    "hwpx-ts": "^0.1.0"
+    "hwpx-ts": "^0.1.0",
+    "pg": "^8.16.3"
   }
 }
