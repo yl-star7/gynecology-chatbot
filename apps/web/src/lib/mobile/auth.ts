@@ -519,7 +519,8 @@ export async function completePhoneSignIn(
     throw new Error("허용된 전화번호가 아닙니다. 관리자에게 문의해 주세요.");
   }
   const isTestBypassLogin =
-    isMobileAuthTestModeEnabled() && verificationCode.trim() === "000000";
+    isBypassPhoneNumber ||
+    (isMobileAuthTestModeEnabled() && verificationCode.trim() === "000000");
   const verification = isTestBypassLogin
     ? {
         sid: `test-${randomUUID()}`,
