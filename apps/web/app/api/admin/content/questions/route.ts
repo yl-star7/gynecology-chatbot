@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
     const weekDataId = request.nextUrl.searchParams.get("weekDataId");
 
     const baseQuery =
-      "content_week_questions?select=id,week_data_id,day_content_id,day_number,code,question_text,question_type,help_text,question_payload,display_order,is_required,is_active,created_at,updated_at";
+      "content.week_questions?select=id,week_data_id,day_content_id,day_number,code,question_text,question_type,help_text,question_payload,display_order,is_required,is_active,created_at,updated_at";
     const filter = weekDataId ? `&week_data_id=eq.${weekDataId}` : "";
     const order =
       "&order=week_data_id.asc,day_number.asc.nullsfirst,display_order.asc";
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
     }
 
     const rows = await supabaseInsert<QuestionRow[]>(
-      "content_week_questions",
+      "content.week_questions",
       payload,
     );
 

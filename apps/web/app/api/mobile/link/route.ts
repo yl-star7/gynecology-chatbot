@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       : `section=eq.${target}&status=eq.published`;
     const items = await supabaseSelect<
       Array<{ title: string; section: string; body: string }>
-    >(`content_knowledge_items?select=title,section,body&${column}&limit=1`);
+    >(`content.knowledge_items?select=title,section,body&${column}&limit=1`);
 
     if (!items[0]) {
       return NextResponse.json(
