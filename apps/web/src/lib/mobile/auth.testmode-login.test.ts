@@ -107,7 +107,7 @@ describe("completePhoneSignIn test mode bypass", () => {
     expect(mockedCheckSmsVerification).not.toHaveBeenCalled();
   });
 
-  test("forces onboarding flow after test-mode 000000 login", async () => {
+  test("test-mode bypass login도 기존 onboarding 완료 상태를 유지한다", async () => {
     mockedSupabaseSelect.mockReset();
     mockedSupabaseInsert.mockReset();
     mockedSupabaseUpdate.mockReset();
@@ -149,6 +149,6 @@ describe("completePhoneSignIn test mode bypass", () => {
 
     const result = await completePhoneSignIn("01012345678", "000000");
 
-    expect(result.user.hasCompletedOnboarding).toBe(false);
+    expect(result.user.hasCompletedOnboarding).toBe(true);
   });
 });

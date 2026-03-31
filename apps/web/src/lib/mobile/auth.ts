@@ -566,10 +566,6 @@ export async function completePhoneSignIn(
     nextUser.displayName = allowedPhoneNumber.display_name.trim();
   }
 
-  if (isTestBypassLogin) {
-    nextUser.hasCompletedOnboarding = false;
-  }
-
   return {
     user: nextUser,
     sessionToken,
