@@ -6,11 +6,29 @@ import {
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
 
+function isValidDateOnly(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return false;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
 function normalizeDateOnly(value: string) {
   const trimmed = value.trim();
   const ymd = trimmed.match(/^(\d{4}-\d{2}-\d{2})/)?.[1];
   if (ymd) {
-    return ymd;
+    return isValidDateOnly(ymd) ? ymd : "";
   }
 
   const parsed = new Date(trimmed);
@@ -18,7 +36,8 @@ function normalizeDateOnly(value: string) {
     return "";
   }
 
-  return parsed.toISOString().slice(0, 10);
+  const normalized = parsed.toISOString().slice(0, 10);
+  return isValidDateOnly(normalized) ? normalized : "";
 }
 
 export async function POST(request: NextRequest) {
@@ -36,6 +55,8 @@ export async function POST(request: NextRequest) {
       typeof body.babyNickname === "string" ? body.babyNickname.trim() : "";
     const themeKey =
       typeof body.themeKey === "string" ? body.themeKey.trim() : "";
+
+    const { userId } = await requireMobileSession(request, hintedUserId);
 
     if (!pregnancyWeekOrDueDate || !tonePreference) {
       return NextResponse.json(
@@ -61,16 +82,12 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
-    } else {
-      const date = new Date(extractedDueDate || pregnancyWeekOrDueDate);
-      if (isNaN(date.getTime())) {
-        return NextResponse.json(
-          { error: "올바른 날짜 형식이 아니에요." },
-          { status: 400 },
-        );
-      }
+    } else if (!extractedDueDate) {
+      return NextResponse.json(
+        { error: "올바른 날짜 형식이 아니에요." },
+        { status: 400 },
+      );
     }
-    const { userId } = await requireMobileSession(request, hintedUserId);
 
     const user = await completeUserOnboarding({
       userId,

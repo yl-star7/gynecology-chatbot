@@ -4,6 +4,7 @@ import {
   DEFAULT_MOBILE_THEME_KEY,
   resolveMobileThemeKey,
 } from "@gynecology-chatbot/app-core";
+import type { MobileThemeKey } from "@gynecology-chatbot/app-core";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { completeOnboarding } from "@/lib/mobile/web-mobile-api";
@@ -48,7 +49,7 @@ export function buildWebOnboardingCompletionInput(input: {
   dueDate: string;
   babyNickname: string;
   tonePreference: string;
-  themeKey: string;
+  themeKey: MobileThemeKey;
 }) {
   return {
     userId: input.userId,
@@ -92,12 +93,17 @@ export function MobileOnboardingView({ userId }: Props) {
   }
 
   async function handleComplete() {
+    if (!userId) {
+      setError("로그인 정보를 확인한 뒤 다시 시도해주세요.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     try {
       const payload = await completeOnboarding(
         buildWebOnboardingCompletionInput({
-          userId: userId!,
+          userId,
           dueDate,
           babyNickname,
           tonePreference,
@@ -136,6 +142,7 @@ export function MobileOnboardingView({ userId }: Props) {
             달력에서 예정일을 선택해주세요
           </p>
           <input
+            aria-label="출산 예정일"
             className={`${mobileFieldClassName} mt-4`}
             onChange={(e) => setDueDate(e.target.value)}
             value={dueDate}

@@ -25,6 +25,7 @@ jest.mock("@/lib/mobile/auth", () => ({
   completeUserOnboarding: jest.fn(),
 }));
 
+import { DEFAULT_MOBILE_THEME_KEY } from "@gynecology-chatbot/app-core";
 import { requireMobileSession } from "@/lib/mobile/session-auth";
 import { completeUserOnboarding } from "@/lib/mobile/auth";
 import { POST } from "./route";
@@ -136,6 +137,30 @@ describe("POST /api/mobile/onboarding", () => {
     });
   });
 
+  it("세션이 없으면 입력값 검증보다 먼저 401을 반환", async () => {
+    mockedRequireMobileSession.mockRejectedValue(
+      new Error("mobile session token is required") as never,
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          pregnancyWeekOrDueDate: "not-a-date",
+          tonePreference: "calm",
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: "mobile session token is required",
+    });
+    expect(mockedCompleteUserOnboarding).not.toHaveBeenCalled();
+  });
+
   it("정상 주차(20주)이면 onboarding 완료 후 200 반환", async () => {
     mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
     mockedCompleteUserOnboarding.mockResolvedValue({
@@ -216,7 +241,29 @@ describe("POST /api/mobile/onboarding", () => {
       babyNickname: null,
       tonePreference: "calm",
       dueDate: "2026-08-15",
-      themeKey: "rose-sand",
+      themeKey: DEFAULT_MOBILE_THEME_KEY,
     });
+  });
+
+  it("존재하지 않는 달력 날짜면 400 반환", async () => {
+    mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          pregnancyWeekOrDueDate: "2026-02-31",
+          tonePreference: "calm",
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "올바른 날짜 형식이 아니에요.",
+    });
+    expect(mockedCompleteUserOnboarding).not.toHaveBeenCalled();
   });
 });

@@ -100,7 +100,48 @@ describe("completePhoneSignIn test mode bypass", () => {
     expect(mockedCheckSmsVerification).not.toHaveBeenCalled();
   });
 
-  test("accepts verification code 000000 without Twilio check in test mode", async () => {
+  test("accepts verification code 000000 for non-bypass number without Twilio check in test mode", async () => {
+    process.env.LOCAL_DEV_USER_PHONE_NUMBER = "01099998888";
+    mockedSupabaseSelect.mockReset();
+    mockedSupabaseUpdate.mockReset();
+    mockedSupabaseInsert.mockReset();
+    mockedCheckSmsVerification.mockReset();
+
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedSupabaseInsert.mockResolvedValue([]);
+    mockedSupabaseSelect
+      .mockResolvedValueOnce([
+        {
+          id: "allowed-1",
+          phone_number_encrypted: "enc:+821012345678",
+          phone_number_last4: "5678",
+          phone_number_blind_index: "idx:+821012345678",
+          display_name: "테스트 사용자",
+          note: null,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "user-1",
+          phone_number_encrypted: "enc:+821012345678",
+          phone_number_last4: "5678",
+          account_status: "active",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "user-1",
+          phone_number_encrypted: "enc:+821012345678",
+          phone_number_last4: "5678",
+          account_status: "active",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
     const result = await completePhoneSignIn("01012345678", "000000");
 
     expect(result.user.id).toBe("user-1");

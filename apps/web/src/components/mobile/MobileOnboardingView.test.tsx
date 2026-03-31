@@ -50,6 +50,10 @@ describe("buildWebOnboardingCompletionInput", () => {
 });
 
 describe("MobileOnboardingView", () => {
+  beforeEach(() => {
+    (completeOnboarding as jest.Mock).mockReset();
+  });
+
   it("renders step 1 with due date calendar input", () => {
     render(<MobileOnboardingView userId="user-1" />);
 
@@ -69,10 +73,9 @@ describe("MobileOnboardingView", () => {
 
     render(<MobileOnboardingView userId="user-1" />);
 
-    const dueDateInput = document.querySelector(
-      'input[type="date"]',
-    ) as HTMLInputElement;
-    fireEvent.change(dueDateInput, { target: { value: "2026-08-15" } });
+    fireEvent.change(screen.getByLabelText("출산 예정일"), {
+      target: { value: "2026-08-15" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
 
     fireEvent.change(screen.getByPlaceholderText("예: 콩이, 달이"), {
@@ -94,5 +97,24 @@ describe("MobileOnboardingView", () => {
         themeKey: "rose-sand",
       });
     });
+  });
+
+  it("userId가 없으면 저장하지 않고 안내 문구를 보여준다", async () => {
+    const completeOnboardingMock = completeOnboarding as jest.Mock;
+    render(<MobileOnboardingView userId={null} />);
+
+    fireEvent.change(screen.getByLabelText("출산 예정일"), {
+      target: { value: "2026-08-15" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    fireEvent.click(screen.getByRole("button", { name: "건너뛰기" }));
+    fireEvent.click(screen.getByRole("button", { name: "차분하게" }));
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    fireEvent.click(screen.getByRole("button", { name: "시작하기" }));
+
+    expect(completeOnboardingMock).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText("로그인 정보를 확인한 뒤 다시 시도해주세요."),
+    ).toBeInTheDocument();
   });
 });
