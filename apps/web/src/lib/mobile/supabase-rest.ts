@@ -22,6 +22,10 @@ type SchemaScopedTarget = {
   search?: string;
 };
 
+type SupabaseRequestOptions = {
+  schema?: "public" | "content";
+};
+
 function getSupabaseServiceRoleKey() {
   return (
     process.env.SUPABASE_SERVICE_ROLE_KEY ??
@@ -63,7 +67,10 @@ function parseSchemaScopedTarget(target: string): SchemaScopedTarget {
   const [relationPath, search = ""] = target.split("?");
   const [schemaOrRelation, maybeRelation] = relationPath.split(".", 2);
 
-  if (maybeRelation && (schemaOrRelation === "public" || schemaOrRelation === "content")) {
+  if (
+    maybeRelation &&
+    (schemaOrRelation === "public" || schemaOrRelation === "content")
+  ) {
     return {
       schema: schemaOrRelation,
       relation: maybeRelation,
@@ -78,7 +85,22 @@ function parseSchemaScopedTarget(target: string): SchemaScopedTarget {
   };
 }
 
-function buildHeaders(prefer?: string, schema: "public" | "content" = "public") {
+function applySchema(target: string, schema?: "public" | "content") {
+  if (
+    !schema ||
+    target.startsWith("public.") ||
+    target.startsWith("content.")
+  ) {
+    return target;
+  }
+
+  return `${schema}.${target}`;
+}
+
+function buildHeaders(
+  prefer?: string,
+  schema: "public" | "content" = "public",
+) {
   const { serviceRoleKey } = getConfig();
   return {
     ...jsonHeaders,
@@ -94,14 +116,17 @@ function buildHeaders(prefer?: string, schema: "public" | "content" = "public") 
   };
 }
 
-export async function supabaseSelect<T>(path: string) {
+export async function supabaseSelect<T>(
+  path: string,
+  options: SupabaseRequestOptions = {},
+) {
   assertSelectedProviderConfig();
   if (shouldUseLocalPostgres()) {
-    return localSupabaseSelect<T>(path);
+    return localSupabaseSelect<T>(applySchema(path, options.schema));
   }
 
   const { url } = getConfig();
-  const target = parseSchemaScopedTarget(path);
+  const target = parseSchemaScopedTarget(applySchema(path, options.schema));
   const pathWithSearch = target.search
     ? `${target.relation}?${target.search}`
     : target.relation;
@@ -121,14 +146,15 @@ export async function supabaseSelect<T>(path: string) {
 export async function supabaseInsert<T>(
   table: string,
   payload: object | object[],
+  options: SupabaseRequestOptions = {},
 ) {
   assertSelectedProviderConfig();
   if (shouldUseLocalPostgres()) {
-    return localSupabaseInsert<T>(table, payload);
+    return localSupabaseInsert<T>(applySchema(table, options.schema), payload);
   }
 
   const { url } = getConfig();
-  const target = parseSchemaScopedTarget(table);
+  const target = parseSchemaScopedTarget(applySchema(table, options.schema));
   const response = await fetch(`${url}/rest/v1/${target.relation}`, {
     method: "POST",
     headers: buildHeaders("return=representation", target.schema),
@@ -143,14 +169,18 @@ export async function supabaseInsert<T>(
   return (await response.json()) as T;
 }
 
-export async function supabaseUpdate<T>(path: string, payload: object) {
+export async function supabaseUpdate<T>(
+  path: string,
+  payload: object,
+  options: SupabaseRequestOptions = {},
+) {
   assertSelectedProviderConfig();
   if (shouldUseLocalPostgres()) {
-    return localSupabaseUpdate<T>(path, payload);
+    return localSupabaseUpdate<T>(applySchema(path, options.schema), payload);
   }
 
   const { url } = getConfig();
-  const target = parseSchemaScopedTarget(path);
+  const target = parseSchemaScopedTarget(applySchema(path, options.schema));
   const pathWithSearch = target.search
     ? `${target.relation}?${target.search}`
     : target.relation;
@@ -168,14 +198,17 @@ export async function supabaseUpdate<T>(path: string, payload: object) {
   return (await response.json()) as T;
 }
 
-export async function supabaseDelete<T>(path: string) {
+export async function supabaseDelete<T>(
+  path: string,
+  options: SupabaseRequestOptions = {},
+) {
   assertSelectedProviderConfig();
   if (shouldUseLocalPostgres()) {
-    return localSupabaseDelete<T>(path);
+    return localSupabaseDelete<T>(applySchema(path, options.schema));
   }
 
   const { url } = getConfig();
-  const target = parseSchemaScopedTarget(path);
+  const target = parseSchemaScopedTarget(applySchema(path, options.schema));
   const pathWithSearch = target.search
     ? `${target.relation}?${target.search}`
     : target.relation;

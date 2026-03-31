@@ -66,6 +66,8 @@ type PublicKnowledgeItemRow = SupabaseKnowledgeItemRow;
 let contentWritePool: Pool | null = null;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const CONTENT_SCHEMA = "content";
+const KNOWLEDGE_ITEMS_TABLE = `${CONTENT_SCHEMA}.knowledge_items`;
 
 function hasDirectContentDatabase() {
   return Boolean(process.env.DATABASE_URL);
@@ -358,7 +360,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return queryContentRows<SupabaseKnowledgeItemRow>(
         `
           SELECT id, slug, section, title, body, image_url, status, updated_at
-          FROM content.knowledge_items
+          FROM ${KNOWLEDGE_ITEMS_TABLE}
           ORDER BY updated_at DESC NULLS LAST, title ASC
         `,
       );
@@ -374,7 +376,8 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
         error,
       );
       return supabaseSelect<Array<SupabaseKnowledgeItemRow>>(
-        "content.knowledge_items?select=id,slug,section,title,body,image_url,status,updated_at&order=updated_at.desc",
+        "knowledge_items?select=id,slug,section,title,body,image_url,status,updated_at&order=updated_at.desc",
+        { schema: "content" },
       );
     }
   }
@@ -778,10 +781,12 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const imageUrl = input.imageUrl ?? null;
+    const publishedAt =
+      input.status === "published" ? new Date().toISOString() : null;
     const inserted = hasDirectContentDatabase()
       ? await queryContentRows<SupabaseKnowledgeItemRow>(
           `
-            INSERT INTO content.knowledge_items (
+            INSERT INTO ${KNOWLEDGE_ITEMS_TABLE} (
               id,
               slug,
               section,
@@ -806,7 +811,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
           ],
         )
       : await supabaseInsert<Array<SupabaseKnowledgeItemRow>>(
-          "content.knowledge_items",
+          "knowledge_items",
           {
             id: randomUUID(),
             slug: input.slug,
@@ -815,8 +820,10 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
             body: input.body,
             image_url: imageUrl,
             status: input.status,
+            published_at: publishedAt,
             updated_at: new Date().toISOString(),
           },
+          { schema: "content" },
         );
 
     const knowledgeItem = mapKnowledgeItem(
@@ -852,13 +859,15 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const imageUrl = input.imageUrl ?? null;
+    const publishedAt =
+      input.status === "published" ? new Date().toISOString() : null;
     const beforeItem = shouldWriteAdminAuditLog(actorId)
       ? (await this.selectKnowledgeItemRows()).find((item) => item.id === id)
       : null;
     const updated = hasDirectContentDatabase()
       ? await queryContentRows<SupabaseKnowledgeItemRow>(
           `
-            UPDATE content.knowledge_items
+            UPDATE ${KNOWLEDGE_ITEMS_TABLE}
                SET slug = $2,
                    section = $3,
                    title = $4,
@@ -884,7 +893,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
           ],
         )
       : await supabaseUpdate<Array<SupabaseKnowledgeItemRow>>(
-          `content.knowledge_items?id=eq.${id}`,
+          `knowledge_items?id=eq.${id}`,
           {
             slug: input.slug,
             section: input.section,
@@ -892,8 +901,10 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
             body: input.body,
             image_url: imageUrl,
             status: input.status,
+            published_at: publishedAt,
             updated_at: new Date().toISOString(),
           },
+          { schema: "content" },
         );
     const knowledgeItem = updated[0] ? mapKnowledgeItem(updated[0]) : null;
     if (knowledgeItem && shouldWriteAdminAuditLog(actorId)) {
@@ -934,7 +945,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
 
     if (hasDirectContentDatabase()) {
       await queryContentRows(
-        `DELETE FROM content.knowledge_items WHERE id = $1::uuid RETURNING id`,
+        `DELETE FROM ${KNOWLEDGE_ITEMS_TABLE} WHERE id = $1::uuid RETURNING id`,
         [id],
       );
       if (shouldWriteAdminAuditLog(actorId)) {
@@ -958,7 +969,9 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return;
     }
 
-    await supabaseDelete(`content.knowledge_items?id=eq.${id}`);
+    await supabaseDelete(`knowledge_items?id=eq.${id}`, {
+      schema: "content",
+    });
     if (shouldWriteAdminAuditLog(actorId)) {
       await insertAdminAuditLog({
         actorId,
