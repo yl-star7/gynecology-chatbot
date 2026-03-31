@@ -6,6 +6,21 @@ import {
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
 
+function normalizeDateOnly(value: string) {
+  const trimmed = value.trim();
+  const ymd = trimmed.match(/^(\d{4}-\d{2}-\d{2})/)?.[1];
+  if (ymd) {
+    return ymd;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return parsed.toISOString().slice(0, 10);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -33,9 +48,11 @@ export async function POST(request: NextRequest) {
 
     const weekNum = Number(pregnancyWeekOrDueDate);
     const extractedDueDate =
-      dueDate ||
-      pregnancyWeekOrDueDate.match(/^(\d{4}-\d{2}-\d{2})(?:\s*\/.*)?$/)?.[1] ||
+      normalizeDateOnly(dueDate) ||
+      normalizeDateOnly(pregnancyWeekOrDueDate) ||
       "";
+    const normalizedPregnancyWeekOrDueDate =
+      extractedDueDate || pregnancyWeekOrDueDate;
 
     if (!isNaN(weekNum)) {
       if (weekNum < 1 || weekNum > 42) {

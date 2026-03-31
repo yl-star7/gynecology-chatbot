@@ -187,4 +187,36 @@ describe("POST /api/mobile/onboarding", () => {
     const payload = await response.json();
     expect(payload.user).toBeDefined();
   });
+
+  it("datetime 입력이면 YYYY-MM-dd로 정규화해 저장 서비스에 전달", async () => {
+    mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
+    mockedCompleteUserOnboarding.mockResolvedValue({
+      id: "user-1",
+      displayName: "김수연",
+      phoneNumber: "01012345678",
+      hasCompletedOnboarding: true,
+    } as never);
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          pregnancyWeekOrDueDate: "2026-08-15T09:12:33.000Z",
+          tonePreference: "calm",
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockedCompleteUserOnboarding).toHaveBeenCalledWith({
+      userId: "user-1",
+      pregnancyWeekOrDueDate: "2026-08-15",
+      babyNickname: null,
+      tonePreference: "calm",
+      dueDate: "2026-08-15",
+      themeKey: "rose-sand",
+    });
+  });
 });
