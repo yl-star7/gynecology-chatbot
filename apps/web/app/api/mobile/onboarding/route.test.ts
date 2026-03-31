@@ -95,7 +95,15 @@ describe("POST /api/mobile/onboarding", () => {
     expect(payload.error).toBeTruthy();
   });
 
-  it("날짜 뒤에 다른 문구가 붙으면 400 반환", async () => {
+  it("날짜 뒤에 다른 문구가 붙어도 예정일만 추출해 onboarding 완료 후 200 반환", async () => {
+    mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
+    mockedCompleteUserOnboarding.mockResolvedValue({
+      id: "user-1",
+      displayName: "김수연",
+      phoneNumber: "01012345678",
+      hasCompletedOnboarding: true,
+    } as never);
+
     const response = await POST(
       new Request("http://localhost:3000/api/mobile/onboarding", {
         method: "POST",
@@ -108,9 +116,21 @@ describe("POST /api/mobile/onboarding", () => {
       }) as never,
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      error: "올바른 날짜 형식이 아니에요.",
+      user: {
+        id: "user-1",
+        displayName: "김수연",
+        phoneNumber: "01012345678",
+        hasCompletedOnboarding: true,
+      },
+    });
+    expect(mockedCompleteUserOnboarding).toHaveBeenCalledWith({
+      userId: "user-1",
+      pregnancyWeekOrDueDate: "2026-08-15 / 태명: 콩이",
+      tonePreference: "calm",
+      dueDate: "2026-08-15",
+      themeKey: "rose-sand",
     });
   });
 
