@@ -1,8 +1,12 @@
 import type {
   AdminWeekAsset,
+  AdminWeekAssetInput,
   AdminWeekDay,
+  AdminWeekDayInput,
   AdminWeekMedia,
+  AdminWeekMediaInput,
   AdminWeekSection,
+  AdminWeekSectionInput,
 } from "@gynecology-chatbot/app-core";
 import { randomUUID } from "crypto";
 import { Pool } from "pg";
@@ -375,7 +379,7 @@ export class WeekContentRepository {
 
   async upsertDayContents(
     weekId: string,
-    days: AdminWeekDay[],
+    days: AdminWeekDayInput[],
   ): Promise<Map<number, string>> {
     const dayIdByNumber = new Map<number, string>();
 
@@ -474,7 +478,7 @@ export class WeekContentRepository {
 
   async upsertChecklists(
     weekId: string,
-    sections: AdminWeekSection[],
+    sections: AdminWeekSectionInput[],
     dayIdByNumber: Map<number, string>,
   ): Promise<void> {
     for (const section of sections) {
@@ -566,7 +570,7 @@ export class WeekContentRepository {
 
   async upsertQuestions(
     weekId: string,
-    assets: AdminWeekAsset[],
+    assets: AdminWeekAssetInput[],
     dayIdByNumber: Map<number, string>,
   ): Promise<void> {
     for (const asset of assets) {
@@ -662,7 +666,7 @@ export class WeekContentRepository {
 
   async upsertMedia(
     weekId: string,
-    media: AdminWeekMedia[],
+    media: AdminWeekMediaInput[],
     dayIdByNumber: Map<number, string>,
   ): Promise<void> {
     for (const item of media) {
