@@ -1,30 +1,105 @@
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseInsert: jest.fn(),
-  supabaseSelect: jest.fn(),
-  supabaseUpdate: jest.fn(),
-  getSupabaseAdminClient: jest.fn(() => {
-    const mockResult = { data: [], error: null };
-    const createBuilder = () => ({
-      select: createBuilder,
-      insert: jest.fn(() => ({ ...mockResult, select: createBuilder })),
-      update: jest.fn(() => ({ ...mockResult, select: createBuilder })),
-      eq: createBuilder,
-      neq: createBuilder,
-      gt: createBuilder,
-      gte: createBuilder,
-      lt: createBuilder,
-      lte: createBuilder,
-      in: createBuilder,
-      is: createBuilder,
-      not: createBuilder,
-      order: createBuilder,
-      limit: createBuilder,
-      single: () => mockResult,
-      maybeSingle: () => mockResult,
-    });
-    return { from: () => createBuilder() };
-  }),
-}));
+jest.mock("@/lib/supabase/admin-client", () => {
+  const supabaseInsert = jest.fn();
+  const supabaseSelect = jest.fn();
+  const supabaseUpdate = jest.fn();
+
+  class QueryBuilder {
+    constructor(
+      private readonly table: string,
+      private readonly mode: "select" | "insert" | "update",
+      private readonly payload?: unknown,
+      private readonly columns?: string,
+      private readonly filters: string[] = [],
+      private readonly limitValue?: number,
+    ) {}
+
+    eq(column: string, value: string | number | boolean) {
+      return new QueryBuilder(
+        this.table,
+        this.mode,
+        this.payload,
+        this.columns,
+        [...this.filters, `${column}=eq.${value}`],
+        this.limitValue,
+      );
+    }
+
+    limit(value: number) {
+      return new QueryBuilder(
+        this.table,
+        this.mode,
+        this.payload,
+        this.columns,
+        this.filters,
+        value,
+      );
+    }
+
+    select(columns?: string) {
+      if (this.mode === "insert" || this.mode === "update") {
+        return new QueryBuilder(
+          this.table,
+          this.mode,
+          this.payload,
+          columns,
+          this.filters,
+          this.limitValue,
+        );
+      }
+
+      return new QueryBuilder(
+        this.table,
+        "select",
+        undefined,
+        columns,
+        this.filters,
+        this.limitValue,
+      );
+    }
+
+    insert(payload: unknown) {
+      return new QueryBuilder(this.table, "insert", payload);
+    }
+
+    update(payload: unknown) {
+      return new QueryBuilder(this.table, "update", payload);
+    }
+
+    then(
+      resolve: (value: { data: unknown; error: null }) => unknown,
+      reject?: (reason: unknown) => unknown,
+    ) {
+      const query = [
+        this.columns ? `select=${this.columns}` : null,
+        ...this.filters,
+        this.limitValue ? `limit=${this.limitValue}` : null,
+      ]
+        .filter(Boolean)
+        .join("&");
+      const path = query ? `${this.table}?${query}` : this.table;
+      const source =
+        this.mode === "select"
+          ? supabaseSelect(path)
+          : this.mode === "insert"
+            ? supabaseInsert(this.table, this.payload)
+            : supabaseUpdate(path, this.payload);
+
+      return Promise.resolve(source).then(
+        (data) => resolve({ data, error: null }),
+        reject,
+      );
+    }
+  }
+
+  return {
+    getSupabaseAdminClient: () => ({
+      from: (table: string) => new QueryBuilder(table, "select"),
+    }),
+    supabaseInsert,
+    supabaseSelect,
+    supabaseUpdate,
+  };
+});
 
 jest.mock("@/lib/mobile/twilio-verify", () => {
   const actual = jest.requireActual("@/lib/mobile/twilio-verify");
@@ -65,6 +140,22 @@ describe("completePhoneSignIn test mode bypass", () => {
   const originalMode = process.env.MOBILE_AUTH_TEST_MODE;
   const originalBypassPhone = process.env.LOCAL_DEV_USER_PHONE_NUMBER;
 
+  const existingUser = {
+    id: "user-1",
+    phone_number_encrypted: "enc:+821012345678",
+    phone_number_last4: "5678",
+    account_status: "active",
+    phone_verified_at: "2026-03-19T00:00:00.000Z",
+    last_login_at: "2026-03-19T00:00:00.000Z",
+  };
+
+  function queueSelectRows(...rows: unknown[][]) {
+    mockedSupabaseSelect.mockReset();
+    for (const result of rows) {
+      mockedSupabaseSelect.mockResolvedValueOnce(result as never);
+    }
+  }
+
   beforeEach(() => {
     process.env.MOBILE_AUTH_TEST_MODE = "true";
     process.env.LOCAL_DEV_USER_PHONE_NUMBER = "01012345678";
@@ -72,30 +163,7 @@ describe("completePhoneSignIn test mode bypass", () => {
     mockedSupabaseInsert.mockReset();
     mockedSupabaseUpdate.mockReset();
     mockedCheckSmsVerification.mockReset();
-
     mockedSupabaseUpdate.mockResolvedValue([]);
-    mockedSupabaseSelect
-      .mockResolvedValueOnce([
-        {
-          id: "user-1",
-          phone_number_encrypted: "enc:+821012345678",
-          phone_number_last4: "5678",
-          account_status: "active",
-          phone_verified_at: "2026-03-19T00:00:00.000Z",
-          last_login_at: "2026-03-19T00:00:00.000Z",
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: "user-1",
-          phone_number_encrypted: "enc:+821012345678",
-          phone_number_last4: "5678",
-          account_status: "active",
-          phone_verified_at: "2026-03-19T00:00:00.000Z",
-          last_login_at: "2026-03-19T00:00:00.000Z",
-        },
-      ])
-      .mockResolvedValueOnce([]);
     mockedSupabaseInsert.mockResolvedValue([]);
   });
 
@@ -115,90 +183,30 @@ describe("completePhoneSignIn test mode bypass", () => {
 
   test("accepts any verification code for LOCAL_DEV_USER_PHONE_NUMBER without Twilio check in test mode", async () => {
     process.env.LOCAL_DEV_USER_PHONE_NUMBER = "01026784241";
+    queueSelectRows([], [], [existingUser], [existingUser], []);
 
     const result = await completePhoneSignIn("01026784241", "123456");
 
     expect(result.user.id).toBe("user-1");
+    expect(result.user.hasCompletedOnboarding).toBe(false);
     expect(mockedCheckSmsVerification).not.toHaveBeenCalled();
   });
 
-  test("accepts verification code 000000 for non-bypass number without Twilio check in test mode", async () => {
-    process.env.LOCAL_DEV_USER_PHONE_NUMBER = "01099998888";
-    mockedSupabaseSelect.mockReset();
-    mockedSupabaseUpdate.mockReset();
-    mockedSupabaseInsert.mockReset();
-    mockedCheckSmsVerification.mockReset();
-
-    mockedSupabaseUpdate.mockResolvedValue([]);
-    mockedSupabaseInsert.mockResolvedValue([]);
-    mockedSupabaseSelect
-      .mockResolvedValueOnce([
-        {
-          id: "allowed-1",
-          phone_number_encrypted: "enc:+821012345678",
-          phone_number_last4: "5678",
-          phone_number_blind_index: "idx:+821012345678",
-          display_name: "테스트 사용자",
-          note: null,
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: "user-1",
-          phone_number_encrypted: "enc:+821012345678",
-          phone_number_last4: "5678",
-          account_status: "active",
-          phone_verified_at: "2026-03-19T00:00:00.000Z",
-          last_login_at: "2026-03-19T00:00:00.000Z",
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: "user-1",
-          phone_number_encrypted: "enc:+821012345678",
-          phone_number_last4: "5678",
-          account_status: "active",
-          phone_verified_at: "2026-03-19T00:00:00.000Z",
-          last_login_at: "2026-03-19T00:00:00.000Z",
-        },
-      ])
-      .mockResolvedValueOnce([]);
+  test("returns hasCompletedOnboarding false for bypass login when no pregnancy profile exists", async () => {
+    queueSelectRows([], [existingUser], [existingUser], []);
 
     const result = await completePhoneSignIn("01012345678", "000000");
 
-    expect(result.user.id).toBe("user-1");
+    expect(result.user.hasCompletedOnboarding).toBe(false);
     expect(mockedCheckSmsVerification).not.toHaveBeenCalled();
   });
 
-  test("test-mode bypass login도 기존 onboarding 완료 상태를 유지한다", async () => {
-    mockedSupabaseSelect.mockReset();
-    mockedSupabaseInsert.mockReset();
-    mockedSupabaseUpdate.mockReset();
-    mockedCheckSmsVerification.mockReset();
-
-    mockedSupabaseUpdate.mockResolvedValue([]);
-    mockedSupabaseSelect
-      .mockResolvedValueOnce([
-        {
-          id: "user-1",
-          phone_number_encrypted: "enc:+821012345678",
-          phone_number_last4: "5678",
-          account_status: "active",
-          phone_verified_at: "2026-03-19T00:00:00.000Z",
-          last_login_at: "2026-03-19T00:00:00.000Z",
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: "user-1",
-          phone_number_encrypted: "enc:+821012345678",
-          phone_number_last4: "5678",
-          account_status: "active",
-          phone_verified_at: "2026-03-19T00:00:00.000Z",
-          last_login_at: "2026-03-19T00:00:00.000Z",
-        },
-      ])
-      .mockResolvedValueOnce([
+  test("returns hasCompletedOnboarding true for bypass login when pregnancy profile exists", async () => {
+    queueSelectRows(
+      [],
+      [existingUser],
+      [existingUser],
+      [
         {
           user_id: "user-1",
           due_date: "2026-10-01",
@@ -207,11 +215,12 @@ describe("completePhoneSignIn test mode bypass", () => {
             pregnancyWeekOrDueDate: "2026-10-01",
           },
         },
-      ] as never);
-    mockedSupabaseInsert.mockResolvedValue([]);
+      ],
+    );
 
     const result = await completePhoneSignIn("01012345678", "000000");
 
     expect(result.user.hasCompletedOnboarding).toBe(true);
+    expect(mockedCheckSmsVerification).not.toHaveBeenCalled();
   });
 });
