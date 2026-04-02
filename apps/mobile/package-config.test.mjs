@@ -4,6 +4,8 @@ import { existsSync, readFileSync } from "node:fs";
 
 const packageJson = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 const appJson = JSON.parse(readFileSync(new URL("./app.json", import.meta.url), "utf8"));
+const rootPackageJson = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
+const envExample = readFileSync(new URL("../../.env.example", import.meta.url), "utf8");
 const dependencies = packageJson.dependencies ?? {};
 
 test("mobile package declares Expo web runtime dependencies", () => {
@@ -51,5 +53,35 @@ test("mobile workspace provides a Metro config that pins React resolution to the
     existsSync(new URL("./metro.config.js", import.meta.url)),
     true,
     "apps/mobile should define metro.config.js so React resolves from apps/mobile/node_modules in the monorepo",
+  );
+});
+
+test("root dev:d script enables local mobile auth bypass and api provider", () => {
+  const devDockerScript = rootPackageJson.scripts?.["dev:d"] ?? "";
+
+  assert.match(
+    devDockerScript,
+    /MOBILE_AUTH_TEST_MODE=true/,
+    "root dev:d should enable local mobile auth test mode for simulator runs",
+  );
+
+  assert.match(
+    devDockerScript,
+    /EXPO_PUBLIC_MOBILE_DATA_PROVIDER=api/,
+    "root dev:d should expose the mobile data provider for Expo runtime",
+  );
+});
+
+test("env example documents local mobile auth bypass configuration", () => {
+  assert.match(
+    envExample,
+    /^EXPO_PUBLIC_MOBILE_DATA_PROVIDER=api$/m,
+    ".env.example should document the mobile data provider used by local API runs",
+  );
+
+  assert.match(
+    envExample,
+    /^MOBILE_AUTH_TEST_MODE=true$/m,
+    ".env.example should document the local mobile auth bypass mode",
   );
 });
