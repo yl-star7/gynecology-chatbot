@@ -868,9 +868,11 @@ async function ensureSeedData() {
           updated_at
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12)
-        ON CONFLICT (week_data_id, day_number, code) DO UPDATE
+        ON CONFLICT (id) DO UPDATE
         SET
-          id = EXCLUDED.id,
+          week_data_id = EXCLUDED.week_data_id,
+          day_number = EXCLUDED.day_number,
+          code = EXCLUDED.code,
           title = EXCLUDED.title,
           description = EXCLUDED.description,
           checklist_payload = EXCLUDED.checklist_payload,
@@ -912,9 +914,11 @@ async function ensureSeedData() {
           updated_at
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12)
-        ON CONFLICT (week_data_id, day_number, code) DO UPDATE
+        ON CONFLICT (id) DO UPDATE
         SET
-          id = EXCLUDED.id,
+          week_data_id = EXCLUDED.week_data_id,
+          day_number = EXCLUDED.day_number,
+          code = EXCLUDED.code,
           title = EXCLUDED.title,
           description = EXCLUDED.description,
           checklist_payload = EXCLUDED.checklist_payload,

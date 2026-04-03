@@ -279,7 +279,33 @@ describe("ensureLocalPostgresReady", () => {
 
     expect(String(dayContentUpsertSql)).toContain("ON CONFLICT (week_data_id, day_number) DO UPDATE");
     expect(String(dayContentUpsertSql)).toContain("id = EXCLUDED.id");
-    expect(String(checklistUpsertSql)).toContain("ON CONFLICT (week_data_id, day_number, code) DO UPDATE");
-    expect(String(checklistUpsertSql)).toContain("id = EXCLUDED.id");
+    expect(String(checklistUpsertSql)).toContain("ON CONFLICT (id) DO UPDATE");
+    expect(String(checklistUpsertSql)).toContain("code = EXCLUDED.code");
+  });
+
+  test("uses id-based upsert SQL for generic checklist rows with null day_number", async () => {
+    const queryMock = jest.fn().mockResolvedValue({ rows: [] });
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn().mockImplementation(() => ({
+        query: queryMock,
+      })),
+      types: {
+        setTypeParser: jest.fn(),
+      },
+    }));
+
+    const { ensureLocalPostgresReady } = await import("./local-postgres");
+
+    await ensureLocalPostgresReady();
+
+    const genericChecklistUpsertSql = queryMock.mock.calls.find(
+      ([sql, params]) =>
+        String(sql).includes('INSERT INTO "gynecology_local"."content_week_checklists"') &&
+        Array.isArray(params) &&
+        params[0] === "week-checklist-29-general-symptom-log",
+    )?.[0];
+
+    expect(String(genericChecklistUpsertSql)).toContain("ON CONFLICT (id) DO UPDATE");
   });
 });
