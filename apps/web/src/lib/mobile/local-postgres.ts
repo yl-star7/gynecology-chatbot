@@ -1084,6 +1084,17 @@ function buildWhereClause(searchParams: URLSearchParams, parameterOffset = 0) {
       return;
     }
 
+    if (rawValue.startsWith("in.(") && rawValue.endsWith(")")) {
+      const items = rawValue
+        .slice(4, -1)
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      values.push(items);
+      clauses.push(`${field} = ANY($${parameterOffset + values.length})`);
+      return;
+    }
+
     throw new Error(`Unsupported local filter: ${rawField}=${rawValue}`);
   });
 

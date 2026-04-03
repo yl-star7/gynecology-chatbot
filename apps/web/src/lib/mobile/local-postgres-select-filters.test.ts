@@ -80,4 +80,31 @@ describe("localSupabaseSelect filter support", () => {
     const executedSql = queryMock.mock.calls.at(-1)?.[0];
     expect(String(executedSql)).toContain('"day_number" IS NULL');
   });
+
+  test("supports in filters used by today checklist event queries", async () => {
+    const queryMock = jest.fn().mockResolvedValue({ rows: [] });
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn().mockImplementation(() => ({
+        query: queryMock,
+      })),
+      types: {
+        setTypeParser: jest.fn(),
+      },
+    }));
+
+    const { localSupabaseSelect } = await import("./local-postgres");
+
+    await localSupabaseSelect(
+      "user_checklist_events?select=checklist_id,status&user_id=eq.local-user-demo&checklist_id=in.(week-checklist-29-4-hydration-rest,week-checklist-29-general-symptom-log)",
+    );
+
+    const executedSql = queryMock.mock.calls.at(-1)?.[0];
+    const executedParams = queryMock.mock.calls.at(-1)?.[1];
+    expect(String(executedSql)).toContain('"checklist_id" = ANY');
+    expect(executedParams?.[1]).toEqual([
+      "week-checklist-29-4-hydration-rest",
+      "week-checklist-29-general-symptom-log",
+    ]);
+  });
 });
