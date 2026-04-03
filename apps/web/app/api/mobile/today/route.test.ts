@@ -271,6 +271,59 @@ describe("GET /api/mobile/today", () => {
     });
   });
 
+  it("due_date 기준으로 재계산한 주차와 day_number로 오늘 컨텐츠를 조회한다", async () => {
+    mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
+    mockedSupabaseSelect
+      .mockResolvedValueOnce([
+        {
+          pregnancy_week: 14,
+          pregnancy_day_in_week: 1,
+          due_date: "2026-07-01",
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "week-29",
+          baby_summary: "29주 아기 요약",
+          mother_summary: "29주 엄마 요약",
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          baby_development_payload: { items: ["29주 4일 아기 발달"] },
+          baby_message: null,
+          mother_changes_payload: { items: ["29주 4일 엄마 변화"] },
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "check-29-4",
+          title: "29주 4일 체크리스트",
+          description: null,
+          display_order: 1,
+        },
+      ] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const response = await GET({
+      nextUrl: new URL("http://localhost:3000/api/mobile/today?userId=user-1"),
+    } as never);
+
+    expect(response.status).toBe(200);
+    expect(mockedSupabaseSelect).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "content_pregnancy_week_data?select=id,baby_summary,mother_summary&week_number=eq.29&status=eq.published&limit=1",
+      ),
+    );
+    expect(mockedSupabaseSelect).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "content_pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.week-29&day_number=eq.4&limit=1",
+      ),
+    );
+  });
+
   it("due_date가 과거(출산 후)인 프로필에서 postDue=true 반환", async () => {
     mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
     mockedSupabaseSelect

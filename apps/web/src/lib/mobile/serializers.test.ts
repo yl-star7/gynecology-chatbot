@@ -1,6 +1,14 @@
 import { toHomeViewData } from "./serializers";
 
 describe("toHomeViewData", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-04-04T00:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
   const baseInput = {
     user: { display_name: "김수연" },
     profile: {
@@ -45,5 +53,21 @@ describe("toHomeViewData", () => {
       hasChat: true,
       hasInfo: true,
     });
+  });
+
+  it("recomputes week label from due_date so home and today share the same pregnancy state", () => {
+    const home = toHomeViewData({
+      ...baseInput,
+      month: "2026-04",
+      profile: {
+        pregnancy_day_count: 99,
+        pregnancy_week: 14,
+        pregnancy_day_in_week: 1,
+        due_date: "2026-07-01",
+      },
+    });
+
+    expect(home.pregnancyDayCount).toBe(206);
+    expect(home.pregnancyWeekLabel).toBe("29주 3일");
   });
 });

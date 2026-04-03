@@ -14,6 +14,7 @@ import {
   typo,
 } from "../../theme";
 import { PatientTabBar } from "./PatientTabBar";
+import { resolvePatientShellHeaderLayout } from "./PatientShell.model";
 
 export function PatientShell({
   children,
@@ -40,6 +41,11 @@ export function PatientShell({
   const { currentUser } = useMobileAppSession();
   const avatarLabel = currentUser?.displayName?.slice(0, 1) ?? "나";
   const useMainTone = pageTone === "main";
+  const headerLayout = resolvePatientShellHeaderLayout({
+    hasBackButton: Boolean(backHref),
+    showProfileButton,
+    hasRightAction: Boolean(rightActionIcon && onRightActionPress),
+  });
 
   return (
     <SafeAreaView
@@ -53,11 +59,12 @@ export function PatientShell({
           styles.header,
           useMainTone ? styles.headerMain : styles.headerPlain,
           headerCompact ? styles.headerCompact : null,
+          headerLayout.compactTrailingSpace ? styles.headerWithoutRightSlot : null,
         ]}
       >
-        {backHref ? (
+        {headerLayout.leftSlot === "back" ? (
           <Pressable
-            onPress={() => router.replace(backHref)}
+            onPress={() => router.replace(backHref!)}
             accessibilityLabel="뒤로가기"
             style={styles.iconButton}
             hitSlop={12}
@@ -71,7 +78,7 @@ export function PatientShell({
         ) : (
           <View style={styles.headerSpacer} />
         )}
-        {showProfileButton ? (
+        {headerLayout.rightSlot === "profile" ? (
           <Pressable
             onPress={() => router.replace("/profile")}
             accessibilityLabel="마이페이지 열기"
@@ -79,7 +86,7 @@ export function PatientShell({
           >
             <Text style={styles.profileButtonLabel}>{avatarLabel}</Text>
           </Pressable>
-        ) : rightActionIcon && onRightActionPress ? (
+        ) : headerLayout.rightSlot === "action" ? (
           <Pressable
             onPress={onRightActionPress}
             accessibilityLabel={rightActionLabel ?? "추가 동작"}
@@ -87,14 +94,12 @@ export function PatientShell({
             hitSlop={12}
           >
             <Ionicons
-              name={rightActionIcon}
+              name={rightActionIcon!}
               size={space.lg + space.sm}
               color={surface.textPrimary}
             />
           </Pressable>
-        ) : (
-          <View style={styles.iconButtonPlaceholder} />
-        )}
+        ) : null}
       </View>
       <View style={styles.body}>{children}</View>
       <PatientTabBar activeTab={activeTab} />
@@ -133,9 +138,8 @@ const styles = StyleSheet.create({
   headerSpacer: {
     flex: 1,
   },
-  iconButtonPlaceholder: {
-    width: space.xxxl + space.sm,
-    height: space.xxxl + space.sm,
+  headerWithoutRightSlot: {
+    paddingBottom: 0,
   },
   profileButton: {
     width: space.xxxl + space.sm,

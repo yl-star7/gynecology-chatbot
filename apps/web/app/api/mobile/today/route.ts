@@ -3,7 +3,11 @@ import {
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
+import {
+  supabaseInsert,
+  supabaseSelect,
+  supabaseUpdate,
+} from "@/lib/supabase/admin-client";
 
 type ProfileRow = {
   pregnancy_week: number | null;
@@ -16,6 +20,8 @@ function getKstDate(): string {
     new Date(),
   );
 }
+
+const MAX_PREGNANCY_DAYS = 294;
 
 function calculateCurrentPregnancyWeek(dueDate: string): {
   week: number;
@@ -32,7 +38,10 @@ function calculateCurrentPregnancyWeek(dueDate: string): {
   const diffDays = Math.round(
     (due.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24),
   );
-  const pregnancyDayCount = 280 - diffDays;
+  const pregnancyDayCount = Math.max(
+    0,
+    Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diffDays),
+  );
   const postDue = diffDays < 0;
 
   if (postDue) {
@@ -92,18 +101,12 @@ function buildChecklistStatusMap(events: ChecklistEventRow[]) {
 
 export async function GET(request: NextRequest) {
   try {
-    const client = getSupabaseAdminClient();
     const hintedUserId = request.nextUrl.searchParams.get("userId");
     const { userId } = await requireMobileSession(request, hintedUserId);
 
-    const { data: profiles, error: profileError } = await client
-      .from("pregnancy_profiles")
-      .select("pregnancy_week,pregnancy_day_in_week,due_date")
-      .eq("user_id", userId)
-      .limit(1);
-    if (profileError) {
-      throw profileError;
-    }
+    const profiles = await supabaseSelect<ProfileRow[]>(
+      `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week,due_date&user_id=eq.${userId}&limit=1`,
+    );
     const profile = profiles[0];
 
     if (!profile?.pregnancy_week && !profile?.due_date) {
@@ -132,15 +135,9 @@ export async function GET(request: NextRequest) {
     }
 
     const dayNumber = (currentDayInWeek % 7) + 1;
-    const { data: weeks, error: weekError } = await client
-      .from("content_pregnancy_week_data")
-      .select("id,baby_summary,mother_summary")
-      .eq("week_number", currentWeek)
-      .eq("status", "published")
-      .limit(1);
-    if (weekError) {
-      throw weekError;
-    }
+    const weeks = await supabaseSelect<WeekRow[]>(
+      `content_pregnancy_week_data?select=id,baby_summary,mother_summary&week_number=eq.${currentWeek}&status=eq.published&limit=1`,
+    );
     const week = weeks[0];
 
     if (!week) {
@@ -154,63 +151,30 @@ export async function GET(request: NextRequest) {
     }
 
     const todayDate = getKstDate();
-    const content = client;
-    const [
-      dayResult,
-      datedChecklistResult,
-      genericChecklistResult,
-      infoViewResult,
-    ] = await Promise.all([
-      content
-        .from("content_pregnancy_day_contents")
-        .select("baby_development_payload,baby_message,mother_changes_payload")
-        .eq("week_data_id", week.id)
-        .eq("day_number", dayNumber)
-        .limit(1),
-      content
-        .from("content_week_checklists")
-        .select("id,title,description,display_order")
-        .eq("week_data_id", week.id)
-        .eq("day_number", dayNumber)
-        .eq("is_active", true)
-        .order("display_order", { ascending: true }),
-      content
-        .from("content_week_checklists")
-        .select("id,title,description,display_order")
-        .eq("week_data_id", week.id)
-        .is("day_number", null)
-        .eq("is_active", true)
-        .order("display_order", { ascending: true }),
-      client
-        .from("calendar_logs")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("date", todayDate)
-        .eq("entry_type", "today_info_view")
-        .limit(1),
-    ]);
-    if (dayResult.error) throw dayResult.error;
-    if (datedChecklistResult.error) throw datedChecklistResult.error;
-    if (genericChecklistResult.error) throw genericChecklistResult.error;
-    if (infoViewResult.error) throw infoViewResult.error;
-    const dayRows = dayResult.data;
-    const datedChecklistRows = datedChecklistResult.data;
-    const genericChecklistRows = genericChecklistResult.data;
-    const infoViewRows = infoViewResult.data;
+    const [dayRows, datedChecklistRows, genericChecklistRows, infoViewRows] =
+      await Promise.all([
+        supabaseSelect<DayContentRow[]>(
+          `content_pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
+        ),
+        supabaseSelect<ChecklistRow[]>(
+          `content_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+        ),
+        supabaseSelect<ChecklistRow[]>(
+          `content_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
+        ),
+        supabaseSelect<CalendarLogRow[]>(
+          `calendar_logs?select=id&user_id=eq.${userId}&date=eq.${todayDate}&entry_type=eq.today_info_view&limit=1`,
+        ),
+      ]);
 
     const day = dayRows[0] ?? null;
     const checklistRows = [...datedChecklistRows, ...genericChecklistRows];
     const checklistIds = checklistRows.map((row) => row.id);
-    const checklistEvents =
-      checklistIds.length > 0
-        ? ((
-            await client
-              .from("user_checklist_events")
-              .select("checklist_id,status")
-              .eq("user_id", userId)
-              .in("checklist_id", checklistIds)
-          ).data ?? [])
-        : [];
+    const checklistEvents = checklistIds.length
+      ? await supabaseSelect<ChecklistEventRow[]>(
+          `user_checklist_events?select=checklist_id,status&user_id=eq.${userId}&checklist_id=in.(${checklistIds.join(",")})`,
+        )
+      : [];
     const completedByChecklistId = buildChecklistStatusMap(checklistEvents);
 
     return NextResponse.json({
@@ -243,7 +207,6 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const client = getSupabaseAdminClient();
     const hintedUserId = request.nextUrl.searchParams.get("userId");
     const { userId } = await requireMobileSession(request, hintedUserId);
     const body = await request.json();
@@ -254,31 +217,19 @@ export async function PATCH(request: NextRequest) {
 
     if (action === "view_info") {
       const todayDate = getKstDate();
-      const { data: existingInfoRows, error: existingInfoError } = await client
-        .from("calendar_logs")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("date", todayDate)
-        .eq("entry_type", "today_info_view")
-        .limit(1);
-      if (existingInfoError) {
-        throw existingInfoError;
-      }
+      const existingInfoRows = await supabaseSelect<CalendarLogRow[]>(
+        `calendar_logs?select=id&user_id=eq.${userId}&date=eq.${todayDate}&entry_type=eq.today_info_view&limit=1`,
+      );
 
       if (!existingInfoRows[0]?.id) {
-        const { error: insertInfoError } = await client
-          .from("calendar_logs")
-          .insert({
-            user_id: userId,
-            date: todayDate,
-            entry_type: "today_info_view",
-            title: "오늘,우리 정보 확인",
-            summary: "오늘 아기와 엄마 정보를 확인했어요.",
-            payload: { viewedAt: new Date().toISOString() },
-          });
-        if (insertInfoError) {
-          throw insertInfoError;
-        }
+        await supabaseInsert("calendar_logs", {
+          user_id: userId,
+          date: todayDate,
+          entry_type: "today_info_view",
+          title: "오늘,우리 정보 확인",
+          summary: "오늘 아기와 엄마 정보를 확인했어요.",
+          payload: { viewedAt: new Date().toISOString() },
+        });
       }
 
       return NextResponse.json({ ok: true });
@@ -291,45 +242,28 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { data: existingEvents, error: existingEventError } = await client
-      .from("user_checklist_events")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("checklist_id", checklistId)
-      .limit(1);
-    if (existingEventError) {
-      throw existingEventError;
-    }
+    const existingEvents = await supabaseSelect<Array<{ id: string }>>(
+      `user_checklist_events?select=id&user_id=eq.${userId}&checklist_id=eq.${checklistId}&limit=1`,
+    );
 
     const now = new Date().toISOString();
     const nextStatus = completed ? "completed" : "opened";
 
     if (existingEvents[0]?.id) {
-      const { error: updateError } = await client
-        .from("user_checklist_events")
-        .update({
-          status: nextStatus,
-          completed_at: completed ? now : null,
-          updated_at: now,
-        })
-        .eq("id", existingEvents[0].id);
-      if (updateError) {
-        throw updateError;
-      }
+      await supabaseUpdate(`user_checklist_events?id=eq.${existingEvents[0].id}`, {
+        status: nextStatus,
+        completed_at: completed ? now : null,
+        updated_at: now,
+      });
     } else {
-      const { error: insertError } = await client
-        .from("user_checklist_events")
-        .insert({
-          user_id: userId,
-          checklist_id: checklistId,
-          status: nextStatus,
-          sent_at: now,
-          completed_at: completed ? now : null,
-          updated_at: now,
-        });
-      if (insertError) {
-        throw insertError;
-      }
+      await supabaseInsert("user_checklist_events", {
+        user_id: userId,
+        checklist_id: checklistId,
+        status: nextStatus,
+        sent_at: now,
+        completed_at: completed ? now : null,
+        updated_at: now,
+      });
     }
 
     return NextResponse.json({ ok: true });

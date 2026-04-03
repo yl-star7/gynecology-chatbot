@@ -9,6 +9,8 @@ import type {
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const MAX_PREGNANCY_DAYS = 294;
+const MIN_PREGNANCY_WEEK = 1;
+const MAX_PREGNANCY_WEEK = 42;
 
 function computePregnancyDayCountFromDueDate(
   dueDate?: string | null,
@@ -70,6 +72,20 @@ type RecordDayRow = {
   session_id: string | null;
   payload?: Record<string, unknown> | null;
 };
+
+function computePregnancyWeekLabelFromDueDate(dueDate?: string | null) {
+  const pregnancyDayCount = computePregnancyDayCountFromDueDate(dueDate, 0);
+  if (pregnancyDayCount <= 0) {
+    return null;
+  }
+
+  const week = Math.max(
+    MIN_PREGNANCY_WEEK,
+    Math.min(MAX_PREGNANCY_WEEK, Math.floor(pregnancyDayCount / 7)),
+  );
+  const dayInWeek = pregnancyDayCount % 7;
+  return `${week}주 ${dayInWeek}일`;
+}
 
 function normalizeDateKey(value: string | Date) {
   if (value instanceof Date) {
@@ -210,10 +226,16 @@ export function toHomeViewData(input: {
     input.profile?.pregnancy_day_count ?? 0,
   );
 
+  const pregnancyWeekLabel = input.profile?.due_date
+    ? computePregnancyWeekLabelFromDueDate(input.profile.due_date)
+    : week
+      ? `${week}주 ${dayInWeek ?? 0}일`
+      : null;
+
   return {
     userName: input.user.display_name,
     pregnancyDayCount,
-    pregnancyWeekLabel: week ? `${week}주 ${dayInWeek ?? 0}일` : "정보 없음",
+    pregnancyWeekLabel: pregnancyWeekLabel ?? "정보 없음",
     currentMonthLabel: monthDate.toLocaleDateString("ko-KR", {
       year: "numeric",
       month: "long",
