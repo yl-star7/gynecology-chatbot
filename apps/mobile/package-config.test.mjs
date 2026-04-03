@@ -70,6 +70,12 @@ test("root dev:d script enables local mobile auth bypass and api provider", () =
     /EXPO_PUBLIC_MOBILE_DATA_PROVIDER=api/,
     "root dev:d should expose the mobile data provider for Expo runtime",
   );
+
+  assert.match(
+    devDockerScript,
+    /LOCAL_DEV_DUE_DATE=/,
+    "root dev:d should provide LOCAL_DEV_DUE_DATE so docker bootstrap can seed without crashing",
+  );
 });
 
 test("env example documents local mobile auth bypass configuration", () => {
@@ -83,5 +89,11 @@ test("env example documents local mobile auth bypass configuration", () => {
     envExample,
     /^MOBILE_AUTH_TEST_MODE=true$/m,
     ".env.example should document the local mobile auth bypass mode",
+  );
+
+  assert.match(
+    envExample,
+    /^LOCAL_DEV_DUE_DATE=/m,
+    ".env.example should document LOCAL_DEV_DUE_DATE for docker bootstrap",
   );
 });
