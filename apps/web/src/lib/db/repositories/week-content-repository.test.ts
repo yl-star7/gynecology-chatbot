@@ -1,8 +1,8 @@
 import type {
-  AdminWeekAsset,
-  AdminWeekDay,
-  AdminWeekMedia,
-  AdminWeekSection,
+  AdminWeekAssetInput,
+  AdminWeekDayInput,
+  AdminWeekMediaInput,
+  AdminWeekSectionInput,
 } from "@gynecology-chatbot/app-core";
 
 import {
@@ -22,10 +22,10 @@ describe("WeekContentRepository", () => {
   const mockedQueryRows = jest.fn();
   const mockedCreateId = jest
     .fn()
-    .mockReturnValueOnce("new-day-id")
-    .mockReturnValueOnce("new-section-id")
-    .mockReturnValueOnce("new-question-id")
-    .mockReturnValueOnce("new-media-id");
+    .mockReturnValueOnce("11111111-1111-4111-8111-111111111111")
+    .mockReturnValueOnce("22222222-2222-4222-8222-222222222222")
+    .mockReturnValueOnce("33333333-3333-4333-8333-333333333333")
+    .mockReturnValueOnce("44444444-4444-4444-8444-444444444444");
 
   const repository = new WeekContentRepository({
     select: mockedSelect,
@@ -45,10 +45,10 @@ describe("WeekContentRepository", () => {
     mockedQueryRows.mockReset();
     mockedCreateId.mockReset();
     mockedCreateId
-      .mockReturnValueOnce("new-day-id")
-      .mockReturnValueOnce("new-section-id")
-      .mockReturnValueOnce("new-question-id")
-      .mockReturnValueOnce("new-media-id");
+      .mockReturnValueOnce("11111111-1111-4111-8111-111111111111")
+      .mockReturnValueOnce("22222222-2222-4222-8222-222222222222")
+      .mockReturnValueOnce("33333333-3333-4333-8333-333333333333")
+      .mockReturnValueOnce("44444444-4444-4444-8444-444444444444");
   });
 
   it("lists week summaries from canonical public view", async () => {
@@ -164,7 +164,7 @@ describe("WeekContentRepository", () => {
     mockedUpdate.mockResolvedValue([]);
     mockedInsert.mockResolvedValue([{ id: "new-day-id" }]);
     const dayIdByNumber = new Map<number, string>([[1, "existing-day-id"]]);
-    const days: AdminWeekDay[] = [
+    const days: AdminWeekDayInput[] = [
       {
         id: "existing-day-id",
         dayNumber: 1,
@@ -183,7 +183,7 @@ describe("WeekContentRepository", () => {
         displayOrder: 2,
       },
     ];
-    const sections: AdminWeekSection[] = [
+    const sections: AdminWeekSectionInput[] = [
       {
         id: "section-existing",
         dayNumber: 1,
@@ -204,7 +204,7 @@ describe("WeekContentRepository", () => {
         isActive: true,
       },
     ];
-    const assets: AdminWeekAsset[] = [
+    const assets: AdminWeekAssetInput[] = [
       {
         id: "asset-existing",
         dayNumber: 1,
@@ -227,7 +227,7 @@ describe("WeekContentRepository", () => {
         isActive: true,
       },
     ];
-    const media: AdminWeekMedia[] = [
+    const media: AdminWeekMediaInput[] = [
       {
         id: "media-existing",
         dayNumber: null,
@@ -282,7 +282,7 @@ describe("WeekContentRepository", () => {
     expect(mockedInsert).toHaveBeenCalledWith(
       "content.pregnancy_day_contents",
       expect.objectContaining({
-        id: "new-day-id",
+        id: "11111111-1111-4111-8111-111111111111",
         week_data_id: "week-2",
         day_number: 2,
       }),
@@ -290,7 +290,7 @@ describe("WeekContentRepository", () => {
     expect(mockedInsert).toHaveBeenCalledWith(
       "content.week_checklists",
       expect.objectContaining({
-        id: "new-section-id",
+        id: "22222222-2222-4222-8222-222222222222",
         week_data_id: "week-2",
         day_number: 2,
       }),
@@ -298,7 +298,7 @@ describe("WeekContentRepository", () => {
     expect(mockedInsert).toHaveBeenCalledWith(
       "content.week_questions",
       expect.objectContaining({
-        id: "new-question-id",
+        id: "33333333-3333-4333-8333-333333333333",
         week_data_id: "week-2",
         day_number: 2,
       }),
@@ -306,7 +306,7 @@ describe("WeekContentRepository", () => {
     expect(mockedInsert).toHaveBeenCalledWith(
       "content.pregnancy_week_media",
       expect.objectContaining({
-        id: "new-media-id",
+        id: "44444444-4444-4444-8444-444444444444",
         week_data_id: "week-2",
         day_number: 2,
       }),

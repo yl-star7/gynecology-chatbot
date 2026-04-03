@@ -1,7 +1,11 @@
 import type { Workflow, WorkflowGraph } from "@schift-io/sdk";
 
 import { Schift, WorkflowBuilder } from "@schift-io/sdk";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
+import {
+  supabaseInsert,
+  supabaseSelect,
+  supabaseUpdate,
+} from "@/lib/supabase/admin-client";
 
 const DEFAULT_BUCKET = "pregnancy-knowledge";
 const DEFAULT_WORKFLOW_NAME = "모성간호 상담 응답";
@@ -264,25 +268,15 @@ export async function createDefaultInternalAnswerWorkflow() {
     description: `<!-- si-admin-workflow:${JSON.stringify(adminMetadata)}-->\n${DEFAULT_WORKFLOW_DESCRIPTION}`,
   });
 
-  const supabase = getSupabaseAdminClient();
-  const { data: currentRowsById, error: currentByIdError } = await supabase
-    .from("workflow_definitions")
-    .select("id,name,slug,provider,status,is_active,config,metadata")
-    .eq("id", updated.id)
-    .limit(1);
-  if (currentByIdError) {
-    throw currentByIdError;
-  }
+  const currentRowsById = await supabaseSelect<WorkflowDefinitionRow[]>(
+    `workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata&id=eq.${updated.id}&limit=1`,
+  );
   const currentRowsBySlug =
     currentRowsById.length > 0
       ? currentRowsById
-      : ((
-          await supabase
-            .from("workflow_definitions")
-            .select("id,name,slug,provider,status,is_active,config,metadata")
-            .eq("slug", "internal-data-answer")
-            .limit(1)
-        ).data ?? []);
+      : await supabaseSelect<WorkflowDefinitionRow[]>(
+          "workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata&slug=eq.internal-data-answer&limit=1",
+        );
   const payload = {
     id: updated.id,
     name: updated.name,
@@ -299,23 +293,12 @@ export async function createDefaultInternalAnswerWorkflow() {
   };
 
   if (currentRowsBySlug[0]) {
-    const { error: updateError } = await supabase
-      .from("workflow_definitions")
-      .update(payload)
-      .eq("id", currentRowsBySlug[0].id);
-    if (updateError) {
-      throw updateError;
-    }
+    await supabaseUpdate(`workflow_definitions?id=eq.${currentRowsBySlug[0].id}`, payload);
   } else {
-    const { error: insertError } = await supabase
-      .from("workflow_definitions")
-      .insert({
-        ...payload,
-        created_at: new Date().toISOString(),
-      });
-    if (insertError) {
-      throw insertError;
-    }
+    await supabaseInsert("workflow_definitions", {
+      ...payload,
+      created_at: new Date().toISOString(),
+    });
   }
 
   return updated;

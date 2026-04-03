@@ -91,10 +91,12 @@ jest.mock("@/lib/supabase/admin-client", () => {
     }
   }
 
+  const getSupabaseAdminClient = jest.fn(() => ({
+    from: (table: string) => new QueryBuilder(table, "select"),
+  }));
+
   return {
-    getSupabaseAdminClient: () => ({
-      from: (table: string) => new QueryBuilder(table, "select"),
-    }),
+    getSupabaseAdminClient,
     supabaseInsert,
     supabaseSelect,
     supabaseUpdate,
@@ -129,12 +131,14 @@ import {
   completeUserOnboarding,
 } from "@/lib/mobile/auth";
 import {
+  getSupabaseAdminClient,
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
 } from "@/lib/supabase/admin-client";
 import { checkSmsVerification } from "@/lib/mobile/twilio-verify";
 
+const mockedGetSupabaseAdminClient = jest.mocked(getSupabaseAdminClient);
 const mockedSupabaseInsert = jest.mocked(supabaseInsert);
 const mockedSupabaseSelect = jest.mocked(supabaseSelect);
 const mockedSupabaseUpdate = jest.mocked(supabaseUpdate);
@@ -275,10 +279,74 @@ describe("completePhoneSignIn", () => {
 
 describe("completeUserOnboarding", () => {
   beforeEach(() => {
+    mockedGetSupabaseAdminClient.mockReset();
     mockedSupabaseInsert.mockReset();
     mockedSupabaseSelect.mockReset();
     mockedSupabaseUpdate.mockReset();
     mockedCheckSmsVerification.mockReset();
+  });
+
+  test("uses wrapper-backed profile queries in docker mode", async () => {
+    process.env.SERVER_DATA_PROVIDER = "docker";
+    mockedGetSupabaseAdminClient.mockImplementation(() => {
+      throw new Error("direct admin client should not be used in docker mode");
+    });
+
+    mockedSupabaseSelect
+      .mockResolvedValueOnce([
+        {
+          id: "user-onboarding-1",
+          phone_number_encrypted: "enc:+821026784241",
+          phone_number_last4: "4241",
+          account_status: "active",
+          phone_verified_at: "2026-03-31T00:00:00.000Z",
+          last_login_at: "2026-03-31T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "user-onboarding-1",
+          phone_number_encrypted: "enc:+821026784241",
+          phone_number_last4: "4241",
+          account_status: "active",
+          phone_verified_at: "2026-03-31T00:00:00.000Z",
+          last_login_at: "2026-03-31T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "profile-1",
+          user_id: "user-onboarding-1",
+          display_name: null,
+          due_date: "2026-10-01",
+          onboarding_payload: {
+            pregnancyWeekOrDueDate: "임신 20주",
+            tonePreference: "차분하게",
+            babyNickname: "콩이",
+          },
+          baby_nickname: "콩이",
+          notification_time: "08:30",
+          theme_key: "rose-sand",
+        },
+      ] as never);
+
+    mockedSupabaseInsert.mockResolvedValue([]);
+    mockedSupabaseUpdate.mockResolvedValue([]);
+
+    await expect(
+      completeUserOnboarding({
+        userId: "user-onboarding-1",
+        pregnancyWeekOrDueDate: "임신 20주",
+        tonePreference: "차분하게",
+        dueDate: "2026-10-01",
+        babyNickname: "콩이",
+      }),
+    ).resolves.toMatchObject({
+      id: "user-onboarding-1",
+      hasCompletedOnboarding: true,
+    });
   });
 
   test("stores babyNickname in first-class column and onboarding_payload", async () => {

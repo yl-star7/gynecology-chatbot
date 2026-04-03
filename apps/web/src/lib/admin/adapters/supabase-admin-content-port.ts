@@ -31,7 +31,6 @@ import {
   supabaseSelect,
   supabaseUpdate,
 } from "@/lib/supabase/admin-client";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 import {
   buildSchiftWorkflowDescription,
   mapSchiftWorkflowRule,
@@ -140,21 +139,16 @@ async function insertAdminAuditLog(input: {
   beforePayload: Record<string, unknown>;
   afterPayload: Record<string, unknown>;
 }) {
-  const { error } = await getSupabaseAdminClient()
-    .from("admin_audit_logs")
-    .insert({
-      admin_user_id: getAdminActorId(input.actorId),
-      target_user_id: null,
-      action_type: input.actionType,
-      entity_type: input.entityType,
-      entity_id: input.entityId,
-      reason: input.reason,
-      before_payload: input.beforePayload,
-      after_payload: input.afterPayload,
-    });
-  if (error) {
-    throw error;
-  }
+  await supabaseInsert("admin_audit_logs", {
+    admin_user_id: getAdminActorId(input.actorId),
+    target_user_id: null,
+    action_type: input.actionType,
+    entity_type: input.entityType,
+    entity_id: input.entityId,
+    reason: input.reason,
+    before_payload: input.beforePayload,
+    after_payload: input.afterPayload,
+  });
 }
 
 type SupabaseRagDocumentRow = {
@@ -614,13 +608,9 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return;
     }
 
-    const { error } = await getSupabaseAdminClient()
-      .from("content_pregnancy_documents")
-      .delete()
-      .eq("id", documentId);
-    if (error) {
-      throw error;
-    }
+    await supabaseDelete(`pregnancy_documents?id=eq.${documentId}`, {
+      schema: "content",
+    });
     if (shouldWriteAdminAuditLog(actorId)) {
       await insertAdminAuditLog({
         actorId,
@@ -981,13 +971,9 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return;
     }
 
-    const { error } = await getSupabaseAdminClient()
-      .from("content_knowledge_items")
-      .delete()
-      .eq("id", id);
-    if (error) {
-      throw error;
-    }
+    await supabaseDelete(`knowledge_items?id=eq.${id}`, {
+      schema: "content",
+    });
     if (shouldWriteAdminAuditLog(actorId)) {
       await insertAdminAuditLog({
         actorId,

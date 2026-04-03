@@ -75,7 +75,7 @@ export async function requireMobileSession(
   }
 
   const sessionHash = hashSessionToken(sessionToken);
-  const sessions = await supabaseSelect<AuthSessionRow>(
+  const sessions = await supabaseSelect<AuthSessionRow[]>(
     `auth_sessions?select=id,user_id,expires_at,revoked_at&refresh_token_hash=eq.${sessionHash}&limit=1`,
   );
   const session = sessions[0];
@@ -96,7 +96,7 @@ export async function requireMobileSession(
     throw new Error("mobile session user mismatch");
   }
 
-  const users = await supabaseSelect<SessionUserRow>(
+  const users = await supabaseSelect<SessionUserRow[]>(
     `users?select=id,account_status&id=eq.${session.user_id}&limit=1`,
   );
   const user = users[0];

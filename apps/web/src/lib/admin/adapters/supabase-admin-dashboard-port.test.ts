@@ -5,6 +5,7 @@ jest.mock("@/lib/server-data-provider", () => ({
 }));
 
 jest.mock("@/lib/supabase/admin-client", () => ({
+  supabaseDelete: jest.fn(),
   supabaseInsert: jest.fn(),
   supabaseSelect: jest.fn(),
   supabaseUpdate: jest.fn(),
@@ -65,6 +66,8 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
 }));
 
 import {
+  getSupabaseAdminClient,
+  supabaseDelete,
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
@@ -77,8 +80,14 @@ import {
   SupabaseAdminUserPortAdapter,
 } from "./supabase-admin-dashboard-port";
 
+const mockedGetSupabaseAdminClient = getSupabaseAdminClient as jest.MockedFunction<
+  typeof getSupabaseAdminClient
+>;
 const mockedSelect = supabaseSelect as jest.MockedFunction<
   typeof supabaseSelect
+>;
+const mockedDelete = supabaseDelete as jest.MockedFunction<
+  typeof supabaseDelete
 >;
 const mockedInsert = supabaseInsert as jest.MockedFunction<
   typeof supabaseInsert
@@ -102,7 +111,9 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
   });
 
   afterEach(() => {
+    mockedGetSupabaseAdminClient.mockReset();
     mockedSelect.mockReset();
+    mockedDelete.mockReset();
     mockedInsert.mockReset();
     mockedUpdate.mockReset();
     mockedGetSchiftClient.mockReset();
@@ -375,8 +386,22 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
     );
   });
 
+  it("uses provider-aware wrappers instead of the direct admin client", async () => {
+    mockedGetSupabaseAdminClient.mockImplementation(() => {
+      throw new Error("direct admin client should not be used");
+    });
+    mockedGetSchiftClient.mockReturnValue(null);
+    mockedSelect.mockResolvedValue([]);
+
+    const dashboard = await adapter.getDashboard();
+
+    expect(dashboard.ragDocuments).toEqual([]);
+    expect(mockedSelect).toHaveBeenCalled();
+  });
+
   it("stores allowed phone numbers as encrypted payloads and redacts audit values", async () => {
     const userAdapter = new SupabaseAdminUserPortAdapter();
+    mockedSelect.mockResolvedValueOnce([]);
     mockedInsert
       .mockResolvedValueOnce([
         {
@@ -400,7 +425,7 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
 
     expect(mockedInsert).toHaveBeenNthCalledWith(
       1,
-      "allowed_phone_numbers",
+      "blocked_phone_numbers",
       expect.objectContaining({
         phone_number_encrypted: "enc:+821012345678",
         phone_number_blind_index: "idx:+821012345678",

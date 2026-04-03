@@ -304,90 +304,71 @@ describe("SupabaseAdminContentPortAdapter", () => {
     mockedResolveServerDataProvider.mockReturnValue("supabase");
     mockedHasSupabaseConfig.mockReturnValue(true);
     mockedHasDockerConfig.mockReturnValue(false);
-    mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("published_weeks")) {
-        return Promise.resolve([
-          {
-            id: "week-12",
-            week_number: 12,
-            title: "12주차 기본",
-            baby_size_label: "라임",
-            baby_size_compare_object: "작은 라임",
-            baby_summary: "기존 요약",
-            mother_summary: "기존 엄마 요약",
-            warning_signs: "기존 히어로",
-            recommended_actions: "기존 비교",
-            status: "draft",
-            updated_at: "2026-03-18T08:00:00.000Z",
-          },
-        ]);
-      }
-
-      if (path.startsWith("content.pregnancy_day_contents")) {
-        return Promise.resolve([
-          {
-            id: "11111111-1111-4111-8111-aaaaaaaaaaaa",
-            day_number: 1,
-            title: "Day 1",
-            baby_development_payload: { items: ["기존 아기 본문"] },
-            baby_message: "기존 아기 메시지",
-            mother_changes_payload: { items: ["기존 엄마 본문"] },
-            display_order: 1,
-          },
-        ]);
-      }
-
-      if (path.startsWith("content.week_checklists")) {
-        return Promise.resolve([
-          {
-            id: "22222222-2222-4222-8222-aaaaaaaaaaaa",
-            day_number: 1,
-            code: "baby_growth",
-            title: "아기 성장",
-            description: "기존 본문",
-            display_order: 1,
-            is_required: true,
-            is_active: true,
-          },
-        ]);
-      }
-
-      if (path.startsWith("content.week_questions")) {
-        return Promise.resolve([
-          {
-            id: "33333333-3333-4333-8333-aaaaaaaaaaaa",
-            day_number: 1,
-            code: "hero-card",
-            question_type: "hero",
-            question_text: "/images/week12/hero.jpg",
-            help_text: "hero",
-            display_order: 1,
-            is_required: false,
-            is_active: true,
-          },
-        ]);
-      }
-
-      if (path.startsWith("content.pregnancy_week_media")) {
-        return Promise.resolve([
-          {
-            id: "44444444-4444-4444-8444-aaaaaaaaaaaa",
-            day_number: null,
-            media_scope: "week",
-            bucket_id: "pregnancy-content",
-            object_path: "weeks/12/hero.jpg",
-            media_role: "hero",
-            alt_text: "hero image",
-            source_file_name: "week12-hero.jpg",
-            display_order: 1,
-          },
-        ]);
-      }
-
-      return Promise.resolve([]);
+    mockedWeekRepositoryGetWeek.mockResolvedValue({
+      id: "week-12",
+      week_number: 12,
+      title: "12주차 기본",
+      baby_size_label: "라임",
+      baby_size_compare_object: "작은 라임",
+      baby_summary: "기존 요약",
+      mother_summary: "기존 엄마 요약",
+      warning_signs: "기존 히어로",
+      recommended_actions: "기존 비교",
+      status: "draft",
+      updated_at: "2026-03-18T08:00:00.000Z",
     });
-    mockedUpdate.mockResolvedValue([]);
-    mockedInsert.mockResolvedValue([]);
+    mockedWeekRepositoryGetWeekChildren.mockResolvedValue({
+      days: [
+        {
+          id: "11111111-1111-4111-8111-aaaaaaaaaaaa",
+          day_number: 1,
+          title: "Day 1",
+          baby_development_payload: { items: ["기존 아기 본문"] },
+          baby_message: "기존 아기 메시지",
+          mother_changes_payload: { items: ["기존 엄마 본문"] },
+          display_order: 1,
+        },
+      ],
+      sections: [
+        {
+          id: "22222222-2222-4222-8222-aaaaaaaaaaaa",
+          day_number: 1,
+          code: "baby_growth",
+          title: "아기 성장",
+          description: "기존 본문",
+          display_order: 1,
+          is_required: true,
+          is_active: true,
+        },
+      ],
+      assets: [
+        {
+          id: "33333333-3333-4333-8333-aaaaaaaaaaaa",
+          day_number: 1,
+          code: "hero-card",
+          question_type: "hero",
+          question_text: "/images/week12/hero.jpg",
+          help_text: "hero",
+          display_order: 1,
+          is_required: false,
+          is_active: true,
+        },
+      ],
+      media: [
+        {
+          id: "44444444-4444-4444-8444-aaaaaaaaaaaa",
+          day_number: null,
+          media_scope: "week",
+          bucket_id: "pregnancy-content",
+          object_path: "weeks/12/hero.jpg",
+          media_role: "hero",
+          alt_text: "hero image",
+          source_file_name: "week12-hero.jpg",
+          display_order: 1,
+        },
+      ],
+    });
+    mockedWeekRepositoryUpsertDayContents.mockResolvedValue(new Map([[1, "11111111-1111-4111-8111-aaaaaaaaaaaa"]]));
 
     await adapter.saveWeek(12, {
       title: "12주차 관리본",
@@ -468,48 +449,57 @@ describe("SupabaseAdminContentPortAdapter", () => {
       ],
     });
 
-    expect(mockedUpdate).toHaveBeenCalledWith(
-      "content.pregnancy_day_contents?id=eq.11111111-1111-4111-8111-aaaaaaaaaaaa",
-      expect.objectContaining({
-        baby_development_payload: { items: ["수정된 아기 본문"] },
-      }),
-    );
-    expect(mockedUpdate).toHaveBeenCalledWith(
-      "content.pregnancy_week_data?id=eq.week-12",
+    expect(mockedWeekRepositoryUpdateWeekSummary).toHaveBeenCalledWith(
+      "week-12",
       expect.objectContaining({
         title: "12주차 관리본",
-        baby_size_label: "자두",
-        warning_signs: "/images/week12/hero-next.jpg",
+        babySizeLabel: "자두",
+        heroImagePath: "/images/week12/hero-next.jpg",
         status: "published",
       }),
     );
-    expect(mockedUpdate).toHaveBeenCalledWith(
-      "content.week_checklists?id=eq.22222222-2222-4222-8222-aaaaaaaaaaaa",
-      expect.objectContaining({
-        description: "수정된 본문",
-      }),
+    expect(mockedWeekRepositoryUpsertDayContents).toHaveBeenCalledWith(
+      "week-12",
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "11111111-1111-4111-8111-aaaaaaaaaaaa",
+          babyDevelopmentItems: ["수정된 아기 본문"],
+        }),
+      ]),
     );
-    expect(mockedInsert).toHaveBeenCalledWith(
-      "content.week_checklists",
-      expect.objectContaining({
-        week_data_id: "week-12",
-        code: "checklist",
-      }),
+    expect(mockedWeekRepositoryUpsertChecklists).toHaveBeenCalledWith(
+      "week-12",
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "22222222-2222-4222-8222-aaaaaaaaaaaa",
+          body: "수정된 본문",
+        }),
+        expect.objectContaining({
+          sectionKey: "checklist",
+        }),
+      ]),
+      expect.any(Map),
     );
-    expect(mockedInsert).toHaveBeenCalledWith(
-      "content.week_questions",
-      expect.objectContaining({
-        week_data_id: "week-12",
-        day_number: 1,
-        question_type: "compare",
-      }),
+    expect(mockedWeekRepositoryUpsertQuestions).toHaveBeenCalledWith(
+      "week-12",
+      expect.arrayContaining([
+        expect.objectContaining({
+          assetType: "compare",
+          dayNumber: 1,
+        }),
+      ]),
+      expect.any(Map),
     );
-    expect(mockedUpdate).toHaveBeenCalledWith(
-      "content.pregnancy_week_media?id=eq.44444444-4444-4444-8444-aaaaaaaaaaaa",
-      expect.objectContaining({
-        object_path: "weeks/12/hero-next.jpg",
-        media_scope: "week",
-      }),
+    expect(mockedWeekRepositoryUpsertMedia).toHaveBeenCalledWith(
+      "week-12",
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "44444444-4444-4444-8444-aaaaaaaaaaaa",
+          objectPath: "weeks/12/hero-next.jpg",
+          mediaScope: "week",
+        }),
+      ]),
+      expect.any(Map),
     );
   });
 
@@ -517,131 +507,112 @@ describe("SupabaseAdminContentPortAdapter", () => {
     mockedResolveServerDataProvider.mockReturnValue("supabase");
     mockedHasSupabaseConfig.mockReturnValue(true);
     mockedHasDockerConfig.mockReturnValue(false);
-    mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("content.pregnancy_week_data")) {
-        return Promise.resolve([
-          {
-            id: "week-12",
-            week_number: 12,
-            title: "12주차 기본",
-            baby_size_label: "라임",
-            baby_size_compare_object: "작은 라임",
-            baby_summary: "기존 요약",
-            mother_summary: "기존 엄마 요약",
-            warning_signs: "기존 히어로",
-            recommended_actions: "기존 비교",
-            status: "draft",
-            updated_at: "2026-03-18T08:00:00.000Z",
-          },
-        ]);
-      }
-
-      if (path.startsWith("content.pregnancy_day_contents")) {
-        return Promise.resolve([
-          {
-            id: "11111111-1111-4111-8111-bbbbbbbbbbbb",
-            day_number: 1,
-            title: "Day 1",
-            baby_development_payload: { items: ["keep"] },
-            baby_message: null,
-            mother_changes_payload: { items: ["keep"] },
-            display_order: 1,
-          },
-          {
-            id: "11111111-1111-4111-8111-cccccccccccc",
-            day_number: 2,
-            title: "Day 2",
-            baby_development_payload: { items: ["delete"] },
-            baby_message: null,
-            mother_changes_payload: { items: ["delete"] },
-            display_order: 2,
-          },
-        ]);
-      }
-
-      if (path.startsWith("content.week_checklists")) {
-        return Promise.resolve([
-          {
-            id: "22222222-2222-4222-8222-bbbbbbbbbbbb",
-            day_number: 1,
-            code: "baby_growth",
-            title: "아기 성장",
-            description: "기존 본문",
-            display_order: 1,
-            is_required: true,
-            is_active: true,
-          },
-          {
-            id: "22222222-2222-4222-8222-cccccccccccc",
-            day_number: 2,
-            code: "mother_change",
-            title: "산모 변화",
-            description: "삭제 대상",
-            display_order: 2,
-            is_required: false,
-            is_active: true,
-          },
-        ]);
-      }
-
-      if (path.startsWith("content.week_questions")) {
-        return Promise.resolve([
-          {
-            id: "33333333-3333-4333-8333-bbbbbbbbbbbb",
-            day_number: 1,
-            code: "hero-card",
-            question_type: "hero",
-            question_text: "/images/week12/hero-next.jpg",
-            help_text: "hero",
-            display_order: 1,
-            is_required: false,
-            is_active: true,
-          },
-          {
-            id: "33333333-3333-4333-8333-cccccccccccc",
-            day_number: 2,
-            code: "compare-card",
-            question_type: "compare",
-            question_text: "/images/week12/compare-old.jpg",
-            help_text: "compare",
-            display_order: 2,
-            is_required: false,
-            is_active: true,
-          },
-        ]);
-      }
-
-      if (path.startsWith("content.pregnancy_week_media")) {
-        return Promise.resolve([
-          {
-            id: "44444444-4444-4444-8444-bbbbbbbbbbbb",
-            day_number: null,
-            media_scope: "week",
-            bucket_id: "pregnancy-content",
-            object_path: "weeks/12/hero-next.jpg",
-            media_role: "hero",
-            alt_text: "hero",
-            source_file_name: "week12-hero.jpg",
-            display_order: 1,
-          },
-          {
-            id: "44444444-4444-4444-8444-cccccccccccc",
-            day_number: 2,
-            media_scope: "day",
-            bucket_id: "pregnancy-content",
-            object_path: "weeks/12/day-02/compare.jpg",
-            media_role: "reference",
-            alt_text: "compare",
-            source_file_name: "week12-day2.jpg",
-            display_order: 2,
-          },
-        ]);
-      }
-
-      return Promise.resolve([]);
+    mockedWeekRepositoryGetWeek.mockResolvedValue({
+      id: "week-12",
+      week_number: 12,
+      title: "12주차 기본",
+      baby_size_label: "라임",
+      baby_size_compare_object: "작은 라임",
+      baby_summary: "기존 요약",
+      mother_summary: "기존 엄마 요약",
+      warning_signs: "기존 히어로",
+      recommended_actions: "기존 비교",
+      status: "draft",
+      updated_at: "2026-03-18T08:00:00.000Z",
     });
-    mockedUpdate.mockResolvedValue([]);
-    mockedInsert.mockResolvedValue([]);
+    mockedWeekRepositoryGetWeekChildren.mockResolvedValue({
+      days: [
+        {
+          id: "11111111-1111-4111-8111-bbbbbbbbbbbb",
+          day_number: 1,
+          title: "Day 1",
+          baby_development_payload: { items: ["keep"] },
+          baby_message: null,
+          mother_changes_payload: { items: ["keep"] },
+          display_order: 1,
+        },
+        {
+          id: "11111111-1111-4111-8111-cccccccccccc",
+          day_number: 2,
+          title: "Day 2",
+          baby_development_payload: { items: ["delete"] },
+          baby_message: null,
+          mother_changes_payload: { items: ["delete"] },
+          display_order: 2,
+        },
+      ],
+      sections: [
+        {
+          id: "22222222-2222-4222-8222-bbbbbbbbbbbb",
+          day_number: 1,
+          code: "baby_growth",
+          title: "아기 성장",
+          description: "기존 본문",
+          display_order: 1,
+          is_required: true,
+          is_active: true,
+        },
+        {
+          id: "22222222-2222-4222-8222-cccccccccccc",
+          day_number: 2,
+          code: "mother_change",
+          title: "산모 변화",
+          description: "삭제 대상",
+          display_order: 2,
+          is_required: false,
+          is_active: true,
+        },
+      ],
+      assets: [
+        {
+          id: "33333333-3333-4333-8333-bbbbbbbbbbbb",
+          day_number: 1,
+          code: "hero-card",
+          question_type: "hero",
+          question_text: "/images/week12/hero-next.jpg",
+          help_text: "hero",
+          display_order: 1,
+          is_required: false,
+          is_active: true,
+        },
+        {
+          id: "33333333-3333-4333-8333-cccccccccccc",
+          day_number: 2,
+          code: "compare-card",
+          question_type: "compare",
+          question_text: "/images/week12/compare-old.jpg",
+          help_text: "compare",
+          display_order: 2,
+          is_required: false,
+          is_active: true,
+        },
+      ],
+      media: [
+        {
+          id: "44444444-4444-4444-8444-bbbbbbbbbbbb",
+          day_number: null,
+          media_scope: "week",
+          bucket_id: "pregnancy-content",
+          object_path: "weeks/12/hero-next.jpg",
+          media_role: "hero",
+          alt_text: "hero",
+          source_file_name: "week12-hero.jpg",
+          display_order: 1,
+        },
+        {
+          id: "44444444-4444-4444-8444-cccccccccccc",
+          day_number: 2,
+          media_scope: "day",
+          bucket_id: "pregnancy-content",
+          object_path: "weeks/12/day-02/compare.jpg",
+          media_role: "reference",
+          alt_text: "compare",
+          source_file_name: "week12-day2.jpg",
+          display_order: 2,
+        },
+      ],
+    });
+    mockedWeekRepositoryUpsertDayContents.mockResolvedValue(new Map([[1, "11111111-1111-4111-8111-bbbbbbbbbbbb"]]));
     mockedDelete.mockResolvedValue([]);
 
     await adapter.saveWeek(12, {
@@ -704,6 +675,18 @@ describe("SupabaseAdminContentPortAdapter", () => {
       ],
     });
 
+    expect(mockedWeekRepositoryDeleteChecklist).toHaveBeenCalledWith(
+      "22222222-2222-4222-8222-cccccccccccc",
+    );
+    expect(mockedWeekRepositoryDeleteQuestion).toHaveBeenCalledWith(
+      "33333333-3333-4333-8333-cccccccccccc",
+    );
+    expect(mockedWeekRepositoryDeleteMedia).toHaveBeenCalledWith(
+      "44444444-4444-4444-8444-cccccccccccc",
+    );
+    expect(mockedWeekRepositoryDeleteDay).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-cccccccccccc",
+    );
     expect(mockedDelete).not.toHaveBeenCalledWith(
       expect.stringContaining("undefined"),
     );
@@ -773,7 +756,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       "수정 본문",
     );
     expect(mockedInsert).toHaveBeenCalledWith(
-      "content.pregnancy_documents",
+      "content_pregnancy_documents",
       expect.objectContaining({
         title: "두통 가이드",
         pregnancy_week: 18,
@@ -781,7 +764,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
       }),
     );
     expect(mockedUpdate).toHaveBeenCalledWith(
-      "content.pregnancy_documents?id=eq.11111111-1111-4111-8111-111111111111",
+      "content_pregnancy_documents?id=eq.11111111-1111-4111-8111-111111111111",
       expect.objectContaining({
         title: "수정된 두통 가이드",
         category: "warning",
@@ -849,7 +832,8 @@ describe("SupabaseAdminContentPortAdapter", () => {
     });
 
     expect(mockedDelete).toHaveBeenCalledWith(
-      "content.pregnancy_documents?id=eq.11111111-1111-4111-8111-111111111111",
+      "pregnancy_documents?id=eq.11111111-1111-4111-8111-111111111111",
+      { schema: "content" },
     );
     expect(updatedRule).toMatchObject({
       id: "wf-1",

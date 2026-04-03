@@ -124,6 +124,8 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
   decryptPhoneNumber: jest.fn((value: string) => value.replace(/^enc:/, "")),
 }));
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { completePhoneSignIn } from "@/lib/mobile/auth";
 import {
   getSupabaseAdminClient,
@@ -168,79 +170,9 @@ describe("completePhoneSignIn test mode bypass", () => {
     mockedSupabaseInsert.mockReset();
     mockedSupabaseUpdate.mockReset();
     mockedCheckSmsVerification.mockReset();
-    mockedGetSupabaseAdminClient.mockImplementation(() => ({
-      from: (table: string) => ({
-        select(columns?: string) {
-          return new (class {
-            constructor(
-              private readonly tableName: string,
-              private readonly currentColumns?: string,
-              private readonly filters: string[] = [],
-              private readonly limitValue?: number,
-            ) {}
-
-            eq(column: string, value: string | number | boolean) {
-              return new this.constructor(
-                this.tableName,
-                this.currentColumns,
-                [...this.filters, `${column}=eq.${value}`],
-                this.limitValue,
-              );
-            }
-
-            limit(value: number) {
-              return new this.constructor(
-                this.tableName,
-                this.currentColumns,
-                this.filters,
-                value,
-              );
-            }
-
-            then(
-              resolve: (value: { data: unknown; error: null }) => unknown,
-              reject?: (reason: unknown) => unknown,
-            ) {
-              const query = [
-                this.currentColumns ? `select=${this.currentColumns}` : null,
-                ...this.filters,
-                this.limitValue ? `limit=${this.limitValue}` : null,
-              ]
-                .filter(Boolean)
-                .join("&");
-              const path = query
-                ? `${this.tableName}?${query}`
-                : this.tableName;
-              return Promise.resolve(supabaseSelect(path)).then(
-                (data) => resolve({ data, error: null }),
-                reject,
-              );
-            }
-          })(table, columns);
-        },
-        insert(payload: unknown) {
-          return Promise.resolve(supabaseInsert(table, payload)).then(
-            (data) => ({
-              data,
-              error: null,
-            }),
-          );
-        },
-        update(payload: unknown) {
-          return {
-            eq(column: string, value: string | number | boolean) {
-              const path = `${table}?${column}=eq.${value}`;
-              return Promise.resolve(supabaseUpdate(path, payload)).then(
-                (data) => ({
-                  data,
-                  error: null,
-                }),
-              );
-            },
-          };
-        },
-      }),
-    }));
+    mockedGetSupabaseAdminClient.mockImplementation(
+      () => ({}) as SupabaseClient,
+    );
     mockedSupabaseUpdate.mockResolvedValue([]);
     mockedSupabaseInsert.mockResolvedValue([]);
   });
