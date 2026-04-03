@@ -61,4 +61,36 @@ describe("GET /api/mobile/home", () => {
       error: "mobile session token is required",
     });
   });
+
+  it("uses the actual last day of the requested month for calendar range queries", async () => {
+    const { supabaseSelect } = jest.requireMock("@/lib/supabase/admin-client") as {
+      supabaseSelect: jest.Mock;
+    };
+    const { toHomeViewData } = jest.requireMock("@/lib/mobile/serializers") as {
+      toHomeViewData: jest.Mock;
+    };
+    mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
+    supabaseSelect
+      .mockResolvedValueOnce([
+        {
+          display_name: "사용자",
+          pregnancy_day_count: 192,
+          pregnancy_week: 27,
+          pregnancy_day_in_week: 3,
+          due_date: "2026-07-01",
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    toHomeViewData.mockReturnValue({ ok: true });
+
+    const response = await GET({
+      nextUrl: new URL("http://localhost:3000/api/mobile/home?userId=user-1&month=2026-04"),
+    } as never);
+
+    expect(response.status).toBe(200);
+    expect(supabaseSelect).toHaveBeenNthCalledWith(
+      2,
+      "calendar_logs?select=date,summary,entry_type&user_id=eq.user-1&date=gte.2026-04-01&date=lte.2026-04-30",
+    );
+  });
 });

@@ -15,6 +15,13 @@ function getMonth(raw: string | null) {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function getLastDayOfMonth(month: string) {
+  const [yearText, monthText] = month.split("-");
+  const year = Number(yearText);
+  const monthIndex = Number(monthText) - 1;
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
@@ -22,6 +29,7 @@ export async function GET(request: NextRequest) {
     const month = getMonth(searchParams.get("month"));
     const { userId } = await requireMobileSession(request, hintedUserId);
 
+    const monthLastDay = getLastDayOfMonth(month);
     const [profiles, calendarRows] = await Promise.all([
       supabaseSelect<
         Array<{
@@ -35,7 +43,7 @@ export async function GET(request: NextRequest) {
         `pregnancy_profiles?select=display_name,pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date&user_id=eq.${userId}&limit=1`,
       ),
       supabaseSelect<Array<{ date: string; summary: string | null; entry_type: string | null }>>(
-        `calendar_logs?select=date,summary,entry_type&user_id=eq.${userId}&date=gte.${month}-01&date=lte.${month}-31`,
+        `calendar_logs?select=date,summary,entry_type&user_id=eq.${userId}&date=gte.${month}-01&date=lte.${month}-${String(monthLastDay).padStart(2, "0")}`,
       ),
     ]);
 

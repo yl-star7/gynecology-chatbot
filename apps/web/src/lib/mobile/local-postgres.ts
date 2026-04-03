@@ -767,13 +767,16 @@ async function ensureSeedData() {
           title,
           baby_size_label,
           baby_size_compare_object,
+          baby_summary,
+          mother_summary,
           status,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (week_number) DO UPDATE
         SET
+          title = EXCLUDED.title,
           baby_size_label = COALESCE(
           ${getQualifiedTable("content_pregnancy_week_data")}.baby_size_label,
             EXCLUDED.baby_size_label
@@ -781,7 +784,11 @@ async function ensureSeedData() {
           baby_size_compare_object = COALESCE(
           ${getQualifiedTable("content_pregnancy_week_data")}.baby_size_compare_object,
             EXCLUDED.baby_size_compare_object
-          )
+          ),
+          baby_summary = EXCLUDED.baby_summary,
+          mother_summary = EXCLUDED.mother_summary,
+          status = EXCLUDED.status,
+          updated_at = EXCLUDED.updated_at
       `,
       [
         `pregnancy-week-data-${weekNumber}`,
@@ -789,7 +796,144 @@ async function ensureSeedData() {
         `Week ${weekNumber}`,
         fruitComparison,
         fruitComparison,
-        "draft",
+        `${weekNumber}주 아기는 하루하루 힘을 키우며 바깥 세상을 만날 준비를 하고 있어요.`,
+        `엄마 몸은 배뭉침과 피로를 더 자주 느낄 수 있어 쉬는 시간을 더 의식적으로 챙기는 게 좋아요.`,
+        "published",
+        now.toISOString(),
+        now.toISOString(),
+      ],
+    );
+
+    await db.query(
+      `
+        INSERT INTO ${getQualifiedTable("content_pregnancy_day_contents")} (
+          id,
+          week_data_id,
+          day_number,
+          title,
+          baby_development_payload,
+          baby_message,
+          mother_changes_payload,
+          display_order,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7::jsonb, $8, $9, $10)
+        ON CONFLICT (week_data_id, day_number) DO UPDATE
+        SET
+          id = EXCLUDED.id,
+          title = EXCLUDED.title,
+          baby_development_payload = EXCLUDED.baby_development_payload,
+          baby_message = EXCLUDED.baby_message,
+          mother_changes_payload = EXCLUDED.mother_changes_payload,
+          display_order = EXCLUDED.display_order,
+          updated_at = EXCLUDED.updated_at
+      `,
+      [
+        `pregnancy-day-${weekNumber}-4`,
+        `pregnancy-week-data-${weekNumber}`,
+        4,
+        `${weekNumber}주 4일`,
+        JSON.stringify({
+          items: [
+            `${weekNumber}주 4일 아기는 감각을 더 또렷하게 느끼고, 잠과 깸의 리듬을 만들어가요.`,
+          ],
+        }),
+        "아기의 움직임이 규칙적으로 느껴지는지 편안한 자세에서 천천히 살펴보세요.",
+        JSON.stringify({
+          items: [
+            "엄마는 허리와 골반이 쉽게 뻐근할 수 있어 자세를 자주 바꿔주는 것이 도움이 돼요.",
+          ],
+        }),
+        1,
+        now.toISOString(),
+        now.toISOString(),
+      ],
+    );
+
+    await db.query(
+      `
+        INSERT INTO ${getQualifiedTable("content_week_checklists")} (
+          id,
+          week_data_id,
+          day_number,
+          code,
+          title,
+          description,
+          checklist_payload,
+          display_order,
+          is_required,
+          is_active,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12)
+        ON CONFLICT (week_data_id, day_number, code) DO UPDATE
+        SET
+          id = EXCLUDED.id,
+          title = EXCLUDED.title,
+          description = EXCLUDED.description,
+          checklist_payload = EXCLUDED.checklist_payload,
+          display_order = EXCLUDED.display_order,
+          is_required = EXCLUDED.is_required,
+          is_active = EXCLUDED.is_active,
+          updated_at = EXCLUDED.updated_at
+      `,
+      [
+        `week-checklist-${weekNumber}-4-hydration-rest`,
+        `pregnancy-week-data-${weekNumber}`,
+        4,
+        "hydration-rest",
+        "물 자주 마시고 쉬는 시간 챙기기",
+        "물을 조금씩 자주 마시고, 자세를 바꿔가며 몸의 긴장을 풀어보세요.",
+        JSON.stringify({ category: "daily-care" }),
+        1,
+        false,
+        true,
+        now.toISOString(),
+        now.toISOString(),
+      ],
+    );
+
+    await db.query(
+      `
+        INSERT INTO ${getQualifiedTable("content_week_checklists")} (
+          id,
+          week_data_id,
+          day_number,
+          code,
+          title,
+          description,
+          checklist_payload,
+          display_order,
+          is_required,
+          is_active,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12)
+        ON CONFLICT (week_data_id, day_number, code) DO UPDATE
+        SET
+          id = EXCLUDED.id,
+          title = EXCLUDED.title,
+          description = EXCLUDED.description,
+          checklist_payload = EXCLUDED.checklist_payload,
+          display_order = EXCLUDED.display_order,
+          is_required = EXCLUDED.is_required,
+          is_active = EXCLUDED.is_active,
+          updated_at = EXCLUDED.updated_at
+      `,
+      [
+        `week-checklist-${weekNumber}-general-symptom-log`,
+        `pregnancy-week-data-${weekNumber}`,
+        null,
+        "symptom-log",
+        "배뭉침과 통증 느낌 기록하기",
+        "배가 단단해지는 시점과 함께 쉬면 좋아졌는지 간단히 적어두세요.",
+        JSON.stringify({ category: "log" }),
+        2,
+        false,
+        true,
         now.toISOString(),
         now.toISOString(),
       ],
@@ -882,8 +1026,11 @@ function normalizeValue(value: unknown) {
   return value;
 }
 
-function normalizeFilterValue(operator: "eq" | "gte" | "lt", rawValue: string) {
-  if (operator === "lt" && /^\d{4}-\d{2}-32$/.test(rawValue)) {
+function normalizeFilterValue(
+  operator: "eq" | "gte" | "lte" | "lt",
+  rawValue: string,
+) {
+  if ((operator === "lt" || operator === "lte") && /^\d{4}-\d{2}-32$/.test(rawValue)) {
     const [yearText, monthText] = rawValue.split("-").slice(0, 2);
     const year = Number(yearText);
     const monthIndex = Number(monthText) - 1;
@@ -910,9 +1057,20 @@ function buildWhereClause(searchParams: URLSearchParams, parameterOffset = 0) {
       return;
     }
 
+    if (rawValue === "is.null") {
+      clauses.push(`${field} IS NULL`);
+      return;
+    }
+
     if (rawValue.startsWith("gte.")) {
       values.push(normalizeFilterValue("gte", rawValue.slice(4)));
       clauses.push(`${field} >= $${parameterOffset + values.length}`);
+      return;
+    }
+
+    if (rawValue.startsWith("lte.")) {
+      values.push(normalizeFilterValue("lte", rawValue.slice(4)));
+      clauses.push(`${field} <= $${parameterOffset + values.length}`);
       return;
     }
 

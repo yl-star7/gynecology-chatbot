@@ -143,4 +143,143 @@ describe("ensureLocalPostgresReady", () => {
     expect(week5Params).toEqual(expect.arrayContaining(["참깨알", "참깨알"]));
     expect(week25Params).toEqual(expect.arrayContaining(["단호박", "단호박"]));
   });
+
+  test("seeds published content_pregnancy_week_data rows for mobile APIs", async () => {
+    const queryMock = jest.fn().mockResolvedValue({ rows: [] });
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn().mockImplementation(() => ({
+        query: queryMock,
+      })),
+      types: {
+        setTypeParser: jest.fn(),
+      },
+    }));
+
+    const { ensureLocalPostgresReady } = await import("./local-postgres");
+
+    await ensureLocalPostgresReady();
+
+    const pregnancyWeekDataCalls = queryMock.mock.calls.filter(([sql]) =>
+      String(sql).includes(
+        'INSERT INTO "gynecology_local"."content_pregnancy_week_data"',
+      ),
+    );
+    const week1Params = pregnancyWeekDataCalls.find(
+      ([, params]) => Array.isArray(params) && params[1] === 1,
+    )?.[1];
+
+    expect(week1Params).toBeDefined();
+    expect(week1Params?.[7]).toBe("published");
+  });
+
+  test("updates existing content_pregnancy_week_data rows to published during reseed", async () => {
+    const queryMock = jest.fn().mockResolvedValue({ rows: [] });
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn().mockImplementation(() => ({
+        query: queryMock,
+      })),
+      types: {
+        setTypeParser: jest.fn(),
+      },
+    }));
+
+    const { ensureLocalPostgresReady } = await import("./local-postgres");
+
+    await ensureLocalPostgresReady();
+
+    const weekUpsertSql = queryMock.mock.calls.find(([sql]) =>
+      String(sql).includes('INSERT INTO "gynecology_local"."content_pregnancy_week_data"'),
+    )?.[0];
+
+    expect(String(weekUpsertSql)).toContain("status = EXCLUDED.status");
+  });
+
+  test("seeds today tab content rows for the default local pregnancy week", async () => {
+    const queryMock = jest.fn().mockResolvedValue({ rows: [] });
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn().mockImplementation(() => ({
+        query: queryMock,
+      })),
+      types: {
+        setTypeParser: jest.fn(),
+      },
+    }));
+
+    const { ensureLocalPostgresReady } = await import("./local-postgres");
+
+    await ensureLocalPostgresReady();
+
+    const weekDataParams = queryMock.mock.calls.find(
+      ([sql, params]) =>
+        String(sql).includes('INSERT INTO "gynecology_local"."content_pregnancy_week_data"') &&
+        Array.isArray(params) &&
+        params[1] === 29,
+    )?.[1];
+    const dayContentParams = queryMock.mock.calls.find(
+      ([sql, params]) =>
+        String(sql).includes('INSERT INTO "gynecology_local"."content_pregnancy_day_contents"') &&
+        Array.isArray(params) &&
+        params[1] === "pregnancy-week-data-29" &&
+        params[2] === 4,
+    )?.[1];
+    const checklistParams = queryMock.mock.calls.find(
+      ([sql, params]) =>
+        String(sql).includes('INSERT INTO "gynecology_local"."content_week_checklists"') &&
+        Array.isArray(params) &&
+        params[1] === "pregnancy-week-data-29",
+    )?.[1];
+
+    expect(weekDataParams?.[5]).toBe("29주 아기는 하루하루 힘을 키우며 바깥 세상을 만날 준비를 하고 있어요.");
+    expect(weekDataParams?.[6]).toBe("엄마 몸은 배뭉침과 피로를 더 자주 느낄 수 있어 쉬는 시간을 더 의식적으로 챙기는 게 좋아요.");
+    expect(dayContentParams?.[4]).toBe(
+      JSON.stringify({
+        items: ["29주 4일 아기는 감각을 더 또렷하게 느끼고, 잠과 깸의 리듬을 만들어가요."],
+      }),
+    );
+    expect(dayContentParams?.[5]).toBe("아기의 움직임이 규칙적으로 느껴지는지 편안한 자세에서 천천히 살펴보세요.");
+    expect(dayContentParams?.[6]).toBe(
+      JSON.stringify({
+        items: ["엄마는 허리와 골반이 쉽게 뻐근할 수 있어 자세를 자주 바꿔주는 것이 도움이 돼요."],
+      }),
+    );
+    expect(checklistParams).toEqual(
+      expect.arrayContaining([
+        "pregnancy-week-data-29",
+        "hydration-rest",
+        "물 자주 마시고 쉬는 시간 챙기기",
+      ]),
+    );
+  });
+
+  test("uses idempotent upsert SQL for reseeding today tab day contents and checklists", async () => {
+    const queryMock = jest.fn().mockResolvedValue({ rows: [] });
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn().mockImplementation(() => ({
+        query: queryMock,
+      })),
+      types: {
+        setTypeParser: jest.fn(),
+      },
+    }));
+
+    const { ensureLocalPostgresReady } = await import("./local-postgres");
+
+    await ensureLocalPostgresReady();
+
+    const dayContentUpsertSql = queryMock.mock.calls.find(([sql]) =>
+      String(sql).includes('INSERT INTO "gynecology_local"."content_pregnancy_day_contents"'),
+    )?.[0];
+    const checklistUpsertSql = queryMock.mock.calls.find(([sql]) =>
+      String(sql).includes('INSERT INTO "gynecology_local"."content_week_checklists"'),
+    )?.[0];
+
+    expect(String(dayContentUpsertSql)).toContain("ON CONFLICT (week_data_id, day_number) DO UPDATE");
+    expect(String(dayContentUpsertSql)).toContain("id = EXCLUDED.id");
+    expect(String(checklistUpsertSql)).toContain("ON CONFLICT (week_data_id, day_number, code) DO UPDATE");
+    expect(String(checklistUpsertSql)).toContain("id = EXCLUDED.id");
+  });
 });
