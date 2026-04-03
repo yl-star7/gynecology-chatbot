@@ -9,7 +9,12 @@ import {
   createPhoneNumberStorage,
   decryptPhoneNumber,
 } from "@/lib/privacy/phone-crypto";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
+import {
+  getSupabaseAdminClient,
+  supabaseInsert,
+  supabaseSelect,
+  supabaseUpdate,
+} from "@/lib/supabase/admin-client";
 import {
   checkSmsVerification,
   normalizePhoneNumberToE164,
@@ -265,17 +270,9 @@ function ensureUserCanSignIn(
 }
 
 async function findPregnancyProfile(userId: string) {
-  const client = getSupabaseAdminClient();
-  const { data: profiles, error } = await client
-    .from("pregnancy_profiles")
-    .select(
-      "id,user_id,display_name,onboarding_payload,baby_nickname,notification_time,theme_key",
-    )
-    .eq("user_id", userId)
-    .limit(1);
-  if (error) {
-    throw error;
-  }
+  const profiles = await supabaseSelect<PregnancyProfileRow>(
+    `pregnancy_profiles?select=id,user_id,display_name,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${userId}&limit=1`,
+  );
 
   return profiles[0] ?? null;
 }
@@ -290,21 +287,15 @@ function toDecryptedPhoneRow<T extends { phone_number_encrypted: string }>(
 }
 
 export async function findBlockedPhoneNumber(phoneNumber: string) {
-  const client = getSupabaseAdminClient();
   const candidates = createPhoneCandidates(phoneNumber);
 
   for (const candidate of candidates) {
     const blindIndex = computePhoneNumberBlindIndex(candidate);
-    const { data: rows, error } = await client
-      .from("blocked_phone_numbers")
-      .select(
-        "id,phone_number_encrypted,phone_number_last4,phone_number_blind_index,display_name,note",
-      )
-      .eq("phone_number_blind_index", blindIndex)
-      .limit(1);
-    if (error) {
-      throw error;
-    }
+    const rows = await supabaseSelect<
+      BlockedPhoneNumberRow & { phone_number_encrypted: string }
+    >(
+      `blocked_phone_numbers?select=id,phone_number_encrypted,phone_number_last4,phone_number_blind_index,display_name,note&phone_number_blind_index=eq.${blindIndex}&limit=1`,
+    );
 
     if (rows[0]) {
       return toDecryptedPhoneRow(rows[0]);
@@ -350,21 +341,13 @@ export function hasCompletedProfileOnboarding(
 }
 
 export async function findUserByPhoneNumber(phoneNumber: string) {
-  const client = getSupabaseAdminClient();
   const candidates = createPhoneCandidates(phoneNumber);
 
   for (const candidate of candidates) {
     const blindIndex = computePhoneNumberBlindIndex(candidate);
-    const { data: users, error } = await client
-      .from("users")
-      .select(
-        "id,phone_number_encrypted,phone_number_last4,account_status,phone_verified_at,last_login_at",
-      )
-      .eq("phone_number_blind_index", blindIndex)
-      .limit(1);
-    if (error) {
-      throw error;
-    }
+    const users = await supabaseSelect<UserRow & { phone_number_encrypted: string }>(
+      `users?select=id,phone_number_encrypted,phone_number_last4,account_status,phone_verified_at,last_login_at&phone_number_blind_index=eq.${blindIndex}&limit=1`,
+    );
 
     if (users[0]) {
       return toDecryptedPhoneRow(users[0]);
@@ -375,21 +358,10 @@ export async function findUserByPhoneNumber(phoneNumber: string) {
 }
 
 export async function getAuthenticatedUser(userId: string) {
-  const client = getSupabaseAdminClient();
   const [users, profile] = await Promise.all([
-    (async () => {
-      const { data, error } = await client
-        .from("users")
-        .select(
-          "id,phone_number_encrypted,phone_number_last4,account_status,phone_verified_at,last_login_at",
-        )
-        .eq("id", userId)
-        .limit(1);
-      if (error) {
-        throw error;
-      }
-      return data as UserRow[];
-    })(),
+    supabaseSelect<UserRow & { phone_number_encrypted: string }>(
+      `users?select=id,phone_number_encrypted,phone_number_last4,account_status,phone_verified_at,last_login_at&id=eq.${userId}&limit=1`,
+    ),
     findPregnancyProfile(userId),
   ]);
 
@@ -401,28 +373,20 @@ export async function getAuthenticatedUser(userId: string) {
 }
 
 async function createOrUpdateSession(userId: string) {
-  const client = getSupabaseAdminClient();
   const sessionToken = buildSessionToken();
   const currentTimestamp = nowIso();
 
-  const { error: revokeError } = await client
-    .from("auth_sessions")
-    .update({ revoked_at: currentTimestamp })
-    .eq("user_id", userId);
-  if (revokeError) {
-    throw revokeError;
-  }
+  await supabaseUpdate(`auth_sessions?user_id=eq.${userId}`, {
+    revoked_at: currentTimestamp,
+  });
 
-  const { error: insertError } = await client.from("auth_sessions").insert({
+  await supabaseInsert("auth_sessions", {
     user_id: userId,
     refresh_token_hash: hashSessionToken(sessionToken),
     expires_at: oneYearFromNowIso(),
     last_used_at: currentTimestamp,
     created_at: currentTimestamp,
   });
-  if (insertError) {
-    throw insertError;
-  }
 
   return sessionToken;
 }
@@ -434,9 +398,8 @@ async function recordPhoneVerificationRequest(input: {
   channel?: string;
   verifiedAt?: string | null;
 }) {
-  const client = getSupabaseAdminClient();
   const storage = createPhoneNumberStorage(input.phoneNumber);
-  const { error } = await client.from("phone_verification_requests").insert({
+  await supabaseInsert("phone_verification_requests", {
     phone_number_encrypted: storage.phoneNumberEncrypted,
     phone_number_blind_index: storage.phoneNumberBlindIndex,
     phone_number_last4: storage.phoneNumberLast4,
@@ -446,9 +409,6 @@ async function recordPhoneVerificationRequest(input: {
     verified_at: input.verifiedAt ?? null,
     expires_at: tenMinutesFromNowIso(),
   });
-  if (error) {
-    throw error;
-  }
 }
 
 async function upsertPhoneUser(
@@ -462,22 +422,15 @@ async function upsertPhoneUser(
     ensureUserCanSignIn(existingUser.account_status, "sign_in");
     const storage = createPhoneNumberStorage(phoneNumber);
 
-    const client = getSupabaseAdminClient();
-    const { error } = await client
-      .from("users")
-      .update({
-        account_status: "active",
-        phone_number_encrypted: storage.phoneNumberEncrypted,
-        phone_number_blind_index: storage.phoneNumberBlindIndex,
-        phone_number_last4: storage.phoneNumberLast4,
-        phone_verified_at: nextTimestamp,
-        last_login_at: nextTimestamp,
-        updated_at: nextTimestamp,
-      })
-      .eq("id", existingUser.id);
-    if (error) {
-      throw error;
-    }
+    await supabaseUpdate(`users?id=eq.${existingUser.id}`, {
+      account_status: "active",
+      phone_number_encrypted: storage.phoneNumberEncrypted,
+      phone_number_blind_index: storage.phoneNumberBlindIndex,
+      phone_number_last4: storage.phoneNumberLast4,
+      phone_verified_at: nextTimestamp,
+      last_login_at: nextTimestamp,
+      updated_at: nextTimestamp,
+    });
 
     return existingUser.id;
   }
@@ -497,20 +450,12 @@ async function upsertPhoneUser(
   };
 
   try {
-    const client = getSupabaseAdminClient();
-    const { error } = await client.from("users").insert(payload);
-    if (error) {
-      throw error;
-    }
+    await supabaseInsert("users", payload);
   } catch {
-    const client = getSupabaseAdminClient();
-    const { error } = await client.from("users").insert({
+    await supabaseInsert("users", {
       ...payload,
       display_name: legacyDisplayName?.trim() || "사용자",
     });
-    if (error) {
-      throw error;
-    }
   }
 
   return userId;

@@ -2,6 +2,9 @@ jest.mock("@/lib/supabase/admin-client", () => {
   const supabaseInsert = jest.fn();
   const supabaseSelect = jest.fn();
   const supabaseUpdate = jest.fn();
+  const getSupabaseAdminClient = jest.fn(() => ({
+    from: (table: string) => new QueryBuilder(table, "select"),
+  }));
 
   class QueryBuilder {
     constructor(
@@ -92,9 +95,7 @@ jest.mock("@/lib/supabase/admin-client", () => {
   }
 
   return {
-    getSupabaseAdminClient: () => ({
-      from: (table: string) => new QueryBuilder(table, "select"),
-    }),
+    getSupabaseAdminClient,
     supabaseInsert,
     supabaseSelect,
     supabaseUpdate,
@@ -125,12 +126,14 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
 
 import { completePhoneSignIn } from "@/lib/mobile/auth";
 import {
+  getSupabaseAdminClient,
   supabaseSelect,
   supabaseInsert,
   supabaseUpdate,
 } from "@/lib/supabase/admin-client";
 import { checkSmsVerification } from "@/lib/mobile/twilio-verify";
 
+const mockedGetSupabaseAdminClient = jest.mocked(getSupabaseAdminClient);
 const mockedSupabaseSelect = jest.mocked(supabaseSelect);
 const mockedSupabaseInsert = jest.mocked(supabaseInsert);
 const mockedSupabaseUpdate = jest.mocked(supabaseUpdate);
@@ -159,10 +162,85 @@ describe("completePhoneSignIn test mode bypass", () => {
   beforeEach(() => {
     process.env.MOBILE_AUTH_TEST_MODE = "true";
     process.env.LOCAL_DEV_USER_PHONE_NUMBER = "01012345678";
+    process.env.SERVER_DATA_PROVIDER = "docker";
+    mockedGetSupabaseAdminClient.mockReset();
     mockedSupabaseSelect.mockReset();
     mockedSupabaseInsert.mockReset();
     mockedSupabaseUpdate.mockReset();
     mockedCheckSmsVerification.mockReset();
+    mockedGetSupabaseAdminClient.mockImplementation(() => ({
+      from: (table: string) => ({
+        select(columns?: string) {
+          return new (class {
+            constructor(
+              private readonly tableName: string,
+              private readonly currentColumns?: string,
+              private readonly filters: string[] = [],
+              private readonly limitValue?: number,
+            ) {}
+
+            eq(column: string, value: string | number | boolean) {
+              return new this.constructor(
+                this.tableName,
+                this.currentColumns,
+                [...this.filters, `${column}=eq.${value}`],
+                this.limitValue,
+              );
+            }
+
+            limit(value: number) {
+              return new this.constructor(
+                this.tableName,
+                this.currentColumns,
+                this.filters,
+                value,
+              );
+            }
+
+            then(
+              resolve: (value: { data: unknown; error: null }) => unknown,
+              reject?: (reason: unknown) => unknown,
+            ) {
+              const query = [
+                this.currentColumns ? `select=${this.currentColumns}` : null,
+                ...this.filters,
+                this.limitValue ? `limit=${this.limitValue}` : null,
+              ]
+                .filter(Boolean)
+                .join("&");
+              const path = query
+                ? `${this.tableName}?${query}`
+                : this.tableName;
+              return Promise.resolve(supabaseSelect(path)).then(
+                (data) => resolve({ data, error: null }),
+                reject,
+              );
+            }
+          })(table, columns);
+        },
+        insert(payload: unknown) {
+          return Promise.resolve(supabaseInsert(table, payload)).then(
+            (data) => ({
+              data,
+              error: null,
+            }),
+          );
+        },
+        update(payload: unknown) {
+          return {
+            eq(column: string, value: string | number | boolean) {
+              const path = `${table}?${column}=eq.${value}`;
+              return Promise.resolve(supabaseUpdate(path, payload)).then(
+                (data) => ({
+                  data,
+                  error: null,
+                }),
+              );
+            },
+          };
+        },
+      }),
+    }));
     mockedSupabaseUpdate.mockResolvedValue([]);
     mockedSupabaseInsert.mockResolvedValue([]);
   });
@@ -199,6 +277,22 @@ describe("completePhoneSignIn test mode bypass", () => {
 
     expect(result.user.hasCompletedOnboarding).toBe(false);
     expect(mockedCheckSmsVerification).not.toHaveBeenCalled();
+  });
+
+  test("uses wrapper-backed queries in docker mode instead of bypassing to direct admin client", async () => {
+    mockedGetSupabaseAdminClient.mockImplementation(() => {
+      throw new Error("direct admin client should not be used in docker mode");
+    });
+    queueSelectRows([], [existingUser], [existingUser], []);
+
+    await expect(
+      completePhoneSignIn("01012345678", "000000"),
+    ).resolves.toMatchObject({
+      user: expect.objectContaining({
+        id: "user-1",
+        hasCompletedOnboarding: false,
+      }),
+    });
   });
 
   test("returns hasCompletedOnboarding true for bypass login when pregnancy profile exists", async () => {

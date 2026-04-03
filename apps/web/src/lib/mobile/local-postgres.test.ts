@@ -88,6 +88,30 @@ describe("ensureLocalPostgresReady", () => {
     );
   });
 
+  test("does not seed completed onboarding payload for default local user", async () => {
+    const queryMock = jest.fn().mockResolvedValue({ rows: [] });
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn().mockImplementation(() => ({
+        query: queryMock,
+      })),
+      types: {
+        setTypeParser: jest.fn(),
+      },
+    }));
+
+    const { ensureLocalPostgresReady } = await import("./local-postgres");
+
+    await ensureLocalPostgresReady();
+
+    const pregnancyProfileParams = queryMock.mock.calls.find(([sql]) =>
+      String(sql).includes('INSERT INTO "gynecology_local"."pregnancy_profiles"'),
+    )?.[1];
+
+    expect(pregnancyProfileParams).toBeDefined();
+    expect(JSON.parse(String(pregnancyProfileParams?.[7]))).toEqual({});
+  });
+
   test("seeds fruit-based baby size comparisons for pregnancy week data", async () => {
     const queryMock = jest.fn().mockResolvedValue({ rows: [] });
 
