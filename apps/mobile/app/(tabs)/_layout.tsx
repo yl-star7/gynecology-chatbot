@@ -3,8 +3,16 @@ import { Tabs, useRouter } from "expo-router";
 import { useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useMobileAppSession } from "../../src/core/MobileAppSessionProvider";
-import { palette, patientSurfacePalette as surface, space } from "../../src/theme";
 import { PATIENT_TABS } from "../../src/components/patient/PatientTabBar.model";
+import { palette, patientSurfacePalette as surface } from "../../src/theme";
+import { buildTabsScreenOptions } from "../routeOptions.model";
+
+const TABS_SCREEN_OPTIONS = buildTabsScreenOptions({
+  accent: palette.accent,
+  subInk: surface.textSecondary,
+  card: surface.surfacePrimary,
+  line: surface.strokeSubtle,
+});
 
 export default function TabsLayout() {
   const { currentUser } = useMobileAppSession();
@@ -21,24 +29,7 @@ export default function TabsLayout() {
   if (!currentUser) return null;
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: palette.accent,
-        tabBarInactiveTintColor: surface.textSecondary,
-        tabBarStyle: {
-          backgroundColor: surface.surfacePrimary,
-          borderTopColor: surface.strokeSubtle,
-          height: space.xxxl * 2 + space.md,
-          paddingTop: space.xs,
-          paddingBottom: space.lg,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "600",
-        },
-      }}
-    >
+    <Tabs screenOptions={TABS_SCREEN_OPTIONS}>
       {PATIENT_TABS.map((tab) => (
         <Tabs.Screen
           key={tab.key}

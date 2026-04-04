@@ -26,7 +26,7 @@ export function resolveNativePalette(themeKey?: string | null) {
 }
 
 // Re-export design tokens (no circular dependency - tokens.ts has no imports from theme)
-export { space, radii, typo } from "./tokens";
+export { space, radii, typo } from "./tokens.ts";
 
 // ─── Shadow presets (depend on palette, so defined here) ─
 export const shadows = {

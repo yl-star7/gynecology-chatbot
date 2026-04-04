@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { Stack } from "expo-router";
+import { HIDDEN_HEADER_SCREEN_OPTIONS } from "./routeOptions.model";
 import { useEffect } from "react";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -43,7 +44,17 @@ export default function RootLayout() {
         <MobileAppSessionProvider>
           <ChatSessionsProvider>
             <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false }} />
+            <Stack>
+              <Stack.Screen name="index" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
+              <Stack.Screen name="auth/login" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
+              <Stack.Screen name="onboarding/index" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
+              <Stack.Screen name="(tabs)" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
+              <Stack.Screen name="chat/[sessionId]" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
+              <Stack.Screen name="chat/link/[target]" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
+              <Stack.Screen name="records/[isoDate]" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
+              <Stack.Screen name="profile-settings" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
+              <Stack.Screen name="profile-survey" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
+            </Stack>
           </ChatSessionsProvider>
         </MobileAppSessionProvider>
       </MobileServicesProvider>
