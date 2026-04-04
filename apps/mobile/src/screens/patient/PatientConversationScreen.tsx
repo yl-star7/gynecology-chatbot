@@ -14,6 +14,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
 import { Card, Pressable, EmotionCheckin } from "../../components/ui";
@@ -50,6 +51,7 @@ function createUserMessage(text: string, imageDataUri?: string | null): ChatMess
 }
 
 export function PatientConversationScreen({ sessionId }: { sessionId: string }) {
+  const insets = useSafeAreaInsets();
   const services = useMobileServices();
   const { getSession, replaceSession, appendMessage } = useChatSessions();
   const resolvedSessionId = useMemo(
@@ -146,8 +148,18 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
 
   return (
     <PatientShell activeTab="today" title="아기와 대화" backHref="/today" pageTone="plain">
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={space.xxxl + space.xl}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + space.xxxl * 3 + space.xl },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
           <Card>
             <Text style={styles.title}>아기와 대화</Text>
             <Text style={styles.description}>아기에게 하고 싶은 이야기를 나눠보세요.</Text>
@@ -261,7 +273,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: space.lg,
     paddingTop: space.md,
-    paddingBottom: 140,
     gap: space.md,
     flexGrow: 1,
   },
@@ -335,17 +346,19 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: space.xxxl * 2 + space.xxl,
+    minHeight: space.xxxl + space.lg,
+    maxHeight: space.xxxl * 4,
     borderRadius: radii.xl,
     backgroundColor: surface.fieldSurface,
-    padding: space.lg,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm + space.xs,
     ...typo.body,
     color: surface.textPrimary,
     textAlignVertical: "top",
   },
   sendButton: {
-    width: space.xxxl + space.xl,
-    height: space.xxxl + space.xl,
+    width: space.xxxl + space.md,
+    height: space.xxxl + space.md,
     borderRadius: radii.lg,
     backgroundColor: palette.accent,
     alignItems: "center",

@@ -107,6 +107,7 @@ const styles = StyleSheet.create({
     backgroundColor: surface.surfacePrimary,
     borderTopLeftRadius: radii.xxl,
     borderTopRightRadius: radii.xxl,
+    zIndex: 20,
     ...Platform.select({
       ios: {
         shadowColor: palette.ink,

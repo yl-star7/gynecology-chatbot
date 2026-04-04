@@ -13,6 +13,7 @@ test("header layout removes right placeholder when no profile button or action i
     leftSlot: "spacer",
     rightSlot: "none",
     compactTrailingSpace: true,
+    usesCompactTopInset: false,
   });
 });
 
@@ -27,5 +28,21 @@ test("header layout keeps right action when an explicit action exists", () => {
     leftSlot: "spacer",
     rightSlot: "action",
     compactTrailingSpace: false,
+    usesCompactTopInset: false,
+  });
+});
+
+test("header layout uses relaxed top inset when back button is shown", () => {
+  const layout = resolvePatientShellHeaderLayout({
+    hasBackButton: true,
+    showProfileButton: false,
+    hasRightAction: false,
+  });
+
+  assert.deepEqual(layout, {
+    leftSlot: "back",
+    rightSlot: "none",
+    compactTrailingSpace: true,
+    usesCompactTopInset: true,
   });
 });

@@ -59,6 +59,7 @@ export function PatientShell({
           styles.header,
           useMainTone ? styles.headerMain : styles.headerPlain,
           headerCompact ? styles.headerCompact : null,
+          headerLayout.usesCompactTopInset ? styles.headerWithBackButton : null,
           headerLayout.compactTrailingSpace ? styles.headerWithoutRightSlot : null,
         ]}
       >
@@ -134,6 +135,9 @@ const styles = StyleSheet.create({
   headerCompact: {
     paddingTop: space.sm,
     paddingBottom: space.xs,
+  },
+  headerWithBackButton: {
+    paddingTop: space.md,
   },
   headerSpacer: {
     flex: 1,

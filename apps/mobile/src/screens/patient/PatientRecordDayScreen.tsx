@@ -109,8 +109,10 @@ export function PatientRecordDayScreen({
         if (!cancelled) {
           setError(
             nextError instanceof Error
-              ? nextError.message
-              : "기록을 불러오지 못했어요.",
+              ? nextError.message === "failed to load day records"
+                ? "이 날짜 기록을 불러오지 못했어요. 잠시 후 다시 확인해 주세요."
+                : nextError.message
+              : "이 날짜 기록을 불러오지 못했어요. 잠시 후 다시 확인해 주세요.",
           );
         }
       });

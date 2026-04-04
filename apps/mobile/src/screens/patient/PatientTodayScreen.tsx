@@ -20,6 +20,7 @@ import { useRouter } from "expo-router";
 import { useChatSessions } from "../../chat/store";
 import { ChatPartRenderer } from "../../components/chat";
 import { Card, Pressable } from "../../components/ui";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { PatientTodayTabs } from "../../components/patient/PatientTodayTabs";
 import { useMobileServices } from "../../core/MobileServicesProvider";
@@ -53,6 +54,7 @@ function createUserMessage(text: string): ChatMessage {
 }
 
 export function PatientTodayScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const services = useMobileServices();
   const { getSession, replaceSession, appendMessage } = useChatSessions();
@@ -238,9 +240,13 @@ export function PatientTodayScreen() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={space.xxxl + space.xl}
       >
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + space.xxxl * 3 + space.xl },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <PatientTodayTabs
@@ -483,7 +489,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: space.lg,
     paddingTop: space.xs,
-    paddingBottom: 140,
     gap: space.md,
   },
   segmentCard: {
@@ -650,23 +655,23 @@ const styles = StyleSheet.create({
   },
   composerRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     gap: space.sm,
     marginTop: "auto",
   },
   input: {
     flex: 1,
-    minHeight: space.xxxl + space.xxl,
+    minHeight: space.xxxl + space.lg,
     borderRadius: radii.xl,
     backgroundColor: surface.fieldSurface,
     paddingHorizontal: space.lg,
-    paddingVertical: space.md,
+    paddingVertical: space.sm + space.xs,
     ...typo.body,
     color: surface.textPrimary,
   },
   sendButton: {
-    width: space.xxxl + space.xl,
-    height: space.xxxl + space.xl,
+    width: space.xxxl + space.md,
+    height: space.xxxl + space.md,
     borderRadius: radii.lg,
     backgroundColor: palette.accent,
     alignItems: "center",

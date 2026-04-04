@@ -322,7 +322,9 @@ export function PatientProfileScreen() {
     [calendarModel],
   );
   const babyName = profile?.babyNickname?.trim() || "아기";
-  const babyImageSource = getWeekBabyImageSource(profile?.pregnancyWeekLabel);
+  const babyImageSource = getWeekBabyImageSource(
+    home?.pregnancyWeekLabel ?? profile?.pregnancyWeekLabel,
+  );
   const selectedDay = useMemo(
     () =>
       (home?.calendarDays ?? []).find(

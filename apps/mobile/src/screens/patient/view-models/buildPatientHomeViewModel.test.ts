@@ -48,3 +48,39 @@ test("home view model clamps due-date based label to minimum 1주 for pregnancy 
   assert.equal(viewModel.pregnancyDayCount, 1);
   assert.equal(viewModel.pregnancyWeekLabel, "1주 1일");
 });
+
+test("home view model keeps image week label even when post due copy is shown", () => {
+  const now = new Date("2026-04-04T09:00:00+09:00");
+  const dueDate = new Date("2026-04-03T00:00:00+09:00").toISOString();
+
+  const viewModel = buildPatientHomeViewModel({
+    home: {
+      userId: "u3",
+      displayName: "테스터3",
+      pregnancyWeekLabel: "40주 1일",
+      pregnancyDayCount: 281,
+      currentMonthLabel: "2026년 4월",
+      calendarDays: [],
+      babyNickname: null,
+      babyMessage: null,
+      supportMessage: null,
+      postDue: true,
+    },
+    profile: {
+      userId: "u3",
+      displayName: "테스터3",
+      phoneNumber: "01011112222",
+      pregnancyWeekLabel: "40주 1일",
+      pregnancyDayCount: 281,
+      dueDate,
+      accountStatus: "active",
+      hasCompletedOnboarding: true,
+      tonePreference: "다정하게",
+    },
+    now,
+  });
+
+  assert.equal(viewModel.pregnancyWeekLabel, "출산 예정일이 지났어요");
+  assert.equal(viewModel.imageWeekLabel, "40주 1일");
+  assert.equal(viewModel.pregnancyDayText, "임신 294일째");
+});

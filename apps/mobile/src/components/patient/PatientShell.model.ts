@@ -11,5 +11,6 @@ export function resolvePatientShellHeaderLayout(input: {
         ? "action"
         : "none",
     compactTrailingSpace: !input.showProfileButton && !input.hasRightAction,
+    usesCompactTopInset: input.hasBackButton,
   } as const;
 }

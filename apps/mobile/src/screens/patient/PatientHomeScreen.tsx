@@ -48,7 +48,7 @@ export function PatientHomeScreen() {
   }, [fetchData]);
 
   const viewModel = buildPatientHomeViewModel({ home, profile });
-  const babyImageSource = getWeekBabyImageSource(viewModel.pregnancyWeekLabel);
+  const babyImageSource = getWeekBabyImageSource(viewModel.imageWeekLabel);
 
   return (
     <PatientShell
@@ -99,19 +99,19 @@ export function PatientHomeScreen() {
         </View>
 
         <Card style={styles.metricCard}>
-          <Text style={styles.metricWeek}>{viewModel.pregnancyWeekLabel}</Text>
-          <View style={styles.metricRow}>
+          <View style={styles.metricHeaderRow}>
+            <Text style={styles.metricWeek}>{viewModel.pregnancyWeekLabel}</Text>
+            <View style={styles.metricHeaderSpacer} />
+            <Text style={styles.metricDayText}>{viewModel.pregnancyDayText}</Text>
+          </View>
+          <View style={styles.metricMeetingRow}>
             <Text style={styles.metricCaption}>{viewModel.meetingLabel}</Text>
             <Text style={styles.metricValue}>{viewModel.meetingValue}</Text>
           </View>
-          <Text
-            style={styles.metricSubLabel}
-          >{`임신 ${viewModel.pregnancyDayCount}일째예요.`}</Text>
-        </Card>
-
-        <Card style={styles.noteCard}>
-          <Text style={styles.noteTitle}>{viewModel.noteTitle}</Text>
-          <Text style={styles.noteBody}>{viewModel.noteBody}</Text>
+          <View style={styles.noteSection}>
+            <Text style={styles.noteTitle}>{viewModel.noteTitle}</Text>
+            <Text style={styles.noteBody}>{viewModel.noteBody}</Text>
+          </View>
         </Card>
       </ScrollView>
     </PatientShell>
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     color: surface.textPrimary,
   },
   metricCard: {
-    gap: space.sm,
+    gap: space.md,
   },
   heroImageWrap: {
     alignItems: "center",
@@ -166,7 +166,15 @@ const styles = StyleSheet.create({
     ...typo.label,
     color: palette.accent,
   },
-  metricRow: {
+  metricHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+  },
+  metricHeaderSpacer: {
+    flex: 1,
+  },
+  metricMeetingRow: {
     flexDirection: "row",
     alignItems: "flex-end",
     gap: space.sm,
@@ -179,12 +187,14 @@ const styles = StyleSheet.create({
     ...typo.titleLg,
     color: surface.textPrimary,
   },
-  metricSubLabel: {
-    ...typo.caption,
+  metricDayText: {
+    ...typo.label,
     color: surface.textSecondary,
   },
-  noteCard: {
+  noteSection: {
+    borderRadius: radii.xl,
     backgroundColor: surface.surfaceSecondary,
+    padding: space.lg,
   },
   noteTitle: {
     ...typo.titleSm,

@@ -3,6 +3,7 @@
     "baseUrl": ".",
     "strict": true,
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "types": [
       "react"

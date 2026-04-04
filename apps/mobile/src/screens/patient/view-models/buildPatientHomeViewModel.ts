@@ -6,8 +6,8 @@ import {
   DEFAULT_BABY_MESSAGE,
   DEFAULT_BABY_NAME,
   DEFAULT_SUPPORT_MESSAGE,
-} from "./patient-copy";
-import { pickPatientEncouragementQuote } from "./patient-encouragement-quotes";
+} from "./patient-copy.ts";
+import { pickPatientEncouragementQuote } from "./patient-encouragement-quotes.ts";
 
 const HOURS_PER_DAY = 24;
 const MINUTES_PER_HOUR = 60;
@@ -132,6 +132,7 @@ export function buildPatientHomeViewModel({
   );
   const computedWeekLabel =
     sanitized ?? computeWeekLabelFromDueDate(profile?.dueDate, now);
+  const imageWeekLabel = computedWeekLabel ?? sanitized;
   const pregnancyWeekLabel = postDue
     ? "출산 예정일이 지났어요"
     : (computedWeekLabel ?? "주차 정보를 준비 중이에요");
@@ -177,7 +178,9 @@ export function buildPatientHomeViewModel({
     babyMessage,
     supportMessage: DEFAULT_SUPPORT_MESSAGE,
     pregnancyWeekLabel,
+    imageWeekLabel,
     pregnancyDayCount,
+    pregnancyDayText: `임신 ${pregnancyDayCount}일째`,
     meetingLabel: postDue
       ? "함께한 시간"
       : daysUntilDue == null

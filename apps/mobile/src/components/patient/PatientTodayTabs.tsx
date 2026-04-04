@@ -2,7 +2,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 import { Pressable } from "../ui";
-import { patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
 
 const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   info: "happy-outline",
@@ -35,7 +35,7 @@ export function PatientTodayTabs({
             <Ionicons
               name={TAB_ICONS[section.id] ?? "ellipse-outline"}
               size={space.lg + space.xs}
-              color={isActive ? surface.textPrimary : surface.textSecondary}
+              color={isActive ? palette.accent : surface.textSecondary}
             />
             <Text style={[styles.label, isActive ? styles.labelActive : null]}>{section.label}</Text>
           </Pressable>
@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     gap: space.xs,
-    backgroundColor: surface.surfaceSecondary,
+    backgroundColor: surface.surfacePrimary,
     borderRadius: radii.xxl,
     padding: space.xs,
   },
@@ -57,14 +57,15 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: radii.full,
     paddingHorizontal: space.sm,
-    paddingVertical: space.sm + space.xs,
+    paddingVertical: space.sm,
     flexDirection: "row",
     alignItems: "center",
     gap: space.xs,
     justifyContent: "center",
+    backgroundColor: surface.surfaceSecondary,
   },
   tabActive: {
-    backgroundColor: surface.surfacePrimary,
+    backgroundColor: surface.surfaceAccent,
   },
   label: {
     ...typo.label,
@@ -72,7 +73,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   labelActive: {
-    color: surface.textPrimary,
+    color: palette.accent,
     fontWeight: "700",
   },
 });
