@@ -4,6 +4,17 @@ export const HIDDEN_HEADER_SCREEN_OPTIONS = {
   headerShown: false,
 } as const;
 
+export const ROOT_STACK_ROUTE_NAMES = [
+  "index",
+  "auth/login",
+  "onboarding/index",
+  "(tabs)",
+  "chat",
+  "records",
+  "profile-settings",
+  "profile-survey",
+] as const;
+
 export function buildTabsScreenOptions(colors: {
   accent: string;
   subInk: string;

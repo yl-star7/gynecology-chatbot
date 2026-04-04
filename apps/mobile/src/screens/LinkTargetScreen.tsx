@@ -32,7 +32,7 @@ export function LinkTargetScreen({
   }, [entityId, services, target]);
 
   return (
-    <PatientShell activeTab="today" title="오늘 내용" backHref="/(tabs)/home" pageTone="plain">
+    <PatientShell activeTab="today" backHref="/(tabs)/home" pageTone="plain">
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Card variant="muted">
           <Text style={styles.eyebrow}>{content?.section ?? "오늘 읽는 내용"}</Text>

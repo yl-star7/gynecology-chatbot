@@ -2,11 +2,11 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Card, EmptyState, Pressable } from "../../components/ui";
+import { Button, Card, EmptyState } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { createMobileApiClient } from "../../api/mobileApi";
-import { space, typo, patientSurfacePalette as surface, palette } from "../../theme";
+import { space, typo, patientSurfacePalette as surface } from "../../theme";
 import { EmbeddedWebContent } from "../../web/EmbeddedWebContent";
 
 function normalizeSurveyFormUrl(input: string | null | undefined) {
@@ -77,20 +77,13 @@ export function PatientSurveyFormScreen() {
   }, [currentUser, loadBranding]);
 
   return (
-    <PatientShell activeTab="profile" pageTone="plain" showProfileButton={false}>
+    <PatientShell activeTab="profile" pageTone="plain" showProfileButton={false} hideHeader>
       {isLoading ? (
         <View style={styles.centered}>
           <Text style={styles.loadingText}>설문을 준비하고 있어요.</Text>
         </View>
       ) : surveyFormUrl ? (
         <View style={styles.screen}>
-          <View style={styles.header}>
-            <Pressable onPress={() => router.navigate("/(tabs)/profile")} accessibilityLabel="마이페이지로 돌아가기">
-              <Text style={styles.backLabel}>마이페이지로</Text>
-            </Pressable>
-            <Text style={styles.title}>설문</Text>
-            <View style={styles.headerSpacer} />
-          </View>
           {hasWebViewError ? (
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
               <Card>
@@ -153,26 +146,6 @@ const styles = StyleSheet.create({
     ...typo.body,
     color: surface.textSecondary,
     textAlign: "center",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: space.xl,
-    paddingBottom: space.md,
-    gap: space.md,
-    backgroundColor: surface.pageBackground,
-  },
-  backLabel: {
-    ...typo.label,
-    color: palette.accent,
-  },
-  title: {
-    ...typo.titleSm,
-    color: surface.textPrimary,
-  },
-  headerSpacer: {
-    width: space.xxxl * 2,
   },
   scrollContent: {
     flexGrow: 1,

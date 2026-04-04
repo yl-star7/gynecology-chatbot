@@ -125,10 +125,10 @@ export function PatientProfileSettingsScreen() {
   return (
     <PatientShell
       activeTab="profile"
-      title="정보 설정"
       backHref="/(tabs)/profile"
       showProfileButton={false}
       pageTone="plain"
+      hideHeader
     >
       <KeyboardAvoidingView
         style={styles.flex}

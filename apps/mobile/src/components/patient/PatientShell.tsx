@@ -26,6 +26,7 @@ export function PatientShell({
   rightActionLabel,
   onRightActionPress,
   backHref,
+  hideHeader = false,
 }: {
   children: ReactNode;
   // 탭 활성화는 Expo Router Tabs가 담당하며, 기존 화면 호환을 위해 prop 시그니처만 유지합니다.
@@ -38,6 +39,7 @@ export function PatientShell({
   rightActionIcon?: keyof typeof Ionicons.glyphMap;
   rightActionLabel?: string;
   onRightActionPress?: () => void;
+  hideHeader?: boolean;
 }) {
   const router = useRouter();
   const { currentUser } = useMobileAppSession();
@@ -56,60 +58,62 @@ export function PatientShell({
         useMainTone ? styles.safeAreaMain : styles.safeAreaPlain,
       ]}
     >
-      <View
-        style={[
-          styles.header,
-          useMainTone ? styles.headerMain : styles.headerPlain,
-          headerCompact ? styles.headerCompact : null,
-          headerLayout.usesCompactTopInset ? styles.headerWithBackButton : null,
-          headerLayout.compactTrailingSpace ? styles.headerWithoutRightSlot : null,
-        ]}
-      >
-        {headerLayout.leftSlot === "back" ? (
-          <Pressable
-            onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-                return;
-              }
-              router.replace(backHref!);
-            }}
-            accessibilityLabel="뒤로가기"
-            style={styles.iconButton}
-            hitSlop={12}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={space.lg + space.sm}
-              color={surface.textPrimary}
-            />
-          </Pressable>
-        ) : (
-          <View style={styles.headerSpacer} />
-        )}
-        {headerLayout.rightSlot === "profile" ? (
-          <Pressable
-            onPress={() => router.navigate("/(tabs)/profile")}
-            accessibilityLabel="마이페이지 열기"
-            style={styles.profileButton}
-          >
-            <Text style={styles.profileButtonLabel}>{avatarLabel}</Text>
-          </Pressable>
-        ) : headerLayout.rightSlot === "action" ? (
-          <Pressable
-            onPress={onRightActionPress}
-            accessibilityLabel={rightActionLabel ?? "추가 동작"}
-            style={styles.iconButton}
-            hitSlop={12}
-          >
-            <Ionicons
-              name={rightActionIcon!}
-              size={space.lg + space.sm}
-              color={surface.textPrimary}
-            />
-          </Pressable>
-        ) : null}
-      </View>
+      {hideHeader ? null : (
+        <View
+          style={[
+            styles.header,
+            useMainTone ? styles.headerMain : styles.headerPlain,
+            headerCompact ? styles.headerCompact : null,
+            headerLayout.usesCompactTopInset ? styles.headerWithBackButton : null,
+            headerLayout.compactTrailingSpace ? styles.headerWithoutRightSlot : null,
+          ]}
+        >
+          {headerLayout.leftSlot === "back" ? (
+            <Pressable
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                  return;
+                }
+                router.replace(backHref!);
+              }}
+              accessibilityLabel="뒤로가기"
+              style={styles.iconButton}
+              hitSlop={12}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={space.lg + space.sm}
+                color={surface.textPrimary}
+              />
+            </Pressable>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
+          {headerLayout.rightSlot === "profile" ? (
+            <Pressable
+              onPress={() => router.navigate("/(tabs)/profile")}
+              accessibilityLabel="마이페이지 열기"
+              style={styles.profileButton}
+            >
+              <Text style={styles.profileButtonLabel}>{avatarLabel}</Text>
+            </Pressable>
+          ) : headerLayout.rightSlot === "action" ? (
+            <Pressable
+              onPress={onRightActionPress}
+              accessibilityLabel={rightActionLabel ?? "추가 동작"}
+              style={styles.iconButton}
+              hitSlop={12}
+            >
+              <Ionicons
+                name={rightActionIcon!}
+                size={space.lg + space.sm}
+                color={surface.textPrimary}
+              />
+            </Pressable>
+          ) : null}
+        </View>
+      )}
       <View style={styles.body}>{children}</View>
     </SafeAreaView>
   );

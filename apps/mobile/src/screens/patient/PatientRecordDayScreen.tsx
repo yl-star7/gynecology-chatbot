@@ -170,7 +170,6 @@ export function PatientRecordDayScreen({
   return (
     <PatientShell
       activeTab={activeTab}
-      title="하루 기록"
       backHref={backHref}
       pageTone="plain"
     >
