@@ -52,8 +52,6 @@ export default function RootLayout() {
               <Stack.Screen name="chat/[sessionId]" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
               <Stack.Screen name="chat/link/[target]" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
               <Stack.Screen name="records/[isoDate]" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
-              <Stack.Screen name="profile-settings" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
-              <Stack.Screen name="profile-survey" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
             </Stack>
           </ChatSessionsProvider>
         </MobileAppSessionProvider>
