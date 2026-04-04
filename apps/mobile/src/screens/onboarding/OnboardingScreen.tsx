@@ -56,7 +56,7 @@ export function OnboardingScreen() {
           tonePreference,
         }),
       );
-      router.replace("/home");
+      router.replace("/(tabs)/home");
     } catch (e) {
       setError(e instanceof Error ? e.message : "저장에 실패했어요.");
     }

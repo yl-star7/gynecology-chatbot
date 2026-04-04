@@ -647,7 +647,7 @@ export function PatientProfileScreen() {
                 style={[styles.modalStatusTab, modalTabStyle(infoStatus.tone)]}
                 onPress={() => {
                   closeCalendarDayModal();
-                  router.replace("/today");
+                  router.replace("/(tabs)/today");
                 }}
               >
                 <View style={styles.modalStatusHeader}>
@@ -857,7 +857,7 @@ export function PatientProfileScreen() {
                   label="오늘,우리로 이동"
                   onPress={() => {
                     closeCalendarDayModal();
-                    router.replace("/today");
+                    router.replace("/(tabs)/today");
                   }}
                 />
               </Card>

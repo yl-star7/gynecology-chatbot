@@ -8,7 +8,7 @@ import {
 test("today tab opens the today route instead of pushing directly into a chat screen", () => {
   const todayTab = PATIENT_TABS.find((tab) => tab.key === "today");
 
-  assert.equal(todayTab?.href, "/today");
+  assert.equal(todayTab?.href, "/(tabs)/today");
 });
 
 test("openPatientTab navigates between tabs without dismissing the current stack", () => {
@@ -20,8 +20,8 @@ test("openPatientTab navigates between tabs without dismissing the current stack
         calls.push({ method: "navigate", href });
       },
     },
-    "/home",
+    "/(tabs)/home",
   );
 
-  assert.deepEqual(calls, [{ method: "navigate", href: "/home" }]);
+  assert.deepEqual(calls, [{ method: "navigate", href: "/(tabs)/home" }]);
 });

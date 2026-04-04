@@ -4,13 +4,13 @@ export type PatientTabItem = {
   key: PatientTabKey;
   label: string;
   icon: "home-outline" | "chatbubble-ellipses-outline" | "person-outline";
-  href: "/home" | "/today" | "/profile";
+  href: "/(tabs)/home" | "/(tabs)/today" | "/(tabs)/profile";
 };
 
 export const PATIENT_TABS: PatientTabItem[] = [
-  { key: "home", label: "홈", icon: "home-outline", href: "/home" },
-  { key: "today", label: "오늘,우리", icon: "chatbubble-ellipses-outline", href: "/today" },
-  { key: "profile", label: "마이페이지", icon: "person-outline", href: "/profile" },
+  { key: "home", label: "홈", icon: "home-outline", href: "/(tabs)/home" },
+  { key: "today", label: "오늘,우리", icon: "chatbubble-ellipses-outline", href: "/(tabs)/today" },
+  { key: "profile", label: "마이페이지", icon: "person-outline", href: "/(tabs)/profile" },
 ];
 
 export function openPatientTab(

@@ -55,7 +55,7 @@ export function PatientRecordsScreen() {
     <PatientShell
       activeTab="home"
       title="날짜별 기록"
-      backHref="/home"
+      backHref="/(tabs)/home"
       pageTone="plain"
       headerCompact
     >

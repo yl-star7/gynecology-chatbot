@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { ProfileScreen } from "../src/screens/ProfileScreen";
+import { ProfileScreen } from "../../src/screens/ProfileScreen";
 
 export default function ProfileRoute() {
   return <ProfileScreen />;

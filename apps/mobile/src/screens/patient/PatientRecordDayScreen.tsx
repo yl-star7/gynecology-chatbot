@@ -11,14 +11,14 @@ import { palette, patientSurfacePalette as surface, radii, shadows, space, typo 
 
 function resolveBackHref(returnTo?: string) {
   if (returnTo === "profile") {
-    return "/profile";
+    return "/(tabs)/profile";
   }
 
   if (returnTo === "notebook") {
     return "/notebook";
   }
 
-  return "/home";
+  return "/(tabs)/home";
 }
 
 function resolveActiveTab(returnTo?: string) {

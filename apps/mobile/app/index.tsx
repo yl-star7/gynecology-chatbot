@@ -11,7 +11,7 @@ export default function IndexRoute() {
 
   return (
     <Redirect
-      href={currentUser.hasCompletedOnboarding ? "/home" : "/onboarding"}
+      href={currentUser.hasCompletedOnboarding ? "/(tabs)/home" : "/onboarding"}
     />
   );
 }

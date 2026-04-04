@@ -147,7 +147,7 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
   }
 
   return (
-    <PatientShell activeTab="today" title="아기와 대화" backHref="/today" pageTone="plain">
+    <PatientShell activeTab="today" title="아기와 대화" backHref="/(tabs)/today" pageTone="plain">
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}

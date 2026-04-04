@@ -63,7 +63,7 @@ export function LoginScreen() {
 
     try {
       const user = await signIn({ phoneNumber, verificationCode });
-      router.replace(user.hasCompletedOnboarding ? "/home" : "/onboarding");
+      router.replace(user.hasCompletedOnboarding ? "/(tabs)/home" : "/onboarding");
     } catch (nextError) {
       setError(
         nextError instanceof Error ? nextError.message : "로그인에 실패했어요.",

@@ -31,7 +31,7 @@ export function LinkTargetScreen({
   }, [entityId, services, target]);
 
   return (
-    <PatientShell activeTab="today" title="오늘 내용" backHref="/home" pageTone="plain">
+    <PatientShell activeTab="today" title="오늘 내용" backHref="/(tabs)/home" pageTone="plain">
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Card variant="muted">
           <Text style={styles.eyebrow}>{content?.section ?? "오늘 읽는 내용"}</Text>
@@ -54,8 +54,8 @@ export function LinkTargetScreen({
         </Card>
 
         <View style={styles.buttonRow}>
-          <Button label="오늘,우리로 이어가기" onPress={() => router.replace("/today")} />
-          <Button label="홈으로 돌아가기" variant="secondary" onPress={() => router.replace("/home")} />
+          <Button label="오늘,우리로 이어가기" onPress={() => router.replace("/(tabs)/today")} />
+          <Button label="홈으로 돌아가기" variant="secondary" onPress={() => router.replace("/(tabs)/home")} />
         </View>
       </ScrollView>
     </PatientShell>

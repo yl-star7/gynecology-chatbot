@@ -56,7 +56,7 @@ export function PatientContentScreen({
     <PatientShell
       activeTab={section === "knowledge" ? "today" : "home"}
       title={title}
-      backHref="/home"
+      backHref="/(tabs)/home"
       pageTone="plain"
       headerCompact
     >
@@ -98,7 +98,7 @@ export function PatientContentScreen({
             <View style={styles.ctaRow}>
               <Button
                 label="오늘,우리에서 이어가기"
-                onPress={() => router.replace("/today")}
+                onPress={() => router.replace("/(tabs)/today")}
               />
             </View>
           </Card>

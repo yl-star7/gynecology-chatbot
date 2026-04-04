@@ -125,7 +125,7 @@ export function PatientProfileSettingsScreen() {
     <PatientShell
       activeTab="profile"
       title="정보 설정"
-      backHref="/profile"
+      backHref="/(tabs)/profile"
       showProfileButton={false}
       pageTone="plain"
     >

@@ -84,7 +84,7 @@ export function PatientSurveyFormScreen() {
       ) : surveyFormUrl ? (
         <View style={styles.screen}>
           <View style={styles.header}>
-            <Pressable onPress={() => router.replace("/profile")} accessibilityLabel="마이페이지로 돌아가기">
+            <Pressable onPress={() => router.replace("/(tabs)/profile")} accessibilityLabel="마이페이지로 돌아가기">
               <Text style={styles.backLabel}>마이페이지로</Text>
             </Pressable>
             <Text style={styles.title}>설문</Text>

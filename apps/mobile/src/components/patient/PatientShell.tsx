@@ -13,7 +13,6 @@ import {
   space,
   typo,
 } from "../../theme";
-import { PatientTabBar } from "./PatientTabBar";
 import { resolvePatientShellHeaderLayout } from "./PatientShell.model";
 
 export function PatientShell({
@@ -87,7 +86,7 @@ export function PatientShell({
         )}
         {headerLayout.rightSlot === "profile" ? (
           <Pressable
-            onPress={() => router.navigate("/profile")}
+            onPress={() => router.navigate("/(tabs)/profile")}
             accessibilityLabel="마이페이지 열기"
             style={styles.profileButton}
           >
@@ -109,7 +108,6 @@ export function PatientShell({
         ) : null}
       </View>
       <View style={styles.body}>{children}</View>
-      <PatientTabBar activeTab={activeTab} />
     </SafeAreaView>
   );
 }
