@@ -65,7 +65,13 @@ export function PatientShell({
       >
         {headerLayout.leftSlot === "back" ? (
           <Pressable
-            onPress={() => router.replace(backHref!)}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+                return;
+              }
+              router.replace(backHref!);
+            }}
             accessibilityLabel="뒤로가기"
             style={styles.iconButton}
             hitSlop={12}
@@ -81,7 +87,7 @@ export function PatientShell({
         )}
         {headerLayout.rightSlot === "profile" ? (
           <Pressable
-            onPress={() => router.replace("/profile")}
+            onPress={() => router.navigate("/profile")}
             accessibilityLabel="마이페이지 열기"
             style={styles.profileButton}
           >

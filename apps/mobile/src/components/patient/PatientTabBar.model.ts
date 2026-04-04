@@ -14,8 +14,8 @@ export const PATIENT_TABS: PatientTabItem[] = [
 ];
 
 export function openPatientTab(
-  router: { dismissTo: (href: PatientTabItem["href"]) => void },
+  router: { navigate: (href: PatientTabItem["href"]) => void },
   href: PatientTabItem["href"],
 ) {
-  router.dismissTo(href);
+  router.navigate(href);
 }

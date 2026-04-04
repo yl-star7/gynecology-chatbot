@@ -11,17 +11,17 @@ test("today tab opens the today route instead of pushing directly into a chat sc
   assert.equal(todayTab?.href, "/today");
 });
 
-test("openPatientTab dismisses to an existing route so reverse navigation keeps the back direction", () => {
+test("openPatientTab navigates between tabs without dismissing the current stack", () => {
   const calls: { method: string; href: string }[] = [];
 
   openPatientTab(
     {
-      dismissTo(href) {
-        calls.push({ method: "dismissTo", href });
+      navigate(href) {
+        calls.push({ method: "navigate", href });
       },
     },
     "/home",
   );
 
-  assert.deepEqual(calls, [{ method: "dismissTo", href: "/home" }]);
+  assert.deepEqual(calls, [{ method: "navigate", href: "/home" }]);
 });
