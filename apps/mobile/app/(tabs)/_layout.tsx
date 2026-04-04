@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useMobileAppSession } from "../../src/core/MobileAppSessionProvider";
 import { palette, patientSurfacePalette as surface, space } from "../../src/theme";
+import { PATIENT_TABS } from "../../src/components/patient/PatientTabBar.model";
 
 export default function TabsLayout() {
   const { currentUser } = useMobileAppSession();
@@ -38,33 +39,18 @@ export default function TabsLayout() {
         },
       }}
     >
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: "홈",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="today"
-        options={{
-          title: "오늘,우리",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble-ellipses-outline" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "마이페이지",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" color={color} size={size} />
-          ),
-        }}
-      />
+      {PATIENT_TABS.map((tab) => (
+        <Tabs.Screen
+          key={tab.key}
+          name={tab.routeName}
+          options={{
+            title: tab.label,
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name={tab.icon} color={color} size={size} />
+            ),
+          }}
+        />
+      ))}
       <Tabs.Screen name="knowledge" options={{ href: null }} />
       <Tabs.Screen name="notebook" options={{ href: null }} />
     </Tabs>

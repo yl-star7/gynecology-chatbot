@@ -1,12 +1,13 @@
 // @ts-nocheck
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { Pressable } from "./ui";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useMobileAppSession } from "../core/MobileAppSessionProvider";
 import { palette, patientSurfacePalette as surface, shadows, space, typo } from "../theme";
+import { resolveBackNavigation } from "./MobileScreenFrame.model";
 
 const FAB_NURSE_SOURCE = require("../../assets/branding/fab-nurse.png");
 
@@ -23,6 +24,7 @@ export function MobileScreenFrame({
   showProfileButton?: boolean;
   showChatFab?: boolean;
 }) {
+  const router = useRouter();
   const { currentUser } = useMobileAppSession();
   const avatarLabel = currentUser?.displayName?.slice(0, 1) ?? "나";
 
@@ -32,7 +34,14 @@ export function MobileScreenFrame({
         <View style={styles.leading}>
           {backHref ? (
             <Pressable
-              onPress={() => router.replace(backHref)}
+              onPress={() => {
+                const navigation = resolveBackNavigation(router.canGoBack(), backHref);
+                if (navigation.method === "back") {
+                  router.back();
+                  return;
+                }
+                router.replace(navigation.href);
+              }}
               accessibilityLabel="뒤로 이동"
               style={styles.iconButton}
             >

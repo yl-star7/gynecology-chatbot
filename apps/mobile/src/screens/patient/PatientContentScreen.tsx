@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useCallback, useEffect, useState } from "react";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import type { MobileContentListItem } from "@gynecology-chatbot/app-core";
 import {
   RefreshControl,
@@ -29,6 +29,7 @@ export function PatientContentScreen({
   section: "knowledge" | "notebook";
   title: string;
 }) {
+  const router = useRouter();
   const services = useMobileServices();
   const [items, setItems] = useState<MobileContentListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +99,7 @@ export function PatientContentScreen({
             <View style={styles.ctaRow}>
               <Button
                 label="오늘,우리에서 이어가기"
-                onPress={() => router.replace("/(tabs)/today")}
+                onPress={() => router.navigate("/(tabs)/today")}
               />
             </View>
           </Card>

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import type { LinkTargetContent } from "@gynecology-chatbot/app-core";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button, Card } from "../components/ui";
@@ -15,6 +15,7 @@ export function LinkTargetScreen({
   target: string;
   entityId?: string;
 }) {
+  const router = useRouter();
   const services = useMobileServices();
   const [content, setContent] = useState<LinkTargetContent | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,8 +55,8 @@ export function LinkTargetScreen({
         </Card>
 
         <View style={styles.buttonRow}>
-          <Button label="오늘,우리로 이어가기" onPress={() => router.replace("/(tabs)/today")} />
-          <Button label="홈으로 돌아가기" variant="secondary" onPress={() => router.replace("/(tabs)/home")} />
+          <Button label="오늘,우리로 이어가기" onPress={() => router.navigate("/(tabs)/today")} />
+          <Button label="홈으로 돌아가기" variant="secondary" onPress={() => router.navigate("/(tabs)/home")} />
         </View>
       </ScrollView>
     </PatientShell>

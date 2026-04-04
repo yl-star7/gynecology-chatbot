@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { MockMobileChatAdapter, MockMobileHomeAdapter } from "@gynecology-chatbot/app-core";
 import type { RecordDayView } from "@gynecology-chatbot/app-core";
@@ -89,6 +89,7 @@ export function PatientRecordDayScreen({
   isoDate: string;
   returnTo?: string;
 }) {
+  const router = useRouter();
   const [recordDay, setRecordDay] = useState<RecordDayView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingChecklistIds, setPendingChecklistIds] = useState<string[]>([]);
@@ -219,7 +220,7 @@ export function PatientRecordDayScreen({
                 <Pressable
                   key={session.id}
                   style={[styles.recordCard, shadows.card]}
-                  onPress={() => router.replace(`/chat/${session.id}`)}
+                  onPress={() => router.push(`/chat/${session.id}`)}
                 >
                   <Text style={styles.recordType}>{session.updatedAtLabel}</Text>
                   <Text style={styles.recordTitle}>{session.title}</Text>

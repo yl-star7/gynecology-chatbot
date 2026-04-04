@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   Image,

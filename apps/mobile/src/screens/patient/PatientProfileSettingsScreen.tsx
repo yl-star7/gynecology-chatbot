@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -31,6 +31,7 @@ const DEFAULT_NOTIFICATION_TIME = ["0", "8", ":", "3", "0"].join("");
 const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", "다정하게"];
 
 export function PatientProfileSettingsScreen() {
+  const router = useRouter();
   const { currentUser } = useMobileAppSession();
   const { profilePort } = useMobileServices();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);

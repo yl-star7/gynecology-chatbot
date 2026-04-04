@@ -1,12 +1,14 @@
 // @ts-nocheck
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import { Pressable } from "../ui";
 import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../../theme";
 import { openPatientTab, PATIENT_TABS } from "./PatientTabBar.model";
 
 export function PatientTabBar({ activeTab }: { activeTab: "home" | "today" | "profile" }) {
+  const router = useRouter();
+
   return (
     <View style={[styles.container, shadows.header]}>
       {PATIENT_TABS.map((tab) => {

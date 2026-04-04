@@ -1,6 +1,6 @@
 // @ts-nocheck
 import type { ReactNode } from "react";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, Text, View } from "react-native";
@@ -14,10 +14,11 @@ import {
   typo,
 } from "../../theme";
 import { resolvePatientShellHeaderLayout } from "./PatientShell.model";
+import type { PatientTabKey } from "./PatientTabBar.model";
 
 export function PatientShell({
   children,
-  activeTab,
+  activeTab: _activeTab,
   showProfileButton = true,
   pageTone = "plain",
   headerCompact = false,
@@ -27,7 +28,8 @@ export function PatientShell({
   backHref,
 }: {
   children: ReactNode;
-  activeTab: "home" | "today" | "profile";
+  // 탭 활성화는 Expo Router Tabs가 담당하며, 기존 화면 호환을 위해 prop 시그니처만 유지합니다.
+  activeTab?: PatientTabKey;
   title?: string;
   backHref?: string;
   showProfileButton?: boolean;
@@ -37,6 +39,7 @@ export function PatientShell({
   rightActionLabel?: string;
   onRightActionPress?: () => void;
 }) {
+  const router = useRouter();
   const { currentUser } = useMobileAppSession();
   const avatarLabel = currentUser?.displayName?.slice(0, 1) ?? "나";
   const useMainTone = pageTone === "main";

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -168,6 +168,7 @@ function buildInfoCards(today: TodayViewData | null) {
 }
 
 export function PatientProfileScreen() {
+  const router = useRouter();
   const { currentUser, signOut } = useMobileAppSession();
   const { profilePort, homePort, todayPort } = useMobileServices();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
@@ -647,7 +648,7 @@ export function PatientProfileScreen() {
                 style={[styles.modalStatusTab, modalTabStyle(infoStatus.tone)]}
                 onPress={() => {
                   closeCalendarDayModal();
-                  router.replace("/(tabs)/today");
+                  router.navigate("/(tabs)/today");
                 }}
               >
                 <View style={styles.modalStatusHeader}>
@@ -857,7 +858,7 @@ export function PatientProfileScreen() {
                   label="오늘,우리로 이동"
                   onPress={() => {
                     closeCalendarDayModal();
-                    router.replace("/(tabs)/today");
+                    router.navigate("/(tabs)/today");
                   }}
                 />
               </Card>

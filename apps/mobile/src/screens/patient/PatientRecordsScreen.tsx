@@ -1,6 +1,6 @@
 // @ts-nocheck
+import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { router } from "expo-router";
 import type { HomeViewData } from "@gynecology-chatbot/app-core";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Card, Pressable } from "../../components/ui";
@@ -35,6 +35,7 @@ function badgeTextStyle(tone: string) {
 }
 
 export function PatientRecordsScreen() {
+  const router = useRouter();
   const services = useMobileServices();
   const [home, setHome] = useState<HomeViewData | null>(null);
 

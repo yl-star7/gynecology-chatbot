@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button, Card, EmptyState, Pressable } from "../../components/ui";
@@ -34,6 +34,7 @@ function normalizeSurveyFormUrl(input: string | null | undefined) {
 }
 
 export function PatientSurveyFormScreen() {
+  const router = useRouter();
   const { currentUser } = useMobileAppSession();
   const [surveyFormUrl, setSurveyFormUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,7 +85,7 @@ export function PatientSurveyFormScreen() {
       ) : surveyFormUrl ? (
         <View style={styles.screen}>
           <View style={styles.header}>
-            <Pressable onPress={() => router.replace("/(tabs)/profile")} accessibilityLabel="마이페이지로 돌아가기">
+            <Pressable onPress={() => router.navigate("/(tabs)/profile")} accessibilityLabel="마이페이지로 돌아가기">
               <Text style={styles.backLabel}>마이페이지로</Text>
             </Pressable>
             <Text style={styles.title}>설문</Text>

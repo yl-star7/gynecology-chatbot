@@ -1,8 +1,8 @@
 // @ts-nocheck
+import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import {
   AppState,
   Image,
@@ -51,6 +51,7 @@ function createUserMessage(text: string, imageDataUri?: string | null): ChatMess
 }
 
 export function PatientConversationScreen({ sessionId }: { sessionId: string }) {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const services = useMobileServices();
   const { getSession, replaceSession, appendMessage } = useChatSessions();

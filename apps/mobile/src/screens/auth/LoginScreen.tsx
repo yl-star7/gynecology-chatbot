@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import {
@@ -11,8 +11,10 @@ import {
 } from "../../components/ui";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { palette, space, typo } from "../../theme";
+import { resolvePostLoginHref } from "./LoginScreen.model";
 
 export function LoginScreen() {
+  const router = useRouter();
   const { requestVerificationCode, signIn } = useMobileAppSession();
   const [phoneNumber, setPhoneNumber] = useState(__DEV__ ? "01012345678" : "");
   const [verificationCode, setVerificationCode] = useState(
@@ -63,7 +65,7 @@ export function LoginScreen() {
 
     try {
       const user = await signIn({ phoneNumber, verificationCode });
-      router.replace(user.hasCompletedOnboarding ? "/(tabs)/home" : "/onboarding");
+      router.replace(resolvePostLoginHref(user.hasCompletedOnboarding));
     } catch (nextError) {
       setError(
         nextError instanceof Error ? nextError.message : "로그인에 실패했어요.",
