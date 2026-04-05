@@ -4,7 +4,7 @@ import {
   HIDDEN_HEADER_SCREEN_OPTIONS,
   ROOT_STACK_ROUTE_NAMES,
   buildTabsScreenOptions,
-} from "./routeOptions.model.ts";
+} from "../app/routeOptions.model.ts";
 
 test("hidden header screens opt out per route instead of relying on a root stack default", () => {
   assert.deepEqual(HIDDEN_HEADER_SCREEN_OPTIONS, { headerShown: false });

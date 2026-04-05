@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   DEFAULT_PUSH_SCREEN_OPTIONS,
   buildNativeHeaderScreenOptions,
-} from "./nativeHeaderOptions.model.ts";
+} from "../app/nativeHeaderOptions.model.ts";
 
 test("default push screen options keep the native header visible", () => {
   assert.deepEqual(DEFAULT_PUSH_SCREEN_OPTIONS, {

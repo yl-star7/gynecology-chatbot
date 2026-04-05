@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   HIDDEN_HEADER_SCREEN_OPTIONS,
   SHEET_MODAL_SCREEN_OPTIONS,
-} from "./detailStackOptions.model.ts";
+} from "../app/detailStackOptions.model.ts";
 
 test("detail stacks hide headers by default", () => {
   assert.deepEqual(HIDDEN_HEADER_SCREEN_OPTIONS, { headerShown: false });
