@@ -3,7 +3,7 @@
   "main": "./index.js",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start",
+    "start": "EXPO_PUBLIC_MOBILE_DATA_PROVIDER=${EXPO_PUBLIC_MOBILE_DATA_PROVIDER:-api} EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL:-http://localhost:3005} EXPO_PUBLIC_WEB_URL=${EXPO_PUBLIC_WEB_URL:-http://localhost:3005} EXPO_PUBLIC_DEV_USER_ID=${EXPO_PUBLIC_DEV_USER_ID:-local-user-demo} expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "node ./scripts/expo-web.cjs",

@@ -97,3 +97,31 @@ test("env example documents local mobile auth bypass configuration", () => {
     ".env.example should document LOCAL_DEV_DUE_DATE for docker bootstrap",
   );
 });
+
+test("mobile start script provides Expo public env defaults for local simulator runs", () => {
+  const startScript = packageJson.scripts?.start ?? "";
+
+  assert.match(
+    startScript,
+    /EXPO_PUBLIC_MOBILE_DATA_PROVIDER=\$\{EXPO_PUBLIC_MOBILE_DATA_PROVIDER:-api\}/,
+    "apps/mobile start should default EXPO_PUBLIC_MOBILE_DATA_PROVIDER to api",
+  );
+
+  assert.match(
+    startScript,
+    /EXPO_PUBLIC_API_BASE_URL=\$\{EXPO_PUBLIC_API_BASE_URL:-http:\/\/localhost:3005\}/,
+    "apps/mobile start should default EXPO_PUBLIC_API_BASE_URL for local runs",
+  );
+
+  assert.match(
+    startScript,
+    /EXPO_PUBLIC_WEB_URL=\$\{EXPO_PUBLIC_WEB_URL:-http:\/\/localhost:3005\}/,
+    "apps/mobile start should default EXPO_PUBLIC_WEB_URL for local runs",
+  );
+
+  assert.match(
+    startScript,
+    /EXPO_PUBLIC_DEV_USER_ID=\$\{EXPO_PUBLIC_DEV_USER_ID:-local-user-demo\}/,
+    "apps/mobile start should default EXPO_PUBLIC_DEV_USER_ID for local runs",
+  );
+});
