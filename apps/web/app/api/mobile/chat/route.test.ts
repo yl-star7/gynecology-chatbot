@@ -289,6 +289,9 @@ describe("POST /api/mobile/chat", () => {
     existingPromptEvents = false,
     outstandingPromptEvents = false,
     questions,
+    sessionMemory,
+    profileMemory,
+    tonePreference = null,
   }: {
     existingPromptEvents?: boolean;
     outstandingPromptEvents?: boolean;
@@ -302,10 +305,27 @@ describe("POST /api/mobile/chat", () => {
       display_order: number;
       is_required: boolean;
     }>;
+    sessionMemory?: Record<string, unknown> | null;
+    profileMemory?: Record<string, unknown> | null;
+    tonePreference?: string | null;
   }) {
     mockedSupabaseSelect.mockImplementation((path: string) => {
       if (path.startsWith("chat_sessions?")) {
-        return Promise.resolve([]);
+        if (path.includes("select=id,title&")) {
+          return Promise.resolve([]);
+        }
+
+        return Promise.resolve(
+          sessionMemory
+            ? [
+                {
+                  id: "session-1",
+                  title: "새 상담",
+                  memory_payload: sessionMemory,
+                },
+              ]
+            : [],
+        );
       }
 
       if (
@@ -341,7 +361,10 @@ describe("POST /api/mobile/chat", () => {
           {
             pregnancy_week: 13,
             pregnancy_day_in_week: 0,
-            tone_preference: null,
+            onboarding_payload: {
+              tonePreference,
+              ...(profileMemory ? { profileMemory } : {}),
+            },
             baby_nickname: null,
             display_name: null,
             due_date: null,
@@ -793,12 +816,12 @@ describe("POST /api/mobile/chat", () => {
 
     expect(mockedRunSchiftWorkflow).toHaveBeenCalledWith({
       schift: expect.any(Object),
-      inputs: {
+      inputs: expect.objectContaining({
         query: "배가 아파요",
         currentWeek: 13,
         sessionId: expect.any(String),
         hasImages: false,
-      },
+      }),
     });
     expect(payload.assistantMessage.parts[0]).toMatchObject({
       type: "text",
@@ -1345,6 +1368,210 @@ describe("POST /api/mobile/chat", () => {
       type: "text",
       text: expect.stringContaining("임신과 건강 관련 안내"),
     });
+  });
+
+  it("loads session/profile memory into Schift workflow inputs", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({
+      sessionMemory: {
+        compactSummary: "최근 복통과 수분 부족 이야기를 나눴어요.",
+        lastScenario: "symptom_counsel",
+        lastCharacterTone: "anxious",
+      },
+      profileMemory: {
+        lastEmotionTone: "tired",
+      },
+      tonePreference: "차분하게",
+    });
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages") {
+          if (Array.isArray(payload)) {
+            return Promise.resolve([{ id: "assistant-message-memory" }]);
+          }
+
+          return Promise.resolve([{ id: "user-message-memory" }]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGetSchiftClient.mockReturnValue({ workflows: { run: jest.fn() } } as never);
+    mockedRunSchiftWorkflow.mockResolvedValue({
+      workflowId: "wf-memory",
+      run: {
+        id: "run-memory",
+        workflow_id: "wf-memory",
+        status: "completed",
+        outputs: { answer: "이전 맥락을 이어서 안내할게요." },
+        block_states: [],
+      },
+    } as never);
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "그럼 지금은 어떻게 해야 해?",
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockedRunSchiftWorkflow).toHaveBeenCalledWith({
+      schift: expect.any(Object),
+      inputs: expect.objectContaining({
+        query: "그럼 지금은 어떻게 해야 해?",
+        currentWeek: 13,
+        compactSummary: "최근 복통과 수분 부족 이야기를 나눴어요.",
+        lastScenario: "symptom_counsel",
+        lastCharacterTone: "anxious",
+        lastEmotionTone: "tired",
+        tonePreference: "차분하게",
+      }),
+    });
+  });
+
+  it("injects session/profile memory into fallback model prompt", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({
+      sessionMemory: {
+        compactSummary: "최근 복통과 수분 부족 이야기를 나눴어요.",
+        lastScenario: "symptom_counsel",
+        lastCharacterTone: "anxious",
+      },
+      profileMemory: {
+        lastEmotionTone: "tired",
+      },
+      tonePreference: "차분하게",
+    });
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages") {
+          if (Array.isArray(payload)) {
+            return Promise.resolve([{ id: "assistant-message-fallback-memory" }]);
+          }
+
+          return Promise.resolve([{ id: "user-message-fallback-memory" }]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGetSchiftClient.mockReturnValue(null);
+
+    await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "계속 배가 묵직해",
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    expect(mockedGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining("최근 세션 요약: 최근 복통과 수분 부족 이야기를 나눴어요."),
+        prompt: expect.stringContaining("최근 감정 톤: tired"),
+      }),
+    );
+  });
+
+  it("stores compact session memory after assistant response", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({
+      profileMemory: {
+        lastEmotionTone: "tired",
+      },
+    });
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages" && !Array.isArray(payload)) {
+          const role = (payload as { role?: string }).role;
+          return Promise.resolve([
+            {
+              id: role === "assistant" ? "assistant-message-memory-store" : "user-message-memory-store",
+            },
+          ]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGetSchiftClient.mockReturnValue({ workflows: { run: jest.fn() } } as never);
+    mockedRunSchiftWorkflow.mockResolvedValue({
+      workflowId: "wf-memory-store",
+      run: {
+        id: "run-memory-store",
+        workflow_id: "wf-memory-store",
+        status: "completed",
+        outputs: {
+          answer: JSON.stringify({
+            answer: "수분을 챙기고 쉬면서 증상 변화를 봐주세요.",
+            scenario: "symptom_counsel",
+            characterTone: "calm",
+          }),
+        },
+        block_states: [],
+      },
+    } as never);
+
+    await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "배가 뭉치는 느낌이 있어",
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+      expect.stringContaining("chat_sessions?id=eq."),
+      expect.objectContaining({
+        memory_payload: expect.objectContaining({
+          compactSummary: expect.stringContaining("배가 뭉치는 느낌이 있어"),
+          lastScenario: "symptom_counsel",
+          lastCharacterTone: "calm",
+          lastEmotionTone: "tired",
+        }),
+      }),
+    );
   });
 
   it("does not use direct admin client for prompt context queries", async () => {

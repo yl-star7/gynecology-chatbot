@@ -20,4 +20,10 @@ describe("buildLocalPostgresBootstrapSql", () => {
     expect(chatSessionsIndex).toBeLessThan(calendarLogsIndex);
     expect(chatSessionsIndex).toBeLessThan(chatMessagesIndex);
   });
+
+  test("includes memory_payload column on chat_sessions", () => {
+    const sql = buildLocalPostgresBootstrapSql("gynecology_local");
+
+    expect(sql).toContain('memory_payload jsonb NOT NULL DEFAULT \'{}\'::jsonb');
+  });
 });

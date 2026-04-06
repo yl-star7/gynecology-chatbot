@@ -4,7 +4,10 @@ import {
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
+import {
+  getSupabaseAdminClient,
+  supabaseUpdate,
+} from "@/lib/supabase/admin-client";
 import { toRecordDayView } from "@/lib/mobile/serializers";
 
 type CalendarRecordRow = {
@@ -442,6 +445,8 @@ export async function POST(request: NextRequest) {
 
     const today = new Date().toISOString().slice(0, 10);
 
+    const now = new Date().toISOString();
+
     const { error: insertError } = await client.from("calendar_logs").insert({
       user_id: userId,
       session_id: sessionId,
@@ -453,6 +458,15 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       throw insertError;
     }
+
+    await supabaseUpdate(`pregnancy_profiles?user_id=eq.${userId}`, {
+      onboarding_payload: {
+        profileMemory: {
+          lastEmotionTone: emotionTone,
+          updatedAt: now,
+        },
+      },
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {

@@ -46,6 +46,27 @@ function normalizeSessionId(value: string) {
     : crypto.randomUUID();
 }
 
+type CharacterTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
+
+type WorkflowScenario =
+  | "emotion_checkin"
+  | "week_info"
+  | "symptom_counsel"
+  | "general";
+
+type SessionMemoryPayload = {
+  compactSummary?: string | null;
+  lastScenario?: WorkflowScenario | null;
+  lastCharacterTone?: CharacterTone | null;
+  lastEmotionTone?: CharacterTone | null;
+  updatedAt?: string | null;
+};
+
+type ProfileMemoryPayload = {
+  lastEmotionTone?: CharacterTone | null;
+  updatedAt?: string | null;
+};
+
 type PregnancyProfilePromptRow = {
   pregnancy_week: number | null;
   pregnancy_day_in_week: number | null;
@@ -54,6 +75,7 @@ type PregnancyProfilePromptRow = {
   due_date: string | null;
   onboarding_payload: {
     tonePreference?: string | null;
+    profileMemory?: ProfileMemoryPayload | null;
   } | null;
 };
 
@@ -124,14 +146,6 @@ type UserQuestionEventRow = {
   question_id: string;
   status: "sent" | "opened" | "answered" | "skipped";
 };
-
-type CharacterTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
-
-type WorkflowScenario =
-  | "emotion_checkin"
-  | "week_info"
-  | "symptom_counsel"
-  | "general";
 
 type WorkflowAssistantPayload = {
   answer?: string;
@@ -327,13 +341,70 @@ function buildPromptFollowUpMessages(input: {
   return { messages, selectedChecklists, selectedQuestions };
 }
 
+function pickLatestEmotionTone(input: {
+  sessionMemory: SessionMemoryPayload | null;
+  profileMemory: ProfileMemoryPayload | null;
+}) {
+  return (
+    input.profileMemory?.lastEmotionTone ??
+    input.sessionMemory?.lastEmotionTone ??
+    null
+  );
+}
+
+function buildMemorySystemBlock(input: {
+  compactSummary: string | null;
+  lastScenario: WorkflowScenario | null;
+  lastCharacterTone: CharacterTone | null;
+  lastEmotionTone: CharacterTone | null;
+  tonePreference: string | null;
+}) {
+  return [
+    input.compactSummary ? `최근 세션 요약: ${input.compactSummary}` : null,
+    input.lastScenario ? `직전 상담 분기: ${input.lastScenario}` : null,
+    input.lastCharacterTone ? `직전 캐릭터 톤: ${input.lastCharacterTone}` : null,
+    input.lastEmotionTone ? `최근 감정 톤: ${input.lastEmotionTone}` : null,
+    input.tonePreference ? `사용자 선호 상담 분위기: ${input.tonePreference}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildCompactSummary(input: {
+  userText: string;
+  assistantText: string;
+  previousSummary: string | null;
+}) {
+  const segments = [
+    input.previousSummary?.trim() || null,
+    input.userText.trim() ? `사용자: ${input.userText.trim()}` : null,
+    input.assistantText.trim() ? `안내: ${input.assistantText.trim()}` : null,
+  ].filter(Boolean);
+
+  return segments.join(" | ").slice(0, 400);
+}
+
 async function getPromptContext(
   userId: string,
   hintedPregnancyWeek: number | null,
+  sessionId: string | null,
 ) {
-  const profiles = await supabaseSelect<PregnancyProfilePromptRow[]>(
-    `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week,baby_nickname,display_name,due_date,onboarding_payload&user_id=eq.${userId}&limit=1`,
-  );
+  const [profiles, sessions] = await Promise.all([
+    supabaseSelect<PregnancyProfilePromptRow[]>(
+      `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week,baby_nickname,display_name,due_date,onboarding_payload&user_id=eq.${userId}&limit=1`,
+    ),
+    sessionId
+      ? supabaseSelect<
+          Array<{
+            id: string;
+            title: string;
+            memory_payload?: SessionMemoryPayload | null;
+          }>
+        >(
+          `chat_sessions?select=id,title,memory_payload&id=eq.${sessionId}&user_id=eq.${userId}&limit=1`,
+        )
+      : Promise.resolve([]),
+  ]);
 
   const pregnancyWeek =
     hintedPregnancyWeek ?? profiles[0]?.pregnancy_week ?? null;
@@ -371,6 +442,9 @@ async function getPromptContext(
   if (!profile?.display_name || profile.display_name === "사용자")
     missingFields.push("이름");
 
+  const sessionMemory = sessions[0]?.memory_payload ?? null;
+  const profileMemory = profile?.onboarding_payload?.profileMemory ?? null;
+
   return {
     pregnancyWeek,
     dayNumber,
@@ -379,6 +453,8 @@ async function getPromptContext(
     checklists,
     questions,
     tonePreference: profile?.onboarding_payload?.tonePreference ?? null,
+    profileMemory,
+    sessionMemory,
     missingFields,
   };
 }
@@ -1036,12 +1112,28 @@ export async function POST(request: NextRequest) {
 
     const hardGuardrailReason = detectHardGuardrailReason(text);
 
-    const promptContext = await getPromptContext(userId, pregnancyWeek);
+    const promptContext = await getPromptContext(
+      userId,
+      pregnancyWeek,
+      normalizedSessionId,
+    );
     const currentWeek = promptContext?.pregnancyWeek ?? pregnancyWeek;
+    const memoryContext = {
+      compactSummary: promptContext?.sessionMemory?.compactSummary ?? null,
+      lastScenario: promptContext?.sessionMemory?.lastScenario ?? null,
+      lastCharacterTone: promptContext?.sessionMemory?.lastCharacterTone ?? null,
+      lastEmotionTone: pickLatestEmotionTone({
+        sessionMemory: promptContext?.sessionMemory ?? null,
+        profileMemory: promptContext?.profileMemory ?? null,
+      }),
+      tonePreference: promptContext?.tonePreference ?? null,
+    };
+    const memorySystemBlock = buildMemorySystemBlock(memoryContext);
 
     const schift = getSchiftClient();
 
     let assistantMessage: ChatMessage;
+    let workflowMemoryPayload: WorkflowAssistantPayload | null = null;
 
     if (hardGuardrailReason) {
       assistantMessage = {
@@ -1070,6 +1162,11 @@ export async function POST(request: NextRequest) {
             currentWeek,
             sessionId: normalizedSessionId,
             hasImages: imageDataUris.length > 0,
+            compactSummary: memoryContext.compactSummary,
+            lastScenario: memoryContext.lastScenario,
+            lastCharacterTone: memoryContext.lastCharacterTone,
+            lastEmotionTone: memoryContext.lastEmotionTone,
+            tonePreference: memoryContext.tonePreference,
           },
         });
 
@@ -1080,6 +1177,8 @@ export async function POST(request: NextRequest) {
         }
 
         const workflowOutputs = extractSchiftWorkflowOutputs(run);
+        const workflowPayload = parseWorkflowAssistantPayload(workflowOutputs);
+        workflowMemoryPayload = workflowPayload;
         const structuredWorkflowMessage =
           await buildAssistantMessageFromWorkflowRun(run);
         const workflowText = formatSchiftWorkflowRun(run);
@@ -1105,6 +1204,11 @@ export async function POST(request: NextRequest) {
             },
           ],
         };
+
+        if (workflowPayload?.scenario || workflowPayload?.characterTone) {
+          workflowMemoryPayload = workflowPayload;
+        }
+
       } catch (workflowError) {
         console.error("mobile chat workflow execution failed", workflowError);
 
@@ -1153,11 +1257,7 @@ export async function POST(request: NextRequest) {
                   "- -어요/-해요 체 사용",
                   "- 개발자 용어 금지",
                   "- 의료 진단 확정 표현 금지 ('~일 수 있어요', '담당 의료진과 상의해보세요')",
-                  ...(promptContext?.tonePreference
-                    ? [
-                        `사용자가 선호하는 상담 분위기: ${promptContext.tonePreference}. 이 톤에 맞춰 응답하세요.`,
-                      ]
-                    : []),
+                  ...(memorySystemBlock ? [memorySystemBlock] : []),
                   "임신 주차 정보가 주어지면 그 주차와 인접 주차 기준으로 설명하세요.",
                 ].join("\n"),
                 prompt: [
@@ -1165,6 +1265,7 @@ export async function POST(request: NextRequest) {
                   `현재 임신 주차: ${currentWeek ?? "(정보 없음)"}`,
                   `사용자 텍스트: ${text || "(텍스트 없음)"}`,
                   `첨부 이미지 수: ${imageDataUris.length}`,
+                  ...(memorySystemBlock ? [memorySystemBlock] : []),
                   'JSON 예시: {"id":"assistant-1","role":"assistant","createdAtLabel":"방금 전","parts":[{"type":"text","id":"p1","text":"..."}]}',
                 ].join("\n"),
               });
@@ -1225,11 +1326,7 @@ export async function POST(request: NextRequest) {
               "- -어요/-해요 체 사용",
               "- 개발자 용어 금지",
               "- 의료 진단 확정 표현 금지 ('~일 수 있어요', '담당 의료진과 상의해보세요')",
-              ...(promptContext?.tonePreference
-                ? [
-                    `사용자가 선호하는 상담 분위기: ${promptContext.tonePreference}. 이 톤에 맞춰 응답하세요.`,
-                  ]
-                : []),
+              ...(memorySystemBlock ? [memorySystemBlock] : []),
               "임신 주차 정보가 주어지면 그 주차와 인접 주차 기준으로 설명하세요.",
             ].join("\n"),
             prompt: [
@@ -1237,6 +1334,7 @@ export async function POST(request: NextRequest) {
               `현재 임신 주차: ${currentWeek ?? "(정보 없음)"}`,
               `사용자 텍스트: ${text || "(텍스트 없음)"}`,
               `첨부 이미지 수: ${imageDataUris.length}`,
+              ...(memorySystemBlock ? [memorySystemBlock] : []),
               'JSON 예시: {"id":"assistant-1","role":"assistant","createdAtLabel":"방금 전","parts":[{"type":"text","id":"p1","text":"..."}]}',
             ].join("\n"),
           });
@@ -1323,9 +1421,32 @@ export async function POST(request: NextRequest) {
     }
 
     const assistantMessageAt = new Date().toISOString();
+    const assistantPlainText = assistantMessages
+      .flatMap((message) =>
+        message.parts
+          .filter(
+            (part): part is Extract<(typeof message.parts)[number], { type: "text" }> =>
+              part.type === "text",
+          )
+          .map((part) => part.text),
+      )
+      .join("\n")
+      .trim();
+
     await supabaseUpdate(`chat_sessions?id=eq.${normalizedSessionId}`, {
       last_message_at: assistantMessageAt,
       updated_at: assistantMessageAt,
+      memory_payload: {
+        compactSummary: buildCompactSummary({
+          userText: text,
+          assistantText: assistantPlainText,
+          previousSummary: memoryContext.compactSummary,
+        }),
+        lastScenario: workflowMemoryPayload?.scenario ?? null,
+        lastCharacterTone: workflowMemoryPayload?.characterTone ?? null,
+        lastEmotionTone: memoryContext.lastEmotionTone,
+        updatedAt: assistantMessageAt,
+      },
     });
 
     return NextResponse.json({

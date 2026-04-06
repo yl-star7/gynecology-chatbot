@@ -31,6 +31,7 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           title text NOT NULL,
           status text NOT NULL DEFAULT 'active',
           last_message_at timestamptz,
+          memory_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
           created_at timestamptz NOT NULL DEFAULT now(),
           updated_at timestamptz NOT NULL DEFAULT now()
         );
