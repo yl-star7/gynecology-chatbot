@@ -251,6 +251,9 @@ function buildPromptFollowUpMessages(input: {
         {
           type: "text",
           id: `question-text-${question.id}`,
+          tag: "question",
+          contentId: question.id,
+          contentCode: question.code,
           text: sanitizeInlineCitationMarkers(
             [
               input.week.question_intro ?? "생각해볼 질문",
@@ -264,6 +267,9 @@ function buildPromptFollowUpMessages(input: {
         {
           type: "quickReplies",
           id: `quick-replies-question-${question.id}`,
+          tag: "question",
+          contentId: question.id,
+          contentCode: question.code,
           title: "빠르게 답해보세요",
           choices: buildQuickReplyChoices({
             baseId: question.id,

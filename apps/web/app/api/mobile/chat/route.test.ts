@@ -489,6 +489,37 @@ describe("POST /api/mobile/chat", () => {
 
       expect(hasQuestion).toBe(true);
       expect(hasChecklist).toBe(false);
+      const questionMessage = followUps.find(
+        (m: {
+          parts: Array<{
+            id: string;
+            tag?: string;
+            contentId?: string;
+            contentCode?: string;
+          }>;
+        }) => m.parts.some((p) => p.id === "question-text-question-1"),
+      );
+      const questionTextPart = questionMessage?.parts.find(
+        (p: { id: string }) => p.id === "question-text-question-1",
+      );
+      const questionQuickRepliesPart = questionMessage?.parts.find(
+        (p: { id: string }) => p.id === "quick-replies-question-question-1",
+      );
+
+      expect(questionTextPart).toEqual(
+        expect.objectContaining({
+          tag: "question",
+          contentId: "question-1",
+          contentCode: "main-concern",
+        }),
+      );
+      expect(questionQuickRepliesPart).toEqual(
+        expect.objectContaining({
+          tag: "question",
+          contentId: "question-1",
+          contentCode: "main-concern",
+        }),
+      );
       expect(mockedSupabaseInsert).toHaveBeenCalledWith(
         "user_question_events",
         expect.objectContaining({

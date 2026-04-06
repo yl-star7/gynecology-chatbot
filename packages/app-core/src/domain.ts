@@ -111,6 +111,9 @@ export interface TextPart {
   type: "text";
   id: string;
   text: string;
+  tag?: string;
+  contentId?: string;
+  contentCode?: string;
 }
 
 export interface QuickReplyChoice {
@@ -124,6 +127,9 @@ export interface QuickRepliesPart {
   id: string;
   title?: string;
   choices: QuickReplyChoice[];
+  tag?: string;
+  contentId?: string;
+  contentCode?: string;
 }
 
 export interface ImagePart {

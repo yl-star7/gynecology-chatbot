@@ -270,7 +270,7 @@ async function ensureBucket(bucketId: string) {
 }
 
 async function upsertWeek(week: ParsedPregnancyWeek) {
-  const existing = await supabaseSelect<WeekRow>(
+  const existing = await supabaseSelect<WeekRow[]>(
     `content_pregnancy_week_data?select=id,week_number&week_number=eq.${week.weekNumber}&limit=1`,
   );
   const payload = {
@@ -286,7 +286,7 @@ async function upsertWeek(week: ParsedPregnancyWeek) {
     return existing[0].id;
   }
 
-  const inserted = await supabaseInsert<WeekRow>("content_pregnancy_week_data", {
+  const inserted = await supabaseInsert<WeekRow[]>("content_pregnancy_week_data", {
     id: randomUUID(),
     ...payload,
   });
@@ -298,7 +298,7 @@ async function upsertDay(
   week: ParsedPregnancyWeek,
   dayNumber: number,
 ) {
-  const existing = await supabaseSelect<DayRow>(
+  const existing = await supabaseSelect<DayRow[]>(
     `content_pregnancy_day_contents?select=id,day_number&week_data_id=eq.${weekDataId}&day_number=eq.${dayNumber}&limit=1`,
   );
   const payload = {
@@ -315,7 +315,7 @@ async function upsertDay(
     return existing[0].id;
   }
 
-  const inserted = await supabaseInsert<DayRow>("content_pregnancy_day_contents", {
+  const inserted = await supabaseInsert<DayRow[]>("content_pregnancy_day_contents", {
     id: randomUUID(),
     ...payload,
   });
