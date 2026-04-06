@@ -11,6 +11,30 @@ import {
   runSchiftWorkflow,
 } from "@/lib/mobile/schift-workflow";
 import {
+  buildPromptFollowUpMessages,
+  stripFollowUpContentFromAnswer,
+} from "@/lib/mobile/chat/follow-ups";
+import { detectHardGuardrailReason } from "@/lib/mobile/chat/guardrails";
+import {
+  createPromptEvents,
+  getAlreadyPromptedIds,
+  getPromptContext,
+  markOutstandingPromptEventsAnswered,
+  PromptContext,
+} from "@/lib/mobile/chat/chat-repository";
+import {
+  CharacterTone,
+  parseWorkflowAssistantPayload,
+  ProfileMemoryPayload,
+  SessionMemoryPayload,
+  WorkflowAssistantPayload,
+  WorkflowScenario,
+} from "@/lib/mobile/chat/workflow-payload";
+import {
+  sanitizeChatParts,
+  sanitizeInlineCitationMarkers,
+} from "@/lib/mobile/chat/sanitizers";
+import {
   isMobileSessionError,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
@@ -46,130 +70,6 @@ function normalizeSessionId(value: string) {
     : crypto.randomUUID();
 }
 
-type CharacterTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
-
-type WorkflowScenario =
-  | "emotion_checkin"
-  | "week_info"
-  | "symptom_counsel"
-  | "general";
-
-type SessionMemoryPayload = {
-  compactSummary?: string | null;
-  lastScenario?: WorkflowScenario | null;
-  lastCharacterTone?: CharacterTone | null;
-  lastEmotionTone?: CharacterTone | null;
-  updatedAt?: string | null;
-};
-
-type ProfileMemoryPayload = {
-  lastEmotionTone?: CharacterTone | null;
-  updatedAt?: string | null;
-};
-
-type PregnancyProfilePromptRow = {
-  pregnancy_week: number | null;
-  pregnancy_day_in_week: number | null;
-  baby_nickname: string | null;
-  display_name: string | null;
-  due_date: string | null;
-  onboarding_payload: {
-    tonePreference?: string | null;
-    profileMemory?: ProfileMemoryPayload | null;
-  } | null;
-};
-
-type WeekDataRow = {
-  id: string;
-  week_number: number;
-  title: string | null;
-  baby_summary: string | null;
-  mother_summary: string | null;
-  warning_signs: string | null;
-  recommended_actions: string | null;
-  checklist_intro: string | null;
-  question_intro: string | null;
-  status: "draft" | "published" | "archived";
-};
-
-type DayContentRow = {
-  id: string;
-  day_number: number;
-  title: string | null;
-  baby_development_payload: { items?: string[] } | null;
-  baby_message: string | null;
-  mother_changes_payload: { items?: string[] } | null;
-};
-
-type ChecklistRow = {
-  id: string;
-  code: string;
-  title: string;
-  description: string | null;
-  checklist_payload: {
-    items?: Array<{ id?: string; label?: string }>;
-    rawText?: string;
-  } | null;
-  display_order: number;
-  is_required: boolean;
-};
-
-type QuestionRow = {
-  id: string;
-  code: string;
-  question_text: string;
-  question_type:
-    | "text"
-    | "single_choice"
-    | "multi_choice"
-    | "yes_no"
-    | "number";
-  help_text: string | null;
-  question_payload: {
-    choices?: Array<{ id?: string; label?: string }>;
-    yesLabel?: string;
-    noLabel?: string;
-    rawText?: string;
-  } | null;
-  display_order: number;
-  is_required: boolean;
-};
-
-type UserChecklistEventRow = {
-  id: string;
-  checklist_id: string;
-  status: "sent" | "opened" | "completed" | "skipped";
-};
-
-type UserQuestionEventRow = {
-  id: string;
-  question_id: string;
-  status: "sent" | "opened" | "answered" | "skipped";
-};
-
-type WorkflowAssistantPayload = {
-  answer?: string;
-  characterTone?: CharacterTone;
-  guardrailStatus?: "safe" | "medical_caution" | "redirect";
-  guardrailReason?: string;
-  scenario?: WorkflowScenario;
-  nextSessionMemory?: SessionMemoryPayload;
-  nextProfileMemory?: ProfileMemoryPayload;
-};
-
-type PromptContext = {
-  pregnancyWeek: number;
-  dayNumber: number;
-  week: WeekDataRow;
-  dayContent: DayContentRow | null;
-  checklists: ChecklistRow[];
-  questions: QuestionRow[];
-  tonePreference: string | null;
-  profileMemory: ProfileMemoryPayload | null;
-  sessionMemory: SessionMemoryPayload | null;
-  onboardingPayload: PregnancyProfilePromptRow["onboarding_payload"];
-  missingFields: string[];
-};
 
 type AssistantFollowUpMessage = {
   role: "assistant";
@@ -177,185 +77,6 @@ type AssistantFollowUpMessage = {
   parts: ChatMessage["parts"];
 };
 
-const GUARDRAIL_BLOCK_RULES = [
-  {
-    type: "abusive",
-    patterns: [
-      /\b(fuck|shit|bitch|asshole)\b/i,
-      /(씨발|시발|병신|꺼져|좆|개새)/i,
-    ],
-    reason:
-      "상처를 주는 표현에는 답변하지 않고 있어요. 필요한 도움을 차분하게 적어주시면 안전하게 안내할게요.",
-  },
-  {
-    type: "unethical",
-    patterns: [
-      /(자해|해치고\s*싶|죽이고\s*싶|죽이는\s*법|폭탄|마약|사기|불법)/i,
-      /\b(kill|suicide|bomb|drugs|fraud|scam)\b/i,
-    ],
-    reason:
-      "위험하거나 해를 끼치는 요청은 도와드릴 수 없어요. 본인이나 다른 사람의 안전이 급하면 바로 119나 가까운 응급 도움을 요청해주세요.",
-  },
-] as const;
-
-const OFF_TOPIC_PATTERNS = [
-  /(주식|코인|비트코인|이더리움|축구|야구|로또|영화 추천|맛집|여행 일정|코드 작성|프로그래밍)/i,
-  /\b(stock|bitcoin|crypto|soccer|baseball|lottery|movie recommendation|restaurant|travel itinerary|programming|code)\b/i,
-];
-
-const PREGNANCY_CONTEXT_PATTERNS = [
-  /(임신|산모|태아|아기|출산|진통|복통|출혈|입덧|태동|수축|병원|진료|약|영양제|검사|초음파)/i,
-  /\b(pregnan|baby|fetus|labor|bleeding|contraction|ultrasound|obgyn)\b/i,
-];
-
-function buildQuickReplyChoices(input: { baseId: string; options: string[] }) {
-  return input.options.slice(0, 4).map((option, index) => ({
-    id: `${input.baseId}-choice-${index + 1}`,
-    label: option,
-    message: option,
-  }));
-}
-
-type PromptFollowUpResult = {
-  messages: AssistantFollowUpMessage[];
-  selectedChecklists: ChecklistRow[];
-  selectedQuestions: QuestionRow[];
-};
-
-function buildPromptFollowUpMessages(input: {
-  week: WeekDataRow;
-  dayContent: DayContentRow | null;
-  checklists: ChecklistRow[];
-  questions: QuestionRow[];
-  excludeChecklistIds?: Set<string>;
-  excludeQuestionIds?: Set<string>;
-}): PromptFollowUpResult {
-  const messages: AssistantFollowUpMessage[] = [];
-  const selectedChecklists: ChecklistRow[] = [];
-  const selectedQuestions: QuestionRow[] = [];
-
-  // 이미 물어본 것 제외
-  const availableChecklists = input.checklists.filter(
-    (c) => !input.excludeChecklistIds?.has(c.id),
-  );
-  const availableQuestions = input.questions.filter(
-    (q) => !input.excludeQuestionIds?.has(q.id),
-  );
-
-  if (input.dayContent?.baby_message?.trim()) {
-    messages.push({
-      role: "assistant",
-      createdAtLabel: "방금 전",
-      parts: [
-        {
-          type: "text",
-          id: `baby-message-${input.week.week_number}-${input.dayContent.day_number}`,
-          text: input.dayContent.baby_message.trim(),
-        },
-      ],
-    });
-  }
-
-  const question = availableQuestions[0];
-  if (question) {
-    selectedQuestions.push(question);
-    const questionChoices =
-      question.question_type === "yes_no"
-        ? [
-            question.question_payload?.yesLabel?.trim() || "네",
-            question.question_payload?.noLabel?.trim() || "아니요",
-          ]
-        : (question.question_payload?.choices ?? [])
-            .map((choice) => choice.label?.trim() ?? "")
-            .filter(Boolean);
-
-    const fallbackChoices =
-      questionChoices.length > 0
-        ? questionChoices
-        : ["괜찮아요", "조금 걱정돼요", "더 확인하고 싶어요", "잘 모르겠어요"];
-
-    messages.push({
-      role: "assistant",
-      createdAtLabel: "방금 전",
-      parts: [
-        {
-          type: "text",
-          id: `question-text-${question.id}`,
-          tag: "question",
-          contentId: question.id,
-          contentCode: question.code,
-          text: sanitizeInlineCitationMarkers(
-            [
-              input.week.question_intro ?? "생각해볼 질문",
-              question.question_text,
-              question.help_text,
-            ]
-              .filter(Boolean)
-              .join("\n"),
-          ),
-        },
-        {
-          type: "quickReplies",
-          id: `quick-replies-question-${question.id}`,
-          tag: "question",
-          contentId: question.id,
-          contentCode: question.code,
-          title: "빠르게 답해보세요",
-          choices: buildQuickReplyChoices({
-            baseId: question.id,
-            options: fallbackChoices,
-          }),
-        },
-      ],
-    });
-  } else {
-    const checklist = availableChecklists[0];
-    if (checklist) {
-      selectedChecklists.push(checklist);
-      const cleanTitle = sanitizeInlineCitationMarkers(checklist.title);
-      const cleanDesc = checklist.description
-        ? sanitizeInlineCitationMarkers(checklist.description)
-        : "";
-      const descText =
-        cleanDesc && cleanDesc !== cleanTitle ? `\n${cleanDesc}` : "";
-      const shortLabel =
-        cleanTitle.length > 30 ? cleanTitle.slice(0, 30) + "…" : cleanTitle;
-
-      messages.push({
-        role: "assistant",
-        createdAtLabel: "방금 전",
-        parts: [
-          {
-            type: "text",
-            id: `checklist-${checklist.id}`,
-            tag: "checklist",
-            contentId: checklist.id,
-            contentCode: checklist.code,
-            text: `${input.week.checklist_intro ?? "오늘 할 일"}\n${cleanTitle}${descText}`,
-          },
-          {
-            type: "quickReplies",
-            id: `quick-replies-checklist-${checklist.id}`,
-            tag: "checklist",
-            contentId: checklist.id,
-            contentCode: checklist.code,
-            title: "빠르게 답해보세요",
-            choices: buildQuickReplyChoices({
-              baseId: checklist.id,
-              options: [
-                `${shortLabel} 했어요`,
-                `${shortLabel} 아직 못 했어요`,
-                `${shortLabel} 더 설명해 주세요`,
-              ],
-            }),
-          },
-        ],
-      });
-    }
-  }
-
-  return { messages, selectedChecklists, selectedQuestions };
-}
 
 function pickLatestEmotionTone(input: {
   sessionMemory: SessionMemoryPayload | null;
@@ -384,169 +105,6 @@ function buildMemorySystemBlock(input: {
   ]
     .filter(Boolean)
     .join("\n");
-}
-
-async function getPromptContext(
-  userId: string,
-  hintedPregnancyWeek: number | null,
-  sessionId: string | null,
-): Promise<PromptContext | null> {
-  const [profiles, sessions] = await Promise.all([
-    supabaseSelect<PregnancyProfilePromptRow[]>(
-      `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week,baby_nickname,display_name,due_date,onboarding_payload&user_id=eq.${userId}&limit=1`,
-    ),
-    sessionId
-      ? supabaseSelect<
-          Array<{
-            id: string;
-            title: string;
-            memory_payload?: SessionMemoryPayload | null;
-          }>
-        >(
-          `chat_sessions?select=id,title,memory_payload&id=eq.${sessionId}&user_id=eq.${userId}&limit=1`,
-        )
-      : Promise.resolve([]),
-  ]);
-
-  const pregnancyWeek = hintedPregnancyWeek ?? profiles[0]?.pregnancy_week ?? null;
-  if (!pregnancyWeek) {
-    return null;
-  }
-
-  const dayNumber = ((profiles[0]?.pregnancy_day_in_week ?? 0) % 7) + 1;
-
-  const weekRows = await supabaseSelect<WeekDataRow[]>(
-    `content_pregnancy_week_data?select=id,week_number,title,baby_summary,mother_summary,warning_signs,recommended_actions,checklist_intro,question_intro,status&week_number=eq.${pregnancyWeek}&status=eq.published&limit=1`,
-  );
-  const week = weekRows[0];
-  if (!week) {
-    return null;
-  }
-
-  const [dayContentRows, checklists, questions] = await Promise.all([
-    supabaseSelect<DayContentRow[]>(
-      `content_pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
-    ),
-    supabaseSelect<ChecklistRow[]>(
-      `content_week_checklists?select=id,code,title,description,checklist_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
-    ),
-    supabaseSelect<QuestionRow[]>(
-      `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
-    ),
-  ]);
-
-  const profile = profiles[0];
-  const missingFields: string[] = [];
-  if (!profile?.baby_nickname) missingFields.push("태명");
-  if (!profile?.due_date) missingFields.push("출산 예정일");
-  if (!profile?.display_name || profile.display_name === "사용자") {
-    missingFields.push("이름");
-  }
-
-  return {
-    pregnancyWeek,
-    dayNumber,
-    week,
-    dayContent: dayContentRows[0] ?? null,
-    checklists,
-    questions,
-    tonePreference: profile?.onboarding_payload?.tonePreference ?? null,
-    profileMemory: profile?.onboarding_payload?.profileMemory ?? null,
-    sessionMemory: sessions[0]?.memory_payload ?? null,
-    onboardingPayload: profile?.onboarding_payload ?? null,
-    missingFields,
-  };
-}
-
-async function markOutstandingPromptEventsAnswered(input: {
-  userId: string;
-  sessionId: string;
-  userMessageId: string | null;
-  userMessageText: string;
-}) {
-  const [checklistEvents, questionEvents] = await Promise.all([
-    supabaseSelect<UserChecklistEventRow[]>(
-      `user_checklist_events?select=id,checklist_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}&status=eq.sent`,
-    ),
-    supabaseSelect<UserQuestionEventRow[]>(
-      `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}&status=eq.sent`,
-    ),
-  ]);
-
-  const now = new Date().toISOString();
-
-  for (const event of checklistEvents) {
-    await supabaseUpdate(`user_checklist_events?id=eq.${event.id}`, {
-      status: "completed",
-      completion_message_id: input.userMessageId,
-      answer_text: input.userMessageText,
-      completed_at: now,
-      updated_at: now,
-    });
-  }
-
-  for (const event of questionEvents) {
-    await supabaseUpdate(`user_question_events?id=eq.${event.id}`, {
-      status: "answered",
-      answer_message_id: input.userMessageId,
-      answer_text: input.userMessageText,
-      answered_at: now,
-      updated_at: now,
-    });
-  }
-}
-
-async function createPromptEvents(input: {
-  userId: string;
-  sessionId: string;
-  assistantMessageId: string | null;
-  checklists: ChecklistRow[];
-  questions: QuestionRow[];
-}) {
-  const now = new Date().toISOString();
-
-  for (const checklist of input.checklists) {
-    await supabaseInsert("user_checklist_events", {
-      user_id: input.userId,
-      checklist_id: checklist.id,
-      session_id: input.sessionId,
-      prompt_message_id: input.assistantMessageId,
-      status: "sent",
-      sent_at: now,
-      updated_at: now,
-    });
-  }
-
-  for (const question of input.questions) {
-    await supabaseInsert("user_question_events", {
-      user_id: input.userId,
-      question_id: question.id,
-      session_id: input.sessionId,
-      prompt_message_id: input.assistantMessageId,
-      status: "sent",
-      sent_at: now,
-      updated_at: now,
-    });
-  }
-}
-
-async function getAlreadyPromptedIds(input: {
-  userId: string;
-  sessionId: string;
-}): Promise<{ checklistIds: Set<string>; questionIds: Set<string> }> {
-  const [checklistEvents, questionEvents] = await Promise.all([
-    supabaseSelect<UserChecklistEventRow[]>(
-      `user_checklist_events?select=id,checklist_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}`,
-    ),
-    supabaseSelect<UserQuestionEventRow[]>(
-      `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}`,
-    ),
-  ]);
-
-  return {
-    checklistIds: new Set(checklistEvents.map((e) => e.checklist_id)),
-    questionIds: new Set(questionEvents.map((e) => e.question_id)),
-  };
 }
 
 function buildFallbackReply(input: {
@@ -593,31 +151,6 @@ function buildFallbackReply(input: {
   };
 }
 
-function detectHardGuardrailReason(text: string) {
-  const normalized = text.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  for (const rule of GUARDRAIL_BLOCK_RULES) {
-    if (rule.patterns.some((pattern) => pattern.test(normalized))) {
-      return rule.reason;
-    }
-  }
-
-  const looksOffTopic = OFF_TOPIC_PATTERNS.some((pattern) =>
-    pattern.test(normalized),
-  );
-  const looksPregnancyRelated = PREGNANCY_CONTEXT_PATTERNS.some((pattern) =>
-    pattern.test(normalized),
-  );
-
-  if (looksOffTopic && !looksPregnancyRelated) {
-    return "이 채팅은 임신과 건강 관련 안내에 집중하고 있어요. 몸 상태, 검사, 생활 관리처럼 필요한 내용을 보내주시면 그 범위에서 도와드릴게요.";
-  }
-
-  return null;
-}
 
 async function loadCharacterImages(): Promise<Record<string, string | null>> {
   try {
@@ -689,91 +222,6 @@ function createCharacterImageUrl(
   };
 }
 
-function parseWorkflowAssistantPayload(
-  outputs: Record<string, unknown> | undefined,
-): WorkflowAssistantPayload | null {
-  if (!outputs) {
-    return null;
-  }
-
-  const directAnswer =
-    typeof outputs.answer === "string"
-      ? outputs.answer
-      : typeof outputs.reply === "string"
-        ? outputs.reply
-        : typeof outputs.result === "string"
-          ? outputs.result
-          : null;
-
-  const directPayload = {
-    answer:
-      typeof outputs.answer === "string"
-        ? outputs.answer
-        : typeof outputs.reply === "string"
-          ? outputs.reply
-          : typeof outputs.result === "string"
-            ? outputs.result
-            : undefined,
-    characterTone:
-      typeof outputs.characterTone === "string"
-        ? (outputs.characterTone as CharacterTone)
-        : undefined,
-    guardrailStatus:
-      typeof outputs.guardrailStatus === "string"
-        ? (outputs.guardrailStatus as WorkflowAssistantPayload["guardrailStatus"])
-        : undefined,
-    guardrailReason:
-      typeof outputs.guardrailReason === "string"
-        ? outputs.guardrailReason
-        : undefined,
-    scenario:
-      typeof outputs.scenario === "string"
-        ? (outputs.scenario as WorkflowScenario)
-        : undefined,
-  };
-
-  if (
-    directPayload.characterTone ||
-    directPayload.guardrailStatus ||
-    directPayload.guardrailReason ||
-    directPayload.scenario ||
-    (outputs.nextSessionMemory && typeof outputs.nextSessionMemory === "object") ||
-    (outputs.nextProfileMemory && typeof outputs.nextProfileMemory === "object")
-  ) {
-    return {
-      ...directPayload,
-      nextSessionMemory:
-        outputs.nextSessionMemory && typeof outputs.nextSessionMemory === "object"
-          ? (outputs.nextSessionMemory as SessionMemoryPayload)
-          : undefined,
-      nextProfileMemory:
-        outputs.nextProfileMemory && typeof outputs.nextProfileMemory === "object"
-          ? (outputs.nextProfileMemory as ProfileMemoryPayload)
-          : undefined,
-    };
-  }
-
-  if (!directAnswer) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(directAnswer) as WorkflowAssistantPayload;
-    if (
-      (typeof parsed.answer === "string" && parsed.answer.trim()) ||
-      typeof parsed.characterTone === "string" ||
-      typeof parsed.guardrailStatus === "string" ||
-      typeof parsed.nextSessionMemory === "object" ||
-      typeof parsed.nextProfileMemory === "object"
-    ) {
-      return parsed;
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
 
 async function buildAssistantMessageFromWorkflowRun(run: {
   outputs?: Record<string, unknown>;
@@ -834,86 +282,6 @@ async function buildAssistantMessageFromWorkflowRun(run: {
   };
 }
 
-function sanitizeInlineCitationMarkers(text: string) {
-  return text
-    .replace(/\s*\[\d+\]/g, "")
-    .replace(/(?:\s*\(\d+\))+/g, "")
-    .replace(/\s*\((?:\d+\s*,\s*)+\d+\)/g, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
-
-/**
- * 워크플로우 답변에서 follow-up 메시지로 분리될 체크리스트/질문 텍스트를 제거.
- * follow-up messages가 quickReplies와 함께 동일 내용을 보여주므로 중복 방지.
- */
-function stripFollowUpContentFromAnswer(
-  parts: ChatMessage["parts"],
-  promptContext: {
-    checklists: { title: string }[];
-    questions: { question_text: string }[];
-  },
-): ChatMessage["parts"] {
-  const checklistTitles = promptContext.checklists.map((c) => c.title);
-  const questionTexts = promptContext.questions.map((q) => q.question_text);
-
-  return parts.map((part) => {
-    if (part.type !== "text") return part;
-
-    let text = part.text;
-
-    // 체크리스트 제목이 포함된 줄(과 바로 다음 중복 줄) 제거
-    for (const title of checklistTitles) {
-      const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      text = text.replace(
-        new RegExp(
-          `(?:^|\\n)[-–]?\\s*${escapedTitle}[^\\n]*(?:\\n${escapedTitle}[^\\n]*)?`,
-          "g",
-        ),
-        "",
-      );
-    }
-
-    // 질문 텍스트가 포함된 줄 제거
-    for (const qText of questionTexts) {
-      const escapedQ = qText
-        .slice(0, 30)
-        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      text = text.replace(
-        new RegExp(`(?:^|\\n)[-–""]?\\s*${escapedQ}[^\\n]*`, "g"),
-        "",
-      );
-    }
-
-    // "오늘 할 일" / "생각해볼 질문" 헤딩만 남은 경우 제거
-    text = text.replace(
-      /(?:^|\n)오늘 할 일\s*\n?(?=\s*$|\n오늘 할 일|\n생각해볼)/g,
-      "",
-    );
-    text = text.replace(
-      /(?:^|\n)생각해볼 질문\s*\n?(?=\s*$|\n생각해볼|\n오늘 할 일)/g,
-      "",
-    );
-
-    // 연속 빈 줄 정리
-    text = text.replace(/\n{3,}/g, "\n\n").trim();
-
-    return { ...part, text };
-  });
-}
-
-function sanitizeChatParts(parts: ChatMessage["parts"]) {
-  return parts.map((part) => {
-    if (part.type === "text") {
-      return {
-        ...part,
-        text: sanitizeInlineCitationMarkers(part.text),
-      };
-    }
-
-    return part;
-  });
-}
 
 function parseAssistantResponse(rawText: string): ChatMessage {
   const jsonMatch = rawText.match(/\{[\s\S]*\}/);

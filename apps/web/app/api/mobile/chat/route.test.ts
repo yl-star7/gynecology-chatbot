@@ -230,6 +230,14 @@ import { getSchiftClient } from "@/lib/mobile/schift-client";
 import { runSchiftWorkflow } from "@/lib/mobile/schift-workflow";
 import { POST } from "./route";
 
+import {
+  buildPromptFollowUpMessages,
+  stripFollowUpContentFromAnswer,
+} from "@/lib/mobile/chat/follow-ups";
+import { detectHardGuardrailReason } from "@/lib/mobile/chat/guardrails";
+import { parseWorkflowAssistantPayload } from "@/lib/mobile/chat/workflow-payload";
+import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
+
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
   typeof requireMobileSession
 >;
@@ -251,6 +259,113 @@ const mockedGetSchiftClient = getSchiftClient as jest.MockedFunction<
 const mockedRunSchiftWorkflow = runSchiftWorkflow as jest.MockedFunction<
   typeof runSchiftWorkflow
 >;
+
+describe("chat pure helpers", () => {
+  it("detects abusive and off-topic guardrail reasons", () => {
+    expect(detectHardGuardrailReason("씨발 진짜 짜증나")).toContain(
+      "상처를 주는 표현에는 답변하지 않고 있어요",
+    );
+    expect(detectHardGuardrailReason("오늘 비트코인 시세 알려줘")).toContain(
+      "임신과 건강 관련 안내",
+    );
+  });
+
+  it("sanitizes inline citation markers", () => {
+    expect(sanitizeInlineCitationMarkers("안정을 취해 보세요 (3)(5) [91]")).toBe(
+      "안정을 취해 보세요",
+    );
+  });
+
+  it("parses workflow memory payload from structured answer json", () => {
+    expect(
+      parseWorkflowAssistantPayload({
+        answer: JSON.stringify({
+          answer: "답변",
+          scenario: "symptom_counsel",
+          nextSessionMemory: {
+            compactSummary: "요약",
+          },
+          nextProfileMemory: {
+            lastEmotionTone: "anxious",
+          },
+        }),
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        answer: "답변",
+        scenario: "symptom_counsel",
+        nextSessionMemory: expect.objectContaining({ compactSummary: "요약" }),
+        nextProfileMemory: expect.objectContaining({
+          lastEmotionTone: "anxious",
+        }),
+      }),
+    );
+  });
+
+  it("prefers question follow-up over checklist and strips duplicate text", () => {
+    const followUp = buildPromptFollowUpMessages({
+      week: {
+        id: "week-13",
+        week_number: 13,
+        title: "13주차",
+        baby_summary: null,
+        mother_summary: null,
+        warning_signs: null,
+        recommended_actions: null,
+        checklist_intro: "오늘 할 일",
+        question_intro: "생각해볼 질문",
+        status: "published",
+      },
+      dayContent: null,
+      checklists: [
+        {
+          id: "check-1",
+          code: "drink-water",
+          title: "수분 섭취 체크",
+          description: null,
+          checklist_payload: null,
+          display_order: 1,
+          is_required: true,
+        },
+      ],
+      questions: [
+        {
+          id: "question-1",
+          code: "main-concern",
+          question_text: "오늘 가장 걱정되는 점은 무엇인가요?",
+          question_type: "text",
+          help_text: null,
+          question_payload: {},
+          display_order: 1,
+          is_required: true,
+        },
+      ],
+    });
+
+    expect(followUp.selectedQuestions).toHaveLength(1);
+    expect(followUp.selectedChecklists).toHaveLength(0);
+
+    const stripped = stripFollowUpContentFromAnswer(
+      [
+        {
+          type: "text",
+          id: "t1",
+          text: "오늘 가장 걱정되는 점은 무엇인가요?\n수분 섭취 체크\n일단 휴식하세요.",
+        },
+      ],
+      {
+        checklists: [{ title: "수분 섭취 체크" }],
+        questions: [{ question_text: "오늘 가장 걱정되는 점은 무엇인가요?" }],
+      },
+    );
+
+    expect(stripped[0]).toEqual(
+      expect.objectContaining({
+        text: "일단 휴식하세요.",
+      }),
+    );
+  });
+});
 
 describe("POST /api/mobile/chat", () => {
   beforeEach(() => {
