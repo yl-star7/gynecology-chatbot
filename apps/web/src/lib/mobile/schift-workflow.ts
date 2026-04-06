@@ -11,15 +11,27 @@ function hasRunnableGraph(workflow: Workflow) {
   return blockCount > 0 || nodeCount > 0;
 }
 
+function isCanonicalInternalAnswerWorkflow(workflow: Workflow) {
+  if (workflow.name !== "모성간호 상담 응답") {
+    return false;
+  }
+
+  const description = workflow.description ?? "";
+  return description.includes('"trigger":"내부 데이터만 답변"');
+}
+
 function pickActiveWorkflow(workflows: Workflow[]) {
   const runnable = workflows.filter(hasRunnableGraph);
+  const activeRunnable = runnable.filter(
+    (workflow) =>
+      workflow.status === "active" ||
+      (workflow.status as string) === "published",
+  );
 
   return (
-    runnable.find(
-      (workflow) =>
-        workflow.status === "active" ||
-        (workflow.status as string) === "published",
-    ) ??
+    activeRunnable.find(isCanonicalInternalAnswerWorkflow) ??
+    activeRunnable[0] ??
+    runnable.find(isCanonicalInternalAnswerWorkflow) ??
     runnable[0] ??
     null
   );

@@ -264,6 +264,18 @@ function buildWorkflowIdentity(input: {
     .join("::");
 }
 
+function isCanonicalMobileChatWorkflow(workflow: {
+  name: string;
+  trigger: string;
+}) {
+  return (
+    normalizeWorkflowKeyPart(workflow.name) ===
+      normalizeWorkflowKeyPart("모성간호 상담 응답") &&
+    normalizeWorkflowKeyPart(workflow.trigger) ===
+      normalizeWorkflowKeyPart("내부 데이터만 답변")
+  );
+}
+
 export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
   private readonly fallback = new MockAdminDashboardPortAdapter();
 
@@ -629,7 +641,15 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           return true;
         });
 
-        return [...mappedDefinitions, ...dedupedSchiftWorkflows];
+        const mergedWorkflowRules = [
+          ...mappedDefinitions,
+          ...dedupedSchiftWorkflows,
+        ];
+        const canonicalWorkflow = mergedWorkflowRules.find(
+          isCanonicalMobileChatWorkflow,
+        );
+
+        return canonicalWorkflow ? [canonicalWorkflow] : mergedWorkflowRules;
       })(),
     };
   }
