@@ -11,7 +11,12 @@ import {
   parsePregnancyWeekDocText,
   type ParsedPregnancyWeek,
 } from "../src/lib/content/pregnancy-docx-import";
-import { getSupabaseAdminClient } from "../src/lib/supabase/admin-client";
+import {
+  supabaseDelete,
+  supabaseInsert,
+  supabaseSelect,
+  supabaseUpdate,
+} from "../src/lib/supabase/admin-client";
 
 type CliOptions = {
   input: string;
@@ -20,6 +25,7 @@ type CliOptions = {
   output: string | null;
   weekFrom: number | null;
   weekTo: number | null;
+  skipMedia: boolean;
 };
 
 type WeekRow = {
@@ -48,6 +54,7 @@ function parseArgs(argv: string[]): CliOptions {
   let output: string | null = null;
   let weekFrom: number | null = null;
   let weekTo: number | null = null;
+  let skipMedia = false;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -78,6 +85,10 @@ function parseArgs(argv: string[]): CliOptions {
     }
     if (arg === "--apply") {
       apply = true;
+      continue;
+    }
+    if (arg === "--skip-media") {
+      skipMedia = true;
     }
   }
 
@@ -92,6 +103,7 @@ function parseArgs(argv: string[]): CliOptions {
     output: output ? resolve(output) : null,
     weekFrom,
     weekTo,
+    skipMedia,
   };
 }
 
@@ -169,7 +181,7 @@ function toWeekPayload(week: ParsedPregnancyWeek) {
     mother_summary: summaryDay?.motherChanges.join(" ") ?? null,
     checklist_intro: "오늘 함께 해 봐요",
     question_intro: "아기와 나누는 마음",
-    status: "draft",
+    status: "published",
     updated_at: new Date().toISOString(),
   };
 }
@@ -258,32 +270,26 @@ async function ensureBucket(bucketId: string) {
 }
 
 async function upsertWeek(week: ParsedPregnancyWeek) {
-  const content = getSupabaseAdminClient();
-  const { data: existing, error: existingError } = await content
-    .from("content_pregnancy_week_data")
-    .select("id,week_number")
-    .eq("week_number", week.weekNumber)
-    .limit(1);
-  if (existingError) throw existingError;
+  const existing = await supabaseSelect<WeekRow>(
+    `content_pregnancy_week_data?select=id,week_number&week_number=eq.${week.weekNumber}&limit=1`,
+  );
   const payload = {
     week_number: week.weekNumber,
     ...toWeekPayload(week),
   };
 
   if (existing[0]) {
-    const { error } = await content
-      .from("content_pregnancy_week_data")
-      .update(payload)
-      .eq("id", existing[0].id);
-    if (error) throw error;
+    await supabaseUpdate<WeekRow>(
+      `content_pregnancy_week_data?id=eq.${existing[0].id}`,
+      payload,
+    );
     return existing[0].id;
   }
 
-  const { data: inserted, error: insertError } = await content
-    .from("content_pregnancy_week_data")
-    .insert({ id: randomUUID(), ...payload })
-    .select("id,week_number");
-  if (insertError) throw insertError;
+  const inserted = await supabaseInsert<WeekRow>("content_pregnancy_week_data", {
+    id: randomUUID(),
+    ...payload,
+  });
   return inserted[0].id;
 }
 
@@ -292,14 +298,9 @@ async function upsertDay(
   week: ParsedPregnancyWeek,
   dayNumber: number,
 ) {
-  const content = getSupabaseAdminClient();
-  const { data: existing, error: existingError } = await content
-    .from("content_pregnancy_day_contents")
-    .select("id,day_number")
-    .eq("week_data_id", weekDataId)
-    .eq("day_number", dayNumber)
-    .limit(1);
-  if (existingError) throw existingError;
+  const existing = await supabaseSelect<DayRow>(
+    `content_pregnancy_day_contents?select=id,day_number&week_data_id=eq.${weekDataId}&day_number=eq.${dayNumber}&limit=1`,
+  );
   const payload = {
     week_data_id: weekDataId,
     day_number: dayNumber,
@@ -307,19 +308,17 @@ async function upsertDay(
   };
 
   if (existing[0]) {
-    const { error } = await content
-      .from("content_pregnancy_day_contents")
-      .update(payload)
-      .eq("id", existing[0].id);
-    if (error) throw error;
+    await supabaseUpdate<DayRow>(
+      `content_pregnancy_day_contents?id=eq.${existing[0].id}`,
+      payload,
+    );
     return existing[0].id;
   }
 
-  const { data: inserted, error: insertError } = await content
-    .from("content_pregnancy_day_contents")
-    .insert({ id: randomUUID(), ...payload })
-    .select("id,day_number");
-  if (insertError) throw insertError;
+  const inserted = await supabaseInsert<DayRow>("content_pregnancy_day_contents", {
+    id: randomUUID(),
+    ...payload,
+  });
   return inserted[0].id;
 }
 
@@ -329,47 +328,39 @@ async function replaceChecklistRows(
   week: ParsedPregnancyWeek,
   dayNumber: number,
 ) {
-  const content = getSupabaseAdminClient();
   const day = week.days.find((entry) => entry.dayNumber === dayNumber);
   if (!day) {
     return;
   }
 
-  const { error: deleteError } = await content
-    .from("content_week_checklists")
-    .delete()
-    .eq("day_content_id", dayContentId);
-  if (deleteError) throw deleteError;
+  await supabaseDelete(`content_week_checklists?day_content_id=eq.${dayContentId}`);
   if (day.checklistItems.length === 0) {
     return;
   }
 
-  const { error: insertError } = await content
-    .from("content_week_checklists")
-    .insert(
-      day.checklistItems.map((item, index) => ({
-        id: randomUUID(),
-        week_data_id: weekDataId,
-        day_content_id: dayContentId,
-        day_number: dayNumber,
-        code: `day-${String(dayNumber).padStart(2, "0")}-checklist-${String(
-          index + 1,
-        ).padStart(2, "0")}`,
-        title: item,
-        description: item,
-        checklist_payload: {
-          item,
-          inputType: "yes_no",
-          yesLabel: "예",
-          noLabel: "아니오",
-        },
-        display_order: index + 1,
-        is_required: false,
-        is_active: true,
-        updated_at: new Date().toISOString(),
-      })),
-    );
-  if (insertError) throw insertError;
+  await supabaseInsert("content_week_checklists", [
+    ...day.checklistItems.map((item, index) => ({
+      id: randomUUID(),
+      week_data_id: weekDataId,
+      day_content_id: dayContentId,
+      day_number: dayNumber,
+      code: `day-${String(dayNumber).padStart(2, "0")}-checklist-${String(
+        index + 1,
+      ).padStart(2, "0")}`,
+      title: item,
+      description: item,
+      checklist_payload: {
+        item,
+        inputType: "yes_no",
+        yesLabel: "예",
+        noLabel: "아니오",
+      },
+      display_order: index + 1,
+      is_required: false,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    })),
+  ]);
 }
 
 async function replaceQuestionRows(
@@ -378,43 +369,35 @@ async function replaceQuestionRows(
   week: ParsedPregnancyWeek,
   dayNumber: number,
 ) {
-  const content = getSupabaseAdminClient();
   const day = week.days.find((entry) => entry.dayNumber === dayNumber);
   if (!day) {
     return;
   }
 
-  const { error: deleteError } = await content
-    .from("content_week_questions")
-    .delete()
-    .eq("day_content_id", dayContentId);
-  if (deleteError) throw deleteError;
+  await supabaseDelete(`content_week_questions?day_content_id=eq.${dayContentId}`);
   if (day.questions.length === 0) {
     return;
   }
 
-  const { error: insertError } = await content
-    .from("content_week_questions")
-    .insert(
-      day.questions.map((item, index) => ({
-        id: randomUUID(),
-        week_data_id: weekDataId,
-        day_content_id: dayContentId,
-        day_number: dayNumber,
-        code: `day-${String(dayNumber).padStart(2, "0")}-question-${String(
-          index + 1,
-        ).padStart(2, "0")}`,
-        question_text: item,
-        question_type: "text",
-        help_text: "자유롭게 작성해 주세요.",
-        question_payload: {},
-        display_order: index + 1,
-        is_required: false,
-        is_active: true,
-        updated_at: new Date().toISOString(),
-      })),
-    );
-  if (insertError) throw insertError;
+  await supabaseInsert("content_week_questions", [
+    ...day.questions.map((item, index) => ({
+      id: randomUUID(),
+      week_data_id: weekDataId,
+      day_content_id: dayContentId,
+      day_number: dayNumber,
+      code: `day-${String(dayNumber).padStart(2, "0")}-question-${String(
+        index + 1,
+      ).padStart(2, "0")}`,
+      question_text: item,
+      question_type: "text",
+      help_text: "자유롭게 작성해 주세요.",
+      question_payload: {},
+      display_order: index + 1,
+      is_required: false,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    })),
+  ]);
 }
 
 async function replaceWeekMediaRows(
@@ -425,12 +408,7 @@ async function replaceWeekMediaRows(
   docxPath: string,
   placements: ImagePlacementRecord[],
 ) {
-  const content = getSupabaseAdminClient();
-  const { error: deleteError } = await content
-    .from("content_pregnancy_week_media")
-    .delete()
-    .eq("week_data_id", weekDataId);
-  if (deleteError) throw deleteError;
+  await supabaseDelete(`content_pregnancy_week_media?week_data_id=eq.${weekDataId}`);
 
   if (placements.length === 0) {
     return;
@@ -484,10 +462,7 @@ async function replaceWeekMediaRows(
     }
   }
 
-  const { error: insertError } = await content
-    .from("content_pregnancy_week_media")
-    .insert(rows);
-  if (insertError) throw insertError;
+  await supabaseInsert("content_pregnancy_week_media", rows);
 }
 
 async function main() {
@@ -544,7 +519,9 @@ async function main() {
     return;
   }
 
-  const storageClient = await ensureBucket(options.bucket);
+  const storageClient = options.skipMedia
+    ? null
+    : await ensureBucket(options.bucket);
 
   for (const week of parsedWeeks) {
     const weekDataId = await upsertWeek(week);
@@ -555,16 +532,18 @@ async function main() {
       await replaceChecklistRows(weekDataId, dayContentId, week, day.dayNumber);
       await replaceQuestionRows(weekDataId, dayContentId, week, day.dayNumber);
     }
-    await replaceWeekMediaRows(
-      storageClient,
-      options.bucket,
-      weekDataId,
-      dayContentIds,
-      options.input,
-      imagePlacements.filter(
-        (placement) => placement.weekNumber === week.weekNumber,
-      ),
-    );
+    if (storageClient) {
+      await replaceWeekMediaRows(
+        storageClient,
+        options.bucket,
+        weekDataId,
+        dayContentIds,
+        options.input,
+        imagePlacements.filter(
+          (placement) => placement.weekNumber === week.weekNumber,
+        ),
+      );
+    }
   }
 }
 
