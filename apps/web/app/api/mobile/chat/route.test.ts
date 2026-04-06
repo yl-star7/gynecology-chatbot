@@ -288,9 +288,20 @@ describe("POST /api/mobile/chat", () => {
   function mockPromptContext({
     existingPromptEvents = false,
     outstandingPromptEvents = false,
+    questions,
   }: {
     existingPromptEvents?: boolean;
     outstandingPromptEvents?: boolean;
+    questions?: Array<{
+      id: string;
+      code: string;
+      question_text: string;
+      question_type: string;
+      help_text: string;
+      question_payload: Record<string, unknown>;
+      display_order: number;
+      is_required: boolean;
+    }>;
   }) {
     mockedSupabaseSelect.mockImplementation((path: string) => {
       if (path.startsWith("chat_sessions?")) {
@@ -385,18 +396,20 @@ describe("POST /api/mobile/chat", () => {
       }
 
       if (path.startsWith("content_week_questions?")) {
-        return Promise.resolve([
-          {
-            id: "question-1",
-            code: "main-concern",
-            question_text: "오늘 가장 걱정되는 점은 무엇인가요?",
-            question_type: "text",
-            help_text: "편하게 적어 주세요.",
-            question_payload: {},
-            display_order: 1,
-            is_required: true,
-          },
-        ]);
+        return Promise.resolve(
+          questions ?? [
+            {
+              id: "question-1",
+              code: "main-concern",
+              question_text: "오늘 가장 걱정되는 점은 무엇인가요?",
+              question_type: "text",
+              help_text: "편하게 적어 주세요.",
+              question_payload: {},
+              display_order: 1,
+              is_required: true,
+            },
+          ],
+        );
       }
 
       if (path.startsWith("user_checklist_events?")) {
@@ -536,6 +549,92 @@ describe("POST /api/mobile/chat", () => {
     } finally {
       Math.random = originalMathRandom;
     }
+  });
+
+  it("includes explicit checklist metadata on checklist follow-up parts", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({
+      questions: [],
+    });
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages") {
+          if (Array.isArray(payload)) {
+            return Promise.resolve(
+              payload.map((_, index) => ({
+                id: `assistant-message-${index + 1}`,
+              })),
+            );
+          }
+
+          const role = (payload as { role?: string }).role;
+          return Promise.resolve([
+            {
+              id:
+                role === "assistant" ? "assistant-message-1" : "user-message-1",
+            },
+          ]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "오늘 두통이 있어요",
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    const followUps = payload.assistantMessages.slice(1);
+    const checklistMessage = followUps.find(
+      (m: {
+        parts: Array<{
+          id: string;
+          tag?: string;
+          contentId?: string;
+          contentCode?: string;
+        }>;
+      }) => m.parts.some((p) => p.id === "checklist-check-1"),
+    );
+    const checklistTextPart = checklistMessage?.parts.find(
+      (p: { id: string }) => p.id === "checklist-check-1",
+    );
+    const checklistQuickRepliesPart = checklistMessage?.parts.find(
+      (p: { id: string }) => p.id === "quick-replies-checklist-check-1",
+    );
+
+    expect(checklistTextPart).toEqual(
+      expect.objectContaining({
+        tag: "checklist",
+        contentId: "check-1",
+        contentCode: "drink-water",
+      }),
+    );
+    expect(checklistQuickRepliesPart).toEqual(
+      expect.objectContaining({
+        tag: "checklist",
+        contentId: "check-1",
+        contentCode: "drink-water",
+      }),
+    );
   });
 
   it("marks outstanding prompt events as completed or answered on the next user message", async () => {

@@ -298,11 +298,17 @@ function buildPromptFollowUpMessages(input: {
           {
             type: "text",
             id: `checklist-${checklist.id}`,
+            tag: "checklist",
+            contentId: checklist.id,
+            contentCode: checklist.code,
             text: `${input.week.checklist_intro ?? "오늘 할 일"}\n${cleanTitle}${descText}`,
           },
           {
             type: "quickReplies",
             id: `quick-replies-checklist-${checklist.id}`,
+            tag: "checklist",
+            contentId: checklist.id,
+            contentCode: checklist.code,
             title: "빠르게 답해보세요",
             choices: buildQuickReplyChoices({
               baseId: checklist.id,
