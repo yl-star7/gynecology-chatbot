@@ -60,6 +60,15 @@ type QuestionRow = {
 
 type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
 
+type StoredProfileMemory = {
+  lastEmotionTone?: EmotionTone | null;
+  updatedAt?: string | null;
+};
+type StoredOnboardingPayload = {
+  profileMemory?: StoredProfileMemory | null;
+  [key: string]: unknown;
+};
+
 const VALID_EMOTION_TONES: EmotionTone[] = [
   "calm",
   "joyful",
@@ -447,6 +456,17 @@ export async function POST(request: NextRequest) {
 
     const now = new Date().toISOString();
 
+    const { data: profiles, error: profileError } = await client
+      .from("pregnancy_profiles")
+      .select("onboarding_payload")
+      .eq("user_id", userId)
+      .limit(1);
+    if (profileError) {
+      throw profileError;
+    }
+    const existingOnboardingPayload =
+      (profiles?.[0]?.onboarding_payload as StoredOnboardingPayload | null) ?? {};
+
     const { error: insertError } = await client.from("calendar_logs").insert({
       user_id: userId,
       session_id: sessionId,
@@ -461,7 +481,9 @@ export async function POST(request: NextRequest) {
 
     await supabaseUpdate(`pregnancy_profiles?user_id=eq.${userId}`, {
       onboarding_payload: {
+        ...existingOnboardingPayload,
         profileMemory: {
+          ...(existingOnboardingPayload.profileMemory ?? {}),
           lastEmotionTone: emotionTone,
           updatedAt: now,
         },
