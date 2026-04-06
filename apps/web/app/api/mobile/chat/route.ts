@@ -153,6 +153,22 @@ type WorkflowAssistantPayload = {
   guardrailStatus?: "safe" | "medical_caution" | "redirect";
   guardrailReason?: string;
   scenario?: WorkflowScenario;
+  nextSessionMemory?: SessionMemoryPayload;
+  nextProfileMemory?: ProfileMemoryPayload;
+};
+
+type PromptContext = {
+  pregnancyWeek: number;
+  dayNumber: number;
+  week: WeekDataRow;
+  dayContent: DayContentRow | null;
+  checklists: ChecklistRow[];
+  questions: QuestionRow[];
+  tonePreference: string | null;
+  profileMemory: ProfileMemoryPayload | null;
+  sessionMemory: SessionMemoryPayload | null;
+  onboardingPayload: PregnancyProfilePromptRow["onboarding_payload"];
+  missingFields: string[];
 };
 
 type AssistantFollowUpMessage = {
@@ -370,25 +386,11 @@ function buildMemorySystemBlock(input: {
     .join("\n");
 }
 
-function buildCompactSummary(input: {
-  userText: string;
-  assistantText: string;
-  previousSummary: string | null;
-}) {
-  const segments = [
-    input.previousSummary?.trim() || null,
-    input.userText.trim() ? `사용자: ${input.userText.trim()}` : null,
-    input.assistantText.trim() ? `안내: ${input.assistantText.trim()}` : null,
-  ].filter(Boolean);
-
-  return segments.join(" | ").slice(0, 400);
-}
-
 async function getPromptContext(
   userId: string,
   hintedPregnancyWeek: number | null,
   sessionId: string | null,
-) {
+): Promise<PromptContext | null> {
   const [profiles, sessions] = await Promise.all([
     supabaseSelect<PregnancyProfilePromptRow[]>(
       `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week,baby_nickname,display_name,due_date,onboarding_payload&user_id=eq.${userId}&limit=1`,
@@ -406,8 +408,7 @@ async function getPromptContext(
       : Promise.resolve([]),
   ]);
 
-  const pregnancyWeek =
-    hintedPregnancyWeek ?? profiles[0]?.pregnancy_week ?? null;
+  const pregnancyWeek = hintedPregnancyWeek ?? profiles[0]?.pregnancy_week ?? null;
   if (!pregnancyWeek) {
     return null;
   }
@@ -433,28 +434,26 @@ async function getPromptContext(
       `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
     ),
   ]);
-  const dayContent = dayContentRows[0] ?? null;
 
   const profile = profiles[0];
   const missingFields: string[] = [];
   if (!profile?.baby_nickname) missingFields.push("태명");
   if (!profile?.due_date) missingFields.push("출산 예정일");
-  if (!profile?.display_name || profile.display_name === "사용자")
+  if (!profile?.display_name || profile.display_name === "사용자") {
     missingFields.push("이름");
-
-  const sessionMemory = sessions[0]?.memory_payload ?? null;
-  const profileMemory = profile?.onboarding_payload?.profileMemory ?? null;
+  }
 
   return {
     pregnancyWeek,
     dayNumber,
     week,
-    dayContent,
+    dayContent: dayContentRows[0] ?? null,
     checklists,
     questions,
     tonePreference: profile?.onboarding_payload?.tonePreference ?? null,
-    profileMemory,
-    sessionMemory,
+    profileMemory: profile?.onboarding_payload?.profileMemory ?? null,
+    sessionMemory: sessions[0]?.memory_payload ?? null,
+    onboardingPayload: profile?.onboarding_payload ?? null,
     missingFields,
   };
 }
@@ -736,9 +735,22 @@ function parseWorkflowAssistantPayload(
   if (
     directPayload.characterTone ||
     directPayload.guardrailStatus ||
-    directPayload.guardrailReason
+    directPayload.guardrailReason ||
+    directPayload.scenario ||
+    (outputs.nextSessionMemory && typeof outputs.nextSessionMemory === "object") ||
+    (outputs.nextProfileMemory && typeof outputs.nextProfileMemory === "object")
   ) {
-    return directPayload;
+    return {
+      ...directPayload,
+      nextSessionMemory:
+        outputs.nextSessionMemory && typeof outputs.nextSessionMemory === "object"
+          ? (outputs.nextSessionMemory as SessionMemoryPayload)
+          : undefined,
+      nextProfileMemory:
+        outputs.nextProfileMemory && typeof outputs.nextProfileMemory === "object"
+          ? (outputs.nextProfileMemory as ProfileMemoryPayload)
+          : undefined,
+    };
   }
 
   if (!directAnswer) {
@@ -750,7 +762,9 @@ function parseWorkflowAssistantPayload(
     if (
       (typeof parsed.answer === "string" && parsed.answer.trim()) ||
       typeof parsed.characterTone === "string" ||
-      typeof parsed.guardrailStatus === "string"
+      typeof parsed.guardrailStatus === "string" ||
+      typeof parsed.nextSessionMemory === "object" ||
+      typeof parsed.nextProfileMemory === "object"
     ) {
       return parsed;
     }
@@ -1421,33 +1435,34 @@ export async function POST(request: NextRequest) {
     }
 
     const assistantMessageAt = new Date().toISOString();
-    const assistantPlainText = assistantMessages
-      .flatMap((message) =>
-        message.parts
-          .filter(
-            (part): part is Extract<(typeof message.parts)[number], { type: "text" }> =>
-              part.type === "text",
-          )
-          .map((part) => part.text),
-      )
-      .join("\n")
-      .trim();
+    const nextSessionMemory = workflowMemoryPayload?.nextSessionMemory;
+    const nextProfileMemory = workflowMemoryPayload?.nextProfileMemory;
 
     await supabaseUpdate(`chat_sessions?id=eq.${normalizedSessionId}`, {
       last_message_at: assistantMessageAt,
       updated_at: assistantMessageAt,
-      memory_payload: {
-        compactSummary: buildCompactSummary({
-          userText: text,
-          assistantText: assistantPlainText,
-          previousSummary: memoryContext.compactSummary,
-        }),
-        lastScenario: workflowMemoryPayload?.scenario ?? null,
-        lastCharacterTone: workflowMemoryPayload?.characterTone ?? null,
-        lastEmotionTone: memoryContext.lastEmotionTone,
-        updatedAt: assistantMessageAt,
-      },
+      ...(nextSessionMemory
+        ? {
+            memory_payload: {
+              ...nextSessionMemory,
+              updatedAt: assistantMessageAt,
+            },
+          }
+        : {}),
     });
+
+    if (nextProfileMemory) {
+      await supabaseUpdate(`pregnancy_profiles?user_id=eq.${userId}`, {
+        onboarding_payload: {
+          ...(promptContext?.onboardingPayload ?? {}),
+          profileMemory: {
+            ...(promptContext?.profileMemory ?? {}),
+            ...nextProfileMemory,
+            updatedAt: assistantMessageAt,
+          },
+        },
+      });
+    }
 
     return NextResponse.json({
       assistantMessage,

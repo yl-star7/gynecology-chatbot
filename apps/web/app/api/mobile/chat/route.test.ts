@@ -1501,7 +1501,7 @@ describe("POST /api/mobile/chat", () => {
     );
   });
 
-  it("stores compact session memory after assistant response", async () => {
+  it("stores workflow-provided nextSessionMemory after assistant response", async () => {
     mockedRequireMobileSession.mockResolvedValue({
       userId: "user-1",
       sessionToken: "token-1",
@@ -1521,7 +1521,10 @@ describe("POST /api/mobile/chat", () => {
           const role = (payload as { role?: string }).role;
           return Promise.resolve([
             {
-              id: role === "assistant" ? "assistant-message-memory-store" : "user-message-memory-store",
+              id:
+                role === "assistant"
+                  ? "assistant-message-memory-store"
+                  : "user-message-memory-store",
             },
           ]);
         }
@@ -1542,6 +1545,12 @@ describe("POST /api/mobile/chat", () => {
             answer: "수분을 챙기고 쉬면서 증상 변화를 봐주세요.",
             scenario: "symptom_counsel",
             characterTone: "calm",
+            nextSessionMemory: {
+              compactSummary: "배가 뭉치는 느낌을 상담했고 수분과 휴식을 먼저 권했어요.",
+              lastScenario: "symptom_counsel",
+              lastCharacterTone: "calm",
+              lastEmotionTone: "tired",
+            },
           }),
         },
         block_states: [],
@@ -1565,10 +1574,88 @@ describe("POST /api/mobile/chat", () => {
       expect.stringContaining("chat_sessions?id=eq."),
       expect.objectContaining({
         memory_payload: expect.objectContaining({
-          compactSummary: expect.stringContaining("배가 뭉치는 느낌이 있어"),
+          compactSummary: "배가 뭉치는 느낌을 상담했고 수분과 휴식을 먼저 권했어요.",
           lastScenario: "symptom_counsel",
           lastCharacterTone: "calm",
           lastEmotionTone: "tired",
+        }),
+      }),
+    );
+  });
+
+  it("stores workflow-provided nextProfileMemory by merging onboarding payload", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({
+      profileMemory: {
+        lastEmotionTone: "tired",
+      },
+      tonePreference: "차분하게",
+    });
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages" && !Array.isArray(payload)) {
+          const role = (payload as { role?: string }).role;
+          return Promise.resolve([
+            {
+              id:
+                role === "assistant"
+                  ? "assistant-message-profile-memory"
+                  : "user-message-profile-memory",
+            },
+          ]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGetSchiftClient.mockReturnValue({ workflows: { run: jest.fn() } } as never);
+    mockedRunSchiftWorkflow.mockResolvedValue({
+      workflowId: "wf-profile-memory",
+      run: {
+        id: "run-profile-memory",
+        workflow_id: "wf-profile-memory",
+        status: "completed",
+        outputs: {
+          answer: JSON.stringify({
+            answer: "오늘은 조금 불안한 마음이 느껴졌어요. 천천히 숨을 고르고 쉬어보세요.",
+            nextProfileMemory: {
+              lastEmotionTone: "anxious",
+            },
+          }),
+        },
+        block_states: [],
+      },
+    } as never);
+
+    await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "계속 마음이 불안해",
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+      "pregnancy_profiles?user_id=eq.user-1",
+      expect.objectContaining({
+        onboarding_payload: expect.objectContaining({
+          tonePreference: "차분하게",
+          profileMemory: expect.objectContaining({
+            lastEmotionTone: "anxious",
+          }),
         }),
       }),
     );

@@ -10,7 +10,7 @@ import {
 const DEFAULT_BUCKET = "pregnancy-knowledge";
 const DEFAULT_WORKFLOW_NAME = "모성간호 상담 응답";
 const DEFAULT_WORKFLOW_DESCRIPTION =
-  "모성간호 교수자 감수 기반 RAG 워크플로우입니다. 임신 주차별 내부 데이터만 바탕으로 답하고, 가드레일(safe/medical_caution/redirect), 감정 체크인, 상담 분기, 캐릭터 톤을 함께 반환합니다.";
+  "모성간호 교수자 감수 기반 RAG 워크플로우입니다. 임신 주차별 내부 데이터만 바탕으로 답하고, 가드레일(safe/medical_caution/redirect), 감정 체크인, 상담 분기, 캐릭터 톤과 다음 턴용 메모리(nextSessionMemory/nextProfileMemory)를 함께 반환합니다.";
 
 const SYSTEM_PROMPT = [
   "당신은 모성간호학 교수자가 감수한 임산부 상담 어시스턴트입니다.",
@@ -18,7 +18,7 @@ const SYSTEM_PROMPT = [
   "응답은 반드시 JSON 하나만 반환하세요.",
   "",
   "## JSON 스키마",
-  "{ answer: string, guardrailStatus: 'safe' | 'medical_caution' | 'redirect', guardrailReason?: string, characterTone: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', scenario?: 'emotion_checkin' | 'week_info' | 'symptom_counsel' | 'general' }",
+  "{ answer: string, guardrailStatus: 'safe' | 'medical_caution' | 'redirect', guardrailReason?: string, characterTone: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', scenario?: 'emotion_checkin' | 'week_info' | 'symptom_counsel' | 'general', nextSessionMemory?: { compactSummary?: string, lastScenario?: 'emotion_checkin' | 'week_info' | 'symptom_counsel' | 'general', lastCharacterTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', lastEmotionTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad' }, nextProfileMemory?: { lastEmotionTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad' } }",
   "",
   "## 가드레일 규칙",
   "- 욕설, 비윤리적 요청, 자해/타해 관련 입력: guardrailStatus='redirect', guardrailReason에 안전 안내 문구",
@@ -58,7 +58,9 @@ const PROMPT_TEMPLATE = [
   "2. 가드레일 규칙에 따라 guardrailStatus를 판단하세요.",
   "3. 상담 분기(scenario)를 판단하고 해당 분기에 맞는 응답 구조를 따르세요.",
   "4. 상황에 가장 적합한 characterTone을 선택하세요.",
-  "5. JSON만 반환하세요.",
+  "5. 이번 턴 이후 저장할 nextSessionMemory와, 장기 메모리로 올릴 값이 있으면 nextProfileMemory를 함께 반환하세요.",
+  "6. compactSummary는 다음 턴에서 바로 이어질 수 있게 최근 맥락만 1~2문장으로 압축하세요.",
+  "7. JSON만 반환하세요.",
 ].join("\n");
 
 const LLM_MODEL = "gemini-2.5-flash-lite";
