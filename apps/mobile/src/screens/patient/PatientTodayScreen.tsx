@@ -36,6 +36,7 @@ import {
   buildTodayConversationLayout,
 } from "./patientScreenLayout.model";
 import { buildPatientTodayViewModel } from "./view-models";
+import { appendAssistantMessages } from "./PatientTodayScreen.model";
 
 function createSessionId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
@@ -160,12 +161,14 @@ export function PatientTodayScreen() {
     setIsSending(true);
 
     try {
-      const assistantMessage = await services.chatPort.sendMessage({
+      const assistantMessages = await services.chatPort.sendMessage({
         sessionId: conversationSessionId,
         text: nextText,
         imageUris: [],
       });
-      appendMessage(conversationSessionId, "아기와 대화", assistantMessage);
+      for (const message of appendAssistantMessages([], assistantMessages)) {
+        appendMessage(conversationSessionId, "아기와 대화", message);
+      }
     } finally {
       setIsSending(false);
     }

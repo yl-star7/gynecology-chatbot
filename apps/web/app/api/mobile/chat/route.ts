@@ -226,54 +226,8 @@ function buildPromptFollowUpMessages(input: {
     });
   }
 
-  // 체크리스트 OR 질문 중 하나만 은근슬쩍 물어보기 (한번에 둘 다 안 보냄)
-  const hasChecklists = availableChecklists.length > 0;
-  const hasQuestions = availableQuestions.length > 0;
-  const pickChecklist =
-    hasChecklists && hasQuestions ? Math.random() < 0.5 : hasChecklists;
-
-  if (pickChecklist && hasChecklists) {
-    const checklist =
-      availableChecklists[
-        Math.floor(Math.random() * availableChecklists.length)
-      ];
-    selectedChecklists.push(checklist);
-    const cleanTitle = sanitizeInlineCitationMarkers(checklist.title);
-    const cleanDesc = checklist.description
-      ? sanitizeInlineCitationMarkers(checklist.description)
-      : "";
-    const descText =
-      cleanDesc && cleanDesc !== cleanTitle ? `\n${cleanDesc}` : "";
-    const shortLabel =
-      cleanTitle.length > 30 ? cleanTitle.slice(0, 30) + "…" : cleanTitle;
-
-    messages.push({
-      role: "assistant",
-      createdAtLabel: "방금 전",
-      parts: [
-        {
-          type: "text",
-          id: `checklist-${checklist.id}`,
-          text: `${input.week.checklist_intro ?? "오늘 할 일"}\n${cleanTitle}${descText}`,
-        },
-        {
-          type: "quickReplies",
-          id: `quick-replies-checklist-${checklist.id}`,
-          title: "빠르게 답해보세요",
-          choices: buildQuickReplyChoices({
-            baseId: checklist.id,
-            options: [
-              `${shortLabel} 했어요`,
-              `${shortLabel} 아직 못 했어요`,
-              `${shortLabel} 더 설명해 주세요`,
-            ],
-          }),
-        },
-      ],
-    });
-  } else if (hasQuestions) {
-    const question =
-      availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
+  const question = availableQuestions[0];
+  if (question) {
     selectedQuestions.push(question);
     const questionChoices =
       question.question_type === "yes_no"
@@ -318,6 +272,44 @@ function buildPromptFollowUpMessages(input: {
         },
       ],
     });
+  } else {
+    const checklist = availableChecklists[0];
+    if (checklist) {
+      selectedChecklists.push(checklist);
+      const cleanTitle = sanitizeInlineCitationMarkers(checklist.title);
+      const cleanDesc = checklist.description
+        ? sanitizeInlineCitationMarkers(checklist.description)
+        : "";
+      const descText =
+        cleanDesc && cleanDesc !== cleanTitle ? `\n${cleanDesc}` : "";
+      const shortLabel =
+        cleanTitle.length > 30 ? cleanTitle.slice(0, 30) + "…" : cleanTitle;
+
+      messages.push({
+        role: "assistant",
+        createdAtLabel: "방금 전",
+        parts: [
+          {
+            type: "text",
+            id: `checklist-${checklist.id}`,
+            text: `${input.week.checklist_intro ?? "오늘 할 일"}\n${cleanTitle}${descText}`,
+          },
+          {
+            type: "quickReplies",
+            id: `quick-replies-checklist-${checklist.id}`,
+            title: "빠르게 답해보세요",
+            choices: buildQuickReplyChoices({
+              baseId: checklist.id,
+              options: [
+                `${shortLabel} 했어요`,
+                `${shortLabel} 아직 못 했어요`,
+                `${shortLabel} 더 설명해 주세요`,
+              ],
+            }),
+          },
+        ],
+      });
+    }
   }
 
   return { messages, selectedChecklists, selectedQuestions };

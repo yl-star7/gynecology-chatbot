@@ -425,7 +425,7 @@ describe("POST /api/mobile/chat", () => {
     });
   }
 
-  it("appends week prompt parts and creates sent events once per session", async () => {
+  it("appends today's question first and creates only question sent events once per session", async () => {
     mockedRequireMobileSession.mockResolvedValue({
       userId: "user-1",
       sessionToken: "token-1",
@@ -460,46 +460,35 @@ describe("POST /api/mobile/chat", () => {
     );
     mockedSupabaseUpdate.mockResolvedValue([]);
 
-    const response = await POST(
-      new Request("http://localhost:3000/api/mobile/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: "user-1",
-          sessionId: "session-1",
-          text: "오늘 두통이 있어요",
-          pregnancyWeek: 13,
-        }),
-      }) as never,
-    );
+    const originalMathRandom = Math.random;
+    Math.random = jest.fn(() => 0.1);
 
-    expect(response.status).toBe(200);
-    const payload = await response.json();
-    // 체크리스트 OR 질문 중 하나만 은근슬쩍 보냄 (랜덤)
-    const followUps = payload.assistantMessages.slice(1);
-    const hasChecklist = followUps.some((m: { parts: Array<{ id: string }> }) =>
-      m.parts.some((p) => p.id === "checklist-check-1"),
-    );
-    const hasQuestion = followUps.some((m: { parts: Array<{ id: string }> }) =>
-      m.parts.some((p) => p.id === "question-text-question-1"),
-    );
-    // 둘 중 적어도 하나는 있어야 함
-    expect(hasChecklist || hasQuestion).toBe(true);
-    // 둘 다 동시에는 안 나옴
-    expect(hasChecklist && hasQuestion).toBe(false);
-
-    // 선택된 것만 이벤트 생성
-    if (hasChecklist) {
-      expect(mockedSupabaseInsert).toHaveBeenCalledWith(
-        "user_checklist_events",
-        expect.objectContaining({
-          user_id: "user-1",
-          checklist_id: "check-1",
-          status: "sent",
-        }),
+    try {
+      const response = await POST(
+        new Request("http://localhost:3000/api/mobile/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: "user-1",
+            sessionId: "session-1",
+            text: "오늘 두통이 있어요",
+            pregnancyWeek: 13,
+          }),
+        }) as never,
       );
-    }
-    if (hasQuestion) {
+
+      expect(response.status).toBe(200);
+      const payload = await response.json();
+      const followUps = payload.assistantMessages.slice(1);
+      const hasQuestion = followUps.some((m: { parts: Array<{ id: string }> }) =>
+        m.parts.some((p) => p.id === "question-text-question-1"),
+      );
+      const hasChecklist = followUps.some((m: { parts: Array<{ id: string }> }) =>
+        m.parts.some((p) => p.id === "checklist-check-1"),
+      );
+
+      expect(hasQuestion).toBe(true);
+      expect(hasChecklist).toBe(false);
       expect(mockedSupabaseInsert).toHaveBeenCalledWith(
         "user_question_events",
         expect.objectContaining({
@@ -508,6 +497,13 @@ describe("POST /api/mobile/chat", () => {
           status: "sent",
         }),
       );
+      expect(
+        mockedSupabaseInsert.mock.calls.some(
+          ([table]) => table === "user_checklist_events",
+        ),
+      ).toBe(false);
+    } finally {
+      Math.random = originalMathRandom;
     }
   });
 
