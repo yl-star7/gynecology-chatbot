@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import type { HomeViewData } from "@gynecology-chatbot/app-core";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card, Pressable } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { useMobileServices } from "../../core/MobileServicesProvider";
@@ -15,6 +16,7 @@ import {
   typo,
 } from "../../theme";
 import { buildPatientRecordsViewModel } from "./view-models";
+import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 
 function badgeStyle(tone: string) {
   if (tone === "success") return styles.badgeSuccess;
@@ -35,9 +37,14 @@ function badgeTextStyle(tone: string) {
 }
 
 export function PatientRecordsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const services = useMobileServices();
   const [home, setHome] = useState<HomeViewData | null>(null);
+  const contentInsets = buildPatientTabContentInsets({
+    bottomInset: insets.bottom,
+    topSpacing: space.xs,
+  });
 
   useEffect(() => {
     services.homePort
@@ -61,7 +68,7 @@ export function PatientRecordsScreen() {
       headerCompact
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, contentInsets]}
         showsVerticalScrollIndicator={false}
       >
         <Card variant="muted">
@@ -124,8 +131,6 @@ export function PatientRecordsScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: space.lg,
-    paddingTop: space.xs,
-    paddingBottom: 140,
     gap: space.md,
   },
   title: {

@@ -10,7 +10,7 @@ test("hidden header screens opt out per route instead of relying on a root stack
   assert.deepEqual(HIDDEN_HEADER_SCREEN_OPTIONS, { headerShown: false });
 });
 
-test("root stack owns only top-level route segments so nested layouts control their leaf screens", () => {
+test("root stack leaves profile settings flows to their nested layouts so native headers stay visible", () => {
   assert.deepEqual(ROOT_STACK_ROUTE_NAMES, [
     "index",
     "auth/login",
@@ -18,8 +18,6 @@ test("root stack owns only top-level route segments so nested layouts control th
     "(tabs)",
     "chat",
     "records",
-    "profile-settings",
-    "profile-survey",
   ]);
 });
 

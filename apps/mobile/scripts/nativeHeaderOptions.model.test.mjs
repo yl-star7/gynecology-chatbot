@@ -17,5 +17,16 @@ test("buildNativeHeaderScreenOptions sets title while preserving push defaults",
     presentation: "card",
     headerBackTitleVisible: false,
     title: "정보 설정",
+    headerBackVisible: true,
+    headerShadowVisible: false,
+    headerTintColor: "#D85C8F",
+    headerTitle: "",
   });
+});
+
+test("buildNativeHeaderScreenOptions keeps a visible native back affordance", () => {
+  const options = buildNativeHeaderScreenOptions("정보 설정");
+
+  assert.equal(options.headerBackVisible, true);
+  assert.equal(options.headerTintColor, "#D85C8F");
 });

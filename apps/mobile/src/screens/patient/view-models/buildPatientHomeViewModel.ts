@@ -8,6 +8,11 @@ import {
   DEFAULT_SUPPORT_MESSAGE,
 } from "./patient-copy.ts";
 import { pickPatientEncouragementQuote } from "./patient-encouragement-quotes.ts";
+import {
+  createPregnancyWeekState,
+  getPregnancyWeekDisplayLabel,
+  getPregnancyWeekImageLabel,
+} from "../pregnancyWeek.model.ts";
 
 const HOURS_PER_DAY = 24;
 const MINUTES_PER_HOUR = 60;
@@ -46,20 +51,6 @@ function getDaysUntilDue(dueDate?: string | null, now?: Date): number | null {
   return Math.max(0, Math.ceil(diff / MS_PER_DAY));
 }
 
-function isPostDue(dueDate?: string | null, now?: Date): boolean {
-  if (!dueDate) {
-    return false;
-  }
-  const due = new Date(dueDate);
-  if (Number.isNaN(due.getTime())) {
-    return false;
-  }
-  const base = now ?? new Date();
-  return due.getTime() < base.getTime();
-}
-
-const MIN_PREGNANCY_WEEK = 1;
-const MAX_PREGNANCY_WEEK = 42;
 const MAX_PREGNANCY_DAYS = 294;
 
 function computePregnancyDayFromDueDate(
@@ -77,30 +68,6 @@ function computePregnancyDayFromDueDate(
   );
   const diff = Math.round((due.getTime() - startOfBase.getTime()) / MS_PER_DAY);
   return Math.max(0, Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diff));
-}
-
-function computeWeekLabelFromDueDate(
-  dueDate?: string | null,
-  now?: Date,
-): string | null {
-  const dayCount = computePregnancyDayFromDueDate(dueDate, now);
-  if (dayCount == null || dayCount <= 0) return null;
-  const week = Math.max(MIN_PREGNANCY_WEEK, Math.floor(dayCount / 7));
-  const dayInWeek = dayCount % 7;
-  if (week > MAX_PREGNANCY_WEEK) return null;
-  return `${week}주 ${dayInWeek}일`;
-}
-
-function sanitizePregnancyWeekLabel(
-  label: string | null | undefined,
-): string | null {
-  if (!label) return null;
-  const match = label.match(/^(\d+)/);
-  if (match) {
-    const week = Number(match[1]);
-    if (week < MIN_PREGNANCY_WEEK || week > MAX_PREGNANCY_WEEK) return null;
-  }
-  return label;
 }
 
 const TONE_MESSAGES: Record<string, string> = {
@@ -124,18 +91,15 @@ export function buildPatientHomeViewModel({
   now?: Date;
 }) {
   const heroName = profile?.babyNickname?.trim() || DEFAULT_BABY_NAME;
-  const postDue = isPostDue(profile?.dueDate, now);
-
-  // 주차 라벨: 서버 값 → due_date 계산 → null 순으로 폴백
-  const sanitized = sanitizePregnancyWeekLabel(
-    home?.pregnancyWeekLabel ?? profile?.pregnancyWeekLabel ?? null,
-  );
-  const computedWeekLabel =
-    sanitized ?? computeWeekLabelFromDueDate(profile?.dueDate, now);
-  const imageWeekLabel = computedWeekLabel ?? sanitized;
-  const pregnancyWeekLabel = postDue
-    ? "출산 예정일이 지났어요"
-    : (computedWeekLabel ?? "주차 정보를 준비 중이에요");
+  const pregnancyWeekState = createPregnancyWeekState({
+    homePregnancyWeekLabel: home?.pregnancyWeekLabel,
+    profilePregnancyWeekLabel: profile?.pregnancyWeekLabel,
+    dueDate: profile?.dueDate,
+    now,
+  });
+  const imageWeekLabel = getPregnancyWeekImageLabel(pregnancyWeekState);
+  const pregnancyWeekLabel = getPregnancyWeekDisplayLabel(pregnancyWeekState);
+  const postDue = pregnancyWeekLabel === "출산 예정일이 지났어요";
 
   // 임신 일수: due_date 기반 계산 우선, 서버 값은 폴백
   const computedDayCount = computePregnancyDayFromDueDate(
@@ -158,9 +122,9 @@ export function buildPatientHomeViewModel({
   ].join("-");
 
   // babyMessage: 실제 주차가 있을 때만 주차 멘트, 아니면 기본 메시지
-  const babyMessage = computedWeekLabel
+  const babyMessage = imageWeekLabel
     ? buildBabyMessage({
-        pregnancyWeekLabel: computedWeekLabel,
+        pregnancyWeekLabel: imageWeekLabel,
         babyName: heroName,
       })
     : DEFAULT_BABY_MESSAGE;

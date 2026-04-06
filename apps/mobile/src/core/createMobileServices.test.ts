@@ -37,3 +37,13 @@ test("createMobileServices rejects when provider value is invalid", () => {
     }
   }
 });
+
+test("createMobileServices exposes survey branding through the profile port", async () => {
+  const services = createMobileServices({ provider: "mock" });
+
+  const branding = await services.profilePort.getBranding();
+
+  assert.deepEqual(branding, {
+    surveyFormUrl: null,
+  });
+});

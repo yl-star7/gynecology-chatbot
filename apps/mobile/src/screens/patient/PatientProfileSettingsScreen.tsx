@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { MobileProfileViewData } from "@gynecology-chatbot/app-core";
 import {
   Button,
@@ -26,12 +27,18 @@ import {
   space,
   typo,
 } from "../../theme";
+import { buildPatientScrollContentInsets } from "./patientScreenLayout.model";
+import {
+  resolvePatientProfileLoadError,
+  resolvePatientProfileSaveError,
+} from "./patientErrorCopy.model";
 
 const DEFAULT_NOTIFICATION_TIME = ["0", "8", ":", "3", "0"].join("");
 const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", "다정하게"];
 
 export function PatientProfileSettingsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { currentUser } = useMobileAppSession();
   const { profilePort } = useMobileServices();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
@@ -46,6 +53,12 @@ export function PatientProfileSettingsScreen() {
   );
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const contentInsets = buildPatientScrollContentInsets({
+    bottomInset: insets.bottom,
+    tabBarHeight: 0,
+    extraBottomSpacing: space.xl,
+    topSpacing: space.sm,
+  });
 
   useEffect(() => {
     if (!currentUser) {
@@ -67,10 +80,7 @@ export function PatientProfileSettingsScreen() {
         );
       })
       .catch((nextError) => {
-        const message =
-          nextError instanceof Error
-            ? nextError.message
-            : "내 정보를 불러오지 못했어요.";
+        const message = resolvePatientProfileLoadError(nextError);
         if (message.includes("세션이 만료되었어요")) {
           router.replace("/auth/login");
           return;
@@ -108,10 +118,7 @@ export function PatientProfileSettingsScreen() {
       setProfile(refreshed);
       router.back();
     } catch (nextError) {
-      const message =
-        nextError instanceof Error
-          ? nextError.message
-          : "저장하지 못했어요. 다시 시도해주세요.";
+      const message = resolvePatientProfileSaveError(nextError);
       if (message.includes("세션이 만료되었어요")) {
         router.replace("/auth/login");
         return;
@@ -135,15 +142,16 @@ export function PatientProfileSettingsScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingTop: contentInsets.paddingTop,
+              paddingBottom: contentInsets.paddingBottom,
+            },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <Card>
-            <Text style={styles.sectionTitle}>아기 정보와 알림을 설정해요</Text>
-            <Text style={styles.sectionDescription}>
-              태명, 예정일, 알림 시간과 대화 분위기를 여기에서 한 번에 바꿀 수
-              있어요.
-            </Text>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>현재 주차</Text>
               <Text style={styles.summaryValue}>
@@ -251,18 +259,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: space.lg,
-    paddingTop: space.md,
-    paddingBottom: 140,
     gap: space.md,
-  },
-  sectionTitle: {
-    ...typo.titleSm,
-    color: surface.textPrimary,
-  },
-  sectionDescription: {
-    marginTop: space.sm,
-    ...typo.body,
-    color: surface.textSecondary,
   },
   summaryRow: {
     marginTop: space.lg,

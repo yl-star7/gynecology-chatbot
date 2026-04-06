@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Card, Pressable } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { useMobileServices } from "../../core/MobileServicesProvider";
@@ -21,6 +22,8 @@ import {
   typo,
 } from "../../theme";
 import { DEFAULT_CONTENT_EMPTY } from "./view-models/patient-copy";
+import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
+import { resolvePatientContentLoadError } from "./patientErrorCopy.model";
 
 export function PatientContentScreen({
   section,
@@ -29,8 +32,14 @@ export function PatientContentScreen({
   section: "knowledge" | "notebook";
   title: string;
 }) {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const services = useMobileServices();
+  const contentInsets = buildPatientTabContentInsets({
+    bottomInset: insets.bottom,
+    topSpacing: space.xs,
+    extraBottomSpacing: section === "knowledge" ? space.xl : space.lg,
+  });
   const [items, setItems] = useState<MobileContentListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,9 +50,7 @@ export function PatientContentScreen({
       setItems(nextItems);
       setError(null);
     } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : DEFAULT_CONTENT_EMPTY,
-      );
+      setError(resolvePatientContentLoadError(nextError));
     }
   }, [section, services]);
 
@@ -62,7 +69,7 @@ export function PatientContentScreen({
       headerCompact
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, contentInsets]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -143,8 +150,6 @@ export function PatientContentScreen({
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: space.xl,
-    paddingTop: space.xs,
-    paddingBottom: 140,
     gap: space.lg,
   },
   eyebrow: {

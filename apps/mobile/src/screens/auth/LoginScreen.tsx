@@ -11,21 +11,28 @@ import {
 } from "../../components/ui";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { palette, space, typo } from "../../theme";
-import { resolvePostLoginHref } from "./LoginScreen.model";
+import {
+  buildInitialLoginFormState,
+  isDevelopmentAutoVerifiedPhoneNumber,
+  resolvePostLoginHref,
+} from "./LoginScreen.model";
 
 export function LoginScreen() {
   const router = useRouter();
   const { requestVerificationCode, signIn } = useMobileAppSession();
-  const [phoneNumber, setPhoneNumber] = useState(__DEV__ ? "01012345678" : "");
+  const initialFormState = buildInitialLoginFormState(__DEV__);
+  const [phoneNumber, setPhoneNumber] = useState(initialFormState.phoneNumber);
   const [verificationCode, setVerificationCode] = useState(
-    __DEV__ ? "000000" : "",
+    initialFormState.verificationCode,
   );
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [hasRequestedCode, setHasRequestedCode] = useState(false);
+  const [hasRequestedCode, setHasRequestedCode] = useState(
+    initialFormState.hasRequestedCode,
+  );
 
   const isBypassPhoneNumber = useMemo(
-    () => __DEV__ && phoneNumber.trim() === "01026784241",
+    () => __DEV__ && isDevelopmentAutoVerifiedPhoneNumber(phoneNumber),
     [phoneNumber],
   );
 
@@ -89,7 +96,9 @@ export function LoginScreen() {
             value={phoneNumber}
             onChangeText={(next) => {
               setPhoneNumber(next);
-              setHasRequestedCode(false);
+              setHasRequestedCode(
+                __DEV__ && isDevelopmentAutoVerifiedPhoneNumber(next),
+              );
               setStatusMessage(null);
               setError(null);
             }}

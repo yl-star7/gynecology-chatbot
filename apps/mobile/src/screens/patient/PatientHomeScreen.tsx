@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type {
   HomeViewData,
   MobileProfileViewData,
@@ -25,12 +26,18 @@ import {
 } from "../../theme";
 import { buildPatientHomeViewModel } from "./view-models";
 import { getWeekBabyImageSource } from "./week-baby-images";
+import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 
 export function PatientHomeScreen() {
+  const insets = useSafeAreaInsets();
   const services = useMobileServices();
   const [home, setHome] = useState<HomeViewData | null>(null);
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const contentInsets = buildPatientTabContentInsets({
+    bottomInset: insets.bottom,
+    topSpacing: space.xs,
+  });
 
   const fetchData = useCallback(async () => {
     const [nextHome, nextProfile] = await Promise.all([
@@ -59,7 +66,7 @@ export function PatientHomeScreen() {
     >
       <ScrollView
         scrollEnabled={false}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, contentInsets]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -120,8 +127,6 @@ export function PatientHomeScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: space.lg,
-    paddingTop: space.xs,
-    paddingBottom: 140,
     gap: space.md,
   },
   monthLabel: {

@@ -27,11 +27,20 @@ jest.mock("@/lib/supabase/admin-client", () => ({
 var adminSupabaseSelectMock: jest.Mock;
 var adminSupabaseInsertMock: jest.Mock;
 var adminSupabaseUpdateMock: jest.Mock;
+var getSupabaseAdminClientMock: jest.Mock;
 
 jest.mock("@/lib/supabase/admin-client", () => {
   adminSupabaseSelectMock = jest.fn();
   adminSupabaseInsertMock = jest.fn();
   adminSupabaseUpdateMock = jest.fn();
+  getSupabaseAdminClientMock = jest.fn(() => ({
+    from: (table: string) =>
+      new QueryBuilder({ table, mode: "select", schema: undefined }),
+    schema: (schema: string) => ({
+      from: (table: string) =>
+        new QueryBuilder({ table, mode: "select", schema }),
+    }),
+  }));
   class QueryBuilder {
     private readonly schema?: string;
     private readonly table: string;
@@ -185,14 +194,7 @@ jest.mock("@/lib/supabase/admin-client", () => {
     supabaseSelect: adminSupabaseSelectMock,
     supabaseInsert: adminSupabaseInsertMock,
     supabaseUpdate: adminSupabaseUpdateMock,
-    getSupabaseAdminClient: () => ({
-      from: (table: string) =>
-        new QueryBuilder({ table, mode: "select", schema: undefined }),
-      schema: (schema: string) => ({
-        from: (table: string) =>
-          new QueryBuilder({ table, mode: "select", schema }),
-      }),
-    }),
+    getSupabaseAdminClient: getSupabaseAdminClientMock,
   };
 });
 
@@ -906,6 +908,65 @@ describe("POST /api/mobile/chat", () => {
     });
   });
 
+  it("returns a safe fallback reply when model output is not valid chat JSON", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({});
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages") {
+          if (Array.isArray(payload)) {
+            return Promise.resolve([{ id: "assistant-message-invalid-json" }]);
+          }
+
+          return Promise.resolve([{ id: "user-message-invalid-json" }]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGenerateText.mockResolvedValue({
+      text: "그냥 일반 텍스트 응답",
+    } as never);
+    mockedGetSchiftClient.mockReturnValue(null as never);
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "태동이 적게 느껴져요",
+          pregnancyWeek: 29,
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.assistantMessage.parts[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("29주차 기준"),
+    });
+    expect(payload.assistantMessage.parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "deepLink",
+          target: "notebook",
+        }),
+      ]),
+    );
+  });
+
   it("hard-blocks abusive or unethical inputs before invoking workflow or model generation", async () => {
     process.env.GEMINI_API_KEY = "test-key";
     mockedRequireMobileSession.mockResolvedValue({
@@ -1095,6 +1156,55 @@ describe("POST /api/mobile/chat", () => {
     expect(payload.assistantMessage.parts[0]).toMatchObject({
       type: "text",
       text: expect.stringContaining("임신과 건강 관련 안내"),
+    });
+  });
+
+  it("does not use direct admin client for prompt context queries", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({});
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages") {
+          if (Array.isArray(payload)) {
+            return Promise.resolve([{ id: "assistant-message-provider-aware" }]);
+          }
+
+          return Promise.resolve([{ id: "user-message-provider-aware" }]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    getSupabaseAdminClientMock.mockImplementation(() => {
+      throw new Error("direct admin client should not be used in chat route");
+    });
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "태동이 적게 느껴져요",
+          pregnancyWeek: 13,
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.assistantMessage.parts[0]).toMatchObject({
+      type: "text",
+      text: expect.any(String),
     });
   });
 });

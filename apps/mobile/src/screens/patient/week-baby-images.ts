@@ -1,3 +1,8 @@
+import {
+  createPregnancyWeekState,
+  getPregnancyWeekImageLabel,
+} from "./pregnancyWeek.model.ts";
+
 const DEFAULT_WEEK_BABY_IMAGE_WEEK = 18;
 const MIN_SUPPORTED_WEEK = 5;
 const MAX_SUPPORTED_WEEK = 40;
@@ -72,7 +77,13 @@ export function resolveWeekBabyImageWeek(weekLabel?: string | null) {
 }
 
 export function getWeekBabyImageSource(weekLabel?: string | null) {
-  const week = resolveWeekBabyImageWeek(weekLabel);
+  const normalizedWeekLabel = getPregnancyWeekImageLabel(
+    createPregnancyWeekState({
+      homePregnancyWeekLabel: weekLabel,
+      profilePregnancyWeekLabel: null,
+    }),
+  );
+  const week = resolveWeekBabyImageWeek(normalizedWeekLabel ?? weekLabel);
   const paddedWeek = String(week).padStart(2, "0");
   const fileName = weekBabyFileNames[week] ?? `w${paddedWeek}-baby.png`;
   return { uri: `${SUPABASE_STORAGE_URL}/${paddedWeek}/${fileName}` };

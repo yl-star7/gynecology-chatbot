@@ -128,6 +128,10 @@ export class ApiMobileProfileAdapter implements MobileProfilePort {
     return payload.profile;
   }
 
+  async getBranding() {
+    return this.client.fetchMobileBranding();
+  }
+
   async updateProfile(input: {
     userId: string;
     displayName: string;

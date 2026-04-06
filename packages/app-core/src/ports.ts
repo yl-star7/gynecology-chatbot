@@ -72,6 +72,9 @@ export interface MobileChatPort {
 
 export interface MobileProfilePort {
   getProfile(): Promise<MobileProfileViewData>;
+  getBranding(): Promise<{
+    surveyFormUrl: string | null;
+  }>;
   updateProfile(input: {
     userId: string;
     displayName: string;

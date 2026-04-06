@@ -2,12 +2,14 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Card, EmptyState } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
-import { createMobileApiClient } from "../../api/mobileApi";
 import { space, typo, patientSurfacePalette as surface } from "../../theme";
 import { EmbeddedWebContent } from "../../web/EmbeddedWebContent";
+import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
+import { resolvePatientSurveyLoadError } from "./patientErrorCopy.model";
 
 function normalizeSurveyFormUrl(input: string | null | undefined) {
   if (!input?.trim()) {
@@ -34,8 +36,14 @@ function normalizeSurveyFormUrl(input: string | null | undefined) {
 }
 
 export function PatientSurveyFormScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { currentUser } = useMobileAppSession();
+  const { profilePort } = useMobileServices();
+  const contentInsets = buildPatientTabContentInsets({
+    bottomInset: insets.bottom,
+    topSpacing: space.md,
+  });
   const [surveyFormUrl, setSurveyFormUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,8 +56,7 @@ export function PatientSurveyFormScreen() {
     setHasWebViewError(false);
 
     try {
-      const client = createMobileApiClient();
-      const branding = await client.fetchMobileBranding();
+      const branding = await profilePort.getBranding();
       const nextSurveyFormUrl = normalizeSurveyFormUrl(branding.surveyFormUrl);
 
       setSurveyFormUrl(nextSurveyFormUrl);
@@ -57,15 +64,11 @@ export function PatientSurveyFormScreen() {
         setError("아직 열 수 있는 설문이 없어요.");
       }
     } catch (nextError) {
-      setError(
-        nextError instanceof Error
-          ? nextError.message
-          : "설문 화면을 불러오지 못했어요.",
-      );
+      setError(resolvePatientSurveyLoadError(nextError));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [profilePort]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -85,7 +88,7 @@ export function PatientSurveyFormScreen() {
       ) : surveyFormUrl ? (
         <View style={styles.screen}>
           {hasWebViewError ? (
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={[styles.scrollContent, contentInsets]} showsVerticalScrollIndicator={false}>
               <Card>
                 <EmptyState
                   icon="document-text-outline"
@@ -117,7 +120,7 @@ export function PatientSurveyFormScreen() {
           )}
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.scrollContent, contentInsets]} showsVerticalScrollIndicator={false}>
           <Card>
             <EmptyState
               icon="document-text-outline"
@@ -150,8 +153,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: space.xl,
-    paddingTop: space.md,
-    paddingBottom: 140,
     gap: space.lg,
   },
 });

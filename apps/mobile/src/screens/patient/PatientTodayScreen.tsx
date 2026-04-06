@@ -31,6 +31,10 @@ import {
   space,
   typo,
 } from "../../theme";
+import {
+  buildPatientTabContentInsets,
+  buildTodayConversationLayout,
+} from "./patientScreenLayout.model";
 import { buildPatientTodayViewModel } from "./view-models";
 
 function createSessionId() {
@@ -67,6 +71,15 @@ export function PatientTodayScreen() {
   const [text, setText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [pendingChecklistIds, setPendingChecklistIds] = useState<string[]>([]);
+  const conversationLayout = buildTodayConversationLayout();
+  const contentInsets = buildPatientTabContentInsets({
+    bottomInset: insets.bottom,
+    extraBottomSpacing:
+      activeSection === "conversation"
+        ? conversationLayout.sendButtonSize + space.xxxl
+        : space.lg,
+    topSpacing: space.xs,
+  });
 
   useEffect(() => {
     Promise.all([
@@ -245,7 +258,10 @@ export function PatientTodayScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: insets.bottom + space.xxxl * 3 + space.xl },
+            {
+              paddingTop: contentInsets.paddingTop,
+              paddingBottom: contentInsets.paddingBottom,
+            },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -363,7 +379,13 @@ export function PatientTodayScreen() {
           ) : null}
 
           {activeSection === "conversation" ? (
-            <Card style={[styles.segmentCard, styles.conversationCard]}>
+            <Card
+              style={[
+                styles.segmentCard,
+                styles.conversationCard,
+                { minHeight: conversationLayout.cardMinHeight },
+              ]}
+            >
               <View style={styles.iconTitleRow}>
                 <View
                   style={[styles.sectionIconWrap, styles.conversationIconWrap]}
@@ -380,7 +402,12 @@ export function PatientTodayScreen() {
               </View>
 
               {session.messages.length === 0 ? (
-                <View style={styles.emptyState}>
+                <View
+                  style={[
+                    styles.emptyState,
+                    { minHeight: conversationLayout.emptyStateMinHeight },
+                  ]}
+                >
                   <Ionicons
                     name="chatbubble-outline"
                     size={space.xxxl + space.lg}
@@ -447,9 +474,18 @@ export function PatientTodayScreen() {
                   })}
                 </View>
               )}
+            </Card>
+          ) : null}
+        </ScrollView>
 
-              <View style={styles.segmentDivider} />
-
+        {activeSection === "conversation" ? (
+          <View
+            style={[
+              styles.composerDock,
+              { bottom: insets.bottom + space.xxl + space.sm },
+            ]}
+          >
+            <Card variant="muted" style={styles.conversationComposerCard}>
               <View style={styles.composerRow}>
                 <TextInput
                   style={styles.input}
@@ -475,8 +511,8 @@ export function PatientTodayScreen() {
                 </Pressable>
               </View>
             </Card>
-          ) : null}
-        </ScrollView>
+          </View>
+        ) : null}
       </KeyboardAvoidingView>
     </PatientShell>
   );
@@ -488,8 +524,8 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: space.lg,
-    paddingTop: space.xs,
     gap: space.md,
+    flexGrow: 1,
   },
   segmentCard: {
     gap: space.md,
@@ -611,16 +647,24 @@ const styles = StyleSheet.create({
   },
   conversationCard: {
     gap: space.md,
-    minHeight: space.xxxl * 16 + space.xl,
+  },
+  conversationComposerCard: {
+    marginTop: 0,
+  },
+  composerDock: {
+    position: "absolute",
+    left: space.lg,
+    right: space.lg,
   },
   conversationIconWrap: {
     backgroundColor: surface.surfaceSecondary,
   },
   emptyState: {
-    minHeight: space.xxxl * 6 + space.xxl,
     alignItems: "center",
     justifyContent: "center",
     gap: space.md,
+    paddingTop: space.xxxl * 2,
+    paddingBottom: space.xxxl * 2,
   },
   emptyText: {
     ...typo.body,
@@ -657,11 +701,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     gap: space.sm,
-    marginTop: "auto",
   },
   input: {
     flex: 1,
-    minHeight: space.xxxl + space.lg,
+    minHeight: 52,
     borderRadius: radii.xl,
     backgroundColor: surface.fieldSurface,
     paddingHorizontal: space.lg,
@@ -670,8 +713,8 @@ const styles = StyleSheet.create({
     color: surface.textPrimary,
   },
   sendButton: {
-    width: space.xxxl + space.md,
-    height: space.xxxl + space.md,
+    width: 44,
+    height: 44,
     borderRadius: radii.lg,
     backgroundColor: palette.accent,
     alignItems: "center",

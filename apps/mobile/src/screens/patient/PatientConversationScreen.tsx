@@ -21,6 +21,11 @@ import { Card, Pressable, EmotionCheckin } from "../../components/ui";
 import { ChatPartRenderer, ChatImagePicker, ChatImagePreview } from "../../components/chat";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+import {
+  buildConversationComposerLayout,
+  buildPatientTabContentInsets,
+} from "./patientScreenLayout.model";
+import { resolvePatientConversationSendError } from "./patientErrorCopy.model";
 
 type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
 
@@ -67,6 +72,12 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
     sessionId === "new" || sessionId === "heart-talk",
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const composerLayout = buildConversationComposerLayout();
+  const contentInsets = buildPatientTabContentInsets({
+    bottomInset: insets.bottom,
+    extraBottomSpacing: space.lg,
+    topSpacing: space.md,
+  });
 
   useEffect(() => {
     if (sessionId === "new" || sessionId === "heart-talk") {
@@ -106,12 +117,7 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
         appendMessage(resolvedSessionId, "아기와 대화", msg);
       }
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : "메시지를 보내지 못했어요.";
-      if (msg.includes("429")) {
-        setErrorMessage("잠시 쉬어 가요. 조금 뒤에 다시 이야기해요.");
-      } else {
-        setErrorMessage("메시지를 보내지 못했어요. 다시 시도해주세요.");
-      }
+      setErrorMessage(resolvePatientConversationSendError(error));
     } finally {
       setIsSending(false);
     }
@@ -157,23 +163,32 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: insets.bottom + space.xxxl * 3 + space.xl },
+            {
+              paddingTop: contentInsets.paddingTop,
+              paddingBottom: contentInsets.paddingBottom,
+            },
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <Card>
-            <Text style={styles.title}>아기와 대화</Text>
-            <Text style={styles.description}>아기에게 하고 싶은 이야기를 나눠보세요.</Text>
-          </Card>
-
           <Card style={styles.chatCard}>
-            {session.messages.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyIcon}>◌</Text>
-                <Text style={styles.emptyText}>아기에게 하고 싶은 이야기를 나눠보세요</Text>
+            <View style={styles.chatBody}>
+              <View style={styles.chatHeaderRow}>
+                <View style={styles.chatHeaderIconWrap}>
+                  <Ionicons
+                    name="chatbubble-outline"
+                    size={space.xl}
+                    color={palette.accent}
+                  />
+                </View>
+                <Text style={styles.title}>아기와 대화</Text>
               </View>
-            ) : (
-              <View style={styles.messageList}>
+              {session.messages.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyIcon}>◌</Text>
+                  <Text style={styles.emptyText}>아기에게 하고 싶은 이야기를 나눠보세요</Text>
+                </View>
+              ) : (
+                <View style={styles.messageList}>
                 {session.messages.map((message) => {
                   if (message.role === "user") {
                     const textPart = message.parts.find((p) => p.type === "text");
@@ -211,8 +226,9 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
                     </View>
                   );
                 })}
-              </View>
-            )}
+                </View>
+              )}
+            </View>
           </Card>
 
           {imageDataUri ? (
@@ -224,7 +240,7 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
             </View>
           ) : null}
 
-          <Card variant="muted">
+          <Card variant="muted" style={styles.composerCard}>
             {errorMessage && (
               <Pressable onPress={() => setErrorMessage(null)}>
                 <Text style={styles.errorMessageText}>
@@ -273,7 +289,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: {
     paddingHorizontal: space.lg,
-    paddingTop: space.md,
     gap: space.md,
     flexGrow: 1,
   },
@@ -281,17 +296,29 @@ const styles = StyleSheet.create({
     ...typo.titleSm,
     color: surface.textPrimary,
   },
-  description: {
-    marginTop: space.sm,
-    ...typo.body,
-    color: surface.textSecondary,
-  },
   chatCard: {
-    minHeight: space.xxxl * 13 + space.md,
+    minHeight: 0,
+  },
+  chatBody: {
+    gap: space.lg,
+  },
+  chatHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+  },
+  chatHeaderIconWrap: {
+    width: space.xxxl,
+    height: space.xxxl,
+    borderRadius: radii.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: palette.accentSoft,
   },
   emptyState: {
-    minHeight: space.xxxl * 9 + space.xs,
-    flex: 1,
+    minHeight: 0,
+    paddingTop: space.xxxl * 2,
+    paddingBottom: space.xxxl * 2,
     alignItems: "center",
     justifyContent: "center",
     gap: space.md,
@@ -305,7 +332,6 @@ const styles = StyleSheet.create({
     color: surface.textSecondary,
   },
   messageList: {
-    flexGrow: 1,
     gap: space.sm,
   },
   messageBubble: {
@@ -340,6 +366,9 @@ const styles = StyleSheet.create({
   imagePreviewRow: {
     paddingHorizontal: space.xs,
   },
+  composerCard: {
+    marginTop: "auto",
+  },
   composerRow: {
     flexDirection: "row",
     gap: space.sm,
@@ -347,8 +376,8 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: space.xxxl + space.lg,
-    maxHeight: space.xxxl * 4,
+    minHeight: 52,
+    maxHeight: space.xxxl * 3,
     borderRadius: radii.xl,
     backgroundColor: surface.fieldSurface,
     paddingHorizontal: space.lg,
@@ -358,8 +387,8 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   sendButton: {
-    width: space.xxxl + space.md,
-    height: space.xxxl + space.md,
+    width: 44,
+    height: 44,
     borderRadius: radii.lg,
     backgroundColor: palette.accent,
     alignItems: "center",

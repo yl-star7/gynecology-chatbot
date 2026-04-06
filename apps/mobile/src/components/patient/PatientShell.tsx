@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: space.lg,
-    paddingTop: space.lg,
+    paddingTop: space.xl,
     paddingBottom: space.md,
   },
   headerMain: {
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     paddingBottom: space.xs,
   },
   headerWithBackButton: {
-    paddingTop: space.md,
+    paddingTop: space.xl + space.xs,
   },
   headerSpacer: {
     flex: 1,

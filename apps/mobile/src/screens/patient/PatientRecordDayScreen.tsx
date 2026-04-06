@@ -1,12 +1,15 @@
 // @ts-nocheck
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { MockMobileChatAdapter, MockMobileHomeAdapter } from "@gynecology-chatbot/app-core";
 import type { RecordDayView } from "@gynecology-chatbot/app-core";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card, Pressable } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
-import { fetchRecordDay, updateTodayChecklistItem } from "../../api/mobileApi";
+import { useMobileServices } from "../../core/MobileServicesProvider";
+import { createRecordDayActions } from "./PatientRecordDayScreen.model";
+import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
+import { resolvePatientRecordDayLoadError } from "./patientErrorCopy.model";
 import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../../theme";
 
 function resolveBackHref(returnTo?: string) {
@@ -29,58 +32,6 @@ function resolveActiveTab(returnTo?: string) {
   return "home";
 }
 
-async function loadRecordDay(isoDate: string) {
-  const provider = process.env.EXPO_PUBLIC_MOBILE_DATA_PROVIDER;
-  if (provider !== "api" && provider !== "mock") {
-    throw new Error("EXPO_PUBLIC_MOBILE_DATA_PROVIDER must be explicitly set to \"api\" or \"mock\"");
-  }
-
-  if (provider === "api") {
-    const payload = await fetchRecordDay(isoDate);
-    return payload.recordDay;
-  }
-
-  const home = await new MockMobileHomeAdapter().getHomeView();
-  const relatedSessions = (await new MockMobileChatAdapter().listRecentChats()).filter(
-    (session) => session.updatedAtIso?.startsWith(isoDate),
-  );
-  const currentDay = home.calendarDays.find((day) => day.isoDate === isoDate);
-
-  return {
-    isoDate,
-    dateLabel: new Date(`${isoDate}T00:00:00`).toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "long",
-    }),
-    emotionTone: currentDay?.emotionTone ?? null,
-    checklistItems: [
-      {
-        id: `${isoDate}-check-1`,
-        label: "엽산 보충제 섭취하기",
-        completed: Boolean(currentDay?.hasChat || relatedSessions.length > 0),
-      },
-      {
-        id: `${isoDate}-check-2`,
-        label: "충분한 수분 섭취하기 (하루 8잔)",
-        completed: Boolean(currentDay?.emotionTone || currentDay?.summary),
-      },
-    ],
-    records: currentDay?.summary
-      ? [
-          {
-            id: `summary-${isoDate}`,
-            title: "하루 요약",
-            summary: currentDay.summary,
-            entryType: "ai_summary",
-            linkedSessionId: relatedSessions[0]?.id ?? null,
-          },
-        ]
-      : [],
-    relatedSessions,
-  };
-}
 
 export function PatientRecordDayScreen({
   isoDate,
@@ -89,17 +40,27 @@ export function PatientRecordDayScreen({
   isoDate: string;
   returnTo?: string;
 }) {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { homePort, todayPort } = useMobileServices();
+  const actions = useMemo(
+    () => createRecordDayActions({ homePort, todayPort }),
+    [homePort, todayPort],
+  );
   const [recordDay, setRecordDay] = useState<RecordDayView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingChecklistIds, setPendingChecklistIds] = useState<string[]>([]);
   const backHref = useMemo(() => resolveBackHref(returnTo), [returnTo]);
   const activeTab = useMemo(() => resolveActiveTab(returnTo), [returnTo]);
+  const contentInsets = buildPatientTabContentInsets({
+    bottomInset: insets.bottom,
+    topSpacing: space.md,
+  });
 
   useEffect(() => {
     let cancelled = false;
 
-    loadRecordDay(isoDate)
+    actions.loadRecordDay(isoDate)
       .then((nextRecordDay) => {
         if (!cancelled) {
           setRecordDay(nextRecordDay);
@@ -108,20 +69,14 @@ export function PatientRecordDayScreen({
       })
       .catch((nextError) => {
         if (!cancelled) {
-          setError(
-            nextError instanceof Error
-              ? nextError.message === "failed to load day records"
-                ? "이 날짜 기록을 불러오지 못했어요. 잠시 후 다시 확인해 주세요."
-                : nextError.message
-              : "이 날짜 기록을 불러오지 못했어요. 잠시 후 다시 확인해 주세요.",
-          );
+          setError(resolvePatientRecordDayLoadError(nextError));
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [isoDate]);
+  }, [actions, isoDate]);
 
   async function handleToggleChecklistItem(checklistId: string) {
     if (!recordDay || pendingChecklistIds.includes(checklistId)) {
@@ -147,7 +102,7 @@ export function PatientRecordDayScreen({
     );
 
     try {
-      await updateTodayChecklistItem({
+      await actions.setChecklistItemCompleted({
         checklistId,
         completed: nextCompleted,
       });
@@ -174,7 +129,7 @@ export function PatientRecordDayScreen({
       pageTone="plain"
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, contentInsets]}
         showsVerticalScrollIndicator={false}
       >
         <Card variant="muted">
@@ -241,8 +196,6 @@ export function PatientRecordDayScreen({
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: space.lg,
-    paddingTop: space.md,
-    paddingBottom: 140,
     gap: space.md,
   },
   eyebrow: {

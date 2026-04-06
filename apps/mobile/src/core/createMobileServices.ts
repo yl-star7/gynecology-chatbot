@@ -116,6 +116,11 @@ export function createMobileServices(options: CreateMobileServicesOptions = {}):
       async getProfile() {
         return readMockMobileProfile();
       },
+      async getBranding() {
+        return {
+          surveyFormUrl: null,
+        };
+      },
       async updateProfile(input) {
         return updateMockMobileProfile(input);
       },

@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type {
   CalendarDay,
   HomeViewData,
@@ -34,109 +35,19 @@ import {
 } from "../../theme";
 import { buildProfileCalendarModel } from "./patientProfileCalendar";
 import { getWeekBabyImageSource } from "./week-baby-images";
-import { createMobileApiClient } from "../../api/mobileApi";
+import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
+import {
+  buildProfileDayState,
+  buildProfileInfoCards,
+  resolveProfileBabyImageWeekLabel,
+} from "./PatientProfileScreen.model";
+import {
+  resolvePatientProfileLoadError,
+  resolvePatientRecordDayLoadError,
+  resolvePatientSurveySaveError,
+} from "./patientErrorCopy.model";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
-
-function isSameIsoDate(isoDate: string, now: Date) {
-  const todayIsoDate = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-  ].join("-");
-
-  return isoDate === todayIsoDate;
-}
-
-function resolveChecklistStatus(recordDay: RecordDayView | null) {
-  const checklistItems = recordDay?.checklistItems ?? [];
-
-  if (checklistItems.length === 0) {
-    return { label: "안함", tone: "idle" };
-  }
-
-  const completedCount = checklistItems.filter((item) => item.completed).length;
-
-  if (completedCount === checklistItems.length) {
-    return { label: "완료", tone: "success" };
-  }
-
-  return { label: "미완", tone: "muted" };
-}
-
-function resolveInfoStatus(selectedDay: CalendarDay | null, isToday: boolean) {
-  if (isToday || selectedDay?.hasInfo || selectedDay?.summary) {
-    return { label: "확인함", tone: "success" };
-  }
-
-  return { label: "안함", tone: "idle" };
-}
-
-function buildConversationSummary(recordDay: RecordDayView | null) {
-  if (recordDay?.conversationSummary) {
-    return recordDay.conversationSummary;
-  }
-
-  const sessions = recordDay?.relatedSessions ?? [];
-  if (sessions.length === 0) {
-    return "이 날짜에 남겨진 대화가 아직 없어요.";
-  }
-
-  return `${sessions.length}개의 대화가 있었어요. 다음 날 정리되는 하루 요약이 준비되면 여기에서 함께 보여드릴게요.`;
-}
-
-function buildHeartShareItems(recordDay: RecordDayView | null) {
-  if (recordDay?.dailyQuestion) {
-    return [
-      {
-        id: "question",
-        question: recordDay.dailyQuestion.question,
-        answer: recordDay.dailyQuestion.answer ?? "아직 남긴 답변이 없어요.",
-        summary:
-          recordDay.dailyQuestion.aiSummary ?? "대화 요약을 준비 중이에요.",
-      },
-    ];
-  }
-
-  const aiSummary = recordDay?.records.find(
-    (item) => item.entryType === "ai_summary",
-  );
-  const linkedSession = recordDay?.relatedSessions[0] ?? null;
-
-  if (!aiSummary && !linkedSession) {
-    return [];
-  }
-
-  return [
-    {
-      id: "question",
-      question: "하루 질문",
-      answer: aiSummary?.title ?? "이날의 질문 기록을 준비 중이에요.",
-      summary:
-        aiSummary?.summary ??
-        linkedSession?.preview ??
-        "대화 요약을 준비 중이에요.",
-    },
-  ];
-}
-
-function hasConversation(recordDay: RecordDayView | null) {
-  if (!recordDay) {
-    return false;
-  }
-
-  if ((recordDay.relatedSessions?.length ?? 0) > 0) {
-    return true;
-  }
-
-  if (recordDay.dailyQuestion?.answer || recordDay.dailyQuestion?.aiSummary) {
-    return true;
-  }
-
-  return recordDay.records.some(
-    (item) => item.entryType === "ai_summary" || item.linkedSessionId,
-  );
-}
 
 function modalTabStyle(tone: string) {
   if (tone === "success") return styles.modalTabSuccess;
@@ -152,23 +63,9 @@ function modalTabTextStyle(tone: string) {
   return styles.modalTabTextIdle;
 }
 
-function buildInfoCards(today: TodayViewData | null) {
-  return [
-    {
-      id: "baby",
-      title: "오늘 아기는요",
-      body: today?.babyBody ?? "오늘 아기의 변화를 아직 준비하지 못했어요.",
-    },
-    {
-      id: "mom",
-      title: "오늘 엄마는요",
-      body: today?.momBody ?? "오늘 엄마의 변화를 아직 준비하지 못했어요.",
-    },
-  ];
-}
-
 export function PatientProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { currentUser, signOut } = useMobileAppSession();
   const { profilePort, homePort, todayPort } = useMobileServices();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
@@ -206,19 +103,15 @@ export function PatientProfileScreen() {
         setToday(nextToday);
       })
       .catch((nextError) => {
-        setError(
-          nextError instanceof Error
-            ? nextError.message
-            : "내 정보를 불러오지 못했어요.",
-        );
+        setError(resolvePatientProfileLoadError(nextError));
       });
   }, [currentUser, homePort, profilePort, todayPort]);
 
   useEffect(() => {
     let isMounted = true;
 
-    createMobileApiClient()
-      .fetchMobileBranding()
+    profilePort
+      .getBranding()
       .then((branding) => {
         if (!isMounted) return;
         setSurveyFormUrl(branding.surveyFormUrl?.trim() || null);
@@ -231,7 +124,7 @@ export function PatientProfileScreen() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [profilePort]);
 
   useEffect(() => {
     if (!selectedIsoDate) {
@@ -251,11 +144,7 @@ export function PatientProfileScreen() {
       .catch((nextError) => {
         if (!cancelled) {
           setSelectedRecordDay(null);
-          setRecordDayError(
-            nextError instanceof Error
-              ? nextError.message
-              : "이 날짜 기록을 불러오지 못했어요.",
-          );
+          setRecordDayError(resolvePatientRecordDayLoadError(nextError));
         }
       });
 
@@ -292,11 +181,7 @@ export function PatientProfileScreen() {
         return next;
       });
     } catch (nextError) {
-      setError(
-        nextError instanceof Error
-          ? nextError.message
-          : "설문 답변을 저장하지 못했어요.",
-      );
+      setError(resolvePatientSurveySaveError(nextError));
     } finally {
       setSubmittingSurveyId(null);
     }
@@ -324,7 +209,11 @@ export function PatientProfileScreen() {
   );
   const babyName = profile?.babyNickname?.trim() || "아기";
   const babyImageSource = getWeekBabyImageSource(
-    home?.pregnancyWeekLabel ?? profile?.pregnancyWeekLabel,
+    resolveProfileBabyImageWeekLabel({
+      homePregnancyWeekLabel: home?.pregnancyWeekLabel,
+      profilePregnancyWeekLabel: profile?.pregnancyWeekLabel,
+      dueDate: profile?.dueDate,
+    }),
   );
   const selectedDay = useMemo(
     () =>
@@ -333,46 +222,32 @@ export function PatientProfileScreen() {
       ) ?? null,
     [home?.calendarDays, selectedIsoDate],
   );
-  const selectedIsToday = useMemo(
+  const dayState = useMemo(
     () =>
-      selectedIsoDate ? isSameIsoDate(selectedIsoDate, new Date()) : false,
-    [selectedIsoDate],
+      buildProfileDayState({
+        selectedIsoDate,
+        selectedDay,
+        selectedRecordDay,
+        hasRecordDayError: Boolean(recordDayError),
+      }),
+    [recordDayError, selectedDay, selectedIsoDate, selectedRecordDay],
   );
-  const checklistStatus = useMemo(
-    () => resolveChecklistStatus(selectedRecordDay),
-    [selectedRecordDay],
-  );
-  const infoStatus = useMemo(
+  const { selectedIsToday, checklistStatus, infoStatus, conversationStatus } =
+    dayState;
+  const infoCards = useMemo(
     () =>
-      resolveInfoStatus(
-        selectedRecordDay
-          ? ({
-              ...(selectedDay ?? {
-                isoDate: selectedIsoDate ?? "",
-                dayLabel: "",
-                hasChat: false,
-                hasInfo: false,
-                emotionTone: null,
-              }),
-              hasInfo: selectedRecordDay.infoViewed,
-            } as CalendarDay)
-          : selectedDay,
-        selectedIsToday,
-      ),
-    [selectedDay, selectedIsoDate, selectedIsToday, selectedRecordDay],
+      buildProfileInfoCards({
+        today,
+        recordDay: selectedRecordDay,
+      }),
+    [selectedRecordDay, today],
   );
-  const conversationStatus = useMemo(
-    () => ({
-      label: hasConversation(selectedRecordDay) ? "했음" : "안함",
-      tone: hasConversation(selectedRecordDay) ? "active" : "idle",
-    }),
-    [selectedRecordDay],
-  );
-  const infoCards = useMemo(() => buildInfoCards(today), [today]);
-  const heartShareItems = useMemo(
-    () => buildHeartShareItems(selectedRecordDay),
-    [selectedRecordDay],
-  );
+  const heartShareItems = useMemo(() => dayState.heartShareItems, [dayState]);
+  const contentInsets = buildPatientTabContentInsets({
+    bottomInset: insets.bottom,
+    extraBottomSpacing: 0,
+    topSpacing: space.xs,
+  });
 
   return (
     <PatientShell
@@ -387,7 +262,13 @@ export function PatientProfileScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingTop: contentInsets.paddingTop,
+              paddingBottom: contentInsets.paddingBottom,
+            },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <Card style={styles.heroCard}>
@@ -790,7 +671,7 @@ export function PatientProfileScreen() {
                 {conversationSection === "summary" ? (
                   <View style={styles.modalPanel}>
                     <Text style={styles.modalSummaryText}>
-                      {buildConversationSummary(selectedRecordDay)}
+                      {dayState.conversationSummary}
                     </Text>
                     {(selectedRecordDay?.relatedSessions ?? []).map(
                       (session) => (
@@ -880,8 +761,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: space.lg,
-    paddingTop: space.xs,
-    paddingBottom: 140,
     gap: space.lg,
   },
   heroCard: {
