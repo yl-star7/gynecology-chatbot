@@ -256,3 +256,142 @@ export async function getAlreadyPromptedIds(input: {
     questionIds: new Set(questionEvents.map((e) => e.question_id)),
   };
 }
+
+export async function ensureChatSession(input: {
+  userId: string;
+  sessionId: string;
+  title: string;
+}) {
+  const existingSessions = await supabaseSelect<Array<{ id: string; title: string }>>(
+    `chat_sessions?select=id,title&id=eq.${input.sessionId}&user_id=eq.${input.userId}&limit=1`,
+  );
+
+  if (!existingSessions[0]) {
+    await supabaseInsert("chat_sessions", {
+      id: input.sessionId,
+      user_id: input.userId,
+      title: input.title,
+      status: "active",
+    });
+  }
+
+  return { sessionId: input.sessionId };
+}
+
+export async function saveUserChatMessage(input: {
+  sessionId: string;
+  userId: string;
+  text: string;
+  imageDataUris: string[];
+}) {
+  const userMessageParts = [
+    ...(input.text
+      ? [
+          {
+            type: "text" as const,
+            id: `user-text-${Date.now()}`,
+            text: input.text,
+          },
+        ]
+      : []),
+    ...input.imageDataUris.map((uri: string, index: number) => ({
+      type: "image" as const,
+      id: `user-image-${Date.now()}-${index}`,
+      imageUrl: uri,
+      alt: "사용자 첨부 이미지",
+      caption: "사용자 첨부 이미지",
+    })),
+  ];
+
+  const insertedUserMessages = await supabaseInsert<Array<{ id: string }>>(
+    "chat_messages",
+    {
+      session_id: input.sessionId,
+      user_id: input.userId,
+      role: "user",
+      parts: userMessageParts,
+      plain_text: input.text,
+      image_attachments: input.imageDataUris.map((uri: string) => ({ uri })),
+    },
+  );
+
+  return {
+    id: insertedUserMessages[0]?.id ?? null,
+    parts: userMessageParts,
+  };
+}
+
+export async function touchChatSessionActivity(sessionId: string, timestamp: string) {
+  await supabaseUpdate(`chat_sessions?id=eq.${sessionId}`, {
+    last_message_at: timestamp,
+    updated_at: timestamp,
+  });
+}
+
+export async function saveAssistantChatMessages(input: {
+  sessionId: string;
+  userId: string;
+  messages: Array<{
+    parts: Array<{ type: string; text?: string }>;
+  }>;
+}) {
+  return supabaseInsert<Array<{ id: string }>>(
+    "chat_messages",
+    input.messages.map((message) => ({
+      session_id: input.sessionId,
+      user_id: input.userId,
+      role: "assistant",
+      parts: message.parts,
+      plain_text: message.parts
+        .filter(
+          (part): part is Extract<typeof part, { type: "text"; text: string }> =>
+            part.type === "text" && typeof part.text === "string",
+        )
+        .map((part) => part.text)
+        .join("\n"),
+      model_name: "gemini-2.5-flash-lite",
+    })),
+  );
+}
+
+export async function updateSessionMemory(
+  sessionId: string,
+  nextSessionMemory: SessionMemoryPayload | null | undefined,
+  timestamp: string,
+) {
+  await supabaseUpdate(`chat_sessions?id=eq.${sessionId}`, {
+    last_message_at: timestamp,
+    updated_at: timestamp,
+    ...(nextSessionMemory
+      ? {
+          memory_payload: {
+            ...nextSessionMemory,
+            updatedAt: timestamp,
+          },
+        }
+      : {}),
+  });
+}
+
+export async function updateProfileMemory(input: {
+  userId: string;
+  onboardingPayload: PregnancyProfilePromptRow["onboarding_payload"];
+  currentProfileMemory: ProfileMemoryPayload | null;
+  nextProfileMemory: ProfileMemoryPayload | null | undefined;
+  timestamp: string;
+}) {
+  if (!input.nextProfileMemory) {
+    return;
+  }
+
+  await supabaseUpdate(`pregnancy_profiles?user_id=eq.${input.userId}`, {
+    onboarding_payload: {
+      ...(input.onboardingPayload ?? {}),
+      profileMemory: {
+        ...(input.currentProfileMemory ?? {}),
+        ...input.nextProfileMemory,
+        updatedAt: input.timestamp,
+      },
+    },
+  });
+}

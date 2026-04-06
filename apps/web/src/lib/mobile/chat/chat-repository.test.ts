@@ -6,9 +6,15 @@ jest.mock("@/lib/supabase/admin-client", () => ({
 
 import {
   createPromptEvents,
+  ensureChatSession,
   getAlreadyPromptedIds,
   getPromptContext,
   markOutstandingPromptEventsAnswered,
+  saveAssistantChatMessages,
+  saveUserChatMessage,
+  touchChatSessionActivity,
+  updateProfileMemory,
+  updateSessionMemory,
 } from "./chat-repository";
 import {
   supabaseInsert,
@@ -254,5 +260,83 @@ describe("chat repository", () => {
 
     expect([...prompted.checklistIds]).toEqual(["check-1"]);
     expect([...prompted.questionIds]).toEqual(["question-1"]);
+  });
+
+  it("ensures session, saves messages, and persists memory updates", async () => {
+    mockedSupabaseSelect.mockResolvedValue([] as never);
+    mockedSupabaseInsert
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ id: "user-message-1" }] as never)
+      .mockResolvedValueOnce([{ id: "assistant-message-1" }] as never);
+    mockedSupabaseUpdate.mockResolvedValue([] as never);
+
+    await ensureChatSession({
+      userId: "user-1",
+      sessionId: "session-1",
+      title: "새 상담",
+    });
+    const userMessage = await saveUserChatMessage({
+      sessionId: "session-1",
+      userId: "user-1",
+      text: "배가 아파요",
+      imageDataUris: ["data:image/png;base64,abc"],
+    });
+    await saveAssistantChatMessages({
+      sessionId: "session-1",
+      userId: "user-1",
+      messages: [
+        {
+          parts: [{ type: "text", text: "안내드릴게요." }],
+        },
+      ],
+    });
+    await touchChatSessionActivity("session-1", "2026-04-07T10:00:00.000Z");
+    await updateSessionMemory(
+      "session-1",
+      { compactSummary: "요약" },
+      "2026-04-07T10:01:00.000Z",
+    );
+    await updateProfileMemory({
+      userId: "user-1",
+      onboardingPayload: { tonePreference: "차분하게" },
+      currentProfileMemory: { lastEmotionTone: "tired" },
+      nextProfileMemory: { lastEmotionTone: "anxious" },
+      timestamp: "2026-04-07T10:01:00.000Z",
+    });
+
+    expect(userMessage.id).toBe("user-message-1");
+    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+      "chat_sessions",
+      expect.objectContaining({ id: "session-1", user_id: "user-1" }),
+    );
+    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+      "chat_messages",
+      expect.objectContaining({ role: "user", session_id: "session-1" }),
+    );
+    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+      "chat_messages",
+      expect.arrayContaining([
+        expect.objectContaining({ role: "assistant", model_name: "gemini-2.5-flash-lite" }),
+      ]),
+    );
+    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+      "chat_sessions?id=eq.session-1",
+      expect.objectContaining({ last_message_at: "2026-04-07T10:00:00.000Z" }),
+    );
+    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+      "chat_sessions?id=eq.session-1",
+      expect.objectContaining({
+        memory_payload: expect.objectContaining({ compactSummary: "요약" }),
+      }),
+    );
+    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+      "pregnancy_profiles?user_id=eq.user-1",
+      expect.objectContaining({
+        onboarding_payload: expect.objectContaining({
+          tonePreference: "차분하게",
+          profileMemory: expect.objectContaining({ lastEmotionTone: "anxious" }),
+        }),
+      }),
+    );
   });
 });
