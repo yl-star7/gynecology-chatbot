@@ -250,6 +250,20 @@ function mapWorkflowRule(row: {
   };
 }
 
+function normalizeWorkflowKeyPart(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function buildWorkflowIdentity(input: {
+  name: string;
+  trigger: string;
+  modelName: string;
+}) {
+  return [input.name, input.trigger, input.modelName]
+    .map(normalizeWorkflowKeyPart)
+    .join("::");
+}
+
 export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
   private readonly fallback = new MockAdminDashboardPortAdapter();
 
@@ -582,15 +596,41 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
         mappedUserActions.length > 0
           ? mappedUserActions
           : dashboard.userActions,
-      workflowRules: [
-        ...workflowDefinitions.map(mapWorkflowRule),
-        ...schiftWorkflowRules.filter(
-          (workflow) =>
-            !workflowDefinitions.some(
-              (definition) => definition.id === workflow.id,
-            ),
-        ),
-      ],
+      workflowRules: (() => {
+        const mappedDefinitions = workflowDefinitions.map(mapWorkflowRule);
+        const seenWorkflowIds = new Set(
+          workflowDefinitions.map((definition) => definition.id),
+        );
+        const seenWorkflowIdentities = new Set(
+          mappedDefinitions.map((workflow) =>
+            buildWorkflowIdentity({
+              name: workflow.name,
+              trigger: workflow.trigger,
+              modelName: workflow.modelName,
+            }),
+          ),
+        );
+
+        const dedupedSchiftWorkflows = schiftWorkflowRules.filter((workflow) => {
+          if (seenWorkflowIds.has(workflow.id)) {
+            return false;
+          }
+
+          const identity = buildWorkflowIdentity({
+            name: workflow.name,
+            trigger: workflow.trigger,
+            modelName: workflow.modelName,
+          });
+          if (seenWorkflowIdentities.has(identity)) {
+            return false;
+          }
+
+          seenWorkflowIdentities.add(identity);
+          return true;
+        });
+
+        return [...mappedDefinitions, ...dedupedSchiftWorkflows];
+      })(),
     };
   }
 }

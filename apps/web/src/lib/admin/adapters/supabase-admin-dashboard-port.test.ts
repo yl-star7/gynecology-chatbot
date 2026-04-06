@@ -386,6 +386,60 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
     );
   });
 
+  it("dedupes Schift workflows when definition and workflow identity match", async () => {
+    mockedSelect.mockImplementation((path: string) => {
+      if (path.startsWith("workflow_definitions?")) {
+        return Promise.resolve([
+          {
+            id: "definition-1",
+            name: "모성간호 상담 응답",
+            slug: "internal-data-answer",
+            provider: "schift",
+            status: "published",
+            is_active: false,
+            config: {
+              trigger: "내부 데이터만 답변",
+              modelName: "gemini-2.5-flash-lite",
+            },
+            metadata: {
+              trigger: "내부 데이터만 답변",
+              retrievalScope: "pregnancy-knowledge 내부 자료",
+              modelName: "gemini-2.5-flash-lite",
+            },
+            updated_at: "2026-04-07T00:00:00.000Z",
+          },
+        ]);
+      }
+
+      return Promise.resolve([]);
+    });
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: {},
+    } as never);
+    mockedListSchiftWorkflows.mockResolvedValue([
+      {
+        id: "schift-wf-2",
+        name: "모성간호 상담 응답",
+        description:
+          '<!-- si-admin-workflow:{"trigger":"내부 데이터만 답변","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-2.5-flash-lite"}-->\n기본 설명',
+        status: "active",
+        graph: { blocks: [], edges: [] },
+        created_at: "2026-03-23T10:00:00.000Z",
+        updated_at: "2026-03-23T10:00:00.000Z",
+      },
+    ] as never);
+
+    const dashboard = await adapter.getDashboard();
+
+    expect(dashboard.workflowRules).toHaveLength(1);
+    expect(dashboard.workflowRules[0]).toMatchObject({
+      id: "definition-1",
+      name: "모성간호 상담 응답",
+      trigger: "내부 데이터만 답변",
+      modelName: "gemini-2.5-flash-lite",
+    });
+  });
+
   it("uses provider-aware wrappers instead of the direct admin client", async () => {
     mockedGetSupabaseAdminClient.mockImplementation(() => {
       throw new Error("direct admin client should not be used");
