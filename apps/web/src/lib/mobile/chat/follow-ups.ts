@@ -1,36 +1,11 @@
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
+import type {
+  ChecklistRow,
+  DayContentRow,
+  QuestionRow,
+  WeekDataRow,
+} from "@/lib/mobile/chat/chat-repository";
 import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
-
-type WeekDataLike = {
-  week_number: number;
-  checklist_intro: string | null;
-  question_intro: string | null;
-};
-
-type DayContentLike = {
-  day_number: number;
-  baby_message: string | null;
-} | null;
-
-type ChecklistLike = {
-  id: string;
-  code: string;
-  title: string;
-  description: string | null;
-};
-
-type QuestionLike = {
-  id: string;
-  code: string;
-  question_text: string;
-  question_type: "text" | "single_choice" | "multi_choice" | "yes_no" | "number";
-  help_text: string | null;
-  question_payload: {
-    choices?: Array<{ id?: string; label?: string }>;
-    yesLabel?: string;
-    noLabel?: string;
-  } | null;
-};
 
 type AssistantFollowUpMessage = {
   role: "assistant";
@@ -38,10 +13,12 @@ type AssistantFollowUpMessage = {
   parts: ChatMessage["parts"];
 };
 
+type DayContentLike = DayContentRow | null;
+
 export type PromptFollowUpResult = {
   messages: AssistantFollowUpMessage[];
-  selectedChecklists: ChecklistLike[];
-  selectedQuestions: QuestionLike[];
+  selectedChecklists: ChecklistRow[];
+  selectedQuestions: QuestionRow[];
 };
 
 function buildQuickReplyChoices(input: { baseId: string; options: string[] }) {
@@ -53,16 +30,16 @@ function buildQuickReplyChoices(input: { baseId: string; options: string[] }) {
 }
 
 export function buildPromptFollowUpMessages(input: {
-  week: WeekDataLike;
+  week: WeekDataRow;
   dayContent: DayContentLike;
-  checklists: ChecklistLike[];
-  questions: QuestionLike[];
+  checklists: ChecklistRow[];
+  questions: QuestionRow[];
   excludeChecklistIds?: Set<string>;
   excludeQuestionIds?: Set<string>;
 }): PromptFollowUpResult {
   const messages: AssistantFollowUpMessage[] = [];
-  const selectedChecklists: ChecklistLike[] = [];
-  const selectedQuestions: QuestionLike[] = [];
+  const selectedChecklists: ChecklistRow[] = [];
+  const selectedQuestions: QuestionRow[] = [];
 
   const availableChecklists = input.checklists.filter(
     (c) => !input.excludeChecklistIds?.has(c.id),

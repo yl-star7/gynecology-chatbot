@@ -9,10 +9,17 @@ import {
 } from "@/lib/mobile/chat/responders/route-response-helpers";
 import { parseWorkflowAssistantPayload, type WorkflowAssistantPayload } from "@/lib/mobile/chat/workflow-payload";
 
-export function createMobileChatResponder(deps: {
-  getSchiftClient: () => unknown;
+type WorkflowRunLike = {
+  status: string;
+  error?: string | null;
+  outputs?: Record<string, unknown>;
+  block_states?: unknown;
+};
+
+export function createMobileChatResponder<TSchift, TRun extends WorkflowRunLike>(deps: {
+  getSchiftClient: () => TSchift | null;
   runSchiftWorkflow: (input: {
-    schift: unknown;
+    schift: TSchift;
     inputs: {
       query: string;
       currentWeek: number | null;
@@ -25,20 +32,10 @@ export function createMobileChatResponder(deps: {
       tonePreference: string | null;
     };
   }) => Promise<{
-    run: {
-      status: string;
-      error?: string;
-      outputs?: Record<string, unknown>;
-      block_states?: unknown;
-    };
+    run: TRun;
   }>;
-  extractSchiftWorkflowOutputs: (run: {
-    outputs?: Record<string, unknown>;
-  }) => Record<string, unknown> | undefined;
-  formatSchiftWorkflowRun: (run: {
-    outputs?: Record<string, unknown>;
-    block_states?: unknown;
-  }) => string;
+  extractSchiftWorkflowOutputs: (run: TRun) => Record<string, unknown> | undefined;
+  formatSchiftWorkflowRun: (run: TRun) => string;
   loadCharacterImages: () => Promise<Record<string, string | null>>;
   runFallbackModel: (input: {
     text: string;
@@ -78,6 +75,10 @@ export function createMobileChatResponder(deps: {
       hardGuardrailReason: input.hardGuardrailReason,
       workflowEnabled: Boolean(schift),
       runWorkflow: async () => {
+        if (!schift) {
+          throw new Error("Schift client is unavailable");
+        }
+
         const { run } = await deps.runSchiftWorkflow({
           schift,
           inputs: {

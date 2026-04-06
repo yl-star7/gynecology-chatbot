@@ -332,7 +332,7 @@ export async function saveAssistantChatMessages(input: {
   sessionId: string;
   userId: string;
   messages: Array<{
-    parts: Array<{ type: string; text?: string }>;
+    parts: Array<{ type: string; text?: string } | { type: string; [key: string]: unknown }>;
   }>;
 }) {
   return supabaseInsert<Array<{ id: string }>>(
@@ -343,11 +343,9 @@ export async function saveAssistantChatMessages(input: {
       role: "assistant",
       parts: message.parts,
       plain_text: message.parts
-        .filter(
-          (part): part is Extract<typeof part, { type: "text"; text: string }> =>
-            part.type === "text" && typeof part.text === "string",
+        .flatMap((part) =>
+          part.type === "text" && typeof part.text === "string" ? [part.text] : [],
         )
-        .map((part) => part.text)
         .join("\n"),
       model_name: "gemini-2.5-flash-lite",
     })),

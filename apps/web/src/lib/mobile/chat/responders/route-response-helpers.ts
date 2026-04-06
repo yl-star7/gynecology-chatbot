@@ -9,11 +9,6 @@ import {
 } from "@/lib/mobile/chat/workflow-payload";
 import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
 
-type AssistantFollowUpMessage = {
-  role: "assistant";
-  createdAtLabel: string;
-  parts: ChatMessage["parts"];
-};
 
 const CHARACTER_TONE_CONFIG = {
   calm: {
@@ -147,14 +142,14 @@ function createCharacterImageUrl(
   };
 }
 
-export async function buildWorkflowAssistantMessage(input: {
-  run: {
-    outputs?: Record<string, unknown>;
-    block_states?: unknown;
-  };
+export async function buildWorkflowAssistantMessage<TRun extends {
+  outputs?: Record<string, unknown>;
+  block_states?: unknown;
+}>(input: {
+  run: TRun;
   loadCharacterImages: () => Promise<Record<string, string | null>>;
-  extractOutputs: (run: { outputs?: Record<string, unknown> }) => Record<string, unknown> | undefined;
-}): Promise<AssistantFollowUpMessage | null> {
+  extractOutputs: (run: TRun) => Record<string, unknown> | undefined;
+}): Promise<ChatMessage | null> {
   const payload = parseWorkflowAssistantPayload(input.extractOutputs(input.run));
   if (!payload?.answer?.trim()) {
     return null;
@@ -201,6 +196,7 @@ export async function buildWorkflowAssistantMessage(input: {
   });
 
   return {
+    id: `assistant-${Date.now()}`,
     role: "assistant",
     createdAtLabel: "방금 전",
     parts,

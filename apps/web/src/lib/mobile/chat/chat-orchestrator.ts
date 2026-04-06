@@ -4,7 +4,11 @@ import {
   buildPromptFollowUpMessages,
   stripFollowUpContentFromAnswer,
 } from "@/lib/mobile/chat/follow-ups";
-import type { PromptContext, ProfileMemoryPayload, SessionMemoryPayload } from "./chat-repository";
+import type { PromptContext } from "./chat-repository";
+import type {
+  ProfileMemoryPayload,
+  SessionMemoryPayload,
+} from "@/lib/mobile/chat/workflow-payload";
 import { sanitizeChatParts } from "@/lib/mobile/chat/sanitizers";
 import type { WorkflowAssistantPayload } from "@/lib/mobile/chat/workflow-payload";
 
