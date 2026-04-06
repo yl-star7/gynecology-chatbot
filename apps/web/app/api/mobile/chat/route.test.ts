@@ -908,7 +908,7 @@ describe("POST /api/mobile/chat", () => {
     });
   });
 
-  it("returns a safe fallback reply when model output is not valid chat JSON", async () => {
+  it("retries once when model output is not valid chat JSON before falling back", async () => {
     process.env.GEMINI_API_KEY = "test-key";
     mockedRequireMobileSession.mockResolvedValue({
       userId: "user-1",
@@ -933,9 +933,18 @@ describe("POST /api/mobile/chat", () => {
       },
     );
     mockedSupabaseUpdate.mockResolvedValue([]);
-    mockedGenerateText.mockResolvedValue({
-      text: "그냥 일반 텍스트 응답",
-    } as never);
+    mockedGenerateText
+      .mockResolvedValueOnce({
+        text: "그냥 일반 텍스트 응답",
+      } as never)
+      .mockResolvedValueOnce({
+        text: JSON.stringify({
+          id: "assistant-retry-success",
+          role: "assistant",
+          createdAtLabel: "방금 전",
+          parts: [{ type: "text", id: "p-retry", text: "재시도 후 정상 JSON 응답" }],
+        }),
+      } as never);
     mockedGetSchiftClient.mockReturnValue(null as never);
 
     const response = await POST(
@@ -953,6 +962,59 @@ describe("POST /api/mobile/chat", () => {
 
     expect(response.status).toBe(200);
     const payload = await response.json();
+    expect(mockedGenerateText).toHaveBeenCalledTimes(2);
+    expect(payload.assistantMessage.parts[0]).toMatchObject({
+      type: "text",
+      text: "재시도 후 정상 JSON 응답",
+    });
+  });
+
+  it("returns a safe fallback reply when model output is still not valid chat JSON after one retry", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({});
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages") {
+          if (Array.isArray(payload)) {
+            return Promise.resolve([{ id: "assistant-message-invalid-json" }]);
+          }
+
+          return Promise.resolve([{ id: "user-message-invalid-json" }]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGenerateText
+      .mockResolvedValueOnce({ text: "그냥 일반 텍스트 응답" } as never)
+      .mockResolvedValueOnce({ text: "두번째도 일반 텍스트" } as never);
+    mockedGetSchiftClient.mockReturnValue(null as never);
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/mobile/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: "user-1",
+          sessionId: "session-1",
+          text: "태동이 적게 느껴져요",
+          pregnancyWeek: 29,
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(mockedGenerateText).toHaveBeenCalledTimes(2);
     expect(payload.assistantMessage.parts[0]).toMatchObject({
       type: "text",
       text: expect.stringContaining("29주차 기준"),
