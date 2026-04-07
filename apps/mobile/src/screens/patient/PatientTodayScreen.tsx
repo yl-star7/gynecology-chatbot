@@ -58,6 +58,13 @@ function createUserMessage(text: string): ChatMessage {
   };
 }
 
+const QUICK_STARTERS = [
+  "안녕, 아가야 👋",
+  "오늘 기분이...",
+  "궁금한 게 있어",
+  "엄마 몸이 좀...",
+];
+
 export function PatientTodayScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -146,8 +153,8 @@ export function PatientTodayScreen() {
     [conversationSessionId, getSession],
   );
 
-  async function handleSend() {
-    const nextText = text.trim();
+  async function handleSend(overrideText?: string) {
+    const nextText = (overrideText ?? text).trim();
     if (!conversationSessionId || !nextText || isSending) {
       return;
     }
@@ -225,7 +232,7 @@ export function PatientTodayScreen() {
   }
 
   function handleQuickReplySelect(message: string) {
-    setText(message);
+    handleSend(message);
   }
 
   function handleSurveyAnswer(surveyId: string, choiceId: string) {
@@ -419,6 +426,18 @@ export function PatientTodayScreen() {
                   <Text style={styles.emptyText}>
                     {viewModel.conversationDescription}
                   </Text>
+                  <View style={styles.quickStarterWrap}>
+                    {QUICK_STARTERS.map((starter) => (
+                      <Pressable
+                        key={starter}
+                        style={styles.quickStarterChip}
+                        onPress={() => handleSend(starter)}
+                        disabled={isSending}
+                      >
+                        <Text style={styles.quickStarterText}>{starter}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
               ) : (
                 <View style={styles.messageList}>
@@ -674,6 +693,24 @@ const styles = StyleSheet.create({
     color: surface.textSecondary,
     textAlign: "center",
     paddingHorizontal: space.md,
+  },
+  quickStarterWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: space.sm,
+    marginTop: space.lg,
+    paddingHorizontal: space.md,
+  },
+  quickStarterChip: {
+    backgroundColor: palette.accentSoft,
+    borderRadius: radii.full,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+  },
+  quickStarterText: {
+    ...typo.label,
+    color: palette.accent,
   },
   messageList: {
     flexGrow: 1,

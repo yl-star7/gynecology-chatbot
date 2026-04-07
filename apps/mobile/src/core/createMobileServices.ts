@@ -1,4 +1,9 @@
-import { MockKnowledgeAdapter, MockMobileChatAdapter, MockMobileHomeAdapter, MockTodayAdapter } from "@gynecology-chatbot/app-core";
+import {
+  MockKnowledgeAdapter,
+  MockMobileChatAdapter,
+  MockMobileHomeAdapter,
+  MockTodayAdapter,
+} from "@gynecology-chatbot/app-core";
 import type {
   AuthPort,
   KnowledgePort,
@@ -18,7 +23,10 @@ import {
   ApiOnboardingAdapter,
   ApiTodayAdapter,
 } from "./adapters/apiMobilePorts";
-import { MockAuthPortAdapter, MockOnboardingPortAdapter } from "./adapters/mockMobileAuthPorts";
+import {
+  MockAuthPortAdapter,
+  MockOnboardingPortAdapter,
+} from "./adapters/mockMobileAuthPorts";
 import {
   readMockMobileProfile,
   readMockMobileRuntime,
@@ -60,11 +68,16 @@ class RuntimeAwareMockMobileHomeAdapter implements MobileHomePort {
   }
 }
 
-export function createMobileServices(options: CreateMobileServicesOptions = {}): MobileServices {
-  const configuredProvider = options.provider ?? (process.env.EXPO_PUBLIC_MOBILE_DATA_PROVIDER as "mock" | "api" | undefined);
-  if (configuredProvider !== "api" && configuredProvider !== "mock") {
-    throw new Error("EXPO_PUBLIC_MOBILE_DATA_PROVIDER must be explicitly set to \"api\" or \"mock\"");
-  }
+export function createMobileServices(
+  options: CreateMobileServicesOptions = {},
+): MobileServices {
+  const configuredProvider =
+    options.provider ??
+    (process.env.EXPO_PUBLIC_MOBILE_DATA_PROVIDER as
+      | "mock"
+      | "api"
+      | undefined) ??
+    "api";
   const provider = configuredProvider;
   const resolveUserId = () => {
     const userId = options.getUserId?.();
@@ -77,12 +90,7 @@ export function createMobileServices(options: CreateMobileServicesOptions = {}):
       return runtimeUserId;
     }
 
-    const fallbackUserId = process.env.EXPO_PUBLIC_DEV_USER_ID;
-    if (!fallbackUserId) {
-      throw new Error("EXPO_PUBLIC_DEV_USER_ID is not configured");
-    }
-
-    return fallbackUserId;
+    return process.env.EXPO_PUBLIC_DEV_USER_ID ?? "local-user-demo";
   };
 
   if (provider === "api") {

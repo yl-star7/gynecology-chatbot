@@ -51,11 +51,12 @@ describe("chat orchestrator", () => {
       missingFields: [],
     };
 
-    const saveAssistantMessages = jest.fn().mockResolvedValue([
-      { id: "assistant-main" },
-      { id: "assistant-followup" },
-    ]);
-    const createPromptEvents = jest.fn().mockResolvedValue(undefined);
+    const saveAssistantMessages = jest
+      .fn()
+      .mockResolvedValue([
+        { id: "assistant-main" },
+        { id: "assistant-followup" },
+      ]);
     const updateSession = jest.fn().mockResolvedValue(undefined);
     const updateProfile = jest.fn().mockResolvedValue(undefined);
 
@@ -64,12 +65,10 @@ describe("chat orchestrator", () => {
       saveUserMessage: jest.fn().mockResolvedValue({ id: "user-message-1" }),
       touchSessionActivity: jest.fn().mockResolvedValue(undefined),
       recordUserAction: jest.fn().mockResolvedValue(undefined),
-      markOutstandingPromptEventsAnswered: jest.fn().mockResolvedValue(undefined),
+      markOutstandingPromptEventsAnswered: jest
+        .fn()
+        .mockResolvedValue(undefined),
       getPromptContext: jest.fn().mockResolvedValue(promptContext),
-      getAlreadyPromptedIds: jest.fn().mockResolvedValue({
-        checklistIds: new Set<string>(),
-        questionIds: new Set<string>(),
-      }),
       resolveAssistantResponse: jest.fn().mockResolvedValue({
         assistantMessage: {
           id: "assistant-1",
@@ -88,7 +87,6 @@ describe("chat orchestrator", () => {
         },
       }),
       saveAssistantMessages,
-      createPromptEvents,
       updateSessionMemory: updateSession,
       updateProfileMemory: updateProfile,
     });
@@ -102,13 +100,8 @@ describe("chat orchestrator", () => {
       hardGuardrailReason: null,
     });
 
-    expect(result.assistantMessages).toHaveLength(2);
+    expect(result.assistantMessages).toHaveLength(1);
     expect(saveAssistantMessages).toHaveBeenCalled();
-    expect(createPromptEvents).toHaveBeenCalledWith(
-      expect.objectContaining({
-        questions: [expect.objectContaining({ id: "question-1" })],
-      }),
-    );
     expect(updateSession).toHaveBeenCalledWith(
       "session-1",
       expect.objectContaining({ compactSummary: "요약" }),

@@ -11,9 +11,7 @@ import {
 } from "@/lib/mobile/schift-workflow";
 import { detectHardGuardrailReason } from "@/lib/mobile/chat/guardrails";
 import {
-  createPromptEvents,
   ensureChatSession,
-  getAlreadyPromptedIds,
   getPromptContext,
   markOutstandingPromptEventsAnswered,
   saveAssistantChatMessages,
@@ -66,9 +64,9 @@ function normalizeSessionId(value: string) {
 
 async function loadCharacterImages(): Promise<Record<string, string | null>> {
   try {
-    const rows = await supabaseSelect<Array<{ value?: Record<string, string | null> }>>(
-      "system_config?select=key,value&key=eq.character_images&limit=1",
-    );
+    const rows = await supabaseSelect<
+      Array<{ value?: Record<string, string | null> }>
+    >("system_config?select=key,value&key=eq.character_images&limit=1");
     return rows[0]?.value ?? {};
   } catch {
     return {};
@@ -174,6 +172,8 @@ export async function POST(request: NextRequest) {
                 "- -어요/-해요 체 사용",
                 "- 개발자 용어 금지",
                 "- 의료 진단 확정 표현 금지 ('~일 수 있어요', '담당 의료진과 상의해보세요')",
+                "- 의료 정보를 나열하듯 전달하지 말고, 산모와 대화하듯 따뜻한 대화체로 자연스럽게 녹여서 전달하세요.",
+                "- 응답 중간이나 끝에서 산모의 요즘 상태, 기분, 생활 습관 등을 자연스럽게 물어보세요. 딱딱한 '궁금한 점이 있으신가요?' 대신, 대화 흐름에 맞는 구체적인 질문을 해주세요. (예: '요즘 잠은 좀 잘 주무시나요?', '오늘 하루는 어떠셨어요?')",
                 ...(input.memorySystemBlock ? [input.memorySystemBlock] : []),
                 "임신 주차 정보가 주어지면 그 주차와 인접 주차 기준으로 설명하세요.",
               ].join("\n"),
@@ -218,10 +218,8 @@ export async function POST(request: NextRequest) {
       },
       markOutstandingPromptEventsAnswered,
       getPromptContext,
-      getAlreadyPromptedIds,
       resolveAssistantResponse: respondWithMobileChat,
       saveAssistantMessages: saveAssistantChatMessages,
-      createPromptEvents,
       updateSessionMemory,
       updateProfileMemory: async (
         userId,

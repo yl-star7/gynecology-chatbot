@@ -20,7 +20,7 @@ import type {
   RecordDayView,
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
-import { Button, Card, LabeledInput, Pressable } from "../../components/ui";
+import { Button, Card, Pressable } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { PatientTodayTabs } from "../../components/patient/PatientTodayTabs";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
@@ -44,7 +44,6 @@ import {
 import {
   resolvePatientProfileLoadError,
   resolvePatientRecordDayLoadError,
-  resolvePatientSurveySaveError,
 } from "./patientErrorCopy.model";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
@@ -72,12 +71,6 @@ export function PatientProfileScreen() {
   const [home, setHome] = useState<HomeViewData | null>(null);
   const [today, setToday] = useState<TodayViewData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [surveyAnswers, setSurveyAnswers] = useState<Record<string, string>>(
-    {},
-  );
-  const [submittingSurveyId, setSubmittingSurveyId] = useState<string | null>(
-    null,
-  );
   const [surveyFormUrl, setSurveyFormUrl] = useState<string | null>(null);
   const [selectedIsoDate, setSelectedIsoDate] = useState<string | null>(null);
   const [selectedRecordDay, setSelectedRecordDay] =
@@ -156,35 +149,6 @@ export function PatientProfileScreen() {
   async function handleLogout() {
     await signOut();
     router.replace("/auth/login");
-  }
-
-  async function handleSubmitSurveyAnswer(questionId: string, answer: string) {
-    if (!currentUser || !answer.trim()) {
-      setError("설문 답변을 비워둘 수 없어요.");
-      return;
-    }
-
-    setSubmittingSurveyId(questionId);
-    setError(null);
-
-    try {
-      await profilePort.submitSurveyAnswer({
-        userId: currentUser.id,
-        questionId,
-        answer: answer.trim(),
-      });
-      const refreshed = await profilePort.getProfile();
-      setProfile(refreshed);
-      setSurveyAnswers((current) => {
-        const next = { ...current };
-        delete next[questionId];
-        return next;
-      });
-    } catch (nextError) {
-      setError(resolvePatientSurveySaveError(nextError));
-    } finally {
-      setSubmittingSurveyId(null);
-    }
   }
 
   function openCalendarDay(isoDate: string) {
@@ -397,85 +361,6 @@ export function PatientProfileScreen() {
               />
             </View>
 
-            {(profile?.pendingSurveys?.length ?? 0) > 0 ? (
-              <>
-                <Text style={styles.sectionTitle}>오늘 설문</Text>
-                <Text style={styles.sectionDescription}>
-                  프로필에서 바로 답하고 오늘 기록에 남길 수 있어요.
-                </Text>
-                <View style={styles.surveyList}>
-                  {(profile?.pendingSurveys ?? []).map((survey) => {
-                    const currentAnswer = surveyAnswers[survey.id] ?? "";
-                    const supportsFreeText =
-                      survey.questionType === "text" ||
-                      survey.questionType === "number" ||
-                      survey.choices.length === 0;
-                    const isSubmitting = submittingSurveyId === survey.id;
-
-                    return (
-                      <View key={survey.id} style={styles.surveyCard}>
-                        <Text style={styles.surveyQuestion}>
-                          {survey.questionText}
-                        </Text>
-                        {survey.helpText ? (
-                          <Text style={styles.surveyHelp}>
-                            {survey.helpText}
-                          </Text>
-                        ) : null}
-
-                        {supportsFreeText ? (
-                          <View style={styles.surveyForm}>
-                            <LabeledInput
-                              label="답변"
-                              value={currentAnswer}
-                              onChangeText={(value) =>
-                                setSurveyAnswers((current) => ({
-                                  ...current,
-                                  [survey.id]: value,
-                                }))
-                              }
-                              placeholder="답변을 적어주세요"
-                            />
-                            <Button
-                              label={
-                                isSubmitting ? "저장 중이에요..." : "답변 저장"
-                              }
-                              onPress={() =>
-                                handleSubmitSurveyAnswer(
-                                  survey.id,
-                                  currentAnswer,
-                                )
-                              }
-                              disabled={isSubmitting || !currentAnswer.trim()}
-                            />
-                          </View>
-                        ) : (
-                          <View style={styles.surveyChoiceRow}>
-                            {survey.choices.map((choice) => (
-                              <Pressable
-                                key={choice.id}
-                                style={styles.surveyChoice}
-                                onPress={() =>
-                                  handleSubmitSurveyAnswer(
-                                    survey.id,
-                                    choice.label,
-                                  )
-                                }
-                                disabled={isSubmitting}
-                              >
-                                <Text style={styles.surveyChoiceLabel}>
-                                  {choice.label}
-                                </Text>
-                              </Pressable>
-                            ))}
-                          </View>
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
-              </>
-            ) : null}
           </Card>
 
           <Card>
@@ -878,46 +763,6 @@ const styles = StyleSheet.create({
   externalSurveyBody: {
     ...typo.caption,
     color: surface.textSecondary,
-  },
-  surveyList: {
-    marginTop: space.lg,
-    gap: space.md,
-    marginBottom: space.xl,
-  },
-  surveyCard: {
-    borderRadius: radii.xl,
-    backgroundColor: surface.surfacePrimary,
-    padding: space.lg,
-    ...shadows.card,
-  },
-  surveyQuestion: {
-    ...typo.label,
-    color: surface.textPrimary,
-  },
-  surveyHelp: {
-    marginTop: space.xs,
-    ...typo.caption,
-    color: surface.textSecondary,
-  },
-  surveyForm: {
-    marginTop: space.md,
-    gap: space.md,
-  },
-  surveyChoiceRow: {
-    marginTop: space.md,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: space.sm,
-  },
-  surveyChoice: {
-    borderRadius: radii.full,
-    backgroundColor: surface.surfaceAccent,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.sm,
-  },
-  surveyChoiceLabel: {
-    ...typo.button,
-    color: palette.accent,
   },
   accountRow: {
     marginTop: space.md,

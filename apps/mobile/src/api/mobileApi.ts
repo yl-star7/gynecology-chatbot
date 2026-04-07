@@ -86,21 +86,13 @@ export interface MobileApiClient {
 }
 
 function getEnvApiBaseUrl() {
-  const url = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (!url) {
-    throw new Error("EXPO_PUBLIC_API_BASE_URL is not configured");
-  }
+  const url = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:3005";
 
   return url.replace(/\/$/, "");
 }
 
 function getEnvUserId() {
-  const userId = process.env.EXPO_PUBLIC_DEV_USER_ID;
-  if (!userId) {
-    throw new Error("EXPO_PUBLIC_DEV_USER_ID is not configured");
-  }
-
-  return userId;
+  return process.env.EXPO_PUBLIC_DEV_USER_ID ?? "local-user-demo";
 }
 
 async function parseJson<T>(response: Response) {

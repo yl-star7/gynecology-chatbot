@@ -48,20 +48,6 @@ export function buildPromptFollowUpMessages(input: {
     (q) => !input.excludeQuestionIds?.has(q.id),
   );
 
-  if (input.dayContent?.baby_message?.trim()) {
-    messages.push({
-      role: "assistant",
-      createdAtLabel: "방금 전",
-      parts: [
-        {
-          type: "text",
-          id: `baby-message-${input.week.week_number}-${input.dayContent.day_number}`,
-          text: input.dayContent.baby_message.trim(),
-        },
-      ],
-    });
-  }
-
   const question = availableQuestions[0];
   if (question) {
     selectedQuestions.push(question);

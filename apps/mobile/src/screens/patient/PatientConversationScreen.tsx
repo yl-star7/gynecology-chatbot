@@ -20,6 +20,7 @@ import { useChatSessions } from "../../chat/store";
 import { Card, Pressable, EmotionCheckin } from "../../components/ui";
 import { ChatPartRenderer, ChatImagePicker, ChatImagePreview } from "../../components/chat";
 import { PatientShell } from "../../components/patient/PatientShell";
+import { NurseCharacter, NurseAvatar } from "../../components/patient/NurseCharacter";
 import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
 import {
   buildConversationComposerLayout,
@@ -71,6 +72,7 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
   const [showEmotionCheckin, setShowEmotionCheckin] = useState(
     sessionId === "new" || sessionId === "heart-talk",
   );
+  const [selectedEmotion, setSelectedEmotion] = useState<EmotionTone | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const composerLayout = buildConversationComposerLayout();
   const contentInsets = buildPatientTabContentInsets({
@@ -142,6 +144,7 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
 
   async function handleEmotionSelect(tone: EmotionTone) {
     setShowEmotionCheckin(false);
+    setSelectedEmotion(tone);
     try {
       await services.recordsPort?.saveEmotionCheckin?.(tone);
     } catch {
@@ -172,6 +175,8 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
         >
           <Card style={styles.chatCard}>
             <View style={styles.chatBody}>
+              <NurseCharacter emotionTone={selectedEmotion} size="md" />
+
               <View style={styles.chatHeaderRow}>
                 <View style={styles.chatHeaderIconWrap}>
                   <Ionicons
@@ -214,15 +219,18 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
                     );
                   }
 
-                  // 어시스턴트 메시지 — 풍부한 렌더링
+                  // 어시스턴트 메시지 — 아바타 + 풍부한 렌더링
                   return (
-                    <View key={message.id} style={styles.assistantMessageWrapper}>
-                      <ChatPartRenderer
-                        message={message}
-                        onQuickReplySelect={handleQuickReply}
-                        onSurveyAnswer={handleSurveyAnswer}
-                        onDeepLinkPress={handleDeepLink}
-                      />
+                    <View key={message.id} style={styles.assistantRow}>
+                      <NurseAvatar emotionTone={selectedEmotion} />
+                      <View style={styles.assistantMessageWrapper}>
+                        <ChatPartRenderer
+                          message={message}
+                          onQuickReplySelect={handleQuickReply}
+                          onSurveyAnswer={handleSurveyAnswer}
+                          onDeepLinkPress={handleDeepLink}
+                        />
+                      </View>
                     </View>
                   );
                 })}
@@ -349,12 +357,19 @@ const styles = StyleSheet.create({
     height: 160,
     borderRadius: radii.lg,
   },
-  assistantMessageWrapper: {
+  assistantRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: space.sm,
     alignSelf: "flex-start",
+    maxWidth: "100%",
+  },
+  assistantMessageWrapper: {
+    flex: 1,
     backgroundColor: surface.surfaceSecondary,
     borderRadius: radii.xl,
     padding: space.lg,
-    maxWidth: `${100 - (space.xl - space.xs)}%`,
+    maxWidth: `${100 - (space.xl + space.xs)}%`,
   },
   messageText: {
     ...typo.body,

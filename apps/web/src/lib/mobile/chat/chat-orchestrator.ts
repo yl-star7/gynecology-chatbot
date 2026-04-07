@@ -1,9 +1,5 @@
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
 
-import {
-  buildPromptFollowUpMessages,
-  stripFollowUpContentFromAnswer,
-} from "@/lib/mobile/chat/follow-ups";
 import type { PromptContext } from "./chat-repository";
 import type {
   ProfileMemoryPayload,
@@ -44,10 +40,6 @@ export function buildChatOrchestrator(deps: {
     pregnancyWeek: number | null,
     sessionId: string,
   ) => Promise<PromptContext | null>;
-  getAlreadyPromptedIds: (input: {
-    userId: string;
-    sessionId: string;
-  }) => Promise<{ checklistIds: Set<string>; questionIds: Set<string> }>;
   resolveAssistantResponse: (input: {
     promptContext: PromptContext | null;
     currentWeek: number | null;
@@ -64,13 +56,6 @@ export function buildChatOrchestrator(deps: {
     userId: string;
     messages: ChatMessage[];
   }) => Promise<Array<{ id: string }>>;
-  createPromptEvents: (input: {
-    userId: string;
-    sessionId: string;
-    assistantMessageId: string | null;
-    checklists: PromptContext["checklists"];
-    questions: PromptContext["questions"];
-  }) => Promise<void>;
   updateSessionMemory: (
     sessionId: string,
     nextSessionMemory: SessionMemoryPayload | null | undefined,
@@ -129,65 +114,25 @@ export function buildChatOrchestrator(deps: {
     );
     const currentWeek = promptContext?.pregnancyWeek ?? input.pregnancyWeek;
 
-    const { assistantMessage, workflowMemoryPayload } = await deps.resolveAssistantResponse({
-      promptContext,
-      currentWeek,
-      normalizedSessionId: sessionId,
-      text: input.text,
-      imageDataUris: input.imageDataUris,
-      hardGuardrailReason: input.hardGuardrailReason,
-    });
+    const { assistantMessage, workflowMemoryPayload } =
+      await deps.resolveAssistantResponse({
+        promptContext,
+        currentWeek,
+        normalizedSessionId: sessionId,
+        text: input.text,
+        imageDataUris: input.imageDataUris,
+        hardGuardrailReason: input.hardGuardrailReason,
+      });
 
     assistantMessage.parts = sanitizeChatParts(assistantMessage.parts);
 
-    const alreadyPrompted = promptContext
-      ? await deps.getAlreadyPromptedIds({ userId: input.userId, sessionId })
-      : null;
-
-    const followUpResult = promptContext
-      ? buildPromptFollowUpMessages({
-          ...promptContext,
-          excludeChecklistIds: alreadyPrompted?.checklistIds,
-          excludeQuestionIds: alreadyPrompted?.questionIds,
-        })
-      : null;
-
-    const hasFollowUps = (followUpResult?.messages.length ?? 0) > 0;
-    if (hasFollowUps && promptContext) {
-      assistantMessage.parts = stripFollowUpContentFromAnswer(
-        assistantMessage.parts,
-        promptContext,
-      );
-    }
-
     const assistantMessages: ChatMessage[] = [assistantMessage];
-    for (const followUp of followUpResult?.messages ?? []) {
-      assistantMessages.push({
-        id: `assistant-${Date.now()}-${assistantMessages.length + 1}`,
-        role: "assistant",
-        createdAtLabel: followUp.createdAtLabel,
-        parts: sanitizeChatParts(followUp.parts),
-      });
-    }
 
-    const insertedAssistantMessages = await deps.saveAssistantMessages({
+    await deps.saveAssistantMessages({
       sessionId,
       userId: input.userId,
       messages: assistantMessages,
     });
-
-    if (followUpResult && hasFollowUps) {
-      await deps.createPromptEvents({
-        userId: input.userId,
-        sessionId,
-        assistantMessageId:
-          insertedAssistantMessages[insertedAssistantMessages.length - 1]?.id ??
-          insertedAssistantMessages[0]?.id ??
-          null,
-        checklists: followUpResult.selectedChecklists,
-        questions: followUpResult.selectedQuestions,
-      });
-    }
 
     const assistantMessageAt = new Date().toISOString();
     await deps.updateSessionMemory(
