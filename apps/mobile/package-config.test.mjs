@@ -48,6 +48,28 @@ test("mobile app config does not ship a placeholder EAS project id for local sim
   );
 });
 
+test("mobile app config keeps Expo updates metadata consistent when using EAS project settings", () => {
+  const projectId = appJson.expo?.extra?.eas?.projectId;
+
+  assert.equal(
+    appJson.expo?.owner,
+    "yl-star7",
+    "apps/mobile app.json should keep the Expo owner aligned with the configured EAS project",
+  );
+
+  assert.deepEqual(
+    appJson.expo?.runtimeVersion,
+    { policy: "appVersion" },
+    "apps/mobile app.json should define runtimeVersion for Expo updates compatibility",
+  );
+
+  assert.equal(
+    appJson.expo?.updates?.url,
+    `https://u.expo.dev/${projectId}`,
+    "apps/mobile app.json should define the Expo updates URL derived from the configured EAS project id",
+  );
+});
+
 test("mobile workspace provides a Metro config that pins React resolution to the app-local runtime", () => {
   assert.equal(
     existsSync(new URL("./metro.config.js", import.meta.url)),

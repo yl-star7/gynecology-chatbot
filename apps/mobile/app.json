@@ -46,6 +46,12 @@
     "experiments": {
       "typedRoutes": true
     },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/4a852707-720a-4abf-bbd8-2523b5cff5b8"
+    },
     "extra": {
       "router": {
         "origin": false
