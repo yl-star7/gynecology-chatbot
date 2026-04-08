@@ -196,6 +196,85 @@ export async function embedPregnancyDocument(
   return normalizeEmbeddingLength(await embeddings.embedQuery(content));
 }
 
+export type RagSource = {
+  fileId: string;
+  filename: string;
+  chunkTitle: string;
+  similarity: number;
+};
+
+export type RagSearchResult = {
+  context: string;
+  sources: RagSource[];
+};
+
+/** 파일 RAG 검색 — Schift collection에서 top-K 검색 + 출처 반환 */
+export async function searchFileRag(input: {
+  query: string;
+  matchCount?: number;
+}): Promise<RagSearchResult> {
+  if (!input.query.trim()) return { context: "", sources: [] };
+
+  const schift = getSchiftClient();
+  if (!schift) return { context: "", sources: [] };
+
+  const count = input.matchCount ?? 5;
+
+  try {
+    const [results, disabledIds] = await Promise.all([
+      schift.search({
+        query: input.query,
+        collection: "pregnancy-knowledge",
+        topK: count + 10,
+      }),
+      getDisabledFileIds(),
+    ]);
+
+    const filtered = results
+      .filter((r) => !isResultFromDisabledFile(r, disabledIds))
+      .slice(0, count);
+
+    if (filtered.length === 0) return { context: "", sources: [] };
+
+    const sources: RagSource[] = filtered.map((r) => ({
+      fileId: typeof r.metadata?.fileId === "string" ? r.metadata.fileId : r.id,
+      filename:
+        typeof r.metadata?.filename === "string"
+          ? r.metadata.filename
+          : typeof r.metadata?.title === "string"
+            ? r.metadata.title
+            : r.id,
+      chunkTitle:
+        typeof r.metadata?.title === "string" ? r.metadata.title : r.id,
+      similarity: r.score,
+    }));
+
+    const context = filtered
+      .map((r, i) => {
+        const title =
+          typeof r.metadata?.title === "string" ? r.metadata.title : r.id;
+        const content =
+          typeof r.metadata?.content === "string" ? r.metadata.content : "";
+        const filename =
+          typeof r.metadata?.filename === "string"
+            ? r.metadata.filename
+            : "알 수 없음";
+        return [
+          `[참고 ${i + 1}] ${title}`,
+          `출처: ${filename}`,
+          `유사도: ${r.score.toFixed(3)}`,
+          content.slice(0, 700),
+        ].join("\n");
+      })
+      .join("\n\n");
+
+    return { context, sources };
+  } catch (error) {
+    console.warn("File RAG search failed:", error);
+    return { context: "", sources: [] };
+  }
+}
+
 export function formatRagContext(documents: RagDocumentRow[]) {
   if (documents.length === 0) return "검색된 임신 주차 문서 없음";
 

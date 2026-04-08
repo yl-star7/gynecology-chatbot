@@ -2,7 +2,12 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText, tool, stepCountIs } from "ai";
 import { z } from "zod";
 import { NextRequest, NextResponse } from "next/server";
-import { formatRagContext, retrievePregnancyContext } from "@/lib/mobile/rag";
+import {
+  formatRagContext,
+  retrievePregnancyContext,
+  searchFileRag,
+  type RagSource,
+} from "@/lib/mobile/rag";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import {
   extractSchiftWorkflowOutputs,
@@ -122,6 +127,15 @@ export async function POST(request: NextRequest) {
     const normalizedSessionId = normalizeSessionId(sessionId);
     const hardGuardrailReason = detectHardGuardrailReason(text);
 
+    // 파일 RAG 검색 (채팅 시작 시 1회 — 워크플로우/fallback 양쪽에서 사용)
+    let fileRagSources: RagSource[] = [];
+    let fileRagContext = "";
+    if (!hardGuardrailReason && text.trim()) {
+      const fileRag = await searchFileRag({ query: text, matchCount: 5 });
+      fileRagSources = fileRag.sources;
+      fileRagContext = fileRag.context;
+    }
+
     const respondWithMobileChat = createMobileChatResponder({
       getSchiftClient,
       runSchiftWorkflow,
@@ -179,6 +193,14 @@ export async function POST(request: NextRequest) {
                 "- 응답 중간이나 끝에서 산모의 요즘 상태, 기분, 생활 습관 등을 자연스럽게 물어보세요. 딱딱한 '궁금한 점이 있으신가요?' 대신, 대화 흐름에 맞는 구체적인 질문을 해주세요. (예: '요즘 잠은 좀 잘 주무시나요?', '오늘 하루는 어떠셨어요?')",
                 ...(input.memorySystemBlock ? [input.memorySystemBlock] : []),
                 "임신 주차 정보가 주어지면 그 주차와 인접 주차 기준으로 설명하세요.",
+                ...(fileRagContext
+                  ? [
+                      "",
+                      "## 참고 자료 (모성간호학 교재)",
+                      "아래 자료를 참고하여 근거 기반으로 답변하세요. 자료와 관련 없는 질문에는 자료를 언급하지 마세요.",
+                      fileRagContext,
+                    ]
+                  : []),
               ].join("\n"),
               prompt: [
                 `세션 ID: ${input.normalizedSessionId || "(없음)"}`,
@@ -252,6 +274,16 @@ export async function POST(request: NextRequest) {
       imageDataUris,
       hardGuardrailReason,
     });
+
+    // 참조 파일 출처를 assistant 메시지 parts에 히든 파트로 추가
+    // (앱에서는 unknown type 무시, 관리자 세션 로그에서 확인 가능)
+    if (fileRagSources.length > 0 && result.assistantMessage?.parts) {
+      result.assistantMessage.parts.push({
+        type: "_rag_sources",
+        id: `rag-sources-${Date.now()}`,
+        sources: fileRagSources,
+      } as unknown as (typeof result.assistantMessage.parts)[number]);
+    }
 
     return NextResponse.json({
       assistantMessage: result.assistantMessage,
