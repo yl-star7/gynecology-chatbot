@@ -85,6 +85,7 @@ export default function AdminDashboard({
           knowledgeStatus={state.knowledgeStatus}
           selectedRagDocumentId={state.selectedRagDocumentId}
           ragDocuments={state.ragDocuments}
+          ragFiles={[]}
           workflowRules={state.workflowRules}
           contentMessage={state.contentMessage}
           ragTitle={state.ragTitle}
@@ -104,6 +105,7 @@ export default function AdminDashboard({
           uploadingCoverField={null}
           uploadingMediaIndex={null}
           isRagSubmitting={state.isRagSubmitting}
+          isFileUploading={false}
           isKnowledgeSaving={state.isKnowledgeSaving}
           isWorkflowSaving={state.isWorkflowSaving}
           isWorkflowBootstrapping={state.isWorkflowSaving}
@@ -128,6 +130,8 @@ export default function AdminDashboard({
           onRagContentChange={state.setRagContent}
           onUploadRagDocument={state.handleUploadRagDocument}
           onDeleteRagDocument={state.handleDeleteRagDocument}
+          onUploadRagFile={async () => {}}
+          onDeleteRagFile={async () => {}}
           onSelectWorkflowRule={state.syncSelectedWorkflowRule}
           onWorkflowNameChange={state.setWorkflowName}
           onWorkflowTriggerChange={state.setWorkflowTrigger}
