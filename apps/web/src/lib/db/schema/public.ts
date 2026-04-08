@@ -1,5 +1,12 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  check,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 const genRandomUuid = sql`gen_random_uuid()`;
 const utcNow = sql`timezone('utc', now())`;
