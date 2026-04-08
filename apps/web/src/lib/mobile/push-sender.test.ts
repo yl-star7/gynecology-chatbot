@@ -27,7 +27,7 @@ import Expo from "expo-server-sdk";
 
 import { supabaseSelect } from "@/lib/supabase/admin-client";
 import { sendDailyPushNotifications } from "./push-sender";
-import { sendSmsMessage } from "./twilio-verify";
+import { sendSmsMessage } from "./solapi-sms";
 
 describe("sendDailyPushNotifications", () => {
   beforeEach(() => {
