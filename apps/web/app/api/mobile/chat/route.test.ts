@@ -205,6 +205,7 @@ jest.mock("@/lib/mobile/user-action-log", () => ({
 jest.mock("@/lib/mobile/rag", () => ({
   retrievePregnancyContext: jest.fn(async () => []),
   formatRagContext: jest.fn(() => ""),
+  searchFileRag: jest.fn(async () => ({ context: "", sources: [] })),
 }));
 
 jest.mock("@/lib/mobile/schift-client", () => ({
@@ -271,9 +272,9 @@ describe("chat pure helpers", () => {
   });
 
   it("sanitizes inline citation markers", () => {
-    expect(sanitizeInlineCitationMarkers("안정을 취해 보세요 (3)(5) [91]")).toBe(
-      "안정을 취해 보세요",
-    );
+    expect(
+      sanitizeInlineCitationMarkers("안정을 취해 보세요 (3)(5) [91]"),
+    ).toBe("안정을 취해 보세요");
   });
 
   it("parses workflow memory payload from structured answer json", () => {
@@ -631,11 +632,13 @@ describe("POST /api/mobile/chat", () => {
       expect(response.status).toBe(200);
       const payload = await response.json();
       const followUps = payload.assistantMessages.slice(1);
-      const hasQuestion = followUps.some((m: { parts: Array<{ id: string }> }) =>
-        m.parts.some((p) => p.id === "question-text-question-1"),
+      const hasQuestion = followUps.some(
+        (m: { parts: Array<{ id: string }> }) =>
+          m.parts.some((p) => p.id === "question-text-question-1"),
       );
-      const hasChecklist = followUps.some((m: { parts: Array<{ id: string }> }) =>
-        m.parts.some((p) => p.id === "checklist-check-1"),
+      const hasChecklist = followUps.some(
+        (m: { parts: Array<{ id: string }> }) =>
+          m.parts.some((p) => p.id === "checklist-check-1"),
       );
 
       expect(hasQuestion).toBe(true);
@@ -1206,7 +1209,9 @@ describe("POST /api/mobile/chat", () => {
           id: "assistant-retry-success",
           role: "assistant",
           createdAtLabel: "방금 전",
-          parts: [{ type: "text", id: "p-retry", text: "재시도 후 정상 JSON 응답" }],
+          parts: [
+            { type: "text", id: "p-retry", text: "재시도 후 정상 JSON 응답" },
+          ],
         }),
       } as never);
     mockedGetSchiftClient.mockReturnValue(null as never);
@@ -1519,7 +1524,9 @@ describe("POST /api/mobile/chat", () => {
       },
     );
     mockedSupabaseUpdate.mockResolvedValue([]);
-    mockedGetSchiftClient.mockReturnValue({ workflows: { run: jest.fn() } } as never);
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: { run: jest.fn() },
+    } as never);
     mockedRunSchiftWorkflow.mockResolvedValue({
       workflowId: "wf-memory",
       run: {
@@ -1583,7 +1590,9 @@ describe("POST /api/mobile/chat", () => {
 
         if (table === "chat_messages") {
           if (Array.isArray(payload)) {
-            return Promise.resolve([{ id: "assistant-message-fallback-memory" }]);
+            return Promise.resolve([
+              { id: "assistant-message-fallback-memory" },
+            ]);
           }
 
           return Promise.resolve([{ id: "user-message-fallback-memory" }]);
@@ -1610,7 +1619,9 @@ describe("POST /api/mobile/chat", () => {
 
     expect(mockedGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining("최근 세션 요약: 최근 복통과 수분 부족 이야기를 나눴어요."),
+        system: expect.stringContaining(
+          "최근 세션 요약: 최근 복통과 수분 부족 이야기를 나눴어요.",
+        ),
         prompt: expect.stringContaining("최근 감정 톤: tired"),
       }),
     );
@@ -1648,7 +1659,9 @@ describe("POST /api/mobile/chat", () => {
       },
     );
     mockedSupabaseUpdate.mockResolvedValue([]);
-    mockedGetSchiftClient.mockReturnValue({ workflows: { run: jest.fn() } } as never);
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: { run: jest.fn() },
+    } as never);
     mockedRunSchiftWorkflow.mockResolvedValue({
       workflowId: "wf-memory-store",
       run: {
@@ -1661,7 +1674,8 @@ describe("POST /api/mobile/chat", () => {
             scenario: "symptom_counsel",
             characterTone: "calm",
             nextSessionMemory: {
-              compactSummary: "배가 뭉치는 느낌을 상담했고 수분과 휴식을 먼저 권했어요.",
+              compactSummary:
+                "배가 뭉치는 느낌을 상담했고 수분과 휴식을 먼저 권했어요.",
               lastScenario: "symptom_counsel",
               lastCharacterTone: "calm",
               lastEmotionTone: "tired",
@@ -1689,7 +1703,8 @@ describe("POST /api/mobile/chat", () => {
       expect.stringContaining("chat_sessions?id=eq."),
       expect.objectContaining({
         memory_payload: expect.objectContaining({
-          compactSummary: "배가 뭉치는 느낌을 상담했고 수분과 휴식을 먼저 권했어요.",
+          compactSummary:
+            "배가 뭉치는 느낌을 상담했고 수분과 휴식을 먼저 권했어요.",
           lastScenario: "symptom_counsel",
           lastCharacterTone: "calm",
           lastEmotionTone: "tired",
@@ -1731,7 +1746,9 @@ describe("POST /api/mobile/chat", () => {
       },
     );
     mockedSupabaseUpdate.mockResolvedValue([]);
-    mockedGetSchiftClient.mockReturnValue({ workflows: { run: jest.fn() } } as never);
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: { run: jest.fn() },
+    } as never);
     mockedRunSchiftWorkflow.mockResolvedValue({
       workflowId: "wf-profile-memory",
       run: {
@@ -1740,7 +1757,8 @@ describe("POST /api/mobile/chat", () => {
         status: "completed",
         outputs: {
           answer: JSON.stringify({
-            answer: "오늘은 조금 불안한 마음이 느껴졌어요. 천천히 숨을 고르고 쉬어보세요.",
+            answer:
+              "오늘은 조금 불안한 마음이 느껴졌어요. 천천히 숨을 고르고 쉬어보세요.",
             nextProfileMemory: {
               lastEmotionTone: "anxious",
             },
@@ -1790,7 +1808,9 @@ describe("POST /api/mobile/chat", () => {
 
         if (table === "chat_messages") {
           if (Array.isArray(payload)) {
-            return Promise.resolve([{ id: "assistant-message-provider-aware" }]);
+            return Promise.resolve([
+              { id: "assistant-message-provider-aware" },
+            ]);
           }
 
           return Promise.resolve([{ id: "user-message-provider-aware" }]);
