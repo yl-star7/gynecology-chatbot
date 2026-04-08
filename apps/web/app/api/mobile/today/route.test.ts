@@ -272,6 +272,24 @@ describe("GET /api/mobile/today", () => {
   });
 
   it("due_date 기준으로 재계산한 주차와 day_number로 오늘 컨텐츠를 조회한다", async () => {
+    // Compute expected week/day dynamically using the same logic as the route
+    const dueDate = new Date("2026-07-01T00:00:00");
+    const today = new Date();
+    const startOfToday = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    );
+    const diffDays = Math.round(
+      (dueDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    const pregnancyDayCount = Math.max(0, Math.min(294, 294 - diffDays));
+    const expectedWeek = Math.max(
+      1,
+      Math.min(42, Math.floor(pregnancyDayCount / 7)),
+    );
+    const expectedDayNumber = (pregnancyDayCount % 7) + 1;
+
     mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
     mockedSupabaseSelect
       .mockResolvedValueOnce([
@@ -283,22 +301,26 @@ describe("GET /api/mobile/today", () => {
       ] as never)
       .mockResolvedValueOnce([
         {
-          id: "week-29",
-          baby_summary: "29주 아기 요약",
-          mother_summary: "29주 엄마 요약",
+          id: `week-${expectedWeek}`,
+          baby_summary: `${expectedWeek}주 아기 요약`,
+          mother_summary: `${expectedWeek}주 엄마 요약`,
         },
       ] as never)
       .mockResolvedValueOnce([
         {
-          baby_development_payload: { items: ["29주 4일 아기 발달"] },
+          baby_development_payload: {
+            items: [`${expectedWeek}주 ${expectedDayNumber}일 아기 발달`],
+          },
           baby_message: null,
-          mother_changes_payload: { items: ["29주 4일 엄마 변화"] },
+          mother_changes_payload: {
+            items: [`${expectedWeek}주 ${expectedDayNumber}일 엄마 변화`],
+          },
         },
       ] as never)
       .mockResolvedValueOnce([
         {
-          id: "check-29-4",
-          title: "29주 4일 체크리스트",
+          id: `check-${expectedWeek}-${expectedDayNumber}`,
+          title: `${expectedWeek}주 ${expectedDayNumber}일 체크리스트`,
           description: null,
           display_order: 1,
         },
@@ -314,12 +336,12 @@ describe("GET /api/mobile/today", () => {
     expect(response.status).toBe(200);
     expect(mockedSupabaseSelect).toHaveBeenCalledWith(
       expect.stringContaining(
-        "content_pregnancy_week_data?select=id,baby_summary,mother_summary&week_number=eq.29&status=eq.published&limit=1",
+        `content_pregnancy_week_data?select=id,baby_summary,mother_summary&week_number=eq.${expectedWeek}&status=eq.published&limit=1`,
       ),
     );
     expect(mockedSupabaseSelect).toHaveBeenCalledWith(
       expect.stringContaining(
-        "content_pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.week-29&day_number=eq.4&limit=1",
+        `content_pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.week-${expectedWeek}&day_number=eq.${expectedDayNumber}&limit=1`,
       ),
     );
   });

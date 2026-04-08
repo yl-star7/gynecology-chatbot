@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
+import {
+  supabaseSelect,
+  supabaseUpdate,
+  supabaseInsert,
+} from "@/lib/supabase/admin-client";
 
 const BRANDING_KEY = "ui_branding";
 
@@ -48,20 +52,14 @@ function normalizeSurveyFormUrl(input: unknown) {
 
 export async function GET() {
   try {
-    const client = getSupabaseAdminClient();
     const admin = await readAdminSessionUser();
     if (!admin) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const { data: rows, error } = await client
-      .from("system_config")
-      .select("key,value")
-      .eq("key", BRANDING_KEY)
-      .limit(1);
-    if (error) {
-      throw error;
-    }
+    const rows = await supabaseSelect<ConfigRow[]>(
+      `system_config?select=key,value&key=eq.${BRANDING_KEY}&limit=1`,
+    );
 
     return NextResponse.json(rows[0]?.value ?? DEFAULT_BRANDING);
   } catch (error) {
@@ -75,7 +73,6 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const client = getSupabaseAdminClient();
     const admin = await readAdminSessionUser();
     if (!admin) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -95,32 +92,21 @@ export async function PUT(request: NextRequest) {
       surveyFormUrl: normalizedSurveyFormUrl,
     };
 
-    const { data: existing, error: existingError } = await client
-      .from("system_config")
-      .select("key")
-      .eq("key", BRANDING_KEY)
-      .limit(1);
-    if (existingError) {
-      throw existingError;
-    }
+    const existing = await supabaseSelect<{ key: string }[]>(
+      `system_config?select=key&key=eq.${BRANDING_KEY}&limit=1`,
+    );
 
     if (existing.length > 0) {
-      const { error } = await client
-        .from("system_config")
-        .update({ value: branding, updated_at: new Date().toISOString() })
-        .eq("key", BRANDING_KEY);
-      if (error) {
-        throw error;
-      }
+      await supabaseUpdate(`system_config?key=eq.${BRANDING_KEY}`, {
+        value: branding,
+        updated_at: new Date().toISOString(),
+      });
     } else {
-      const { error } = await client.from("system_config").insert({
+      await supabaseInsert("system_config", {
         key: BRANDING_KEY,
         value: branding,
         updated_at: new Date().toISOString(),
       });
-      if (error) {
-        throw error;
-      }
     }
 
     return NextResponse.json({ ok: true, branding });
