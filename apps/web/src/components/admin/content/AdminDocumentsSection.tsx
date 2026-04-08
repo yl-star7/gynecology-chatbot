@@ -1,17 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type { AdminDashboardData } from "@gynecology-chatbot/app-core";
 
 import {
+  formatFileSize,
   getDocumentStatusBadge,
   getDocumentStatusLabel,
+  getRagFileStatusBadge,
+  getRagFileStatusLabel,
 } from "../admin-dashboard-labels";
 import styles from "../AdminConsoleLayout.module.css";
 
+export type RagFileItem = {
+  id: string;
+  filename: string;
+  fileSize: number;
+  mimeType: string;
+  category: string;
+  pregnancyWeek: number | null;
+  status: "processing" | "ready" | "failed";
+  errorMessage: string | null;
+  createdAt: string;
+};
+
 export interface AdminDocumentsSectionProps {
   ragDocuments: AdminDashboardData["ragDocuments"];
+  ragFiles: RagFileItem[];
   selectedRagDocumentId: string;
   contentMessage: string | null;
   ragTitle: string;
@@ -19,6 +35,7 @@ export interface AdminDocumentsSectionProps {
   ragWeek: string;
   ragContent: string;
   isRagSubmitting: boolean;
+  isFileUploading: boolean;
   onSelectRagDocument: (id: string) => Promise<void>;
   onResetRagDocument: () => void;
   onRagTitleChange: (value: string) => void;
@@ -27,10 +44,17 @@ export interface AdminDocumentsSectionProps {
   onRagContentChange: (value: string) => void;
   onUploadRagDocument: () => Promise<void>;
   onDeleteRagDocument: () => Promise<void>;
+  onUploadRagFile: (
+    file: File,
+    category: string,
+    pregnancyWeek: string,
+  ) => Promise<void>;
+  onDeleteRagFile: (fileId: string) => Promise<void>;
 }
 
 export function AdminDocumentsSection({
   ragDocuments,
+  ragFiles,
   selectedRagDocumentId,
   contentMessage,
   ragTitle,
@@ -38,6 +62,7 @@ export function AdminDocumentsSection({
   ragWeek,
   ragContent,
   isRagSubmitting,
+  isFileUploading,
   onSelectRagDocument,
   onResetRagDocument,
   onRagTitleChange,
@@ -46,10 +71,16 @@ export function AdminDocumentsSection({
   onRagContentChange,
   onUploadRagDocument,
   onDeleteRagDocument,
+  onUploadRagFile,
+  onDeleteRagFile,
 }: AdminDocumentsSectionProps) {
   const [activeOverlay, setActiveOverlay] = useState(false);
   const [documentQuery, setDocumentQuery] = useState("");
   const [documentStatusFilter, setDocumentStatusFilter] = useState("all");
+  const [fileCategory, setFileCategory] = useState("");
+  const [fileWeek, setFileWeek] = useState("");
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedRagDocument =
     ragDocuments.find((document) => document.id === selectedRagDocumentId) ??
@@ -62,12 +93,136 @@ export function AdminDocumentsSection({
       document.title.toLowerCase().includes(query) ||
       document.category.toLowerCase().includes(query);
     const matchesStatus =
-      documentStatusFilter === "all" || document.status === documentStatusFilter;
+      documentStatusFilter === "all" ||
+      document.status === documentStatusFilter;
     return matchesQuery && matchesStatus;
   });
 
+  async function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await onUploadRagFile(file, fileCategory, fileWeek);
+    setFileCategory("");
+    setFileWeek("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleDeleteFile(fileId: string) {
+    setDeletingFileId(fileId);
+    try {
+      await onDeleteRagFile(fileId);
+    } finally {
+      setDeletingFileId(null);
+    }
+  }
+
   return (
     <section className={styles.sectionStack}>
+      {/* 파일 업로드 섹션 */}
+      <section className={styles.panel}>
+        <div className={styles.routeHeader}>
+          <div>
+            <h2 className={styles.routeTitle}>파일 자료</h2>
+            <p className={styles.panelDescription}>
+              PDF, DOCX, TXT 파일을 업로드하면 자동으로 분석되어 검색에
+              반영됩니다.
+            </p>
+          </div>
+          <div className={styles.topbarActions}>
+            <button
+              className={styles.primaryButton}
+              type="button"
+              disabled={isFileUploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {isFileUploading ? "업로드 중..." : "파일 업로드"}
+            </button>
+          </div>
+        </div>
+
+        <div className={styles.tableToolbar}>
+          <label className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>카테고리</span>
+            <input
+              className={styles.fieldInput}
+              value={fileCategory}
+              onChange={(event) => setFileCategory(event.target.value)}
+              placeholder="분류 (선택)"
+            />
+          </label>
+          <label className={styles.fieldGroup}>
+            <span className={styles.fieldLabel}>주차</span>
+            <input
+              className={styles.fieldInput}
+              inputMode="numeric"
+              value={fileWeek}
+              onChange={(event) => setFileWeek(event.target.value)}
+              placeholder="주차 (선택)"
+            />
+          </label>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+          style={{ display: "none" }}
+          onChange={handleFileSelect}
+        />
+
+        <div className={styles.dataTable}>
+          <div className={styles.dataTableHeader}>
+            <span>파일명</span>
+            <span>카테고리</span>
+            <span>상태</span>
+            <span>크기</span>
+            <span>업로드일</span>
+            <span />
+          </div>
+          {ragFiles.map((file) => (
+            <div key={file.id} className={styles.dataTableRow}>
+              <span className={styles.dataTableTitleGroup}>
+                <strong>{file.filename}</strong>
+                {file.pregnancyWeek ? (
+                  <small>{file.pregnancyWeek}주차</small>
+                ) : null}
+              </span>
+              <span>{file.category || "-"}</span>
+              <span>
+                <span
+                  className={`${styles.statusBadge} ${
+                    styles[getRagFileStatusBadge(file.status)] ?? ""
+                  }`}
+                  title={file.errorMessage ?? undefined}
+                >
+                  {getRagFileStatusLabel(file.status)}
+                </span>
+              </span>
+              <span>{formatFileSize(file.fileSize)}</span>
+              <span>
+                {new Date(file.createdAt).toLocaleDateString("ko-KR")}
+              </span>
+              <span>
+                <button
+                  className={styles.secondaryButton}
+                  type="button"
+                  disabled={deletingFileId === file.id}
+                  onClick={() => void handleDeleteFile(file.id)}
+                >
+                  삭제
+                </button>
+              </span>
+            </div>
+          ))}
+          {ragFiles.length === 0 ? (
+            <div className={styles.listEmpty}>업로드된 파일이 없습니다.</div>
+          ) : null}
+        </div>
+      </section>
+
+      {/* 기존 텍스트 문서 섹션 */}
       <section className={styles.panel}>
         <div className={styles.routeHeader}>
           <div>
@@ -194,7 +349,9 @@ export function AdminDocumentsSection({
               </button>
             </div>
             <div className={styles.overlayBody}>
-              {contentMessage ? <p className={styles.formHint}>{contentMessage}</p> : null}
+              {contentMessage ? (
+                <p className={styles.formHint}>{contentMessage}</p>
+              ) : null}
               <label className={styles.fieldGroup}>
                 <span className={styles.fieldLabel}>자료 제목</span>
                 <input
@@ -209,7 +366,9 @@ export function AdminDocumentsSection({
                   <input
                     className={styles.fieldInput}
                     value={ragCategory}
-                    onChange={(event) => onRagCategoryChange(event.target.value)}
+                    onChange={(event) =>
+                      onRagCategoryChange(event.target.value)
+                    }
                   />
                 </label>
                 <label className={styles.fieldGroup}>

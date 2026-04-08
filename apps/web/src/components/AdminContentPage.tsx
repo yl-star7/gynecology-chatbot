@@ -44,6 +44,7 @@ export default function AdminContentPage({
         knowledgeStatus={state.knowledgeStatus}
         selectedRagDocumentId={state.selectedRagDocumentId}
         ragDocuments={state.ragDocuments}
+        ragFiles={state.ragFiles}
         workflowRules={state.workflowRules}
         contentMessage={state.contentMessage}
         ragTitle={state.ragTitle}
@@ -62,6 +63,7 @@ export default function AdminContentPage({
         isLoadingWeeks={state.isLoadingWeeks}
         uploadingCoverField={state.uploadingCoverField}
         isRagSubmitting={state.isRagSubmitting}
+        isFileUploading={state.isFileUploading}
         isKnowledgeSaving={state.isKnowledgeSaving}
         isWorkflowSaving={state.isWorkflowSaving}
         isWorkflowBootstrapping={state.isWorkflowBootstrapping}
@@ -87,6 +89,8 @@ export default function AdminContentPage({
         onRagContentChange={state.setRagContent}
         onUploadRagDocument={state.handleUploadRagDocument}
         onDeleteRagDocument={state.handleDeleteRagDocument}
+        onUploadRagFile={state.handleUploadRagFile}
+        onDeleteRagFile={state.handleDeleteRagFile}
         onSelectWorkflowRule={state.syncSelectedWorkflowRule}
         onWorkflowNameChange={state.setWorkflowName}
         onWorkflowTriggerChange={state.setWorkflowTrigger}

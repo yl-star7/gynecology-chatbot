@@ -13,6 +13,8 @@ import type {
   AdminWeekSummary,
   AdminWorkflowRule,
 } from "@gynecology-chatbot/app-core";
+
+import type { RagFileItem } from "./content/AdminDocumentsSection";
 import { getWeekPublishReview } from "./content/week-publish-review";
 
 type OrderedItem = { displayOrder: number };
@@ -94,6 +96,8 @@ export function useAdminContentState(
   const [ragCategory, setRagCategory] = useState("");
   const [ragWeek, setRagWeek] = useState("");
   const [ragContent, setRagContent] = useState("");
+  const [ragFiles, setRagFiles] = useState<RagFileItem[]>([]);
+  const [isFileUploading, setIsFileUploading] = useState(false);
   const [workflowRules, setWorkflowRules] = useState(dashboard.workflowRules);
   const [selectedWorkflowRuleId, setSelectedWorkflowRuleId] = useState(
     dashboard.workflowRules[0]?.id ?? "",
@@ -289,6 +293,46 @@ export function useAdminContentState(
 
     if (needsWeeks) {
       void loadWeeks();
+    }
+
+    if (view === "documents") {
+      void loadRagFiles();
+    }
+
+    async function loadRagFiles() {
+      try {
+        const response = await fetch("/api/admin/rag/files");
+        const payload = (await response.json()) as {
+          error?: string;
+          files?: Array<{
+            id: string;
+            filename: string;
+            file_size: number;
+            mime_type: string;
+            category: string;
+            pregnancy_week: number | null;
+            status: "processing" | "ready" | "failed";
+            error_message: string | null;
+            created_at: string;
+          }>;
+        };
+        if (!response.ok || cancelled) return;
+        setRagFiles(
+          (payload.files ?? []).map((f) => ({
+            id: f.id,
+            filename: f.filename,
+            fileSize: f.file_size,
+            mimeType: f.mime_type,
+            category: f.category,
+            pregnancyWeek: f.pregnancy_week,
+            status: f.status,
+            errorMessage: f.error_message,
+            createdAt: f.created_at,
+          })),
+        );
+      } catch {
+        // 파일 목록 로딩 실패는 무시
+      }
     }
 
     return () => {
@@ -976,6 +1020,87 @@ export function useAdminContentState(
     setIsRagSubmitting(false);
   }
 
+  async function handleUploadRagFile(
+    file: File,
+    category: string,
+    pregnancyWeek: string,
+  ) {
+    setIsFileUploading(true);
+    setContentMessage(null);
+
+    const formData = new FormData();
+    formData.set("file", file);
+    if (category) formData.set("category", category);
+    if (pregnancyWeek) formData.set("pregnancyWeek", pregnancyWeek);
+
+    try {
+      const response = await fetch("/api/admin/rag/files", {
+        method: "POST",
+        body: formData,
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        ok?: boolean;
+        file?: {
+          id: string;
+          filename: string;
+          file_size: number;
+          mime_type: string;
+          category: string;
+          pregnancy_week: number | null;
+          status: "processing" | "ready" | "failed";
+          error_message: string | null;
+          created_at: string;
+        };
+      };
+
+      if (!response.ok) {
+        setContentMessage(payload.error ?? "파일 업로드에 실패했습니다.");
+        return;
+      }
+
+      if (payload.file) {
+        const newFile: RagFileItem = {
+          id: payload.file.id,
+          filename: payload.file.filename,
+          fileSize: payload.file.file_size,
+          mimeType: payload.file.mime_type,
+          category: payload.file.category,
+          pregnancyWeek: payload.file.pregnancy_week,
+          status: payload.file.status,
+          errorMessage: payload.file.error_message,
+          createdAt: payload.file.created_at,
+        };
+        setRagFiles((current) => [newFile, ...current]);
+      }
+
+      setContentMessage(`${file.name} 파일을 업로드했습니다.`);
+    } catch {
+      setContentMessage("파일 업로드 중 오류가 발생했습니다.");
+    } finally {
+      setIsFileUploading(false);
+    }
+  }
+
+  async function handleDeleteRagFile(fileId: string) {
+    setContentMessage(null);
+    try {
+      const response = await fetch(
+        `/api/admin/rag/files/${encodeURIComponent(fileId)}`,
+        { method: "DELETE" },
+      );
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setContentMessage(payload.error ?? "파일 삭제에 실패했습니다.");
+        return;
+      }
+      setRagFiles((current) => current.filter((f) => f.id !== fileId));
+      setContentMessage("파일을 삭제했습니다.");
+    } catch {
+      setContentMessage("파일 삭제 중 오류가 발생했습니다.");
+    }
+  }
+
   async function handleSaveWorkflowRule() {
     if (
       !selectedWorkflowRuleId ||
@@ -1344,8 +1469,12 @@ export function useAdminContentState(
     handleCreateKnowledgeItem,
     handleUpdateKnowledgeItem,
     handleDeleteKnowledgeItem,
+    ragFiles,
+    isFileUploading,
     handleUploadRagDocument,
     handleDeleteRagDocument,
+    handleUploadRagFile,
+    handleDeleteRagFile,
     handleSaveWorkflowRule,
     handleBootstrapWorkflowRule,
     handleRunWorkflowRule,

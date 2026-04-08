@@ -11,7 +11,10 @@ import type {
   AdminWeekSummary,
 } from "@gynecology-chatbot/app-core";
 
-import { AdminDocumentsSection } from "./content/AdminDocumentsSection";
+import {
+  AdminDocumentsSection,
+  type RagFileItem,
+} from "./content/AdminDocumentsSection";
 import { AdminPoliciesSection } from "./content/AdminPoliciesSection";
 import { AdminStaticSection } from "./content/AdminStaticSection";
 import { AdminWeeksSection } from "./content/AdminWeeksSection";
@@ -27,6 +30,7 @@ export interface AdminContentSectionProps {
   knowledgeStatus: AdminKnowledgeItem["status"];
   selectedRagDocumentId: string;
   ragDocuments: AdminDashboardData["ragDocuments"];
+  ragFiles: RagFileItem[];
   workflowRules: AdminDashboardData["workflowRules"];
   contentMessage: string | null;
   ragTitle: string;
@@ -46,6 +50,7 @@ export interface AdminContentSectionProps {
   uploadingCoverField: "heroImagePath" | "compareImagePath" | null;
   uploadingMediaIndex: number | null;
   isRagSubmitting: boolean;
+  isFileUploading: boolean;
   isKnowledgeSaving: boolean;
   isWorkflowSaving: boolean;
   isWorkflowBootstrapping?: boolean;
@@ -71,6 +76,12 @@ export interface AdminContentSectionProps {
   onRagContentChange: (value: string) => void;
   onUploadRagDocument: () => Promise<void>;
   onDeleteRagDocument: () => Promise<void>;
+  onUploadRagFile: (
+    file: File,
+    category: string,
+    pregnancyWeek: string,
+  ) => Promise<void>;
+  onDeleteRagFile: (fileId: string) => Promise<void>;
   onSelectWorkflowRule: (id: string) => void;
   onWorkflowNameChange: (value: string) => void;
   onWorkflowTriggerChange: (value: string) => void;
@@ -149,6 +160,7 @@ export function AdminContentSection({
   knowledgeStatus,
   selectedRagDocumentId,
   ragDocuments,
+  ragFiles,
   workflowRules,
   contentMessage,
   ragTitle,
@@ -168,6 +180,7 @@ export function AdminContentSection({
   uploadingCoverField,
   uploadingMediaIndex,
   isRagSubmitting,
+  isFileUploading,
   isKnowledgeSaving,
   isWorkflowSaving,
   isWorkflowBootstrapping = false,
@@ -193,6 +206,8 @@ export function AdminContentSection({
   onRagContentChange,
   onUploadRagDocument,
   onDeleteRagDocument,
+  onUploadRagFile,
+  onDeleteRagFile,
   onSelectWorkflowRule,
   onWorkflowNameChange,
   onWorkflowTriggerChange,
@@ -232,6 +247,7 @@ export function AdminContentSection({
     return (
       <AdminDocumentsSection
         ragDocuments={ragDocuments}
+        ragFiles={ragFiles}
         selectedRagDocumentId={selectedRagDocumentId}
         contentMessage={contentMessage}
         ragTitle={ragTitle}
@@ -239,6 +255,7 @@ export function AdminContentSection({
         ragWeek={ragWeek}
         ragContent={ragContent}
         isRagSubmitting={isRagSubmitting}
+        isFileUploading={isFileUploading}
         onSelectRagDocument={onSelectRagDocument}
         onResetRagDocument={onResetRagDocument}
         onRagTitleChange={onRagTitleChange}
@@ -247,6 +264,8 @@ export function AdminContentSection({
         onRagContentChange={onRagContentChange}
         onUploadRagDocument={onUploadRagDocument}
         onDeleteRagDocument={onDeleteRagDocument}
+        onUploadRagFile={onUploadRagFile}
+        onDeleteRagFile={onDeleteRagFile}
       />
     );
   }

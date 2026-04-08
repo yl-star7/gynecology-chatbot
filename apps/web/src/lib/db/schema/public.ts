@@ -93,3 +93,34 @@ export const userQuestionEvents = pgTable("user_question_events", {
     .notNull()
     .default(utcNow),
 });
+
+export const contentRagFiles = pgTable(
+  "content_rag_files",
+  {
+    id: uuid("id").primaryKey().default(genRandomUuid),
+    filename: text("filename").notNull(),
+    storagePath: text("storage_path").notNull(),
+    schiftBucket: text("schift_bucket")
+      .notNull()
+      .default("pregnancy-knowledge"),
+    fileSize: integer("file_size").notNull().default(0),
+    mimeType: text("mime_type").notNull().default("application/octet-stream"),
+    category: text("category").notNull().default(""),
+    pregnancyWeek: integer("pregnancy_week"),
+    status: text("status").notNull().default("processing"),
+    errorMessage: text("error_message"),
+    uploadedBy: uuid("uploaded_by"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+  },
+  (table) => ({
+    statusCheck: check(
+      "content_rag_files_status_check",
+      sql`${table.status} IN ('processing', 'ready', 'failed')`,
+    ),
+  }),
+);

@@ -134,3 +134,23 @@ export function getUserActionTypeLabel(actionType: string) {
 export function getAdminEventLabel(value: string) {
   return ADMIN_EVENT_LABELS[value] ?? value;
 }
+
+type RagFileStatus = "processing" | "ready" | "failed";
+
+export function getRagFileStatusLabel(status: RagFileStatus) {
+  if (status === "ready") return "완료";
+  if (status === "failed") return "실패";
+  return "처리 중";
+}
+
+export function getRagFileStatusBadge(status: RagFileStatus) {
+  if (status === "ready") return "statusSuccess";
+  if (status === "failed") return "statusError";
+  return "statusWarning";
+}
+
+export function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
