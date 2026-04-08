@@ -28,9 +28,8 @@ type RagFileRow = {
   schift_bucket: string;
   file_size: number;
   mime_type: string;
-  category: string;
-  pregnancy_week: number | null;
   status: string;
+  enabled: boolean;
   error_message: string | null;
   uploaded_by: string | null;
   created_at: string;
@@ -46,7 +45,7 @@ export async function GET() {
     }
 
     const rows = await supabaseSelect<RagFileRow[]>(
-      "content_rag_files?select=id,filename,storage_path,schift_bucket,file_size,mime_type,category,pregnancy_week,status,error_message,uploaded_by,created_at,updated_at&order=created_at.desc",
+      "content_rag_files?select=id,filename,storage_path,schift_bucket,file_size,mime_type,status,enabled,error_message,uploaded_by,created_at,updated_at&order=created_at.desc",
     );
 
     return NextResponse.json({ files: rows });
@@ -71,9 +70,6 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get("file");
-    const category = String(formData.get("category") ?? "").trim();
-    const pregnancyWeekRaw = String(formData.get("pregnancyWeek") ?? "").trim();
-    const pregnancyWeek = pregnancyWeekRaw ? Number(pregnancyWeekRaw) : null;
 
     if (!(file instanceof File) || !file.size) {
       return NextResponse.json({ error: "file is required" }, { status: 400 });
@@ -122,9 +118,8 @@ export async function POST(request: NextRequest) {
       schift_bucket: SCHIFT_BUCKET,
       file_size: file.size,
       mime_type: file.type,
-      category,
-      pregnancy_week: pregnancyWeek,
       status: "processing",
+      enabled: true,
       uploaded_by: admin.id,
     });
 
@@ -161,7 +156,7 @@ export async function POST(request: NextRequest) {
 
     // 최종 상태 조회
     const rows = await supabaseSelect<RagFileRow[]>(
-      `content_rag_files?select=id,filename,storage_path,schift_bucket,file_size,mime_type,category,pregnancy_week,status,error_message,uploaded_by,created_at,updated_at&id=eq.${fileId}`,
+      `content_rag_files?select=id,filename,storage_path,schift_bucket,file_size,mime_type,status,enabled,error_message,uploaded_by,created_at,updated_at&id=eq.${fileId}`,
     );
 
     return NextResponse.json({ file: rows[0] ?? null, ok: true });

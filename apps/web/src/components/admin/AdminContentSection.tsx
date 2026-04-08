@@ -76,12 +76,9 @@ export interface AdminContentSectionProps {
   onRagContentChange: (value: string) => void;
   onUploadRagDocument: () => Promise<void>;
   onDeleteRagDocument: () => Promise<void>;
-  onUploadRagFile: (
-    file: File,
-    category: string,
-    pregnancyWeek: string,
-  ) => Promise<void>;
+  onUploadRagFile: (file: File) => Promise<void>;
   onDeleteRagFile: (fileId: string) => Promise<void>;
+  onToggleRagFile: (fileId: string, enabled: boolean) => Promise<void>;
   onSelectWorkflowRule: (id: string) => void;
   onWorkflowNameChange: (value: string) => void;
   onWorkflowTriggerChange: (value: string) => void;
@@ -208,6 +205,7 @@ export function AdminContentSection({
   onDeleteRagDocument,
   onUploadRagFile,
   onDeleteRagFile,
+  onToggleRagFile,
   onSelectWorkflowRule,
   onWorkflowNameChange,
   onWorkflowTriggerChange,
@@ -266,6 +264,7 @@ export function AdminContentSection({
         onDeleteRagDocument={onDeleteRagDocument}
         onUploadRagFile={onUploadRagFile}
         onDeleteRagFile={onDeleteRagFile}
+        onToggleRagFile={onToggleRagFile}
       />
     );
   }

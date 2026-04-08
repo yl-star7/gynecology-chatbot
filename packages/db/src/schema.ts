@@ -58,9 +58,9 @@ export const users = pgTable(
       .default(utcNow),
   },
   (table) => ({
-    phoneNumberBlindIndexIdx: uniqueIndex("idx_users_phone_number_blind_index").on(
-      table.phoneNumberBlindIndex,
-    ),
+    phoneNumberBlindIndexIdx: uniqueIndex(
+      "idx_users_phone_number_blind_index",
+    ).on(table.phoneNumberBlindIndex),
     roleCheck: check(
       "users_role_check",
       sql`${table.role} IN ('user', 'admin', 'super_admin')`,
@@ -169,10 +169,9 @@ export const phoneVerificationRequests = pgTable(
       table.phoneNumberBlindIndex,
       table.createdAt,
     ),
-    statusCreatedIdx: index("idx_phone_verification_requests_status_created").on(
-      table.status,
-      table.createdAt,
-    ),
+    statusCreatedIdx: index(
+      "idx_phone_verification_requests_status_created",
+    ).on(table.status, table.createdAt),
     channelCheck: check(
       "phone_verification_requests_channel_check",
       sql`${table.channel} IN ('sms', 'voice', 'whatsapp')`,
@@ -203,9 +202,7 @@ export const allowedPhoneNumbers = pgTable(
   (table) => ({
     phoneNumberBlindIndexIdx: uniqueIndex(
       "idx_allowed_phone_numbers_phone_number_blind_index",
-    ).on(
-      table.phoneNumberBlindIndex,
-    ),
+    ).on(table.phoneNumberBlindIndex),
   }),
 );
 
@@ -303,7 +300,10 @@ export const calendarLogs = pgTable(
       .default(utcNow),
   },
   (table) => ({
-    userDateIdx: index("idx_calendar_logs_user_date").on(table.userId, table.date),
+    userDateIdx: index("idx_calendar_logs_user_date").on(
+      table.userId,
+      table.date,
+    ),
     sessionDateIdx: index("idx_calendar_logs_session_date").on(
       table.sessionId,
       table.date,
@@ -459,20 +459,23 @@ export const pregnancyWeekSections = contentSchema.table(
   },
 );
 
-export const pregnancyWeekAssets = contentSchema.table("pregnancy_week_assets", {
-  id: uuid("id").primaryKey().default(genRandomUuid),
-  weekId: uuid("week_id")
-    .notNull()
-    .references(() => pregnancyWeeks.id, { onDelete: "cascade" }),
-  assetType: varchar("asset_type", { length: 80 }).notNull(),
-  storagePath: text("storage_path").notNull(),
-  altText: text("alt_text"),
-  styleKey: varchar("style_key", { length: 80 }),
-  displayOrder: integer("display_order").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .default(utcNow),
-});
+export const pregnancyWeekAssets = contentSchema.table(
+  "pregnancy_week_assets",
+  {
+    id: uuid("id").primaryKey().default(genRandomUuid),
+    weekId: uuid("week_id")
+      .notNull()
+      .references(() => pregnancyWeeks.id, { onDelete: "cascade" }),
+    assetType: varchar("asset_type", { length: 80 }).notNull(),
+    storagePath: text("storage_path").notNull(),
+    altText: text("alt_text"),
+    styleKey: varchar("style_key", { length: 80 }),
+    displayOrder: integer("display_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+  },
+);
 
 export const pregnancyWeekData = contentSchema.table(
   "pregnancy_week_data",
@@ -560,13 +563,19 @@ export const pregnancyWeekMedia = contentSchema.table(
     weekDataId: uuid("week_data_id")
       .notNull()
       .references(() => pregnancyWeekData.id, { onDelete: "cascade" }),
-    dayContentId: uuid("day_content_id")
-      .references(() => pregnancyDayContents.id, { onDelete: "cascade" }),
+    dayContentId: uuid("day_content_id").references(
+      () => pregnancyDayContents.id,
+      { onDelete: "cascade" },
+    ),
     dayNumber: integer("day_number"),
-    mediaScope: varchar("media_scope", { length: 40 }).notNull().default("week"),
+    mediaScope: varchar("media_scope", { length: 40 })
+      .notNull()
+      .default("week"),
     bucketId: varchar("bucket_id", { length: 120 }).notNull(),
     objectPath: text("object_path").notNull(),
-    mediaRole: varchar("media_role", { length: 80 }).notNull().default("reference"),
+    mediaRole: varchar("media_role", { length: 80 })
+      .notNull()
+      .default("reference"),
     altText: text("alt_text"),
     sourceFileName: varchar("source_file_name", { length: 255 }),
     displayOrder: integer("display_order").notNull().default(0),
@@ -605,9 +614,12 @@ export const weekChecklists = contentSchema.table(
     weekDataId: uuid("week_data_id")
       .notNull()
       .references(() => pregnancyWeekData.id, { onDelete: "cascade" }),
-    dayContentId: uuid("day_content_id").references(() => pregnancyDayContents.id, {
-      onDelete: "cascade",
-    }),
+    dayContentId: uuid("day_content_id").references(
+      () => pregnancyDayContents.id,
+      {
+        onDelete: "cascade",
+      },
+    ),
     dayNumber: integer("day_number"),
     code: varchar("code", { length: 120 }).notNull(),
     title: varchar("title", { length: 200 }).notNull(),
@@ -650,9 +662,12 @@ export const weekQuestions = contentSchema.table(
     weekDataId: uuid("week_data_id")
       .notNull()
       .references(() => pregnancyWeekData.id, { onDelete: "cascade" }),
-    dayContentId: uuid("day_content_id").references(() => pregnancyDayContents.id, {
-      onDelete: "cascade",
-    }),
+    dayContentId: uuid("day_content_id").references(
+      () => pregnancyDayContents.id,
+      {
+        onDelete: "cascade",
+      },
+    ),
     dayNumber: integer("day_number"),
     code: varchar("code", { length: 120 }).notNull(),
     questionText: text("question_text").notNull(),
@@ -699,12 +714,13 @@ export const contentRagFiles = pgTable(
     id: uuid("id").primaryKey().default(genRandomUuid),
     filename: text("filename").notNull(),
     storagePath: text("storage_path").notNull(),
-    schiftBucket: text("schift_bucket").notNull().default("pregnancy-knowledge"),
+    schiftBucket: text("schift_bucket")
+      .notNull()
+      .default("pregnancy-knowledge"),
     fileSize: integer("file_size").notNull().default(0),
     mimeType: text("mime_type").notNull().default("application/octet-stream"),
-    category: text("category").notNull().default(""),
-    pregnancyWeek: integer("pregnancy_week"),
     status: text("status").notNull().default("processing"),
+    enabled: boolean("enabled").notNull().default(true),
     errorMessage: text("error_message"),
     uploadedBy: uuid("uploaded_by"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -826,9 +842,12 @@ export const userChecklistEvents = pgTable(
     sessionId: uuid("session_id").references(() => chatSessions.id, {
       onDelete: "set null",
     }),
-    promptMessageId: uuid("prompt_message_id").references(() => chatMessages.id, {
-      onDelete: "set null",
-    }),
+    promptMessageId: uuid("prompt_message_id").references(
+      () => chatMessages.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     completionMessageId: uuid("completion_message_id").references(
       () => chatMessages.id,
       {
@@ -871,12 +890,18 @@ export const userQuestionEvents = pgTable(
     sessionId: uuid("session_id").references(() => chatSessions.id, {
       onDelete: "set null",
     }),
-    promptMessageId: uuid("prompt_message_id").references(() => chatMessages.id, {
-      onDelete: "set null",
-    }),
-    answerMessageId: uuid("answer_message_id").references(() => chatMessages.id, {
-      onDelete: "set null",
-    }),
+    promptMessageId: uuid("prompt_message_id").references(
+      () => chatMessages.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+    answerMessageId: uuid("answer_message_id").references(
+      () => chatMessages.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     status: text("status").notNull().default("sent"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     answeredAt: timestamp("answered_at", { withTimezone: true }),

@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { ensureStorageBucketWithOptions } from "@/lib/admin/supabase-storage";
-import { supabaseDelete, supabaseSelect } from "@/lib/supabase/admin-client";
+import {
+  supabaseDelete,
+  supabaseSelect,
+  supabaseUpdate,
+} from "@/lib/supabase/admin-client";
 
 const RAG_FILES_BUCKET = "rag-files";
 
@@ -13,9 +17,8 @@ type RagFileRow = {
   schift_bucket: string;
   file_size: number;
   mime_type: string;
-  category: string;
-  pregnancy_week: number | null;
   status: string;
+  enabled: boolean;
   error_message: string | null;
   uploaded_by: string | null;
   created_at: string;
@@ -36,7 +39,7 @@ export async function DELETE(
     const { fileId } = await params;
 
     const rows = await supabaseSelect<RagFileRow[]>(
-      `content_rag_files?select=id,filename,storage_path,schift_bucket,file_size,mime_type,category,pregnancy_week,status,error_message,uploaded_by,created_at,updated_at&id=eq.${fileId}`,
+      `content_rag_files?select=id,filename,storage_path,schift_bucket,file_size,mime_type,status,enabled,error_message,uploaded_by,created_at,updated_at&id=eq.${fileId}`,
     );
     const file = rows[0];
     if (!file) {
@@ -69,6 +72,47 @@ export async function DELETE(
       {
         error:
           error instanceof Error ? error.message : "파일 삭제에 실패했습니다.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+/** PATCH /api/admin/rag/files/[fileId] — 반영 여부 토글 */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ fileId: string }> },
+) {
+  try {
+    const admin = await readAdminSessionUser();
+    if (!admin) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+
+    const { fileId } = await params;
+    const body = (await request.json()) as { enabled?: boolean };
+
+    if (typeof body.enabled !== "boolean") {
+      return NextResponse.json(
+        { error: "enabled (boolean) is required" },
+        { status: 400 },
+      );
+    }
+
+    await supabaseUpdate(`content_rag_files?id=eq.${fileId}`, {
+      enabled: body.enabled,
+      updated_at: new Date().toISOString(),
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("admin rag file patch error", error);
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "반영 상태 변경에 실패했습니다.",
       },
       { status: 500 },
     );

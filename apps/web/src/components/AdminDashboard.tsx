@@ -132,6 +132,7 @@ export default function AdminDashboard({
           onDeleteRagDocument={state.handleDeleteRagDocument}
           onUploadRagFile={async () => {}}
           onDeleteRagFile={async () => {}}
+          onToggleRagFile={async () => {}}
           onSelectWorkflowRule={state.syncSelectedWorkflowRule}
           onWorkflowNameChange={state.setWorkflowName}
           onWorkflowTriggerChange={state.setWorkflowTrigger}

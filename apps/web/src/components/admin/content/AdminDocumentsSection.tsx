@@ -18,9 +18,8 @@ export type RagFileItem = {
   filename: string;
   fileSize: number;
   mimeType: string;
-  category: string;
-  pregnancyWeek: number | null;
   status: "processing" | "ready" | "failed";
+  enabled: boolean;
   errorMessage: string | null;
   createdAt: string;
 };
@@ -44,12 +43,9 @@ export interface AdminDocumentsSectionProps {
   onRagContentChange: (value: string) => void;
   onUploadRagDocument: () => Promise<void>;
   onDeleteRagDocument: () => Promise<void>;
-  onUploadRagFile: (
-    file: File,
-    category: string,
-    pregnancyWeek: string,
-  ) => Promise<void>;
+  onUploadRagFile: (file: File) => Promise<void>;
   onDeleteRagFile: (fileId: string) => Promise<void>;
+  onToggleRagFile: (fileId: string, enabled: boolean) => Promise<void>;
 }
 
 export function AdminDocumentsSection({
@@ -73,13 +69,13 @@ export function AdminDocumentsSection({
   onDeleteRagDocument,
   onUploadRagFile,
   onDeleteRagFile,
+  onToggleRagFile,
 }: AdminDocumentsSectionProps) {
   const [activeOverlay, setActiveOverlay] = useState(false);
   const [documentQuery, setDocumentQuery] = useState("");
   const [documentStatusFilter, setDocumentStatusFilter] = useState("all");
-  const [fileCategory, setFileCategory] = useState("");
-  const [fileWeek, setFileWeek] = useState("");
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+  const [togglingFileId, setTogglingFileId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedRagDocument =
@@ -101,9 +97,7 @@ export function AdminDocumentsSection({
   async function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    await onUploadRagFile(file, fileCategory, fileWeek);
-    setFileCategory("");
-    setFileWeek("");
+    await onUploadRagFile(file);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -142,28 +136,6 @@ export function AdminDocumentsSection({
           </div>
         </div>
 
-        <div className={styles.tableToolbar}>
-          <label className={styles.fieldGroup}>
-            <span className={styles.fieldLabel}>카테고리</span>
-            <input
-              className={styles.fieldInput}
-              value={fileCategory}
-              onChange={(event) => setFileCategory(event.target.value)}
-              placeholder="분류 (선택)"
-            />
-          </label>
-          <label className={styles.fieldGroup}>
-            <span className={styles.fieldLabel}>주차</span>
-            <input
-              className={styles.fieldInput}
-              inputMode="numeric"
-              value={fileWeek}
-              onChange={(event) => setFileWeek(event.target.value)}
-              placeholder="주차 (선택)"
-            />
-          </label>
-        </div>
-
         <input
           ref={fileInputRef}
           type="file"
@@ -175,8 +147,8 @@ export function AdminDocumentsSection({
         <div className={styles.dataTable}>
           <div className={styles.dataTableHeader}>
             <span>파일명</span>
-            <span>카테고리</span>
             <span>상태</span>
+            <span>반영</span>
             <span>크기</span>
             <span>업로드일</span>
             <span />
@@ -185,11 +157,7 @@ export function AdminDocumentsSection({
             <div key={file.id} className={styles.dataTableRow}>
               <span className={styles.dataTableTitleGroup}>
                 <strong>{file.filename}</strong>
-                {file.pregnancyWeek ? (
-                  <small>{file.pregnancyWeek}주차</small>
-                ) : null}
               </span>
-              <span>{file.category || "-"}</span>
               <span>
                 <span
                   className={`${styles.statusBadge} ${
@@ -199,6 +167,27 @@ export function AdminDocumentsSection({
                 >
                   {getRagFileStatusLabel(file.status)}
                 </span>
+              </span>
+              <span>
+                <button
+                  className={
+                    file.enabled ? styles.primaryButton : styles.secondaryButton
+                  }
+                  type="button"
+                  disabled={
+                    file.status !== "ready" || togglingFileId === file.id
+                  }
+                  onClick={async () => {
+                    setTogglingFileId(file.id);
+                    try {
+                      await onToggleRagFile(file.id, !file.enabled);
+                    } finally {
+                      setTogglingFileId(null);
+                    }
+                  }}
+                >
+                  {file.enabled ? "반영 중" : "미반영"}
+                </button>
               </span>
               <span>{formatFileSize(file.fileSize)}</span>
               <span>

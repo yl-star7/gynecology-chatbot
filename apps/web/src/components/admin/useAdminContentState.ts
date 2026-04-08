@@ -309,9 +309,8 @@ export function useAdminContentState(
             filename: string;
             file_size: number;
             mime_type: string;
-            category: string;
-            pregnancy_week: number | null;
             status: "processing" | "ready" | "failed";
+            enabled: boolean;
             error_message: string | null;
             created_at: string;
           }>;
@@ -323,9 +322,8 @@ export function useAdminContentState(
             filename: f.filename,
             fileSize: f.file_size,
             mimeType: f.mime_type,
-            category: f.category,
-            pregnancyWeek: f.pregnancy_week,
             status: f.status,
+            enabled: f.enabled ?? true,
             errorMessage: f.error_message,
             createdAt: f.created_at,
           })),
@@ -1020,18 +1018,12 @@ export function useAdminContentState(
     setIsRagSubmitting(false);
   }
 
-  async function handleUploadRagFile(
-    file: File,
-    category: string,
-    pregnancyWeek: string,
-  ) {
+  async function handleUploadRagFile(file: File) {
     setIsFileUploading(true);
     setContentMessage(null);
 
     const formData = new FormData();
     formData.set("file", file);
-    if (category) formData.set("category", category);
-    if (pregnancyWeek) formData.set("pregnancyWeek", pregnancyWeek);
 
     try {
       const response = await fetch("/api/admin/rag/files", {
@@ -1046,9 +1038,8 @@ export function useAdminContentState(
           filename: string;
           file_size: number;
           mime_type: string;
-          category: string;
-          pregnancy_week: number | null;
           status: "processing" | "ready" | "failed";
+          enabled: boolean;
           error_message: string | null;
           created_at: string;
         };
@@ -1065,9 +1056,8 @@ export function useAdminContentState(
           filename: payload.file.filename,
           fileSize: payload.file.file_size,
           mimeType: payload.file.mime_type,
-          category: payload.file.category,
-          pregnancyWeek: payload.file.pregnancy_week,
           status: payload.file.status,
+          enabled: payload.file.enabled ?? true,
           errorMessage: payload.file.error_message,
           createdAt: payload.file.created_at,
         };
@@ -1079,6 +1069,30 @@ export function useAdminContentState(
       setContentMessage("파일 업로드 중 오류가 발생했습니다.");
     } finally {
       setIsFileUploading(false);
+    }
+  }
+
+  async function handleToggleRagFile(fileId: string, enabled: boolean) {
+    setContentMessage(null);
+    try {
+      const response = await fetch(
+        `/api/admin/rag/files/${encodeURIComponent(fileId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled }),
+        },
+      );
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setContentMessage(payload.error ?? "반영 상태 변경에 실패했습니다.");
+        return;
+      }
+      setRagFiles((current) =>
+        current.map((f) => (f.id === fileId ? { ...f, enabled } : f)),
+      );
+    } catch {
+      setContentMessage("반영 상태 변경 중 오류가 발생했습니다.");
     }
   }
 
@@ -1475,6 +1489,7 @@ export function useAdminContentState(
     handleDeleteRagDocument,
     handleUploadRagFile,
     handleDeleteRagFile,
+    handleToggleRagFile,
     handleSaveWorkflowRule,
     handleBootstrapWorkflowRule,
     handleRunWorkflowRule,

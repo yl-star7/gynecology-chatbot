@@ -91,6 +91,7 @@ export default function AdminContentPage({
         onDeleteRagDocument={state.handleDeleteRagDocument}
         onUploadRagFile={state.handleUploadRagFile}
         onDeleteRagFile={state.handleDeleteRagFile}
+        onToggleRagFile={state.handleToggleRagFile}
         onSelectWorkflowRule={state.syncSelectedWorkflowRule}
         onWorkflowNameChange={state.setWorkflowName}
         onWorkflowTriggerChange={state.setWorkflowTrigger}
