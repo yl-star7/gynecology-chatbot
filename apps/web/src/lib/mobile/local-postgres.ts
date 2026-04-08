@@ -991,6 +991,7 @@ export async function ensureLocalPostgresReady() {
         ALTER TABLE ${getQualifiedTable("calendar_logs")} ADD COLUMN IF NOT EXISTS entry_type text NOT NULL DEFAULT 'ai_summary';
         ALTER TABLE ${getQualifiedTable("calendar_logs")} ADD COLUMN IF NOT EXISTS title text NOT NULL DEFAULT '기록';
         ALTER TABLE ${getQualifiedTable("calendar_logs")} ADD COLUMN IF NOT EXISTS payload jsonb NOT NULL DEFAULT '{}'::jsonb;
+        ALTER TABLE ${getQualifiedTable("content_rag_files")} ADD COLUMN IF NOT EXISTS enabled boolean NOT NULL DEFAULT true;
       `);
 
       await ensureSeedData();
