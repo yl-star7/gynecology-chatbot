@@ -11,7 +11,9 @@ import {
 } from "@/lib/mobile/schift-workflow";
 import { detectHardGuardrailReason } from "@/lib/mobile/chat/guardrails";
 import {
+  createPromptEvents,
   ensureChatSession,
+  getAlreadyPromptedIds,
   getPromptContext,
   markOutstandingPromptEventsAnswered,
   saveAssistantChatMessages,
@@ -20,6 +22,7 @@ import {
   updateProfileMemory,
   updateSessionMemory,
 } from "@/lib/mobile/chat/chat-repository";
+import { buildPromptFollowUpMessages } from "@/lib/mobile/chat/follow-ups";
 import { buildChatOrchestrator } from "@/lib/mobile/chat/chat-orchestrator";
 import { createMobileChatResponder } from "@/lib/mobile/chat/responders/mobile-chat-responder";
 import {
@@ -236,6 +239,9 @@ export async function POST(request: NextRequest) {
           timestamp,
         });
       },
+      buildFollowUps: buildPromptFollowUpMessages,
+      createPromptEvents,
+      getAlreadyPromptedIds,
     });
 
     const result = await orchestrateChat({

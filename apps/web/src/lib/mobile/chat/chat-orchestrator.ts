@@ -1,6 +1,11 @@
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
 
-import type { PromptContext } from "./chat-repository";
+import type {
+  ChecklistRow,
+  PromptContext,
+  QuestionRow,
+} from "./chat-repository";
+import type { PromptFollowUpResult } from "./follow-ups";
 import type {
   ProfileMemoryPayload,
   SessionMemoryPayload,
@@ -68,6 +73,25 @@ export function buildChatOrchestrator(deps: {
     nextProfileMemory: ProfileMemoryPayload | null | undefined,
     timestamp: string,
   ) => Promise<void>;
+  buildFollowUps: (input: {
+    week: PromptContext["week"];
+    dayContent: PromptContext["dayContent"];
+    checklists: PromptContext["checklists"];
+    questions: PromptContext["questions"];
+    excludeChecklistIds?: Set<string>;
+    excludeQuestionIds?: Set<string>;
+  }) => PromptFollowUpResult;
+  createPromptEvents: (input: {
+    userId: string;
+    sessionId: string;
+    assistantMessageId: string | null;
+    checklists: ChecklistRow[];
+    questions: QuestionRow[];
+  }) => Promise<void>;
+  getAlreadyPromptedIds: (input: {
+    userId: string;
+    sessionId: string;
+  }) => Promise<{ checklistIds: Set<string>; questionIds: Set<string> }>;
 }) {
   return async function orchestrate(input: {
     userId: string;
@@ -128,11 +152,46 @@ export function buildChatOrchestrator(deps: {
 
     const assistantMessages: ChatMessage[] = [assistantMessage];
 
-    await deps.saveAssistantMessages({
+    let followUpChecklists: ChecklistRow[] = [];
+    let followUpQuestions: QuestionRow[] = [];
+
+    if (promptContext) {
+      const alreadyPrompted = await deps.getAlreadyPromptedIds({
+        userId: input.userId,
+        sessionId,
+      });
+      const followUpResult = deps.buildFollowUps({
+        week: promptContext.week,
+        dayContent: promptContext.dayContent,
+        checklists: promptContext.checklists,
+        questions: promptContext.questions,
+        excludeChecklistIds: alreadyPrompted.checklistIds,
+        excludeQuestionIds: alreadyPrompted.questionIds,
+      });
+      for (const msg of followUpResult.messages) {
+        assistantMessages.push(msg as ChatMessage);
+      }
+      followUpChecklists = followUpResult.selectedChecklists;
+      followUpQuestions = followUpResult.selectedQuestions;
+    }
+
+    const savedIds = await deps.saveAssistantMessages({
       sessionId,
       userId: input.userId,
       messages: assistantMessages,
     });
+
+    if (followUpChecklists.length > 0 || followUpQuestions.length > 0) {
+      const followUpMessageId =
+        savedIds.length > 1 ? savedIds[savedIds.length - 1].id : null;
+      await deps.createPromptEvents({
+        userId: input.userId,
+        sessionId,
+        assistantMessageId: followUpMessageId,
+        checklists: followUpChecklists,
+        questions: followUpQuestions,
+      });
+    }
 
     const assistantMessageAt = new Date().toISOString();
     await deps.updateSessionMemory(

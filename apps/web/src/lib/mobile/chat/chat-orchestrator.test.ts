@@ -89,6 +89,16 @@ describe("chat orchestrator", () => {
       saveAssistantMessages,
       updateSessionMemory: updateSession,
       updateProfileMemory: updateProfile,
+      buildFollowUps: jest.fn().mockReturnValue({
+        messages: [],
+        selectedChecklists: [],
+        selectedQuestions: [],
+      }),
+      createPromptEvents: jest.fn().mockResolvedValue(undefined),
+      getAlreadyPromptedIds: jest.fn().mockResolvedValue({
+        checklistIds: new Set(),
+        questionIds: new Set(),
+      }),
     });
 
     const result = await orchestrator({
