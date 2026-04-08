@@ -377,6 +377,27 @@ export function AdminMonitoringSection({
                           <span className={styles.listMeta}>
                             {message.summary}
                           </span>
+                          {message.ragSources &&
+                          message.ragSources.length > 0 ? (
+                            <div
+                              style={{
+                                marginTop: 4,
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: 4,
+                              }}
+                            >
+                              {message.ragSources.map((source, sourceIndex) => (
+                                <span
+                                  key={sourceIndex}
+                                  className={`${styles.statusBadge} ${styles.tagAccent}`}
+                                  title={`유사도: ${source.similarity.toFixed(3)}`}
+                                >
+                                  {source.filename}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
                         <div className={styles.listMetaGroup}>
                           <span

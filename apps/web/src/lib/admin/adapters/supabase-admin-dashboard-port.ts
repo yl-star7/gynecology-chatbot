@@ -329,10 +329,18 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           session_id: string;
           role: "user" | "assistant" | "system";
           plain_text: string;
+          parts: Array<{
+            type: string;
+            sources?: Array<{
+              fileId: string;
+              filename: string;
+              similarity: number;
+            }>;
+          }> | null;
           created_at: string;
         }>
       >(
-        "chat_messages?select=id,session_id,role,plain_text,created_at&order=created_at.desc",
+        "chat_messages?select=id,session_id,role,plain_text,parts,created_at&order=created_at.desc",
       ),
       supabaseSelect<
         Array<{
@@ -587,18 +595,28 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
                     profile?.pregnancy_day_in_week ?? null,
                   ),
                   messages: (messagesBySession.get(session.id) ?? []).map(
-                    (message) => ({
-                      id: message.id,
-                      role:
-                        message.role === "system" ? "assistant" : message.role,
-                      createdAtLabel: new Date(
-                        message.created_at,
-                      ).toLocaleTimeString("ko-KR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }),
-                      summary: message.plain_text || "요약 없음",
-                    }),
+                    (message) => {
+                      const ragSourcePart = (message.parts ?? []).find(
+                        (p) => p.type === "_rag_sources",
+                      );
+                      return {
+                        id: message.id,
+                        role:
+                          message.role === "system"
+                            ? ("assistant" as const)
+                            : message.role,
+                        createdAtLabel: new Date(
+                          message.created_at,
+                        ).toLocaleTimeString("ko-KR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }),
+                        summary: message.plain_text || "요약 없음",
+                        ...(ragSourcePart?.sources?.length
+                          ? { ragSources: ragSourcePart.sources }
+                          : {}),
+                      };
+                    },
                   ),
                 })),
               };
@@ -623,23 +641,25 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           ),
         );
 
-        const dedupedSchiftWorkflows = schiftWorkflowRules.filter((workflow) => {
-          if (seenWorkflowIds.has(workflow.id)) {
-            return false;
-          }
+        const dedupedSchiftWorkflows = schiftWorkflowRules.filter(
+          (workflow) => {
+            if (seenWorkflowIds.has(workflow.id)) {
+              return false;
+            }
 
-          const identity = buildWorkflowIdentity({
-            name: workflow.name,
-            trigger: workflow.trigger,
-            modelName: workflow.modelName,
-          });
-          if (seenWorkflowIdentities.has(identity)) {
-            return false;
-          }
+            const identity = buildWorkflowIdentity({
+              name: workflow.name,
+              trigger: workflow.trigger,
+              modelName: workflow.modelName,
+            });
+            if (seenWorkflowIdentities.has(identity)) {
+              return false;
+            }
 
-          seenWorkflowIdentities.add(identity);
-          return true;
-        });
+            seenWorkflowIdentities.add(identity);
+            return true;
+          },
+        );
 
         const mergedWorkflowRules = [
           ...mappedDefinitions,
@@ -929,9 +949,7 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
 
     const existingUsers = await supabaseSelect<
       Array<{ phone_number_encrypted: string }>
-    >(
-      `users?select=phone_number_encrypted&id=eq.${input.userId}&limit=1`,
-    );
+    >(`users?select=phone_number_encrypted&id=eq.${input.userId}&limit=1`);
     const beforePhoneNumber = existingUsers[0]?.phone_number_encrypted
       ? decryptPhoneNumber(existingUsers[0].phone_number_encrypted)
       : null;

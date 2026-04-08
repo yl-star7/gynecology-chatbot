@@ -335,11 +335,18 @@ export interface AdminWorkflowRuleInput {
   status: AdminWorkflowRule["status"];
 }
 
+export interface AdminHistoryMessageRagSource {
+  fileId: string;
+  filename: string;
+  similarity: number;
+}
+
 export interface AdminHistoryMessage {
   id: string;
   role: "user" | "assistant";
   createdAtLabel: string;
   summary: string;
+  ragSources?: AdminHistoryMessageRagSource[];
 }
 
 export interface AdminHistorySession {
