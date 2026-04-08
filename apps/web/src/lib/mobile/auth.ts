@@ -210,31 +210,6 @@ function normalizePhoneNumber(phoneNumber: string) {
   }
 }
 
-function isMobileAuthTestModeEnabled() {
-  return process.env.MOBILE_AUTH_TEST_MODE === "true";
-}
-
-function isMobileAuthBypassPhoneNumber(phoneNumber: string) {
-  if (!isMobileAuthTestModeEnabled()) {
-    return false;
-  }
-
-  const bypassPhoneNumber = process.env.LOCAL_DEV_USER_PHONE_NUMBER?.trim();
-  if (!bypassPhoneNumber) {
-    return false;
-  }
-
-  const inputCandidates = createPhoneCandidates(phoneNumber);
-  const bypassCandidates = createPhoneCandidates(bypassPhoneNumber);
-  for (const candidate of inputCandidates) {
-    if (bypassCandidates.includes(candidate)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 function createPhoneCandidates(phoneNumber: string) {
   const trimmed = phoneNumber.trim();
   const candidates = new Set<string>();
@@ -344,7 +319,9 @@ export async function findUserByPhoneNumber(phoneNumber: string) {
 
   for (const candidate of candidates) {
     const blindIndex = computePhoneNumberBlindIndex(candidate);
-    const users = await supabaseSelect<Array<UserRow & { phone_number_encrypted: string }>>(
+    const users = await supabaseSelect<
+      Array<UserRow & { phone_number_encrypted: string }>
+    >(
       `users?select=id,phone_number_encrypted,phone_number_last4,account_status,phone_verified_at,last_login_at&phone_number_blind_index=eq.${blindIndex}&limit=1`,
     );
 
@@ -462,13 +439,6 @@ async function upsertPhoneUser(
 
 export async function startPhoneVerification(phoneNumber: string) {
   const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
-  const isBypassPhoneNumber = isMobileAuthBypassPhoneNumber(
-    normalizedPhoneNumber,
-  );
-
-  if (isBypassPhoneNumber) {
-    return { ok: true as const };
-  }
 
   await ensurePhoneNumberNotBlocked(normalizedPhoneNumber);
   const existingUser = await findUserByPhoneNumber(normalizedPhoneNumber);
@@ -503,23 +473,12 @@ export async function completePhoneSignIn(
   verificationCode: string,
 ) {
   const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
-  const isBypassPhoneNumber = isMobileAuthBypassPhoneNumber(
-    normalizedPhoneNumber,
-  );
 
-  if (!isBypassPhoneNumber) {
-    await ensurePhoneNumberNotBlocked(normalizedPhoneNumber);
-  }
-  const isTestBypassLogin =
-    isBypassPhoneNumber ||
-    (isMobileAuthTestModeEnabled() && verificationCode.trim() === "000000");
-  const verification = isTestBypassLogin
-    ? {
-        sid: `test-${randomUUID()}`,
-        status: "approved",
-        to: normalizedPhoneNumber,
-      }
-    : await checkSmsVerification(normalizedPhoneNumber, verificationCode);
+  await ensurePhoneNumberNotBlocked(normalizedPhoneNumber);
+  const verification = await checkSmsVerification(
+    normalizedPhoneNumber,
+    verificationCode,
+  );
 
   const verifiedAt = nowIso();
   await recordPhoneVerificationRequest({
