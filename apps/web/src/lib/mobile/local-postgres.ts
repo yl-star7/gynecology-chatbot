@@ -109,6 +109,7 @@ const LOCAL_TABLES = new Set([
   "user_action_logs",
   "workflow_definitions",
   "system_config",
+  "content_rag_files",
 ]);
 
 let pool: Pool | null = null;
@@ -1034,7 +1035,10 @@ function normalizeFilterValue(
   operator: "eq" | "gte" | "lte" | "lt",
   rawValue: string,
 ) {
-  if ((operator === "lt" || operator === "lte") && /^\d{4}-\d{2}-32$/.test(rawValue)) {
+  if (
+    (operator === "lt" || operator === "lte") &&
+    /^\d{4}-\d{2}-32$/.test(rawValue)
+  ) {
     const [yearText, monthText] = rawValue.split("-").slice(0, 2);
     const year = Number(yearText);
     const monthIndex = Number(monthText) - 1;

@@ -145,6 +145,23 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           updated_at timestamptz NOT NULL DEFAULT now()
         );
 
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "content_rag_files")} (
+          id text PRIMARY KEY,
+          filename text NOT NULL,
+          storage_path text NOT NULL,
+          schift_bucket text NOT NULL DEFAULT 'pregnancy-knowledge',
+          file_size integer NOT NULL DEFAULT 0,
+          mime_type text NOT NULL DEFAULT 'application/octet-stream',
+          category text NOT NULL DEFAULT '',
+          pregnancy_week integer,
+          status text NOT NULL DEFAULT 'processing'
+            CHECK (status IN ('processing', 'ready', 'failed')),
+          error_message text,
+          uploaded_by text,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
+        );
+
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "content_pregnancy_documents")} (
           id text PRIMARY KEY,
           title text NOT NULL,
