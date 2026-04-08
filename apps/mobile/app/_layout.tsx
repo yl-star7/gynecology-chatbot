@@ -26,10 +26,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (!expoPushToken) return;
 
-    const apiBaseUrl = (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
+    const apiBaseUrl = (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").replace(
+      /\/$/,
+      "",
+    );
     const sessionToken = readCurrentMobileSessionToken();
 
-    fetch(`${apiBaseUrl}/api/push/register`, {
+    fetch(`${apiBaseUrl}/api/mobile/push/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
