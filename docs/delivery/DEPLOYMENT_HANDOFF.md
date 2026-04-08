@@ -21,6 +21,13 @@
 | db | Supabase (PostgreSQL + Storage) | 사용자/세션/콘텐츠 데이터 저장 | Supabase URL/키, 서비스 롤 키, 스키마/마이그레이션 반영 |
 | 외부 서비스 | Twilio / Gemini / Schift / Firebase / 스토어 콘솔 | 인증, AI 응답, 워크플로우, 푸시, 스토어 배포 | 각 서비스 API 키/권한/프로젝트 연동 상태 |
 
+### 2-1-1. 운영 인계 시 함께 전달할 정보
+
+- 각 배포 대상의 **소유 계정**, **관리 권한 보유자**, **백업 담당자**를 명시합니다.
+- 운영자가 처음 인수받을 때 바로 확인할 수 있도록 **접속 위치**, **필수 변수**, **문제 발생 시 확인 순서**를 함께 적습니다.
+- 비밀값 자체는 문서에 넣지 않고, 어떤 비밀값을 어느 서비스에 등록해야 하는지만 남깁니다.
+- 스테이징과 운영이 분리되어 있으면 둘을 같은 표 안에 혼합하지 않고 환경별로 구분합니다.
+
 ### 2-2. 인증/세션 구조(운영 관점)
 
 - 모바일 API 인증: `Authorization: Bearer <token>` 기반 세션 검증 (`requireMobileSession`)
@@ -105,6 +112,14 @@
 - `EXPO_PUBLIC_*`, `NEXT_PUBLIC_*` 접두 변수는 클라이언트 노출 범위를 고려해 값 설계가 필요합니다.
 - 운영/스테이징/개발 환경을 분리해 같은 변수명에 환경별 값을 각각 관리합니다.
 
+### 3-8. 운영 이관 시 변수 확인 순서
+
+1. `NEXT_PUBLIC_APP_URL`, `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_WEB_URL`이 실제 배포 URL과 일치하는지 확인합니다.
+2. `ADMIN_SESSION_SECRET`, `ADMIN_LOGIN_PASSWORD`, `CRON_SECRET`가 운영 환경에 누락 없이 등록되었는지 확인합니다.
+3. Supabase 관련 값(`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`)이 동일 프로젝트를 바라보는지 확인합니다.
+4. Twilio, Gemini, Schift, Firebase 등 외부 서비스 키가 운영 계정 기준인지 확인합니다.
+5. 개발 전용 변수(`NEXT_PUBLIC_DEV_USER_ID`, `EXPO_PUBLIC_DEV_USER_ID`, `LOCAL_*`)가 운영 환경에 섞이지 않았는지 점검합니다.
+
 ---
 
 ## 4) 외부 서비스/계정 의존성
@@ -158,6 +173,26 @@
    - 모바일 로그인/세션 유지
    - 관리자 로그인/주요 관리 기능
    - 채팅 응답, OTP, 푸시, Cron 동작
+
+### 5-1. 운영 전환 당일 권장 점검 순서
+
+| 순서 | 점검 항목 | 확인 포인트 |
+|---|---|---|
+| 1 | web 접속 | 운영 URL 응답, 관리자 로그인 페이지 노출 |
+| 2 | 관리자 인증 | 로그인 성공, 세션 유지, 보호 라우트 접근 가능 |
+| 3 | 모바일 인증 | OTP 시작/로그인/세션 확인 성공 |
+| 4 | 채팅 기능 | 일반 질문, 가드레일 질문, 세션 저장 확인 |
+| 5 | 외부 연동 | Twilio, Gemini, Schift, Firebase 호출 이상 여부 |
+| 6 | 배치/Cron | 인증 포함 호출 성공, 로그 확인 |
+| 7 | 스토어 상태 | 최신 빌드가 TestFlight/Play Console에 등록되었는지 확인 |
+
+### 5-2. 장애 발생 시 1차 확인 포인트
+
+- 관리자 로그인 실패: `ADMIN_LOGIN_PASSWORD`, `ADMIN_SESSION_SECRET`, 배포 환경변수 누락 여부 확인
+- 모바일 인증 실패: Twilio Verify 설정, 전화번호 형식, 운영/테스트 모드 구분 확인
+- 채팅 실패: Gemini/Schift 키 유효성, 서버 로그, rate limit 또는 외부 API 에러 확인
+- 콘텐츠 조회 실패: Supabase 연결 정보와 스키마 반영 상태 확인
+- Cron 실패: `CRON_SECRET` 불일치 여부와 배포 환경의 스케줄러 설정 확인
 
 ---
 
