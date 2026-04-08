@@ -15,7 +15,7 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
   decryptPhoneNumber: jest.fn((value: string) => value.replace(/^enc:/, "")),
 }));
 
-jest.mock("./twilio-verify", () => ({
+jest.mock("./solapi-sms", () => ({
   sendSmsMessage: jest.fn(async () => ({
     sid: "mock-message",
     status: "queued",

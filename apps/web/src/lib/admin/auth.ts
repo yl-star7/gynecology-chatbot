@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseSelect } from "@/lib/supabase/admin-client";
-import { normalizePhoneNumberToE164 } from "@/lib/mobile/twilio-verify";
+import { normalizePhoneNumberToE164 } from "@/lib/mobile/solapi-sms";
 import {
   computePhoneNumberBlindIndex,
   decryptPhoneNumber,

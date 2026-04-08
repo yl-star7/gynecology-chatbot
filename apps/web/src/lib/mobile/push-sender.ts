@@ -1,7 +1,7 @@
 import Expo from "expo-server-sdk";
 import { supabaseSelect } from "@/lib/supabase/admin-client";
 import { decryptPhoneNumber } from "@/lib/privacy/phone-crypto";
-import { sendSmsMessage } from "./twilio-verify";
+import { sendSmsMessage } from "./solapi-sms";
 
 const expo = new Expo();
 
@@ -30,18 +30,17 @@ export async function sendDailyPushNotifications() {
   const pushTargets = targets.filter(
     (target) => target.push_token && Expo.isExpoPushToken(target.push_token),
   );
-  const messages = pushTargets
-    .map((target) => ({
-      to: target.push_token!,
-      sound: "default" as const,
-      title: target.display_name
-        ? `${target.display_name}님, 오늘도 좋은 하루 보내세요`
-        : "오늘도 좋은 하루 보내세요",
-      body: target.pregnancy_week
-        ? `임신 ${target.pregnancy_week}주차 오늘의 정보가 준비됐어요.`
-        : "오늘의 임신 정보를 확인해보세요.",
-      data: { type: "daily_tip", pregnancyWeek: target.pregnancy_week },
-    }));
+  const messages = pushTargets.map((target) => ({
+    to: target.push_token!,
+    sound: "default" as const,
+    title: target.display_name
+      ? `${target.display_name}님, 오늘도 좋은 하루 보내세요`
+      : "오늘도 좋은 하루 보내세요",
+    body: target.pregnancy_week
+      ? `임신 ${target.pregnancy_week}주차 오늘의 정보가 준비됐어요.`
+      : "오늘의 임신 정보를 확인해보세요.",
+    data: { type: "daily_tip", pregnancyWeek: target.pregnancy_week },
+  }));
 
   // 3. Send push notifications in chunks.
   const chunks = expo.chunkPushNotifications(messages);
@@ -65,7 +64,10 @@ export async function sendDailyPushNotifications() {
       `users?select=id,phone_number_encrypted&id=in.(${userIds.join(",")})`,
     );
     const phoneNumberByUserId = new Map(
-      userRows.map((row) => [row.id, decryptPhoneNumber(row.phone_number_encrypted)]),
+      userRows.map((row) => [
+        row.id,
+        decryptPhoneNumber(row.phone_number_encrypted),
+      ]),
     );
 
     for (const target of smsTargets) {

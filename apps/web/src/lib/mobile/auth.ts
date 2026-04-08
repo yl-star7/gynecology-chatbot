@@ -18,7 +18,7 @@ import {
   checkSmsVerification,
   normalizePhoneNumberToE164,
   sendSmsVerification,
-} from "./twilio-verify";
+} from "./solapi-sms";
 import { recordUserAction } from "./user-action-log";
 
 type UserRow = {
@@ -50,7 +50,7 @@ type BlockedPhoneNumberRow = {
   note: string | null;
 };
 
-type TwilioFlow = "sign_in" | "signup";
+type AuthFlow = "sign_in" | "signup";
 
 function calculatePregnancyMetrics(input: {
   pregnancyWeekOrDueDate?: string;

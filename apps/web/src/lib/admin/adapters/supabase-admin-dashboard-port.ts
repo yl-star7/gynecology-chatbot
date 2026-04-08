@@ -24,7 +24,7 @@ import {
   decryptPhoneNumber,
   redactPhoneNumber,
 } from "@/lib/privacy/phone-crypto";
-import { normalizePhoneNumberToE164 } from "@/lib/mobile/twilio-verify";
+import { normalizePhoneNumberToE164 } from "@/lib/mobile/solapi-sms";
 
 import { MockAdminDashboardPortAdapter } from "./mock-admin-dashboard-port";
 import { mapSchiftWorkflowRule } from "./schift-workflow";
