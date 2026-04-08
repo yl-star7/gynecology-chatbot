@@ -78,14 +78,8 @@ test("mobile workspace provides a Metro config that pins React resolution to the
   );
 });
 
-test("root dev:d script enables local mobile auth bypass and api provider", () => {
+test("root dev:d script enables api provider and due date", () => {
   const devDockerScript = rootPackageJson.scripts?.["dev:d"] ?? "";
-
-  assert.match(
-    devDockerScript,
-    /MOBILE_AUTH_TEST_MODE=true/,
-    "root dev:d should enable local mobile auth test mode for simulator runs",
-  );
 
   assert.match(
     devDockerScript,
@@ -105,12 +99,6 @@ test("env example documents local mobile auth bypass configuration", () => {
     envExample,
     /^EXPO_PUBLIC_MOBILE_DATA_PROVIDER=api$/m,
     ".env.example should document the mobile data provider used by local API runs",
-  );
-
-  assert.match(
-    envExample,
-    /^MOBILE_AUTH_TEST_MODE=true$/m,
-    ".env.example should document the local mobile auth bypass mode",
   );
 
   assert.match(
