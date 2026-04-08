@@ -21,13 +21,6 @@ const ALLOWED_MIME_TYPES = new Set([
   "text/plain",
 ]);
 
-function sanitizeFileName(fileName: string) {
-  return fileName
-    .replace(/[^a-zA-Z0-9가-힣._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
 type RagFileRow = {
   id: string;
   filename: string;
@@ -101,8 +94,8 @@ export async function POST(request: NextRequest) {
     }
 
     const fileId = randomUUID();
-    const safeName = sanitizeFileName(file.name || `${fileId}.bin`);
-    const storagePath = `rag/${fileId}-${safeName}`;
+    const ext = (file.name || "").split(".").pop()?.toLowerCase() || "bin";
+    const storagePath = `rag/${fileId}.${ext}`;
 
     // 1. Supabase Storage에 원본 저장
     const storageClient = await ensureStorageBucketWithOptions(
@@ -142,7 +135,10 @@ export async function POST(request: NextRequest) {
         throw new Error("Schift 클라이언트가 설정되지 않았습니다.");
       }
 
-      const schiftFile = new File([buffer], safeName, { type: file.type });
+      const safeSchiftName = `${fileId}.${ext}`;
+      const schiftFile = new File([buffer], safeSchiftName, {
+        type: file.type,
+      });
       await schift.db.upload(SCHIFT_BUCKET, { files: [schiftFile] });
 
       await supabaseUpdate(`content_rag_files?id=eq.${fileId}`, {
@@ -165,7 +161,7 @@ export async function POST(request: NextRequest) {
 
     // 최종 상태 조회
     const rows = await supabaseSelect<RagFileRow[]>(
-      `content_rag_files?select=*&id=eq.${fileId}`,
+      `content_rag_files?select=id,filename,storage_path,schift_bucket,file_size,mime_type,category,pregnancy_week,status,error_message,uploaded_by,created_at,updated_at&id=eq.${fileId}`,
     );
 
     return NextResponse.json({ file: rows[0] ?? null, ok: true });

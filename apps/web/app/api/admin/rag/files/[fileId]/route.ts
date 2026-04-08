@@ -36,7 +36,7 @@ export async function DELETE(
     const { fileId } = await params;
 
     const rows = await supabaseSelect<RagFileRow[]>(
-      `content_rag_files?select=*&id=eq.${fileId}`,
+      `content_rag_files?select=id,filename,storage_path,schift_bucket,file_size,mime_type,category,pregnancy_week,status,error_message,uploaded_by,created_at,updated_at&id=eq.${fileId}`,
     );
     const file = rows[0];
     if (!file) {
