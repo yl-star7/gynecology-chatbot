@@ -53,6 +53,7 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           notification_enabled boolean NOT NULL DEFAULT true,
           week_override integer,
           day_override integer,
+          push_token text,
           created_at timestamptz NOT NULL DEFAULT now(),
           updated_at timestamptz NOT NULL DEFAULT now()
         );
