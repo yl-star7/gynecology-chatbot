@@ -103,8 +103,8 @@ jest.mock("@/lib/supabase/admin-client", () => {
   };
 });
 
-jest.mock("@/lib/mobile/twilio-verify", () => {
-  const actual = jest.requireActual("@/lib/mobile/twilio-verify");
+jest.mock("@/lib/mobile/solapi-sms", () => {
+  const actual = jest.requireActual("@/lib/mobile/solapi-sms");
 
   return {
     ...actual,
@@ -136,7 +136,7 @@ import {
   supabaseSelect,
   supabaseUpdate,
 } from "@/lib/supabase/admin-client";
-import { checkSmsVerification } from "@/lib/mobile/twilio-verify";
+import { checkSmsVerification } from "@/lib/mobile/solapi-sms";
 
 const mockedGetSupabaseAdminClient = jest.mocked(getSupabaseAdminClient);
 const mockedSupabaseInsert = jest.mocked(supabaseInsert);

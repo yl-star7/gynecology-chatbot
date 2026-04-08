@@ -234,7 +234,7 @@ function createPhoneCandidates(phoneNumber: string) {
 
 function ensureUserCanSignIn(
   accountStatus: UserRow["account_status"],
-  _flow: TwilioFlow,
+  _flow: AuthFlow,
 ) {
   if (accountStatus === "paused" || accountStatus === "deleted") {
     throw new Error(
