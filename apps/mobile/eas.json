@@ -21,5 +21,12 @@
         "EXPO_PUBLIC_WEB_URL": "https://gynecology-chatbot.vercel.app"
       }
     }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "track": "internal"
+      }
+    }
   }
 }
