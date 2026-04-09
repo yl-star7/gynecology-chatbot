@@ -186,6 +186,9 @@ describe("admin auth provider awareness", () => {
 
   test("requires explicit admin credentials and session secret configuration", async () => {
     process.env.ADMIN_DATA_PROVIDER = "mock";
+    process.env.LOCAL_ADMIN_USER_ID = "test-admin-1";
+    process.env.LOCAL_ADMIN_PHONE_NUMBER = "01011112222";
+    process.env.LOCAL_ADMIN_NAME = "테스트운영자";
     delete process.env.ADMIN_LOGIN_PASSWORD;
     delete process.env.LOCAL_ADMIN_PASSWORD;
     delete process.env.ADMIN_SESSION_SECRET;
