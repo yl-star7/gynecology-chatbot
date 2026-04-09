@@ -141,34 +141,112 @@ type WorkflowDefinitionRow = {
   metadata: Record<string, unknown> | null;
 };
 
+const GUARDRAIL_PROMPT = [
+  "사용자 입력을 분류하세요. JSON만 반환하세요.",
+  '{ "route": "safe" | "medical_caution" | "redirect" | "off_topic" }',
+  "",
+  "- 욕설, 비윤리적 요청, 자해/타해: route='redirect'",
+  "- 임신/건강과 무관한 주제(주식, 코인, 맛집 등): route='off_topic'",
+  "- 출혈, 극심한 통증, 호흡곤란, 의식 저하 등 응급: route='medical_caution'",
+  "- 그 외 안전한 질문: route='safe'",
+].join("\n");
+
+const REJECT_ANSWER = [
+  "이 질문은 모성간호 상담 범위를 벗어나요.",
+  "임신 중 몸 상태나 걱정되는 증상을 적어주시면 그 범위 안에서 다시 도와드릴게요.",
+].join(" ");
+
+const EMERGENCY_ANSWER = [
+  "안전 안내: 말씀하신 증상은 즉시 의료진 진료가 필요할 수 있어요.",
+  "119에 연락하시거나 가까운 응급실을 방문해주세요.",
+  "증상이 잠잠해졌더라도 빠른 시일 내에 담당 의료진과 꼭 상의해주세요.",
+].join(" ");
+
 /**
  * WorkflowBuilder로 모성간호 상담 RAG 파이프라인 그래프를 구성한다.
  *
  * 블록 구조:
- *   start → retriever → prompt_template → llm → answer → end
+ *   start → ai_router (가드레일)
+ *     ├─ [redirect/off_topic] → reject_answer → end
+ *     ├─ [medical_caution]    → emergency_answer → end
+ *     └─ [safe]               → retriever → reranker → prompt_template → llm → answer → end
  *
- * - retriever: pregnancy-knowledge 컬렉션에서 top_k=8 검색
- * - prompt_template: 가드레일 + 시나리오 분기 + 캐릭터 톤 시스템 프롬프트
+ * - ai_router: 가드레일 사전 분류 (LLM 호출 전 비용 절감)
+ * - retriever: pregnancy-knowledge 컬렉션에서 top_k=10 검색
+ * - reranker: 검색 결과 상위 5건 재정렬
+ * - prompt_template: 상담 전용 프롬프트 (가드레일 로직 분리됨)
  * - llm: gemini-2.5-flash-lite (temperature 0.1)
  * - answer: JSON 포맷 출력
  */
 function buildMaternalNursingGraph(): WorkflowGraph {
   const graph = new WorkflowBuilder(DEFAULT_WORKFLOW_NAME)
     .description(DEFAULT_WORKFLOW_DESCRIPTION)
+    // ── 입력 ──
     .addBlock("start", {
       type: "start",
       title: "사용자 질문 입력",
     })
+    // ── 가드레일 라우터 ──
+    .addBlock("guardrail_router", {
+      type: "ai_router",
+      title: "가드레일 분류",
+      config: {
+        model: LLM_MODEL,
+        prompt: GUARDRAIL_PROMPT,
+        routes: ["safe", "medical_caution", "redirect", "off_topic"],
+        default_route: "safe",
+      },
+    })
+    // ── 거부 응답 (redirect / off_topic) ──
+    .addBlock("reject_answer", {
+      type: "answer",
+      title: "범위 외 안내",
+      config: {
+        format: "json",
+        static_output: {
+          answer: REJECT_ANSWER,
+          guardrailStatus: "redirect",
+          guardrailReason: "상담 범위를 벗어난 질문입니다.",
+          characterTone: "calm",
+          scenario: "general",
+        },
+      },
+    })
+    // ── 응급 응답 (medical_caution) ──
+    .addBlock("emergency_answer", {
+      type: "answer",
+      title: "응급 안내",
+      config: {
+        format: "json",
+        static_output: {
+          answer: EMERGENCY_ANSWER,
+          guardrailStatus: "medical_caution",
+          guardrailReason: "응급 징후가 감지되었습니다. 즉시 의료기관 방문을 권합니다.",
+          characterTone: "anxious",
+          scenario: "symptom_counsel",
+        },
+      },
+    })
+    // ── RAG 검색 ──
     .addBlock("retriever", {
       type: "retriever",
       title: "임신 지식 검색",
       config: {
         collection: DEFAULT_BUCKET,
-        top_k: 8,
+        top_k: 10,
         endpoint_url:
           process.env.SCHIFT_EMBEDDING_BASE_URL ?? getSchiftBaseUrl(),
       },
     })
+    // ── 검색 결과 재정렬 ──
+    .addBlock("reranker", {
+      type: "reranker",
+      title: "검색 결과 재정렬",
+      config: {
+        top_k: 5,
+      },
+    })
+    // ── 상담 프롬프트 ──
     .addBlock("prompt_template", {
       type: "prompt_template",
       title: "교수자 감수 프롬프트",
@@ -177,6 +255,7 @@ function buildMaternalNursingGraph(): WorkflowGraph {
         template: PROMPT_TEMPLATE,
       },
     })
+    // ── LLM 호출 ──
     .addBlock("llm", {
       type: "llm",
       title: "LLM 응답 생성",
@@ -186,6 +265,7 @@ function buildMaternalNursingGraph(): WorkflowGraph {
         max_tokens: 1024,
       },
     })
+    // ── 최종 응답 ──
     .addBlock("answer", {
       type: "answer",
       title: "JSON 응답 포맷",
@@ -198,11 +278,22 @@ function buildMaternalNursingGraph(): WorkflowGraph {
       type: "end",
       title: "종료",
     })
-    .connect("start", "retriever")
-    .connect("retriever", "prompt_template")
-    .connect("prompt_template", "llm")
-    .connect("llm", "answer")
-    .connect("answer", "end")
+    // ── 연결: 가드레일 분기 ──
+    .connect("start", "guardrail_router", "out", "in")
+    .connect("guardrail_router", "reject_answer", "redirect", "in")
+    .connect("guardrail_router", "reject_answer", "off_topic", "in")
+    .connect("guardrail_router", "emergency_answer", "medical_caution", "in")
+    .connect("guardrail_router", "retriever", "safe", "query")
+    // ── 연결: RAG → LLM ──
+    .connect("retriever", "reranker", "results", "results")
+    .connect("start", "reranker", "out", "query")
+    .connect("reranker", "prompt_template", "reranked", "vars")
+    .connect("prompt_template", "llm", "prompt", "prompt")
+    .connect("llm", "answer", "response", "response")
+    // ── 연결: 종료 ──
+    .connect("reject_answer", "end", "out", "in")
+    .connect("emergency_answer", "end", "out", "in")
+    .connect("answer", "end", "out", "in")
     .buildGraph();
 
   // Schift API가 일부 경로에서 graph.nodes만 영속하는 경우가 있어 동기화해서 전달한다.
