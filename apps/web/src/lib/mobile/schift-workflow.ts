@@ -63,15 +63,31 @@ export async function runSchiftWorkflow(input: {
     throw new Error("No Schift workflow available");
   }
 
-  const run = await input.schift.workflows.run(
-    resolvedWorkflowId,
-    input.inputs,
-  );
+  try {
+    const run = await input.schift.workflows.run(
+      resolvedWorkflowId,
+      input.inputs,
+    );
 
-  return {
-    workflowId: resolvedWorkflowId,
-    run,
-  };
+    return {
+      workflowId: resolvedWorkflowId,
+      run,
+    };
+  } catch (error) {
+    const is404 =
+      error instanceof Error &&
+      (error.message.includes("404") || error.message.includes("not found"));
+    if (!is404) throw error;
+
+    // 워크플로우가 Schift에서 삭제됨 — 목록에서 다시 resolve
+    const fallbackId = await resolveSchiftWorkflowId(input.schift);
+    if (!fallbackId || fallbackId === resolvedWorkflowId) {
+      throw error;
+    }
+
+    const run = await input.schift.workflows.run(fallbackId, input.inputs);
+    return { workflowId: fallbackId, run };
+  }
 }
 
 type WorkflowRunLike = {
@@ -110,7 +126,11 @@ function readBlockStateOutputs(blockState: unknown) {
 
   const candidates = [state.outputs, state.output];
   for (const candidate of candidates) {
-    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    if (
+      !candidate ||
+      typeof candidate !== "object" ||
+      Array.isArray(candidate)
+    ) {
       continue;
     }
 
@@ -145,7 +165,9 @@ export function extractSchiftWorkflowOutputs(run: WorkflowRunLike) {
   }
 
   if (typeof blockStates === "object") {
-    for (const blockState of Object.values(blockStates as Record<string, unknown>)) {
+    for (const blockState of Object.values(
+      blockStates as Record<string, unknown>,
+    )) {
       const output = readBlockStateOutputs(blockState);
       if (output) {
         return output;
