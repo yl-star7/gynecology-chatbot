@@ -24,7 +24,9 @@ test.describe("관리자 E2E", () => {
 
   test("운영자 이름 표시", async ({ page }) => {
     await page.goto("/admin");
-    await expect(page.locator("aside").getByText("운영자").first()).toBeVisible();
+    await expect(
+      page.locator("aside").getByText("운영자").first(),
+    ).toBeVisible();
   });
 
   /* ─── 3. 운영 상태 ─── */
@@ -55,7 +57,6 @@ test.describe("관리자 E2E", () => {
     { href: "/admin/content/documents", title: "문서" },
     { href: "/admin/content/static", title: "정적 문헌" },
     { href: "/admin/content/policies", title: "응답 워크플로우" },
-    { href: "/admin/content/weeks-preview", title: "주차 데이터 프리뷰" },
   ] as const;
 
   for (const { href, title } of contentPages) {
