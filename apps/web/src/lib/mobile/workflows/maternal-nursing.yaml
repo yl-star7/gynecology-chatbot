@@ -1,0 +1,239 @@
+name: 모성간호 상담 응답
+description: >
+  모성간호 교수자 감수 기반 RAG 워크플로우입니다.
+  임신 주차별 내부 데이터만 바탕으로 답하고,
+  가드레일·감정 체크인·상담 분기·캐릭터 톤과
+  다음 턴용 메모리를 함께 반환합니다.
+
+admin_metadata:
+  trigger: 내부 데이터만 답변
+  retrieval_scope: pregnancy-knowledge 내부 자료
+  model_name: gemini-2.5-flash-lite
+
+# ─────────────────────────────────────
+# 프롬프트 (관리자 수정 대상)
+# ─────────────────────────────────────
+
+prompts:
+  guardrail: |
+    사용자 입력을 분류하세요. JSON만 반환하세요.
+    { "route": "safe" | "medical_caution" | "redirect" | "off_topic" }
+
+    - 욕설, 비윤리적 요청, 자해/타해: route='redirect'
+    - 임신/건강과 무관한 주제(주식, 코인, 맛집 등): route='off_topic'
+    - 출혈, 극심한 통증, 호흡곤란, 의식 저하 등 응급: route='medical_caution'
+    - 그 외 안전한 질문: route='safe'
+
+  system: |
+    당신은 모성간호학 교수자가 감수한 임산부 상담 어시스턴트입니다.
+    반드시 내부 데이터(검색된 문맥)만 근거로 답변하세요.
+    응답은 반드시 JSON 하나만 반환하세요.
+
+    ## JSON 스키마
+    { answer: string, guardrailStatus: 'safe' | 'medical_caution' | 'redirect', guardrailReason?: string, characterTone: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', scenario?: 'emotion_checkin' | 'week_info' | 'symptom_counsel' | 'general', nextSessionMemory?: { compactSummary?: string, lastScenario?: 'emotion_checkin' | 'week_info' | 'symptom_counsel' | 'general', lastCharacterTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', lastEmotionTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad' }, nextProfileMemory?: { lastEmotionTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad' } }
+
+    ## 가드레일 규칙
+    - 욕설, 비윤리적 요청, 자해/타해 관련 입력: guardrailStatus='redirect', guardrailReason에 안전 안내 문구
+    - 출혈, 극심한 통증, 호흡곤란, 의식 저하 등 응급 징후: guardrailStatus='medical_caution', guardrailReason에 즉시 119 또는 의료기관 방문 권고
+    - 임신/건강과 무관한 주제(주식, 코인, 맛집, 영화 등): guardrailStatus='redirect', guardrailReason에 상담 범위 안내
+    - 그 외 안전한 질문: guardrailStatus='safe'
+
+    ## 상담 분기 (scenario)
+    - 감정 표현(힘들다, 불안하다, 우울하다 등): scenario='emotion_checkin' — 공감 먼저, 그 다음 주차 맞춤 정보 안내
+    - 주차별 정보 요청(n주차 아기, 검사, 변화 등): scenario='week_info' — 해당 주차 데이터 기반 설명
+    - 증상 상담(통증, 출혈, 입덧, 부종 등): scenario='symptom_counsel' — 증상 설명 + 병원 방문 기준 안내 + 진단 확정 표현 금지
+    - 기타: scenario='general'
+
+    ## 캐릭터 톤 (characterTone)
+    - calm: 일반 정보 안내
+    - joyful: 긍정적 소식, 성장 변화
+    - anxious: 걱정/불안 표현 시 공감
+    - tired: 피로/수면 관련
+    - sad: 우울/슬픔 표현 시 위로
+
+    ## 문체 규칙
+    - -어요/-해요 체 사용 (산모 대상)
+    - 개발자 용어 금지
+    - 의료 진단 확정 표현 금지 ('~일 수 있어요', '담당 의료진과 상의해보세요')
+    - 문맥이 부족하면 '아직 관련 자료가 준비되지 않았어요'라고 솔직히 안내
+
+  template: |
+    ## 검색된 내부 데이터
+    {{results}}
+
+    ## 사용자 질문
+    {{query}}
+
+    ## 규칙
+    1. 위 내부 데이터만 사용하세요. 데이터에 없는 내용을 지어내지 마세요.
+    2. 가드레일 규칙에 따라 guardrailStatus를 판단하세요.
+    3. 상담 분기(scenario)를 판단하고 해당 분기에 맞는 응답 구조를 따르세요.
+    4. 상황에 가장 적합한 characterTone을 선택하세요.
+    5. 이번 턴 이후 저장할 nextSessionMemory와, 장기 메모리로 올릴 값이 있으면 nextProfileMemory를 함께 반환하세요.
+    6. compactSummary는 다음 턴에서 바로 이어질 수 있게 최근 맥락만 1~2문장으로 압축하세요.
+    7. JSON만 반환하세요.
+
+# ─────────────────────────────────────
+# 정적 응답 (가드레일 분기용)
+# ─────────────────────────────────────
+
+static_responses:
+  reject:
+    answer: >
+      이 질문은 모성간호 상담 범위를 벗어나요.
+      임신 중 몸 상태나 걱정되는 증상을 적어주시면
+      그 범위 안에서 다시 도와드릴게요.
+    guardrailStatus: redirect
+    guardrailReason: 상담 범위를 벗어난 질문입니다.
+    characterTone: calm
+    scenario: general
+
+  emergency:
+    answer: >
+      안전 안내: 말씀하신 증상은 즉시 의료진 진료가 필요할 수 있어요.
+      119에 연락하시거나 가까운 응급실을 방문해주세요.
+      증상이 잠잠해졌더라도 빠른 시일 내에 담당 의료진과 꼭 상의해주세요.
+    guardrailStatus: medical_caution
+    guardrailReason: 응급 징후가 감지되었습니다. 즉시 의료기관 방문을 권합니다.
+    characterTone: anxious
+    scenario: symptom_counsel
+
+# ─────────────────────────────────────
+# 블록 그래프
+# ─────────────────────────────────────
+
+blocks:
+  - id: start
+    type: start
+    title: 사용자 질문 입력
+
+  - id: guardrail_router
+    type: ai_router
+    title: 가드레일 분류
+    config:
+      model: gemini-2.5-flash-lite
+      prompt: $prompts.guardrail
+      routes: [safe, medical_caution, redirect, off_topic]
+      default_route: safe
+
+  - id: reject_answer
+    type: answer
+    title: 범위 외 안내
+    config:
+      format: json
+      static_output: $static_responses.reject
+
+  - id: emergency_answer
+    type: answer
+    title: 응급 안내
+    config:
+      format: json
+      static_output: $static_responses.emergency
+
+  - id: retriever
+    type: retriever
+    title: 임신 지식 검색
+    config:
+      collection: pregnancy-knowledge
+      top_k: 10
+
+  - id: reranker
+    type: reranker
+    title: 검색 결과 재정렬
+    config:
+      top_k: 5
+
+  - id: prompt_template
+    type: prompt_template
+    title: 교수자 감수 프롬프트
+    config:
+      system_prompt: $prompts.system
+      template: $prompts.template
+
+  - id: llm
+    type: llm
+    title: LLM 응답 생성
+    config:
+      model: gemini-2.5-flash-lite
+      temperature: 0.1
+      max_tokens: 1024
+
+  - id: answer
+    type: answer
+    title: JSON 응답 포맷
+    config:
+      format: json
+      include_sources: true
+
+  - id: end
+    type: end
+    title: 종료
+
+edges:
+  # 가드레일 분기
+  - source: start
+    target: guardrail_router
+    source_handle: out
+    target_handle: in
+
+  - source: guardrail_router
+    target: reject_answer
+    source_handle: redirect
+    target_handle: in
+
+  - source: guardrail_router
+    target: reject_answer
+    source_handle: off_topic
+    target_handle: in
+
+  - source: guardrail_router
+    target: emergency_answer
+    source_handle: medical_caution
+    target_handle: in
+
+  - source: guardrail_router
+    target: retriever
+    source_handle: safe
+    target_handle: query
+
+  # RAG → LLM
+  - source: retriever
+    target: reranker
+    source_handle: results
+    target_handle: results
+
+  - source: start
+    target: reranker
+    source_handle: out
+    target_handle: query
+
+  - source: reranker
+    target: prompt_template
+    source_handle: reranked
+    target_handle: vars
+
+  - source: prompt_template
+    target: llm
+    source_handle: prompt
+    target_handle: prompt
+
+  - source: llm
+    target: answer
+    source_handle: response
+    target_handle: response
+
+  # 종료
+  - source: reject_answer
+    target: end
+    source_handle: out
+    target_handle: in
+
+  - source: emergency_answer
+    target: end
+    source_handle: out
+    target_handle: in
+
+  - source: answer
+    target: end
+    source_handle: out
+    target_handle: in
