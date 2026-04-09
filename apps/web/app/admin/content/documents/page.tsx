@@ -10,7 +10,7 @@ export default async function AdminContentDocumentsRoute() {
       adminDisplayName={admin.displayName}
       dashboard={dashboard}
       currentPath="/admin/content/documents"
-      title="문서"
+      title="참조 파일"
       view="documents"
     />
   );

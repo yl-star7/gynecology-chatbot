@@ -10,7 +10,7 @@ export default async function AdminContentStaticRoute() {
       adminDisplayName={admin.displayName}
       dashboard={dashboard}
       currentPath="/admin/content/static"
-      title="정적 문헌"
+      title="지식 콘텐츠"
       view="static"
     />
   );

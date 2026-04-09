@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect, useState } from "react";
 import {
   WorkflowEditorProvider,
   WorkflowBuilder,
@@ -42,10 +42,45 @@ function createAdminWorkflowAPI(): WorkflowEditorAPI {
   }
 
   return {
-    list: () => fetchJSON<Workflow[]>(base).then((items) => items.map(normalizeWorkflow)),
-    get: (id) => fetchJSON<Workflow>(`${base}/${id}`).then(normalizeWorkflow),
+    list: () =>
+      fetchJSON<Workflow[]>(base).then((items) => items.map(normalizeWorkflow)),
+    get: async (id) => {
+      try {
+        return await fetchJSON<Workflow>(`${base}/${id}`).then(
+          normalizeWorkflow,
+        );
+      } catch (error) {
+        const is404 =
+          error instanceof Error &&
+          (error.message.includes("404") ||
+            error.message.includes("not found") ||
+            error.message.includes("Workflow not found"));
+        if (!is404) throw error;
+
+        // 워크플로우가 Schift에서 삭제됨 — 목록에서 대체 워크플로우를 찾거나 새로 생성
+        const workflows = await fetchJSON<Workflow[]>(base).then((items) =>
+          items.map(normalizeWorkflow),
+        );
+        if (workflows.length > 0) return workflows[0];
+
+        // 워크플로우가 아예 없으면 기본 워크플로우 부트스트랩
+        await fetch("/api/admin/workflow-rules/bootstrap", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const refreshed = await fetchJSON<Workflow[]>(base).then((items) =>
+          items.map(normalizeWorkflow),
+        );
+        if (refreshed.length > 0) return refreshed[0];
+
+        throw error;
+      }
+    },
     create: (req) =>
-      fetchJSON<Workflow>(base, { method: "POST", body: JSON.stringify(req) }).then(normalizeWorkflow),
+      fetchJSON<Workflow>(base, {
+        method: "POST",
+        body: JSON.stringify(req),
+      }).then(normalizeWorkflow),
     update: (id, req) =>
       fetchJSON<Workflow>(`${base}/${id}`, {
         method: "PATCH",
@@ -90,7 +125,10 @@ export function AdminWorkflowEditorAdapter({ workflowId, onBack }: Props) {
 
   return (
     <WorkflowEditorProvider api={api}>
-      <div className="schift-editor-root" style={{ height: "100%", minHeight: 500, ...SCHIFT_THEME_VARS }}>
+      <div
+        className="schift-editor-root"
+        style={{ height: "100%", minHeight: 500, ...SCHIFT_THEME_VARS }}
+      >
         <WorkflowBuilder
           initialWorkflowId={workflowId ?? null}
           onBack={handleBack}

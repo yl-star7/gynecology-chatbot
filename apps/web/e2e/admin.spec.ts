@@ -54,8 +54,8 @@ test.describe("관리자 E2E", () => {
 
   const contentPages = [
     { href: "/admin/content/weeks", title: "주차별 간호 정보" },
-    { href: "/admin/content/documents", title: "문서" },
-    { href: "/admin/content/static", title: "정적 문헌" },
+    { href: "/admin/content/documents", title: "참조 파일" },
+    { href: "/admin/content/static", title: "지식 콘텐츠" },
     { href: "/admin/content/policies", title: "응답 워크플로우" },
   ] as const;
 
