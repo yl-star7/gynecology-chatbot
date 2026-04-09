@@ -627,9 +627,39 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           ? mappedUserActions
           : dashboard.userActions,
       workflowRules: (() => {
-        const mappedDefinitions = workflowDefinitions.map(mapWorkflowRule);
+        // Schift API에 실제 존재하는 워크플로우 ID 집합
+        const schiftIdSet = new Set(
+          schiftWorkflowRules.map((wf) => wf.id),
+        );
+        // Schift 워크플로우를 identity로 빠르게 검색할 수 있도록 맵 구성
+        const schiftByIdentity = new Map(
+          schiftWorkflowRules.map((wf) => [
+            buildWorkflowIdentity({
+              name: wf.name,
+              trigger: wf.trigger,
+              modelName: wf.modelName,
+            }),
+            wf,
+          ]),
+        );
+
+        // DB 엔트리의 ID가 Schift에 없으면 같은 identity의 Schift ID로 교체
+        const mappedDefinitions = workflowDefinitions
+          .map(mapWorkflowRule)
+          .map((def) => {
+            if (schiftIdSet.has(def.id)) return def;
+
+            const identity = buildWorkflowIdentity({
+              name: def.name,
+              trigger: def.trigger,
+              modelName: def.modelName,
+            });
+            const match = schiftByIdentity.get(identity);
+            return match ? { ...def, id: match.id } : def;
+          });
+
         const seenWorkflowIds = new Set(
-          workflowDefinitions.map((definition) => definition.id),
+          mappedDefinitions.map((def) => def.id),
         );
         const seenWorkflowIdentities = new Set(
           mappedDefinitions.map((workflow) =>
