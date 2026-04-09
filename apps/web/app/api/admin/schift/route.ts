@@ -10,16 +10,27 @@ export async function GET() {
     const schift = getSchiftClient();
     if (!schift) return NextResponse.json({ error: "SCHIFT_API_KEY not configured" }, { status: 503 });
 
-    const collections = await schift.listCollections();
+    const timeout = (ms: number) =>
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), ms),
+      );
 
-    // Fetch workflows via raw API (SDK may not expose list)
+    const collections = await Promise.race([
+      schift.listCollections(),
+      timeout(8000),
+    ]).catch(() => []);
+
     let workflows: unknown[] = [];
     try {
       const apiKey = process.env.SCHIFT_API_KEY;
       if (apiKey) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
         const wfRes = await fetch("https://api.schift.io/v1/workflows", {
           headers: { Authorization: `Bearer ${apiKey}` },
+          signal: controller.signal,
         });
+        clearTimeout(timer);
         if (wfRes.ok) {
           const wfData = await wfRes.json();
           workflows = Array.isArray(wfData) ? wfData : wfData.workflows ?? [];
