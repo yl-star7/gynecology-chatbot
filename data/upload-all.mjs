@@ -2,7 +2,10 @@ import { Schift } from "@schift-io/sdk";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
-const API_KEY = process.env.SCHIFT_API_KEY ?? "sch_mtlv4f-gr0EdZ0WXFiqko-plt1YZHUfI3Yo3TKJDCxE";
+const API_KEY = process.env.SCHIFT_API_KEY;
+if (!API_KEY) {
+  throw new Error("SCHIFT_API_KEY is required");
+}
 const client = new Schift({ apiKey: API_KEY });
 const DIR = new URL(".", import.meta.url).pathname;
 const BUCKET_NAME = "pregnancy-knowledge";
