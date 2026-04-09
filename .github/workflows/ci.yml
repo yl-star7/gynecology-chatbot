@@ -67,6 +67,10 @@ jobs:
           ADMIN_DATA_PROVIDER: mock
           PHONE_DATA_SECRET: ci-test-secret-32-bytes-long-key!
           ADMIN_SESSION_SECRET: ci-test-admin-session-secret
+          ADMIN_LOGIN_PASSWORD: ci-test-password
+          LOCAL_ADMIN_USER_ID: ci-admin-1
+          LOCAL_ADMIN_PHONE_NUMBER: "01000000000"
+          LOCAL_ADMIN_NAME: CI운영자
 
   security-scan:
     name: Security Scan
