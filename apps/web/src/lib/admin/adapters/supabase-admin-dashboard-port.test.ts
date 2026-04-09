@@ -432,8 +432,9 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
     const dashboard = await adapter.getDashboard();
 
     expect(dashboard.workflowRules).toHaveLength(1);
+    // DB의 stale ID가 Schift에 없으면 같은 identity의 Schift ID로 교체
     expect(dashboard.workflowRules[0]).toMatchObject({
-      id: "definition-1",
+      id: "schift-wf-2",
       name: "모성간호 상담 응답",
       trigger: "내부 데이터만 답변",
       modelName: "gemini-2.5-flash-lite",
