@@ -79,9 +79,10 @@ export function AdminStaticSection({
       <section className={styles.panel}>
         <div className={styles.routeHeader}>
           <div>
-            <h2 className={styles.routeTitle}>주차별 간호 정보</h2>
+            <h2 className={styles.routeTitle}>주차별 아기는요?</h2>
             <p className={styles.panelDescription}>
-              주차별 간호 정보에 함께 쓰는 고정 안내문을 관리하고, 상세 수정은 우측 패널에서 처리합니다.
+              주차별 아기 정보에 함께 쓰는 고정 안내문을 관리하고, 상세 수정은
+              우측 패널에서 처리합니다.
             </p>
           </div>
           <div className={styles.topbarActions}>
@@ -163,7 +164,9 @@ export function AdminStaticSection({
             </button>
           ))}
           {filteredKnowledgeItems.length === 0 ? (
-            <div className={styles.listEmpty}>조건에 맞는 안내문이 없습니다.</div>
+            <div className={styles.listEmpty}>
+              조건에 맞는 안내문이 없습니다.
+            </div>
           ) : null}
         </div>
       </section>
@@ -195,14 +198,18 @@ export function AdminStaticSection({
               </button>
             </div>
             <div className={styles.overlayBody}>
-              {contentMessage ? <p className={styles.formHint}>{contentMessage}</p> : null}
+              {contentMessage ? (
+                <p className={styles.formHint}>{contentMessage}</p>
+              ) : null}
               <div className={styles.panelGrid}>
                 <label className={styles.fieldGroup}>
                   <span className={styles.fieldLabel}>슬러그</span>
                   <input
                     className={styles.fieldInput}
                     value={knowledgeSlug}
-                    onChange={(event) => onKnowledgeSlugChange(event.target.value)}
+                    onChange={(event) =>
+                      onKnowledgeSlugChange(event.target.value)
+                    }
                   />
                 </label>
                 <label className={styles.fieldGroup}>
@@ -227,7 +234,9 @@ export function AdminStaticSection({
                   <input
                     className={styles.fieldInput}
                     value={knowledgeTitle}
-                    onChange={(event) => onKnowledgeTitleChange(event.target.value)}
+                    onChange={(event) =>
+                      onKnowledgeTitleChange(event.target.value)
+                    }
                   />
                 </label>
                 <label className={styles.fieldGroup}>
@@ -252,7 +261,9 @@ export function AdminStaticSection({
                 <textarea
                   className={styles.overlayTextarea}
                   value={knowledgeBody}
-                  onChange={(event) => onKnowledgeBodyChange(event.target.value)}
+                  onChange={(event) =>
+                    onKnowledgeBodyChange(event.target.value)
+                  }
                 />
               </label>
               <label className={styles.fieldGroup}>
@@ -260,7 +271,9 @@ export function AdminStaticSection({
                 <input
                   className={styles.fieldInput}
                   value={knowledgeImageUrl}
-                  onChange={(event) => onKnowledgeImageUrlChange(event.target.value)}
+                  onChange={(event) =>
+                    onKnowledgeImageUrlChange(event.target.value)
+                  }
                   placeholder="https://example.com/image.png"
                 />
               </label>

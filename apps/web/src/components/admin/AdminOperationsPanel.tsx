@@ -66,10 +66,10 @@ const DEFAULT_SCHEDULE: ScheduleData = {
 };
 
 const DEFAULT_BRANDING: BrandingData = {
-  mascotBucketId: null,
-  mascotObjectPath: null,
-  mascotSourceFileName: null,
-  mascotAltText: "마스코트",
+  mascotBucketId: "pregnancy-content",
+  mascotObjectPath: "assets/penguin-nurse/expressions/happy.png",
+  mascotSourceFileName: "happy.png",
+  mascotAltText: "펭귄 간호사",
   surveyFormUrl: null,
 };
 

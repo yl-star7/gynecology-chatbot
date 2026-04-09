@@ -53,7 +53,7 @@ test.describe("관리자 E2E", () => {
   /* ─── 5. 콘텐츠 관리 ─── */
 
   const contentPages = [
-    { href: "/admin/content/weeks", title: "주차별 간호 정보" },
+    { href: "/admin/content/weeks", title: "주차별 아기는요?" },
     { href: "/admin/content/documents", title: "참조 파일" },
     { href: "/admin/content/static", title: "지식 콘텐츠" },
     { href: "/admin/content/policies", title: "응답 워크플로우" },
@@ -83,7 +83,7 @@ test.describe("관리자 E2E", () => {
   const navRoutes = [
     { href: "/admin/operations", title: "운영 상태" },
     { href: "/admin/accounts", title: "사용자 설정" },
-    { href: "/admin/content/weeks", title: "주차별 간호 정보" },
+    { href: "/admin/content/weeks", title: "주차별 아기는요?" },
     { href: "/admin/monitoring", title: "모니터링" },
   ] as const;
 

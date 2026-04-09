@@ -395,16 +395,13 @@ describe("AdminDashboard", () => {
       screen.getByRole("heading", { name: "사용자 선택" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "허용 전화번호 관리" }),
-    ).toBeInTheDocument();
-    expect(
       screen.getByRole("heading", { name: "실시간 사용자 이벤트" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("navigation", { name: "관리자 탐색" }),
     ).toBeInTheDocument();
     expect(screen.getByText("운영자")).toBeInTheDocument();
-    expect(screen.getByText("주차별 간호 정보")).toBeInTheDocument();
+    expect(screen.getByText("주차별 아기는요?")).toBeInTheDocument();
     expect(screen.getByText("응답 워크플로우")).toBeInTheDocument();
     expect(await screen.findByText("오늘 로그인")).toBeInTheDocument();
     expect(screen.getByText("주간 로그인")).toBeInTheDocument();
@@ -488,7 +485,9 @@ describe("AdminDashboard", () => {
     expect(body.media).toHaveLength(1);
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "주차 저장" })).not.toBeDisabled(),
+      expect(
+        screen.getByRole("button", { name: "주차 저장" }),
+      ).not.toBeDisabled(),
     );
   });
 
@@ -527,7 +526,9 @@ describe("AdminDashboard", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "주차 저장" })).not.toBeDisabled(),
+      expect(
+        screen.getByRole("button", { name: "주차 저장" }),
+      ).not.toBeDisabled(),
     );
   });
 

@@ -10,7 +10,7 @@ export default async function AdminContentWeeksRoute() {
       adminDisplayName={admin.displayName}
       dashboard={dashboard}
       currentPath="/admin/content/weeks"
-      title="주차별 간호 정보"
+      title="주차별 아기는요?"
       view="weeks"
     />
   );

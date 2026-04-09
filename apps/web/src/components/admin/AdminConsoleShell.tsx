@@ -19,7 +19,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { href: "/admin/content/documents", label: "참조 파일" },
       { href: "/admin/content/static", label: "지식 콘텐츠" },
-      { href: "/admin/content/weeks", label: "주차별 간호 정보" },
+      { href: "/admin/content/weeks", label: "주차별 아기는요?" },
       { href: "/admin/content/policies", label: "응답 워크플로우" },
     ],
   },
