@@ -15,6 +15,7 @@ const CURRENT_WEEK = process.env.CURRENT_WEEK
   ? Number(process.env.CURRENT_WEEK)
   : 10;
 const WORKFLOW_NAME = process.env.WORKFLOW_NAME ?? "모성간호 상담 응답";
+const LIMIT = Number(process.env.LIMIT ?? 10);
 const OUT = new URL(`./rag-small-results-${MODE}.json`, import.meta.url);
 
 const QUERIES = [
@@ -124,10 +125,11 @@ async function resolveWorkflowId() {
 
 async function runSearchMode() {
   const rows = [];
+  const queries = QUERIES.slice(0, LIMIT);
 
-  for (let i = 0; i < QUERIES.length; i++) {
-    const query = QUERIES[i];
-    console.log(`\n[search ${i + 1}/${QUERIES.length}] ${query}`);
+  for (let i = 0; i < queries.length; i++) {
+    const query = queries[i];
+    console.log(`\n[search ${i + 1}/${queries.length}] ${query}`);
 
     const startedAt = Date.now();
     const response = await client.search({
@@ -163,10 +165,11 @@ async function runSearchMode() {
 async function runWorkflowMode() {
   const workflowId = await resolveWorkflowId();
   const rows = [];
+  const queries = QUERIES.slice(0, LIMIT);
 
-  for (let i = 0; i < QUERIES.length; i++) {
-    const query = QUERIES[i];
-    console.log(`\n[workflow ${i + 1}/${QUERIES.length}] ${query}`);
+  for (let i = 0; i < queries.length; i++) {
+    const query = queries[i];
+    console.log(`\n[workflow ${i + 1}/${queries.length}] ${query}`);
 
     const startedAt = Date.now();
     const run = await client.workflows.run(workflowId, {
