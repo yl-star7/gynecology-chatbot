@@ -14,6 +14,12 @@ type RagDocumentRow = {
   similarity: number;
 };
 
+type SchiftSearchResult = {
+  id: string;
+  score: number;
+  metadata?: Record<string, unknown>;
+};
+
 type RagProvider = "schift" | "supabase" | "auto";
 
 type ConfigRow = { key: string; value: { ragProvider?: RagProvider } };
@@ -46,7 +52,7 @@ async function getDisabledFileIds(): Promise<Set<string>> {
 }
 
 function isResultFromDisabledFile(
-  result: { id: string; metadata?: Record<string, unknown> },
+  result: SchiftSearchResult,
   disabledIds: Set<string>,
 ): boolean {
   if (disabledIds.size === 0) return false;
@@ -58,6 +64,22 @@ function isResultFromDisabledFile(
   return false;
 }
 
+function normalizeSchiftSearchResults(response: unknown): SchiftSearchResult[] {
+  if (Array.isArray(response)) {
+    return response as SchiftSearchResult[];
+  }
+
+  if (
+    response &&
+    typeof response === "object" &&
+    Array.isArray((response as { results?: unknown }).results)
+  ) {
+    return (response as { results: SchiftSearchResult[] }).results;
+  }
+
+  return [];
+}
+
 async function searchViaSchift(
   query: string,
   matchCount: number,
@@ -65,7 +87,7 @@ async function searchViaSchift(
   const schift = getSchiftClient();
   if (!schift) throw new Error("Schift client not configured");
 
-  const [results, disabledIds] = await Promise.all([
+  const [response, disabledIds] = await Promise.all([
     schift.search({
       query,
       collection: "pregnancy-knowledge",
@@ -73,6 +95,8 @@ async function searchViaSchift(
     }),
     getDisabledFileIds(),
   ]);
+
+  const results = normalizeSchiftSearchResults(response);
 
   return results
     .filter((result) => !isResultFromDisabledFile(result, disabledIds))
@@ -86,7 +110,9 @@ async function searchViaSchift(
       content:
         typeof result.metadata?.content === "string"
           ? result.metadata.content
-          : "",
+          : typeof result.metadata?.text === "string"
+            ? result.metadata.text
+            : "",
       pregnancy_week:
         typeof result.metadata?.pregnancy_week === "number"
           ? result.metadata.pregnancy_week
@@ -221,7 +247,7 @@ export async function searchFileRag(input: {
   const count = input.matchCount ?? 5;
 
   try {
-    const [results, disabledIds] = await Promise.all([
+    const [response, disabledIds] = await Promise.all([
       schift.search({
         query: input.query,
         collection: "pregnancy-knowledge",
@@ -229,6 +255,8 @@ export async function searchFileRag(input: {
       }),
       getDisabledFileIds(),
     ]);
+
+    const results = normalizeSchiftSearchResults(response);
 
     const filtered = results
       .filter((r) => !isResultFromDisabledFile(r, disabledIds))
@@ -241,9 +269,11 @@ export async function searchFileRag(input: {
       filename:
         typeof r.metadata?.filename === "string"
           ? r.metadata.filename
-          : typeof r.metadata?.title === "string"
-            ? r.metadata.title
-            : r.id,
+          : typeof r.metadata?.file_name === "string"
+            ? r.metadata.file_name
+            : typeof r.metadata?.title === "string"
+              ? r.metadata.title
+              : r.id,
       chunkTitle:
         typeof r.metadata?.title === "string" ? r.metadata.title : r.id,
       similarity: r.score,
@@ -254,11 +284,17 @@ export async function searchFileRag(input: {
         const title =
           typeof r.metadata?.title === "string" ? r.metadata.title : r.id;
         const content =
-          typeof r.metadata?.content === "string" ? r.metadata.content : "";
+          typeof r.metadata?.content === "string"
+            ? r.metadata.content
+            : typeof r.metadata?.text === "string"
+              ? r.metadata.text
+              : "";
         const filename =
           typeof r.metadata?.filename === "string"
             ? r.metadata.filename
-            : "알 수 없음";
+            : typeof r.metadata?.file_name === "string"
+              ? r.metadata.file_name
+              : "알 수 없음";
         return [
           `[참고 ${i + 1}] ${title}`,
           `출처: ${filename}`,
