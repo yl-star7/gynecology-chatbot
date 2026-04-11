@@ -113,7 +113,16 @@ describe("/api/admin/schift/workflows/[workflowId]", () => {
     expect(body.graph.nodes).toEqual(body.graph.blocks);
   });
 
-  test("drops graph from patch body and normalizes the response", async () => {
+  test("applies graph patch via addBlock/addEdge and normalizes response", async () => {
+    const addBlockMock = jest.fn(
+      async (_wfId: string, block: { type: string; title: string }) => ({
+        id: `new-${block.type}`,
+        type: block.type,
+      }),
+    );
+    const addEdgeMock = jest.fn(async () => ({ id: "e-new" }));
+    const removeBlockMock = jest.fn(async () => undefined);
+
     mockedReadAdminSessionUser.mockResolvedValue({
       id: "admin-1",
       displayName: "운영자",
@@ -122,11 +131,22 @@ describe("/api/admin/schift/workflows/[workflowId]", () => {
     });
     mockedPatchSchiftWorkflow.mockResolvedValue({
       id: "wf-1",
-      name: "모성간호 상담 응답",
-      graph: {
-        nodes: [],
-        blocks: [{ id: "start", type: "start" }],
-        edges: [],
+      name: "새 이름",
+    } as never);
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: {
+        get: jest.fn().mockResolvedValue({
+          id: "wf-1",
+          name: "새 이름",
+          graph: {
+            nodes: [{ id: "new-start", type: "start", config: {} }],
+            blocks: [],
+            edges: [],
+          },
+        }),
+        addBlock: addBlockMock,
+        addEdge: addEdgeMock,
+        removeBlock: removeBlockMock,
       },
     } as never);
 
@@ -136,7 +156,12 @@ describe("/api/admin/schift/workflows/[workflowId]", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: "새 이름",
-          graph: { blocks: [{ id: "ignored" }], edges: [] },
+          graph: {
+            blocks: [
+              { id: "start", type: "start", title: "Start", config: {} },
+            ],
+            edges: [],
+          },
         }),
       }) as never,
       { params: Promise.resolve({ workflowId: "wf-1" }) },
@@ -145,12 +170,12 @@ describe("/api/admin/schift/workflows/[workflowId]", () => {
     expect(mockedPatchSchiftWorkflow).toHaveBeenCalledWith("wf-1", {
       name: "새 이름",
     });
+    expect(addBlockMock).toHaveBeenCalled();
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(
       expect.objectContaining({
         graph: expect.objectContaining({
-          blocks: [{ id: "start", type: "start" }],
-          nodes: [{ id: "start", type: "start" }],
+          nodes: [{ id: "new-start", type: "start", config: {} }],
         }),
       }),
     );

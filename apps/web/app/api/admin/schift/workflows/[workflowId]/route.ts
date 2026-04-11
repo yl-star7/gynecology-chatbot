@@ -129,14 +129,74 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
   if (!admin)
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
+  const schift = getSchiftClient();
+  if (!schift)
+    return NextResponse.json(
+      { error: "SCHIFT_API_KEY not configured" },
+      { status: 503 },
+    );
+
   try {
     const { workflowId } = await ctx.params;
     const body = (await request.json()) as Record<string, unknown>;
 
-    // graph가 포함된 PATCH는 blocks/nodes를 graph에서 제외하고 메타만 업데이트
-    // (Schift API가 graph.nodes PATCH를 영속하지 않아서 graph 전체를 보내면 nodes가 초기화됨)
-    const { graph: _graph, ...rest } = body;
-    const result = await patchSchiftWorkflow(workflowId, rest);
+    const { graph: graphPatch, ...rest } = body;
+
+    // 메타데이터 (name, description, status) 업데이트
+    if (Object.keys(rest).length > 0) {
+      await patchSchiftWorkflow(workflowId, rest);
+    }
+
+    // graph가 포함된 PATCH — addBlock/addEdge로 블록별 config 영속
+    if (graphPatch && typeof graphPatch === "object") {
+      const gp = graphPatch as Record<string, unknown>;
+      const newBlocks = (gp.blocks ?? gp.nodes ?? []) as Array<
+        Record<string, unknown>
+      >;
+      const newEdges = (gp.edges ?? []) as Array<Record<string, unknown>>;
+
+      if (newBlocks.length > 0) {
+        // 기존 블록 제거
+        const current = await schift.workflows.get(workflowId);
+        const currentGraph = current.graph as typeof current.graph & {
+          nodes?: typeof current.graph.blocks;
+        };
+        for (const node of currentGraph?.nodes ?? currentGraph?.blocks ?? []) {
+          try {
+            await schift.workflows.removeBlock(workflowId, node.id);
+          } catch {
+            // 이미 없으면 무시
+          }
+        }
+
+        // 새 블록 추가 (config 포함)
+        const blockIdMap = new Map<string, string>();
+        for (const block of newBlocks) {
+          const added = await schift.workflows.addBlock(workflowId, {
+            type: block.type as "start",
+            title: (block.title as string) ?? (block.id as string),
+            config: (block.config as Record<string, unknown>) ?? {},
+          });
+          blockIdMap.set(block.id as string, added.id);
+        }
+
+        // 엣지 추가
+        for (const edge of newEdges) {
+          const source =
+            blockIdMap.get(edge.source as string) ?? (edge.source as string);
+          const target =
+            blockIdMap.get(edge.target as string) ?? (edge.target as string);
+          await schift.workflows.addEdge(workflowId, {
+            source,
+            target,
+            source_handle: (edge.source_handle as string) ?? "output",
+            target_handle: (edge.target_handle as string) ?? "input",
+          });
+        }
+      }
+    }
+
+    const result = await schift.workflows.get(workflowId);
     const plain = JSON.parse(JSON.stringify(result)) as Record<string, unknown>;
     return NextResponse.json(normalizeGraph(plain));
   } catch (error) {

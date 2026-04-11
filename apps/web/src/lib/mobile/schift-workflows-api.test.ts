@@ -46,7 +46,14 @@ jest.mock("@schift-io/sdk", () => {
         create: jest.fn(async () => ({
           id: "wf-1",
           name: "모성간호 상담 응답",
-          graph: { blocks: [{ id: "start" }], edges: [] },
+          graph: { blocks: [], edges: [] },
+        })),
+        addBlock: jest.fn(async (_wfId: string, block: MockBlock) => ({
+          id: block.id ?? `block-${Math.random().toString(36).slice(2, 8)}`,
+          type: block.type,
+        })),
+        addEdge: jest.fn(async () => ({
+          id: `edge-${Math.random().toString(36).slice(2, 8)}`,
         })),
       },
     })),

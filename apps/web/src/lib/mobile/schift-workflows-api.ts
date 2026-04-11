@@ -125,13 +125,51 @@ export async function listSchiftWorkflows(): Promise<Workflow[]> {
   return detailed;
 }
 
+/**
+ * Schift SDK create()는 blocks 키로 보내 config를 유실한다.
+ * addBlock/addEdge를 사용해 블록별 config를 영속시킨다.
+ */
+async function createWorkflowWithBlocks(
+  schiftClient: Schift,
+  wfDef: ReturnType<typeof loadMaternalNursingWorkflow>,
+) {
+  const shell = await schiftClient.workflows.create({
+    name: wfDef.name,
+    description: wfDef.description,
+  });
+
+  const blockIdMap = new Map<string, string>();
+  for (const block of wfDef.graph.blocks) {
+    const added = await schiftClient.workflows.addBlock(shell.id, {
+      type: block.type,
+      title: block.title ?? block.id,
+      config: block.config ?? {},
+    });
+    blockIdMap.set(block.id, added.id);
+  }
+
+  for (const edge of wfDef.graph.edges) {
+    const source = blockIdMap.get(edge.source) ?? edge.source;
+    const target = blockIdMap.get(edge.target) ?? edge.target;
+    await schiftClient.workflows.addEdge(shell.id, {
+      source,
+      target,
+      source_handle: edge.source_handle ?? "output",
+      target_handle: edge.target_handle ?? "input",
+    });
+  }
+
+  return shell;
+}
+
 export async function createDefaultInternalAnswerWorkflow() {
   const wfDef = loadMaternalNursingWorkflow();
   const workflows = await listSchiftWorkflows();
   const existing = workflows.find(
     (workflow) =>
       workflow.name === wfDef.name &&
-      workflow.status === "published" &&
+      ((workflow.status as string) === "published" ||
+        workflow.status === "active") &&
       hasRunnableGraph(workflow) &&
       !hasMalformedGraph(workflow),
   );
@@ -139,8 +177,6 @@ export async function createDefaultInternalAnswerWorkflow() {
     (workflow) => workflow.name === wfDef.name && hasMalformedGraph(workflow),
   );
   const schiftClient = getSchiftClientOrThrow();
-
-  const graph = wfDef.graph;
 
   let baseWorkflow = existing ?? null;
 
@@ -155,11 +191,7 @@ export async function createDefaultInternalAnswerWorkflow() {
       }
     }
 
-    baseWorkflow = await schiftClient.workflows.create({
-      name: wfDef.name,
-      description: wfDef.description,
-      graph,
-    });
+    baseWorkflow = await createWorkflowWithBlocks(schiftClient, wfDef);
   }
 
   const adminMetadata = {
@@ -168,7 +200,6 @@ export async function createDefaultInternalAnswerWorkflow() {
     modelName: wfDef.adminMetadata.model_name,
   };
 
-  // Schift API graph PATCH에서 nodes/blocks가 유실될 수 있어 메타데이터만 업데이트한다.
   const updated = await patchSchiftWorkflow(baseWorkflow.id, {
     status: "published",
     name: wfDef.name,
