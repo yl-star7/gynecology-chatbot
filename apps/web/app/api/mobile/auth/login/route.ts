@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
     );
     const phoneRateCheck = checkRateLimit(
       `mobile-auth-login-phone:${phoneNumber}`,
-      5,
-      600_000,
+      10,
+      300_000,
     );
     const rateCheck = !ipRateCheck.allowed
       ? ipRateCheck
