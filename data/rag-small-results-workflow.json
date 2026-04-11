@@ -1,35 +1,23 @@
 [
   {
-    "mode": "workflow",
-    "workflowId": "a989e7ed1a8d4617b980769de9692f88",
     "query": "입덧이 너무 심해요. 언제 병원에 가야 하나요?",
-    "currentWeek": 10,
-    "latencyMs": 4059,
     "status": "completed",
-    "error": null,
-    "answer": "임신오조(hyperemesis gravidarum)로 진행될 정도로 심한 구토가 있을 때는 의사와 상담해야 합니다. [1]",
-    "references": []
+    "latencyMs": 6081,
+    "retrieverResults": 3,
+    "answer": "임신오조(hyperemesis gravidarum)로 진행될 정도로 심한 구토가 있을 경우 의사와 상담해야 합니다 [1]."
   },
   {
-    "mode": "workflow",
-    "workflowId": "a989e7ed1a8d4617b980769de9692f88",
     "query": "임신 초기 출혈이 조금 있는데 바로 병원에 가야 하나요?",
-    "currentWeek": 10,
-    "latencyMs": 2821,
     "status": "completed",
-    "error": null,
-    "answer": "임신 전반기 출혈의 양상은 매우 다양하며, 경미한 출혈부터 아주 많은 출혈까지 나타날 수 있습니다 [3]. 임신 초기에 출혈이 있을 때 발생 가능한 문제에 대한 정보는 있으나, 출혈의 정도에 따라 즉시 병원에 가야 하는지에 대한 구체적인 지침은 자료에 명시되어 있지 않습니다.",
-    "references": []
+    "latencyMs": 8226,
+    "retrieverResults": 3,
+    "answer": "임신 초기에 약간의 질 출혈이 있을 수 있으며, 이러한 경우 먼저 절박유산의 가능성을 고려하여 환자를 침대에 눕게 하고 의사에게 알려야 합니다 [2]. 출혈이 48시간 내에 멈춘다면 침상에서 일어날 수 있으나, 그 후 며칠간은 활동을 제한해야 합니다 [2]. 성관계는 출혈이 멎은 후 2주까지 피하는 것이 좋습니다 [2]."
   },
   {
-    "mode": "workflow",
-    "workflowId": "a989e7ed1a8d4617b980769de9692f88",
     "query": "임신 중 변비가 심한데 어떻게 완화하면 좋을까요?",
-    "currentWeek": 10,
-    "latencyMs": 3827,
     "status": "completed",
-    "error": null,
-    "answer": "임신 중 변비 완화를 위해 다음과 같은 방법들을 시도해 볼 수 있습니다.\n\n*   충분한 수분 섭취 [1]\n*   규칙적인 운동 [1]\n*   규칙적인 배변 습관 갖기 [1]\n*   섬유질이 풍부한 음식 섭취 (과일, 채소 등) [1]\n*   철분 섭취제를 복용 중이라면 의사와 상담하여 조절 [1]\n\n관장은 피하고, 미네랄 오일 복용은 지용성 비타민 흡수를 방해할 수 있으므로 피하는 것이 좋습니다 [1].",
-    "references": []
+    "latencyMs": 3579,
+    "retrieverResults": 3,
+    "answer": "임신 중 변비 완화를 위해 다음과 같은 방법들을 시도해 볼 수 있습니다.\n\n*   충분한 수분 섭취 [1]\n*   규칙적인 운동 [1]\n*   규칙적인 배변 습관 갖기 [1]\n*   섬유질이 풍부한 음식 섭취 [1]\n*   변비가 심할 경우 변 완화제 처방을 받을 수 있으나, 관장이나 완화제를 오래 사용하는 것은 피해야 합니다 [1]."
   }
 ]
