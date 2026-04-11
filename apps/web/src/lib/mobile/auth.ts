@@ -425,14 +425,7 @@ async function upsertPhoneUser(
     updated_at: nextTimestamp,
   };
 
-  try {
-    await supabaseInsert("users", payload);
-  } catch {
-    await supabaseInsert("users", {
-      ...payload,
-      display_name: legacyDisplayName?.trim() || "사용자",
-    });
-  }
+  await supabaseInsert("users", payload);
 
   return userId;
 }

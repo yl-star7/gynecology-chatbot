@@ -58,12 +58,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error("mobile auth login route error", error);
-    const debugMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      {
-        error: "로그인을 진행하지 못했어요. 입력한 정보를 다시 확인해주세요.",
-        debug: debugMessage,
-      },
+      { error: "로그인을 진행하지 못했어요. 입력한 정보를 다시 확인해주세요." },
       { status: 400 },
     );
   }
