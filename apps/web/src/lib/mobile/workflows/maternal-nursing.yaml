@@ -135,13 +135,9 @@ blocks:
     title: 임신 지식 검색
     config:
       collection: pregnancy-knowledge
-      top_k: 10
-
-  - id: reranker
-    type: reranker
-    title: 검색 결과 재정렬
-    config:
-      top_k: 5
+      top_k: 7
+      rerank: true
+      rerank_top_k: 7
 
   - id: prompt_template
     type: prompt_template
@@ -198,18 +194,8 @@ edges:
 
   # RAG → LLM
   - source: retriever
-    target: reranker
-    source_handle: results
-    target_handle: results
-
-  - source: start
-    target: reranker
-    source_handle: out
-    target_handle: query
-
-  - source: reranker
     target: prompt_template
-    source_handle: reranked
+    source_handle: results
     target_handle: vars
 
   - source: prompt_template

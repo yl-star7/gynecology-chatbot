@@ -165,7 +165,7 @@ export async function retrievePregnancyContext(input: {
   if (!input.query.trim()) return [] as RagDocumentRow[];
 
   const provider = await getRagProvider();
-  const count = input.matchCount ?? 5;
+  const count = input.matchCount ?? 7;
 
   if (provider === "schift") {
     return await searchViaSchift(input.query, count);
@@ -244,7 +244,7 @@ export async function searchFileRag(input: {
   const schift = getSchiftClient();
   if (!schift) return { context: "", sources: [] };
 
-  const count = input.matchCount ?? 5;
+  const count = input.matchCount ?? 7;
 
   try {
     const [response, disabledIds] = await Promise.all([
