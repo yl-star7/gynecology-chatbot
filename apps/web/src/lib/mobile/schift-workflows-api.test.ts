@@ -191,4 +191,68 @@ describe("createDefaultInternalAnswerWorkflow", () => {
       expect.objectContaining({ method: "PATCH" }),
     );
   });
+
+  it("reuses healthy canonical workflows without recreating them", async () => {
+    const createMock = jest.fn();
+    const SchiftMock = require("@schift-io/sdk").Schift as jest.Mock;
+    SchiftMock.mockImplementation(() => ({
+      workflows: {
+        create: createMock,
+      },
+    }));
+
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/v1/workflows")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "wf-existing",
+              name: "모성간호 상담 응답",
+              status: "published",
+              graph: {
+                nodes: [{ id: "start" }],
+                blocks: [{ id: "start" }],
+                edges: [],
+              },
+            },
+          ],
+        } as Response;
+      }
+      if (url.includes("/v1/workflows/wf-existing")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "wf-existing",
+            name: "모성간호 상담 응답",
+            description: "updated",
+            graph: { blocks: [{ id: "start" }], edges: [] },
+            status: "published",
+          }),
+        } as Response;
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    (supabaseSelect as jest.Mock)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    (supabaseInsert as jest.Mock).mockResolvedValueOnce([]);
+
+    await createDefaultInternalAnswerWorkflow();
+
+    expect(createMock).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      expect.stringContaining("/v1/workflows/wf-existing"),
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ status: "archived" }),
+      }),
+    );
+    expect(supabaseInsert).toHaveBeenCalledWith(
+      "workflow_definitions",
+      expect.objectContaining({ id: "wf-existing", provider: "schift" }),
+    );
+  });
 });
