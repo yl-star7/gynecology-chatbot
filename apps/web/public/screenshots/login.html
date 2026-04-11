@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif; background: #fff7fb; width: 414px; height: 896px; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.container { width: 100%; padding: 0 32px; display: flex; flex-direction: column; align-items: center; }
+.brand { text-align: center; margin-bottom: 40px; }
+.brand-icon { width: 80px; height: 80px; background: linear-gradient(135deg, #f6b8c9, #e8a0b5); border-radius: 20px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-size: 40px; }
+.brand-name { font-size: 32px; font-weight: 700; color: #333; margin-bottom: 8px; }
+.brand-sub { font-size: 15px; color: #888; }
+.card { background: #fff; border-radius: 16px; padding: 28px 24px; width: 100%; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.field { margin-bottom: 20px; }
+.label { font-size: 14px; font-weight: 600; color: #555; margin-bottom: 8px; display: block; }
+.input { width: 100%; height: 48px; border: 1.5px solid #e0e0e0; border-radius: 12px; padding: 0 16px; font-size: 16px; color: #333; background: #fafafa; }
+.input::placeholder { color: #bbb; }
+.btn { width: 100%; height: 52px; border: none; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+.btn-secondary { background: #f0e6eb; color: #d76c8a; }
+.btn-primary { background: linear-gradient(135deg, #d76c8a, #c45a78); color: #fff; margin-top: 12px; }
+.status-bar { width: 100%; height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; position: absolute; top: 0; }
+.status-time { font-size: 15px; font-weight: 600; }
+.status-icons { display: flex; gap: 6px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="status-bar">
+  <span class="status-time">9:41</span>
+  <span class="status-icons">📶 📡 🔋</span>
+</div>
+<div class="container">
+  <div class="brand">
+    <div class="brand-icon">👶</div>
+    <div class="brand-name">아가야</div>
+    <div class="brand-sub">산모와 아기를 위한 다정한 상담</div>
+  </div>
+  <div class="card">
+    <div class="field">
+      <span class="label">전화번호</span>
+      <input class="input" placeholder="01012345678" value="010-2678-4241">
+    </div>
+    <div class="field">
+      <span class="label">인증번호</span>
+      <input class="input" placeholder="6자리 숫자">
+    </div>
+    <button class="btn btn-secondary">인증번호 받기</button>
+    <button class="btn btn-primary">시작하기</button>
+  </div>
+</div>
+</body>
+</html>
