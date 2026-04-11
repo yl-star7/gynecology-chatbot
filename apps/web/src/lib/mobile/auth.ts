@@ -415,6 +415,7 @@ async function upsertPhoneUser(
   const storage = createPhoneNumberStorage(phoneNumber);
   const payload = {
     id: userId,
+    phone_number: storage.phoneNumberBlindIndex,
     phone_number_encrypted: storage.phoneNumberEncrypted,
     phone_number_blind_index: storage.phoneNumberBlindIndex,
     phone_number_last4: storage.phoneNumberLast4,
