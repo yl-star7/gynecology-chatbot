@@ -40,7 +40,8 @@ function createAdminWorkflowAPI(): WorkflowEditorAPI {
     const rawBlocks = Array.isArray(graph.blocks) ? graph.blocks : [];
     const blocks = nodes.length > 0 ? nodes : rawBlocks;
     const edges = graph.edges ?? [];
-    return { ...wf, graph: { ...graph, blocks, nodes: blocks, edges } };
+    const normalizedGraph: Workflow["graph"] = { ...graph, blocks, edges };
+    return { ...wf, graph: normalizedGraph };
   }
 
   return {
