@@ -36,6 +36,14 @@ export function parseWorkflowAssistantPayload(
     return null;
   }
 
+  // Schift workflow는 { result: { text: "...", usage: {...} } } 형태로 반환한다
+  const nestedText =
+    outputs.result &&
+    typeof outputs.result === "object" &&
+    typeof (outputs.result as Record<string, unknown>).text === "string"
+      ? ((outputs.result as Record<string, unknown>).text as string)
+      : null;
+
   const directAnswer =
     typeof outputs.answer === "string"
       ? outputs.answer
@@ -43,7 +51,7 @@ export function parseWorkflowAssistantPayload(
         ? outputs.reply
         : typeof outputs.result === "string"
           ? outputs.result
-          : null;
+          : nestedText;
 
   const directPayload = {
     answer:
