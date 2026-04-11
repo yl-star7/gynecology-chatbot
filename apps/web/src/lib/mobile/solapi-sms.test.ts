@@ -25,7 +25,9 @@ describe("solapi-sms", () => {
     expect(normalizePhoneNumberToE164("+821012345678")).toBe("+821012345678");
   });
 
-  test("uses local fallback when Solapi is not configured", async () => {
+  test("uses local fallback when Solapi is not configured outside production", async () => {
+    process.env.NODE_ENV = "test";
+
     await expect(sendSmsVerification("01012345678")).resolves.toEqual({
       sid: "mock-verification",
       status: "pending",
@@ -37,6 +39,22 @@ describe("solapi-sms", () => {
       status: "approved",
       to: "+821012345678",
     });
+  });
+
+  test("fails fast in production when Solapi config is missing", async () => {
+    process.env.NODE_ENV = "production";
+
+    await expect(sendSmsVerification("01012345678")).rejects.toThrow(
+      "문자 발송 설정이 비어 있어요. 운영 환경 설정을 확인해 주세요.",
+    );
+
+    await expect(checkSmsVerification("01012345678", "1234")).rejects.toThrow(
+      "문자 발송 설정이 비어 있어요. 운영 환경 설정을 확인해 주세요.",
+    );
+
+    await expect(sendSmsMessage("01012345678", "안내 문자")).rejects.toThrow(
+      "문자 발송 설정이 비어 있어요. 운영 환경 설정을 확인해 주세요.",
+    );
   });
 
   test("calls Solapi API when configured", async () => {

@@ -15,6 +15,13 @@ type SolapiConfig = {
   senderNumber: string;
 };
 
+const SMS_CONFIG_ERROR_MESSAGE =
+  "문자 발송 설정이 비어 있어요. 운영 환경 설정을 확인해 주세요.";
+
+function isMockSmsAllowed() {
+  return process.env.NODE_ENV !== "production";
+}
+
 function getSolapiConfig(): SolapiConfig | null {
   const apiKey = process.env.SOLAPI_API_KEY;
   const apiSecret = process.env.SOLAPI_API_SECRET;
@@ -166,6 +173,10 @@ export async function sendSmsVerification(phoneNumber: string) {
   const config = getSolapiConfig();
 
   if (!config) {
+    if (!isMockSmsAllowed()) {
+      throw new Error(SMS_CONFIG_ERROR_MESSAGE);
+    }
+
     return {
       sid: "mock-verification",
       status: "pending",
@@ -202,6 +213,10 @@ export async function checkSmsVerification(
   const config = getSolapiConfig();
 
   if (!config) {
+    if (!isMockSmsAllowed()) {
+      throw new Error(SMS_CONFIG_ERROR_MESSAGE);
+    }
+
     if (code.length < 4) {
       throw new Error("인증 코드를 확인해 주세요.");
     }
@@ -253,6 +268,10 @@ export async function sendSmsMessage(phoneNumber: string, body: string) {
   const config = getSolapiConfig();
 
   if (!config) {
+    if (!isMockSmsAllowed()) {
+      throw new Error(SMS_CONFIG_ERROR_MESSAGE);
+    }
+
     return {
       sid: "mock-message",
       status: "queued",

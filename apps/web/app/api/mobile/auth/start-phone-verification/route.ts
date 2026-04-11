@@ -54,12 +54,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error("mobile start phone verification route error", error);
+
+    const isSmsConfigError =
+      error instanceof Error &&
+      error.message.includes("문자 발송 설정이 비어 있어요");
+
     return NextResponse.json(
       {
-        error:
-          "인증 요청을 진행하지 못했어요. 입력한 정보를 다시 확인해주세요.",
+        error: isSmsConfigError
+          ? "지금은 인증번호를 보낼 수 없어요. 잠시 후 다시 시도해 주세요."
+          : "인증 요청을 진행하지 못했어요. 입력한 정보를 다시 확인해주세요.",
       },
-      { status: 400 },
+      { status: isSmsConfigError ? 503 : 400 },
     );
   }
 }

@@ -30,19 +30,49 @@ describe("POST /api/mobile/auth/start-phone-verification", () => {
     );
 
     const response = await POST(
-      new Request("http://localhost:3000/api/mobile/auth/start-phone-verification", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-forwarded-for": "1.2.3.4",
+      new Request(
+        "http://localhost:3000/api/mobile/auth/start-phone-verification",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-forwarded-for": "1.2.3.4",
+          },
+          body: JSON.stringify({ phoneNumber: "01012345678" }),
         },
-        body: JSON.stringify({ phoneNumber: "01012345678" }),
-      }) as never,
+      ) as never,
     );
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       error: "인증 요청을 진행하지 못했어요. 입력한 정보를 다시 확인해주세요.",
+    });
+  });
+
+  test("returns service unavailable when SMS config is missing in production", async () => {
+    mockedStartPhoneVerification.mockRejectedValue(
+      new Error(
+        "문자 발송 설정이 비어 있어요. 운영 환경 설정을 확인해 주세요.",
+      ),
+    );
+
+    const response = await POST(
+      new Request(
+        "http://localhost:3000/api/mobile/auth/start-phone-verification",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-forwarded-for": "1.2.3.4",
+          },
+          body: JSON.stringify({ phoneNumber: "01012345678" }),
+        },
+      ) as never,
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "지금은 인증번호를 보낼 수 없어요. 잠시 후 다시 시도해 주세요.",
     });
   });
 
@@ -54,14 +84,17 @@ describe("POST /api/mobile/auth/start-phone-verification", () => {
     });
 
     const response = await POST(
-      new Request("http://localhost:3000/api/mobile/auth/start-phone-verification", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-forwarded-for": "1.2.3.4",
+      new Request(
+        "http://localhost:3000/api/mobile/auth/start-phone-verification",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-forwarded-for": "1.2.3.4",
+          },
+          body: JSON.stringify({ phoneNumber: "01012345678" }),
         },
-        body: JSON.stringify({ phoneNumber: "01012345678" }),
-      }) as never,
+      ) as never,
     );
 
     expect(response.status).toBe(429);
