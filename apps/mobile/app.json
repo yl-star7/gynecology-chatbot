@@ -13,7 +13,9 @@
       "bundleIdentifier": "com.gynecology.chatbot",
       "buildNumber": "1",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "infoPlist": {}
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.gynecology.chatbot",
