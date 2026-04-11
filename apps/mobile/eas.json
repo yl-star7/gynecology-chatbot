@@ -23,6 +23,9 @@
     },
     "production": {
       "autoIncrement": true,
+      "ios": {
+        "image": "macos-sequoia-xcode-26"
+      },
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://gynecology-chatbot.vercel.app",
         "EXPO_PUBLIC_WEB_URL": "https://gynecology-chatbot.vercel.app"
