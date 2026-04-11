@@ -18,6 +18,18 @@ function hasRunnableGraph(workflow: Workflow) {
   return blockCount > 0 || nodeCount > 0;
 }
 
+function hasMalformedGraph(workflow: Workflow) {
+  const graph = workflow.graph as Workflow["graph"] & {
+    nodes?: Workflow["graph"]["blocks"];
+  };
+
+  const blockCount = Array.isArray(graph.blocks) ? graph.blocks.length : 0;
+  const nodeCount = Array.isArray(graph.nodes) ? graph.nodes.length : 0;
+  const edgeCount = Array.isArray(graph.edges) ? graph.edges.length : 0;
+
+  return edgeCount > 0 && blockCount === 0 && nodeCount === 0;
+}
+
 function getSchiftApiKey() {
   const apiKey = process.env.SCHIFT_API_KEY;
   if (!apiKey) {
@@ -116,17 +128,26 @@ export async function listSchiftWorkflows(): Promise<Workflow[]> {
 export async function createDefaultInternalAnswerWorkflow() {
   const wfDef = loadMaternalNursingWorkflow();
   const workflows = await listSchiftWorkflows();
-  const existing = workflows.find((workflow) => workflow.name === wfDef.name);
+  const existing = workflows.find(
+    (workflow) =>
+      workflow.name === wfDef.name &&
+      workflow.status === "published" &&
+      hasRunnableGraph(workflow) &&
+      !hasMalformedGraph(workflow),
+  );
+  const malformed = workflows.find(
+    (workflow) => workflow.name === wfDef.name && hasMalformedGraph(workflow),
+  );
   const schiftClient = getSchiftClientOrThrow();
 
   const graph = wfDef.graph;
 
-  let baseWorkflow = existing;
+  let baseWorkflow = existing ?? null;
 
-  if (!baseWorkflow || !hasRunnableGraph(baseWorkflow)) {
-    if (baseWorkflow && !hasRunnableGraph(baseWorkflow)) {
+  if (!baseWorkflow) {
+    if (malformed) {
       try {
-        await patchSchiftWorkflow(baseWorkflow.id, {
+        await patchSchiftWorkflow(malformed.id, {
           status: "archived",
         });
       } catch (error) {

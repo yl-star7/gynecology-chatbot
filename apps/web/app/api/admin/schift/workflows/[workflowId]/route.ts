@@ -10,11 +10,29 @@ type Ctx = { params: Promise<{ workflowId: string }> };
  * nodes가 비어있으면 edges의 source/target에서 블록을 재구성하고,
  * graph.nodes → graph.blocks 동기화도 처리한다.
  */
-function normalizeGraph(data: Record<string, unknown>): Record<string, unknown> {
+function readPreferredBlocks(
+  graph: Record<string, unknown>,
+): Record<string, unknown>[] {
+  const nodes = Array.isArray(graph.nodes)
+    ? (graph.nodes as Record<string, unknown>[])
+    : [];
+  if (nodes.length > 0) return nodes;
+
+  const blocks = Array.isArray(graph.blocks)
+    ? (graph.blocks as Record<string, unknown>[])
+    : [];
+  if (blocks.length > 0) return blocks;
+
+  return [];
+}
+
+function normalizeGraph(
+  data: Record<string, unknown>,
+): Record<string, unknown> {
   const graph = data.graph as Record<string, unknown> | undefined;
   if (!graph) return data;
 
-  let blocks = (graph.nodes ?? graph.blocks ?? []) as Record<string, unknown>[];
+  let blocks = readPreferredBlocks(graph);
 
   // Schift API가 nodes를 저장 못 하는 경우 edges에서 블록 구조 복원
   if (blocks.length === 0) {
@@ -45,7 +63,11 @@ function normalizeGraph(data: Record<string, unknown>): Record<string, unknown> 
 
     const configMap: Record<string, Record<string, unknown>> = {
       retriever: { collection: "pregnancy-knowledge", top_k: 8 },
-      llm: { model: "gemini-2.5-flash-lite", temperature: 0.1, max_tokens: 1024 },
+      llm: {
+        model: "gemini-2.5-flash-lite",
+        temperature: 0.1,
+        max_tokens: 1024,
+      },
       answer: { format: "json", include_sources: true },
     };
 
@@ -76,15 +98,23 @@ function normalizeGraph(data: Record<string, unknown>): Record<string, unknown> 
 /** GET /api/admin/schift/workflows/:id — get workflow detail (with graph) */
 export async function GET(_req: NextRequest, ctx: Ctx) {
   const admin = await readAdminSessionUser();
-  if (!admin) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!admin)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const schift = getSchiftClient();
-  if (!schift) return NextResponse.json({ error: "SCHIFT_API_KEY not configured" }, { status: 503 });
+  if (!schift)
+    return NextResponse.json(
+      { error: "SCHIFT_API_KEY not configured" },
+      { status: 503 },
+    );
 
   try {
     const { workflowId } = await ctx.params;
     const workflow = await schift.workflows.get(workflowId);
-    const plain = JSON.parse(JSON.stringify(workflow)) as Record<string, unknown>;
+    const plain = JSON.parse(JSON.stringify(workflow)) as Record<
+      string,
+      unknown
+    >;
     return NextResponse.json(normalizeGraph(plain));
   } catch (error) {
     const msg = error instanceof Error ? error.message : "failed";
@@ -96,7 +126,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 /** PATCH /api/admin/schift/workflows/:id — update workflow */
 export async function PATCH(request: NextRequest, ctx: Ctx) {
   const admin = await readAdminSessionUser();
-  if (!admin) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!admin)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   try {
     const { workflowId } = await ctx.params;
@@ -109,23 +140,34 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     const plain = JSON.parse(JSON.stringify(result)) as Record<string, unknown>;
     return NextResponse.json(normalizeGraph(plain));
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "failed" },
+      { status: 500 },
+    );
   }
 }
 
 /** DELETE /api/admin/schift/workflows/:id — delete workflow */
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
   const admin = await readAdminSessionUser();
-  if (!admin) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!admin)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const schift = getSchiftClient();
-  if (!schift) return NextResponse.json({ error: "SCHIFT_API_KEY not configured" }, { status: 503 });
+  if (!schift)
+    return NextResponse.json(
+      { error: "SCHIFT_API_KEY not configured" },
+      { status: 503 },
+    );
 
   try {
     const { workflowId } = await ctx.params;
     await schift.workflows.delete(workflowId);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "failed" },
+      { status: 500 },
+    );
   }
 }

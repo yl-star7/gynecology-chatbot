@@ -36,9 +36,11 @@ function createAdminWorkflowAPI(): WorkflowEditorAPI {
     const graph = wf.graph as Workflow["graph"] & {
       nodes?: Workflow["graph"]["blocks"];
     };
-    const blocks = graph.blocks ?? graph.nodes ?? [];
+    const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+    const rawBlocks = Array.isArray(graph.blocks) ? graph.blocks : [];
+    const blocks = nodes.length > 0 ? nodes : rawBlocks;
     const edges = graph.edges ?? [];
-    return { ...wf, graph: { ...graph, blocks, edges } };
+    return { ...wf, graph: { ...graph, blocks, nodes: blocks, edges } };
   }
 
   return {
