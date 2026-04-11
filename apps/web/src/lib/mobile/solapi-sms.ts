@@ -186,7 +186,7 @@ export async function sendSmsVerification(phoneNumber: string) {
 
   const code = generateOtpCode();
   const codeHash = hashOtpCode(code);
-  const messageBody = `[너스싱크] 인증번호: ${code}\n3분 내에 입력해주세요.`;
+  const messageBody = `[아가야] 인증번호: ${code}\n3분 내에 입력해주세요.`;
 
   await sendViaSolapi(config, to, messageBody);
 
