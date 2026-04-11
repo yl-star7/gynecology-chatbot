@@ -77,17 +77,20 @@ export function parseWorkflowAssistantPayload(
     directPayload.guardrailStatus ||
     directPayload.guardrailReason ||
     directPayload.scenario ||
-    (outputs.nextSessionMemory && typeof outputs.nextSessionMemory === "object") ||
+    (outputs.nextSessionMemory &&
+      typeof outputs.nextSessionMemory === "object") ||
     (outputs.nextProfileMemory && typeof outputs.nextProfileMemory === "object")
   ) {
     return {
       ...directPayload,
       nextSessionMemory:
-        outputs.nextSessionMemory && typeof outputs.nextSessionMemory === "object"
+        outputs.nextSessionMemory &&
+        typeof outputs.nextSessionMemory === "object"
           ? (outputs.nextSessionMemory as SessionMemoryPayload)
           : undefined,
       nextProfileMemory:
-        outputs.nextProfileMemory && typeof outputs.nextProfileMemory === "object"
+        outputs.nextProfileMemory &&
+        typeof outputs.nextProfileMemory === "object"
           ? (outputs.nextProfileMemory as ProfileMemoryPayload)
           : undefined,
     };
@@ -97,8 +100,14 @@ export function parseWorkflowAssistantPayload(
     return null;
   }
 
+  // LLM이 ```json ... ``` 으로 감싸는 경우 제거
+  const stripped = directAnswer
+    .replace(/^```(?:json)?\s*\n?/i, "")
+    .replace(/\n?```\s*$/i, "")
+    .trim();
+
   try {
-    const parsed = JSON.parse(directAnswer) as WorkflowAssistantPayload;
+    const parsed = JSON.parse(stripped) as WorkflowAssistantPayload;
     if (
       (typeof parsed.answer === "string" && parsed.answer.trim()) ||
       typeof parsed.characterTone === "string" ||
