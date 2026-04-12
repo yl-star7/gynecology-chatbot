@@ -37,7 +37,7 @@ export function PatientTodayTabs({
               size={space.lg + space.xs}
               color={isActive ? palette.accent : surface.textSecondary}
             />
-            <Text style={[styles.label, isActive ? styles.labelActive : null]}>{section.label}</Text>
+            <Text style={[styles.label, isActive ? styles.labelActive : null]} numberOfLines={1}>{section.label}</Text>
           </Pressable>
         );
       })}
@@ -55,13 +55,12 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    borderRadius: radii.full,
-    paddingHorizontal: space.sm,
+    borderRadius: radii.xl,
+    paddingHorizontal: space.xs,
     paddingVertical: space.sm,
-    flexDirection: "row",
     alignItems: "center",
-    gap: space.xs,
     justifyContent: "center",
+    gap: 2,
     backgroundColor: surface.surfaceSecondary,
   },
   tabActive: {
@@ -69,8 +68,9 @@ const styles = StyleSheet.create({
   },
   label: {
     ...typo.label,
+    fontSize: 11,
     color: surface.textSecondary,
-    flexShrink: 1,
+    textAlign: "center",
   },
   labelActive: {
     color: palette.accent,
