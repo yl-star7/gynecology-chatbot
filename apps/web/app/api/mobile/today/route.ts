@@ -207,9 +207,9 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const hintedUserId = request.nextUrl.searchParams.get("userId");
-    const { userId } = await requireMobileSession(request, hintedUserId);
     const body = await request.json();
+    const hintedUserId = typeof body.userId === "string" ? body.userId : "";
+    const { userId } = await requireMobileSession(request, hintedUserId);
     const checklistId =
       typeof body.checklistId === "string" ? body.checklistId : "";
     const completed = Boolean(body.completed);
@@ -250,11 +250,14 @@ export async function PATCH(request: NextRequest) {
     const nextStatus = completed ? "completed" : "opened";
 
     if (existingEvents[0]?.id) {
-      await supabaseUpdate(`user_checklist_events?id=eq.${existingEvents[0].id}`, {
-        status: nextStatus,
-        completed_at: completed ? now : null,
-        updated_at: now,
-      });
+      await supabaseUpdate(
+        `user_checklist_events?id=eq.${existingEvents[0].id}`,
+        {
+          status: nextStatus,
+          completed_at: completed ? now : null,
+          updated_at: now,
+        },
+      );
     } else {
       await supabaseInsert("user_checklist_events", {
         user_id: userId,

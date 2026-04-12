@@ -433,10 +433,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const client = getSupabaseAdminClient();
-    const hintedUserId = request.nextUrl.searchParams.get("userId");
+    const body = await request.json();
+    const hintedUserId = typeof body.userId === "string" ? body.userId : "";
     const { userId } = await requireMobileSession(request, hintedUserId);
 
-    const body = await request.json();
     const { sessionId, emotionTone } = body as {
       sessionId: string;
       emotionTone: string;
@@ -465,7 +465,8 @@ export async function POST(request: NextRequest) {
       throw profileError;
     }
     const existingOnboardingPayload =
-      (profiles?.[0]?.onboarding_payload as StoredOnboardingPayload | null) ?? {};
+      (profiles?.[0]?.onboarding_payload as StoredOnboardingPayload | null) ??
+      {};
 
     const { error: insertError } = await client.from("calendar_logs").insert({
       user_id: userId,
