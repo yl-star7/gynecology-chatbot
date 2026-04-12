@@ -258,7 +258,7 @@ export function AdminWeekOverlay({
                     <option value="archived">보관됨</option>
                   </select>
                   <small style={{ color: "var(--admin-text-soft)" }}>
-                    게시는 검수 후 게시 버튼으로만 진행해 주세요.
+                    상태를 변경한 뒤 저장 버튼을 눌러주세요.
                   </small>
                 </div>
                 <div className={styles.panelStat}>
@@ -1069,20 +1069,15 @@ export function AdminWeekOverlay({
         </div>
         <div className={styles.overlayFooter}>
           <button
-            className={styles.secondaryButton}
-            type="button"
-            disabled={isWeekSaving || isLoadingWeeks || !selectedWeekDetail}
-            onClick={onPublishWeek}
-          >
-            검수 후 게시
-          </button>
-          <button
             className={styles.primaryButton}
             type="button"
             disabled={isWeekSaving || isLoadingWeeks || !selectedWeekDetail}
-            onClick={onSaveWeek}
+            onClick={async () => {
+              await onSaveWeek();
+              onClose();
+            }}
           >
-            주차 저장
+            저장
           </button>
         </div>
       </aside>

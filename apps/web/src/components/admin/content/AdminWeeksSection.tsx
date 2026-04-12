@@ -274,24 +274,8 @@ export function AdminWeeksSection({
                     </h3>
                   </div>
                   <div className={styles.topbarActions}>
-                    <a
-                      className={styles.secondaryButton}
-                      href="/admin/content/weeks-preview"
-                    >
-                      검수 프리뷰
-                    </a>
                     <button
                       className={styles.primaryButton}
-                      type="button"
-                      disabled={isWeekSaving}
-                      onClick={() => {
-                        void onPublishWeek();
-                      }}
-                    >
-                      검수 후 게시
-                    </button>
-                    <button
-                      className={styles.secondaryButton}
                       type="button"
                       onClick={() => setIsOverlayOpen(true)}
                     >
