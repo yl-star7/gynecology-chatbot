@@ -29,6 +29,7 @@ export class RateLimitError extends Error {
 type MobileFetch = typeof fetch;
 
 let currentMobileSessionToken: string | null = null;
+let currentMobileUserId: string | null = null;
 
 interface MobileApiClientOptions {
   fetchImpl?: MobileFetch;
@@ -124,6 +125,14 @@ export function readCurrentMobileSessionToken() {
 
 export function storeCurrentMobileSessionToken(sessionToken: string | null) {
   currentMobileSessionToken = sessionToken;
+}
+
+export function readCurrentMobileUserId() {
+  return currentMobileUserId;
+}
+
+export function storeCurrentMobileUserId(userId: string | null) {
+  currentMobileUserId = userId;
 }
 
 export function createMobileApiClient(options: MobileApiClientOptions = {}): MobileApiClient {

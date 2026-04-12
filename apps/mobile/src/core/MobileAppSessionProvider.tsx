@@ -4,6 +4,7 @@ import {
   fetchCurrentMobileSession,
   readCurrentMobileSessionToken,
   storeCurrentMobileSessionToken,
+  storeCurrentMobileUserId,
 } from "../api/mobileApi";
 import { useMobileServices } from "./MobileServicesProvider";
 import { clearMockMobileCurrentUser, readMockMobileRuntime } from "./mockMobileRuntime";
@@ -50,11 +51,13 @@ export function MobileAppSessionProvider({ children }: { children: React.ReactNo
       try {
         const payload = await fetchCurrentMobileSession();
         if (!cancelled) {
+          storeCurrentMobileUserId(payload.user.id);
           setCurrentUser(payload.user);
         }
       } catch {
         if (!cancelled) {
           storeCurrentMobileSessionToken(null);
+          storeCurrentMobileUserId(null);
           await clearNativeSessionToken();
         }
       }
@@ -81,6 +84,7 @@ export function MobileAppSessionProvider({ children }: { children: React.ReactNo
         if (sessionToken) {
           await persistNativeSessionToken(sessionToken);
         }
+        storeCurrentMobileUserId(nextUser.id);
         setCurrentUser(nextUser);
         return nextUser;
       },
@@ -91,6 +95,7 @@ export function MobileAppSessionProvider({ children }: { children: React.ReactNo
       },
       async signOut() {
         storeCurrentMobileSessionToken(null);
+        storeCurrentMobileUserId(null);
         await clearNativeSessionToken();
         clearMockMobileCurrentUser();
         setCurrentUser(null);

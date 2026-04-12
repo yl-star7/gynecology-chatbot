@@ -13,7 +13,7 @@ import type {
   OnboardingPort,
   TodayPort,
 } from "@gynecology-chatbot/app-core";
-import { createMobileApiClient } from "../api/mobileApi";
+import { createMobileApiClient, readCurrentMobileUserId } from "../api/mobileApi";
 import {
   ApiKnowledgeAdapter,
   ApiMobileAuthAdapter,
@@ -83,6 +83,11 @@ export function createMobileServices(
     const userId = options.getUserId?.();
     if (userId) {
       return userId;
+    }
+
+    const mobileUserId = readCurrentMobileUserId();
+    if (mobileUserId) {
+      return mobileUserId;
     }
 
     const runtimeUserId = readMockMobileRuntime().currentUser?.id;
