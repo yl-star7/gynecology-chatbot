@@ -65,7 +65,7 @@ export function PatientHomeScreen() {
       headerCompact
     >
       <ScrollView
-        scrollEnabled={false}
+        scrollEnabled
         contentContainerStyle={[styles.content, contentInsets]}
         showsVerticalScrollIndicator={false}
         refreshControl={
