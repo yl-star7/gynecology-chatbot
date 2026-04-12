@@ -11,8 +11,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ChatSessionsProvider } from "../src/chat/store";
 import { MobileAppSessionProvider } from "../src/core/MobileAppSessionProvider";
 import { MobileServicesProvider } from "../src/core/MobileServicesProvider";
-import { usePushNotifications } from "../hooks/usePushNotifications";
-import { readCurrentMobileSessionToken } from "../src/api/mobileApi";
+import { PushTokenRegistrar } from "../src/components/PushTokenRegistrar";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -21,33 +20,11 @@ export default function RootLayout() {
     SplashScreen.hideAsync();
   }, []);
 
-  const { expoPushToken } = usePushNotifications();
-
-  useEffect(() => {
-    if (!expoPushToken) return;
-
-    const apiBaseUrl = (process.env.EXPO_PUBLIC_API_BASE_URL ?? "").replace(
-      /\/$/,
-      "",
-    );
-    const sessionToken = readCurrentMobileSessionToken();
-
-    fetch(`${apiBaseUrl}/api/mobile/push/register`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
-      },
-      body: JSON.stringify({ pushToken: expoPushToken }),
-    }).catch((error) => {
-      console.error("Failed to register push token:", error);
-    });
-  }, [expoPushToken]);
-
   return (
     <SafeAreaProvider>
       <MobileServicesProvider>
         <MobileAppSessionProvider>
+          <PushTokenRegistrar />
           <ChatSessionsProvider>
             <StatusBar style="dark" />
             <Stack>

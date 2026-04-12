@@ -105,10 +105,12 @@ function getEnvApiBaseUrl() {
 }
 
 function getEnvUserId() {
-  return (
-    currentMobileUserId ??
-    process.env.EXPO_PUBLIC_DEV_USER_ID ??
-    "local-user-demo"
+  if (currentMobileUserId) return currentMobileUserId;
+  if (__DEV__) {
+    return process.env.EXPO_PUBLIC_DEV_USER_ID ?? "local-user-demo";
+  }
+  throw new Error(
+    "User ID is not available. Ensure session is restored before making API calls.",
   );
 }
 
@@ -419,90 +421,16 @@ export function createMobileApiClient(
   };
 }
 
-const defaultClient = createMobileApiClient();
-
-export function requestPhoneVerification(input: { phoneNumber: string }) {
-  return defaultClient.requestPhoneVerification(input);
-}
-
-export function signInWithPhoneVerification(input: {
-  phoneNumber: string;
-  verificationCode: string;
-}) {
-  return defaultClient.signInWithPhoneVerification(input);
-}
-
-export function fetchCurrentMobileSession() {
-  return defaultClient.fetchCurrentMobileSession();
-}
-
-export function completeOnboarding(
-  input: { userId: string } & OnboardingProfileInput,
-) {
-  return defaultClient.completeOnboarding(input);
-}
-
-export function fetchHome(month?: string) {
-  return defaultClient.fetchHome(month);
-}
-
-export function fetchMobileProfile() {
-  return defaultClient.fetchMobileProfile();
-}
-
-export function fetchTodayView() {
-  return defaultClient.fetchTodayView();
-}
-
-export function updateTodayChecklistItem(input: {
-  checklistId: string;
-  completed: boolean;
-}) {
-  return defaultClient.updateTodayChecklistItem(input);
-}
-
-export function markTodayInfoViewed() {
-  return defaultClient.markTodayInfoViewed();
-}
-
-export function fetchSessions() {
-  return defaultClient.fetchSessions();
-}
-
-export function fetchRecordDay(isoDate: string) {
-  return defaultClient.fetchRecordDay(isoDate);
-}
-
-export function fetchSession(sessionId: string) {
-  return defaultClient.fetchSession(sessionId);
-}
-
-export function fetchContentItems(section: "knowledge" | "notebook") {
-  return defaultClient.fetchContentItems(section);
-}
-
-export function fetchLinkTarget(target: string, entityId?: string) {
-  return defaultClient.fetchLinkTarget(target, entityId);
-}
-
-export function updateMobileProfile(input: {
-  userId: string;
-  displayName: string;
-  dueDate?: string | null;
-  tonePreference: string;
-  babyNickname?: string | null;
-  hospitalName?: string | null;
-  notificationTime?: string | null;
-  themeKey?: MobileProfileViewData["themeKey"];
-}) {
-  return defaultClient.updateMobileProfile(input);
-}
-
-export function sendChatMessage(input: {
-  sessionId: string;
-  text: string;
-  pregnancyWeek?: number;
-  imageDataUris: string[];
-}) {
-  return defaultClient.sendChatMessage(input);
+export async function fetchCurrentMobileSession() {
+  const apiBaseUrl = getEnvApiBaseUrl();
+  const headers: Record<string, string> = {};
+  const token = readCurrentMobileSessionToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  const response = await fetch(`${apiBaseUrl}/api/mobile/auth/session`, {
+    method: "GET",
+    headers,
+  });
+  return parseJson<{ user: AuthenticatedUser }>(response);
 }

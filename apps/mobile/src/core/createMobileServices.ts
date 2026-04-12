@@ -13,7 +13,10 @@ import type {
   OnboardingPort,
   TodayPort,
 } from "@gynecology-chatbot/app-core";
-import { createMobileApiClient, readCurrentMobileUserId } from "../api/mobileApi";
+import {
+  createMobileApiClient,
+  readCurrentMobileUserId,
+} from "../api/mobileApi";
 import {
   ApiKnowledgeAdapter,
   ApiMobileAuthAdapter,
@@ -95,7 +98,12 @@ export function createMobileServices(
       return runtimeUserId;
     }
 
-    return process.env.EXPO_PUBLIC_DEV_USER_ID ?? "local-user-demo";
+    if (__DEV__) {
+      return process.env.EXPO_PUBLIC_DEV_USER_ID ?? "local-user-demo";
+    }
+    throw new Error(
+      "User ID is not available. Ensure session is restored before making API calls.",
+    );
   };
 
   if (provider === "api") {
