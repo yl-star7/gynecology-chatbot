@@ -50,7 +50,11 @@ export function MobileAppSessionProvider({
       }
 
       const inMemoryToken = readCurrentMobileSessionToken();
-      const persistedToken = inMemoryToken ?? (await readNativeSessionToken());
+      const persistedToken =
+        inMemoryToken ??
+        (await readNativeSessionToken()) ??
+        (__DEV__ ? process.env.EXPO_PUBLIC_DEV_SESSION_TOKEN : null) ??
+        null;
 
       if (!persistedToken) {
         return;
