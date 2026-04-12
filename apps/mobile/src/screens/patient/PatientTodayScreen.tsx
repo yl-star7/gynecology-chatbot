@@ -79,6 +79,8 @@ export function PatientTodayScreen() {
   >(null);
   const [text, setText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [lastSentText, setLastSentText] = useState<string | null>(null);
   const [pendingChecklistIds, setPendingChecklistIds] = useState<string[]>([]);
   const conversationLayout = buildTodayConversationLayout();
   const contentInsets = buildPatientTabContentInsets({
@@ -166,6 +168,8 @@ export function PatientTodayScreen() {
       createUserMessage(nextText),
     );
     setText("");
+    setSendError(null);
+    setLastSentText(nextText);
     setIsSending(true);
 
     try {
@@ -185,8 +189,16 @@ export function PatientTodayScreen() {
           }
         }, 1500);
       }
+    } catch {
+      setSendError("메시지를 보내지 못했어요.");
     } finally {
       setIsSending(false);
+    }
+  }
+
+  function handleRetry() {
+    if (lastSentText) {
+      handleSend(lastSentText);
     }
   }
 
@@ -450,10 +462,10 @@ export function PatientTodayScreen() {
                 </View>
               ) : (
                 <View style={styles.messageList}>
-                  {session.messages.map((message) => {
+                  {session.messages.map((message, index) => {
                     if (message.role === "assistant") {
                       return (
-                        <View key={message.id} style={styles.assistantColumn}>
+                        <View key={message.id ?? `assistant-${index}`} style={styles.assistantColumn}>
                           <NurseCharacter size="sm" />
                           <View
                             style={[
@@ -483,7 +495,7 @@ export function PatientTodayScreen() {
 
                     return (
                       <View
-                        key={message.id}
+                        key={message.id ?? `user-${index}`}
                         style={[styles.messageBubble, styles.userBubble]}
                       >
                         {imageParts.map((part) =>
@@ -516,6 +528,24 @@ export function PatientTodayScreen() {
 
         {activeSection === "conversation" ? (
           <Card variant="muted" style={styles.conversationComposerCard}>
+            {!today || today.babyBody === "오늘 아기의 변화를 준비 중이에요." ? (
+              <Pressable
+                style={styles.onboardingNudge}
+                onPress={() => router.push("/onboarding")}
+              >
+                <Text style={styles.onboardingNudgeText}>
+                  내 정보를 등록하면 주차별 맞춤 상담을 받을 수 있어요
+                </Text>
+              </Pressable>
+            ) : null}
+            {sendError ? (
+              <View style={styles.errorRow}>
+                <Text style={styles.errorText}>{sendError}</Text>
+                <Pressable style={styles.retryButton} onPress={handleRetry}>
+                  <Text style={styles.retryText}>다시 시도</Text>
+                </Pressable>
+              </View>
+            ) : null}
             <View style={styles.composerRow}>
               <TextInput
                 style={styles.input}
@@ -782,5 +812,40 @@ const styles = StyleSheet.create({
     height: 160,
     borderRadius: radii.lg,
     backgroundColor: surface.fieldSurface,
+  },
+  onboardingNudge: {
+    backgroundColor: surface.surfaceAccent,
+    borderRadius: radii.lg,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+    marginBottom: space.sm,
+  },
+  onboardingNudgeText: {
+    ...typo.caption,
+    color: palette.accent,
+    textAlign: "center",
+  },
+  errorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: space.sm,
+    paddingBottom: space.sm,
+    gap: space.sm,
+  },
+  errorText: {
+    ...typo.caption,
+    color: palette.errorText,
+    flex: 1,
+  },
+  retryButton: {
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    backgroundColor: palette.accentSoft,
+    borderRadius: radii.full,
+  },
+  retryText: {
+    ...typo.label,
+    color: palette.accent,
   },
 });

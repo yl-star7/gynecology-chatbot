@@ -20,7 +20,7 @@ import { useChatSessions } from "../../chat/store";
 import { Card, Pressable, EmotionCheckin } from "../../components/ui";
 import { ChatPartRenderer, ChatImagePicker, ChatImagePreview } from "../../components/chat";
 import { PatientShell } from "../../components/patient/PatientShell";
-import { NurseCharacter, NurseAvatar } from "../../components/patient/NurseCharacter";
+import { NurseCharacter } from "../../components/patient/NurseCharacter";
 import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
 import {
   buildConversationComposerLayout,
@@ -115,8 +115,16 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
         text: nextText,
         imageUris: capturedImage ? [capturedImage] : [],
       });
-      for (const msg of assistantMessages) {
-        appendMessage(resolvedSessionId, "아기와 대화", msg);
+      const [firstMessage, ...followUpMessages] = assistantMessages;
+      if (firstMessage) {
+        appendMessage(resolvedSessionId, "아기와 대화", firstMessage);
+      }
+      if (followUpMessages.length > 0) {
+        setTimeout(() => {
+          for (const msg of followUpMessages) {
+            appendMessage(resolvedSessionId, "아기와 대화", msg);
+          }
+        }, 1500);
       }
     } catch (error: unknown) {
       setErrorMessage(resolvePatientConversationSendError(error));
@@ -219,10 +227,9 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
                     );
                   }
 
-                  // 어시스턴트 메시지 — 아바타 + 풍부한 렌더링
                   return (
-                    <View key={message.id} style={styles.assistantRow}>
-                      <NurseAvatar emotionTone={selectedEmotion} />
+                    <View key={message.id} style={styles.assistantColumn}>
+                      <NurseCharacter size="sm" emotionTone={selectedEmotion} />
                       <View style={styles.assistantMessageWrapper}>
                         <ChatPartRenderer
                           message={message}
@@ -357,19 +364,18 @@ const styles = StyleSheet.create({
     height: 160,
     borderRadius: radii.lg,
   },
-  assistantRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
+  assistantColumn: {
+    flexDirection: "column",
+    alignItems: "flex-start",
     gap: space.sm,
     alignSelf: "flex-start",
     maxWidth: "100%",
   },
   assistantMessageWrapper: {
-    flex: 1,
     backgroundColor: surface.surfaceSecondary,
     borderRadius: radii.xl,
     padding: space.lg,
-    maxWidth: `${100 - (space.xl + space.xs)}%`,
+    maxWidth: "100%",
   },
   messageText: {
     ...typo.body,
