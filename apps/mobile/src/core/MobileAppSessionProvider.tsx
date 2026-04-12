@@ -1,4 +1,7 @@
-import type { AuthenticatedUser, OnboardingProfileInput } from "@gynecology-chatbot/app-core";
+import type {
+  AuthenticatedUser,
+  OnboardingProfileInput,
+} from "@gynecology-chatbot/app-core";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   fetchCurrentMobileSession,
@@ -7,7 +10,6 @@ import {
   storeCurrentMobileUserId,
 } from "../api/mobileApi";
 import { useMobileServices } from "./MobileServicesProvider";
-import { clearMockMobileCurrentUser, readMockMobileRuntime } from "./mockMobileRuntime";
 import {
   clearNativeSessionToken,
   persistNativeSessionToken,
@@ -25,11 +27,19 @@ interface MobileAppSessionValue {
   signOut(): Promise<void>;
 }
 
-const MobileAppSessionContext = createContext<MobileAppSessionValue | null>(null);
+const MobileAppSessionContext = createContext<MobileAppSessionValue | null>(
+  null,
+);
 
-export function MobileAppSessionProvider({ children }: { children: React.ReactNode }) {
+export function MobileAppSessionProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const services = useMobileServices();
-  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(readMockMobileRuntime().currentUser);
+  const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(
+    readMockMobileRuntime().currentUser,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -77,9 +87,8 @@ export function MobileAppSessionProvider({ children }: { children: React.ReactNo
         await services.authPort.requestPhoneVerification(input);
       },
       async signIn(input) {
-        const nextUser = await services.authPort.signInWithPhoneVerification(
-          input,
-        );
+        const nextUser =
+          await services.authPort.signInWithPhoneVerification(input);
         const sessionToken = readCurrentMobileSessionToken();
         if (sessionToken) {
           await persistNativeSessionToken(sessionToken);
@@ -104,13 +113,19 @@ export function MobileAppSessionProvider({ children }: { children: React.ReactNo
     [currentUser, services],
   );
 
-  return <MobileAppSessionContext.Provider value={value}>{children}</MobileAppSessionContext.Provider>;
+  return (
+    <MobileAppSessionContext.Provider value={value}>
+      {children}
+    </MobileAppSessionContext.Provider>
+  );
 }
 
 export function useMobileAppSession() {
   const value = useContext(MobileAppSessionContext);
   if (!value) {
-    throw new Error("useMobileAppSession must be used within MobileAppSessionProvider");
+    throw new Error(
+      "useMobileAppSession must be used within MobileAppSessionProvider",
+    );
   }
 
   return value;

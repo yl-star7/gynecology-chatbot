@@ -2,6 +2,8 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText, tool, stepCountIs } from "ai";
 import { z } from "zod";
 import { NextRequest, NextResponse } from "next/server";
+
+export const maxDuration = 60;
 import {
   formatRagContext,
   retrievePregnancyContext,

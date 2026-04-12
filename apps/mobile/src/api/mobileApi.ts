@@ -392,6 +392,22 @@ export function createMobileApiClient(
     },
 
     async sendChatMessage(input) {
+      const sessionHeaders = buildMobileSessionHeaders();
+      if (!sessionHeaders.Authorization) {
+        throw new SessionExpiredError(
+          "세션이 만료되었어요. 다시 로그인해 주세요.",
+        );
+      }
+
+      let resolvedUserId: string;
+      try {
+        resolvedUserId = getUserId();
+      } catch {
+        throw new SessionExpiredError(
+          "세션이 만료되었어요. 다시 로그인해 주세요.",
+        );
+      }
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30_000);
       try {
@@ -399,10 +415,10 @@ export function createMobileApiClient(
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...buildMobileSessionHeaders(),
+            ...sessionHeaders,
           },
           body: JSON.stringify({
-            userId: getUserId(),
+            userId: resolvedUserId,
             sessionId: input.sessionId,
             text: input.text,
             pregnancyWeek: input.pregnancyWeek,

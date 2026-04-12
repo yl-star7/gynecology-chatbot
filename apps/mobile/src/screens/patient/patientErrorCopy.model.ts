@@ -7,7 +7,8 @@ const RECORD_DAY_LOAD_ERROR =
   "이 날짜 기록을 불러오지 못했어요. 잠시 후 다시 확인해 주세요.";
 const SURVEY_LOAD_ERROR = "설문 화면을 불러오지 못했어요.";
 const SURVEY_SAVE_ERROR = "설문 답변을 저장하지 못했어요.";
-const CONVERSATION_RATE_LIMIT_ERROR = "잠시 쉬어 가요. 조금 뒤에 다시 이야기해요.";
+const CONVERSATION_RATE_LIMIT_ERROR =
+  "잠시 쉬어 가요. 조금 뒤에 다시 이야기해요.";
 const CONVERSATION_SEND_ERROR = "메시지를 보내지 못했어요. 다시 시도해주세요.";
 
 function readErrorMessage(error: unknown) {
@@ -43,7 +44,8 @@ export function resolvePatientContentLoadError(_error: unknown) {
 }
 
 export function resolvePatientConversationSendError(error: unknown) {
-  return readErrorMessage(error).includes("429")
-    ? CONVERSATION_RATE_LIMIT_ERROR
-    : CONVERSATION_SEND_ERROR;
+  const message = readErrorMessage(error);
+  if (message.includes("429")) return CONVERSATION_RATE_LIMIT_ERROR;
+  if (message.includes("세션이 만료되었어요")) return SESSION_EXPIRED_MESSAGE;
+  return CONVERSATION_SEND_ERROR;
 }
