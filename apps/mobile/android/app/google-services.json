@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "495836766254",
+    "project_id": "agaya-2026",
+    "storage_bucket": "agaya-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:495836766254:android:0b60ccb7115a0f085e3fbf",
+        "android_client_info": {
+          "package_name": "com.gynecology.chatbot"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCEOZQ3gl55aZHsseTBgzl2Xh4odJMnsG0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
