@@ -23,6 +23,7 @@ import { Card, Pressable } from "../../components/ui";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { PatientTodayTabs } from "../../components/patient/PatientTodayTabs";
+import { NurseAvatar } from "../../components/patient/NurseCharacter";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import {
   palette,
@@ -444,16 +445,18 @@ export function PatientTodayScreen() {
                   {session.messages.map((message) => {
                     if (message.role === "assistant") {
                       return (
-                        <View
-                          key={message.id}
-                          style={[styles.messageBubble, styles.assistantBubble]}
-                        >
-                          <ChatPartRenderer
-                            message={message}
-                            onQuickReplySelect={handleQuickReplySelect}
-                            onSurveyAnswer={handleSurveyAnswer}
-                            onDeepLinkPress={handleDeepLinkPress}
-                          />
+                        <View key={message.id} style={styles.assistantRow}>
+                          <NurseAvatar />
+                          <View
+                            style={[styles.messageBubble, styles.assistantBubble, styles.assistantBubbleFlex]}
+                          >
+                            <ChatPartRenderer
+                              message={message}
+                              onQuickReplySelect={handleQuickReplySelect}
+                              onSurveyAnswer={handleSurveyAnswer}
+                              onDeepLinkPress={handleDeepLinkPress}
+                            />
+                          </View>
                         </View>
                       );
                     }
@@ -504,7 +507,7 @@ export function PatientTodayScreen() {
           <View
             style={[
               styles.composerDock,
-              { bottom: insets.bottom + space.xxl + space.sm },
+              { bottom: insets.bottom + space.xxxl * 2 + space.md },
             ]}
           >
             <Card variant="muted" style={styles.conversationComposerCard}>
@@ -725,10 +728,21 @@ const styles = StyleSheet.create({
     backgroundColor: palette.accent,
     maxWidth: `${100 - space.lg}%`,
   },
+  assistantRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: space.sm,
+    alignSelf: "flex-start",
+    maxWidth: "100%",
+  },
   assistantBubble: {
     alignSelf: "flex-start",
     backgroundColor: surface.surfaceSecondary,
     maxWidth: `${100 - (space.xl - space.xs)}%`,
+  },
+  assistantBubbleFlex: {
+    flex: 1,
+    maxWidth: `${100 - (space.xl + space.xs)}%`,
   },
   messageText: {
     ...typo.body,
