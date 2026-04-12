@@ -38,7 +38,7 @@ export function MobileAppSessionProvider({
 }) {
   const services = useMobileServices();
   const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(
-    readMockMobileRuntime().currentUser,
+    null,
   );
 
   useEffect(() => {
@@ -106,7 +106,6 @@ export function MobileAppSessionProvider({
         storeCurrentMobileSessionToken(null);
         storeCurrentMobileUserId(null);
         await clearNativeSessionToken();
-        clearMockMobileCurrentUser();
         setCurrentUser(null);
       },
     }),
