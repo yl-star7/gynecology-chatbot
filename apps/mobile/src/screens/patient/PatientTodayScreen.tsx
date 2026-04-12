@@ -23,7 +23,7 @@ import { Card, Pressable } from "../../components/ui";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { PatientTodayTabs } from "../../components/patient/PatientTodayTabs";
-import { NurseAvatar } from "../../components/patient/NurseCharacter";
+import { NurseCharacter } from "../../components/patient/NurseCharacter";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import {
   palette,
@@ -174,8 +174,16 @@ export function PatientTodayScreen() {
         text: nextText,
         imageUris: [],
       });
-      for (const message of appendAssistantMessages([], assistantMessages)) {
-        appendMessage(conversationSessionId, "아기와 대화", message);
+      const [firstMessage, ...followUpMessages] = assistantMessages;
+      if (firstMessage) {
+        appendMessage(conversationSessionId, "아기와 대화", firstMessage);
+      }
+      if (followUpMessages.length > 0) {
+        setTimeout(() => {
+          for (const message of followUpMessages) {
+            appendMessage(conversationSessionId, "아기와 대화", message);
+          }
+        }, 1500);
       }
     } finally {
       setIsSending(false);
@@ -445,10 +453,13 @@ export function PatientTodayScreen() {
                   {session.messages.map((message) => {
                     if (message.role === "assistant") {
                       return (
-                        <View key={message.id} style={styles.assistantRow}>
-                          <NurseAvatar />
+                        <View key={message.id} style={styles.assistantColumn}>
+                          <NurseCharacter size="sm" />
                           <View
-                            style={[styles.messageBubble, styles.assistantBubble, styles.assistantBubbleFlex]}
+                            style={[
+                              styles.messageBubble,
+                              styles.assistantBubble,
+                            ]}
                           >
                             <ChatPartRenderer
                               message={message}
@@ -504,39 +515,32 @@ export function PatientTodayScreen() {
         </ScrollView>
 
         {activeSection === "conversation" ? (
-          <View
-            style={[
-              styles.composerDock,
-              { bottom: insets.bottom + space.xxxl * 2 + space.md },
-            ]}
-          >
-            <Card variant="muted" style={styles.conversationComposerCard}>
-              <View style={styles.composerRow}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="아기에게 하고 싶은 말을 적어보세요..."
-                  placeholderTextColor={surface.textSecondary}
-                  value={text}
-                  onChangeText={setText}
+          <Card variant="muted" style={styles.conversationComposerCard}>
+            <View style={styles.composerRow}>
+              <TextInput
+                style={styles.input}
+                placeholder="아기에게 하고 싶은 말을 적어보세요..."
+                placeholderTextColor={surface.textSecondary}
+                value={text}
+                onChangeText={setText}
+              />
+              <Pressable
+                style={[
+                  styles.sendButton,
+                  isSending ? styles.sendButtonDisabled : null,
+                ]}
+                onPress={handleSend}
+                disabled={isSending}
+                accessibilityLabel="메시지 보내기"
+              >
+                <Ionicons
+                  name="paper-plane-outline"
+                  size={space.lg + space.sm}
+                  color={surface.surfacePrimary}
                 />
-                <Pressable
-                  style={[
-                    styles.sendButton,
-                    isSending ? styles.sendButtonDisabled : null,
-                  ]}
-                  onPress={handleSend}
-                  disabled={isSending}
-                  accessibilityLabel="메시지 보내기"
-                >
-                  <Ionicons
-                    name="paper-plane-outline"
-                    size={space.lg + space.sm}
-                    color={surface.surfacePrimary}
-                  />
-                </Pressable>
-              </View>
-            </Card>
-          </View>
+              </Pressable>
+            </View>
+          </Card>
         ) : null}
       </KeyboardAvoidingView>
     </PatientShell>
@@ -674,12 +678,9 @@ const styles = StyleSheet.create({
     gap: space.md,
   },
   conversationComposerCard: {
-    marginTop: 0,
-  },
-  composerDock: {
-    position: "absolute",
-    left: space.lg,
-    right: space.lg,
+    marginTop: "auto",
+    marginHorizontal: space.lg,
+    marginBottom: 0,
   },
   conversationIconWrap: {
     backgroundColor: surface.surfaceSecondary,
@@ -728,9 +729,8 @@ const styles = StyleSheet.create({
     backgroundColor: palette.accent,
     maxWidth: `${100 - space.lg}%`,
   },
-  assistantRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
+  assistantColumn: {
+    alignItems: "flex-start",
     gap: space.sm,
     alignSelf: "flex-start",
     maxWidth: "100%",
@@ -738,11 +738,6 @@ const styles = StyleSheet.create({
   assistantBubble: {
     alignSelf: "flex-start",
     backgroundColor: surface.surfaceSecondary,
-    maxWidth: `${100 - (space.xl - space.xs)}%`,
-  },
-  assistantBubbleFlex: {
-    flex: 1,
-    maxWidth: `${100 - (space.xl + space.xs)}%`,
   },
   messageText: {
     ...typo.body,
