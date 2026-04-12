@@ -62,18 +62,26 @@ def parse_docx(path: str):
 
         day = weeks[current_week]["days"][current_day]
 
-        # Section headers
-        if line.startswith("① 태아 발달정보"):
+        # Section headers (다양한 변형 처리)
+        if re.match(r"^(①|1\))\s*태아\s*발달", line) or line in ("태아 발달 정보", "태아 발달정보", "태아발달 정보", "태아 발달 정보 & 아기의 말"):
             current_section = "baby"
             continue
-        elif line.startswith("② 모체 변화정보"):
+        elif re.match(r"^(②|2\))\s*모체\s*변화", line) or line in ("모체 변화 정보", "모체변화 정보"):
             current_section = "mother"
             continue
-        elif line.startswith("③ 생활 체크리스트"):
+        elif re.match(r"^(③|3\))\s*(생활\s*)?체크리스트", line) or line == "생활 체크리스트":
             current_section = "checklist"
             continue
-        elif line.startswith("④ 태교 질문"):
+        elif re.match(r"^(④|4\))\s*태교\s*질문", line) or line in ("태교 질문", "태교 질문:"):
             current_section = "question"
+            continue
+        # "2) 태아 발달 정보" 오기입 — 실제로는 baby 섹션
+        elif line == "2) 태아 발달 정보":
+            current_section = "baby"
+            continue
+        # "1) 태아 발달 정도" 오타 — baby 섹션
+        elif "태아 발달 정도" in line:
+            current_section = "baby"
             continue
 
         # Content lines
