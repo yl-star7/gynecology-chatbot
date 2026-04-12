@@ -45,18 +45,18 @@ SET
 WHERE title ~ E'\\(\\d{1,2}\\)' OR description ~ E'\\(\\d{1,2}\\)' OR checklist_payload::text ~ E'\\(\\d{1,2}\\)'
    OR title ~ E'\\.; ' OR description ~ E'\\.; ' OR checklist_payload::text ~ E'\\.; ';
 
--- week_questions: title, description
+-- week_questions: question_text, help_text
 UPDATE content.week_questions
 SET
-  title = regexp_replace(
-    regexp_replace(title, E'\\s?\\(\\d{1,2}\\)(\\(\\d{1,2}\\))*[,. -]*', '', 'g'),
+  question_text = regexp_replace(
+    regexp_replace(question_text, E'\\s?\\(\\d{1,2}\\)(\\(\\d{1,2}\\))*[,. -]*', '', 'g'),
     E'\\. *; *', '. ', 'g'),
-  description = regexp_replace(
-    regexp_replace(description, E'\\s?\\(\\d{1,2}\\)(\\(\\d{1,2}\\))*[,. -]*', '', 'g'),
+  help_text = regexp_replace(
+    regexp_replace(help_text, E'\\s?\\(\\d{1,2}\\)(\\(\\d{1,2}\\))*[,. -]*', '', 'g'),
     E'\\. *; *', '. ', 'g'),
   updated_at = timezone('utc', now())
-WHERE title ~ E'\\(\\d{1,2}\\)' OR description ~ E'\\(\\d{1,2}\\)'
-   OR title ~ E'\\.; ' OR description ~ E'\\.; ';
+WHERE question_text ~ E'\\(\\d{1,2}\\)' OR help_text ~ E'\\(\\d{1,2}\\)'
+   OR question_text ~ E'\\.; ' OR help_text ~ E'\\.; ';
 
 -- 이동(2)해 → 이동해 (본문 내 임베디드 참조번호)
 UPDATE content.pregnancy_day_contents
