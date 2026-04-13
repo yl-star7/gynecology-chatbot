@@ -11,6 +11,10 @@ import {
 } from "../api/mobileApi";
 import { useMobileServices } from "./MobileServicesProvider";
 import {
+  getDevelopmentAutoVerifiedLogin,
+  isDevelopmentAutoVerifiedPhoneNumber,
+} from "../screens/auth/LoginScreen.model";
+import {
   clearNativeSessionToken,
   persistNativeSessionToken,
   readNativeSessionToken,
@@ -69,10 +73,40 @@ export function MobileAppSessionProvider({
           setCurrentUser(payload.user);
         }
       } catch {
-        if (!cancelled) {
-          storeCurrentMobileSessionToken(null);
-          storeCurrentMobileUserId(null);
-          await clearNativeSessionToken();
+        if (cancelled) {
+          return;
+        }
+
+        storeCurrentMobileSessionToken(null);
+        storeCurrentMobileUserId(null);
+        await clearNativeSessionToken();
+
+        if (!__DEV__) {
+          return;
+        }
+
+        const fallbackLogin = getDevelopmentAutoVerifiedLogin();
+        if (!isDevelopmentAutoVerifiedPhoneNumber(fallbackLogin.phoneNumber)) {
+          return;
+        }
+
+        try {
+          const nextUser =
+            await services.authPort.signInWithPhoneVerification(fallbackLogin);
+          const nextToken = readCurrentMobileSessionToken();
+          if (nextToken) {
+            await persistNativeSessionToken(nextToken);
+          }
+          if (!cancelled) {
+            storeCurrentMobileUserId(nextUser.id);
+            setCurrentUser(nextUser);
+          }
+        } catch {
+          if (!cancelled) {
+            storeCurrentMobileSessionToken(null);
+            storeCurrentMobileUserId(null);
+            await clearNativeSessionToken();
+          }
         }
       }
     }

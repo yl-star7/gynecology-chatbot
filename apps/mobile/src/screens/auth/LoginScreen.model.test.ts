@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildInitialLoginFormState,
+  getDevelopmentAutoVerifiedLogin,
   isDevelopmentAutoVerifiedPhoneNumber,
   resolvePostLoginHref,
 } from "./LoginScreen.model.ts";
@@ -18,6 +19,13 @@ test("isDevelopmentAutoVerifiedPhoneNumber includes the local dev login number",
   assert.equal(isDevelopmentAutoVerifiedPhoneNumber("01012345678"), true);
   assert.equal(isDevelopmentAutoVerifiedPhoneNumber("01026784241"), true);
   assert.equal(isDevelopmentAutoVerifiedPhoneNumber("01000000000"), false);
+});
+
+test("getDevelopmentAutoVerifiedLogin returns the local dev credentials", () => {
+  assert.deepEqual(getDevelopmentAutoVerifiedLogin(), {
+    phoneNumber: "01012345678",
+    verificationCode: "000000",
+  });
 });
 
 test("buildInitialLoginFormState starts the local dev number as already verified", () => {
