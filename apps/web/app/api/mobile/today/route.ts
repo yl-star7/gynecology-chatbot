@@ -8,6 +8,7 @@ import {
   supabaseSelect,
   supabaseUpdate,
 } from "@/lib/supabase/admin-client";
+import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
 
 type ProfileRow = {
   pregnancy_week: number | null;
@@ -83,11 +84,10 @@ type CalendarLogRow = {
 };
 
 function firstText(...values: Array<string | null | undefined>) {
-  return (
-    values
-      .find((value) => typeof value === "string" && value.trim().length > 0)
-      ?.trim() ?? ""
+  const value = values.find(
+    (candidate) => typeof candidate === "string" && candidate.trim().length > 0,
   );
+  return value ? sanitizeInlineCitationMarkers(value.trim()) : "";
 }
 
 function buildChecklistStatusMap(events: ChecklistEventRow[]) {

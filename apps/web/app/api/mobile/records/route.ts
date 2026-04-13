@@ -9,6 +9,7 @@ import {
   supabaseSelect,
   supabaseUpdate,
 } from "@/lib/supabase/admin-client";
+import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
 import { toRecordDayView } from "@/lib/mobile/serializers";
 
 type CalendarRecordRow = {
@@ -163,12 +164,12 @@ function buildChecklistStatusMap(events: ChecklistEventRow[]) {
 function buildChecklistLabel(row: ChecklistRow) {
   const title = row.title?.trim();
   if (title) {
-    return title;
+    return sanitizeInlineCitationMarkers(title);
   }
 
   const description = row.description?.trim();
   if (description) {
-    return description;
+    return sanitizeInlineCitationMarkers(description);
   }
 
   return "그날의 체크리스트";

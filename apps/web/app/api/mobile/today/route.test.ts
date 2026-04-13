@@ -271,6 +271,59 @@ describe("GET /api/mobile/today", () => {
     });
   });
 
+  it("체크리스트 라벨에서 괄호 참고표기를 제거한다", async () => {
+    mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
+    mockedSupabaseSelect
+      .mockResolvedValueOnce([
+        { pregnancy_week: 1, pregnancy_day_in_week: 0, due_date: null },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "week-1",
+          baby_summary: "주차 요약",
+          mother_summary: "엄마 요약",
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          baby_development_payload: { items: ["아기 발달 문장"] },
+          baby_message: "아기 메시지",
+          mother_changes_payload: { items: ["엄마 변화 문장"] },
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "check-1",
+          title: "가렵지 않게 자주 발라 주세요 (1)(3)(5)(8)",
+          description: null,
+          display_order: 1,
+        },
+      ] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const response = await GET({
+      nextUrl: new URL("http://localhost:3000/api/mobile/today?userId=user-1"),
+    } as never);
+
+    await expect(response.json()).resolves.toEqual({
+      today: {
+        babyBody: "아기 메시지",
+        momBody: "엄마 변화 문장",
+        infoViewed: false,
+        postDue: false,
+        checklistItems: [
+          {
+            id: "check-1",
+            label: "가렵지 않게 자주 발라 주세요",
+            completed: false,
+          },
+        ],
+      },
+    });
+  });
+
   it("due_date 기준으로 재계산한 주차와 day_number로 오늘 컨텐츠를 조회한다", async () => {
     // Compute expected week/day dynamically using the same logic as the route
     const dueDate = new Date("2026-07-01T00:00:00");
