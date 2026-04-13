@@ -360,7 +360,6 @@ export function PatientProfileScreen() {
                 disabled={!surveyFormUrl}
               />
             </View>
-
           </Card>
 
           <Card>
@@ -560,9 +559,14 @@ export function PatientProfileScreen() {
                     </Text>
                     {(selectedRecordDay?.relatedSessions ?? []).map(
                       (session) => (
-                        <View
+                        <Pressable
                           key={session.id}
                           style={[styles.modalConversationCard, shadows.card]}
+                          onPress={() => {
+                            closeCalendarDayModal();
+                            router.push(`/chat/${session.id}`);
+                          }}
+                          accessibilityLabel={`${session.title} 대화 다시 열기`}
                         >
                           <Text style={styles.modalConversationMeta}>
                             {session.updatedAtLabel}
@@ -573,7 +577,7 @@ export function PatientProfileScreen() {
                           <Text style={styles.modalConversationBody}>
                             {session.preview}
                           </Text>
-                        </View>
+                        </Pressable>
                       ),
                     )}
                   </View>
