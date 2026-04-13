@@ -1,5 +1,6 @@
 // @ts-nocheck
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
+import { useNavigation } from "expo-router";
 import {
   Image,
   RefreshControl,
@@ -49,9 +50,22 @@ export function PatientHomeScreen() {
     setProfile(nextProfile);
   }, [services]);
 
+  const navigation = useNavigation();
+  const hasMounted = useRef(false);
+
   useEffect(() => {
     fetchData().catch(() => undefined);
   }, [fetchData]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (hasMounted.current) {
+        fetchData().catch(() => undefined);
+      }
+      hasMounted.current = true;
+    });
+    return unsubscribe;
+  }, [fetchData, navigation]);
 
   const viewModel = buildPatientHomeViewModel({ home, profile });
   const babyImageSource = getWeekBabyImageSource(viewModel.imageWeekLabel);
@@ -106,9 +120,13 @@ export function PatientHomeScreen() {
 
         <Card style={styles.metricCard}>
           <View style={styles.metricHeaderRow}>
-            <Text style={styles.metricWeek}>{viewModel.pregnancyWeekLabel}</Text>
+            <Text style={styles.metricWeek}>
+              {viewModel.pregnancyWeekLabel}
+            </Text>
             <View style={styles.metricHeaderSpacer} />
-            <Text style={styles.metricDayText}>{viewModel.pregnancyDayText}</Text>
+            <Text style={styles.metricDayText}>
+              {viewModel.pregnancyDayText}
+            </Text>
           </View>
           <View style={styles.metricMeetingRow}>
             <Text style={styles.metricCaption}>{viewModel.meetingLabel}</Text>

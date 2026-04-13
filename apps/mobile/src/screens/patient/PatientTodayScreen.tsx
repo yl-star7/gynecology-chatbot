@@ -189,6 +189,11 @@ export function PatientTodayScreen() {
           }
         }, 1500);
       }
+      // 태명 등 프로필 변경이 있을 수 있으므로 today 리프레시
+      services.todayPort
+        .getTodayView()
+        .then(setToday)
+        .catch(() => undefined);
     } catch {
       setSendError("메시지를 보내지 못했어요.");
     } finally {
@@ -257,8 +262,8 @@ export function PatientTodayScreen() {
   }
 
   function handleSurveyAnswer(surveyId: string, choiceId: string) {
-    services.chatPort
-      ?.saveSurveyAnswer?.({ surveyId, choiceId })
+    services.recordsPort
+      .saveSurveyResponse({ questionId: surveyId, answer: choiceId })
       .catch(() => undefined);
   }
 
