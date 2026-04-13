@@ -3,7 +3,11 @@ import { Redirect } from "expo-router";
 import { useMobileAppSession } from "../src/core/MobileAppSessionProvider";
 
 export default function IndexRoute() {
-  const { currentUser } = useMobileAppSession();
+  const { currentUser, isRestoringSession } = useMobileAppSession();
+
+  if (isRestoringSession) {
+    return null;
+  }
 
   if (!currentUser) {
     return <Redirect href="/auth/login" />;

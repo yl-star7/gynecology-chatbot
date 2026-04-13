@@ -22,6 +22,7 @@ import {
 
 interface MobileAppSessionValue {
   currentUser: AuthenticatedUser | null;
+  isRestoringSession: boolean;
   requestVerificationCode(input: { phoneNumber: string }): Promise<void>;
   signIn(input: {
     phoneNumber: string;
@@ -44,12 +45,16 @@ export function MobileAppSessionProvider({
   const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(
     null,
   );
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
     async function restoreSession() {
       if (currentUser) {
+        if (!cancelled) {
+          setIsRestoringSession(false);
+        }
         return;
       }
 
@@ -61,6 +66,9 @@ export function MobileAppSessionProvider({
         null;
 
       if (!persistedToken) {
+        if (!cancelled) {
+          setIsRestoringSession(false);
+        }
         return;
       }
 
@@ -82,11 +90,17 @@ export function MobileAppSessionProvider({
         await clearNativeSessionToken();
 
         if (!__DEV__) {
+          if (!cancelled) {
+            setIsRestoringSession(false);
+          }
           return;
         }
 
         const fallbackLogin = getDevelopmentAutoVerifiedLogin();
         if (!isDevelopmentAutoVerifiedPhoneNumber(fallbackLogin.phoneNumber)) {
+          if (!cancelled) {
+            setIsRestoringSession(false);
+          }
           return;
         }
 
@@ -108,6 +122,10 @@ export function MobileAppSessionProvider({
             await clearNativeSessionToken();
           }
         }
+      } finally {
+        if (!cancelled) {
+          setIsRestoringSession(false);
+        }
       }
     }
 
@@ -121,10 +139,12 @@ export function MobileAppSessionProvider({
   const value = useMemo<MobileAppSessionValue>(
     () => ({
       currentUser,
+      isRestoringSession,
       async requestVerificationCode(input) {
         await services.authPort.requestPhoneVerification(input);
       },
       async signIn(input) {
+        setIsRestoringSession(true);
         const nextUser =
           await services.authPort.signInWithPhoneVerification(input);
         const sessionToken = readCurrentMobileSessionToken();
@@ -133,6 +153,7 @@ export function MobileAppSessionProvider({
         }
         storeCurrentMobileUserId(nextUser.id);
         setCurrentUser(nextUser);
+        setIsRestoringSession(false);
         return nextUser;
       },
       async completeOnboarding(input) {
@@ -145,9 +166,10 @@ export function MobileAppSessionProvider({
         storeCurrentMobileUserId(null);
         await clearNativeSessionToken();
         setCurrentUser(null);
+        setIsRestoringSession(false);
       },
     }),
-    [currentUser, services],
+    [currentUser, isRestoringSession, services],
   );
 
   return (

@@ -15,18 +15,22 @@ const TABS_SCREEN_OPTIONS = buildTabsScreenOptions({
 });
 
 export default function TabsLayout() {
-  const { currentUser } = useMobileAppSession();
+  const { currentUser, isRestoringSession } = useMobileAppSession();
   const router = useRouter();
 
   useEffect(() => {
+    if (isRestoringSession) {
+      return;
+    }
+
     if (!currentUser) {
       router.replace("/auth/login");
     } else if (!currentUser.hasCompletedOnboarding) {
       router.replace("/onboarding");
     }
-  }, [currentUser, router]);
+  }, [currentUser, isRestoringSession, router]);
 
-  if (!currentUser) return null;
+  if (isRestoringSession || !currentUser) return null;
 
   return (
     <Tabs screenOptions={TABS_SCREEN_OPTIONS}>
