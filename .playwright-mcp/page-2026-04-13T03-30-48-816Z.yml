@@ -1,0 +1,16 @@
+- generic [ref=e2]:
+  - generic [ref=e12]:
+    - generic [ref=e17]:
+      - generic [ref=e18]: 아가야
+      - generic [ref=e19]: 산모와 아기를 위한 다정한 상담
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]: 전화번호
+        - textbox "01012345678" [ref=e24]
+      - generic [ref=e25]:
+        - generic [ref=e26]: 인증번호
+        - textbox "6자리 숫자" [ref=e27]: "000000"
+      - generic [ref=e29] [cursor=pointer]: 인증번호 받기
+      - generic [ref=e31] [cursor=pointer]: 시작하기
+  - generic:
+    - img
