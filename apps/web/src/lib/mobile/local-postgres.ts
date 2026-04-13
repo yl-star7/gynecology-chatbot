@@ -337,35 +337,8 @@ async function ensureSeedData() {
     `,
   );
 
-  await db.query(
-    `
-        INSERT INTO ${getQualifiedTable("blocked_phone_numbers")} (
-        id,
-        phone_number_encrypted,
-        phone_number_blind_index,
-        phone_number_last4,
-        display_name,
-        note,
-        created_at,
-        updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
-      ON CONFLICT (phone_number_blind_index) DO UPDATE
-      SET
-        display_name = EXCLUDED.display_name,
-        note = EXCLUDED.note,
-        updated_at = EXCLUDED.updated_at
-    `,
-    [
-      "allow-local-user-demo",
-      defaultUserPhone.phoneNumberEncrypted,
-      defaultUserPhone.phoneNumberBlindIndex,
-      defaultUserPhone.phoneNumberLast4,
-      getDefaultUserName(),
-      "로컬 개발 허용 번호",
-      yesterday.toISOString(),
-    ],
-  );
+  // NOTE: Previously inserted into blocked_phone_numbers, but that table is
+  // for *blocking* numbers.  Having the dev number there prevented local login.
 
   await db.query(
     `
