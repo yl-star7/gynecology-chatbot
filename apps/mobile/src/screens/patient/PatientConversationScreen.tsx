@@ -35,7 +35,6 @@ import {
   space,
   typo,
 } from "../../theme";
-import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { resolvePatientConversationSendError } from "./patientErrorCopy.model";
 
 type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
@@ -115,11 +114,8 @@ export function PatientConversationScreen({
   const [todaySessions, setTodaySessions] = useState<RecentChatSummary[]>([]);
   const [isTodaySessionsOpen, setIsTodaySessionsOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const contentInsets = buildPatientTabContentInsets({
-    bottomInset: insets.bottom,
-    extraBottomSpacing: space.lg,
-    topSpacing: space.md,
-  });
+  const emptyStateBottomSpacing = insets.bottom + space.md;
+  const threadedContentBottomSpacing = insets.bottom + space.xxxl * 2 + space.lg;
 
   useEffect(() => {
     if (sessionId === "new" || sessionId === "heart-talk") {
@@ -251,10 +247,15 @@ export function PatientConversationScreen({
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            {
-              paddingTop: contentInsets.paddingTop,
-              paddingBottom: contentInsets.paddingBottom,
-            },
+            session.messages.length === 0
+              ? {
+                  paddingTop: space.md,
+                  paddingBottom: emptyStateBottomSpacing,
+                }
+              : {
+                  paddingTop: space.md,
+                  paddingBottom: threadedContentBottomSpacing,
+                },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -492,6 +493,7 @@ const styles = StyleSheet.create({
   },
   emptyStateContent: {
     flexGrow: 1,
+    minHeight: "100%",
     justifyContent: "flex-end",
     gap: space.sm,
   },
@@ -546,8 +548,8 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "center",
     gap: space.xs,
-    marginTop: space.xs,
-    marginBottom: space.xs,
+    marginTop: 0,
+    marginBottom: 0,
     paddingHorizontal: 0,
   },
   quickStarterChip: {
@@ -600,7 +602,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.xs,
   },
   composerContainer: {
-    marginTop: "auto",
     gap: space.xs,
   },
   composerCard: {
