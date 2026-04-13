@@ -216,7 +216,7 @@ export function PatientRecordDayScreen({
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: space.lg,
-    gap: space.md,
+    gap: space.sm,
   },
   eyebrow: {
     ...typo.eyebrow,
@@ -237,14 +237,15 @@ const styles = StyleSheet.create({
     color: surface.textPrimary,
   },
   sectionList: {
-    marginTop: space.lg,
-    gap: space.sm,
+    marginTop: space.md,
+    gap: space.xs,
   },
   recordCard: {
-    borderRadius: radii.xl,
+    borderRadius: radii.lg,
     backgroundColor: surface.surfacePrimary,
-    padding: space.xl,
-    gap: space.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    gap: space.xs,
   },
   recordHeader: {
     flexDirection: "row",

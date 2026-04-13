@@ -867,7 +867,7 @@ const styles = StyleSheet.create({
   modalSectionDescription: {
     ...typo.caption,
     color: surface.textSecondary,
-    marginBottom: space.lg,
+    marginBottom: space.md,
   },
   modalChecklistList: {
     gap: space.sm,
@@ -900,18 +900,19 @@ const styles = StyleSheet.create({
     color: surface.textSecondary,
   },
   modalPanel: {
-    marginTop: space.lg,
-    gap: space.sm,
+    marginTop: space.md,
+    gap: space.xs,
   },
   modalSummaryText: {
     ...typo.body,
     color: surface.textSecondary,
   },
   modalConversationCard: {
-    borderRadius: radii.xl,
+    borderRadius: radii.lg,
     backgroundColor: surface.surfacePrimary,
-    padding: space.xl,
-    gap: space.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    gap: space.xs,
   },
   modalConversationMeta: {
     ...typo.caption,
