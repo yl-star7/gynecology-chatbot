@@ -13,6 +13,7 @@ import type {
   ChatComposerInput,
   ChatSession,
   ChatMessage,
+  EmotionTone,
   HomeViewData,
   MobileContentListItem,
   LinkTargetContent,
@@ -39,6 +40,17 @@ export interface OnboardingPort {
 export interface MobileHomePort {
   getHomeView(): Promise<HomeViewData>;
   getRecordDay(isoDate: string): Promise<RecordDayView>;
+}
+
+export interface MobileRecordsPort {
+  saveEmotionCheckin(input: {
+    sessionId: string;
+    emotionTone: EmotionTone;
+  }): Promise<void>;
+  saveSurveyResponse(input: {
+    questionId: string;
+    answer: string;
+  }): Promise<void>;
 }
 
 export interface TodayPort {

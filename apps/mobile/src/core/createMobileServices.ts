@@ -4,22 +4,24 @@ import type {
   MobileChatPort,
   MobileHomePort,
   MobileProfilePort,
+  MobileRecordsPort,
   OnboardingPort,
   TodayPort,
 } from "@gynecology-chatbot/app-core";
 import {
   createMobileApiClient,
   readCurrentMobileUserId,
-} from "../api/mobileApi";
+} from "../api/mobileApi.ts";
 import {
   ApiKnowledgeAdapter,
   ApiMobileAuthAdapter,
   ApiMobileChatAdapter,
   ApiMobileHomeAdapter,
   ApiMobileProfileAdapter,
+  ApiMobileRecordsAdapter,
   ApiOnboardingAdapter,
   ApiTodayAdapter,
-} from "./adapters/apiMobilePorts";
+} from "./adapters/apiMobilePorts.ts";
 
 export interface MobileServices {
   authPort: AuthPort;
@@ -29,6 +31,7 @@ export interface MobileServices {
   chatPort: MobileChatPort;
   knowledgePort: KnowledgePort;
   profilePort: MobileProfilePort;
+  recordsPort: MobileRecordsPort;
 }
 
 export interface CreateMobileServicesOptions {
@@ -66,5 +69,6 @@ export function createMobileServices(
     chatPort: new ApiMobileChatAdapter(client),
     knowledgePort: new ApiKnowledgeAdapter(client),
     profilePort: new ApiMobileProfileAdapter(client),
+    recordsPort: new ApiMobileRecordsAdapter(client, resolveUserId),
   };
 }

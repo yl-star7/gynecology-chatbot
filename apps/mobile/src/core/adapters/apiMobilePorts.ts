@@ -1,18 +1,24 @@
 import type {
   AuthPort,
+  EmotionTone,
   KnowledgePort,
   MobileContentListItem,
   MobileChatPort,
   MobileHomePort,
   MobileProfileViewData,
   MobileProfilePort,
+  MobileRecordsPort,
   OnboardingPort,
   TodayPort,
 } from "@gynecology-chatbot/app-core";
-import type { MobileApiClient } from "../../api/mobileApi";
+import type { MobileApiClient } from "../../api/mobileApi.ts";
 
 export class ApiMobileAuthAdapter implements AuthPort {
-  constructor(private readonly client: MobileApiClient) {}
+  private readonly client: MobileApiClient;
+
+  constructor(client: MobileApiClient) {
+    this.client = client;
+  }
 
   async requestPhoneVerification(input: { phoneNumber: string }) {
     await this.client.requestPhoneVerification(input);
@@ -28,12 +34,18 @@ export class ApiMobileAuthAdapter implements AuthPort {
 }
 
 export class ApiOnboardingAdapter implements OnboardingPort {
-  constructor(
-    private readonly client: MobileApiClient,
-    private readonly getUserId: () => string,
-  ) {}
+  private readonly client: MobileApiClient;
+  private readonly getUserId: () => string;
 
-  async completeProfile(input: { pregnancyWeekOrDueDate: string; tonePreference: string }) {
+  constructor(client: MobileApiClient, getUserId: () => string) {
+    this.client = client;
+    this.getUserId = getUserId;
+  }
+
+  async completeProfile(input: {
+    pregnancyWeekOrDueDate: string;
+    tonePreference: string;
+  }) {
     const payload = await this.client.completeOnboarding({
       userId: this.getUserId(),
       ...input,
@@ -43,7 +55,11 @@ export class ApiOnboardingAdapter implements OnboardingPort {
 }
 
 export class ApiMobileHomeAdapter implements MobileHomePort {
-  constructor(private readonly client: MobileApiClient) {}
+  private readonly client: MobileApiClient;
+
+  constructor(client: MobileApiClient) {
+    this.client = client;
+  }
 
   async getHomeView() {
     const payload = await this.client.fetchHome();
@@ -56,8 +72,41 @@ export class ApiMobileHomeAdapter implements MobileHomePort {
   }
 }
 
+export class ApiMobileRecordsAdapter implements MobileRecordsPort {
+  private readonly client: MobileApiClient;
+  private readonly getUserId: () => string;
+
+  constructor(client: MobileApiClient, getUserId: () => string) {
+    this.client = client;
+    this.getUserId = getUserId;
+  }
+
+  async saveEmotionCheckin(input: {
+    sessionId: string;
+    emotionTone: EmotionTone;
+  }) {
+    await this.client.saveEmotionCheckin({
+      userId: this.getUserId(),
+      sessionId: input.sessionId,
+      emotionTone: input.emotionTone,
+    });
+  }
+
+  async saveSurveyResponse(input: { questionId: string; answer: string }) {
+    await this.client.submitProfileSurveyAnswer({
+      userId: this.getUserId(),
+      questionId: input.questionId,
+      answer: input.answer,
+    });
+  }
+}
+
 export class ApiTodayAdapter implements TodayPort {
-  constructor(private readonly client: MobileApiClient) {}
+  private readonly client: MobileApiClient;
+
+  constructor(client: MobileApiClient) {
+    this.client = client;
+  }
 
   async getTodayView() {
     const payload = await this.client.fetchTodayView();
@@ -77,7 +126,11 @@ export class ApiTodayAdapter implements TodayPort {
 }
 
 export class ApiMobileChatAdapter implements MobileChatPort {
-  constructor(private readonly client: MobileApiClient) {}
+  private readonly client: MobileApiClient;
+
+  constructor(client: MobileApiClient) {
+    this.client = client;
+  }
 
   async listRecentChats() {
     const payload = await this.client.fetchSessions();
@@ -89,7 +142,12 @@ export class ApiMobileChatAdapter implements MobileChatPort {
     return payload.session;
   }
 
-  async sendMessage(input: { sessionId: string; text: string; imageUris: string[]; pregnancyWeek?: number }) {
+  async sendMessage(input: {
+    sessionId: string;
+    text: string;
+    imageUris: string[];
+    pregnancyWeek?: number;
+  }) {
     const payload = await this.client.sendChatMessage({
       sessionId: input.sessionId,
       text: input.text,
@@ -107,9 +165,15 @@ export class ApiMobileChatAdapter implements MobileChatPort {
 }
 
 export class ApiKnowledgeAdapter implements KnowledgePort {
-  constructor(private readonly client: MobileApiClient) {}
+  private readonly client: MobileApiClient;
 
-  async listContentItems(section: "knowledge" | "notebook"): Promise<MobileContentListItem[]> {
+  constructor(client: MobileApiClient) {
+    this.client = client;
+  }
+
+  async listContentItems(
+    section: "knowledge" | "notebook",
+  ): Promise<MobileContentListItem[]> {
     const payload = await this.client.fetchContentItems(section);
     return payload.items;
   }
@@ -121,7 +185,11 @@ export class ApiKnowledgeAdapter implements KnowledgePort {
 }
 
 export class ApiMobileProfileAdapter implements MobileProfilePort {
-  constructor(private readonly client: MobileApiClient) {}
+  private readonly client: MobileApiClient;
+
+  constructor(client: MobileApiClient) {
+    this.client = client;
+  }
 
   async getProfile() {
     const payload = await this.client.fetchMobileProfile();

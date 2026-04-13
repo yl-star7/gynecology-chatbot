@@ -12,4 +12,5 @@ test("createMobileServices creates API services", () => {
   assert.ok(services.todayPort, "should have todayPort");
   assert.ok(services.knowledgePort, "should have knowledgePort");
   assert.ok(services.onboardingPort, "should have onboardingPort");
+  assert.ok(services.recordsPort, "should have recordsPort");
 });

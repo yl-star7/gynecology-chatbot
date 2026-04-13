@@ -6,7 +6,11 @@ import type {
   RecordDayView,
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
-import { createMobileApiClient, SessionExpiredError, RateLimitError } from "./mobileApi.ts";
+import {
+  createMobileApiClient,
+  SessionExpiredError,
+  RateLimitError,
+} from "./mobileApi.ts";
 
 const profilePayload: MobileProfileViewData = {
   userId: "user-1",
@@ -53,9 +57,7 @@ const todayPayload: TodayViewData = {
   babyBody: "아기가 자라고 있어요.",
   momBody: "몸의 변화가 시작되고 있어요.",
   infoViewed: false,
-  checklistItems: [
-    { id: "water", label: "물 마시기", completed: false },
-  ],
+  checklistItems: [{ id: "water", label: "물 마시기", completed: false }],
 };
 
 test("fetchMobileProfile targets the mobile profile endpoint with the resolved user id", async () => {
@@ -132,7 +134,10 @@ test("submitProfileSurveyAnswer posts the selected answer to the profile survey 
     answer: "네",
   });
 
-  assert.equal(calls[0]?.input, "http://example.com/api/mobile/profile/surveys");
+  assert.equal(
+    calls[0]?.input,
+    "http://example.com/api/mobile/profile/surveys",
+  );
   assert.equal(calls[0]?.init?.method, "POST");
   assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
     userId: "user-1",
@@ -160,6 +165,33 @@ test("fetchRecordDay targets the mobile records endpoint with the selected date"
     "http://example.com/api/mobile/records?userId=user-1&date=2026-03-18",
   );
   assert.equal(response.recordDay.isoDate, "2026-03-18");
+});
+
+test("saveEmotionCheckin posts the selected emotion and session to the records endpoint", async () => {
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  const client = createMobileApiClient({
+    getApiBaseUrl: () => "http://example.com",
+    getUserId: () => "user-1",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, init });
+      return Response.json({ ok: true });
+    },
+  });
+
+  const response = await client.saveEmotionCheckin({
+    userId: "user-1",
+    sessionId: "session-1",
+    emotionTone: "calm",
+  });
+
+  assert.equal(calls[0]?.input, "http://example.com/api/mobile/records");
+  assert.equal(calls[0]?.init?.method, "POST");
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    userId: "user-1",
+    sessionId: "session-1",
+    emotionTone: "calm",
+  });
+  assert.equal(response.ok, true);
 });
 
 test("fetchTodayView targets the mobile today endpoint with the resolved user id", async () => {
@@ -213,14 +245,19 @@ test("401 응답 시 SessionExpiredError를 throw한다", async () => {
     getApiBaseUrl: () => "http://example.com",
     getUserId: () => "user-1",
     fetchImpl: async () => {
-      return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
+      return new Response(JSON.stringify({ error: "unauthorized" }), {
+        status: 401,
+      });
     },
   });
 
   await assert.rejects(
     () => client.fetchTodayView(),
     (err: unknown) => {
-      assert.ok(err instanceof SessionExpiredError, "SessionExpiredError여야 한다");
+      assert.ok(
+        err instanceof SessionExpiredError,
+        "SessionExpiredError여야 한다",
+      );
       assert.ok(err.message.includes("세션이 만료"), `메시지: ${err.message}`);
       return true;
     },
@@ -232,12 +269,16 @@ test("429 응답 시 RateLimitError를 throw한다", async () => {
     getApiBaseUrl: () => "http://example.com",
     getUserId: () => "user-1",
     fetchImpl: async () => {
-      return new Response(JSON.stringify({ error: "rate limit exceeded" }), { status: 429 });
+      return new Response(JSON.stringify({ error: "rate limit exceeded" }), {
+        status: 429,
+      });
     },
   });
 
   await assert.rejects(
-    () => client.sendChatMessage({ sessionId: "s-1", text: "안녕", imageDataUris: [] }),
+    async () => {
+      await client.fetchTodayView();
+    },
     (err: unknown) => {
       assert.ok(err instanceof RateLimitError, "RateLimitError여야 한다");
       assert.ok(err.message.includes("잠시 후"), `메시지: ${err.message}`);

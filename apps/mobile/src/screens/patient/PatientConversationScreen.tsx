@@ -183,7 +183,7 @@ export function PatientConversationScreen({
   function handleSurveyAnswer(surveyId: string, choiceId: string) {
     try {
       services.recordsPort
-        ?.saveSurveyResponse?.(surveyId, choiceId)
+        .saveSurveyResponse({ questionId: surveyId, answer: choiceId })
         .catch(() => undefined);
     } catch {
       // 기록 실패 시 조용히 무시
@@ -199,7 +199,10 @@ export function PatientConversationScreen({
     setShowEmotionCheckin(false);
     setSelectedEmotion(tone);
     try {
-      await services.recordsPort?.saveEmotionCheckin?.(tone);
+      await services.recordsPort.saveEmotionCheckin({
+        sessionId: resolvedSessionId,
+        emotionTone: tone,
+      });
     } catch {
       // 감정 저장 실패 시 조용히 무시
     }
