@@ -138,7 +138,13 @@ export function PatientRecordDayScreen({
   }
 
   return (
-    <PatientShell activeTab={activeTab} backHref={backHref} pageTone="plain">
+    <PatientShell
+      activeTab={activeTab}
+      backHref={backHref}
+      pageTone="plain"
+      headerCompact
+      showProfileButton={false}
+    >
       <ScrollView
         contentContainerStyle={[styles.content, contentInsets]}
         showsVerticalScrollIndicator={false}
