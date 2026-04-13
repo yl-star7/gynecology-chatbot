@@ -464,6 +464,12 @@ export function PatientTodayScreen() {
                 <View style={styles.messageList}>
                   {session.messages.map((message, index) => {
                     if (message.role === "assistant") {
+                      const hasContent = message.parts.some((p) =>
+                        p.type === "text"
+                          ? p.text.trim() !== "" && p.text.trim() !== "..."
+                          : true,
+                      );
+                      if (!hasContent) return null;
                       return (
                         <View
                           key={message.id ?? `assistant-${index}`}
