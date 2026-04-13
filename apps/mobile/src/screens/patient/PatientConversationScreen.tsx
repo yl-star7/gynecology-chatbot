@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
 import { Card, Pressable, EmotionCheckin } from "../../components/ui";
-import { ChatPartRenderer, ChatImagePicker, ChatImagePreview } from "../../components/chat";
+import { ChatPartRenderer, ChatImagePicker, ChatImagePreview, TypingIndicator } from "../../components/chat";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { NurseCharacter } from "../../components/patient/NurseCharacter";
 import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
@@ -199,6 +199,18 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyIcon}>◌</Text>
                   <Text style={styles.emptyText}>아기에게 하고 싶은 이야기를 나눠보세요</Text>
+                  <View style={styles.quickStarterWrap}>
+                    {["오늘 태동을 느꼈어", "잠을 잘 못 자", "배가 자주 뭉쳐", "아기 이름 고민 중이야"].map((starter) => (
+                      <Pressable
+                        key={starter}
+                        style={styles.quickStarterChip}
+                        onPress={() => handleSend(starter)}
+                        disabled={isSending}
+                      >
+                        <Text style={styles.quickStarterText}>{starter}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
               ) : (
                 <View style={styles.messageList}>
@@ -241,6 +253,14 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
                     </View>
                   );
                 })}
+                {isSending ? (
+                  <View style={styles.assistantColumn}>
+                    <NurseCharacter size="sm" emotionTone={selectedEmotion} />
+                    <View style={styles.assistantMessageWrapper}>
+                      <TypingIndicator />
+                    </View>
+                  </View>
+                ) : null}
                 </View>
               )}
             </View>
@@ -345,6 +365,24 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typo.body,
     color: surface.textSecondary,
+  },
+  quickStarterWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: space.sm,
+    marginTop: space.lg,
+    paddingHorizontal: space.md,
+  },
+  quickStarterChip: {
+    backgroundColor: palette.accentSoft,
+    borderRadius: radii.full,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+  },
+  quickStarterText: {
+    ...typo.label,
+    color: palette.accent,
   },
   messageList: {
     gap: space.sm,

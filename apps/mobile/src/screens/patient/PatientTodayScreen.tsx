@@ -18,7 +18,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useChatSessions } from "../../chat/store";
-import { ChatPartRenderer } from "../../components/chat";
+import { ChatPartRenderer, TypingIndicator } from "../../components/chat";
 import { Card, Pressable } from "../../components/ui";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientShell } from "../../components/patient/PatientShell";
@@ -60,10 +60,10 @@ function createUserMessage(text: string): ChatMessage {
 }
 
 const QUICK_STARTERS = [
-  "안녕, 아가야 👋",
-  "오늘 기분이...",
-  "궁금한 게 있어",
-  "엄마 몸이 좀...",
+  "오늘 태동을 느꼈어",
+  "잠을 잘 못 자",
+  "배가 자주 뭉쳐",
+  "아기 이름 고민 중이야",
 ];
 
 export function PatientTodayScreen() {
@@ -520,6 +520,14 @@ export function PatientTodayScreen() {
                       </View>
                     );
                   })}
+                  {isSending ? (
+                    <View style={styles.assistantColumn}>
+                      <NurseCharacter size="sm" />
+                      <View style={[styles.messageBubble, styles.assistantBubble]}>
+                        <TypingIndicator />
+                      </View>
+                    </View>
+                  ) : null}
                 </View>
               )}
             </Card>
