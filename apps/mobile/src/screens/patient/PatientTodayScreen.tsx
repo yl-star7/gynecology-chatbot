@@ -29,13 +29,6 @@ import {
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { buildPatientTodayViewModel } from "./view-models";
 
-const QUICK_STARTERS = [
-  "안녕, 아가야",
-  "오늘 태동을 느꼈어",
-  "잠을 잘 못 자",
-  "배가 자주 뭉쳐",
-];
-
 export function PatientTodayScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -260,18 +253,6 @@ export function PatientTodayScreen() {
                 {viewModel.conversationDescription}
               </Text>
 
-              <View style={styles.quickStarterWrap}>
-                {QUICK_STARTERS.map((starter) => (
-                  <Pressable
-                    key={starter}
-                    style={styles.quickStarterChip}
-                    onPress={() => router.push("/chat/new")}
-                  >
-                    <Text style={styles.quickStarterText}>{starter}</Text>
-                  </Pressable>
-                ))}
-              </View>
-
               <View style={styles.recentSessionList}>
                 {recentSessions.length > 0 ? (
                   recentSessions.slice(0, 3).map((item) => (
@@ -473,23 +454,6 @@ const styles = StyleSheet.create({
     color: surface.textSecondary,
     textAlign: "center",
     paddingHorizontal: space.md,
-  },
-  quickStarterWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: space.xs,
-    paddingHorizontal: 0,
-  },
-  quickStarterChip: {
-    backgroundColor: palette.accentSoft,
-    borderRadius: radii.full,
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs + space.xs,
-  },
-  quickStarterText: {
-    ...typo.label,
-    color: palette.accent,
   },
   recentSessionList: {
     gap: space.xs,

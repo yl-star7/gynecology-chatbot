@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ChatMessage,
   RecentChatSummary,
@@ -10,6 +10,7 @@ import {
   AppState,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -37,15 +38,6 @@ import {
   typo,
 } from "../../theme";
 import { resolvePatientConversationSendError } from "./patientErrorCopy.model";
-
-type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
-
-const QUICK_STARTERS = [
-  "안녕, 아가야",
-  "오늘 태동을 느꼈어",
-  "잠을 잘 못 자",
-  "배가 자주 뭉쳐",
-];
 
 function createSessionId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
@@ -97,6 +89,7 @@ export function PatientConversationScreen({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const services = useMobileServices();
+  const scrollViewRef = useRef<ScrollView | null>(null);
   const { getSession, replaceSession, appendMessage } = useChatSessions();
   const resolvedSessionId = useMemo(
     () =>
@@ -109,15 +102,11 @@ export function PatientConversationScreen({
   const [text, setText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
-  const [selectedEmotion, setSelectedEmotion] = useState<EmotionTone | null>(
-    null,
-  );
   const [todaySessions, setTodaySessions] = useState<RecentChatSummary[]>([]);
   const [isTodaySessionsOpen, setIsTodaySessionsOpen] = useState(false);
+  const [isTodaySessionsLoading, setIsTodaySessionsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const emptyStateBottomSpacing = insets.bottom + space.md;
-  const threadedContentBottomSpacing =
-    insets.bottom + space.xxxl * 2 + space.lg;
+  const [composerHeight, setComposerHeight] = useState(0);
 
   useEffect(() => {
     if (sessionId === "new" || sessionId === "heart-talk") {
@@ -144,6 +133,18 @@ export function PatientConversationScreen({
     });
     return () => subscription.remove();
   }, [replaceSession, resolvedSessionId, services, sessionId]);
+
+  useEffect(() => {
+    if (session.messages.length === 0 && !isSending) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [isSending, session.messages.length]);
 
   async function handleSend(overrideText?: string) {
     const nextText = (overrideText ?? text).trim();
@@ -211,15 +212,18 @@ export function PatientConversationScreen({
       return;
     }
 
+    setIsTodaySessionsOpen(true);
+    setIsTodaySessionsLoading(true);
+
     try {
       const recordDay =
         await services.homePort.getRecordDay(createTodayIsoDate());
       setTodaySessions(recordDay.relatedSessions);
     } catch {
       setTodaySessions([]);
+    } finally {
+      setIsTodaySessionsLoading(false);
     }
-
-    setIsTodaySessionsOpen(true);
   }
 
   function handleSelectTodaySession(nextSessionId: string) {
@@ -230,6 +234,15 @@ export function PatientConversationScreen({
     router.push(`/chat/${nextSessionId}`);
   }
 
+  function handleComposerLayout(event: any) {
+    const nextHeight = event.nativeEvent.layout.height;
+    if (Math.abs(nextHeight - composerHeight) > 1) {
+      setComposerHeight(nextHeight);
+    }
+  }
+
+  const scrollBottomPadding = composerHeight + space.md;
+
   return (
     <PatientShell
       activeTab="today"
@@ -238,363 +251,310 @@ export function PatientConversationScreen({
       headerCompact
       showProfileButton={false}
       rightActionIcon="list"
-      rightActionLabel="오늘 대화 보기"
+      rightActionLabel="오늘 지난 대화 열기"
       onRightActionPress={handleOpenTodaySessions}
     >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={space.xxxl + space.xl}
+        keyboardVerticalOffset={space.xxxl}
       >
-        <ScrollView
-          contentContainerStyle={[
-            styles.content,
-            session.messages.length === 0
-              ? {
-                  paddingTop: space.md,
-                  paddingBottom: emptyStateBottomSpacing,
-                }
-              : {
-                  paddingTop: space.md,
-                  paddingBottom: threadedContentBottomSpacing,
-                },
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {isTodaySessionsOpen ? (
-            <Card style={styles.todaySessionsCard}>
-              <Text style={styles.todaySessionsTitle}>오늘 지난 세션</Text>
-              <View style={styles.todaySessionsList}>
-                {todaySessions.length > 0 ? (
-                  todaySessions.map((item) => (
-                    <Pressable
-                      key={item.id}
-                      style={styles.todaySessionChip}
-                      onPress={() => handleSelectTodaySession(item.id)}
-                    >
-                      <Text style={styles.todaySessionTitle}>{item.title}</Text>
-                      {item.preview ? (
-                        <Text
-                          style={styles.todaySessionPreview}
-                          numberOfLines={1}
-                        >
-                          {item.preview}
-                        </Text>
-                      ) : null}
-                    </Pressable>
-                  ))
-                ) : (
-                  <Text style={styles.todaySessionsEmptyText}>
-                    오늘 이어볼 대화가 아직 없어요.
-                  </Text>
-                )}
-              </View>
-            </Card>
-          ) : null}
-
-          {session.messages.length === 0 ? (
-            <View style={styles.emptyStateContent}>
-              <View style={styles.emptyStateHeroArea}>
+        <View style={styles.screen}>
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: scrollBottomPadding },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {session.messages.length === 0 ? (
+              <View style={styles.emptyStateContent}>
                 <View style={styles.heroSection}>
-                  <NurseCharacter emotionTone={selectedEmotion} size="md" />
+                  <NurseCharacter size="md" />
                   <Text style={styles.title}>아기와 대화</Text>
+                  <Text style={styles.subtitle}>
+                    오늘 마음이나 몸 상태를 편하게 적어보세요.
+                  </Text>
                 </View>
               </View>
-
-              {imageDataUri ? (
-                <View style={styles.imagePreviewRow}>
-                  <ChatImagePreview
-                    dataUri={imageDataUri}
-                    onRemove={() => setImageDataUri(null)}
-                  />
-                </View>
-              ) : null}
-
-              <View style={styles.composerContainer}>
-                <View style={styles.quickStarterWrap}>
-                  {QUICK_STARTERS.map((starter) => (
-                    <Pressable
-                      key={starter}
-                      style={styles.quickStarterChip}
-                      onPress={() => handleSend(starter)}
-                      disabled={isSending}
-                    >
-                      <Text style={styles.quickStarterText}>{starter}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-
-                <Card variant="muted" style={styles.composerCard}>
-                  {errorMessage && (
-                    <Pressable onPress={() => setErrorMessage(null)}>
-                      <Text style={styles.errorMessageText}>
-                        {errorMessage}
-                      </Text>
-                    </Pressable>
-                  )}
-                  <View style={styles.composerRow}>
-                    <ChatImagePicker
-                      onImageSelected={setImageDataUri}
-                      disabled={isSending}
-                    />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="아기에게 하고 싶은 말을 적어보세요..."
-                      placeholderTextColor={surface.textSecondary}
-                      value={text}
-                      onChangeText={setText}
-                      multiline
-                      maxLength={3000}
-                    />
-                    <Pressable
-                      style={[
-                        styles.sendButton,
-                        isSending ? styles.sendButtonDisabled : null,
-                      ]}
-                      onPress={() => handleSend()}
-                      disabled={isSending}
-                      accessibilityLabel="메시지 보내기"
-                    >
-                      <Ionicons
-                        name="arrow-up"
-                        size={20}
-                        color={surface.surfacePrimary}
-                      />
-                    </Pressable>
-                  </View>
-                </Card>
-              </View>
-            </View>
-          ) : (
-            <>
-              <Card style={styles.chatCard}>
-                <View style={styles.chatBody}>
-                  <View style={styles.heroSection}>
-                    <NurseCharacter emotionTone={selectedEmotion} size="md" />
-                    <Text style={styles.title}>아기와 대화</Text>
-                  </View>
-                  <View style={styles.messageList}>
-                    {session.messages.map((message) => {
-                      if (message.role === "user") {
-                        const textPart = message.parts.find(
-                          (p) => p.type === "text",
-                        );
-                        const imagePart = message.parts.find(
-                          (p) => p.type === "image",
-                        );
-                        const bodyText =
-                          textPart?.type === "text" ? textPart.text : "";
-                        return (
-                          <View
-                            key={message.id}
-                            style={[styles.messageBubble, styles.userBubble]}
-                          >
-                            {imagePart?.type === "image" ? (
-                              <Image
-                                source={{ uri: imagePart.imageUrl }}
-                                style={styles.userBubbleImage}
-                                resizeMode="cover"
-                                accessibilityLabel={imagePart.alt}
-                              />
-                            ) : null}
-                            {bodyText ? (
-                              <Text
-                                style={[
-                                  styles.messageText,
-                                  styles.userMessageText,
-                                ]}
-                              >
-                                {bodyText}
-                              </Text>
-                            ) : null}
-                          </View>
-                        );
-                      }
-
-                      const hasContent = message.parts.some((p) =>
-                        p.type === "text"
-                          ? p.text.trim() !== "" && p.text.trim() !== "..."
-                          : true,
+            ) : (
+              <View style={styles.threadedContent}>
+                <View style={styles.messageList}>
+                  {session.messages.map((message) => {
+                    if (message.role === "user") {
+                      const textPart = message.parts.find(
+                        (part) => part.type === "text",
                       );
-                      if (!hasContent) return null;
+                      const imagePart = message.parts.find(
+                        (part) => part.type === "image",
+                      );
+                      const bodyText =
+                        textPart?.type === "text" ? textPart.text : "";
 
                       return (
-                        <View key={message.id} style={styles.assistantColumn}>
-                          <View style={styles.assistantMessageWrapper}>
-                            <ChatPartRenderer
-                              message={message}
-                              onQuickReplySelect={handleQuickReply}
-                              onSurveyAnswer={handleSurveyAnswer}
-                              onDeepLinkPress={handleDeepLink}
+                        <View
+                          key={message.id}
+                          style={[styles.messageBubble, styles.userBubble]}
+                        >
+                          {imagePart?.type === "image" ? (
+                            <Image
+                              source={{ uri: imagePart.imageUrl }}
+                              style={styles.userBubbleImage}
+                              resizeMode="cover"
+                              accessibilityLabel={imagePart.alt}
                             />
-                          </View>
+                          ) : null}
+                          {bodyText ? (
+                            <Text
+                              style={[
+                                styles.messageText,
+                                styles.userMessageText,
+                              ]}
+                            >
+                              {bodyText}
+                            </Text>
+                          ) : null}
                         </View>
                       );
-                    })}
-                    {isSending ? (
-                      <View style={styles.assistantColumn}>
+                    }
+
+                    const hasContent = message.parts.some((part) =>
+                      part.type === "text"
+                        ? part.text.trim() !== "" && part.text.trim() !== "..."
+                        : true,
+                    );
+                    if (!hasContent) {
+                      return null;
+                    }
+
+                    return (
+                      <View key={message.id} style={styles.assistantColumn}>
                         <View style={styles.assistantMessageWrapper}>
-                          <TypingIndicator />
+                          <ChatPartRenderer
+                            message={message}
+                            onQuickReplySelect={handleQuickReply}
+                            onSurveyAnswer={handleSurveyAnswer}
+                            onDeepLinkPress={handleDeepLink}
+                          />
                         </View>
                       </View>
-                    ) : null}
-                  </View>
+                    );
+                  })}
+                  {isSending ? (
+                    <View style={styles.assistantColumn}>
+                      <View style={styles.assistantMessageWrapper}>
+                        <TypingIndicator />
+                      </View>
+                    </View>
+                  ) : null}
                 </View>
-              </Card>
-
-              {imageDataUri ? (
-                <View style={styles.imagePreviewRow}>
-                  <ChatImagePreview
-                    dataUri={imageDataUri}
-                    onRemove={() => setImageDataUri(null)}
-                  />
-                </View>
-              ) : null}
-
-              <View style={styles.composerContainer}>
-                <Card variant="muted" style={styles.composerCard}>
-                  {errorMessage && (
-                    <Pressable onPress={() => setErrorMessage(null)}>
-                      <Text style={styles.errorMessageText}>
-                        {errorMessage}
-                      </Text>
-                    </Pressable>
-                  )}
-                  <View style={styles.composerRow}>
-                    <ChatImagePicker
-                      onImageSelected={setImageDataUri}
-                      disabled={isSending}
-                    />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="아기에게 하고 싶은 말을 적어보세요..."
-                      placeholderTextColor={surface.textSecondary}
-                      value={text}
-                      onChangeText={setText}
-                      multiline
-                      maxLength={3000}
-                    />
-                    <Pressable
-                      style={[
-                        styles.sendButton,
-                        isSending ? styles.sendButtonDisabled : null,
-                      ]}
-                      onPress={() => handleSend()}
-                      disabled={isSending}
-                      accessibilityLabel="메시지 보내기"
-                    >
-                      <Ionicons
-                        name="arrow-up"
-                        size={20}
-                        color={surface.surfacePrimary}
-                      />
-                    </Pressable>
-                  </View>
-                </Card>
               </View>
-            </>
-          )}
-        </ScrollView>
+            )}
+          </ScrollView>
+
+          <View
+            style={[
+              styles.footerDock,
+              { paddingBottom: insets.bottom + space.xs },
+            ]}
+            onLayout={handleComposerLayout}
+          >
+            {imageDataUri ? (
+              <View style={styles.imagePreviewRow}>
+                <ChatImagePreview
+                  dataUri={imageDataUri}
+                  onRemove={() => setImageDataUri(null)}
+                />
+              </View>
+            ) : null}
+
+            {errorMessage ? (
+              <Pressable onPress={() => setErrorMessage(null)}>
+                <Text style={styles.errorMessageText}>{errorMessage}</Text>
+              </Pressable>
+            ) : null}
+
+            <Card variant="muted" style={styles.composerCard}>
+              <View style={styles.composerRow}>
+                <ChatImagePicker
+                  onImageSelected={setImageDataUri}
+                  disabled={isSending}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="아기에게 하고 싶은 말을 적어보세요..."
+                  placeholderTextColor={surface.textSecondary}
+                  value={text}
+                  onChangeText={setText}
+                  multiline
+                  maxLength={3000}
+                />
+                <Pressable
+                  style={[
+                    styles.sendButton,
+                    isSending ? styles.sendButtonDisabled : null,
+                  ]}
+                  onPress={() => handleSend()}
+                  disabled={isSending}
+                  accessibilityLabel="메시지 보내기"
+                >
+                  <Ionicons
+                    name="arrow-up"
+                    size={20}
+                    color={surface.surfacePrimary}
+                  />
+                </Pressable>
+              </View>
+            </Card>
+          </View>
+
+          <Modal
+            visible={isTodaySessionsOpen}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setIsTodaySessionsOpen(false)}
+          >
+            <View style={styles.drawerRoot}>
+              <Pressable
+                style={[StyleSheet.absoluteFillObject, styles.drawerBackdrop]}
+                onPress={() => setIsTodaySessionsOpen(false)}
+                accessibilityLabel="오늘 지난 대화 닫기"
+              />
+              <View
+                style={[
+                  styles.drawerPanel,
+                  { paddingTop: insets.top + space.md },
+                ]}
+              >
+                <View style={styles.drawerHeader}>
+                  <Text style={styles.drawerTitle}>오늘 지난 대화</Text>
+                  <Pressable
+                    onPress={() => setIsTodaySessionsOpen(false)}
+                    accessibilityLabel="오늘 지난 대화 닫기"
+                    style={styles.drawerCloseButton}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={space.lg + space.xs}
+                      color={surface.textPrimary}
+                    />
+                  </Pressable>
+                </View>
+
+                <View style={styles.drawerList}>
+                  {isTodaySessionsLoading ? (
+                    <Text style={styles.drawerHelperText}>
+                      오늘 대화를 불러오고 있어요.
+                    </Text>
+                  ) : todaySessions.length > 0 ? (
+                    todaySessions.map((item) => {
+                      const isCurrentSession = item.id === resolvedSessionId;
+                      return (
+                        <Pressable
+                          key={item.id}
+                          style={[
+                            styles.drawerSessionCard,
+                            isCurrentSession
+                              ? styles.drawerSessionCardActive
+                              : null,
+                          ]}
+                          onPress={() => handleSelectTodaySession(item.id)}
+                          disabled={isCurrentSession}
+                          accessibilityState={{ disabled: isCurrentSession }}
+                        >
+                          <Text style={styles.drawerSessionMeta}>
+                            {item.updatedAtLabel}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.drawerSessionTitle,
+                              isCurrentSession
+                                ? styles.drawerSessionTitleActive
+                                : null,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {isCurrentSession
+                              ? "지금 보고 있는 대화"
+                              : item.title}
+                          </Text>
+                          <Text
+                            style={styles.drawerSessionPreview}
+                            numberOfLines={2}
+                          >
+                            {item.preview || "대화를 열어 이어서 볼 수 있어요."}
+                          </Text>
+                        </Pressable>
+                      );
+                    })
+                  ) : (
+                    <Text style={styles.drawerHelperText}>
+                      오늘 이어볼 대화가 아직 없어요.
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </View>
+          </Modal>
+        </View>
       </KeyboardAvoidingView>
     </PatientShell>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  content: {
-    paddingHorizontal: space.lg,
-    gap: space.sm,
+  flex: {
+    flex: 1,
+  },
+  screen: {
+    flex: 1,
+    backgroundColor: surface.surfacePrimary,
+  },
+  scrollContent: {
     flexGrow: 1,
+    paddingHorizontal: space.lg,
+    paddingTop: space.xs,
   },
   emptyStateContent: {
     flexGrow: 1,
-    minHeight: "100%",
-    justifyContent: "flex-end",
-    gap: space.xs,
-  },
-  emptyStateHeroArea: {
-    flexGrow: 1,
     justifyContent: "center",
-    paddingBottom: space.xl,
+    alignItems: "center",
+    paddingBottom: space.xxxl,
+  },
+  heroSection: {
+    alignItems: "center",
+    gap: space.sm,
+    paddingHorizontal: space.lg,
   },
   title: {
     ...typo.titleSm,
     color: surface.textPrimary,
     textAlign: "center",
   },
-  todaySessionsCard: {
-    gap: space.xs,
-    paddingVertical: space.sm,
-  },
-  todaySessionsTitle: {
-    ...typo.label,
-    color: surface.textPrimary,
-  },
-  todaySessionsList: {
-    gap: space.xs,
-  },
-  todaySessionChip: {
-    borderRadius: radii.lg,
-    backgroundColor: surface.surfaceSecondary,
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs + space.xs,
-    gap: space.xs,
-  },
-  todaySessionTitle: {
-    ...typo.label,
-    color: surface.textPrimary,
-  },
-  todaySessionPreview: {
-    ...typo.caption,
+  subtitle: {
+    ...typo.body,
     color: surface.textSecondary,
+    textAlign: "center",
   },
-  todaySessionsEmptyText: {
-    ...typo.caption,
-    color: surface.textSecondary,
-  },
-  chatCard: {
-    minHeight: 0,
-  },
-  chatBody: {
-    gap: space.sm,
-  },
-  heroSection: {
-    alignItems: "center",
-    gap: space.xs,
-    paddingTop: 0,
-    paddingBottom: space.xs,
-  },
-  quickStarterWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: space.xs,
-    marginTop: 0,
-    marginBottom: 0,
-    paddingHorizontal: 0,
-  },
-  quickStarterChip: {
-    backgroundColor: palette.accentSoft,
-    borderRadius: radii.full,
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs + space.xs,
-  },
-  quickStarterText: {
-    ...typo.label,
-    color: palette.accent,
+  threadedContent: {
+    flexGrow: 1,
+    justifyContent: "flex-end",
+    paddingTop: space.md,
   },
   messageList: {
-    gap: space.xs + space.xs,
+    gap: space.sm,
   },
   messageBubble: {
     borderRadius: radii.xl,
-    padding: space.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
   userBubble: {
     alignSelf: "flex-end",
     backgroundColor: palette.accent,
-    maxWidth: `${100 - space.lg}%`,
+    maxWidth: "84%",
     gap: space.sm,
   },
   userBubbleImage: {
@@ -610,7 +570,8 @@ const styles = StyleSheet.create({
   assistantMessageWrapper: {
     backgroundColor: surface.surfaceSecondary,
     borderRadius: radii.xl,
-    padding: space.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
     maxWidth: "100%",
   },
   messageText: {
@@ -620,40 +581,43 @@ const styles = StyleSheet.create({
   userMessageText: {
     color: surface.surfacePrimary,
   },
+  footerDock: {
+    gap: space.xs,
+    paddingTop: space.xs,
+    paddingHorizontal: space.lg,
+    backgroundColor: surface.surfacePrimary,
+  },
   imagePreviewRow: {
+    alignItems: "flex-start",
     paddingHorizontal: space.xs,
   },
-  composerContainer: {
-    gap: space.xs,
-  },
   composerCard: {
-    marginTop: 0,
-    paddingTop: space.sm,
-    paddingBottom: space.sm,
+    paddingTop: space.xs,
+    paddingBottom: space.xs,
     paddingLeft: space.xs,
-    paddingRight: space.sm,
+    paddingRight: space.xs,
   },
   composerRow: {
     flexDirection: "row",
     gap: space.xs,
-    alignItems: "center",
+    alignItems: "flex-end",
   },
   input: {
     flex: 1,
-    minHeight: 46,
+    minHeight: 44,
     maxHeight: space.xxxl * 3,
     borderRadius: radii.xl,
     backgroundColor: surface.fieldSurface,
     paddingHorizontal: space.md,
-    paddingTop: space.xs,
+    paddingTop: space.sm,
     paddingBottom: space.sm,
     ...typo.body,
     color: surface.textPrimary,
     textAlignVertical: "top",
   },
   sendButton: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     borderRadius: radii.full,
     backgroundColor: palette.accent,
     alignItems: "center",
@@ -662,15 +626,88 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     opacity: 0.5,
   },
-  sendButtonText: {
-    ...typo.label,
-    color: surface.surfacePrimary,
-  },
   errorMessageText: {
     ...typo.caption,
     color: palette.errorText,
     textAlign: "center",
-    paddingVertical: space.sm,
+    paddingVertical: space.xs,
+    paddingHorizontal: space.md,
+  },
+  drawerRoot: {
+    flex: 1,
+  },
+  drawerBackdrop: {
+    backgroundColor: "rgba(17, 24, 39, 0.16)",
+  },
+  drawerPanel: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 320,
+    maxWidth: "86%",
+    backgroundColor: surface.surfacePrimary,
     paddingHorizontal: space.lg,
+    paddingBottom: space.lg,
+    shadowColor: palette.ink,
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: -4, height: 0 },
+    elevation: 12,
+  },
+  drawerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: space.md,
+    paddingBottom: space.md,
+    borderBottomWidth: 1,
+    borderBottomColor: surface.strokeSubtle,
+  },
+  drawerTitle: {
+    ...typo.titleSm,
+    color: surface.textPrimary,
+  },
+  drawerCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.full,
+    backgroundColor: surface.surfaceSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  drawerList: {
+    gap: space.xs,
+    paddingTop: space.md,
+  },
+  drawerSessionCard: {
+    borderRadius: radii.lg,
+    backgroundColor: surface.surfaceSecondary,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    gap: space.xs,
+  },
+  drawerSessionCardActive: {
+    backgroundColor: surface.surfaceAccent,
+  },
+  drawerSessionMeta: {
+    ...typo.caption,
+    color: surface.textSecondary,
+  },
+  drawerSessionTitle: {
+    ...typo.label,
+    color: surface.textPrimary,
+  },
+  drawerSessionTitleActive: {
+    color: palette.accent,
+  },
+  drawerSessionPreview: {
+    ...typo.caption,
+    color: surface.textSecondary,
+  },
+  drawerHelperText: {
+    ...typo.body,
+    color: surface.textSecondary,
+    paddingTop: space.sm,
   },
 });

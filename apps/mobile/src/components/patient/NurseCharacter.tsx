@@ -1,12 +1,6 @@
 import { useEffect, useRef } from "react";
-import { Animated, Image, StyleSheet, Text, View } from "react-native";
-import {
-  palette,
-  patientSurfacePalette as surface,
-  radii,
-  space,
-  typo,
-} from "../../theme";
+import { Animated, Image, StyleSheet, View } from "react-native";
+import { patientSurfacePalette as surface, radii } from "../../theme";
 
 export type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
 
@@ -108,41 +102,21 @@ export function NurseCharacter({
           accessibilityLabel="간호사 캐릭터"
         />
       </Animated.View>
-
-      {config ? (
-        <View
-          style={[
-            styles.bubble,
-            { borderColor: config.accentColor + "33" },
-          ]}
-        >
-          <View
-            style={[
-              styles.bubbleTail,
-              { borderRightColor: surface.surfacePrimary },
-            ]}
-          />
-          <Text style={[styles.bubbleText, { color: config.accentColor }]}>
-            {config.bubbleText}
-          </Text>
-        </View>
-      ) : null}
     </View>
   );
 }
 
 // ─── 채팅 메시지 아바타 (작은 버전) ───────────────────────
-export function NurseAvatar({ emotionTone }: { emotionTone?: EmotionTone | null }) {
+export function NurseAvatar({
+  emotionTone,
+}: {
+  emotionTone?: EmotionTone | null;
+}) {
   const config = emotionTone ? EMOTION_CONFIG[emotionTone] : null;
   const tint = config?.backgroundTint ?? surface.surfaceSecondary;
 
   return (
-    <View
-      style={[
-        styles.avatarWrap,
-        { backgroundColor: tint },
-      ]}
-    >
+    <View style={[styles.avatarWrap, { backgroundColor: tint }]}>
       <Image
         source={NURSE_IMAGE}
         style={styles.avatarImage}
@@ -155,44 +129,12 @@ export function NurseAvatar({ emotionTone }: { emotionTone?: EmotionTone | null 
 
 const styles = StyleSheet.create({
   root: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: space.sm,
+    alignItems: "center",
   },
   characterWrap: {
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-  },
-  bubble: {
-    flex: 1,
-    backgroundColor: surface.surfacePrimary,
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.md,
-    alignSelf: "center",
-    position: "relative",
-  },
-  bubbleTail: {
-    position: "absolute",
-    left: -8,
-    top: "50%",
-    marginTop: -6,
-    width: 0,
-    height: 0,
-    borderTopWidth: 6,
-    borderBottomWidth: 6,
-    borderRightWidth: 8,
-    borderTopColor: "transparent",
-    borderBottomColor: "transparent",
-    borderRightColor: surface.surfacePrimary,
-  },
-  bubbleText: {
-    ...typo.caption,
-    fontWeight: "600",
-    lineHeight: 20,
   },
   // ─── Avatar (채팅 메시지용) ───
   avatarWrap: {
