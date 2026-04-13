@@ -60,10 +60,10 @@ function createUserMessage(text: string): ChatMessage {
 }
 
 const QUICK_STARTERS = [
+  "안녕, 아가야 👋",
   "오늘 태동을 느꼈어",
   "잠을 잘 못 자",
   "배가 자주 뭉쳐",
-  "아기 이름 고민 중이야",
 ];
 
 export function PatientTodayScreen() {
@@ -465,7 +465,10 @@ export function PatientTodayScreen() {
                   {session.messages.map((message, index) => {
                     if (message.role === "assistant") {
                       return (
-                        <View key={message.id ?? `assistant-${index}`} style={styles.assistantColumn}>
+                        <View
+                          key={message.id ?? `assistant-${index}`}
+                          style={styles.assistantColumn}
+                        >
                           <NurseCharacter size="sm" />
                           <View
                             style={[
@@ -523,7 +526,9 @@ export function PatientTodayScreen() {
                   {isSending ? (
                     <View style={styles.assistantColumn}>
                       <NurseCharacter size="sm" />
-                      <View style={[styles.messageBubble, styles.assistantBubble]}>
+                      <View
+                        style={[styles.messageBubble, styles.assistantBubble]}
+                      >
                         <TypingIndicator />
                       </View>
                     </View>
@@ -536,7 +541,8 @@ export function PatientTodayScreen() {
 
         {activeSection === "conversation" ? (
           <Card variant="muted" style={styles.conversationComposerCard}>
-            {!today || today.babyBody === "오늘 아기의 변화를 준비 중이에요." ? (
+            {!today ||
+            today.babyBody === "오늘 아기의 변화를 준비 중이에요." ? (
               <Pressable
                 style={styles.onboardingNudge}
                 onPress={() => router.push("/onboarding")}

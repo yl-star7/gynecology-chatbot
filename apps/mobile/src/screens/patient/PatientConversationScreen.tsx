@@ -18,10 +18,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
 import { Card, Pressable, EmotionCheckin } from "../../components/ui";
-import { ChatPartRenderer, ChatImagePicker, ChatImagePreview, TypingIndicator } from "../../components/chat";
+import {
+  ChatPartRenderer,
+  ChatImagePicker,
+  ChatImagePreview,
+  TypingIndicator,
+} from "../../components/chat";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { NurseCharacter } from "../../components/patient/NurseCharacter";
-import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+import {
+  palette,
+  patientSurfacePalette as surface,
+  radii,
+  space,
+  typo,
+} from "../../theme";
 import {
   buildConversationComposerLayout,
   buildPatientTabContentInsets,
@@ -31,15 +42,23 @@ import { resolvePatientConversationSendError } from "./patientErrorCopy.model";
 type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
 
 function createSessionId() {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
-    const random = Math.floor(Math.random() * 16);
-    const value = character === "x" ? random : (random & 0x3) | 0x8;
-    return value.toString(16);
-  });
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+    /[xy]/g,
+    (character) => {
+      const random = Math.floor(Math.random() * 16);
+      const value = character === "x" ? random : (random & 0x3) | 0x8;
+      return value.toString(16);
+    },
+  );
 }
 
-function createUserMessage(text: string, imageDataUri?: string | null): ChatMessage {
-  const parts: ChatMessage["parts"] = [{ type: "text", id: `text-${Date.now()}`, text }];
+function createUserMessage(
+  text: string,
+  imageDataUri?: string | null,
+): ChatMessage {
+  const parts: ChatMessage["parts"] = [
+    { type: "text", id: `text-${Date.now()}`, text },
+  ];
   if (imageDataUri) {
     parts.push({
       type: "image",
@@ -56,13 +75,20 @@ function createUserMessage(text: string, imageDataUri?: string | null): ChatMess
   };
 }
 
-export function PatientConversationScreen({ sessionId }: { sessionId: string }) {
+export function PatientConversationScreen({
+  sessionId,
+}: {
+  sessionId: string;
+}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const services = useMobileServices();
   const { getSession, replaceSession, appendMessage } = useChatSessions();
   const resolvedSessionId = useMemo(
-    () => (sessionId === "new" || sessionId === "heart-talk" ? createSessionId() : sessionId),
+    () =>
+      sessionId === "new" || sessionId === "heart-talk"
+        ? createSessionId()
+        : sessionId,
     [sessionId],
   );
   const session = getSession(resolvedSessionId);
@@ -72,7 +98,9 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
   const [showEmotionCheckin, setShowEmotionCheckin] = useState(
     sessionId === "new" || sessionId === "heart-talk",
   );
-  const [selectedEmotion, setSelectedEmotion] = useState<EmotionTone | null>(null);
+  const [selectedEmotion, setSelectedEmotion] = useState<EmotionTone | null>(
+    null,
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const composerLayout = buildConversationComposerLayout();
   const contentInsets = buildPatientTabContentInsets({
@@ -86,11 +114,22 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
       return;
     }
 
-    services.chatPort.getSession(resolvedSessionId).then(replaceSession).catch(() => undefined);
+    services.chatPort
+      .getSession(resolvedSessionId)
+      .then(replaceSession)
+      .catch(() => undefined);
 
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState === "active" && resolvedSessionId && sessionId !== "new" && sessionId !== "heart-talk") {
-        services.chatPort.getSession(resolvedSessionId).then(replaceSession).catch(() => undefined);
+      if (
+        nextState === "active" &&
+        resolvedSessionId &&
+        sessionId !== "new" &&
+        sessionId !== "heart-talk"
+      ) {
+        services.chatPort
+          .getSession(resolvedSessionId)
+          .then(replaceSession)
+          .catch(() => undefined);
       }
     });
     return () => subscription.remove();
@@ -103,7 +142,11 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
     }
 
     const capturedImage = imageDataUri;
-    appendMessage(resolvedSessionId, "아기와 대화", createUserMessage(nextText, capturedImage));
+    appendMessage(
+      resolvedSessionId,
+      "아기와 대화",
+      createUserMessage(nextText, capturedImage),
+    );
     setText("");
     setImageDataUri(null);
     setErrorMessage(null);
@@ -139,7 +182,9 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
 
   function handleSurveyAnswer(surveyId: string, choiceId: string) {
     try {
-      services.recordsPort?.saveSurveyResponse?.(surveyId, choiceId).catch(() => undefined);
+      services.recordsPort
+        ?.saveSurveyResponse?.(surveyId, choiceId)
+        .catch(() => undefined);
     } catch {
       // 기록 실패 시 조용히 무시
     }
@@ -198,9 +243,16 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
               {session.messages.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyIcon}>◌</Text>
-                  <Text style={styles.emptyText}>아기에게 하고 싶은 이야기를 나눠보세요</Text>
+                  <Text style={styles.emptyText}>
+                    아기에게 하고 싶은 이야기를 나눠보세요
+                  </Text>
                   <View style={styles.quickStarterWrap}>
-                    {["오늘 태동을 느꼈어", "잠을 잘 못 자", "배가 자주 뭉쳐", "아기 이름 고민 중이야"].map((starter) => (
+                    {[
+                      "안녕, 아가야 👋",
+                      "오늘 태동을 느꼈어",
+                      "잠을 잘 못 자",
+                      "배가 자주 뭉쳐",
+                    ].map((starter) => (
                       <Pressable
                         key={starter}
                         style={styles.quickStarterChip}
@@ -214,53 +266,68 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
                 </View>
               ) : (
                 <View style={styles.messageList}>
-                {session.messages.map((message) => {
-                  if (message.role === "user") {
-                    const textPart = message.parts.find((p) => p.type === "text");
-                    const imagePart = message.parts.find((p) => p.type === "image");
-                    const bodyText =
-                      textPart?.type === "text" ? textPart.text : "";
+                  {session.messages.map((message) => {
+                    if (message.role === "user") {
+                      const textPart = message.parts.find(
+                        (p) => p.type === "text",
+                      );
+                      const imagePart = message.parts.find(
+                        (p) => p.type === "image",
+                      );
+                      const bodyText =
+                        textPart?.type === "text" ? textPart.text : "";
+                      return (
+                        <View
+                          key={message.id}
+                          style={[styles.messageBubble, styles.userBubble]}
+                        >
+                          {imagePart?.type === "image" ? (
+                            <Image
+                              source={{ uri: imagePart.imageUrl }}
+                              style={styles.userBubbleImage}
+                              resizeMode="cover"
+                              accessibilityLabel={imagePart.alt}
+                            />
+                          ) : null}
+                          {bodyText ? (
+                            <Text
+                              style={[
+                                styles.messageText,
+                                styles.userMessageText,
+                              ]}
+                            >
+                              {bodyText}
+                            </Text>
+                          ) : null}
+                        </View>
+                      );
+                    }
+
                     return (
-                      <View key={message.id} style={[styles.messageBubble, styles.userBubble]}>
-                        {imagePart?.type === "image" ? (
-                          <Image
-                            source={{ uri: imagePart.imageUrl }}
-                            style={styles.userBubbleImage}
-                            resizeMode="cover"
-                            accessibilityLabel={imagePart.alt}
+                      <View key={message.id} style={styles.assistantColumn}>
+                        <NurseCharacter
+                          size="sm"
+                          emotionTone={selectedEmotion}
+                        />
+                        <View style={styles.assistantMessageWrapper}>
+                          <ChatPartRenderer
+                            message={message}
+                            onQuickReplySelect={handleQuickReply}
+                            onSurveyAnswer={handleSurveyAnswer}
+                            onDeepLinkPress={handleDeepLink}
                           />
-                        ) : null}
-                        {bodyText ? (
-                          <Text style={[styles.messageText, styles.userMessageText]}>
-                            {bodyText}
-                          </Text>
-                        ) : null}
+                        </View>
                       </View>
                     );
-                  }
-
-                  return (
-                    <View key={message.id} style={styles.assistantColumn}>
+                  })}
+                  {isSending ? (
+                    <View style={styles.assistantColumn}>
                       <NurseCharacter size="sm" emotionTone={selectedEmotion} />
                       <View style={styles.assistantMessageWrapper}>
-                        <ChatPartRenderer
-                          message={message}
-                          onQuickReplySelect={handleQuickReply}
-                          onSurveyAnswer={handleSurveyAnswer}
-                          onDeepLinkPress={handleDeepLink}
-                        />
+                        <TypingIndicator />
                       </View>
                     </View>
-                  );
-                })}
-                {isSending ? (
-                  <View style={styles.assistantColumn}>
-                    <NurseCharacter size="sm" emotionTone={selectedEmotion} />
-                    <View style={styles.assistantMessageWrapper}>
-                      <TypingIndicator />
-                    </View>
-                  </View>
-                ) : null}
+                  ) : null}
                 </View>
               )}
             </View>
@@ -278,9 +345,7 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
           <Card variant="muted" style={styles.composerCard}>
             {errorMessage && (
               <Pressable onPress={() => setErrorMessage(null)}>
-                <Text style={styles.errorMessageText}>
-                  {errorMessage}
-                </Text>
+                <Text style={styles.errorMessageText}>{errorMessage}</Text>
               </Pressable>
             )}
             <View style={styles.composerRow}>
@@ -298,12 +363,19 @@ export function PatientConversationScreen({ sessionId }: { sessionId: string }) 
                 maxLength={3000}
               />
               <Pressable
-                style={[styles.sendButton, isSending ? styles.sendButtonDisabled : null]}
+                style={[
+                  styles.sendButton,
+                  isSending ? styles.sendButtonDisabled : null,
+                ]}
                 onPress={() => handleSend()}
                 disabled={isSending}
                 accessibilityLabel="메시지 보내기"
               >
-                <Ionicons name="paper-plane-outline" size={space.lg + space.sm} color={surface.surfacePrimary} />
+                <Ionicons
+                  name="paper-plane-outline"
+                  size={space.lg + space.sm}
+                  color={surface.surfacePrimary}
+                />
               </Pressable>
             </View>
           </Card>
