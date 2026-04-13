@@ -63,9 +63,13 @@ export function PatientShell({
           style={[
             styles.header,
             useMainTone ? styles.headerMain : styles.headerPlain,
+            headerLayout.usesCompactTopInset
+              ? styles.headerWithBackButton
+              : null,
             headerCompact ? styles.headerCompact : null,
-            headerLayout.usesCompactTopInset ? styles.headerWithBackButton : null,
-            headerLayout.compactTrailingSpace ? styles.headerWithoutRightSlot : null,
+            headerLayout.compactTrailingSpace
+              ? styles.headerWithoutRightSlot
+              : null,
           ]}
         >
           {headerLayout.leftSlot === "back" ? (
@@ -144,8 +148,8 @@ const styles = StyleSheet.create({
     backgroundColor: surface.pageBackground,
   },
   headerCompact: {
-    paddingTop: space.sm,
-    paddingBottom: space.xs,
+    paddingTop: space.xs,
+    paddingBottom: 0,
   },
   headerWithBackButton: {
     paddingTop: space.xl + space.xs,

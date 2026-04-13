@@ -8,22 +8,28 @@ import {
   Text,
   View,
 } from "react-native";
-import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../../theme";
+import {
+  palette,
+  patientSurfacePalette as surface,
+  radii,
+  shadows,
+  space,
+  typo,
+} from "../../theme";
 
 type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
 
 interface EmotionOption {
   tone: EmotionTone;
   label: string;
-  emoji: string;
 }
 
 const EMOTIONS: EmotionOption[] = [
-  { tone: "calm", label: "차분해요", emoji: "😌" },
-  { tone: "joyful", label: "기뻐요", emoji: "😊" },
-  { tone: "anxious", label: "불안해요", emoji: "😟" },
-  { tone: "tired", label: "피곤해요", emoji: "😴" },
-  { tone: "sad", label: "슬퍼요", emoji: "😢" },
+  { tone: "calm", label: "차분해요" },
+  { tone: "joyful", label: "기뻐요" },
+  { tone: "anxious", label: "불안해요" },
+  { tone: "tired", label: "피곤해요" },
+  { tone: "sad", label: "슬퍼요" },
 ];
 
 interface EmotionCheckinProps {
@@ -67,23 +73,19 @@ export function EmotionCheckin({ onSelect, onDismiss }: EmotionCheckinProps) {
       <Text style={styles.title}>오늘 기분이 어떠세요?</Text>
 
       <View style={styles.emotionRow}>
-        {EMOTIONS.map(({ tone, label, emoji }) => (
-          <View key={tone} style={styles.emotionItem}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.emotionButton,
-                pressed && styles.emotionButtonPressed,
-              ]}
-              onPress={() => onSelect(tone)}
-              accessibilityRole="button"
-              accessibilityLabel={label}
-            >
-              <Text style={styles.emotionEmoji}>{emoji}</Text>
-            </Pressable>
-            <Text style={styles.emotionLabel} numberOfLines={1}>
-              {label}
-            </Text>
-          </View>
+        {EMOTIONS.map(({ tone, label }) => (
+          <Pressable
+            key={tone}
+            style={({ pressed }) => [
+              styles.emotionButton,
+              pressed && styles.emotionButtonPressed,
+            ]}
+            onPress={() => onSelect(tone)}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+          >
+            <Text style={styles.emotionLabel}>{label}</Text>
+          </Pressable>
         ))}
       </View>
 
@@ -130,22 +132,19 @@ const styles = StyleSheet.create({
     ...typo.titleSm,
     color: surface.textPrimary,
     textAlign: "center",
-    marginBottom: space.xl,
+    marginBottom: space.lg,
   },
   emotionRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: space.xl,
-  },
-  emotionItem: {
-    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "center",
     gap: space.sm,
-    flex: 1,
+    marginBottom: space.lg,
   },
   emotionButton: {
-    width: space.xxxl + space.lg,
-    height: space.xxxl + space.lg,
+    minWidth: 84,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm + space.xs,
     borderRadius: radii.full,
     backgroundColor: surface.surfaceSecondary,
     alignItems: "center",
@@ -154,10 +153,7 @@ const styles = StyleSheet.create({
   },
   emotionButtonPressed: {
     backgroundColor: surface.surfaceAccent,
-    transform: [{ scale: 0.94 }],
-  },
-  emotionEmoji: {
-    ...typo.titleSm,
+    transform: [{ scale: 0.97 }],
   },
   emotionLabel: {
     ...typo.caption,

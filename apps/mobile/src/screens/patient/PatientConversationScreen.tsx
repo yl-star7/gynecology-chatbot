@@ -1,8 +1,10 @@
 // @ts-nocheck
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import type { ChatMessage } from "@gynecology-chatbot/app-core";
-import { Ionicons } from "@expo/vector-icons";
+import type {
+  ChatMessage,
+  RecentChatSummary,
+} from "@gynecology-chatbot/app-core";
 import {
   AppState,
   Image,
@@ -33,13 +35,17 @@ import {
   space,
   typo,
 } from "../../theme";
-import {
-  buildConversationComposerLayout,
-  buildPatientTabContentInsets,
-} from "./patientScreenLayout.model";
+import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { resolvePatientConversationSendError } from "./patientErrorCopy.model";
 
 type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
+
+const QUICK_STARTERS = [
+  "안녕, 아가야",
+  "오늘 태동을 느꼈어",
+  "잠을 잘 못 자",
+  "배가 자주 뭉쳐",
+];
 
 function createSessionId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
@@ -50,6 +56,14 @@ function createSessionId() {
       return value.toString(16);
     },
   );
+}
+
+function createTodayIsoDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function createUserMessage(
@@ -101,8 +115,9 @@ export function PatientConversationScreen({
   const [selectedEmotion, setSelectedEmotion] = useState<EmotionTone | null>(
     null,
   );
+  const [todaySessions, setTodaySessions] = useState<RecentChatSummary[]>([]);
+  const [isTodaySessionsOpen, setIsTodaySessionsOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const composerLayout = buildConversationComposerLayout();
   const contentInsets = buildPatientTabContentInsets({
     bottomInset: insets.bottom,
     extraBottomSpacing: space.lg,
@@ -212,8 +227,42 @@ export function PatientConversationScreen({
     setShowEmotionCheckin(false);
   }
 
+  async function handleOpenTodaySessions() {
+    if (isTodaySessionsOpen) {
+      setIsTodaySessionsOpen(false);
+      return;
+    }
+
+    try {
+      const recordDay =
+        await services.homePort.getRecordDay(createTodayIsoDate());
+      setTodaySessions(recordDay.relatedSessions);
+    } catch {
+      setTodaySessions([]);
+    }
+
+    setIsTodaySessionsOpen(true);
+  }
+
+  function handleSelectTodaySession(nextSessionId: string) {
+    setIsTodaySessionsOpen(false);
+    if (nextSessionId === resolvedSessionId) {
+      return;
+    }
+    router.push(`/chat/${nextSessionId}`);
+  }
+
   return (
-    <PatientShell activeTab="today" backHref="/(tabs)/today" pageTone="plain">
+    <PatientShell
+      activeTab="today"
+      backHref="/(tabs)/today"
+      pageTone="plain"
+      headerCompact
+      showProfileButton={false}
+      rightActionIcon="list"
+      rightActionLabel="오늘 대화 보기"
+      onRightActionPress={handleOpenTodaySessions}
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -229,33 +278,48 @@ export function PatientConversationScreen({
           ]}
           showsVerticalScrollIndicator={false}
         >
+          {isTodaySessionsOpen ? (
+            <Card style={styles.todaySessionsCard}>
+              <Text style={styles.todaySessionsTitle}>오늘 지난 세션</Text>
+              <View style={styles.todaySessionsList}>
+                {todaySessions.length > 0 ? (
+                  todaySessions.map((item) => (
+                    <Pressable
+                      key={item.id}
+                      style={styles.todaySessionChip}
+                      onPress={() => handleSelectTodaySession(item.id)}
+                    >
+                      <Text style={styles.todaySessionTitle}>{item.title}</Text>
+                      <Text
+                        style={styles.todaySessionPreview}
+                        numberOfLines={1}
+                      >
+                        {item.preview}
+                      </Text>
+                    </Pressable>
+                  ))
+                ) : (
+                  <Text style={styles.todaySessionsEmptyText}>
+                    오늘 이어볼 대화가 아직 없어요.
+                  </Text>
+                )}
+              </View>
+            </Card>
+          ) : null}
+
           <Card style={styles.chatCard}>
             <View style={styles.chatBody}>
-              <NurseCharacter emotionTone={selectedEmotion} size="md" />
-
-              <View style={styles.chatHeaderRow}>
-                <View style={styles.chatHeaderIconWrap}>
-                  <Ionicons
-                    name="chatbubble-outline"
-                    size={space.xl}
-                    color={palette.accent}
-                  />
-                </View>
+              <View style={styles.heroSection}>
+                <NurseCharacter emotionTone={selectedEmotion} size="md" />
                 <Text style={styles.title}>아기와 대화</Text>
               </View>
               {session.messages.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Text style={styles.emptyIcon}>◌</Text>
                   <Text style={styles.emptyText}>
                     아기에게 하고 싶은 이야기를 나눠보세요
                   </Text>
                   <View style={styles.quickStarterWrap}>
-                    {[
-                      "안녕, 아가야 👋",
-                      "오늘 태동을 느꼈어",
-                      "잠을 잘 못 자",
-                      "배가 자주 뭉쳐",
-                    ].map((starter) => (
+                    {QUICK_STARTERS.map((starter) => (
                       <Pressable
                         key={starter}
                         style={styles.quickStarterChip}
@@ -315,10 +379,6 @@ export function PatientConversationScreen({
 
                     return (
                       <View key={message.id} style={styles.assistantColumn}>
-                        <NurseCharacter
-                          size="sm"
-                          emotionTone={selectedEmotion}
-                        />
                         <View style={styles.assistantMessageWrapper}>
                           <ChatPartRenderer
                             message={message}
@@ -332,7 +392,6 @@ export function PatientConversationScreen({
                   })}
                   {isSending ? (
                     <View style={styles.assistantColumn}>
-                      <NurseCharacter size="sm" emotionTone={selectedEmotion} />
                       <View style={styles.assistantMessageWrapper}>
                         <TypingIndicator />
                       </View>
@@ -381,11 +440,7 @@ export function PatientConversationScreen({
                 disabled={isSending}
                 accessibilityLabel="메시지 보내기"
               >
-                <Ionicons
-                  name="paper-plane-outline"
-                  size={space.lg + space.sm}
-                  color={surface.surfacePrimary}
-                />
+                <Text style={styles.sendButtonText}>보내기</Text>
               </Pressable>
             </View>
           </Card>
@@ -406,43 +461,61 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: {
     paddingHorizontal: space.lg,
-    gap: space.md,
+    gap: space.sm,
     flexGrow: 1,
   },
   title: {
     ...typo.titleSm,
     color: surface.textPrimary,
+    textAlign: "center",
+  },
+  todaySessionsCard: {
+    gap: space.sm,
+    paddingVertical: space.md,
+  },
+  todaySessionsTitle: {
+    ...typo.label,
+    color: surface.textPrimary,
+  },
+  todaySessionsList: {
+    gap: space.sm,
+  },
+  todaySessionChip: {
+    borderRadius: radii.lg,
+    backgroundColor: surface.surfaceSecondary,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    gap: space.xs,
+  },
+  todaySessionTitle: {
+    ...typo.label,
+    color: surface.textPrimary,
+  },
+  todaySessionPreview: {
+    ...typo.caption,
+    color: surface.textSecondary,
+  },
+  todaySessionsEmptyText: {
+    ...typo.caption,
+    color: surface.textSecondary,
   },
   chatCard: {
     minHeight: 0,
   },
   chatBody: {
-    gap: space.lg,
+    gap: space.md,
   },
-  chatHeaderRow: {
-    flexDirection: "row",
+  heroSection: {
     alignItems: "center",
     gap: space.sm,
   },
-  chatHeaderIconWrap: {
-    width: space.xxxl,
-    height: space.xxxl,
-    borderRadius: radii.full,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: palette.accentSoft,
-  },
   emptyState: {
     minHeight: 0,
-    paddingTop: space.xxxl * 2,
-    paddingBottom: space.xxxl * 2,
+    paddingTop: space.xxxl,
+    paddingBottom: space.xxxl,
     alignItems: "center",
     justifyContent: "center",
-    gap: space.md,
-  },
-  emptyIcon: {
-    fontSize: space.xxxl + space.lg,
-    color: surface.textSecondary,
+    gap: space.sm,
   },
   emptyText: {
     ...typo.body,
@@ -453,25 +526,25 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "center",
     gap: space.sm,
-    marginTop: space.lg,
-    paddingHorizontal: space.md,
+    marginTop: space.md,
+    paddingHorizontal: space.sm,
   },
   quickStarterChip: {
     backgroundColor: palette.accentSoft,
     borderRadius: radii.full,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs + space.xs,
   },
   quickStarterText: {
     ...typo.label,
     color: palette.accent,
   },
   messageList: {
-    gap: space.sm,
+    gap: space.xs + space.xs,
   },
   messageBubble: {
     borderRadius: radii.xl,
-    padding: space.lg,
+    padding: space.md,
   },
   userBubble: {
     alignSelf: "flex-end",
@@ -485,16 +558,14 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
   },
   assistantColumn: {
-    flexDirection: "column",
     alignItems: "flex-start",
-    gap: space.sm,
     alignSelf: "flex-start",
     maxWidth: "100%",
   },
   assistantMessageWrapper: {
     backgroundColor: surface.surfaceSecondary,
     borderRadius: radii.xl,
-    padding: space.lg,
+    padding: space.md,
     maxWidth: "100%",
   },
   messageText: {
@@ -517,26 +588,31 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: 52,
+    minHeight: 46,
     maxHeight: space.xxxl * 3,
     borderRadius: radii.xl,
     backgroundColor: surface.fieldSurface,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.sm + space.xs,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
     ...typo.body,
     color: surface.textPrimary,
     textAlignVertical: "top",
   },
   sendButton: {
-    width: 44,
-    height: 44,
+    minWidth: 64,
+    height: 42,
     borderRadius: radii.lg,
     backgroundColor: palette.accent,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: space.md,
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  sendButtonText: {
+    ...typo.label,
+    color: surface.surfacePrimary,
   },
   errorMessageText: {
     ...typo.caption,

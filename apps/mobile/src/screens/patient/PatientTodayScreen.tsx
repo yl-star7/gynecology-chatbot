@@ -1,29 +1,23 @@
 // @ts-nocheck
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type {
-  ChatMessage,
   RecentChatSummary,
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
 import { Ionicons } from "@expo/vector-icons";
 import {
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useChatSessions } from "../../chat/store";
-import { ChatPartRenderer, TypingIndicator } from "../../components/chat";
 import { Card, Pressable } from "../../components/ui";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { PatientTodayTabs } from "../../components/patient/PatientTodayTabs";
-import { NurseCharacter } from "../../components/patient/NurseCharacter";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import {
   palette,
@@ -32,35 +26,11 @@ import {
   space,
   typo,
 } from "../../theme";
-import {
-  buildPatientTabContentInsets,
-  buildTodayConversationLayout,
-} from "./patientScreenLayout.model";
+import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { buildPatientTodayViewModel } from "./view-models";
-import { appendAssistantMessages } from "./PatientTodayScreen.model";
-
-function createSessionId() {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-    /[xy]/g,
-    (character) => {
-      const random = Math.floor(Math.random() * 16);
-      const value = character === "x" ? random : (random & 0x3) | 0x8;
-      return value.toString(16);
-    },
-  );
-}
-
-function createUserMessage(text: string): ChatMessage {
-  return {
-    id: `user-${Date.now()}`,
-    role: "user",
-    createdAtLabel: "방금 전",
-    parts: [{ type: "text", id: `text-${Date.now()}`, text }],
-  };
-}
 
 const QUICK_STARTERS = [
-  "안녕, 아가야 👋",
+  "안녕, 아가야",
   "오늘 태동을 느꼈어",
   "잠을 잘 못 자",
   "배가 자주 뭉쳐",
@@ -70,25 +40,13 @@ export function PatientTodayScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const services = useMobileServices();
-  const { getSession, replaceSession, appendMessage } = useChatSessions();
   const [today, setToday] = useState<TodayViewData | null>(null);
   const [recentSessions, setRecentSessions] = useState<RecentChatSummary[]>([]);
   const [activeSection, setActiveSection] = useState("info");
-  const [conversationSessionId, setConversationSessionId] = useState<
-    string | null
-  >(null);
-  const [text, setText] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
-  const [lastSentText, setLastSentText] = useState<string | null>(null);
-  const [pendingChecklistIds, setPendingChecklistIds] = useState<string[]>([]);
-  const conversationLayout = buildTodayConversationLayout();
   const contentInsets = buildPatientTabContentInsets({
     bottomInset: insets.bottom,
     extraBottomSpacing:
-      activeSection === "conversation"
-        ? conversationLayout.sendButtonSize + space.xxxl
-        : space.lg,
+      activeSection === "conversation" ? space.xxxl : space.lg,
     topSpacing: space.xs,
   });
 
@@ -119,164 +77,9 @@ export function PatientTodayScreen() {
       .catch(() => undefined);
   }, [activeSection, services, today?.infoViewed]);
 
-  useEffect(() => {
-    if (conversationSessionId) {
-      return;
-    }
-
-    setConversationSessionId(recentSessions[0]?.id ?? createSessionId());
-  }, [conversationSessionId, recentSessions]);
-
-  useEffect(() => {
-    if (!conversationSessionId) {
-      return;
-    }
-
-    const hasExistingSession = recentSessions.some(
-      (session) => session.id === conversationSessionId,
-    );
-    if (!hasExistingSession) {
-      return;
-    }
-
-    services.chatPort
-      .getSession(conversationSessionId)
-      .then(replaceSession)
-      .catch(() => undefined);
-  }, [conversationSessionId, recentSessions, replaceSession, services]);
-
   const viewModel = buildPatientTodayViewModel({
     today,
   });
-  const session = useMemo(
-    () =>
-      conversationSessionId
-        ? getSession(conversationSessionId)
-        : { id: "pending", title: "아기와 대화", messages: [] },
-    [conversationSessionId, getSession],
-  );
-
-  async function handleSend(overrideText?: string) {
-    const nextText = (overrideText ?? text).trim();
-    if (!conversationSessionId || !nextText || isSending) {
-      return;
-    }
-
-    appendMessage(
-      conversationSessionId,
-      "아기와 대화",
-      createUserMessage(nextText),
-    );
-    setText("");
-    setSendError(null);
-    setLastSentText(nextText);
-    setIsSending(true);
-
-    try {
-      const assistantMessages = await services.chatPort.sendMessage({
-        sessionId: conversationSessionId,
-        text: nextText,
-        imageUris: [],
-      });
-      const [firstMessage, ...followUpMessages] = assistantMessages;
-      if (firstMessage) {
-        appendMessage(conversationSessionId, "아기와 대화", firstMessage);
-      }
-      if (followUpMessages.length > 0) {
-        setTimeout(() => {
-          for (const message of followUpMessages) {
-            appendMessage(conversationSessionId, "아기와 대화", message);
-          }
-        }, 1500);
-      }
-      // 태명 등 프로필 변경이 있을 수 있으므로 today 리프레시
-      services.todayPort
-        .getTodayView()
-        .then(setToday)
-        .catch(() => undefined);
-    } catch {
-      setSendError("메시지를 보내지 못했어요.");
-    } finally {
-      setIsSending(false);
-    }
-  }
-
-  function handleRetry() {
-    if (lastSentText) {
-      handleSend(lastSentText);
-    }
-  }
-
-  async function handleToggleChecklistItem(checklistId: string) {
-    if (!today || pendingChecklistIds.includes(checklistId)) {
-      return;
-    }
-
-    const target = today.checklistItems.find((item) => item.id === checklistId);
-    if (!target) {
-      return;
-    }
-
-    const nextCompleted = !target.completed;
-    setPendingChecklistIds((current) => [...current, checklistId]);
-    setToday((current) =>
-      current
-        ? {
-            ...current,
-            checklistItems: current.checklistItems.map((item) =>
-              item.id === checklistId
-                ? { ...item, completed: nextCompleted }
-                : item,
-            ),
-          }
-        : current,
-    );
-
-    try {
-      await services.todayPort.setChecklistItemCompleted({
-        checklistId,
-        completed: nextCompleted,
-      });
-    } catch {
-      setToday((current) =>
-        current
-          ? {
-              ...current,
-              checklistItems: current.checklistItems.map((item) =>
-                item.id === checklistId
-                  ? { ...item, completed: target.completed }
-                  : item,
-              ),
-            }
-          : current,
-      );
-    } finally {
-      setPendingChecklistIds((current) =>
-        current.filter((id) => id !== checklistId),
-      );
-    }
-  }
-
-  function handleQuickReplySelect(message: string) {
-    handleSend(message);
-  }
-
-  function handleSurveyAnswer(surveyId: string, choiceId: string) {
-    services.recordsPort
-      .saveSurveyResponse({ questionId: surveyId, answer: choiceId })
-      .catch(() => undefined);
-  }
-
-  function handleDeepLinkPress(target: string, entityId?: string) {
-    try {
-      const path = entityId
-        ? `/chat/link/${target}?entityId=${encodeURIComponent(entityId)}`
-        : `/chat/link/${target}`;
-      router.push(path);
-    } catch {
-      // 탐색 불가 경우 무시
-    }
-  }
 
   return (
     <PatientShell
@@ -377,8 +180,32 @@ export function PatientTodayScreen() {
                   <Pressable
                     key={item.id}
                     style={styles.checklistRow}
-                    onPress={() => handleToggleChecklistItem(item.id)}
-                    disabled={pendingChecklistIds.includes(item.id)}
+                    onPress={() =>
+                      services.todayPort
+                        .setChecklistItemCompleted({
+                          checklistId: item.id,
+                          completed: !item.completed,
+                        })
+                        .then(() =>
+                          setToday((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  checklistItems: current.checklistItems.map(
+                                    (currentItem) =>
+                                      currentItem.id === item.id
+                                        ? {
+                                            ...currentItem,
+                                            completed: !currentItem.completed,
+                                          }
+                                        : currentItem,
+                                  ),
+                                }
+                              : current,
+                          ),
+                        )
+                        .catch(() => undefined)
+                    }
                     accessibilityLabel={`${item.label} ${item.completed ? "완료됨" : "미완료"}`}
                   >
                     <View
@@ -415,186 +242,76 @@ export function PatientTodayScreen() {
           ) : null}
 
           {activeSection === "conversation" ? (
-            <Card
-              style={[
-                styles.segmentCard,
-                styles.conversationCard,
-                { minHeight: conversationLayout.cardMinHeight },
-              ]}
-            >
-              <View style={styles.iconTitleRow}>
-                <View
-                  style={[styles.sectionIconWrap, styles.conversationIconWrap]}
-                >
-                  <Ionicons
-                    name="chatbubble-outline"
-                    size={space.lg + space.xs}
-                    color={palette.accent}
-                  />
-                </View>
+            <Card style={[styles.segmentCard, styles.conversationLauncherCard]}>
+              <View style={styles.conversationLauncherHeader}>
                 <Text style={styles.sectionTitle}>
                   {viewModel.conversationTitle}
                 </Text>
+                <Pressable
+                  style={styles.openChatButton}
+                  onPress={() => router.push("/chat/new")}
+                  accessibilityLabel="새 채팅 열기"
+                >
+                  <Text style={styles.openChatButtonText}>새 채팅</Text>
+                </Pressable>
               </View>
 
-              {session.messages.length === 0 ? (
-                <View
-                  style={[
-                    styles.emptyState,
-                    { minHeight: conversationLayout.emptyStateMinHeight },
-                  ]}
-                >
-                  <Ionicons
-                    name="chatbubble-outline"
-                    size={space.xxxl + space.lg}
-                    color={surface.strokeSubtle}
-                  />
-                  <Text style={styles.emptyText}>
-                    {viewModel.conversationDescription}
+              <Text style={styles.emptyText}>
+                {viewModel.conversationDescription}
+              </Text>
+
+              <View style={styles.quickStarterWrap}>
+                {QUICK_STARTERS.map((starter) => (
+                  <Pressable
+                    key={starter}
+                    style={styles.quickStarterChip}
+                    onPress={() => router.push("/chat/new")}
+                  >
+                    <Text style={styles.quickStarterText}>{starter}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <View style={styles.recentSessionList}>
+                {recentSessions.length > 0 ? (
+                  recentSessions.slice(0, 3).map((item) => (
+                    <Pressable
+                      key={item.id}
+                      style={styles.recentSessionCard}
+                      onPress={() => router.push(`/chat/${item.id}`)}
+                    >
+                      <Text style={styles.recentSessionTitle}>
+                        {item.title}
+                      </Text>
+                      <Text
+                        style={styles.recentSessionPreview}
+                        numberOfLines={1}
+                      >
+                        {item.preview}
+                      </Text>
+                    </Pressable>
+                  ))
+                ) : (
+                  <Text style={styles.recentSessionEmptyText}>
+                    이어볼 대화가 아직 없어요.
                   </Text>
-                  <View style={styles.quickStarterWrap}>
-                    {QUICK_STARTERS.map((starter) => (
-                      <Pressable
-                        key={starter}
-                        style={styles.quickStarterChip}
-                        onPress={() => handleSend(starter)}
-                        disabled={isSending}
-                      >
-                        <Text style={styles.quickStarterText}>{starter}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.messageList}>
-                  {session.messages.map((message, index) => {
-                    if (message.role === "assistant") {
-                      const hasContent = message.parts.some((p) =>
-                        p.type === "text"
-                          ? p.text.trim() !== "" && p.text.trim() !== "..."
-                          : true,
-                      );
-                      if (!hasContent) return null;
-                      return (
-                        <View
-                          key={message.id ?? `assistant-${index}`}
-                          style={styles.assistantColumn}
-                        >
-                          <NurseCharacter size="sm" />
-                          <View
-                            style={[
-                              styles.messageBubble,
-                              styles.assistantBubble,
-                            ]}
-                          >
-                            <ChatPartRenderer
-                              message={message}
-                              onQuickReplySelect={handleQuickReplySelect}
-                              onSurveyAnswer={handleSurveyAnswer}
-                              onDeepLinkPress={handleDeepLinkPress}
-                            />
-                          </View>
-                        </View>
-                      );
-                    }
-
-                    const textPart = message.parts.find(
-                      (part) => part.type === "text",
-                    );
-                    const imageParts = message.parts.filter(
-                      (part) => part.type === "image",
-                    );
-                    const bodyText =
-                      textPart?.type === "text" ? textPart.text : null;
-
-                    return (
-                      <View
-                        key={message.id ?? `user-${index}`}
-                        style={[styles.messageBubble, styles.userBubble]}
-                      >
-                        {imageParts.map((part) =>
-                          part.type === "image" ? (
-                            <View key={part.id} style={styles.userImageWrap}>
-                              <Image
-                                source={{ uri: part.imageUrl }}
-                                style={styles.userImage}
-                                resizeMode="cover"
-                                accessibilityLabel={part.alt ?? "첨부 이미지"}
-                              />
-                            </View>
-                          ) : null,
-                        )}
-                        {bodyText ? (
-                          <Text
-                            style={[styles.messageText, styles.userMessageText]}
-                          >
-                            {bodyText}
-                          </Text>
-                        ) : null}
-                      </View>
-                    );
-                  })}
-                  {isSending ? (
-                    <View style={styles.assistantColumn}>
-                      <NurseCharacter size="sm" />
-                      <View
-                        style={[styles.messageBubble, styles.assistantBubble]}
-                      >
-                        <TypingIndicator />
-                      </View>
-                    </View>
-                  ) : null}
-                </View>
-              )}
+                )}
+              </View>
             </Card>
           ) : null}
         </ScrollView>
 
-        {activeSection === "conversation" ? (
+        {activeSection === "conversation" &&
+        (!today || today.babyBody === "오늘 아기의 변화를 준비 중이에요.") ? (
           <Card variant="muted" style={styles.conversationComposerCard}>
-            {!today ||
-            today.babyBody === "오늘 아기의 변화를 준비 중이에요." ? (
-              <Pressable
-                style={styles.onboardingNudge}
-                onPress={() => router.push("/onboarding")}
-              >
-                <Text style={styles.onboardingNudgeText}>
-                  내 정보를 등록하면 주차별 맞춤 상담을 받을 수 있어요
-                </Text>
-              </Pressable>
-            ) : null}
-            {sendError ? (
-              <View style={styles.errorRow}>
-                <Text style={styles.errorText}>{sendError}</Text>
-                <Pressable style={styles.retryButton} onPress={handleRetry}>
-                  <Text style={styles.retryText}>다시 시도</Text>
-                </Pressable>
-              </View>
-            ) : null}
-            <View style={styles.composerRow}>
-              <TextInput
-                style={styles.input}
-                placeholder="아기에게 하고 싶은 말을 적어보세요..."
-                placeholderTextColor={surface.textSecondary}
-                value={text}
-                onChangeText={setText}
-              />
-              <Pressable
-                style={[
-                  styles.sendButton,
-                  isSending ? styles.sendButtonDisabled : null,
-                ]}
-                onPress={handleSend}
-                disabled={isSending}
-                accessibilityLabel="메시지 보내기"
-              >
-                <Ionicons
-                  name="paper-plane-outline"
-                  size={space.lg + space.sm}
-                  color={surface.surfacePrimary}
-                />
-              </Pressable>
-            </View>
+            <Pressable
+              style={styles.onboardingNudge}
+              onPress={() => router.push("/onboarding")}
+            >
+              <Text style={styles.onboardingNudgeText}>
+                내 정보를 등록하면 주차별 맞춤 상담을 받을 수 있어요
+              </Text>
+            </Pressable>
           </Card>
         ) : null}
       </KeyboardAvoidingView>
@@ -667,10 +384,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: space.sm,
   },
-  progressLabel: {
-    ...typo.label,
-    color: palette.successText,
-  },
   checklist: {
     marginTop: space.lg,
     gap: space.lg,
@@ -729,23 +442,29 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: palette.successText,
   },
-  conversationCard: {
+  conversationLauncherCard: {
+    gap: space.lg,
+  },
+  conversationLauncherHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: space.md,
+  },
+  openChatButton: {
+    borderRadius: radii.full,
+    backgroundColor: palette.accentSoft,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs + space.xs,
+  },
+  openChatButtonText: {
+    ...typo.label,
+    color: palette.accent,
   },
   conversationComposerCard: {
     marginTop: "auto",
     marginHorizontal: space.lg,
     marginBottom: 0,
-  },
-  conversationIconWrap: {
-    backgroundColor: surface.surfaceSecondary,
-  },
-  emptyState: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: space.md,
-    paddingTop: space.xxxl * 2,
-    paddingBottom: space.xxxl * 2,
   },
   emptyText: {
     ...typo.body,
@@ -758,7 +477,6 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "center",
     gap: space.sm,
-    marginTop: space.lg,
     paddingHorizontal: space.md,
   },
   quickStarterChip: {
@@ -771,72 +489,28 @@ const styles = StyleSheet.create({
     ...typo.label,
     color: palette.accent,
   },
-  messageList: {
-    flexGrow: 1,
+  recentSessionList: {
     gap: space.sm,
   },
-  messageBubble: {
+  recentSessionCard: {
+    gap: space.xs,
     borderRadius: radii.xl,
-    padding: space.lg,
-  },
-  userBubble: {
-    alignSelf: "flex-end",
-    backgroundColor: palette.accent,
-    maxWidth: `${100 - space.lg}%`,
-  },
-  assistantColumn: {
-    alignItems: "flex-start",
-    gap: space.sm,
-    alignSelf: "flex-start",
-    maxWidth: "100%",
-  },
-  assistantBubble: {
-    alignSelf: "flex-start",
     backgroundColor: surface.surfaceSecondary,
-  },
-  messageText: {
-    ...typo.body,
-    color: surface.textPrimary,
-  },
-  userMessageText: {
-    color: surface.surfacePrimary,
-  },
-  composerRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: space.sm,
-  },
-  input: {
-    flex: 1,
-    minHeight: 52,
-    borderRadius: radii.xl,
-    backgroundColor: surface.fieldSurface,
     paddingHorizontal: space.lg,
-    paddingVertical: space.sm + space.xs,
-    ...typo.body,
+    paddingVertical: space.md,
+  },
+  recentSessionTitle: {
+    ...typo.label,
     color: surface.textPrimary,
   },
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.lg,
-    backgroundColor: palette.accent,
-    alignItems: "center",
-    justifyContent: "center",
+  recentSessionPreview: {
+    ...typo.caption,
+    color: surface.textSecondary,
   },
-  sendButtonDisabled: {
-    opacity: 0.5,
-  },
-  userImageWrap: {
-    borderRadius: radii.lg,
-    overflow: "hidden",
-    marginBottom: space.xs,
-  },
-  userImage: {
-    width: "100%",
-    height: 160,
-    borderRadius: radii.lg,
-    backgroundColor: surface.fieldSurface,
+  recentSessionEmptyText: {
+    ...typo.body,
+    color: surface.textSecondary,
+    textAlign: "center",
   },
   onboardingNudge: {
     backgroundColor: surface.surfaceAccent,
@@ -849,28 +523,5 @@ const styles = StyleSheet.create({
     ...typo.caption,
     color: palette.accent,
     textAlign: "center",
-  },
-  errorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: space.sm,
-    paddingBottom: space.sm,
-    gap: space.sm,
-  },
-  errorText: {
-    ...typo.caption,
-    color: palette.errorText,
-    flex: 1,
-  },
-  retryButton: {
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs,
-    backgroundColor: palette.accentSoft,
-    borderRadius: radii.full,
-  },
-  retryText: {
-    ...typo.label,
-    color: palette.accent,
   },
 });
