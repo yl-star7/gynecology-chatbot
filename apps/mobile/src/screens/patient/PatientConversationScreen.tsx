@@ -19,7 +19,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
-import { Card, Pressable, EmotionCheckin } from "../../components/ui";
+import { Card, Pressable } from "../../components/ui";
 import {
   ChatPartRenderer,
   ChatImagePicker,
@@ -109,9 +109,6 @@ export function PatientConversationScreen({
   const [text, setText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
-  const [showEmotionCheckin, setShowEmotionCheckin] = useState(
-    sessionId === "new" || sessionId === "heart-talk",
-  );
   const [selectedEmotion, setSelectedEmotion] = useState<EmotionTone | null>(
     null,
   );
@@ -210,23 +207,6 @@ export function PatientConversationScreen({
     router.push(`/${target}${params}`);
   }
 
-  async function handleEmotionSelect(tone: EmotionTone) {
-    setShowEmotionCheckin(false);
-    setSelectedEmotion(tone);
-    try {
-      await services.recordsPort.saveEmotionCheckin({
-        sessionId: resolvedSessionId,
-        emotionTone: tone,
-      });
-    } catch {
-      // 감정 저장 실패 시 조용히 무시
-    }
-  }
-
-  function handleEmotionDismiss() {
-    setShowEmotionCheckin(false);
-  }
-
   async function handleOpenTodaySessions() {
     if (isTodaySessionsOpen) {
       setIsTodaySessionsOpen(false);
@@ -309,151 +289,195 @@ export function PatientConversationScreen({
             </Card>
           ) : null}
 
-          <Card style={styles.chatCard}>
-            <View style={styles.chatBody}>
+          {session.messages.length === 0 ? (
+            <View style={styles.emptyStateContent}>
               <View style={styles.heroSection}>
                 <NurseCharacter emotionTone={selectedEmotion} size="md" />
                 <Text style={styles.title}>아기와 대화</Text>
               </View>
-              {session.messages.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyText}>
-                    아기에게 하고 싶은 이야기를 나눠보세요
-                  </Text>
-                  <View style={styles.quickStarterWrap}>
-                    {QUICK_STARTERS.map((starter) => (
-                      <Pressable
-                        key={starter}
-                        style={styles.quickStarterChip}
-                        onPress={() => handleSend(starter)}
-                        disabled={isSending}
-                      >
-                        <Text style={styles.quickStarterText}>{starter}</Text>
-                      </Pressable>
-                    ))}
+
+              {imageDataUri ? (
+                <View style={styles.imagePreviewRow}>
+                  <ChatImagePreview
+                    dataUri={imageDataUri}
+                    onRemove={() => setImageDataUri(null)}
+                  />
+                </View>
+              ) : null}
+
+              <View style={styles.composerContainer}>
+                <View style={styles.quickStarterWrap}>
+                  {QUICK_STARTERS.map((starter) => (
+                    <Pressable
+                      key={starter}
+                      style={styles.quickStarterChip}
+                      onPress={() => handleSend(starter)}
+                      disabled={isSending}
+                    >
+                      <Text style={styles.quickStarterText}>{starter}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <Card variant="muted" style={styles.composerCard}>
+                  {errorMessage && (
+                    <Pressable onPress={() => setErrorMessage(null)}>
+                      <Text style={styles.errorMessageText}>{errorMessage}</Text>
+                    </Pressable>
+                  )}
+                  <View style={styles.composerRow}>
+                    <ChatImagePicker
+                      onImageSelected={setImageDataUri}
+                      disabled={isSending}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="아기에게 하고 싶은 말을 적어보세요..."
+                      placeholderTextColor={surface.textSecondary}
+                      value={text}
+                      onChangeText={setText}
+                      multiline
+                      maxLength={3000}
+                    />
+                    <Pressable
+                      style={[
+                        styles.sendButton,
+                        isSending ? styles.sendButtonDisabled : null,
+                      ]}
+                      onPress={() => handleSend()}
+                      disabled={isSending}
+                      accessibilityLabel="메시지 보내기"
+                    >
+                      <Text style={styles.sendButtonText}>보내기</Text>
+                    </Pressable>
+                  </View>
+                </Card>
+              </View>
+            </View>
+          ) : (
+            <>
+              <Card style={styles.chatCard}>
+                <View style={styles.chatBody}>
+                  <View style={styles.heroSection}>
+                    <NurseCharacter emotionTone={selectedEmotion} size="md" />
+                    <Text style={styles.title}>아기와 대화</Text>
+                  </View>
+                  <View style={styles.messageList}>
+                    {session.messages.map((message) => {
+                      if (message.role === "user") {
+                        const textPart = message.parts.find(
+                          (p) => p.type === "text",
+                        );
+                        const imagePart = message.parts.find(
+                          (p) => p.type === "image",
+                        );
+                        const bodyText =
+                          textPart?.type === "text" ? textPart.text : "";
+                        return (
+                          <View
+                            key={message.id}
+                            style={[styles.messageBubble, styles.userBubble]}
+                          >
+                            {imagePart?.type === "image" ? (
+                              <Image
+                                source={{ uri: imagePart.imageUrl }}
+                                style={styles.userBubbleImage}
+                                resizeMode="cover"
+                                accessibilityLabel={imagePart.alt}
+                              />
+                            ) : null}
+                            {bodyText ? (
+                              <Text
+                                style={[
+                                  styles.messageText,
+                                  styles.userMessageText,
+                                ]}
+                              >
+                                {bodyText}
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+                      }
+
+                      const hasContent = message.parts.some((p) =>
+                        p.type === "text"
+                          ? p.text.trim() !== "" && p.text.trim() !== "..."
+                          : true,
+                      );
+                      if (!hasContent) return null;
+
+                      return (
+                        <View key={message.id} style={styles.assistantColumn}>
+                          <View style={styles.assistantMessageWrapper}>
+                            <ChatPartRenderer
+                              message={message}
+                              onQuickReplySelect={handleQuickReply}
+                              onSurveyAnswer={handleSurveyAnswer}
+                              onDeepLinkPress={handleDeepLink}
+                            />
+                          </View>
+                        </View>
+                      );
+                    })}
+                    {isSending ? (
+                      <View style={styles.assistantColumn}>
+                        <View style={styles.assistantMessageWrapper}>
+                          <TypingIndicator />
+                        </View>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
-              ) : (
-                <View style={styles.messageList}>
-                  {session.messages.map((message) => {
-                    if (message.role === "user") {
-                      const textPart = message.parts.find(
-                        (p) => p.type === "text",
-                      );
-                      const imagePart = message.parts.find(
-                        (p) => p.type === "image",
-                      );
-                      const bodyText =
-                        textPart?.type === "text" ? textPart.text : "";
-                      return (
-                        <View
-                          key={message.id}
-                          style={[styles.messageBubble, styles.userBubble]}
-                        >
-                          {imagePart?.type === "image" ? (
-                            <Image
-                              source={{ uri: imagePart.imageUrl }}
-                              style={styles.userBubbleImage}
-                              resizeMode="cover"
-                              accessibilityLabel={imagePart.alt}
-                            />
-                          ) : null}
-                          {bodyText ? (
-                            <Text
-                              style={[
-                                styles.messageText,
-                                styles.userMessageText,
-                              ]}
-                            >
-                              {bodyText}
-                            </Text>
-                          ) : null}
-                        </View>
-                      );
-                    }
+              </Card>
 
-                    const hasContent = message.parts.some((p) =>
-                      p.type === "text"
-                        ? p.text.trim() !== "" && p.text.trim() !== "..."
-                        : true,
-                    );
-                    if (!hasContent) return null;
-
-                    return (
-                      <View key={message.id} style={styles.assistantColumn}>
-                        <View style={styles.assistantMessageWrapper}>
-                          <ChatPartRenderer
-                            message={message}
-                            onQuickReplySelect={handleQuickReply}
-                            onSurveyAnswer={handleSurveyAnswer}
-                            onDeepLinkPress={handleDeepLink}
-                          />
-                        </View>
-                      </View>
-                    );
-                  })}
-                  {isSending ? (
-                    <View style={styles.assistantColumn}>
-                      <View style={styles.assistantMessageWrapper}>
-                        <TypingIndicator />
-                      </View>
-                    </View>
-                  ) : null}
+              {imageDataUri ? (
+                <View style={styles.imagePreviewRow}>
+                  <ChatImagePreview
+                    dataUri={imageDataUri}
+                    onRemove={() => setImageDataUri(null)}
+                  />
                 </View>
-              )}
-            </View>
-          </Card>
+              ) : null}
 
-          {imageDataUri ? (
-            <View style={styles.imagePreviewRow}>
-              <ChatImagePreview
-                dataUri={imageDataUri}
-                onRemove={() => setImageDataUri(null)}
-              />
-            </View>
-          ) : null}
-
-          <Card variant="muted" style={styles.composerCard}>
-            {errorMessage && (
-              <Pressable onPress={() => setErrorMessage(null)}>
-                <Text style={styles.errorMessageText}>{errorMessage}</Text>
-              </Pressable>
-            )}
-            <View style={styles.composerRow}>
-              <ChatImagePicker
-                onImageSelected={setImageDataUri}
-                disabled={isSending}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="아기에게 하고 싶은 말을 적어보세요..."
-                placeholderTextColor={surface.textSecondary}
-                value={text}
-                onChangeText={setText}
-                multiline
-                maxLength={3000}
-              />
-              <Pressable
-                style={[
-                  styles.sendButton,
-                  isSending ? styles.sendButtonDisabled : null,
-                ]}
-                onPress={() => handleSend()}
-                disabled={isSending}
-                accessibilityLabel="메시지 보내기"
-              >
-                <Text style={styles.sendButtonText}>보내기</Text>
-              </Pressable>
-            </View>
-          </Card>
+              <View style={styles.composerContainer}>
+                <Card variant="muted" style={styles.composerCard}>
+                  {errorMessage && (
+                    <Pressable onPress={() => setErrorMessage(null)}>
+                      <Text style={styles.errorMessageText}>{errorMessage}</Text>
+                    </Pressable>
+                  )}
+                  <View style={styles.composerRow}>
+                    <ChatImagePicker
+                      onImageSelected={setImageDataUri}
+                      disabled={isSending}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="아기에게 하고 싶은 말을 적어보세요..."
+                      placeholderTextColor={surface.textSecondary}
+                      value={text}
+                      onChangeText={setText}
+                      multiline
+                      maxLength={3000}
+                    />
+                    <Pressable
+                      style={[
+                        styles.sendButton,
+                        isSending ? styles.sendButtonDisabled : null,
+                      ]}
+                      onPress={() => handleSend()}
+                      disabled={isSending}
+                      accessibilityLabel="메시지 보내기"
+                    >
+                      <Text style={styles.sendButtonText}>보내기</Text>
+                    </Pressable>
+                  </View>
+                </Card>
+              </View>
+            </>
+          )}
         </ScrollView>
-
-        {showEmotionCheckin ? (
-          <EmotionCheckin
-            onSelect={handleEmotionSelect}
-            onDismiss={handleEmotionDismiss}
-          />
-        ) : null}
       </KeyboardAvoidingView>
     </PatientShell>
   );
@@ -465,6 +489,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     gap: space.sm,
     flexGrow: 1,
+  },
+  emptyStateContent: {
+    flexGrow: 1,
+    justifyContent: "flex-end",
+    gap: space.sm,
   },
   title: {
     ...typo.titleSm,
@@ -505,31 +534,21 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   chatBody: {
-    gap: space.md,
+    gap: space.sm,
   },
   heroSection: {
     alignItems: "center",
     gap: space.sm,
-  },
-  emptyState: {
-    minHeight: 0,
-    paddingTop: space.xxxl,
-    paddingBottom: space.xxxl,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: space.sm,
-  },
-  emptyText: {
-    ...typo.body,
-    color: surface.textSecondary,
+    paddingVertical: space.md,
   },
   quickStarterWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-    gap: space.sm,
-    marginTop: space.md,
-    paddingHorizontal: space.sm,
+    gap: space.xs,
+    marginTop: space.xs,
+    marginBottom: space.xs,
+    paddingHorizontal: 0,
   },
   quickStarterChip: {
     backgroundColor: palette.accentSoft,
@@ -580,8 +599,12 @@ const styles = StyleSheet.create({
   imagePreviewRow: {
     paddingHorizontal: space.xs,
   },
-  composerCard: {
+  composerContainer: {
     marginTop: "auto",
+    gap: space.xs,
+  },
+  composerCard: {
+    marginTop: 0,
   },
   composerRow: {
     flexDirection: "row",
