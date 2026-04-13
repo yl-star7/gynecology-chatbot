@@ -10,7 +10,14 @@ import { useMobileServices } from "../../core/MobileServicesProvider";
 import { createRecordDayActions } from "./PatientRecordDayScreen.model";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { resolvePatientRecordDayLoadError } from "./patientErrorCopy.model";
-import { palette, patientSurfacePalette as surface, radii, shadows, space, typo } from "../../theme";
+import {
+  palette,
+  patientSurfacePalette as surface,
+  radii,
+  shadows,
+  space,
+  typo,
+} from "../../theme";
 
 function resolveBackHref(returnTo?: string) {
   if (returnTo === "profile") {
@@ -31,7 +38,6 @@ function resolveActiveTab(returnTo?: string) {
 
   return "home";
 }
-
 
 export function PatientRecordDayScreen({
   isoDate,
@@ -60,7 +66,8 @@ export function PatientRecordDayScreen({
   useEffect(() => {
     let cancelled = false;
 
-    actions.loadRecordDay(isoDate)
+    actions
+      .loadRecordDay(isoDate)
       .then((nextRecordDay) => {
         if (!cancelled) {
           setRecordDay(nextRecordDay);
@@ -83,7 +90,9 @@ export function PatientRecordDayScreen({
       return;
     }
 
-    const target = recordDay.checklistItems.find((item) => item.id === checklistId);
+    const target = recordDay.checklistItems.find(
+      (item) => item.id === checklistId,
+    );
     if (!target) {
       return;
     }
@@ -95,7 +104,9 @@ export function PatientRecordDayScreen({
         ? {
             ...current,
             checklistItems: current.checklistItems.map((item) =>
-              item.id === checklistId ? { ...item, completed: nextCompleted } : item,
+              item.id === checklistId
+                ? { ...item, completed: nextCompleted }
+                : item,
             ),
           }
         : current,
@@ -112,22 +123,22 @@ export function PatientRecordDayScreen({
           ? {
               ...current,
               checklistItems: current.checklistItems.map((item) =>
-                item.id === checklistId ? { ...item, completed: target.completed } : item,
+                item.id === checklistId
+                  ? { ...item, completed: target.completed }
+                  : item,
               ),
             }
           : current,
       );
     } finally {
-      setPendingChecklistIds((current) => current.filter((id) => id !== checklistId));
+      setPendingChecklistIds((current) =>
+        current.filter((id) => id !== checklistId),
+      );
     }
   }
 
   return (
-    <PatientShell
-      activeTab={activeTab}
-      backHref={backHref}
-      pageTone="plain"
-    >
+    <PatientShell activeTab={activeTab} backHref={backHref} pageTone="plain">
       <ScrollView
         contentContainerStyle={[styles.content, contentInsets]}
         showsVerticalScrollIndicator={false}
@@ -153,7 +164,12 @@ export function PatientRecordDayScreen({
                   accessibilityLabel={`${item.label} ${item.completed ? "완료됨" : "미완료"}`}
                 >
                   <View style={styles.checklistRow}>
-                    <View style={[styles.checkbox, item.completed ? styles.checkboxCompleted : null]} />
+                    <View
+                      style={[
+                        styles.checkbox,
+                        item.completed ? styles.checkboxCompleted : null,
+                      ]}
+                    />
                     <Text style={styles.recordTitle}>{item.label}</Text>
                   </View>
                 </Pressable>
@@ -176,9 +192,13 @@ export function PatientRecordDayScreen({
                   style={[styles.recordCard, shadows.card]}
                   onPress={() => router.push(`/chat/${session.id}`)}
                 >
-                  <Text style={styles.recordType}>{session.updatedAtLabel}</Text>
+                  <Text style={styles.recordType}>
+                    {session.updatedAtLabel}
+                  </Text>
                   <Text style={styles.recordTitle}>{session.title}</Text>
-                  <Text style={styles.recordSummary}>{session.preview}</Text>
+                  {session.preview ? (
+                    <Text style={styles.recordSummary}>{session.preview}</Text>
+                  ) : null}
                 </Pressable>
               ))
             ) : (

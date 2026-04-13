@@ -283,12 +283,14 @@ export function PatientTodayScreen() {
                       <Text style={styles.recentSessionTitle}>
                         {item.title}
                       </Text>
-                      <Text
-                        style={styles.recentSessionPreview}
-                        numberOfLines={1}
-                      >
-                        {item.preview}
-                      </Text>
+                      {item.preview ? (
+                        <Text
+                          style={styles.recentSessionPreview}
+                          numberOfLines={1}
+                        >
+                          {item.preview}
+                        </Text>
+                      ) : null}
                     </Pressable>
                   ))
                 ) : (
@@ -325,12 +327,12 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: space.lg,
-    gap: space.md,
+    gap: space.sm,
     flexGrow: 1,
   },
   segmentCard: {
-    gap: space.md,
-    padding: space.lg,
+    gap: space.sm,
+    padding: space.md,
   },
   segmentSection: {
     gap: space.md,
@@ -443,7 +445,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.successText,
   },
   conversationLauncherCard: {
-    gap: space.lg,
+    gap: space.md,
   },
   conversationLauncherHeader: {
     flexDirection: "row",
@@ -455,7 +457,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
     backgroundColor: palette.accentSoft,
     paddingHorizontal: space.md,
-    paddingVertical: space.xs + space.xs,
+    paddingVertical: space.xs,
   },
   openChatButtonText: {
     ...typo.label,
@@ -476,28 +478,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-    gap: space.sm,
-    paddingHorizontal: space.md,
+    gap: space.xs,
+    paddingHorizontal: 0,
   },
   quickStarterChip: {
     backgroundColor: palette.accentSoft,
     borderRadius: radii.full,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs + space.xs,
   },
   quickStarterText: {
     ...typo.label,
     color: palette.accent,
   },
   recentSessionList: {
-    gap: space.sm,
+    gap: space.xs,
   },
   recentSessionCard: {
     gap: space.xs,
-    borderRadius: radii.xl,
+    borderRadius: radii.lg,
     backgroundColor: surface.surfaceSecondary,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
   recentSessionTitle: {
     ...typo.label,

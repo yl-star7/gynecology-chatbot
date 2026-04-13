@@ -29,7 +29,31 @@ type SessionRow = {
   id: string;
   title: string;
   last_message_at: string | null;
+  last_message_preview: string | null;
 };
+
+type MessagePreviewRow = {
+  session_id: string;
+  plain_text: string | null;
+  parts: Array<{ type?: string; text?: string }> | null;
+};
+
+function resolveMessagePreview(message: MessagePreviewRow) {
+  const plainText = message.plain_text?.replace(/\s+/g, " ").trim();
+  if (plainText) {
+    return plainText;
+  }
+
+  const partsText = (message.parts ?? [])
+    .flatMap((part) =>
+      part.type === "text" && typeof part.text === "string" ? [part.text] : [],
+    )
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return partsText || null;
+}
 
 type ProfileRow = {
   pregnancy_day_count: number | null;
@@ -314,16 +338,43 @@ export async function GET(request: NextRequest) {
           .filter((value): value is string => Boolean(value)),
       ),
     ];
-    const relatedSessions: SessionRow[] = [];
+    const relatedSessions =
+      sessionIds.length > 0
+        ? await supabaseSelect<SessionRow[]>(
+            `chat_sessions?select=id,title,last_message_at&id=in.(${sessionIds.join(",")})&user_id=eq.${userId}`,
+          )
+        : [];
+    const latestMessages =
+      sessionIds.length > 0
+        ? await supabaseSelect<MessagePreviewRow[]>(
+            `chat_messages?select=session_id,plain_text,parts&user_id=eq.${userId}&session_id=in.(${sessionIds.join(",")})&order=created_at.desc`,
+          )
+        : [];
+    const previewBySessionId = new Map<string, string>();
+
+    for (const message of latestMessages) {
+      if (previewBySessionId.has(message.session_id)) {
+        continue;
+      }
+
+      const preview = resolveMessagePreview(message);
+      if (preview) {
+        previewBySessionId.set(message.session_id, preview);
+      }
+    }
+
+    const orderedRelatedSessions: SessionRow[] = [];
 
     for (const sessionId of sessionIds) {
-      const sessions = await supabaseSelect<SessionRow[]>(
-        `chat_sessions?select=id,title,last_message_at&id=eq.${sessionId}&user_id=eq.${userId}&limit=1`,
-      );
-
-      if (sessions[0]) {
-        relatedSessions.push(sessions[0]);
+      const session = relatedSessions.find((item) => item.id === sessionId);
+      if (!session) {
+        continue;
       }
+
+      orderedRelatedSessions.push({
+        ...session,
+        last_message_preview: previewBySessionId.get(session.id) ?? null,
+      });
     }
 
     const emotionCheckinRow = records.find(
@@ -339,7 +390,7 @@ export async function GET(request: NextRequest) {
         : null;
     const conversationSummary = buildConversationSummary(
       records,
-      relatedSessions,
+      orderedRelatedSessions,
     );
     const dailyQuestion = await loadDailyQuestion(userId, isoDate, records);
 
@@ -352,7 +403,7 @@ export async function GET(request: NextRequest) {
         conversationSummary,
         dailyQuestion,
         records,
-        relatedSessions,
+        relatedSessions: orderedRelatedSessions,
       }),
     });
   } catch (error) {

@@ -12,7 +12,6 @@ import {
   palette,
   patientSurfacePalette as surface,
   radii,
-  shadows,
   space,
   typo,
 } from "../../theme";
@@ -69,7 +68,6 @@ export function EmotionCheckin({ onSelect, onDismiss }: EmotionCheckinProps) {
       accessibilityRole="region"
       accessibilityLabel="감정 체크인"
     >
-      <View style={styles.handle} />
       <Text style={styles.title}>오늘 기분이 어떠세요?</Text>
 
       <View style={styles.emotionRow}>
@@ -103,9 +101,9 @@ export function EmotionCheckin({ onSelect, onDismiss }: EmotionCheckinProps) {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: space.xl,
-    paddingTop: space.sm,
-    paddingBottom: space.xl,
+    paddingHorizontal: space.lg,
+    paddingTop: space.md,
+    paddingBottom: space.md,
     backgroundColor: surface.surfacePrimary,
     borderTopLeftRadius: radii.xxl,
     borderTopRightRadius: radii.xxl,
@@ -113,43 +111,34 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: palette.ink,
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: -3 },
       },
-      android: { elevation: 8 },
+      android: { elevation: 6 },
     }),
-  },
-  handle: {
-    width: space.xxxl + space.xs,
-    height: space.xs,
-    borderRadius: radii.full,
-    backgroundColor: surface.strokeSubtle,
-    alignSelf: "center",
-    marginBottom: space.lg,
   },
   title: {
     ...typo.titleSm,
     color: surface.textPrimary,
     textAlign: "center",
-    marginBottom: space.lg,
+    marginBottom: space.md,
   },
   emotionRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-    gap: space.sm,
-    marginBottom: space.lg,
+    gap: space.xs,
+    marginBottom: space.sm,
   },
   emotionButton: {
-    minWidth: 84,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.sm + space.xs,
+    minWidth: 72,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs + space.xs,
     borderRadius: radii.full,
     backgroundColor: surface.surfaceSecondary,
     alignItems: "center",
     justifyContent: "center",
-    ...shadows.card,
   },
   emotionButtonPressed: {
     backgroundColor: surface.surfaceAccent,
@@ -162,7 +151,8 @@ const styles = StyleSheet.create({
   },
   dismissButton: {
     alignItems: "center",
-    paddingVertical: space.sm,
+    paddingTop: space.xs,
+    paddingBottom: space.xs,
   },
   dismissLabel: {
     ...typo.caption,

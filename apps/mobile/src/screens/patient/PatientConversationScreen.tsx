@@ -290,12 +290,14 @@ export function PatientConversationScreen({
                       onPress={() => handleSelectTodaySession(item.id)}
                     >
                       <Text style={styles.todaySessionTitle}>{item.title}</Text>
-                      <Text
-                        style={styles.todaySessionPreview}
-                        numberOfLines={1}
-                      >
-                        {item.preview}
-                      </Text>
+                      {item.preview ? (
+                        <Text
+                          style={styles.todaySessionPreview}
+                          numberOfLines={1}
+                        >
+                          {item.preview}
+                        </Text>
+                      ) : null}
                     </Pressable>
                   ))
                 ) : (
@@ -470,21 +472,21 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   todaySessionsCard: {
-    gap: space.sm,
-    paddingVertical: space.md,
+    gap: space.xs,
+    paddingVertical: space.sm,
   },
   todaySessionsTitle: {
     ...typo.label,
     color: surface.textPrimary,
   },
   todaySessionsList: {
-    gap: space.sm,
+    gap: space.xs,
   },
   todaySessionChip: {
     borderRadius: radii.lg,
     backgroundColor: surface.surfaceSecondary,
     paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+    paddingVertical: space.xs + space.xs,
     gap: space.xs,
   },
   todaySessionTitle: {

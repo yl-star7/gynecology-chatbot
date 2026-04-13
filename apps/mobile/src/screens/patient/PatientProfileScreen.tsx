@@ -574,9 +574,11 @@ export function PatientProfileScreen() {
                           <Text style={styles.modalConversationTitle}>
                             {session.title}
                           </Text>
-                          <Text style={styles.modalConversationBody}>
-                            {session.preview}
-                          </Text>
+                          {session.preview ? (
+                            <Text style={styles.modalConversationBody}>
+                              {session.preview}
+                            </Text>
+                          ) : null}
                         </Pressable>
                       ),
                     )}

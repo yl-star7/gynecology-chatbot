@@ -20,9 +20,18 @@ function computePregnancyDayCountFromDueDate(
     const due = new Date(dueDate);
     if (!Number.isNaN(due.getTime())) {
       const today = new Date();
-      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const diffDays = Math.round((due.getTime() - startOfToday.getTime()) / MS_PER_DAY);
-      return Math.max(0, Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diffDays));
+      const startOfToday = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+      );
+      const diffDays = Math.round(
+        (due.getTime() - startOfToday.getTime()) / MS_PER_DAY,
+      );
+      return Math.max(
+        0,
+        Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diffDays),
+      );
     }
   }
   const raw = fallback ?? 0;
@@ -33,6 +42,7 @@ type SessionRow = {
   id: string;
   title: string;
   last_message_at: string | null;
+  last_message_preview?: string | null;
 };
 
 type MessageRow = {
@@ -154,13 +164,19 @@ function formatRecentChatLabel(value: string | null) {
 }
 
 export function toRecentChats(sessions: SessionRow[]): RecentChatSummary[] {
-  return sessions.map((session) => ({
-    id: session.id,
-    title: session.title,
-    preview: "세션 상세에서 최근 메시지를 표시합니다.",
-    updatedAtLabel: formatRecentChatLabel(session.last_message_at),
-    updatedAtIso: session.last_message_at,
-  }));
+  return sessions.map((session) => {
+    const latestMessage = session.last_message_preview
+      ?.replace(/\s+/g, " ")
+      .trim();
+
+    return {
+      id: session.id,
+      title: session.title,
+      preview: latestMessage || "",
+      updatedAtLabel: formatRecentChatLabel(session.last_message_at),
+      updatedAtIso: session.last_message_at,
+    };
+  });
 }
 
 export function toChatSession(
