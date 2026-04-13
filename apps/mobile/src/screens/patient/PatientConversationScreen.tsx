@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import type {
@@ -115,7 +116,8 @@ export function PatientConversationScreen({
   const [isTodaySessionsOpen, setIsTodaySessionsOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const emptyStateBottomSpacing = insets.bottom + space.md;
-  const threadedContentBottomSpacing = insets.bottom + space.xxxl * 2 + space.lg;
+  const threadedContentBottomSpacing =
+    insets.bottom + space.xxxl * 2 + space.lg;
 
   useEffect(() => {
     if (sessionId === "new" || sessionId === "heart-talk") {
@@ -292,9 +294,11 @@ export function PatientConversationScreen({
 
           {session.messages.length === 0 ? (
             <View style={styles.emptyStateContent}>
-              <View style={styles.heroSection}>
-                <NurseCharacter emotionTone={selectedEmotion} size="md" />
-                <Text style={styles.title}>아기와 대화</Text>
+              <View style={styles.emptyStateHeroArea}>
+                <View style={styles.heroSection}>
+                  <NurseCharacter emotionTone={selectedEmotion} size="md" />
+                  <Text style={styles.title}>아기와 대화</Text>
+                </View>
               </View>
 
               {imageDataUri ? (
@@ -323,7 +327,9 @@ export function PatientConversationScreen({
                 <Card variant="muted" style={styles.composerCard}>
                   {errorMessage && (
                     <Pressable onPress={() => setErrorMessage(null)}>
-                      <Text style={styles.errorMessageText}>{errorMessage}</Text>
+                      <Text style={styles.errorMessageText}>
+                        {errorMessage}
+                      </Text>
                     </Pressable>
                   )}
                   <View style={styles.composerRow}>
@@ -349,7 +355,11 @@ export function PatientConversationScreen({
                       disabled={isSending}
                       accessibilityLabel="메시지 보내기"
                     >
-                      <Text style={styles.sendButtonText}>보내기</Text>
+                      <Ionicons
+                        name="arrow-up"
+                        size={20}
+                        color={surface.surfacePrimary}
+                      />
                     </Pressable>
                   </View>
                 </Card>
@@ -445,7 +455,9 @@ export function PatientConversationScreen({
                 <Card variant="muted" style={styles.composerCard}>
                   {errorMessage && (
                     <Pressable onPress={() => setErrorMessage(null)}>
-                      <Text style={styles.errorMessageText}>{errorMessage}</Text>
+                      <Text style={styles.errorMessageText}>
+                        {errorMessage}
+                      </Text>
                     </Pressable>
                   )}
                   <View style={styles.composerRow}>
@@ -471,7 +483,11 @@ export function PatientConversationScreen({
                       disabled={isSending}
                       accessibilityLabel="메시지 보내기"
                     >
-                      <Text style={styles.sendButtonText}>보내기</Text>
+                      <Ionicons
+                        name="arrow-up"
+                        size={20}
+                        color={surface.surfacePrimary}
+                      />
                     </Pressable>
                   </View>
                 </Card>
@@ -495,7 +511,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minHeight: "100%",
     justifyContent: "flex-end",
-    gap: space.sm,
+    gap: space.xs,
+  },
+  emptyStateHeroArea: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingBottom: space.xl,
   },
   title: {
     ...typo.titleSm,
@@ -540,8 +561,9 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     alignItems: "center",
-    gap: space.sm,
-    paddingVertical: space.md,
+    gap: space.xs,
+    paddingTop: 0,
+    paddingBottom: space.xs,
   },
   quickStarterWrap: {
     flexDirection: "row",
@@ -606,11 +628,15 @@ const styles = StyleSheet.create({
   },
   composerCard: {
     marginTop: 0,
+    paddingTop: space.sm,
+    paddingBottom: space.sm,
+    paddingLeft: space.xs,
+    paddingRight: space.sm,
   },
   composerRow: {
     flexDirection: "row",
-    gap: space.sm,
-    alignItems: "flex-end",
+    gap: space.xs,
+    alignItems: "center",
   },
   input: {
     flex: 1,
@@ -619,19 +645,19 @@ const styles = StyleSheet.create({
     borderRadius: radii.xl,
     backgroundColor: surface.fieldSurface,
     paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+    paddingTop: space.xs,
+    paddingBottom: space.sm,
     ...typo.body,
     color: surface.textPrimary,
     textAlignVertical: "top",
   },
   sendButton: {
-    minWidth: 64,
+    width: 42,
     height: 42,
-    borderRadius: radii.lg,
+    borderRadius: radii.full,
     backgroundColor: palette.accent,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: space.md,
   },
   sendButtonDisabled: {
     opacity: 0.5,

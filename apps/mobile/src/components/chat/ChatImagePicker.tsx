@@ -92,7 +92,9 @@ export function ChatImagePicker(props: ChatImagePickerProps): JSX.Element {
     async (source: "camera" | "library") => {
       try {
         const dataUri =
-          source === "camera" ? await pickFromCamera() : await pickFromLibrary();
+          source === "camera"
+            ? await pickFromCamera()
+            : await pickFromLibrary();
         if (dataUri) {
           onImageSelected(dataUri);
         }
@@ -183,7 +185,10 @@ const PREVIEW_SIZE = 64;
 
 const styles = StyleSheet.create({
   button: {
-    padding: space.sm,
+    width: 28,
+    height: 28,
+    marginLeft: space.xs,
+    padding: 0,
     borderRadius: radii.sm,
     alignItems: "center",
     justifyContent: "center",
