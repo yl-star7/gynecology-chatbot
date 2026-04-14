@@ -57,7 +57,7 @@ export function PatientProfileSettingsScreen() {
     bottomInset: insets.bottom,
     tabBarHeight: 0,
     extraBottomSpacing: space.xl,
-    topSpacing: space.sm,
+    topSpacing: space.xl,
   });
 
   useEffect(() => {
