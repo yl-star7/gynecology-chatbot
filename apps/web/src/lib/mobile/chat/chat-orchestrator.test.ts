@@ -96,8 +96,8 @@ describe("chat orchestrator", () => {
       }),
       createPromptEvents: jest.fn().mockResolvedValue(undefined),
       getAlreadyPromptedIds: jest.fn().mockResolvedValue({
-        checklistIds: new Set(),
-        questionIds: new Set(),
+        checklistIds: new Set<string>(),
+        questionIds: new Set<string>(),
       }),
     });
 

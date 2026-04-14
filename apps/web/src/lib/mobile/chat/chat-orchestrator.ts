@@ -90,7 +90,6 @@ export function buildChatOrchestrator(deps: {
   }) => Promise<void>;
   getAlreadyPromptedIds: (input: {
     userId: string;
-    sessionId: string;
   }) => Promise<{ checklistIds: Set<string>; questionIds: Set<string> }>;
 }) {
   return async function orchestrate(input: {
@@ -158,7 +157,6 @@ export function buildChatOrchestrator(deps: {
     if (promptContext && answeredCount === 0) {
       const alreadyPrompted = await deps.getAlreadyPromptedIds({
         userId: input.userId,
-        sessionId,
       });
       const followUpResult = deps.buildFollowUps({
         week: promptContext.week,

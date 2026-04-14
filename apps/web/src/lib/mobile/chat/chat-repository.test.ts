@@ -140,7 +140,9 @@ describe("chat repository", () => {
         dayNumber: 1,
         tonePreference: "차분하게",
         profileMemory: expect.objectContaining({ lastEmotionTone: "anxious" }),
-        sessionMemory: expect.objectContaining({ compactSummary: "최근 복통 상담" }),
+        sessionMemory: expect.objectContaining({
+          compactSummary: "최근 복통 상담",
+        }),
         missingFields: ["태명", "출산 예정일", "이름"],
       }),
     );
@@ -255,7 +257,6 @@ describe("chat repository", () => {
 
     const prompted = await getAlreadyPromptedIds({
       userId: "user-1",
-      sessionId: "session-1",
     });
 
     expect([...prompted.checklistIds]).toEqual(["check-1"]);
@@ -316,7 +317,10 @@ describe("chat repository", () => {
     expect(mockedSupabaseInsert).toHaveBeenCalledWith(
       "chat_messages",
       expect.arrayContaining([
-        expect.objectContaining({ role: "assistant", model_name: "gemini-2.5-flash-lite" }),
+        expect.objectContaining({
+          role: "assistant",
+          model_name: "gemini-2.5-flash-lite",
+        }),
       ]),
     );
     expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
@@ -334,7 +338,9 @@ describe("chat repository", () => {
       expect.objectContaining({
         onboarding_payload: expect.objectContaining({
           tonePreference: "차분하게",
-          profileMemory: expect.objectContaining({ lastEmotionTone: "anxious" }),
+          profileMemory: expect.objectContaining({
+            lastEmotionTone: "anxious",
+          }),
         }),
       }),
     );

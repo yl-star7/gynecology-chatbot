@@ -251,14 +251,13 @@ export async function createPromptEvents(input: {
 
 export async function getAlreadyPromptedIds(input: {
   userId: string;
-  sessionId: string;
 }): Promise<{ checklistIds: Set<string>; questionIds: Set<string> }> {
   const [checklistEvents, questionEvents] = await Promise.all([
     supabaseSelect<UserChecklistEventRow[]>(
-      `user_checklist_events?select=id,checklist_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}`,
+      `user_checklist_events?select=id,checklist_id,status&user_id=eq.${input.userId}`,
     ),
     supabaseSelect<UserQuestionEventRow[]>(
-      `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}`,
+      `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}`,
     ),
   ]);
 
