@@ -1,24 +1,11 @@
-// @ts-nocheck
-import { useCallback, useEffect, useState } from "react";
-import type {
-  RecentChatSummary,
-  TodayViewData,
-} from "@gynecology-chatbot/app-core";
-import { Ionicons } from "@expo/vector-icons";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
-import { Card, Pressable } from "../../components/ui";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Card, Pressable } from "../../components/ui";
+import { PatientTodayConversationSection } from "../../components/patient/today/PatientTodayConversationSection";
+import { PatientTodayChecklistSection } from "../../components/patient/today/PatientTodayChecklistSection";
+import { PatientTodayInfoSection } from "../../components/patient/today/PatientTodayInfoSection";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { PatientTodayTabs } from "../../components/patient/PatientTodayTabs";
-import { useMobileServices } from "../../core/MobileServicesProvider";
 import {
   palette,
   patientSurfacePalette as surface,
@@ -27,114 +14,17 @@ import {
   typo,
 } from "../../theme";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
-import { buildPatientTodayViewModel } from "./view-models";
+import { usePatientTodayScreenModel } from "./PatientTodayScreen.model";
 
 export function PatientTodayScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const services = useMobileServices();
-  const [today, setToday] = useState<TodayViewData | null>(null);
-  const [recentSessions, setRecentSessions] = useState<RecentChatSummary[]>([]);
-  const [activeSection, setActiveSection] = useState("info");
-  const [pendingChecklistIds, setPendingChecklistIds] = useState<string[]>([]);
-  const [hasAttemptedInfoViewed, setHasAttemptedInfoViewed] =
-    useState(false);
+  const model = usePatientTodayScreenModel();
   const contentInsets = buildPatientTabContentInsets({
     bottomInset: insets.bottom,
     extraBottomSpacing:
-      activeSection === "conversation" ? space.xxxl : space.lg,
+      model.activeSection === "conversation" ? space.xxxl : space.lg,
     topSpacing: space.xs,
   });
-
-  useFocusEffect(
-    useCallback(() => {
-      Promise.all([
-        services.todayPort.getTodayView(),
-        services.chatPort.listRecentChats(),
-      ])
-        .then(([nextToday, nextRecentSessions]) => {
-          setToday(nextToday);
-          setRecentSessions(nextRecentSessions);
-          setHasAttemptedInfoViewed(false);
-        })
-        .catch(() => undefined);
-    }, [services]),
-  );
-
-  useEffect(() => {
-    if (
-      activeSection !== "info" ||
-      today?.infoViewed ||
-      hasAttemptedInfoViewed ||
-      !today
-    ) {
-      return;
-    }
-
-    setHasAttemptedInfoViewed(true);
-    setToday((current) =>
-      current ? { ...current, infoViewed: true } : current,
-    );
-
-    services.todayPort.markInfoViewed().catch(() => {
-      setToday((current) =>
-        current ? { ...current, infoViewed: false } : current,
-      );
-    });
-  }, [
-    activeSection,
-    hasAttemptedInfoViewed,
-    services.todayPort,
-    today,
-    today?.infoViewed,
-  ]);
-
-  const viewModel = buildPatientTodayViewModel({
-    today,
-  });
-
-  function handleToggleChecklistItem(checklistId: string, completed: boolean) {
-    if (!today || pendingChecklistIds.includes(checklistId)) {
-      return;
-    }
-
-    setPendingChecklistIds((current) => [...current, checklistId]);
-    setToday((current) =>
-      current
-        ? {
-            ...current,
-            checklistItems: current.checklistItems.map((item) =>
-              item.id === checklistId ? { ...item, completed } : item,
-            ),
-          }
-        : current,
-    );
-
-    services.todayPort
-      .setChecklistItemCompleted({
-        checklistId,
-        completed,
-      })
-      .catch(() => {
-        setToday((current) =>
-          current
-            ? {
-                ...current,
-                checklistItems: current.checklistItems.map((item) =>
-                  item.id === checklistId
-                    ? { ...item, completed: !completed }
-                    : item,
-                ),
-              }
-            : current,
-        );
-      })
-      .finally(() => {
-        setPendingChecklistIds((current) =>
-          current.filter((id) => id !== checklistId),
-        );
-      });
-  }
 
   return (
     <PatientShell
@@ -160,177 +50,42 @@ export function PatientTodayScreen() {
           showsVerticalScrollIndicator={false}
         >
           <PatientTodayTabs
-            sections={viewModel.sections}
-            activeSection={activeSection}
-            onChange={setActiveSection}
+            sections={model.viewModel.sections}
+            activeSection={model.activeSection}
+            onChange={model.setActiveSection}
           />
 
-          {activeSection === "info" ? (
-            <Card style={styles.segmentCard}>
-              <View style={styles.segmentSection}>
-                <View style={styles.iconTitleRow}>
-                  <View style={[styles.sectionIconWrap, styles.babyIconWrap]}>
-                    <Ionicons
-                      name="happy-outline"
-                      size={space.lg + space.xs}
-                      color={palette.accent}
-                    />
-                  </View>
-                  <Text style={styles.sectionTitle}>
-                    {viewModel.babyCard.title}
-                  </Text>
-                </View>
-                <View style={[styles.innerPanel, styles.babyPanel]}>
-                  <Text style={styles.sectionBody}>
-                    {viewModel.babyCard.body}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.segmentDivider} />
-
-              <View style={styles.segmentSection}>
-                <View style={styles.iconTitleRow}>
-                  <View style={[styles.sectionIconWrap, styles.momIconWrap]}>
-                    <Ionicons
-                      name="heart-outline"
-                      size={space.lg + space.xs}
-                      color={palette.accent}
-                    />
-                  </View>
-                  <Text style={styles.sectionTitle}>
-                    {viewModel.momCard.title}
-                  </Text>
-                </View>
-                <View style={[styles.innerPanel, styles.momPanel]}>
-                  <Text style={styles.sectionBody}>
-                    {viewModel.momCard.body}
-                  </Text>
-                </View>
-              </View>
-            </Card>
+          {model.activeSection === "info" ? (
+            <PatientTodayInfoSection
+              babyCard={model.viewModel.babyCard}
+              momCard={model.viewModel.momCard}
+            />
           ) : null}
 
-          {activeSection === "checklist" ? (
-            <Card style={styles.segmentCard}>
-              <View style={styles.sectionHeaderRow}>
-                <View style={styles.iconTitleRow}>
-                  <View
-                    style={[styles.sectionIconWrap, styles.checklistIconWrap]}
-                  >
-                    <Ionicons
-                      name="checkmark-circle-outline"
-                      size={space.lg + space.xs}
-                      color={palette.successText}
-                    />
-                  </View>
-                  <Text style={styles.sectionTitle}>
-                    {viewModel.checklistTitle}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.checklist}>
-                {viewModel.checklistItems.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    style={styles.checklistRow}
-                    onPress={() =>
-                      handleToggleChecklistItem(item.id, !item.completed)
-                    }
-                    disabled={pendingChecklistIds.includes(item.id)}
-                    accessibilityLabel={`${item.label} ${item.completed ? "완료됨" : "미완료"}`}
-                  >
-                    <View
-                      style={[
-                        styles.checkbox,
-                        item.completed ? styles.checkboxCompleted : null,
-                      ]}
-                    />
-                    <Text style={styles.checklistLabel}>{item.label}</Text>
-                  </Pressable>
-                ))}
-                {viewModel.checklistItems.length === 0 ? (
-                  <Text style={styles.emptyChecklistText}>
-                    오늘 체크리스트를 준비 중이에요.
-                  </Text>
-                ) : null}
-              </View>
-
-              <View style={styles.progressMetaRow}>
-                <Text style={styles.progressMetaLabel}>완료율</Text>
-                <Text
-                  style={styles.progressPercent}
-                >{`${viewModel.checklistProgressPercent}%`}</Text>
-              </View>
-              <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${viewModel.checklistProgressPercent}%` },
-                  ]}
-                />
-              </View>
-            </Card>
+          {model.activeSection === "checklist" ? (
+            <PatientTodayChecklistSection
+              title={model.viewModel.checklistTitle}
+              items={model.viewModel.checklistItems}
+              pendingChecklistIds={model.pendingChecklistIds}
+              progressPercent={model.viewModel.checklistProgressPercent}
+              onToggleChecklistItem={model.handleToggleChecklistItem}
+            />
           ) : null}
 
-          {activeSection === "conversation" ? (
-            <Card style={[styles.segmentCard, styles.conversationLauncherCard]}>
-              <View style={styles.conversationLauncherHeader}>
-                <Text style={styles.sectionTitle}>
-                  {viewModel.conversationTitle}
-                </Text>
-                <Pressable
-                  style={styles.openChatButton}
-                  onPress={() => router.push("/chat/new")}
-                  accessibilityLabel="새 채팅 열기"
-                >
-                  <Text style={styles.openChatButtonText}>새 채팅</Text>
-                </Pressable>
-              </View>
-
-              <Text style={styles.emptyText}>
-                {viewModel.conversationDescription}
-              </Text>
-
-              <View style={styles.recentSessionList}>
-                {recentSessions.length > 0 ? (
-                  recentSessions.map((item) => (
-                    <Pressable
-                      key={item.id}
-                      style={styles.recentSessionCard}
-                      onPress={() => router.push(`/chat/${item.id}`)}
-                    >
-                      <Text style={styles.recentSessionTitle}>
-                        {item.title}
-                      </Text>
-                      {item.preview ? (
-                        <Text
-                          style={styles.recentSessionPreview}
-                          numberOfLines={1}
-                        >
-                          {item.preview}
-                        </Text>
-                      ) : null}
-                    </Pressable>
-                  ))
-                ) : (
-                  <Text style={styles.recentSessionEmptyText}>
-                    이어볼 대화가 아직 없어요.
-                  </Text>
-                )}
-              </View>
-            </Card>
+          {model.activeSection === "conversation" ? (
+            <PatientTodayConversationSection
+              title={model.viewModel.conversationTitle}
+              description={model.viewModel.conversationDescription}
+              recentSessions={model.recentSessions}
+              onOpenNewChat={model.openNewChat}
+              onOpenRecentSession={model.openRecentSession}
+            />
           ) : null}
         </ScrollView>
 
-        {activeSection === "conversation" &&
-        (!today || today.babyBody === "오늘 아기의 변화를 준비 중이에요.") ? (
+        {model.shouldShowOnboardingNudge ? (
           <Card variant="muted" style={styles.conversationComposerCard}>
-            <Pressable
-              style={styles.onboardingNudge}
-              onPress={() => router.push("/onboarding")}
-            >
+            <Pressable style={styles.onboardingNudge} onPress={model.openOnboarding}>
               <Text style={styles.onboardingNudgeText}>
                 내 정보를 등록하면 주차별 맞춤 상담을 받을 수 있어요
               </Text>
@@ -351,172 +106,10 @@ const styles = StyleSheet.create({
     gap: space.sm,
     flexGrow: 1,
   },
-  segmentCard: {
-    gap: space.sm,
-    padding: space.md,
-  },
-  segmentSection: {
-    gap: space.md,
-  },
-  segmentDivider: {
-    height: 1,
-    backgroundColor: surface.strokeSubtle,
-  },
-  iconTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.sm,
-  },
-  sectionIconWrap: {
-    width: space.xxl + space.xs,
-    height: space.xxl + space.xs,
-    borderRadius: radii.full,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  babyIconWrap: {
-    backgroundColor: surface.surfaceAccent,
-  },
-  momIconWrap: {
-    backgroundColor: surface.surfaceSecondary,
-  },
-  checklistIconWrap: {
-    backgroundColor: palette.successBackground,
-  },
-  sectionTitle: {
-    ...typo.titleSm,
-    color: surface.textPrimary,
-  },
-  innerPanel: {
-    borderRadius: radii.xl,
-    padding: space.lg,
-  },
-  babyPanel: {
-    backgroundColor: surface.surfaceAccent,
-  },
-  momPanel: {
-    backgroundColor: surface.surfaceSecondary,
-  },
-  sectionBody: {
-    ...typo.body,
-    color: surface.textSecondary,
-  },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: space.sm,
-  },
-  checklist: {
-    marginTop: space.lg,
-    gap: space.lg,
-  },
-  checklistRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.md,
-  },
-  checkbox: {
-    width: space.xl + space.xs,
-    height: space.xl + space.xs,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    backgroundColor: surface.fieldSurface,
-  },
-  checkboxCompleted: {
-    backgroundColor: palette.successBackground,
-    borderColor: palette.successText,
-  },
-  checklistLabel: {
-    ...typo.titleSm,
-    color: surface.textPrimary,
-    flex: 1,
-  },
-  emptyChecklistText: {
-    ...typo.body,
-    color: surface.textSecondary,
-  },
-  progressMetaRow: {
-    marginTop: space.lg,
-    paddingTop: space.md,
-    borderTopWidth: 1,
-    borderTopColor: surface.strokeSubtle,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  progressMetaLabel: {
-    ...typo.label,
-    color: surface.textSecondary,
-  },
-  progressPercent: {
-    ...typo.titleSm,
-    color: palette.successText,
-  },
-  progressTrack: {
-    marginTop: space.md,
-    height: 10,
-    borderRadius: radii.full,
-    backgroundColor: surface.strokeSubtle,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: palette.successText,
-  },
-  conversationLauncherCard: {
-    gap: space.md,
-  },
-  conversationLauncherHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: space.md,
-  },
-  openChatButton: {
-    borderRadius: radii.full,
-    backgroundColor: palette.accentSoft,
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs,
-  },
-  openChatButtonText: {
-    ...typo.label,
-    color: palette.accent,
-  },
   conversationComposerCard: {
     marginTop: "auto",
     marginHorizontal: space.lg,
     marginBottom: 0,
-  },
-  emptyText: {
-    ...typo.body,
-    color: surface.textSecondary,
-    textAlign: "center",
-    paddingHorizontal: space.md,
-  },
-  recentSessionList: {
-    gap: space.xs,
-  },
-  recentSessionCard: {
-    gap: space.xs,
-    borderRadius: radii.lg,
-    backgroundColor: surface.surfaceSecondary,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-  },
-  recentSessionTitle: {
-    ...typo.label,
-    color: surface.textPrimary,
-  },
-  recentSessionPreview: {
-    ...typo.caption,
-    color: surface.textSecondary,
-  },
-  recentSessionEmptyText: {
-    ...typo.body,
-    color: surface.textSecondary,
-    textAlign: "center",
   },
   onboardingNudge: {
     backgroundColor: surface.surfaceAccent,
