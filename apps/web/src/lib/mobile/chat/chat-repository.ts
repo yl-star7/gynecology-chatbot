@@ -1,4 +1,7 @@
-import type { ProfileMemoryPayload, SessionMemoryPayload } from "@/lib/mobile/chat/workflow-payload";
+import type {
+  ProfileMemoryPayload,
+  SessionMemoryPayload,
+} from "@/lib/mobile/chat/workflow-payload";
 import {
   supabaseInsert,
   supabaseSelect,
@@ -56,7 +59,12 @@ export type QuestionRow = {
   id: string;
   code: string;
   question_text: string;
-  question_type: "text" | "single_choice" | "multi_choice" | "yes_no" | "number";
+  question_type:
+    | "text"
+    | "single_choice"
+    | "multi_choice"
+    | "yes_no"
+    | "number";
   help_text: string | null;
   question_payload: {
     choices?: Array<{ id?: string; label?: string }>;
@@ -116,7 +124,8 @@ export async function getPromptContext(
       : Promise.resolve([]),
   ]);
 
-  const pregnancyWeek = hintedPregnancyWeek ?? profiles[0]?.pregnancy_week ?? null;
+  const pregnancyWeek =
+    hintedPregnancyWeek ?? profiles[0]?.pregnancy_week ?? null;
   if (!pregnancyWeek) {
     return null;
   }
@@ -171,7 +180,7 @@ export async function markOutstandingPromptEventsAnswered(input: {
   sessionId: string;
   userMessageId: string | null;
   userMessageText: string;
-}) {
+}): Promise<{ answeredCount: number }> {
   const [checklistEvents, questionEvents] = await Promise.all([
     supabaseSelect<UserChecklistEventRow[]>(
       `user_checklist_events?select=id,checklist_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}&status=eq.sent`,
@@ -202,6 +211,8 @@ export async function markOutstandingPromptEventsAnswered(input: {
       updated_at: now,
     });
   }
+
+  return { answeredCount: checklistEvents.length + questionEvents.length };
 }
 
 export async function createPromptEvents(input: {
@@ -262,7 +273,9 @@ export async function ensureChatSession(input: {
   sessionId: string;
   title: string;
 }) {
-  const existingSessions = await supabaseSelect<Array<{ id: string; title: string }>>(
+  const existingSessions = await supabaseSelect<
+    Array<{ id: string; title: string }>
+  >(
     `chat_sessions?select=id,title&id=eq.${input.sessionId}&user_id=eq.${input.userId}&limit=1`,
   );
 
@@ -321,7 +334,10 @@ export async function saveUserChatMessage(input: {
   };
 }
 
-export async function touchChatSessionActivity(sessionId: string, timestamp: string) {
+export async function touchChatSessionActivity(
+  sessionId: string,
+  timestamp: string,
+) {
   await supabaseUpdate(`chat_sessions?id=eq.${sessionId}`, {
     last_message_at: timestamp,
     updated_at: timestamp,
@@ -332,7 +348,9 @@ export async function saveAssistantChatMessages(input: {
   sessionId: string;
   userId: string;
   messages: Array<{
-    parts: Array<{ type: string; text?: string } | { type: string; [key: string]: unknown }>;
+    parts: Array<
+      { type: string; text?: string } | { type: string; [key: string]: unknown }
+    >;
   }>;
 }) {
   return supabaseInsert<Array<{ id: string }>>(
@@ -344,7 +362,9 @@ export async function saveAssistantChatMessages(input: {
       parts: message.parts,
       plain_text: message.parts
         .flatMap((part) =>
-          part.type === "text" && typeof part.text === "string" ? [part.text] : [],
+          part.type === "text" && typeof part.text === "string"
+            ? [part.text]
+            : [],
         )
         .join("\n"),
       model_name: "gemini-2.5-flash-lite",

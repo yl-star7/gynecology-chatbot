@@ -223,7 +223,7 @@ export function PatientConversationScreen({
 
   function handleDeepLink(target: string, entityId?: string) {
     const params = entityId ? `?entityId=${entityId}` : "";
-    router.push(`/${target}${params}`);
+    router.push(`/chat/link/${target}${params}`);
   }
 
   async function handleOpenTodaySessions() {

@@ -39,7 +39,7 @@ export function buildChatOrchestrator(deps: {
     sessionId: string;
     userMessageId: string | null;
     userMessageText: string;
-  }) => Promise<void>;
+  }) => Promise<{ answeredCount: number }>;
   getPromptContext: (
     userId: string,
     pregnancyWeek: number | null,
@@ -124,7 +124,7 @@ export function buildChatOrchestrator(deps: {
       imageCount: input.imageDataUris.length,
       textPreview: input.text.slice(0, 120),
     });
-    await deps.markOutstandingPromptEventsAnswered({
+    const { answeredCount } = await deps.markOutstandingPromptEventsAnswered({
       userId: input.userId,
       sessionId,
       userMessageId: userMessage.id,
@@ -155,7 +155,7 @@ export function buildChatOrchestrator(deps: {
     let followUpChecklists: ChecklistRow[] = [];
     let followUpQuestions: QuestionRow[] = [];
 
-    if (promptContext) {
+    if (promptContext && answeredCount === 0) {
       const alreadyPrompted = await deps.getAlreadyPromptedIds({
         userId: input.userId,
         sessionId,

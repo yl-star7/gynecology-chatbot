@@ -67,7 +67,7 @@ describe("chat orchestrator", () => {
       recordUserAction: jest.fn().mockResolvedValue(undefined),
       markOutstandingPromptEventsAnswered: jest
         .fn()
-        .mockResolvedValue(undefined),
+        .mockResolvedValue({ answeredCount: 0 }),
       getPromptContext: jest.fn().mockResolvedValue(promptContext),
       resolveAssistantResponse: jest.fn().mockResolvedValue({
         assistantMessage: {
