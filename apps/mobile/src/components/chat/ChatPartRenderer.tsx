@@ -116,16 +116,38 @@ function ImagePartView({ part }: { part: ImagePart }) {
 function SurveyPartView({
   part,
   onSurveyAnswer,
+  surveySaveErrorText,
 }: {
   part: SurveyPart;
-  onSurveyAnswer?: (surveyId: string, choiceId: string) => void;
+  onSurveyAnswer?: (surveyId: string, choiceId: string) => Promise<boolean>;
+  surveySaveErrorText?: string;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
 
-  function handlePress(choiceId: string) {
-    if (selectedId !== null) return;
+  async function handlePress(choiceId: string) {
+    if (selectedId !== null || isSaving) return;
     setSelectedId(choiceId);
-    onSurveyAnswer?.(part.id, choiceId);
+    setErrorText(null);
+
+    if (!onSurveyAnswer) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const didSave = await onSurveyAnswer(part.id, choiceId);
+      if (!didSave) {
+        setSelectedId(null);
+        setErrorText(surveySaveErrorText ?? "답변을 저장하지 못했어요.");
+      }
+    } catch {
+      setSelectedId(null);
+      setErrorText(surveySaveErrorText ?? "답변을 저장하지 못했어요.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -141,12 +163,13 @@ function SurveyPartView({
               style={({ pressed }) => [
                 styles.surveyChoice,
                 isSelected && styles.surveyChoiceSelected,
-                pressed && !selectedId && styles.surveyChoicePressed,
+                pressed && !selectedId && !isSaving && styles.surveyChoicePressed,
               ]}
               onPress={() => handlePress(choice.id)}
               accessibilityRole="button"
               accessibilityLabel={choice.label}
-              accessibilityState={{ selected: isSelected }}
+              accessibilityState={{ selected: isSelected, disabled: isSaving }}
+              disabled={isSaving}
             >
               <Text
                 style={[
@@ -160,6 +183,7 @@ function SurveyPartView({
           );
         })}
       </View>
+      {errorText ? <Text style={styles.surveyErrorText}>{errorText}</Text> : null}
     </View>
   );
 }
@@ -265,6 +289,7 @@ export function ChatPartRenderer({
   message,
   onQuickReplySelect,
   onSurveyAnswer,
+  surveySaveErrorText,
   onDeepLinkPress,
 }: ChatPartRendererProps): JSX.Element {
   return (
@@ -281,6 +306,7 @@ export function ChatPartRenderer({
                 key={part.id}
                 part={part}
                 onSurveyAnswer={onSurveyAnswer}
+                surveySaveErrorText={surveySaveErrorText}
               />
             );
           case "carousel":
@@ -391,6 +417,12 @@ const styles = StyleSheet.create({
   surveyChoiceLabelSelected: {
     color: palette.accent,
     fontWeight: "600",
+  },
+  surveyErrorText: {
+    ...typo.caption,
+    color: palette.errorText,
+    marginTop: space.sm,
+    textAlign: "center",
   },
 
   // CarouselPart
