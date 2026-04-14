@@ -1,39 +1,16 @@
-// @ts-nocheck
-import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Card, EmptyState } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
+import { useMobileServices } from "../../core/MobileServicesProvider";
 import { space, typo, patientSurfacePalette as surface } from "../../theme";
 import { EmbeddedWebContent } from "../../web/EmbeddedWebContent";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { resolvePatientSurveyLoadError } from "./patientErrorCopy.model";
-
-function normalizeSurveyFormUrl(input: string | null | undefined) {
-  if (!input?.trim()) {
-    return null;
-  }
-
-  try {
-    const parsedUrl = new URL(input.trim());
-    const isAllowedHost =
-      parsedUrl.hostname === "docs.google.com" ||
-      parsedUrl.hostname === "forms.gle";
-    const isAllowedPath =
-      parsedUrl.hostname === "forms.gle" ||
-      parsedUrl.pathname.startsWith("/forms/");
-
-    if (parsedUrl.protocol !== "https:" || !isAllowedHost || !isAllowedPath) {
-      return null;
-    }
-
-    return parsedUrl.toString();
-  } catch {
-    return null;
-  }
-}
+import { normalizeSurveyFormUrl } from "./patientSurveyFormUrl.model";
 
 export function PatientSurveyFormScreen() {
   const insets = useSafeAreaInsets();
@@ -70,17 +47,24 @@ export function PatientSurveyFormScreen() {
     }
   }, [profilePort]);
 
-  useEffect(() => {
-    if (!currentUser) {
-      router.replace("/auth/login");
-      return;
-    }
+  useFocusEffect(
+    useCallback(() => {
+      if (!currentUser) {
+        router.replace("/auth/login");
+        return;
+      }
 
-    void loadBranding();
-  }, [currentUser, loadBranding]);
+      void loadBranding();
+    }, [currentUser, loadBranding, router]),
+  );
 
   return (
-    <PatientShell activeTab="profile" pageTone="plain" showProfileButton={false} hideHeader>
+    <PatientShell
+      activeTab="profile"
+      pageTone="plain"
+      showProfileButton={false}
+      hideHeader
+    >
       {isLoading ? (
         <View style={styles.centered}>
           <Text style={styles.loadingText}>설문을 준비하고 있어요.</Text>
@@ -88,7 +72,10 @@ export function PatientSurveyFormScreen() {
       ) : surveyFormUrl ? (
         <View style={styles.screen}>
           {hasWebViewError ? (
-            <ScrollView contentContainerStyle={[styles.scrollContent, contentInsets]} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              contentContainerStyle={[styles.scrollContent, contentInsets]}
+              showsVerticalScrollIndicator={false}
+            >
               <Card>
                 <EmptyState
                   icon="document-text-outline"
@@ -120,7 +107,10 @@ export function PatientSurveyFormScreen() {
           )}
         </View>
       ) : (
-        <ScrollView contentContainerStyle={[styles.scrollContent, contentInsets]} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, contentInsets]}
+          showsVerticalScrollIndicator={false}
+        >
           <Card>
             <EmptyState
               icon="document-text-outline"

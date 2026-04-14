@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import type { ComponentType } from "react";
 import type { ImageSourcePropType } from "react-native";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { Card, Pressable } from "../../ui";
@@ -8,6 +9,12 @@ import {
   space,
   typo,
 } from "../../../theme";
+
+const SettingsIcon = Ionicons as unknown as ComponentType<{
+  name: "settings-outline";
+  size: number;
+  color: string;
+}>;
 
 export function PatientProfileHeroCard({
   babyImageSource,
@@ -29,7 +36,7 @@ export function PatientProfileHeroCard({
         onPress={onPressSettings}
         accessibilityLabel="정보 설정 열기"
       >
-        <Ionicons
+        <SettingsIcon
           name="settings-outline"
           size={space.lg + space.sm}
           color={surface.textPrimary}

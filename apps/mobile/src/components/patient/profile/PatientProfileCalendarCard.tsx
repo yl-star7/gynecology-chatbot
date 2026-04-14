@@ -1,3 +1,4 @@
+import type { DimensionValue } from "react-native";
 import { StyleSheet, Text, View } from "react-native";
 import { Card, Pressable } from "../../ui";
 import {
@@ -17,7 +18,7 @@ export function PatientProfileCalendarCard({
   isoDateByDay,
   onSelectDay,
 }: {
-  columnWidth: string;
+  columnWidth: DimensionValue;
   currentMonthLabel: string | null | undefined;
   gridDays: (number | null)[];
   activeDays: Set<number>;

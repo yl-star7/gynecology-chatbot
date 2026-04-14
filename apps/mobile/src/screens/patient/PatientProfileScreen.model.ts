@@ -1,16 +1,27 @@
 import type { CalendarDay, RecordDayView } from "@gynecology-chatbot/app-core";
 
-type InfoCard = {
+type RecordDayWithInfoCards = RecordDayView & {
+  infoCards?: ProfileInfoCard[] | null;
+};
+
+export type ProfileInfoCard = {
   id: string;
   title: string;
   body: string;
 };
 
-type StatusTone = "success" | "active" | "muted" | "idle";
+export type ProfileStatusTone = "success" | "active" | "muted" | "idle";
 
-type StatusBadge = {
+export type ProfileStatusBadge = {
   label: string;
-  tone: StatusTone;
+  tone: ProfileStatusTone;
+};
+
+export type ProfileHeartShareItem = {
+  id: string;
+  question: string;
+  answer: string;
+  summary: string;
 };
 
 function isSameIsoDate(isoDate: string, now: Date) {
@@ -23,7 +34,9 @@ function isSameIsoDate(isoDate: string, now: Date) {
   return isoDate === todayIsoDate;
 }
 
-function resolveChecklistStatus(recordDay: RecordDayView | null): StatusBadge {
+function resolveChecklistStatus(
+  recordDay: RecordDayView | null,
+): ProfileStatusBadge {
   const checklistItems = recordDay?.checklistItems ?? [];
 
   if (checklistItems.length === 0) {
@@ -42,7 +55,7 @@ function resolveChecklistStatus(recordDay: RecordDayView | null): StatusBadge {
 function resolveInfoStatus(
   selectedDay: CalendarDay | null,
   isToday: boolean,
-): StatusBadge {
+): ProfileStatusBadge {
   if (isToday || selectedDay?.hasInfo || selectedDay?.summary) {
     return { label: "확인함", tone: "success" };
   }
@@ -63,7 +76,9 @@ function buildConversationSummary(recordDay: RecordDayView | null) {
   return `${sessions.length}개의 대화가 있었어요. 다음 날 정리되는 하루 요약이 준비되면 여기에서 함께 보여드릴게요.`;
 }
 
-function buildHeartShareItems(recordDay: RecordDayView | null) {
+function buildHeartShareItems(
+  recordDay: RecordDayView | null,
+): ProfileHeartShareItem[] {
   if (recordDay?.dailyQuestion) {
     return [
       {
@@ -131,12 +146,12 @@ export function buildProfileDayState(input: {
   if (input.hasRecordDayError) {
     return {
       selectedIsToday,
-      checklistStatus: { label: "불러오는 중", tone: "idle" } as StatusBadge,
-      infoStatus: { label: "불러오는 중", tone: "idle" } as StatusBadge,
+      checklistStatus: { label: "불러오는 중", tone: "idle" } as ProfileStatusBadge,
+      infoStatus: { label: "불러오는 중", tone: "idle" } as ProfileStatusBadge,
       conversationStatus: {
         label: "불러오는 중",
         tone: "idle",
-      } as StatusBadge,
+      } as ProfileStatusBadge,
       conversationSummary: "이 날짜 기록을 다시 불러오는 중이에요.",
       heartShareItems: [],
     };
@@ -162,7 +177,7 @@ export function buildProfileDayState(input: {
     conversationStatus: {
       label: hasConversation(input.selectedRecordDay ?? null) ? "했음" : "안함",
       tone: hasConversation(input.selectedRecordDay ?? null) ? "active" : "idle",
-    } as StatusBadge,
+    } as ProfileStatusBadge,
     conversationSummary: buildConversationSummary(input.selectedRecordDay ?? null),
     heartShareItems: buildHeartShareItems(input.selectedRecordDay ?? null),
   };
@@ -173,15 +188,13 @@ export function buildProfileInfoCards(input: {
     babyBody?: string | null;
     momBody?: string | null;
   } | null;
-  recordDay:
-    | {
-        infoCards?: InfoCard[] | null;
-      }
-    | null;
-}) {
-  if (input.recordDay) {
-    if ((input.recordDay.infoCards?.length ?? 0) > 0) {
-      return input.recordDay.infoCards!;
+  recordDay: RecordDayView | null;
+}): ProfileInfoCard[] {
+  const recordDay = input.recordDay as RecordDayWithInfoCards | null;
+
+  if (recordDay) {
+    if ((recordDay.infoCards?.length ?? 0) > 0) {
+      return recordDay.infoCards ?? [];
     }
 
     return [

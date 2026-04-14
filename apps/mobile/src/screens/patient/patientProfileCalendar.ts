@@ -1,6 +1,7 @@
 import type { CalendarDay } from "@gynecology-chatbot/app-core";
+import type { DimensionValue } from "react-native";
 
-const CALENDAR_COLUMN_WIDTH = `${100 / 7}%`;
+const CALENDAR_COLUMN_WIDTH: DimensionValue = `${100 / 7}%`;
 
 function formatIsoDate(year: number, monthIndex: number, day: number) {
   return [
