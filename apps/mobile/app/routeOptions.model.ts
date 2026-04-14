@@ -11,6 +11,8 @@ export const ROOT_STACK_ROUTE_NAMES = [
   "(tabs)",
   "chat",
   "records",
+  "profile-settings",
+  "profile-survey",
 ] as const;
 
 export function buildTabsScreenOptions(colors: {
