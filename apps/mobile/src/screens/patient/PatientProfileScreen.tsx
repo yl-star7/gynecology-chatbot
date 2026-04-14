@@ -1,6 +1,6 @@
 // @ts-nocheck
-import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Image,
@@ -79,26 +79,28 @@ export function PatientProfileScreen() {
   const [modalSection, setModalSection] = useState("conversation");
   const [conversationSection, setConversationSection] = useState("summary");
 
-  useEffect(() => {
-    if (!currentUser) {
-      router.replace("/auth/login");
-      return;
-    }
+  useFocusEffect(
+    useCallback(() => {
+      if (!currentUser) {
+        router.replace("/auth/login");
+        return;
+      }
 
-    Promise.all([
-      profilePort.getProfile(),
-      homePort.getHomeView(),
-      todayPort.getTodayView(),
-    ])
-      .then(([nextProfile, nextHome, nextToday]) => {
-        setProfile(nextProfile);
-        setHome(nextHome);
-        setToday(nextToday);
-      })
-      .catch((nextError) => {
-        setError(resolvePatientProfileLoadError(nextError));
-      });
-  }, [currentUser, homePort, profilePort, todayPort]);
+      Promise.all([
+        profilePort.getProfile(),
+        homePort.getHomeView(),
+        todayPort.getTodayView(),
+      ])
+        .then(([nextProfile, nextHome, nextToday]) => {
+          setProfile(nextProfile);
+          setHome(nextHome);
+          setToday(nextToday);
+        })
+        .catch((nextError) => {
+          setError(resolvePatientProfileLoadError(nextError));
+        });
+    }, [currentUser, homePort, profilePort, todayPort]),
+  );
 
   useEffect(() => {
     let isMounted = true;
