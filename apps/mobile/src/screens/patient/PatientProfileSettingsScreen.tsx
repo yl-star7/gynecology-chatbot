@@ -71,6 +71,10 @@ export function PatientProfileSettingsScreen() {
             ...profile,
             displayName,
             dueDate: dueDate || null,
+            pregnancyWeekLabel:
+              dueDate === (profile.dueDate ?? "")
+                ? profile.pregnancyWeekLabel
+                : null,
             tonePreference,
             babyNickname: babyNickname.trim() || null,
             hospitalName: hospitalName.trim() || null,

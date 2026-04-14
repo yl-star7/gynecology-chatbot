@@ -38,7 +38,10 @@ import {
   space,
   typo,
 } from "../../theme";
-import { resolvePatientConversationSendError } from "./patientErrorCopy.model";
+import {
+  resolvePatientConversationSendError,
+  resolvePatientSurveySaveError,
+} from "./patientErrorCopy.model";
 
 function createSessionId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
@@ -206,13 +209,15 @@ export function PatientConversationScreen({
     handleSend(replyMessage);
   }
 
-  function handleSurveyAnswer(surveyId: string, choiceId: string) {
+  async function handleSurveyAnswer(surveyId: string, choiceId: string) {
     try {
-      services.recordsPort
-        .saveSurveyResponse({ questionId: surveyId, answer: choiceId })
-        .catch(() => undefined);
+      await services.recordsPort.saveSurveyResponse({
+        questionId: surveyId,
+        answer: choiceId,
+      });
+      return true;
     } catch {
-      // 기록 실패 시 조용히 무시
+      return false;
     }
   }
 
@@ -351,6 +356,9 @@ export function PatientConversationScreen({
                             message={message}
                             onQuickReplySelect={handleQuickReply}
                             onSurveyAnswer={handleSurveyAnswer}
+                            surveySaveErrorText={resolvePatientSurveySaveError(
+                              new Error(),
+                            )}
                             onDeepLinkPress={handleDeepLink}
                           />
                         </View>
