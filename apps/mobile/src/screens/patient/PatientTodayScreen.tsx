@@ -1,4 +1,10 @@
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card, Pressable } from "../../components/ui";
 import { PatientTodayConversationSection } from "../../components/patient/today/PatientTodayConversationSection";
