@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -64,6 +64,47 @@ export function PatientProfileSettingsScreen() {
     extraBottomSpacing: space.xl,
     topSpacing: space.xl,
   });
+  const draftProfile = useMemo(
+    () =>
+      profile
+        ? {
+            ...profile,
+            displayName,
+            dueDate: dueDate || null,
+            tonePreference,
+            babyNickname: babyNickname.trim() || null,
+            hospitalName: hospitalName.trim() || null,
+            notificationTime,
+          }
+        : null,
+    [
+      babyNickname,
+      displayName,
+      dueDate,
+      hospitalName,
+      notificationTime,
+      profile,
+      tonePreference,
+    ],
+  );
+  const previewHome = useMemo(() => {
+    if (!home) {
+      return home;
+    }
+
+    if (dueDate === (profile?.dueDate ?? "")) {
+      return home;
+    }
+
+    return {
+      ...home,
+      pregnancyWeekLabel: null,
+    };
+  }, [dueDate, home, profile?.dueDate]);
+  const homeViewModel = useMemo(
+    () => buildPatientHomeViewModel({ home: previewHome, profile: draftProfile }),
+    [draftProfile, previewHome],
+  );
 
   useEffect(() => {
     if (!currentUser) {
@@ -94,8 +135,6 @@ export function PatientProfileSettingsScreen() {
       });
   }, [currentUser, homePort, profilePort]);
 
-  const homeViewModel = buildPatientHomeViewModel({ home, profile });
-
   async function handleSave() {
     if (!currentUser) {
       return;
@@ -108,8 +147,23 @@ export function PatientProfileSettingsScreen() {
       return;
     }
 
+    const previousProfile = profile;
+    const previousHome = home;
+    const optimisticProfile = profile
+      ? {
+          ...profile,
+          displayName: trimmedDisplayName,
+          dueDate: dueDate || null,
+          tonePreference: trimmedTonePreference,
+          babyNickname: babyNickname.trim() || null,
+          hospitalName: hospitalName.trim() || null,
+          notificationTime,
+        }
+      : profile;
+
     setIsSaving(true);
     setError(null);
+    setProfile(optimisticProfile);
 
     try {
       await profilePort.updateProfile({
@@ -121,10 +175,16 @@ export function PatientProfileSettingsScreen() {
         hospitalName: hospitalName.trim() || null,
         notificationTime,
       });
-      const refreshed = await profilePort.getProfile();
-      setProfile(refreshed);
+      const [refreshedProfile, refreshedHome] = await Promise.all([
+        profilePort.getProfile(),
+        homePort.getHomeView(),
+      ]);
+      setProfile(refreshedProfile);
+      setHome(refreshedHome);
       router.back();
     } catch (nextError) {
+      setProfile(previousProfile);
+      setHome(previousHome);
       const message = resolvePatientProfileSaveError(nextError);
       if (message.includes("세션이 만료되었어요")) {
         router.replace("/auth/login");

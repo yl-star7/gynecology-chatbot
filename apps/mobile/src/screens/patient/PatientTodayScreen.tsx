@@ -37,6 +37,8 @@ export function PatientTodayScreen() {
   const [recentSessions, setRecentSessions] = useState<RecentChatSummary[]>([]);
   const [activeSection, setActiveSection] = useState("info");
   const [pendingChecklistIds, setPendingChecklistIds] = useState<string[]>([]);
+  const [hasAttemptedInfoViewed, setHasAttemptedInfoViewed] =
+    useState(false);
   const contentInsets = buildPatientTabContentInsets({
     bottomInset: insets.bottom,
     extraBottomSpacing:
@@ -53,25 +55,39 @@ export function PatientTodayScreen() {
         .then(([nextToday, nextRecentSessions]) => {
           setToday(nextToday);
           setRecentSessions(nextRecentSessions);
+          setHasAttemptedInfoViewed(false);
         })
         .catch(() => undefined);
     }, [services]),
   );
 
   useEffect(() => {
-    if (activeSection !== "info" || today?.infoViewed) {
+    if (
+      activeSection !== "info" ||
+      today?.infoViewed ||
+      hasAttemptedInfoViewed ||
+      !today
+    ) {
       return;
     }
 
-    services.todayPort
-      .markInfoViewed()
-      .then(() => {
-        setToday((current) =>
-          current ? { ...current, infoViewed: true } : current,
-        );
-      })
-      .catch(() => undefined);
-  }, [activeSection, services, today?.infoViewed]);
+    setHasAttemptedInfoViewed(true);
+    setToday((current) =>
+      current ? { ...current, infoViewed: true } : current,
+    );
+
+    services.todayPort.markInfoViewed().catch(() => {
+      setToday((current) =>
+        current ? { ...current, infoViewed: false } : current,
+      );
+    });
+  }, [
+    activeSection,
+    hasAttemptedInfoViewed,
+    services.todayPort,
+    today,
+    today?.infoViewed,
+  ]);
 
   const viewModel = buildPatientTodayViewModel({
     today,

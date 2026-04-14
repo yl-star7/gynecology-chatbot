@@ -84,7 +84,8 @@ export type ChatMessage = {
 export interface ChatPartRendererProps {
   message: ChatMessage;
   onQuickReplySelect?: (message: string) => void;
-  onSurveyAnswer?: (surveyId: string, choiceId: string) => void;
+  onSurveyAnswer?: (surveyId: string, choiceId: string) => Promise<boolean>;
+  surveySaveErrorText?: string;
   onDeepLinkPress?: (target: string, entityId?: string) => void;
 }
 
