@@ -42,8 +42,14 @@ export async function GET(request: NextRequest) {
       >(
         `pregnancy_profiles?select=display_name,pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date&user_id=eq.${userId}&limit=1`,
       ),
-      supabaseSelect<Array<{ date: string; summary: string | null; entry_type: string | null }>>(
-        `calendar_logs?select=date,summary,entry_type&user_id=eq.${userId}&date=gte.${month}-01&date=lte.${month}-${String(monthLastDay).padStart(2, "0")}`,
+      supabaseSelect<
+        Array<{
+          date: string;
+          summary: string | null;
+          entry_type: string | null;
+        }>
+      >(
+        `v_user_calendar_activity?select=date,summary,activity_type&user_id=eq.${userId}&date=gte.${month}-01&date=lte.${month}-${String(monthLastDay).padStart(2, "0")}`,
       ),
     ]);
 
