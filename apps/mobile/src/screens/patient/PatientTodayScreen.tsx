@@ -36,6 +36,7 @@ export function PatientTodayScreen() {
   const [today, setToday] = useState<TodayViewData | null>(null);
   const [recentSessions, setRecentSessions] = useState<RecentChatSummary[]>([]);
   const [activeSection, setActiveSection] = useState("info");
+  const [pendingChecklistIds, setPendingChecklistIds] = useState<string[]>([]);
   const contentInsets = buildPatientTabContentInsets({
     bottomInset: insets.bottom,
     extraBottomSpacing:
@@ -73,6 +74,49 @@ export function PatientTodayScreen() {
   const viewModel = buildPatientTodayViewModel({
     today,
   });
+
+  function handleToggleChecklistItem(checklistId: string, completed: boolean) {
+    if (!today || pendingChecklistIds.includes(checklistId)) {
+      return;
+    }
+
+    setPendingChecklistIds((current) => [...current, checklistId]);
+    setToday((current) =>
+      current
+        ? {
+            ...current,
+            checklistItems: current.checklistItems.map((item) =>
+              item.id === checklistId ? { ...item, completed } : item,
+            ),
+          }
+        : current,
+    );
+
+    services.todayPort
+      .setChecklistItemCompleted({
+        checklistId,
+        completed,
+      })
+      .catch(() => {
+        setToday((current) =>
+          current
+            ? {
+                ...current,
+                checklistItems: current.checklistItems.map((item) =>
+                  item.id === checklistId
+                    ? { ...item, completed: !completed }
+                    : item,
+                ),
+              }
+            : current,
+        );
+      })
+      .finally(() => {
+        setPendingChecklistIds((current) =>
+          current.filter((id) => id !== checklistId),
+        );
+      });
+  }
 
   return (
     <PatientShell
@@ -174,31 +218,9 @@ export function PatientTodayScreen() {
                     key={item.id}
                     style={styles.checklistRow}
                     onPress={() =>
-                      services.todayPort
-                        .setChecklistItemCompleted({
-                          checklistId: item.id,
-                          completed: !item.completed,
-                        })
-                        .then(() =>
-                          setToday((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  checklistItems: current.checklistItems.map(
-                                    (currentItem) =>
-                                      currentItem.id === item.id
-                                        ? {
-                                            ...currentItem,
-                                            completed: !currentItem.completed,
-                                          }
-                                        : currentItem,
-                                  ),
-                                }
-                              : current,
-                          ),
-                        )
-                        .catch(() => undefined)
+                      handleToggleChecklistItem(item.id, !item.completed)
                     }
+                    disabled={pendingChecklistIds.includes(item.id)}
                     accessibilityLabel={`${item.label} ${item.completed ? "완료됨" : "미완료"}`}
                   >
                     <View
