@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type {
   RecentChatSummary,
   TodayViewData,
@@ -13,7 +13,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Card, Pressable } from "../../components/ui";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientShell } from "../../components/patient/PatientShell";
@@ -44,17 +44,19 @@ export function PatientTodayScreen() {
     topSpacing: space.xs,
   });
 
-  useEffect(() => {
-    Promise.all([
-      services.todayPort.getTodayView(),
-      services.chatPort.listRecentChats(),
-    ])
-      .then(([nextToday, nextRecentSessions]) => {
-        setToday(nextToday);
-        setRecentSessions(nextRecentSessions);
-      })
-      .catch(() => undefined);
-  }, [services]);
+  useFocusEffect(
+    useCallback(() => {
+      Promise.all([
+        services.todayPort.getTodayView(),
+        services.chatPort.listRecentChats(),
+      ])
+        .then(([nextToday, nextRecentSessions]) => {
+          setToday(nextToday);
+          setRecentSessions(nextRecentSessions);
+        })
+        .catch(() => undefined);
+    }, [services]),
+  );
 
   useEffect(() => {
     if (activeSection !== "info" || today?.infoViewed) {
@@ -277,7 +279,7 @@ export function PatientTodayScreen() {
 
               <View style={styles.recentSessionList}>
                 {recentSessions.length > 0 ? (
-                  recentSessions.slice(0, 3).map((item) => (
+                  recentSessions.map((item) => (
                     <Pressable
                       key={item.id}
                       style={styles.recentSessionCard}
