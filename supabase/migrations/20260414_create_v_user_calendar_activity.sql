@@ -20,7 +20,7 @@ UNION ALL
 SELECT
   uce.user_id,
   DATE(uce.completed_at AT TIME ZONE 'Asia/Seoul') AS date,
-  'checklist' AS activity_type,
+  'checklist' AS entry_type,
   NULL AS summary
 FROM public.user_checklist_events uce
 WHERE uce.status = 'completed' AND uce.completed_at IS NOT NULL
@@ -31,7 +31,7 @@ UNION ALL
 SELECT
   uqe.user_id,
   DATE(uqe.answered_at AT TIME ZONE 'Asia/Seoul') AS date,
-  'question' AS activity_type,
+  'question' AS entry_type,
   NULL AS summary
 FROM public.user_question_events uqe
 WHERE uqe.status = 'answered' AND uqe.answered_at IS NOT NULL
@@ -42,7 +42,7 @@ UNION ALL
 SELECT
   el.user_id,
   el.date,
-  'emotion' AS activity_type,
+  'emotion' AS entry_type,
   el.emotion_tone AS summary
 FROM public.emotion_logs el
 
@@ -52,7 +52,7 @@ UNION ALL
 SELECT
   cl.user_id,
   cl.date,
-  cl.entry_type AS activity_type,
+  cl.entry_type,
   cl.summary
 FROM public.calendar_logs cl;
 

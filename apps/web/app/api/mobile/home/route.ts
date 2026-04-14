@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
           entry_type: string | null;
         }>
       >(
-        `v_user_calendar_activity?select=date,summary,activity_type&user_id=eq.${userId}&date=gte.${month}-01&date=lte.${month}-${String(monthLastDay).padStart(2, "0")}`,
+        `v_user_calendar_activity?select=date,summary,entry_type&user_id=eq.${userId}&date=gte.${month}-01&date=lte.${month}-${String(monthLastDay).padStart(2, "0")}`,
       ),
     ]);
 
