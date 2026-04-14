@@ -167,33 +167,6 @@ test("fetchRecordDay targets the mobile records endpoint with the selected date"
   assert.equal(response.recordDay.isoDate, "2026-03-18");
 });
 
-test("saveEmotionCheckin posts the selected emotion and session to the records endpoint", async () => {
-  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
-  const client = createMobileApiClient({
-    getApiBaseUrl: () => "http://example.com",
-    getUserId: () => "user-1",
-    fetchImpl: async (input, init) => {
-      calls.push({ input, init });
-      return Response.json({ ok: true });
-    },
-  });
-
-  const response = await client.saveEmotionCheckin({
-    userId: "user-1",
-    sessionId: "session-1",
-    emotionTone: "calm",
-  });
-
-  assert.equal(calls[0]?.input, "http://example.com/api/mobile/records");
-  assert.equal(calls[0]?.init?.method, "POST");
-  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
-    userId: "user-1",
-    sessionId: "session-1",
-    emotionTone: "calm",
-  });
-  assert.equal(response.ok, true);
-});
-
 test("fetchTodayView targets the mobile today endpoint with the resolved user id", async () => {
   const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
   const client = createMobileApiClient({

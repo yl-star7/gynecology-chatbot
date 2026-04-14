@@ -1,8 +1,4 @@
 import type { CalendarDay, RecordDayView } from "@gynecology-chatbot/app-core";
-import {
-  createPregnancyWeekState,
-  getPregnancyWeekImageLabel,
-} from "./pregnancyWeek.model.ts";
 
 type InfoCard = {
   id: string;
@@ -16,22 +12,6 @@ type StatusBadge = {
   label: string;
   tone: StatusTone;
 };
-
-export function resolveProfileBabyImageWeekLabel(input: {
-  homePregnancyWeekLabel?: string | null;
-  profilePregnancyWeekLabel?: string | null;
-  dueDate?: string | null;
-  now?: Date;
-}) {
-  return getPregnancyWeekImageLabel(
-    createPregnancyWeekState({
-      homePregnancyWeekLabel: input.homePregnancyWeekLabel,
-      profilePregnancyWeekLabel: input.profilePregnancyWeekLabel,
-      dueDate: input.dueDate,
-      now: input.now,
-    }),
-  );
-}
 
 function isSameIsoDate(isoDate: string, now: Date) {
   const todayIsoDate = [

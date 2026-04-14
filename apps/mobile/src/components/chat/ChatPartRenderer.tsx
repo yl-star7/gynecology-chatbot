@@ -96,7 +96,6 @@ function TextPartView({ part }: { part: TextPart }) {
 }
 
 function ImagePartView({ part }: { part: ImagePart }) {
-  const isDataUri = part.imageUrl.startsWith("data:");
   return (
     <View style={styles.imagePart}>
       <Image
@@ -104,7 +103,6 @@ function ImagePartView({ part }: { part: ImagePart }) {
         style={styles.image}
         resizeMode="cover"
         accessibilityLabel={part.alt}
-        {...(isDataUri ? {} : {})}
       />
       {part.caption ? (
         <Text style={styles.imageCaption}>{part.caption}</Text>

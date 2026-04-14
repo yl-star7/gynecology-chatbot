@@ -3,19 +3,7 @@ import test from "node:test";
 import {
   buildProfileInfoCards,
   buildProfileDayState,
-  resolveProfileBabyImageWeekLabel,
 } from "./PatientProfileScreen.model.ts";
-
-test("profile baby image uses normalized week label even when visible copy is post-due", () => {
-  const weekLabel = resolveProfileBabyImageWeekLabel({
-    homePregnancyWeekLabel: "40주 1일",
-    profilePregnancyWeekLabel: "출산 예정일이 지났어요",
-    dueDate: "2026-04-03T00:00:00+09:00",
-    now: new Date("2026-04-04T09:00:00+09:00"),
-  });
-
-  assert.equal(weekLabel, "40주 1일");
-});
 
 test("profile modal info cards use the selected record day instead of always reusing today's copy", () => {
   const cards = buildProfileInfoCards({

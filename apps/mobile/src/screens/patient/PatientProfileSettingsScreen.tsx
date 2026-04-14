@@ -47,7 +47,6 @@ export function PatientProfileSettingsScreen() {
   const { profilePort, homePort } = useMobileServices();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [home, setHome] = useState<HomeViewData | null>(null);
-  const [displayName, setDisplayName] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [tonePreference, setTonePreference] = useState("");
   const [isToneDropdownOpen, setIsToneDropdownOpen] = useState(false);
@@ -69,7 +68,7 @@ export function PatientProfileSettingsScreen() {
       profile
         ? {
             ...profile,
-            displayName,
+            displayName: profile.displayName,
             dueDate: dueDate || null,
             pregnancyWeekLabel:
               dueDate === (profile.dueDate ?? "")
@@ -83,7 +82,6 @@ export function PatientProfileSettingsScreen() {
         : null,
     [
       babyNickname,
-      displayName,
       dueDate,
       hospitalName,
       notificationTime,
@@ -120,7 +118,6 @@ export function PatientProfileSettingsScreen() {
       .then(([nextProfile, nextHome]) => {
         setProfile(nextProfile);
         setHome(nextHome);
-        setDisplayName(nextProfile.displayName);
         setDueDate(nextProfile.dueDate ?? "");
         setTonePreference(nextProfile.tonePreference ?? "");
         setBabyNickname(nextProfile.babyNickname ?? "");
@@ -144,7 +141,6 @@ export function PatientProfileSettingsScreen() {
       return;
     }
 
-    const trimmedDisplayName = displayName.trim();
     const trimmedTonePreference = tonePreference.trim();
     if (!trimmedTonePreference) {
       setError("상담 분위기를 선택해주세요.");
@@ -156,7 +152,7 @@ export function PatientProfileSettingsScreen() {
     const optimisticProfile = profile
       ? {
           ...profile,
-          displayName: trimmedDisplayName,
+          displayName: profile?.displayName ?? "",
           dueDate: dueDate || null,
           tonePreference: trimmedTonePreference,
           babyNickname: babyNickname.trim() || null,
@@ -172,7 +168,7 @@ export function PatientProfileSettingsScreen() {
     try {
       await profilePort.updateProfile({
         userId: currentUser.id,
-        displayName: trimmedDisplayName,
+        displayName: profile?.displayName ?? "",
         dueDate: dueDate || null,
         tonePreference: trimmedTonePreference,
         babyNickname: babyNickname.trim() || null,

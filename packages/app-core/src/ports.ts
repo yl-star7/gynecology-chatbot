@@ -13,7 +13,6 @@ import type {
   ChatComposerInput,
   ChatSession,
   ChatMessage,
-  EmotionTone,
   HomeViewData,
   MobileContentListItem,
   LinkTargetContent,
@@ -43,10 +42,6 @@ export interface MobileHomePort {
 }
 
 export interface MobileRecordsPort {
-  saveEmotionCheckin(input: {
-    sessionId: string;
-    emotionTone: EmotionTone;
-  }): Promise<void>;
   saveSurveyResponse(input: {
     questionId: string;
     answer: string;

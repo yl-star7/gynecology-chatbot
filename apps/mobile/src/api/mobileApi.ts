@@ -87,11 +87,6 @@ export interface MobileApiClient {
     questionId: string;
     answer: string;
   }): Promise<{ ok: true }>;
-  saveEmotionCheckin(input: {
-    userId: string;
-    sessionId: string;
-    emotionTone: "calm" | "joyful" | "anxious" | "tired" | "sad";
-  }): Promise<{ ok: true }>;
   sendChatMessage(input: {
     sessionId: string;
     text: string;
@@ -270,22 +265,6 @@ export function createMobileApiClient(
     async submitProfileSurveyAnswer(input) {
       const response = await fetchImpl(
         `${getApiBaseUrl()}/api/mobile/profile/surveys`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...buildMobileSessionHeaders(),
-          },
-          body: JSON.stringify(input),
-        },
-      );
-
-      return parseJson<{ ok: true }>(response);
-    },
-
-    async saveEmotionCheckin(input) {
-      const response = await fetchImpl(
-        `${getApiBaseUrl()}/api/mobile/records`,
         {
           method: "POST",
           headers: {

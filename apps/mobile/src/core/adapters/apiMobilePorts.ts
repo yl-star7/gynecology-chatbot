@@ -1,6 +1,5 @@
 import type {
   AuthPort,
-  EmotionTone,
   KnowledgePort,
   MobileContentListItem,
   MobileChatPort,
@@ -79,17 +78,6 @@ export class ApiMobileRecordsAdapter implements MobileRecordsPort {
   constructor(client: MobileApiClient, getUserId: () => string) {
     this.client = client;
     this.getUserId = getUserId;
-  }
-
-  async saveEmotionCheckin(input: {
-    sessionId: string;
-    emotionTone: EmotionTone;
-  }) {
-    await this.client.saveEmotionCheckin({
-      userId: this.getUserId(),
-      sessionId: input.sessionId,
-      emotionTone: input.emotionTone,
-    });
   }
 
   async saveSurveyResponse(input: { questionId: string; answer: string }) {
