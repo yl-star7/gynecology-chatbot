@@ -35,7 +35,7 @@ export function PatientConversationScreen({
       >
         <View style={styles.screen}>
           <PatientConversationMessageList
-            scrollViewRef={model.scrollViewRef}
+            scrollViewRef={model.handleScrollViewRef}
             messages={model.session.messages}
             isSending={model.isSending}
             scrollBottomPadding={model.scrollBottomPadding}

@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Modal, StyleSheet, Text, View } from "react-native";
 import type { RecentChatSummary } from "@gynecology-chatbot/app-core";
@@ -9,6 +10,12 @@ import {
   space,
   typo,
 } from "../../../theme";
+
+const CloseIcon = Ionicons as unknown as ComponentType<{
+  name: "close";
+  size: number;
+  color: string;
+}>;
 
 export function PatientTodaySessionsDrawer({
   visible,
@@ -48,7 +55,7 @@ export function PatientTodaySessionsDrawer({
               accessibilityLabel="오늘 지난 대화 닫기"
               style={styles.drawerCloseButton}
             >
-              <Ionicons
+              <CloseIcon
                 name="close"
                 size={space.lg + space.xs}
                 color={surface.textPrimary}
@@ -67,10 +74,11 @@ export function PatientTodaySessionsDrawer({
                 return (
                   <Pressable
                     key={item.id}
-                    style={[
-                      styles.drawerSessionCard,
-                      isCurrentSession ? styles.drawerSessionCardActive : null,
-                    ]}
+                    style={
+                      isCurrentSession
+                        ? [styles.drawerSessionCard, styles.drawerSessionCardActive]
+                        : styles.drawerSessionCard
+                    }
                     onPress={() => onSelectSession(item.id)}
                     disabled={isCurrentSession}
                     accessibilityState={{ disabled: isCurrentSession }}

@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import {
   StyleSheet,
   Text,
@@ -15,6 +16,12 @@ import {
   space,
   typo,
 } from "../../../theme";
+
+const Ionicon = Ionicons as unknown as ComponentType<{
+  name: "arrow-up";
+  size: number;
+  color: string;
+}>;
 
 export function PatientConversationComposer({
   text,
@@ -79,12 +86,12 @@ export function PatientConversationComposer({
             maxLength={3000}
           />
           <Pressable
-            style={[styles.sendButton, isSending ? styles.sendButtonDisabled : null]}
+            style={isSending ? [styles.sendButton, styles.sendButtonDisabled] : styles.sendButton}
             onPress={onSend}
             disabled={isSending}
             accessibilityLabel="메시지 보내기"
           >
-            <Ionicons
+            <Ionicon
               name="arrow-up"
               size={20}
               color={surface.surfacePrimary}

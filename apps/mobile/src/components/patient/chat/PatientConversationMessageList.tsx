@@ -20,7 +20,7 @@ export function PatientConversationMessageList({
   surveySaveErrorText,
   onDeepLinkPress,
 }: {
-  scrollViewRef: React.RefObject<ScrollView | null>;
+  scrollViewRef: (instance: ScrollView | null) => void;
   messages: ChatMessage[];
   isSending: boolean;
   scrollBottomPadding: number;

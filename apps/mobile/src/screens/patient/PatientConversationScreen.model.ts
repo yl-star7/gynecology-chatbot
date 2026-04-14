@@ -69,6 +69,10 @@ export function usePatientConversationScreenModel({
   const router = useRouter();
   const services = useMobileServices();
   const scrollViewRef = useRef<ScrollView | null>(null);
+
+  function handleScrollViewRef(instance: ScrollView | null) {
+    scrollViewRef.current = instance;
+  }
   const { getSession, replaceSession, appendMessage } = useChatSessions();
   const resolvedSessionId = useMemo(
     () => (isNewConversationSession(sessionId) ? createSessionId() : sessionId),
@@ -243,6 +247,7 @@ export function usePatientConversationScreenModel({
     session,
     resolvedSessionId,
     scrollViewRef,
+    handleScrollViewRef,
     text,
     setText,
     isSending,
