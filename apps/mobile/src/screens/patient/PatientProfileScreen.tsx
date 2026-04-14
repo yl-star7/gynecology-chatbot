@@ -34,13 +34,12 @@ import {
   typo,
 } from "../../theme";
 import { buildProfileCalendarModel } from "./patientProfileCalendar";
-import { getWeekBabyImageSource } from "./week-baby-images";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import {
   buildProfileDayState,
   buildProfileInfoCards,
-  resolveProfileBabyImageWeekLabel,
 } from "./PatientProfileScreen.model";
+import { buildPatientHomeViewModel } from "./view-models";
 import {
   resolvePatientProfileLoadError,
   resolvePatientRecordDayLoadError,
@@ -173,14 +172,11 @@ export function PatientProfileScreen() {
     () => calendarModel.isoDateByDay,
     [calendarModel],
   );
-  const babyName = profile?.babyNickname?.trim() || "아기";
-  const babyImageSource = getWeekBabyImageSource(
-    resolveProfileBabyImageWeekLabel({
-      homePregnancyWeekLabel: home?.pregnancyWeekLabel,
-      profilePregnancyWeekLabel: profile?.pregnancyWeekLabel,
-      dueDate: profile?.dueDate,
-    }),
+  const homeViewModel = useMemo(
+    () => buildPatientHomeViewModel({ home, profile }),
+    [home, profile],
   );
+  const babyName = profile?.babyNickname?.trim() || "아기";
   const selectedDay = useMemo(
     () =>
       (home?.calendarDays ?? []).find(

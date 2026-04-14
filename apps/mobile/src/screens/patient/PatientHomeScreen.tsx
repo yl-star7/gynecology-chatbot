@@ -26,7 +26,6 @@ import {
   typo,
 } from "../../theme";
 import { buildPatientHomeViewModel } from "./view-models";
-import { getWeekBabyImageSource } from "./week-baby-images";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 
 export function PatientHomeScreen() {
@@ -68,7 +67,6 @@ export function PatientHomeScreen() {
   }, [fetchData, navigation]);
 
   const viewModel = buildPatientHomeViewModel({ home, profile });
-  const babyImageSource = getWeekBabyImageSource(viewModel.imageWeekLabel);
 
   return (
     <PatientShell
@@ -110,7 +108,7 @@ export function PatientHomeScreen() {
           <View style={styles.heroImageOuter}>
             <View style={styles.heroImageInner}>
               <Image
-                source={babyImageSource}
+                source={viewModel.babyImageSource}
                 style={styles.heroImage}
                 resizeMode="cover"
               />

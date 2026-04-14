@@ -9,6 +9,7 @@ import type {
 import {
   AppState,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -107,6 +108,20 @@ export function PatientConversationScreen({
   const [isTodaySessionsLoading, setIsTodaySessionsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [composerHeight, setComposerHeight] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardWillShow", () =>
+      setIsKeyboardVisible(true),
+    );
+    const hideSub = Keyboard.addListener("keyboardWillHide", () =>
+      setIsKeyboardVisible(false),
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (sessionId === "new" || sessionId === "heart-talk") {
@@ -357,7 +372,11 @@ export function PatientConversationScreen({
           <View
             style={[
               styles.footerDock,
-              { paddingBottom: insets.bottom + space.xs },
+              {
+                paddingBottom: isKeyboardVisible
+                  ? space.xs
+                  : insets.bottom + space.xs,
+              },
             ]}
             onLayout={handleComposerLayout}
           >

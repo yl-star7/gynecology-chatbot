@@ -13,6 +13,7 @@ import {
   getPregnancyWeekDisplayLabel,
   getPregnancyWeekImageLabel,
 } from "../pregnancyWeek.model.ts";
+import { getWeekBabyImageSource } from "../week-baby-images.ts";
 
 const HOURS_PER_DAY = 24;
 const MINUTES_PER_HOUR = 60;
@@ -143,6 +144,7 @@ export function buildPatientHomeViewModel({
     supportMessage: DEFAULT_SUPPORT_MESSAGE,
     pregnancyWeekLabel,
     imageWeekLabel,
+    babyImageSource: getWeekBabyImageSource(imageWeekLabel),
     pregnancyDayCount,
     pregnancyDayText: `임신 ${pregnancyDayCount}일째`,
     meetingLabel: postDue
