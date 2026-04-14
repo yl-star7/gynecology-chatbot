@@ -13,6 +13,9 @@
       "bundleIdentifier": "com.gynecology.chatbot",
       "buildNumber": "1",
       "googleServicesFile": "./GoogleService-Info.plist",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
