@@ -10,7 +10,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { MobileProfileViewData } from "@gynecology-chatbot/app-core";
+import type {
+  HomeViewData,
+  MobileProfileViewData,
+} from "@gynecology-chatbot/app-core";
 import {
   Button,
   Card,
@@ -32,6 +35,7 @@ import {
   resolvePatientProfileLoadError,
   resolvePatientProfileSaveError,
 } from "./patientErrorCopy.model";
+import { buildPatientHomeViewModel } from "./view-models";
 
 const DEFAULT_NOTIFICATION_TIME = ["0", "8", ":", "3", "0"].join("");
 const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", "다정하게"];
@@ -40,8 +44,9 @@ export function PatientProfileSettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser } = useMobileAppSession();
-  const { profilePort } = useMobileServices();
+  const { profilePort, homePort } = useMobileServices();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
+  const [home, setHome] = useState<HomeViewData | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [tonePreference, setTonePreference] = useState("");
@@ -66,10 +71,10 @@ export function PatientProfileSettingsScreen() {
       return;
     }
 
-    profilePort
-      .getProfile()
-      .then((nextProfile) => {
+    Promise.all([profilePort.getProfile(), homePort.getHomeView()])
+      .then(([nextProfile, nextHome]) => {
         setProfile(nextProfile);
+        setHome(nextHome);
         setDisplayName(nextProfile.displayName);
         setDueDate(nextProfile.dueDate ?? "");
         setTonePreference(nextProfile.tonePreference ?? "");
@@ -87,7 +92,9 @@ export function PatientProfileSettingsScreen() {
         }
         setError(message);
       });
-  }, [currentUser, profilePort]);
+  }, [currentUser, homePort, profilePort]);
+
+  const homeViewModel = buildPatientHomeViewModel({ home, profile });
 
   async function handleSave() {
     if (!currentUser) {
@@ -155,7 +162,7 @@ export function PatientProfileSettingsScreen() {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>현재 주차</Text>
               <Text style={styles.summaryValue}>
-                {profile?.pregnancyWeekLabel ?? "불러오는 중이에요"}
+                {profile ? homeViewModel.pregnancyWeekLabel : "불러오는 중이에요"}
               </Text>
             </View>
           </Card>

@@ -248,7 +248,7 @@ export function PatientProfileScreen() {
             <View style={styles.heroRow}>
               <View style={styles.avatarCircle}>
                 <Image
-                  source={babyImageSource}
+                  source={homeViewModel.babyImageSource}
                   style={styles.avatarImage}
                   resizeMode="cover"
                 />
@@ -257,7 +257,7 @@ export function PatientProfileScreen() {
                 <Text style={styles.title}>{babyName}</Text>
                 <Text style={styles.description}>
                   {profile
-                    ? `${profile.pregnancyWeekLabel} · 임신 ${profile.pregnancyDayCount}일째예요.`
+                    ? `${homeViewModel.pregnancyWeekLabel} · ${homeViewModel.pregnancyDayText}예요.`
                     : "아기와 함께한 시간을 정리해보세요."}
                 </Text>
                 <Text style={styles.heroMeta}>
