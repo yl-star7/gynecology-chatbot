@@ -2,11 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { resolvePatientShellHeaderLayout } from "./PatientShell.model.ts";
 
-test("header layout removes right placeholder when no profile button or action is shown", () => {
+test("header layout removes right placeholder when profile button is hidden", () => {
   const layout = resolvePatientShellHeaderLayout({
     hasBackButton: false,
     showProfileButton: false,
-    hasRightAction: false,
   });
 
   assert.deepEqual(layout, {
@@ -17,16 +16,15 @@ test("header layout removes right placeholder when no profile button or action i
   });
 });
 
-test("header layout keeps right action when an explicit action exists", () => {
+test("header layout keeps profile button when shown", () => {
   const layout = resolvePatientShellHeaderLayout({
     hasBackButton: false,
-    showProfileButton: false,
-    hasRightAction: true,
+    showProfileButton: true,
   });
 
   assert.deepEqual(layout, {
     leftSlot: "spacer",
-    rightSlot: "action",
+    rightSlot: "profile",
     compactTrailingSpace: false,
     usesCompactTopInset: false,
   });
@@ -36,7 +34,6 @@ test("header layout uses relaxed top inset when back button is shown", () => {
   const layout = resolvePatientShellHeaderLayout({
     hasBackButton: true,
     showProfileButton: false,
-    hasRightAction: false,
   });
 
   assert.deepEqual(layout, {

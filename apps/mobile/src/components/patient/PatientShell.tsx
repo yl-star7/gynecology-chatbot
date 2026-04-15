@@ -22,9 +22,6 @@ export function PatientShell({
   showProfileButton = true,
   pageTone = "plain",
   headerCompact = false,
-  rightActionIcon,
-  rightActionLabel,
-  onRightActionPress,
   backHref,
   hideHeader = false,
 }: {
@@ -36,9 +33,6 @@ export function PatientShell({
   showProfileButton?: boolean;
   pageTone?: "main" | "plain";
   headerCompact?: boolean;
-  rightActionIcon?: keyof typeof Ionicons.glyphMap;
-  rightActionLabel?: string;
-  onRightActionPress?: () => void;
   hideHeader?: boolean;
 }) {
   const router = useRouter();
@@ -48,7 +42,6 @@ export function PatientShell({
   const headerLayout = resolvePatientShellHeaderLayout({
     hasBackButton: Boolean(backHref),
     showProfileButton,
-    hasRightAction: Boolean(rightActionIcon && onRightActionPress),
   });
 
   return (
@@ -101,19 +94,6 @@ export function PatientShell({
               style={styles.profileButton}
             >
               <Text style={styles.profileButtonLabel}>{avatarLabel}</Text>
-            </Pressable>
-          ) : headerLayout.rightSlot === "action" ? (
-            <Pressable
-              onPress={onRightActionPress}
-              accessibilityLabel={rightActionLabel ?? "추가 동작"}
-              style={styles.iconButton}
-              hitSlop={12}
-            >
-              <Ionicons
-                name={rightActionIcon!}
-                size={space.lg + space.sm}
-                color={surface.textPrimary}
-              />
             </Pressable>
           ) : null}
         </View>

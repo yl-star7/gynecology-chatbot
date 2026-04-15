@@ -106,9 +106,6 @@ function getEnvApiBaseUrl() {
 
 function getEnvUserId() {
   if (currentMobileUserId) return currentMobileUserId;
-  if (__DEV__) {
-    return process.env.EXPO_PUBLIC_DEV_USER_ID ?? "local-user-demo";
-  }
   throw new Error(
     "User ID is not available. Ensure session is restored before making API calls.",
   );

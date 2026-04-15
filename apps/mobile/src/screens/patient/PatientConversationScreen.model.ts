@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChatMessage, RecentChatSummary } from "@gynecology-chatbot/app-core";
+import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import {
   AppState,
   Keyboard,
@@ -22,14 +22,6 @@ function createSessionId() {
       return value.toString(16);
     },
   );
-}
-
-function createTodayIsoDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = `${now.getMonth() + 1}`.padStart(2, "0");
-  const day = `${now.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 function createUserMessage(
@@ -82,9 +74,6 @@ export function usePatientConversationScreenModel({
   const [text, setText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
-  const [todaySessions, setTodaySessions] = useState<RecentChatSummary[]>([]);
-  const [isTodaySessionsOpen, setIsTodaySessionsOpen] = useState(false);
-  const [isTodaySessionsLoading, setIsTodaySessionsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [composerHeight, setComposerHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -205,37 +194,6 @@ export function usePatientConversationScreenModel({
     router.push(`/chat/link/${target}${params}`);
   }
 
-  async function handleOpenTodaySessions() {
-    if (isTodaySessionsOpen) {
-      setIsTodaySessionsOpen(false);
-      return;
-    }
-
-    setIsTodaySessionsOpen(true);
-    setIsTodaySessionsLoading(true);
-
-    try {
-      const recordDay = await services.homePort.getRecordDay(createTodayIsoDate());
-      setTodaySessions(recordDay.relatedSessions);
-    } catch {
-      setTodaySessions([]);
-    } finally {
-      setIsTodaySessionsLoading(false);
-    }
-  }
-
-  function closeTodaySessions() {
-    setIsTodaySessionsOpen(false);
-  }
-
-  function handleSelectTodaySession(nextSessionId: string) {
-    setIsTodaySessionsOpen(false);
-    if (nextSessionId === resolvedSessionId) {
-      return;
-    }
-    router.push(`/chat/${nextSessionId}`);
-  }
-
   function handleComposerLayout(event: LayoutChangeEvent) {
     const nextHeight = event.nativeEvent.layout.height;
     if (Math.abs(nextHeight - composerHeight) > 1) {
@@ -253,9 +211,6 @@ export function usePatientConversationScreenModel({
     isSending,
     imageDataUri,
     setImageDataUri,
-    todaySessions,
-    isTodaySessionsOpen,
-    isTodaySessionsLoading,
     errorMessage,
     setErrorMessage,
     isKeyboardVisible,
@@ -264,9 +219,6 @@ export function usePatientConversationScreenModel({
     handleQuickReply,
     handleSurveyAnswer,
     handleDeepLink,
-    handleOpenTodaySessions,
-    closeTodaySessions,
-    handleSelectTodaySession,
     handleComposerLayout,
   };
 }

@@ -3,7 +3,6 @@ import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientConversationMessageList } from "../../components/patient/chat/PatientConversationMessageList";
 import { PatientConversationComposer } from "../../components/patient/chat/PatientConversationComposer";
-import { PatientTodaySessionsDrawer } from "../../components/patient/chat/PatientTodaySessionsDrawer";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { patientSurfacePalette as surface, space } from "../../theme";
 import { usePatientConversationScreenModel } from "./PatientConversationScreen.model";
@@ -24,9 +23,6 @@ export function PatientConversationScreen({
       pageTone="plain"
       headerCompact
       showProfileButton={false}
-      rightActionIcon="list"
-      rightActionLabel="오늘 지난 대화 열기"
-      onRightActionPress={model.handleOpenTodaySessions}
     >
       <KeyboardAvoidingView
         style={styles.flex}
@@ -63,15 +59,6 @@ export function PatientConversationScreen({
             }
           />
 
-          <PatientTodaySessionsDrawer
-            visible={model.isTodaySessionsOpen}
-            insetsTop={insets.top}
-            isLoading={model.isTodaySessionsLoading}
-            sessions={model.todaySessions}
-            currentSessionId={model.resolvedSessionId}
-            onClose={model.closeTodaySessions}
-            onSelectSession={model.handleSelectTodaySession}
-          />
         </View>
       </KeyboardAvoidingView>
     </PatientShell>

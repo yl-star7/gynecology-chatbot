@@ -6,6 +6,14 @@ import { buildPatientTodayViewModel } from "./view-models";
 
 const EMPTY_BABY_BODY = "오늘 아기의 변화를 준비 중이에요.";
 
+function createTodayIsoDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function appendAssistantMessages(
   currentMessages: ChatMessage[],
   assistantMessages: ChatMessage[],
@@ -26,11 +34,11 @@ export function usePatientTodayScreenModel() {
     useCallback(() => {
       Promise.all([
         services.todayPort.getTodayView(),
-        services.chatPort.listRecentChats(),
+        services.homePort.getRecordDay(createTodayIsoDate()),
       ])
-        .then(([nextToday, nextRecentSessions]) => {
+        .then(([nextToday, nextRecordDay]) => {
           setToday(nextToday);
-          setRecentSessions(nextRecentSessions);
+          setRecentSessions(nextRecordDay.relatedSessions);
           setHasAttemptedInfoViewed(false);
         })
         .catch(() => undefined);

@@ -11,10 +11,6 @@ import {
 } from "../api/mobileApi";
 import { useMobileServices } from "./MobileServicesProvider";
 import {
-  getDevelopmentAutoVerifiedLogin,
-  isDevelopmentAutoVerifiedPhoneNumber,
-} from "../screens/auth/LoginScreen.model";
-import {
   clearNativeSessionToken,
   persistNativeSessionToken,
   readNativeSessionToken,
@@ -59,11 +55,15 @@ export function MobileAppSessionProvider({
       }
 
       const inMemoryToken = readCurrentMobileSessionToken();
-      const persistedToken =
-        inMemoryToken ??
-        (await readNativeSessionToken()) ??
-        (__DEV__ ? process.env.EXPO_PUBLIC_DEV_SESSION_TOKEN : null) ??
-        null;
+      const nativeToken = await readNativeSessionToken();
+
+      if (__DEV__ && nativeToken && !inMemoryToken) {
+        storeCurrentMobileSessionToken(null);
+        storeCurrentMobileUserId(null);
+        await clearNativeSessionToken();
+      }
+
+      const persistedToken = inMemoryToken ?? (!__DEV__ ? nativeToken : null) ?? null;
 
       if (!persistedToken) {
         if (!cancelled) {
@@ -88,40 +88,6 @@ export function MobileAppSessionProvider({
         storeCurrentMobileSessionToken(null);
         storeCurrentMobileUserId(null);
         await clearNativeSessionToken();
-
-        if (!__DEV__) {
-          if (!cancelled) {
-            setIsRestoringSession(false);
-          }
-          return;
-        }
-
-        const fallbackLogin = getDevelopmentAutoVerifiedLogin();
-        if (!isDevelopmentAutoVerifiedPhoneNumber(fallbackLogin.phoneNumber)) {
-          if (!cancelled) {
-            setIsRestoringSession(false);
-          }
-          return;
-        }
-
-        try {
-          const nextUser =
-            await services.authPort.signInWithPhoneVerification(fallbackLogin);
-          const nextToken = readCurrentMobileSessionToken();
-          if (nextToken) {
-            await persistNativeSessionToken(nextToken);
-          }
-          if (!cancelled) {
-            storeCurrentMobileUserId(nextUser.id);
-            setCurrentUser(nextUser);
-          }
-        } catch {
-          if (!cancelled) {
-            storeCurrentMobileSessionToken(null);
-            storeCurrentMobileUserId(null);
-            await clearNativeSessionToken();
-          }
-        }
       } finally {
         if (!cancelled) {
           setIsRestoringSession(false);

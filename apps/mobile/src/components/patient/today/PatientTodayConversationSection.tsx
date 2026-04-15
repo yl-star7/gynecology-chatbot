@@ -1,5 +1,4 @@
 import { StyleSheet, Text, View } from "react-native";
-import type { RecentChatSummary } from "@gynecology-chatbot/app-core";
 import { Card, Pressable } from "../../ui";
 import {
   palette,
@@ -8,6 +7,8 @@ import {
   space,
   typo,
 } from "../../../theme";
+
+import type { RecentChatSummary } from "@gynecology-chatbot/app-core";
 
 export function PatientTodayConversationSection({
   title,
@@ -55,7 +56,7 @@ export function PatientTodayConversationSection({
           ))
         ) : (
           <Text style={styles.recentSessionEmptyText}>
-            이어볼 대화가 아직 없어요.
+            오늘 이어볼 대화가 아직 없어요.
           </Text>
         )}
       </View>
