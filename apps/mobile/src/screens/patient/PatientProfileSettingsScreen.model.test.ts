@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   DEFAULT_NOTIFICATION_TIME,
   normalizePatientNotificationTimeInput,
-} from "./PatientProfileSettingsScreen.model.ts";
+} from "./patientNotificationTime.model.ts";
 
 test("normalizePatientNotificationTimeInput defaults when the input is empty", () => {
   assert.equal(
