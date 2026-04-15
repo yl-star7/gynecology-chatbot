@@ -44,7 +44,7 @@ export function PatientProfileSettingsScreen() {
             },
           ]}
           keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
         >
           <PatientProfileSettingsSummaryCard

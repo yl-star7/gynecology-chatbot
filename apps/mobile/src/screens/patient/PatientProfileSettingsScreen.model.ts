@@ -1,4 +1,5 @@
 import { useRouter } from "expo-router";
+import { Keyboard } from "react-native";
 import { useEffect, useMemo, useState } from "react";
 import type {
   HomeViewData,
@@ -86,15 +87,22 @@ export function usePatientProfileSettingsScreenModel() {
   }, [currentUser, homePort, profilePort, router]);
 
   function toggleToneDropdown() {
+    Keyboard.dismiss();
+    setIsTimePickerOpen(false);
     setIsToneDropdownOpen((current) => !current);
+    setError(null);
   }
 
   function toggleTimePicker() {
+    Keyboard.dismiss();
+    setIsToneDropdownOpen(false);
     setIsTimePickerOpen((current) => !current);
+    setError(null);
   }
 
   function selectNotificationTime(nextTime: string) {
     setNotificationTime(nextTime);
+    setIsToneDropdownOpen(false);
     setError(null);
   }
 

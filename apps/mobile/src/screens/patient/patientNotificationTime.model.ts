@@ -36,7 +36,7 @@ export function normalizePatientNotificationTimeInput(value: string) {
     );
   }
 
-  const colonMatch = compact.match(/^(\d{1,2}):(\d{1,2})$/);
+  const colonMatch = compact.match(/^(\d{1,2}):(\d{1,2})(?::\d{1,2})?$/);
   if (colonMatch) {
     return normalizeHourMinute(colonMatch[1], colonMatch[2]);
   }
