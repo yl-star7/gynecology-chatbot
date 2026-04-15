@@ -24,6 +24,7 @@ export function PatientShell({
   headerCompact = false,
   backHref,
   hideHeader = false,
+  skipTopSafeArea = false,
 }: {
   children: ReactNode;
   // 탭 활성화는 Expo Router Tabs가 담당하며, 기존 화면 호환을 위해 prop 시그니처만 유지합니다.
@@ -34,6 +35,7 @@ export function PatientShell({
   pageTone?: "main" | "plain";
   headerCompact?: boolean;
   hideHeader?: boolean;
+  skipTopSafeArea?: boolean;
 }) {
   const router = useRouter();
   const { currentUser } = useMobileAppSession();
@@ -46,6 +48,7 @@ export function PatientShell({
 
   return (
     <SafeAreaView
+      edges={skipTopSafeArea ? ["bottom", "left", "right"] : undefined}
       style={[
         styles.safeArea,
         useMainTone ? styles.safeAreaMain : styles.safeAreaPlain,

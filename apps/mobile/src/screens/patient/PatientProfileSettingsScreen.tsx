@@ -19,7 +19,7 @@ export function PatientProfileSettingsScreen() {
     bottomInset: insets.bottom,
     tabBarHeight: 0,
     extraBottomSpacing: space.xl,
-    topSpacing: space.xl,
+    topSpacing: space.sm,
   });
 
   return (
@@ -29,6 +29,7 @@ export function PatientProfileSettingsScreen() {
       showProfileButton={false}
       pageTone="plain"
       hideHeader
+      skipTopSafeArea
     >
       <KeyboardAvoidingView
         style={styles.flex}
