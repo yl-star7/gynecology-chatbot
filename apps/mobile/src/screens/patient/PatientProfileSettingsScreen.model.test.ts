@@ -5,6 +5,7 @@ import {
   DEFAULT_NOTIFICATION_TIME,
   getPatientNotificationTimeParts,
   normalizePatientNotificationTimeInput,
+  PATIENT_NOTIFICATION_MINUTE_OPTIONS,
 } from "./patientNotificationTime.model.ts";
 
 test("normalizePatientNotificationTimeInput defaults when the input is empty", () => {
@@ -16,7 +17,7 @@ test("normalizePatientNotificationTimeInput defaults when the input is empty", (
 
 test("normalizePatientNotificationTimeInput pads compact digits", () => {
   assert.equal(normalizePatientNotificationTimeInput("830"), "08:30");
-  assert.equal(normalizePatientNotificationTimeInput("9:5"), "09:05");
+  assert.equal(normalizePatientNotificationTimeInput("9:45"), "09:45");
 });
 
 test("normalizePatientNotificationTimeInput rejects invalid times", () => {
@@ -25,12 +26,16 @@ test("normalizePatientNotificationTimeInput rejects invalid times", () => {
   assert.equal(normalizePatientNotificationTimeInput("아침 여덟시"), null);
 });
 
+test("PATIENT_NOTIFICATION_MINUTE_OPTIONS exposes the quarter-hour choices", () => {
+  assert.deepEqual([...PATIENT_NOTIFICATION_MINUTE_OPTIONS], [0, 15, 30, 45]);
+});
+
 test("getPatientNotificationTimeParts returns padded labels", () => {
-  assert.deepEqual(getPatientNotificationTimeParts("9:5"), {
+  assert.deepEqual(getPatientNotificationTimeParts("9:45"), {
     hour: 9,
-    minute: 5,
+    minute: 45,
     hourLabel: "09",
-    minuteLabel: "05",
+    minuteLabel: "45",
   });
 });
 

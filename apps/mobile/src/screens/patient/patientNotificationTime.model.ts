@@ -1,6 +1,7 @@
 export const DEFAULT_NOTIFICATION_TIME = "08:30";
 export const INVALID_NOTIFICATION_TIME_ERROR =
   "알림 시간은 08:30처럼 입력해주세요.";
+export const PATIENT_NOTIFICATION_MINUTE_OPTIONS = [0, 15, 30, 45] as const;
 
 function normalizeHourMinute(hourText: string, minuteText: string) {
   const hour = Number(hourText);

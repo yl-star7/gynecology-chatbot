@@ -51,16 +51,16 @@ export function mergePatientProfileSyncSnapshot(
     return profile;
   }
 
-  if (userId && syncedProfile.userId !== userId) {
+  if (userId) {
+    if (syncedProfile.userId !== userId) {
+      return profile;
+    }
+  } else if (!profile || profile.userId !== syncedProfile.userId) {
     return profile;
   }
 
   if (!profile) {
     return syncedProfile;
-  }
-
-  if (profile.userId !== syncedProfile.userId) {
-    return profile;
   }
 
   return {

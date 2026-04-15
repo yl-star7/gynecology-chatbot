@@ -263,7 +263,12 @@ export function PatientProfileScreen() {
             onOpenSurvey={() => router.push("/profile-survey")}
           />
 
-          <PatientProfileAccountCard onLogout={handleLogout} />
+          <PatientProfileAccountCard
+            phoneNumber={profile?.phoneNumber}
+            hospitalName={profile?.hospitalName}
+            notificationTime={profile?.notificationTime}
+            onLogout={handleLogout}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
 

@@ -3,6 +3,7 @@ import { Pressable, Button } from "../../ui";
 import {
   buildPatientNotificationTimeFromParts,
   getPatientNotificationTimeParts,
+  PATIENT_NOTIFICATION_MINUTE_OPTIONS,
 } from "../../../screens/patient/patientNotificationTime.model";
 import {
   palette,
@@ -13,7 +14,7 @@ import {
 } from "../../../theme";
 
 const HOURS = Array.from({ length: 24 }, (_, index) => index);
-const MINUTES = Array.from({ length: 60 }, (_, index) => index);
+const MINUTES = [...PATIENT_NOTIFICATION_MINUTE_OPTIONS];
 
 export function PatientNotificationTimeField({
   value,
