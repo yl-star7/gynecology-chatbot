@@ -70,7 +70,15 @@ type QuestionEventRow = {
 };
 
 const DEFAULT_NOTIFICATION_TIME = "08:30";
-const NOTIFICATION_TIME_ERROR = "알림 시간은 08:30처럼 입력해주세요.";
+const NOTIFICATION_TIME_ERROR =
+  "알림 시간은 08:00, 08:15, 08:30, 08:45처럼 입력해주세요.";
+const NOTIFICATION_MINUTE_OPTIONS = [0, 15, 30, 45] as const;
+
+function isSupportedNotificationMinute(minute: number) {
+  return NOTIFICATION_MINUTE_OPTIONS.includes(
+    minute as (typeof NOTIFICATION_MINUTE_OPTIONS)[number],
+  );
+}
 
 function normalizeNotificationTimeInput(value: string) {
   const trimmed = value.trim();
@@ -84,7 +92,7 @@ function normalizeNotificationTimeInput(value: string) {
     const normalizedDigits = compact.padStart(4, "0");
     const hour = Number(normalizedDigits.slice(0, 2));
     const minute = Number(normalizedDigits.slice(2));
-    if (hour > 23 || minute > 59) {
+    if (hour > 23 || minute > 59 || !isSupportedNotificationMinute(minute)) {
       return null;
     }
     return `${normalizedDigits.slice(0, 2)}:${normalizedDigits.slice(2)}`;
@@ -97,7 +105,7 @@ function normalizeNotificationTimeInput(value: string) {
 
   const hour = Number(colonMatch[1]);
   const minute = Number(colonMatch[2]);
-  if (hour > 23 || minute > 59) {
+  if (hour > 23 || minute > 59 || !isSupportedNotificationMinute(minute)) {
     return null;
   }
 

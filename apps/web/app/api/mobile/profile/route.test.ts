@@ -325,7 +325,28 @@ describe("PATCH /api/mobile/profile", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: "알림 시간은 08:30처럼 입력해주세요.",
+      error: "알림 시간은 08:00, 08:15, 08:30, 08:45처럼 입력해주세요.",
+    });
+    expect(mockedRequireMobileSession).not.toHaveBeenCalled();
+    expect(mockedUpdateMobileProfile).not.toHaveBeenCalled();
+  });
+
+  it("rejects notification times outside the quarter-hour options", async () => {
+    const response = await PATCH(
+      new Request("http://localhost:3000/api/mobile/profile", {
+        method: "PATCH",
+        body: JSON.stringify({
+          userId: "user-1",
+          displayName: "김수연",
+          tonePreference: "차분하게",
+          notificationTime: "08:07",
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "알림 시간은 08:00, 08:15, 08:30, 08:45처럼 입력해주세요.",
     });
     expect(mockedRequireMobileSession).not.toHaveBeenCalled();
     expect(mockedUpdateMobileProfile).not.toHaveBeenCalled();
