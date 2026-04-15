@@ -8,6 +8,15 @@ import {
 describe("solapi-sms", () => {
   const originalEnv = process.env;
 
+  function setNodeEnv(value: string) {
+    Object.defineProperty(process.env, "NODE_ENV", {
+      value,
+      configurable: true,
+      writable: true,
+      enumerable: true,
+    });
+  }
+
   beforeEach(() => {
     process.env = { ...originalEnv };
     delete process.env.SOLAPI_API_KEY;
@@ -26,7 +35,7 @@ describe("solapi-sms", () => {
   });
 
   test("uses local fallback when Solapi is not configured outside production", async () => {
-    process.env.NODE_ENV = "test";
+    setNodeEnv("test");
 
     await expect(sendSmsVerification("01012345678")).resolves.toEqual({
       sid: "mock-verification",
@@ -42,7 +51,7 @@ describe("solapi-sms", () => {
   });
 
   test("fails fast in production when Solapi config is missing", async () => {
-    process.env.NODE_ENV = "production";
+    setNodeEnv("production");
 
     await expect(sendSmsVerification("01012345678")).rejects.toThrow(
       "문자 발송 설정이 비어 있어요. 운영 환경 설정을 확인해 주세요.",

@@ -1,6 +1,11 @@
 import { StyleSheet, Text, View } from "react-native";
 import { Button, Card, DueDateCalendarPicker, LabeledInput } from "../../ui";
-import { palette, patientSurfacePalette as surface, space, typo } from "../../../theme";
+import {
+  palette,
+  patientSurfacePalette as surface,
+  space,
+  typo,
+} from "../../../theme";
 import { DEFAULT_NOTIFICATION_TIME } from "../../../screens/patient/PatientProfileSettingsScreen.model";
 import { PatientTonePreferenceField } from "./PatientTonePreferenceField";
 
@@ -70,6 +75,7 @@ export function PatientProfileSettingsForm({
           value={notificationTime}
           onChangeText={onChangeNotificationTime}
           placeholder={DEFAULT_NOTIFICATION_TIME}
+          keyboardType="number-pad"
         />
         <PatientTonePreferenceField
           value={tonePreference}

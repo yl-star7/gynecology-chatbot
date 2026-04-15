@@ -120,26 +120,15 @@ export function usePatientProfileSettingsScreenModel() {
         hospitalName: hospitalName.trim() || null,
         notificationTime,
       };
-      console.log("[DEBUG handleSave] save input:", JSON.stringify(saveInput));
       await profilePort.updateProfile(saveInput);
-      console.log("[DEBUG handleSave] save succeeded, refreshing...");
       const [refreshedProfile, refreshedHome] = await Promise.all([
         profilePort.getProfile(),
         homePort.getHomeView(),
       ]);
-      console.log(
-        "[DEBUG handleSave] refreshed profile:",
-        JSON.stringify({
-          babyNickname: refreshedProfile.babyNickname,
-          dueDate: refreshedProfile.dueDate,
-          tonePreference: refreshedProfile.tonePreference,
-        }),
-      );
       setProfile(refreshedProfile);
       setHome(refreshedHome);
       router.back();
     } catch (nextError) {
-      console.log("[DEBUG handleSave] ERROR:", nextError);
       setProfile(previousProfile);
       setHome(previousHome);
       const message = resolvePatientProfileSaveError(nextError);

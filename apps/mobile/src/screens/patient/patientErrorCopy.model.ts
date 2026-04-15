@@ -22,9 +22,14 @@ export function resolvePatientProfileLoadError(error: unknown) {
 }
 
 export function resolvePatientProfileSaveError(error: unknown) {
-  return readErrorMessage(error).includes("세션이 만료되었어요")
-    ? SESSION_EXPIRED_MESSAGE
-    : PROFILE_SAVE_ERROR;
+  const message = readErrorMessage(error).trim();
+  if (message.includes("세션이 만료되었어요")) {
+    return SESSION_EXPIRED_MESSAGE;
+  }
+  if (/[가-힣]/.test(message)) {
+    return message;
+  }
+  return PROFILE_SAVE_ERROR;
 }
 
 export function resolvePatientRecordDayLoadError(_error: unknown) {

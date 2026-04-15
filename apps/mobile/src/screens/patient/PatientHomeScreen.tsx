@@ -45,15 +45,6 @@ export function PatientHomeScreen() {
       services.profilePort.getProfile(),
     ]);
 
-    console.log(
-      "[DEBUG Home fetchData] profile:",
-      JSON.stringify({
-        babyNickname: nextProfile.babyNickname,
-        dueDate: nextProfile.dueDate,
-        tonePreference: nextProfile.tonePreference,
-      }),
-    );
-
     setHome(nextHome);
     setProfile(nextProfile);
   }, [services]);

@@ -4,6 +4,8 @@ import { decryptPhoneNumber } from "@/lib/privacy/phone-crypto";
 import { sendSmsMessage } from "./solapi-sms";
 
 const expo = new Expo();
+const DEFAULT_NOTIFICATION_TIME = "08:30";
+const DEFAULT_NOTIFICATION_TIME_ZONE = "Asia/Seoul";
 
 type PushTargetRow = {
   user_id: string;
@@ -18,11 +20,63 @@ type SmsUserRow = {
   phone_number_encrypted: string;
 };
 
-export async function sendDailyPushNotifications() {
+export type SendDailyPushNotificationsOptions = {
+  respectUserTime?: boolean;
+  now?: Date;
+  timeZone?: string;
+};
+
+function getLocalHourMinute(now: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    hour12: false,
+    minute: "2-digit",
+    timeZone,
+  }).formatToParts(now);
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+
+  return `${hour}:${minute}`;
+}
+
+function normalizeNotificationTime(value: string | null) {
+  const match = (value ?? DEFAULT_NOTIFICATION_TIME)
+    .trim()
+    .match(/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+
+  if (!match) {
+    return DEFAULT_NOTIFICATION_TIME;
+  }
+
+  return `${match[1]}:${match[2]}`;
+}
+
+function filterTargetsForScheduledDelivery(
+  targets: PushTargetRow[],
+  options: SendDailyPushNotificationsOptions,
+) {
+  if (!options.respectUserTime) {
+    return targets;
+  }
+
+  const dueTime = getLocalHourMinute(
+    options.now ?? new Date(),
+    options.timeZone ?? DEFAULT_NOTIFICATION_TIME_ZONE,
+  );
+
+  return targets.filter(
+    (target) => normalizeNotificationTime(target.notification_time) === dueTime,
+  );
+}
+
+export async function sendDailyPushNotifications(
+  options: SendDailyPushNotificationsOptions = {},
+) {
   // 1. Query notification-enabled targets.
-  const targets = await supabaseSelect<PushTargetRow[]>(
+  const allTargets = await supabaseSelect<PushTargetRow[]>(
     `pregnancy_profiles?select=user_id,push_token,pregnancy_week,display_name,notification_time&notification_enabled=eq.true`,
   );
+  const targets = filterTargetsForScheduledDelivery(allTargets, options);
 
   if (targets.length === 0) return { sent: 0 };
 

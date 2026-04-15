@@ -1,17 +1,19 @@
 const searchMock = jest.fn();
-const supabaseSelectMock = jest.fn(async () => [
-  { key: "rag_provider", value: { ragProvider: "supabase" } },
-]);
+const supabaseSelectMock = jest.fn(
+  async (_path?: string, _options?: unknown) => [
+    { key: "rag_provider", value: { ragProvider: "supabase" } },
+  ],
+);
 
 jest.mock("./schift-client", () => ({
   getSchiftClient: () => ({ search: searchMock }),
 }));
 
 jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseSelect: (...args: unknown[]) => supabaseSelectMock(...args),
+  supabaseSelect: (path: string, options?: unknown) =>
+    supabaseSelectMock(path, options),
   supabaseRpc: jest.fn(),
 }));
-
 import { retrievePregnancyContext, searchFileRag } from "./rag";
 
 describe("retrievePregnancyContext strict configuration", () => {
