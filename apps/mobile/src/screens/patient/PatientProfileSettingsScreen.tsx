@@ -56,6 +56,7 @@ export function PatientProfileSettingsScreen() {
             error={model.error}
             hospitalName={model.hospitalName}
             isSaving={model.isSaving}
+            isTimePickerOpen={model.isTimePickerOpen}
             isToneDropdownOpen={model.isToneDropdownOpen}
             notificationTime={model.notificationTime}
             onChangeBabyNickname={model.setBabyNickname}
@@ -65,7 +66,9 @@ export function PatientProfileSettingsScreen() {
             onSave={() => {
               void model.handleSave();
             }}
+            onSelectNotificationTime={model.selectNotificationTime}
             onSelectTonePreference={model.selectTonePreference}
+            onToggleTimePicker={model.toggleTimePicker}
             onToggleToneDropdown={model.toggleToneDropdown}
             toneOptions={model.toneOptions}
             tonePreference={model.tonePreference}

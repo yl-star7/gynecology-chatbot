@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildDailyLocalNotificationRequest,
+  buildRollingDailyLocalNotificationRequests,
   parseDailyNotificationTime,
 } from "./dailyLocalNotification.model.ts";
 
@@ -34,4 +35,79 @@ test("parseDailyNotificationTime accepts normalized or compact user input", () =
     hour: 8,
     minute: 30,
   });
+});
+
+test("buildRollingDailyLocalNotificationRequests advances the week title by scheduled day", () => {
+  const requests = buildRollingDailyLocalNotificationRequests({
+    notificationTime: "09:00",
+    pregnancyDayCount: 132,
+    now: new Date(2026, 3, 15, 10, 0),
+    days: 3,
+  });
+
+  assert.deepEqual(
+    requests.map((request) => request.title),
+    [
+      "[18주차] 오늘은 어때요?",
+      "[19주차] 오늘은 어때요?",
+      "[19주차] 오늘은 어때요?",
+    ],
+  );
+  assert.deepEqual(
+    requests.map((request) => request.identifier),
+    ["patient-daily-tip-0", "patient-daily-tip-1", "patient-daily-tip-2"],
+  );
+  assert.deepEqual(
+    requests.map((request) => [
+      request.date.getFullYear(),
+      request.date.getMonth(),
+      request.date.getDate(),
+      request.date.getHours(),
+      request.date.getMinutes(),
+    ]),
+    [
+      [2026, 3, 16, 9, 0],
+      [2026, 3, 17, 9, 0],
+      [2026, 3, 18, 9, 0],
+    ],
+  );
+});
+
+test("buildRollingDailyLocalNotificationRequests starts today when the configured time has not passed", () => {
+  const requests = buildRollingDailyLocalNotificationRequests({
+    notificationTime: "21:15",
+    pregnancyDayCount: 128,
+    now: new Date(2026, 3, 15, 10, 0),
+    days: 1,
+  });
+
+  assert.equal(requests[0]?.date.getDate(), 15);
+  assert.equal(requests[0]?.date.getHours(), 21);
+  assert.equal(requests[0]?.date.getMinutes(), 15);
+  assert.equal(requests[0]?.title, "[18주차] 오늘은 어때요?");
+});
+
+test("buildRollingDailyLocalNotificationRequests can derive day count from a week label", () => {
+  const requests = buildRollingDailyLocalNotificationRequests({
+    notificationTime: "09:00",
+    pregnancyWeekLabel: "18주 6일",
+    now: new Date(2026, 3, 15, 10, 0),
+    days: 2,
+  });
+
+  assert.deepEqual(
+    requests.map((request) => request.title),
+    ["[18주차] 오늘은 어때요?", "[19주차] 오늘은 어때요?"],
+  );
+});
+
+test("buildRollingDailyLocalNotificationRequests keeps early pregnancy at week one", () => {
+  const requests = buildRollingDailyLocalNotificationRequests({
+    notificationTime: "09:00",
+    pregnancyDayCount: 1,
+    now: new Date(2026, 3, 15, 10, 0),
+    days: 1,
+  });
+
+  assert.equal(requests[0]?.title, "[1주차] 오늘은 어때요?");
 });

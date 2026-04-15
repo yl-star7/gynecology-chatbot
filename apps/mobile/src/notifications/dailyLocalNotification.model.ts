@@ -1,4 +1,6 @@
 const DEFAULT_NOTIFICATION_TIME = "08:30";
+const DEFAULT_ROLLING_NOTIFICATION_DAYS = 14;
+const DAILY_LOCAL_NOTIFICATION_IDENTIFIER_PREFIX = "patient-daily-tip";
 
 export type DailyLocalNotificationRequest = {
   title: string;
@@ -8,6 +10,14 @@ export type DailyLocalNotificationRequest = {
     hour: number;
     minute: number;
   };
+};
+
+export type RollingDailyLocalNotificationRequest = {
+  identifier: string;
+  title: string;
+  body: string;
+  data: Record<string, string>;
+  date: Date;
 };
 
 export function parseDailyNotificationTime(value?: string | null) {
@@ -36,14 +46,29 @@ export function parseDailyNotificationTime(value?: string | null) {
   return { hour, minute };
 }
 
-function parsePregnancyWeek(pregnancyWeekLabel?: string | null) {
-  const match = pregnancyWeekLabel?.match(/(\d+)\s*주/);
+function parsePregnancyWeekParts(pregnancyWeekLabel?: string | null) {
+  const match = pregnancyWeekLabel?.match(/(\d+)\s*주(?:\s*(\d+)\s*일)?/);
   if (!match) {
     return null;
   }
 
   const week = Number(match[1]);
-  return Number.isInteger(week) && week > 0 ? week : null;
+  const day = Number(match[2] ?? "0");
+  if (
+    !Number.isInteger(week) ||
+    !Number.isInteger(day) ||
+    week <= 0 ||
+    day < 0 ||
+    day > 6
+  ) {
+    return null;
+  }
+
+  return { week, day };
+}
+
+function parsePregnancyWeek(pregnancyWeekLabel?: string | null) {
+  return parsePregnancyWeekParts(pregnancyWeekLabel)?.week ?? null;
 }
 
 export function buildDailyLocalNotificationRequest(input: {
@@ -58,4 +83,85 @@ export function buildDailyLocalNotificationRequest(input: {
     data: { type: "daily_tip" },
     trigger: parseDailyNotificationTime(input.notificationTime),
   };
+}
+
+function buildNotificationTitleForPregnancyDay(
+  pregnancyDayCount?: number | null,
+) {
+  if (
+    typeof pregnancyDayCount !== "number" ||
+    !Number.isFinite(pregnancyDayCount) ||
+    pregnancyDayCount <= 0
+  ) {
+    return "오늘은 어때요?";
+  }
+
+  return `[${Math.max(1, Math.floor(pregnancyDayCount / 7))}주차] 오늘은 어때요?`;
+}
+
+function resolvePregnancyDayCount(input: {
+  pregnancyDayCount?: number | null;
+  pregnancyWeekLabel?: string | null;
+}) {
+  if (
+    typeof input.pregnancyDayCount === "number" &&
+    Number.isFinite(input.pregnancyDayCount) &&
+    input.pregnancyDayCount > 0
+  ) {
+    return input.pregnancyDayCount;
+  }
+
+  const parsed = parsePregnancyWeekParts(input.pregnancyWeekLabel);
+  return parsed ? parsed.week * 7 + parsed.day : null;
+}
+
+function buildNextNotificationDate(input: {
+  now: Date;
+  dayOffset: number;
+  hour: number;
+  minute: number;
+}) {
+  const date = new Date(input.now);
+  date.setSeconds(0, 0);
+  date.setHours(input.hour, input.minute, 0, 0);
+
+  if (date.getTime() <= input.now.getTime()) {
+    date.setDate(date.getDate() + 1);
+  }
+
+  date.setDate(date.getDate() + input.dayOffset);
+  return date;
+}
+
+export function buildRollingDailyLocalNotificationRequests(input: {
+  notificationTime?: string | null;
+  pregnancyWeekLabel?: string | null;
+  pregnancyDayCount?: number | null;
+  now?: Date;
+  days?: number;
+}): RollingDailyLocalNotificationRequest[] {
+  const now = input.now ?? new Date();
+  const { hour, minute } = parseDailyNotificationTime(input.notificationTime);
+  const days = Math.max(1, input.days ?? DEFAULT_ROLLING_NOTIFICATION_DAYS);
+  const pregnancyDayCount = resolvePregnancyDayCount({
+    pregnancyDayCount: input.pregnancyDayCount,
+    pregnancyWeekLabel: input.pregnancyWeekLabel,
+  });
+
+  return Array.from({ length: days }, (_, dayOffset) => ({
+    identifier: `${DAILY_LOCAL_NOTIFICATION_IDENTIFIER_PREFIX}-${dayOffset}`,
+    title: buildNotificationTitleForPregnancyDay(
+      typeof pregnancyDayCount === "number"
+        ? pregnancyDayCount + dayOffset
+        : null,
+    ),
+    body: "오늘의 변화를 함께 확인해보세요.",
+    data: { type: "daily_tip" },
+    date: buildNextNotificationDate({
+      now,
+      dayOffset,
+      hour,
+      minute,
+    }),
+  }));
 }

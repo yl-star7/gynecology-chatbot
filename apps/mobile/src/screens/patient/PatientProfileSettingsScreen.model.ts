@@ -36,6 +36,7 @@ export function usePatientProfileSettingsScreenModel() {
   const [dueDate, setDueDate] = useState("");
   const [tonePreference, setTonePreference] = useState("");
   const [isToneDropdownOpen, setIsToneDropdownOpen] = useState(false);
+  const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
   const [babyNickname, setBabyNickname] = useState("");
   const [hospitalName, setHospitalName] = useState("");
   const [notificationTime, setNotificationTime] = useState(
@@ -81,6 +82,15 @@ export function usePatientProfileSettingsScreenModel() {
     setIsToneDropdownOpen((current) => !current);
   }
 
+  function toggleTimePicker() {
+    setIsTimePickerOpen((current) => !current);
+  }
+
+  function selectNotificationTime(nextTime: string) {
+    setNotificationTime(nextTime);
+    setError(null);
+  }
+
   function selectTonePreference(nextTone: string) {
     setTonePreference(nextTone);
     setIsToneDropdownOpen(false);
@@ -123,6 +133,7 @@ export function usePatientProfileSettingsScreenModel() {
 
     setIsSaving(true);
     setError(null);
+    setIsTimePickerOpen(false);
     setNotificationTime(normalizedNotificationTime);
     setProfile(optimisticProfile);
 
@@ -142,6 +153,9 @@ export function usePatientProfileSettingsScreenModel() {
         pregnancyWeekLabel:
           optimisticProfile?.pregnancyWeekLabel ??
           homeViewModel.pregnancyWeekLabel,
+        pregnancyDayCount:
+          optimisticProfile?.pregnancyDayCount ??
+          homeViewModel.pregnancyDayCount,
       }).catch((notificationError) => {
         console.error(
           "daily local notification schedule error",
@@ -183,6 +197,7 @@ export function usePatientProfileSettingsScreenModel() {
     hospitalName,
     homeViewModel,
     isSaving,
+    isTimePickerOpen,
     isToneDropdownOpen,
     notificationTime,
     profile,
@@ -192,7 +207,9 @@ export function usePatientProfileSettingsScreenModel() {
     setNotificationTime,
     toneOptions: TONE_OPTIONS,
     tonePreference,
+    toggleTimePicker,
     toggleToneDropdown,
+    selectNotificationTime,
     selectTonePreference,
     handleSave,
     summaryPregnancyWeekLabel: profile

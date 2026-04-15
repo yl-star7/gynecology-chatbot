@@ -6,7 +6,7 @@ import {
   space,
   typo,
 } from "../../../theme";
-import { DEFAULT_NOTIFICATION_TIME } from "../../../screens/patient/PatientProfileSettingsScreen.model";
+import { PatientNotificationTimeField } from "./PatientNotificationTimeField";
 import { PatientTonePreferenceField } from "./PatientTonePreferenceField";
 
 export function PatientProfileSettingsForm({
@@ -16,6 +16,7 @@ export function PatientProfileSettingsForm({
   error,
   hospitalName,
   isSaving,
+  isTimePickerOpen,
   isToneDropdownOpen,
   notificationTime,
   onChangeBabyNickname,
@@ -24,6 +25,8 @@ export function PatientProfileSettingsForm({
   onChangeNotificationTime,
   onSave,
   onSelectTonePreference,
+  onToggleTimePicker,
+  onSelectNotificationTime,
   onToggleToneDropdown,
   toneOptions,
   tonePreference,
@@ -34,6 +37,7 @@ export function PatientProfileSettingsForm({
   error: string | null;
   hospitalName: string;
   isSaving: boolean;
+  isTimePickerOpen: boolean;
   isToneDropdownOpen: boolean;
   notificationTime: string;
   onChangeBabyNickname: (value: string) => void;
@@ -41,7 +45,9 @@ export function PatientProfileSettingsForm({
   onChangeHospitalName: (value: string) => void;
   onChangeNotificationTime: (value: string) => void;
   onSave: () => void;
+  onSelectNotificationTime: (value: string) => void;
   onSelectTonePreference: (value: string) => void;
+  onToggleTimePicker: () => void;
   onToggleToneDropdown: () => void;
   toneOptions: string[];
   tonePreference: string;
@@ -70,12 +76,11 @@ export function PatientProfileSettingsForm({
           onChangeText={onChangeHospitalName}
           placeholder="다니는 병원 이름"
         />
-        <LabeledInput
-          label="알림 시간"
+        <PatientNotificationTimeField
           value={notificationTime}
-          onChangeText={onChangeNotificationTime}
-          placeholder={DEFAULT_NOTIFICATION_TIME}
-          keyboardType="number-pad"
+          isOpen={isTimePickerOpen}
+          onToggle={onToggleTimePicker}
+          onSelect={onSelectNotificationTime}
         />
         <PatientTonePreferenceField
           value={tonePreference}

@@ -30,6 +30,7 @@ export function DailyLocalNotificationRegistrar() {
         const scheduledKey = [
           profile.notificationTime ?? "",
           profile.pregnancyWeekLabel ?? "",
+          profile.pregnancyDayCount ?? "",
         ].join(":");
         if (scheduledKeyRef.current === scheduledKey) {
           return;
@@ -38,6 +39,7 @@ export function DailyLocalNotificationRegistrar() {
         await scheduleDailyLocalNotification({
           notificationTime: profile.notificationTime,
           pregnancyWeekLabel: profile.pregnancyWeekLabel,
+          pregnancyDayCount: profile.pregnancyDayCount,
         });
         scheduledKeyRef.current = scheduledKey;
       } catch (error) {
