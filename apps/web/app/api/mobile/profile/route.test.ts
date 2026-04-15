@@ -196,4 +196,71 @@ describe("GET /api/mobile/profile", () => {
       },
     });
   });
+
+  it("still returns profile data when pending survey lookup fails", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      sessionId: "session-1",
+      userId: "user-1",
+    });
+
+    mockedSupabaseSelect.mockImplementation((path: string) => {
+      if (path.startsWith("users?")) {
+        return Promise.resolve([
+          {
+            id: "user-1",
+            phone_number_encrypted: "enc:01012345678",
+            account_status: "active",
+          },
+        ] as never);
+      }
+
+      if (path.startsWith("pregnancy_profiles?")) {
+        return Promise.resolve([
+          {
+            display_name: "김수연",
+            pregnancy_day_count: 128,
+            pregnancy_week: 19,
+            pregnancy_day_in_week: 1,
+            due_date: "2026-08-01",
+            onboarding_payload: {
+              tonePreference: "차분하게",
+              pregnancyWeekOrDueDate: "2026-08-01",
+              babyNickname: "튼튼이",
+              hospitalName: "다정산부인과",
+              notificationTime: "08:30",
+              themeKey: "rose-sand",
+            },
+            baby_nickname: "튼튼이",
+            notification_time: "08:30",
+            theme_key: "rose-sand",
+          },
+        ] as never);
+      }
+
+      if (path.startsWith("content_pregnancy_week_data?")) {
+        throw new Error("Supabase select failed: relation content.week_questions does not exist");
+      }
+
+      return Promise.resolve([] as never);
+    });
+
+    const response = await GET({
+      nextUrl: new URL(
+        "http://localhost:3000/api/mobile/profile?userId=user-1",
+      ),
+    } as never);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      profile: {
+        userId: "user-1",
+        babyNickname: "튼튼이",
+        dueDate: "2026-08-01",
+        tonePreference: "차분하게",
+        hospitalName: "다정산부인과",
+        notificationTime: "08:30",
+        pendingSurveys: [],
+      },
+    });
+  });
 });

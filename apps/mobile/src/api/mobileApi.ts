@@ -242,7 +242,19 @@ export function createMobileApiClient(
           headers: buildMobileSessionHeaders(),
         },
       );
-      return parseJson<{ profile: MobileProfileViewData }>(response);
+      const payload = await parseJson<{ profile: MobileProfileViewData }>(
+        response,
+      );
+      console.log(
+        "[DEBUG fetchMobileProfile] response:",
+        JSON.stringify({
+          babyNickname: payload.profile.babyNickname,
+          dueDate: payload.profile.dueDate,
+          tonePreference: payload.profile.tonePreference,
+          hospitalName: payload.profile.hospitalName,
+        }),
+      );
+      return payload;
     },
 
     async fetchMobileBranding() {
@@ -373,6 +385,14 @@ export function createMobileApiClient(
     },
 
     async updateMobileProfile(input) {
+      console.log(
+        "[DEBUG updateMobileProfile] request body:",
+        JSON.stringify(input),
+      );
+      console.log(
+        "[DEBUG updateMobileProfile] has auth token:",
+        Boolean(buildMobileSessionHeaders().Authorization),
+      );
       const response = await fetchImpl(
         `${getApiBaseUrl()}/api/mobile/profile`,
         {
@@ -385,6 +405,10 @@ export function createMobileApiClient(
         },
       );
 
+      console.log(
+        "[DEBUG updateMobileProfile] response status:",
+        response.status,
+      );
       return parseJson<{ user: AuthenticatedUser }>(response);
     },
 

@@ -2,7 +2,15 @@ import {
   DEFAULT_MOBILE_THEME_KEY,
   resolveMobileThemeKey,
 } from "@gynecology-chatbot/app-core";
+import { appendFileSync } from "node:fs";
 import { NextRequest, NextResponse } from "next/server";
+
+function debugLog(msg: string) {
+  const line = `[${new Date().toISOString()}] ${msg}\n`;
+  try {
+    appendFileSync("/tmp/profile-debug.log", line);
+  } catch {}
+}
 import {
   hasCompletedProfileOnboarding,
   updateMobileProfile,
@@ -92,9 +100,11 @@ function resolveQuestionChoices(question: QuestionRow) {
 }
 
 export async function GET(request: NextRequest) {
+  debugLog("GET /api/mobile/profile CALLED");
   try {
     const hintedUserId = request.nextUrl.searchParams.get("userId");
     const { userId } = await requireMobileSession(request, hintedUserId);
+    debugLog(`GET session resolved: userId=${userId}`);
 
     const [users, profiles] = await Promise.all([
       supabaseSelect<UserRow[]>(
@@ -121,50 +131,63 @@ export async function GET(request: NextRequest) {
     }> = [];
 
     if (profile?.pregnancy_week) {
-      const dayNumber = ((profile.pregnancy_day_in_week ?? 0) % 7) + 1;
-      const weekRows = await supabaseSelect<WeekRow[]>(
-        `content_pregnancy_week_data?select=id&week_number=eq.${profile.pregnancy_week}&status=eq.published&limit=1`,
-      );
-      const week = weekRows[0];
-
-      if (week) {
-        const [datedQuestions, genericQuestions] = await Promise.all([
-          supabaseSelect<QuestionRow[]>(
-            `content.week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
-          ),
-          supabaseSelect<QuestionRow[]>(
-            `content.week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
-          ),
-        ]);
-
-        const questions = [...datedQuestions, ...genericQuestions];
-        const questionIds = questions.map((question) => question.id);
-        const questionEvents =
-          questionIds.length > 0
-            ? await supabaseSelect<QuestionEventRow[]>(
-                `user_question_events?select=id,question_id,status&user_id=eq.${userId}&question_id=in.(${questionIds.join(",")})`,
-              )
-            : [];
-        const answeredSet = new Set(
-          questionEvents
-            .filter((event) => event.status === "answered")
-            .map((event) => event.question_id),
+      try {
+        const dayNumber = ((profile.pregnancy_day_in_week ?? 0) % 7) + 1;
+        const weekRows = await supabaseSelect<WeekRow[]>(
+          `content_pregnancy_week_data?select=id&week_number=eq.${profile.pregnancy_week}&status=eq.published&limit=1`,
         );
+        const week = weekRows[0];
 
-        pendingSurveys = questions
-          .filter((question) => !answeredSet.has(question.id))
-          .map((question) => ({
-            id: question.id,
-            code: question.code,
-            questionText: question.question_text,
-            questionType: question.question_type,
-            helpText: question.help_text,
-            choices: resolveQuestionChoices(question),
-            answered: false,
-          }));
+        if (week) {
+          const [datedQuestions, genericQuestions] = await Promise.all([
+            supabaseSelect<QuestionRow[]>(
+              `content.week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+            ),
+            supabaseSelect<QuestionRow[]>(
+              `content.week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
+            ),
+          ]);
+
+          const questions = [...datedQuestions, ...genericQuestions];
+          const questionIds = questions.map((question) => question.id);
+          const questionEvents =
+            questionIds.length > 0
+              ? await supabaseSelect<QuestionEventRow[]>(
+                  `user_question_events?select=id,question_id,status&user_id=eq.${userId}&question_id=in.(${questionIds.join(",")})`,
+                )
+              : [];
+          const answeredSet = new Set(
+            questionEvents
+              .filter((event) => event.status === "answered")
+              .map((event) => event.question_id),
+          );
+
+          pendingSurveys = questions
+            .filter((question) => !answeredSet.has(question.id))
+            .map((question) => ({
+              id: question.id,
+              code: question.code,
+              questionText: question.question_text,
+              questionType: question.question_type,
+              helpText: question.help_text,
+              choices: resolveQuestionChoices(question),
+              answered: false,
+            }));
+        }
+      } catch (error) {
+        debugLog(`GET pending survey fallback: ${String(error)}`);
+        console.error("mobile profile pending survey error", error);
       }
     }
 
+    console.log(
+      "[DEBUG GET /api/mobile/profile] raw profile row:",
+      JSON.stringify(profile),
+    );
+
+    debugLog(
+      `GET returning profile: babyNickname=${profile?.baby_nickname ?? profile?.onboarding_payload?.babyNickname ?? "null"}, tone=${profile?.onboarding_payload?.tonePreference ?? "null"}, dueDate=${profile?.due_date ?? "null"}`,
+    );
     return NextResponse.json({
       profile: {
         userId: users[0].id,
@@ -204,8 +227,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  debugLog("PATCH /api/mobile/profile CALLED");
   try {
     const body = await request.json();
+    debugLog(`PATCH body: ${JSON.stringify(body)}`);
     const hintedUserId =
       typeof body.userId === "string" ? body.userId.trim() : "";
     const displayName =
@@ -231,6 +256,21 @@ export async function PATCH(request: NextRequest) {
       );
     }
     const { userId } = await requireMobileSession(request, hintedUserId);
+    debugLog(`PATCH session resolved: userId=${userId}`);
+
+    console.log(
+      "[DEBUG PATCH /api/mobile/profile] input:",
+      JSON.stringify({
+        userId,
+        displayName,
+        dueDate: dueDate || null,
+        tonePreference,
+        babyNickname: babyNickname || null,
+        hospitalName: hospitalName || null,
+        notificationTime: notificationTime || "08:30",
+        themeKey: themeKey || DEFAULT_MOBILE_THEME_KEY,
+      }),
+    );
 
     const user = await updateMobileProfile({
       userId,
@@ -243,8 +283,15 @@ export async function PATCH(request: NextRequest) {
       themeKey: themeKey || DEFAULT_MOBILE_THEME_KEY,
     });
 
+    console.log(
+      "[DEBUG PATCH /api/mobile/profile] result user:",
+      JSON.stringify(user),
+    );
+
+    debugLog(`PATCH success: user=${JSON.stringify(user)}`);
     return NextResponse.json({ user });
   } catch (error) {
+    debugLog(`PATCH error: ${String(error)}`);
     console.error("mobile profile patch route error", error);
     return mobileRouteErrorResponse(error, "failed to update profile", 400);
   }
