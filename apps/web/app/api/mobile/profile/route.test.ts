@@ -34,10 +34,14 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
   decryptPhoneNumber: jest.fn((value: string) => value.replace(/^enc:/, "")),
 }));
 
+import { updateMobileProfile } from "@/lib/mobile/auth";
 import { requireMobileSession } from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/supabase/admin-client";
-import { GET } from "./route";
+import { GET, PATCH } from "./route";
 
+const mockedUpdateMobileProfile = updateMobileProfile as jest.MockedFunction<
+  typeof updateMobileProfile
+>;
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
   typeof requireMobileSession
 >;
@@ -47,6 +51,7 @@ const mockedSupabaseSelect = supabaseSelect as jest.MockedFunction<
 
 describe("GET /api/mobile/profile", () => {
   beforeEach(() => {
+    mockedUpdateMobileProfile.mockReset();
     mockedRequireMobileSession.mockReset();
     mockedSupabaseSelect.mockReset();
   });
@@ -264,5 +269,65 @@ describe("GET /api/mobile/profile", () => {
         pendingSurveys: [],
       },
     });
+  });
+});
+
+describe("PATCH /api/mobile/profile", () => {
+  beforeEach(() => {
+    mockedUpdateMobileProfile.mockReset();
+    mockedRequireMobileSession.mockReset();
+  });
+
+  it("normalizes notification time before saving", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      sessionId: "session-1",
+      userId: "user-1",
+    });
+    mockedUpdateMobileProfile.mockResolvedValue({
+      id: "user-1",
+      displayName: "김수연",
+      phoneNumber: "01012345678",
+      hasCompletedOnboarding: true,
+    });
+
+    const response = await PATCH(
+      new Request("http://localhost:3000/api/mobile/profile", {
+        method: "PATCH",
+        body: JSON.stringify({
+          userId: "user-1",
+          displayName: "김수연",
+          tonePreference: "차분하게",
+          notificationTime: "830",
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockedUpdateMobileProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notificationTime: "08:30",
+      }),
+    );
+  });
+
+  it("returns a warm validation message for invalid notification time", async () => {
+    const response = await PATCH(
+      new Request("http://localhost:3000/api/mobile/profile", {
+        method: "PATCH",
+        body: JSON.stringify({
+          userId: "user-1",
+          displayName: "김수연",
+          tonePreference: "차분하게",
+          notificationTime: "25:99",
+        }),
+      }) as never,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "알림 시간은 08:30처럼 입력해주세요.",
+    });
+    expect(mockedRequireMobileSession).not.toHaveBeenCalled();
+    expect(mockedUpdateMobileProfile).not.toHaveBeenCalled();
   });
 });

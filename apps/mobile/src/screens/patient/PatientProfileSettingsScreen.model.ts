@@ -6,6 +6,7 @@ import type {
 } from "@gynecology-chatbot/app-core";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
+import { scheduleDailyLocalNotification } from "../../notifications/dailyLocalNotification";
 import {
   resolvePatientProfileLoadError,
   resolvePatientProfileSaveError,
@@ -134,6 +135,15 @@ export function usePatientProfileSettingsScreenModel() {
       return;
     }
 
+    const normalizedNotificationTime =
+      normalizePatientNotificationTimeInput(notificationTime);
+    if (!normalizedNotificationTime) {
+      setError(INVALID_NOTIFICATION_TIME_ERROR);
+      return;
+    }
+
+    const trimmedBabyNickname = babyNickname.trim() || null;
+    const trimmedHospitalName = hospitalName.trim() || null;
     const previousProfile = profile;
     const previousHome = home;
     const optimisticProfile = profile
@@ -142,14 +152,15 @@ export function usePatientProfileSettingsScreenModel() {
           displayName: profile.displayName,
           dueDate: dueDate || null,
           tonePreference: trimmedTonePreference,
-          babyNickname: babyNickname.trim() || null,
-          hospitalName: hospitalName.trim() || null,
-          notificationTime,
+          babyNickname: trimmedBabyNickname,
+          hospitalName: trimmedHospitalName,
+          notificationTime: normalizedNotificationTime,
         }
       : profile;
 
     setIsSaving(true);
     setError(null);
+    setNotificationTime(normalizedNotificationTime);
     setProfile(optimisticProfile);
 
     try {
@@ -158,17 +169,34 @@ export function usePatientProfileSettingsScreenModel() {
         displayName: profile?.displayName ?? "",
         dueDate: dueDate || null,
         tonePreference: trimmedTonePreference,
-        babyNickname: babyNickname.trim() || null,
-        hospitalName: hospitalName.trim() || null,
-        notificationTime,
+        babyNickname: trimmedBabyNickname,
+        hospitalName: trimmedHospitalName,
+        notificationTime: normalizedNotificationTime,
       };
       await profilePort.updateProfile(saveInput);
-      const [refreshedProfile, refreshedHome] = await Promise.all([
-        profilePort.getProfile(),
-        homePort.getHomeView(),
-      ]);
-      setProfile(refreshedProfile);
-      setHome(refreshedHome);
+      void scheduleDailyLocalNotification({
+        notificationTime: normalizedNotificationTime,
+        pregnancyWeekLabel:
+          optimisticProfile?.pregnancyWeekLabel ??
+          homeViewModel.pregnancyWeekLabel,
+      }).catch((notificationError) => {
+        console.error(
+          "daily local notification schedule error",
+          notificationError,
+        );
+      });
+
+      try {
+        const [refreshedProfile, refreshedHome] = await Promise.all([
+          profilePort.getProfile(),
+          homePort.getHomeView(),
+        ]);
+        setProfile(refreshedProfile);
+        setHome(refreshedHome);
+      } catch (refreshError) {
+        console.error("patient profile refresh error", refreshError);
+      }
+
       router.back();
     } catch (nextError) {
       setProfile(previousProfile);

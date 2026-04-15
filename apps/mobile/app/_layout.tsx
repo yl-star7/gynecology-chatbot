@@ -14,6 +14,7 @@ import {
   useMobileAppSession,
 } from "../src/core/MobileAppSessionProvider";
 import { MobileServicesProvider } from "../src/core/MobileServicesProvider";
+import { DailyLocalNotificationRegistrar } from "../src/components/DailyLocalNotificationRegistrar";
 import { PushTokenRegistrar } from "../src/components/PushTokenRegistrar";
 
 SplashScreen.preventAutoHideAsync();
@@ -46,6 +47,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <MobileServicesProvider>
         <MobileAppSessionProvider>
+          <DailyLocalNotificationRegistrar />
           <PushTokenRegistrar />
           <SessionScopedStack />
         </MobileAppSessionProvider>

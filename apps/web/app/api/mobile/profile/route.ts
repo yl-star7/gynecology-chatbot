@@ -69,6 +69,41 @@ type QuestionEventRow = {
   status: "sent" | "opened" | "answered" | "skipped";
 };
 
+const DEFAULT_NOTIFICATION_TIME = "08:30";
+const NOTIFICATION_TIME_ERROR = "알림 시간은 08:30처럼 입력해주세요.";
+
+function normalizeNotificationTimeInput(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return DEFAULT_NOTIFICATION_TIME;
+  }
+
+  const compact = trimmed.replace(/\s+/g, "");
+  const digitsOnlyMatch = compact.match(/^\d{3,4}$/);
+  if (digitsOnlyMatch) {
+    const normalizedDigits = compact.padStart(4, "0");
+    const hour = Number(normalizedDigits.slice(0, 2));
+    const minute = Number(normalizedDigits.slice(2));
+    if (hour > 23 || minute > 59) {
+      return null;
+    }
+    return `${normalizedDigits.slice(0, 2)}:${normalizedDigits.slice(2)}`;
+  }
+
+  const colonMatch = compact.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (!colonMatch) {
+    return null;
+  }
+
+  const hour = Number(colonMatch[1]);
+  const minute = Number(colonMatch[2]);
+  if (hour > 23 || minute > 59) {
+    return null;
+  }
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
 function resolveQuestionChoices(question: QuestionRow) {
   if (question.question_type === "yes_no") {
     return [
@@ -221,7 +256,7 @@ export async function PATCH(request: NextRequest) {
       typeof body.babyNickname === "string" ? body.babyNickname.trim() : "";
     const hospitalName =
       typeof body.hospitalName === "string" ? body.hospitalName.trim() : "";
-    const notificationTime =
+    const notificationTimeInput =
       typeof body.notificationTime === "string"
         ? body.notificationTime.trim()
         : "";
@@ -230,10 +265,21 @@ export async function PATCH(request: NextRequest) {
 
     if (!tonePreference) {
       return NextResponse.json(
-        { error: "tonePreference is required" },
+        { error: "상담 분위기를 선택해주세요." },
         { status: 400 },
       );
     }
+
+    const notificationTime = normalizeNotificationTimeInput(
+      notificationTimeInput,
+    );
+    if (!notificationTime) {
+      return NextResponse.json(
+        { error: NOTIFICATION_TIME_ERROR },
+        { status: 400 },
+      );
+    }
+
     const { userId } = await requireMobileSession(request, hintedUserId);
 
     const user = await updateMobileProfile({
@@ -243,7 +289,7 @@ export async function PATCH(request: NextRequest) {
       tonePreference,
       babyNickname: babyNickname || null,
       hospitalName: hospitalName || null,
-      notificationTime: notificationTime || "08:30",
+      notificationTime,
       themeKey: themeKey || DEFAULT_MOBILE_THEME_KEY,
     });
 
