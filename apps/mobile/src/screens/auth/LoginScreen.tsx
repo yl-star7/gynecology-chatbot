@@ -15,12 +15,17 @@ import {
   buildInitialLoginFormState,
   isDevelopmentAutoVerifiedPhoneNumber,
   resolvePostLoginHref,
+  shouldAllowDevelopmentLoginBypass,
 } from "./LoginScreen.model";
 
 export function LoginScreen() {
   const router = useRouter();
   const { requestVerificationCode, signIn } = useMobileAppSession();
-  const initialFormState = buildInitialLoginFormState(__DEV__);
+  const allowDevelopmentBypass = shouldAllowDevelopmentLoginBypass(
+    __DEV__,
+    process.env.EXPO_PUBLIC_API_BASE_URL,
+  );
+  const initialFormState = buildInitialLoginFormState(allowDevelopmentBypass);
   const [phoneNumber, setPhoneNumber] = useState(initialFormState.phoneNumber);
   const [verificationCode, setVerificationCode] = useState(
     initialFormState.verificationCode,
@@ -32,8 +37,9 @@ export function LoginScreen() {
   );
 
   const isBypassPhoneNumber = useMemo(
-    () => __DEV__ && isDevelopmentAutoVerifiedPhoneNumber(phoneNumber),
-    [phoneNumber],
+    () =>
+      allowDevelopmentBypass && isDevelopmentAutoVerifiedPhoneNumber(phoneNumber),
+    [allowDevelopmentBypass, phoneNumber],
   );
 
   async function handleRequestCode() {
@@ -97,7 +103,8 @@ export function LoginScreen() {
             onChangeText={(next) => {
               setPhoneNumber(next);
               setHasRequestedCode(
-                __DEV__ && isDevelopmentAutoVerifiedPhoneNumber(next),
+                allowDevelopmentBypass &&
+                  isDevelopmentAutoVerifiedPhoneNumber(next),
               );
               setStatusMessage(null);
               setError(null);
@@ -139,3 +146,4 @@ const styles = StyleSheet.create({
   error: { ...typo.caption, color: palette.errorText, textAlign: "center" },
   status: { ...typo.caption, color: palette.accent, textAlign: "center" },
 });
+

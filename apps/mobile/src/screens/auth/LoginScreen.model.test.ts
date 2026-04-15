@@ -5,6 +5,7 @@ import {
   getDevelopmentAutoVerifiedLogin,
   isDevelopmentAutoVerifiedPhoneNumber,
   resolvePostLoginHref,
+  shouldAllowDevelopmentLoginBypass,
 } from "./LoginScreen.model.ts";
 
 test("resolvePostLoginHref sends onboarded users to tabs home", () => {
@@ -28,7 +29,26 @@ test("getDevelopmentAutoVerifiedLogin returns the local dev credentials", () => 
   });
 });
 
-test("buildInitialLoginFormState starts the local dev number as already verified", () => {
+test("shouldAllowDevelopmentLoginBypass only allows local api hosts in development", () => {
+  assert.equal(
+    shouldAllowDevelopmentLoginBypass(true, "http://localhost:3005"),
+    true,
+  );
+  assert.equal(
+    shouldAllowDevelopmentLoginBypass(true, "http://10.0.2.2:3005"),
+    true,
+  );
+  assert.equal(
+    shouldAllowDevelopmentLoginBypass(true, "https://gynecology-chatbot.vercel.app"),
+    false,
+  );
+  assert.equal(
+    shouldAllowDevelopmentLoginBypass(false, "http://localhost:3005"),
+    false,
+  );
+});
+
+test("buildInitialLoginFormState starts empty when bypass is disabled", () => {
   assert.deepEqual(buildInitialLoginFormState(true), {
     phoneNumber: "01012345678",
     verificationCode: "000000",

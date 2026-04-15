@@ -56,14 +56,9 @@ export function MobileAppSessionProvider({
 
       const inMemoryToken = readCurrentMobileSessionToken();
       const nativeToken = await readNativeSessionToken();
-
-      if (__DEV__ && nativeToken && !inMemoryToken) {
-        storeCurrentMobileSessionToken(null);
-        storeCurrentMobileUserId(null);
-        await clearNativeSessionToken();
-      }
-
-      const persistedToken = inMemoryToken ?? (!__DEV__ ? nativeToken : null) ?? null;
+      const persistedToken = inMemoryToken ?? nativeToken ?? null;
+      const shouldPersistRestoredToken =
+        Boolean(persistedToken) && persistedToken !== nativeToken;
 
       if (!persistedToken) {
         if (!cancelled) {
@@ -79,6 +74,9 @@ export function MobileAppSessionProvider({
         if (!cancelled) {
           storeCurrentMobileUserId(payload.user.id);
           setCurrentUser(payload.user);
+        }
+        if (shouldPersistRestoredToken) {
+          await persistNativeSessionToken(persistedToken);
         }
       } catch {
         if (cancelled) {
