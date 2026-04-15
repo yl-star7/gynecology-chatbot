@@ -43,6 +43,8 @@ export function PatientProfileSettingsScreen() {
               paddingBottom: contentInsets.paddingBottom,
             },
           ]}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <PatientProfileSettingsSummaryCard

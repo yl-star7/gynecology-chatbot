@@ -12,9 +12,7 @@ import {
   resolvePatientProfileRefreshError,
   resolvePatientProfileSaveError,
 } from "./patientErrorCopy.model";
-import {
-  publishPatientProfileSyncProfile,
-} from "./patientProfileSyncStore";
+import { publishPatientProfileSyncProfile } from "./patientProfileSyncStore";
 import {
   DEFAULT_NOTIFICATION_TIME,
   INVALID_NOTIFICATION_TIME_ERROR,
@@ -173,26 +171,56 @@ export function usePatientProfileSettingsScreenModel() {
         );
       });
 
-      try {
-        const [refreshedProfile, refreshedHome] = await Promise.all([
+      const [profileRefreshResult, homeRefreshResult] =
+        await Promise.allSettled([
           profilePort.getProfile(),
           homePort.getHomeView(),
         ]);
-        setProfile(refreshedProfile);
-        setHome(refreshedHome);
-        publishPatientProfileSyncProfile(refreshedProfile);
-        router.replace("/(tabs)/profile");
-      } catch (refreshError) {
-        const refreshMessage = resolvePatientProfileRefreshError(refreshError);
-        if (refreshMessage.includes("세션이 만료되었어요")) {
-          router.replace("/auth/login");
-          return;
-        }
-        setProfile(optimisticProfile);
-        setHome(previousHome);
-        publishPatientProfileSyncProfile(optimisticProfile);
-        setError(refreshMessage);
+      const refreshMessages = [profileRefreshResult, homeRefreshResult].flatMap(
+        (result) =>
+          result.status === "rejected"
+            ? [resolvePatientProfileRefreshError(result.reason)]
+            : [],
+      );
+
+      if (
+        refreshMessages.some((message) =>
+          message.includes("세션이 만료되었어요"),
+        )
+      ) {
+        router.replace("/auth/login");
+        return;
       }
+
+      if (
+        profileRefreshResult.status === "rejected" ||
+        homeRefreshResult.status === "rejected"
+      ) {
+        console.error("patient profile refresh error", {
+          profileRefreshError:
+            profileRefreshResult.status === "rejected"
+              ? profileRefreshResult.reason
+              : null,
+          homeRefreshError:
+            homeRefreshResult.status === "rejected"
+              ? homeRefreshResult.reason
+              : null,
+        });
+      }
+
+      const nextProfile =
+        profileRefreshResult.status === "fulfilled"
+          ? profileRefreshResult.value
+          : optimisticProfile;
+      const nextHome =
+        homeRefreshResult.status === "fulfilled"
+          ? homeRefreshResult.value
+          : previousHome;
+
+      setProfile(nextProfile);
+      setHome(nextHome);
+      publishPatientProfileSyncProfile(nextProfile);
+      router.replace("/(tabs)/profile");
     } catch (saveError) {
       setProfile(previousProfile);
       setHome(previousHome);

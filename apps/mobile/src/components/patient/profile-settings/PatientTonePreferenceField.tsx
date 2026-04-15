@@ -45,11 +45,15 @@ export function PatientTonePreferenceField({
                     : styles.dropdownItem
                 }
                 onPress={() => onSelect(option)}
+                accessibilityLabel={option}
               >
                 <Text
                   style={
                     isSelected
-                      ? [styles.dropdownItemLabel, styles.dropdownItemLabelActive]
+                      ? [
+                          styles.dropdownItemLabel,
+                          styles.dropdownItemLabelActive,
+                        ]
                       : styles.dropdownItemLabel
                   }
                 >

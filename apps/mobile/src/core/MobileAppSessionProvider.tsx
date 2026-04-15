@@ -47,15 +47,20 @@ export function MobileAppSessionProvider({
     let cancelled = false;
 
     async function restoreSession() {
+      const inMemoryToken = readCurrentMobileSessionToken();
+      const nativeToken = await readNativeSessionToken();
+
       if (currentUser) {
+        storeCurrentMobileUserId(currentUser.id);
+        if (!inMemoryToken && nativeToken) {
+          storeCurrentMobileSessionToken(nativeToken);
+        }
         if (!cancelled) {
           setIsRestoringSession(false);
         }
         return;
       }
 
-      const inMemoryToken = readCurrentMobileSessionToken();
-      const nativeToken = await readNativeSessionToken();
       const persistedToken = inMemoryToken ?? nativeToken ?? null;
       const shouldPersistRestoredToken =
         Boolean(persistedToken) && persistedToken !== nativeToken;
