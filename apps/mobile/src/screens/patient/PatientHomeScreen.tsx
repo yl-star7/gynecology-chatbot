@@ -17,7 +17,12 @@ import type {
 import { Card, Pressable } from "../../components/ui";
 import { PatientHeroBubble } from "../../components/patient/PatientHeroBubble";
 import { PatientShell } from "../../components/patient/PatientShell";
+import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
+import {
+  mergePatientProfileSyncSnapshot,
+  usePatientProfileSyncSnapshot,
+} from "./patientProfileSyncStore";
 import {
   palette,
   patientSurfacePalette as surface,
@@ -31,6 +36,8 @@ import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 export function PatientHomeScreen() {
   const insets = useSafeAreaInsets();
   const services = useMobileServices();
+  const { currentUser } = useMobileAppSession();
+  const syncSnapshot = usePatientProfileSyncSnapshot();
   const [home, setHome] = useState<HomeViewData | null>(null);
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,6 +62,16 @@ export function PatientHomeScreen() {
   useEffect(() => {
     fetchData().catch(() => undefined);
   }, [fetchData]);
+
+  useEffect(() => {
+    setProfile((current) =>
+      mergePatientProfileSyncSnapshot(
+        current,
+        syncSnapshot.profile,
+        currentUser?.id,
+      ),
+    );
+  }, [currentUser?.id, syncSnapshot.profile, syncSnapshot.version]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {

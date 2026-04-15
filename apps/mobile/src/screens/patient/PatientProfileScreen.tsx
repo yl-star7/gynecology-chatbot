@@ -21,6 +21,10 @@ import { PatientProfileDayModal } from "../../components/patient/profile/Patient
 import { PatientProfileHeroCard } from "../../components/patient/profile/PatientProfileHeroCard";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
+import {
+  mergePatientProfileSyncSnapshot,
+  usePatientProfileSyncSnapshot,
+} from "./patientProfileSyncStore";
 import { space } from "../../theme";
 import { buildProfileCalendarModel } from "./patientProfileCalendar";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
@@ -43,6 +47,7 @@ export function PatientProfileScreen() {
   const insets = useSafeAreaInsets();
   const { currentUser, signOut } = useMobileAppSession();
   const { profilePort, homePort, todayPort } = useMobileServices();
+  const syncSnapshot = usePatientProfileSyncSnapshot();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [home, setHome] = useState<HomeViewData | null>(null);
   const [today, setToday] = useState<TodayViewData | null>(null);
@@ -80,6 +85,16 @@ export function PatientProfileScreen() {
         });
     }, [currentUser, homePort, profilePort, router, todayPort]),
   );
+
+  useEffect(() => {
+    setProfile((current) =>
+      mergePatientProfileSyncSnapshot(
+        current,
+        syncSnapshot.profile,
+        currentUser?.id,
+      ),
+    );
+  }, [currentUser?.id, syncSnapshot.profile, syncSnapshot.version]);
 
   useEffect(() => {
     let isMounted = true;
@@ -201,7 +216,7 @@ export function PatientProfileScreen() {
     ? `${homeViewModel.pregnancyWeekLabel} · ${homeViewModel.pregnancyDayText}예요.`
     : "아기와 함께한 시간을 정리해보세요.";
   const dueDateText = profile?.dueDate
-    ? `예정일 ${profile.dueDate}`
+    ? `예정일 ${profile.dueDate} · 알림 ${profile.notificationTime ?? "08:30"}`
     : "출산 예정일을 입력하면 더 정확히 보여드려요.";
 
   return (

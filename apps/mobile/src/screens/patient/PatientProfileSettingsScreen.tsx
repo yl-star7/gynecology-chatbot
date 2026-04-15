@@ -47,6 +47,9 @@ export function PatientProfileSettingsScreen() {
         >
           <PatientProfileSettingsSummaryCard
             pregnancyWeekLabel={model.summaryPregnancyWeekLabel}
+            babyNickname={model.babyNickname}
+            hospitalName={model.hospitalName}
+            notificationTime={model.notificationTime}
           />
 
           <PatientProfileSettingsForm

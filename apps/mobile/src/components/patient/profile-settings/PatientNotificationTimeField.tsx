@@ -1,4 +1,4 @@
-import { Modal, StyleSheet, Text, View } from "react-native";
+import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Pressable, Button } from "../../ui";
 import {
   buildPatientNotificationTimeFromParts,
@@ -105,7 +105,11 @@ function TimeColumn({
   return (
     <View style={styles.column}>
       <Text style={styles.columnLabel}>{label}</Text>
-      <View style={styles.optionList}>
+      <ScrollView
+        style={styles.optionList}
+        contentContainerStyle={styles.optionListContent}
+        showsVerticalScrollIndicator={false}
+      >
         {values.map((value) => {
           const isSelected = value === selectedValue;
           return (
@@ -130,7 +134,7 @@ function TimeColumn({
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -208,8 +212,11 @@ const styles = StyleSheet.create({
     color: surface.textPrimary,
   },
   optionList: {
-    gap: space.xs,
     maxHeight: 240,
+  },
+  optionListContent: {
+    gap: space.xs,
+    paddingBottom: space.xs,
   },
   optionButton: {
     borderRadius: radii.md,

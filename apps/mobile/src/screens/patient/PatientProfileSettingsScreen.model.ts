@@ -20,6 +20,10 @@ import {
   INVALID_NOTIFICATION_TIME_ERROR,
   normalizePatientNotificationTimeInput,
 } from "./patientNotificationTime.model";
+import {
+  createPregnancyWeekState,
+  getPregnancyWeekDisplayLabel,
+} from "./pregnancyWeek.model";
 import { buildPatientHomeViewModel } from "./view-models";
 
 export const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", "다정하게"];
@@ -169,33 +173,58 @@ export function usePatientProfileSettingsScreenModel() {
         );
       });
 
-      const [refreshedProfile, refreshedHome] = await Promise.all([
-        profilePort.getProfile(),
-        homePort.getHomeView(),
-      ]);
-      setProfile(refreshedProfile);
-      setHome(refreshedHome);
-      publishPatientProfileSyncProfile(refreshedProfile);
-      router.replace("/(tabs)/profile");
-    } catch (nextError) {
+      try {
+        const [refreshedProfile, refreshedHome] = await Promise.all([
+          profilePort.getProfile(),
+          homePort.getHomeView(),
+        ]);
+        setProfile(refreshedProfile);
+        setHome(refreshedHome);
+        publishPatientProfileSyncProfile(refreshedProfile);
+        router.replace("/(tabs)/profile");
+      } catch (refreshError) {
+        const refreshMessage = resolvePatientProfileRefreshError(refreshError);
+        if (refreshMessage.includes("세션이 만료되었어요")) {
+          router.replace("/auth/login");
+          return;
+        }
+        setProfile(optimisticProfile);
+        setHome(previousHome);
+        publishPatientProfileSyncProfile(optimisticProfile);
+        setError(refreshMessage);
+      }
+    } catch (saveError) {
       setProfile(previousProfile);
       setHome(previousHome);
       publishPatientProfileSyncProfile(previousProfile);
-      const saveMessage = resolvePatientProfileSaveError(nextError);
+      const saveMessage = resolvePatientProfileSaveError(saveError);
       if (saveMessage.includes("세션이 만료되었어요")) {
         router.replace("/auth/login");
         return;
       }
-      const refreshMessage = resolvePatientProfileRefreshError(nextError);
-      setError(
-        saveMessage === resolvePatientProfileSaveError(new Error())
-          ? refreshMessage
-          : saveMessage,
-      );
+      setError(saveMessage);
     } finally {
       setIsSaving(false);
     }
   }
+
+  const summaryPregnancyWeekLabel = useMemo(() => {
+    if (!profile) {
+      return "불러오는 중이에요";
+    }
+
+    if (dueDate === (profile.dueDate ?? "")) {
+      return homeViewModel.pregnancyWeekLabel;
+    }
+
+    const draftWeekState = createPregnancyWeekState({
+      homePregnancyWeekLabel: null,
+      profilePregnancyWeekLabel: null,
+      dueDate: dueDate || null,
+    });
+
+    return getPregnancyWeekDisplayLabel(draftWeekState);
+  }, [dueDate, homeViewModel.pregnancyWeekLabel, profile]);
 
   return {
     babyNickname,
@@ -220,10 +249,6 @@ export function usePatientProfileSettingsScreenModel() {
     selectNotificationTime,
     selectTonePreference,
     handleSave,
-    summaryPregnancyWeekLabel: profile
-      ? dueDate === (profile.dueDate ?? "")
-        ? homeViewModel.pregnancyWeekLabel
-        : ""
-      : "불러오는 중이에요",
+    summaryPregnancyWeekLabel,
   };
 }
