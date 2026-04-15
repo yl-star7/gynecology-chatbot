@@ -136,7 +136,7 @@ describe("GET /api/mobile/profile", () => {
       }
 
       if (
-        path.includes("content.week_questions?") &&
+        path.includes("content_week_questions?") &&
         path.includes("day_number=eq.2")
       ) {
         return Promise.resolve([
@@ -157,7 +157,7 @@ describe("GET /api/mobile/profile", () => {
       }
 
       if (
-        path.includes("content.week_questions?") &&
+        path.includes("content_week_questions?") &&
         path.includes("day_number=is.null")
       ) {
         return Promise.resolve([] as never);
@@ -238,7 +238,9 @@ describe("GET /api/mobile/profile", () => {
       }
 
       if (path.startsWith("content_pregnancy_week_data?")) {
-        throw new Error("Supabase select failed: relation content.week_questions does not exist");
+        throw new Error(
+          "Supabase select failed: relation content.week_questions does not exist",
+        );
       }
 
       return Promise.resolve([] as never);
