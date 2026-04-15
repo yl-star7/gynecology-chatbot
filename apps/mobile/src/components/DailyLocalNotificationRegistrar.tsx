@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
+import { AppState } from "react-native";
 import { useMobileAppSession } from "../core/MobileAppSessionProvider";
 import { useMobileServices } from "../core/MobileServicesProvider";
+import { syncDailyLocalNotificationSchedule } from "../notifications/dailyLocalNotification.model";
 import {
   cancelDailyLocalNotification,
   scheduleDailyLocalNotification,
@@ -27,30 +29,35 @@ export function DailyLocalNotificationRegistrar() {
           return;
         }
 
-        const scheduledKey = [
-          profile.notificationTime ?? "",
-          profile.pregnancyWeekLabel ?? "",
-          profile.pregnancyDayCount ?? "",
-        ].join(":");
-        if (scheduledKeyRef.current === scheduledKey) {
-          return;
-        }
-
-        await scheduleDailyLocalNotification({
-          notificationTime: profile.notificationTime,
-          pregnancyWeekLabel: profile.pregnancyWeekLabel,
-          pregnancyDayCount: profile.pregnancyDayCount,
+        const result = await syncDailyLocalNotificationSchedule({
+          profile: {
+            notificationTime: profile.notificationTime,
+            pregnancyWeekLabel: profile.pregnancyWeekLabel,
+            pregnancyDayCount: profile.pregnancyDayCount,
+          },
+          previousScheduleKey: scheduledKeyRef.current,
+          scheduleLocalNotification: scheduleDailyLocalNotification,
         });
-        scheduledKeyRef.current = scheduledKey;
+        scheduledKeyRef.current = result.scheduleKey;
       } catch (error) {
         console.error("daily local notification schedule error", error);
       }
     }
 
     void scheduleFromProfile();
+    let lastAppState = AppState.currentState;
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      const wasBackgrounded =
+        lastAppState === "background" || lastAppState === "inactive";
+      if (wasBackgrounded && nextAppState === "active") {
+        void scheduleFromProfile();
+      }
+      lastAppState = nextAppState;
+    });
 
     return () => {
       cancelled = true;
+      subscription.remove();
     };
   }, [currentUser, profilePort]);
 

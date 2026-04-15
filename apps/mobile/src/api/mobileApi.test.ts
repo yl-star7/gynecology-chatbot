@@ -98,7 +98,7 @@ test("updateMobileProfile uses PATCH and forwards the editable fields", async ()
     tonePreference: "calm",
     babyNickname: "튼튼이",
     hospitalName: "산단여성병원",
-    notificationTime: "08:30",
+    notificationTime: "06:07",
     themeKey: "rose-sand",
   });
 
@@ -111,7 +111,7 @@ test("updateMobileProfile uses PATCH and forwards the editable fields", async ()
     tonePreference: "calm",
     babyNickname: "튼튼이",
     hospitalName: "산단여성병원",
-    notificationTime: "08:30",
+    notificationTime: "06:07",
     themeKey: "rose-sand",
   });
   assert.equal(response.user.id, "user-1");

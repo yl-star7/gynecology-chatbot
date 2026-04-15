@@ -9,8 +9,12 @@ import { useMobileServices } from "../../core/MobileServicesProvider";
 import { scheduleDailyLocalNotification } from "../../notifications/dailyLocalNotification";
 import {
   resolvePatientProfileLoadError,
+  resolvePatientProfileRefreshError,
   resolvePatientProfileSaveError,
 } from "./patientErrorCopy.model";
+import {
+  publishPatientProfileSyncProfile,
+} from "./patientProfileSyncStore";
 import {
   DEFAULT_NOTIFICATION_TIME,
   INVALID_NOTIFICATION_TIME_ERROR,
@@ -67,6 +71,7 @@ export function usePatientProfileSettingsScreenModel() {
         setNotificationTime(
           nextProfile.notificationTime ?? DEFAULT_NOTIFICATION_TIME,
         );
+        publishPatientProfileSyncProfile(nextProfile);
       })
       .catch((nextError) => {
         const message = resolvePatientProfileLoadError(nextError);
@@ -119,7 +124,7 @@ export function usePatientProfileSettingsScreenModel() {
     const trimmedHospitalName = hospitalName.trim() || null;
     const previousProfile = profile;
     const previousHome = home;
-    const optimisticProfile = profile
+    const optimisticProfile: MobileProfileViewData | null = profile
       ? {
           ...profile,
           displayName: profile.displayName,
@@ -136,6 +141,7 @@ export function usePatientProfileSettingsScreenModel() {
     setIsTimePickerOpen(false);
     setNotificationTime(normalizedNotificationTime);
     setProfile(optimisticProfile);
+    publishPatientProfileSyncProfile(optimisticProfile);
 
     try {
       const saveInput = {
@@ -163,27 +169,29 @@ export function usePatientProfileSettingsScreenModel() {
         );
       });
 
-      try {
-        const [refreshedProfile, refreshedHome] = await Promise.all([
-          profilePort.getProfile(),
-          homePort.getHomeView(),
-        ]);
-        setProfile(refreshedProfile);
-        setHome(refreshedHome);
-      } catch (refreshError) {
-        console.error("patient profile refresh error", refreshError);
-      }
-
-      router.back();
+      const [refreshedProfile, refreshedHome] = await Promise.all([
+        profilePort.getProfile(),
+        homePort.getHomeView(),
+      ]);
+      setProfile(refreshedProfile);
+      setHome(refreshedHome);
+      publishPatientProfileSyncProfile(refreshedProfile);
+      router.replace("/(tabs)/profile");
     } catch (nextError) {
       setProfile(previousProfile);
       setHome(previousHome);
-      const message = resolvePatientProfileSaveError(nextError);
-      if (message.includes("세션이 만료되었어요")) {
+      publishPatientProfileSyncProfile(previousProfile);
+      const saveMessage = resolvePatientProfileSaveError(nextError);
+      if (saveMessage.includes("세션이 만료되었어요")) {
         router.replace("/auth/login");
         return;
       }
-      setError(message);
+      const refreshMessage = resolvePatientProfileRefreshError(nextError);
+      setError(
+        saveMessage === resolvePatientProfileSaveError(new Error())
+          ? refreshMessage
+          : saveMessage,
+      );
     } finally {
       setIsSaving(false);
     }

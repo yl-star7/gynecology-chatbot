@@ -20,8 +20,71 @@ export type RollingDailyLocalNotificationRequest = {
   date: Date;
 };
 
+function formatLocalDateKey(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+export type DailyLocalNotificationScheduleInput = {
+  notificationTime?: string | null;
+  pregnancyWeekLabel?: string | null;
+  pregnancyDayCount?: number | null;
+};
+
+export function buildDailyLocalNotificationScheduleKey(
+  input: DailyLocalNotificationScheduleInput & {
+    now?: Date;
+  },
+) {
+  return [
+    formatLocalDateKey(input.now ?? new Date()),
+    input.notificationTime ?? "",
+    input.pregnancyWeekLabel ?? "",
+    input.pregnancyDayCount ?? "",
+  ].join(":");
+}
+
+export async function syncDailyLocalNotificationSchedule(input: {
+  profile: DailyLocalNotificationScheduleInput;
+  previousScheduleKey?: string | null;
+  scheduleLocalNotification: (
+    input: DailyLocalNotificationScheduleInput,
+  ) => Promise<unknown> | unknown;
+  now?: Date;
+}) {
+  const scheduleInput: DailyLocalNotificationScheduleInput = {
+    notificationTime: input.profile.notificationTime,
+    pregnancyWeekLabel: input.profile.pregnancyWeekLabel,
+    pregnancyDayCount: input.profile.pregnancyDayCount,
+  };
+  const scheduleKey = buildDailyLocalNotificationScheduleKey({
+    ...scheduleInput,
+    now: input.now,
+  });
+
+  if (input.previousScheduleKey === scheduleKey) {
+    return {
+      didSchedule: false,
+      scheduleInput,
+      scheduleKey,
+    };
+  }
+
+  await input.scheduleLocalNotification(scheduleInput);
+  return {
+    didSchedule: true,
+    scheduleInput,
+    scheduleKey,
+  };
+}
+
 export function parseDailyNotificationTime(value?: string | null) {
-  const compact = (value ?? DEFAULT_NOTIFICATION_TIME).trim().replace(/\s+/g, "");
+  const compact = (value ?? DEFAULT_NOTIFICATION_TIME)
+    .trim()
+    .replace(/\s+/g, "");
   const match =
     compact.match(/^(\d{1,2}):(\d{1,2})$/) ??
     compact.match(/^(\d{1,2})(\d{2})$/);
@@ -78,7 +141,9 @@ export function buildDailyLocalNotificationRequest(input: {
   const pregnancyWeek = parsePregnancyWeek(input.pregnancyWeekLabel);
 
   return {
-    title: pregnancyWeek ? `[${pregnancyWeek}주차] 오늘은 어때요?` : "오늘은 어때요?",
+    title: pregnancyWeek
+      ? `[${pregnancyWeek}주차] 오늘은 어때요?`
+      : "오늘은 어때요?",
     body: "오늘의 변화를 함께 확인해보세요.",
     data: { type: "daily_tip" },
     trigger: parseDailyNotificationTime(input.notificationTime),
