@@ -12,8 +12,10 @@ import type {
 } from "@gynecology-chatbot/app-core";
 import type { MobileApiClient } from "../../api/mobileApi.ts";
 import {
+  cacheChatSession,
   cacheHomeView,
   cacheProfileView,
+  cacheRecentChats,
   cacheRecordDayView,
   cacheTodayView,
 } from "../patientViewCache";
@@ -128,18 +130,23 @@ export class ApiTodayAdapter implements TodayPort {
 
 export class ApiMobileChatAdapter implements MobileChatPort {
   private readonly client: MobileApiClient;
+  private readonly getUserId: () => string;
 
-  constructor(client: MobileApiClient) {
+  constructor(client: MobileApiClient, getUserId: () => string) {
     this.client = client;
+    this.getUserId = getUserId;
   }
 
   async listRecentChats() {
     const payload = await this.client.fetchSessions();
+    cacheRecentChats(this.getUserId(), payload.sessions);
     return payload.sessions;
   }
 
   async getSession(sessionId?: string) {
-    const payload = await this.client.fetchSession(sessionId ?? "new");
+    const resolvedSessionId = sessionId ?? "new";
+    const payload = await this.client.fetchSession(resolvedSessionId);
+    cacheChatSession(this.getUserId(), resolvedSessionId, payload.session);
     return payload.session;
   }
 

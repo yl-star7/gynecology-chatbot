@@ -66,7 +66,7 @@ export function createMobileServices(
     onboardingPort: new ApiOnboardingAdapter(client, resolveUserId),
     homePort: new ApiMobileHomeAdapter(client, resolveUserId),
     todayPort: new ApiTodayAdapter(client, resolveUserId),
-    chatPort: new ApiMobileChatAdapter(client),
+    chatPort: new ApiMobileChatAdapter(client, resolveUserId),
     knowledgePort: new ApiKnowledgeAdapter(client),
     profilePort: new ApiMobileProfileAdapter(client, resolveUserId),
     recordsPort: new ApiMobileRecordsAdapter(client, resolveUserId),

@@ -23,7 +23,10 @@ function SessionScopedStack() {
   const { currentUser } = useMobileAppSession();
 
   return (
-    <ChatSessionsProvider key={currentUser?.id ?? "guest"}>
+    <ChatSessionsProvider
+      key={currentUser?.id ?? "guest"}
+      userId={currentUser?.id}
+    >
       <StatusBar style="dark" />
       <Stack>
         {ROOT_STACK_ROUTE_NAMES.map((routeName) => (

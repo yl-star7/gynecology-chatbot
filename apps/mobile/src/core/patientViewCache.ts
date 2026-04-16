@@ -1,6 +1,8 @@
 import type {
+  ChatSession,
   HomeViewData,
   MobileProfileViewData,
+  RecentChatSummary,
   RecordDayView,
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
@@ -16,6 +18,8 @@ const profileCache = new Map<string, CacheEntry<MobileProfileViewData>>();
 const homeCache = new Map<string, CacheEntry<HomeViewData>>();
 const todayCache = new Map<string, CacheEntry<TodayViewData>>();
 const recordDayCache = new Map<string, CacheEntry<RecordDayView>>();
+const recentChatsCache = new Map<string, CacheEntry<RecentChatSummary[]>>();
+const chatSessionCache = new Map<string, CacheEntry<ChatSession>>();
 
 function isFreshEntry<T>(entry?: CacheEntry<T>) {
   if (!entry) {
@@ -47,7 +51,10 @@ function cacheValue<T>(
   });
 }
 
-function clearCacheKey<T>(cache: Map<string, CacheEntry<T>>, key?: string | null) {
+function clearCacheKey<T>(
+  cache: Map<string, CacheEntry<T>>,
+  key?: string | null,
+) {
   if (!key) {
     return;
   }
@@ -57,6 +64,10 @@ function clearCacheKey<T>(cache: Map<string, CacheEntry<T>>, key?: string | null
 
 function createRecordDayCacheKey(userId: string, isoDate: string) {
   return `${userId}:${isoDate}`;
+}
+
+function createChatSessionCacheKey(userId: string, sessionId: string) {
+  return `${userId}:${sessionId}`;
 }
 
 export function readCachedProfileView(userId?: string | null) {
@@ -71,7 +82,10 @@ export function hasFreshCachedProfileView(userId?: string | null) {
   return isFreshEntry(profileCache.get(userId));
 }
 
-export function cacheProfileView(userId: string, profile: MobileProfileViewData) {
+export function cacheProfileView(
+  userId: string,
+  profile: MobileProfileViewData,
+) {
   cacheValue(profileCache, userId, profile);
 }
 
@@ -119,12 +133,91 @@ export function clearCachedTodayView(userId?: string | null) {
   clearCacheKey(todayCache, userId);
 }
 
-export function readCachedRecordDayView(userId?: string | null, isoDate?: string | null) {
+export function readCachedRecordDayView(
+  userId?: string | null,
+  isoDate?: string | null,
+) {
   if (!userId || !isoDate) {
     return null;
   }
 
-  return readCacheValue(recordDayCache, createRecordDayCacheKey(userId, isoDate));
+  return readCacheValue(
+    recordDayCache,
+    createRecordDayCacheKey(userId, isoDate),
+  );
+}
+
+export function readCachedRecentChats(userId?: string | null) {
+  return readCacheValue(recentChatsCache, userId);
+}
+
+export function hasFreshCachedRecentChats(userId?: string | null) {
+  if (!userId) {
+    return false;
+  }
+
+  return isFreshEntry(recentChatsCache.get(userId));
+}
+
+export function cacheRecentChats(
+  userId: string,
+  recentChats: RecentChatSummary[],
+) {
+  cacheValue(recentChatsCache, userId, recentChats);
+}
+
+export function clearCachedRecentChats(userId?: string | null) {
+  clearCacheKey(recentChatsCache, userId);
+}
+
+export function readCachedChatSession(
+  userId?: string | null,
+  sessionId?: string | null,
+) {
+  if (!userId || !sessionId) {
+    return null;
+  }
+
+  return readCacheValue(
+    chatSessionCache,
+    createChatSessionCacheKey(userId, sessionId),
+  );
+}
+
+export function hasFreshCachedChatSession(
+  userId?: string | null,
+  sessionId?: string | null,
+) {
+  if (!userId || !sessionId) {
+    return false;
+  }
+
+  return isFreshEntry(
+    chatSessionCache.get(createChatSessionCacheKey(userId, sessionId)),
+  );
+}
+
+export function cacheChatSession(
+  userId: string,
+  sessionId: string,
+  session: ChatSession,
+) {
+  cacheValue(
+    chatSessionCache,
+    createChatSessionCacheKey(userId, sessionId),
+    session,
+  );
+}
+
+export function clearCachedChatSession(
+  userId?: string | null,
+  sessionId?: string | null,
+) {
+  if (!userId || !sessionId) {
+    return;
+  }
+
+  clearCacheKey(chatSessionCache, createChatSessionCacheKey(userId, sessionId));
 }
 
 export function hasFreshCachedRecordDayView(
@@ -135,7 +228,9 @@ export function hasFreshCachedRecordDayView(
     return false;
   }
 
-  return isFreshEntry(recordDayCache.get(createRecordDayCacheKey(userId, isoDate)));
+  return isFreshEntry(
+    recordDayCache.get(createRecordDayCacheKey(userId, isoDate)),
+  );
 }
 
 export function cacheRecordDayView(
@@ -143,10 +238,17 @@ export function cacheRecordDayView(
   isoDate: string,
   recordDay: RecordDayView,
 ) {
-  cacheValue(recordDayCache, createRecordDayCacheKey(userId, isoDate), recordDay);
+  cacheValue(
+    recordDayCache,
+    createRecordDayCacheKey(userId, isoDate),
+    recordDay,
+  );
 }
 
-export function clearCachedRecordDayView(userId?: string | null, isoDate?: string | null) {
+export function clearCachedRecordDayView(
+  userId?: string | null,
+  isoDate?: string | null,
+) {
   if (!userId || !isoDate) {
     return;
   }
@@ -160,16 +262,25 @@ export function clearPatientViewCaches(userId?: string | null) {
     homeCache.clear();
     todayCache.clear();
     recordDayCache.clear();
+    recentChatsCache.clear();
+    chatSessionCache.clear();
     return;
   }
 
   clearCachedProfileView(userId);
   clearCachedHomeView(userId);
   clearCachedTodayView(userId);
+  clearCachedRecentChats(userId);
 
   Array.from(recordDayCache.keys()).forEach((key) => {
     if (key.startsWith(`${userId}:`)) {
       recordDayCache.delete(key);
+    }
+  });
+
+  Array.from(chatSessionCache.keys()).forEach((key) => {
+    if (key.startsWith(`${userId}:`)) {
+      chatSessionCache.delete(key);
     }
   });
 }

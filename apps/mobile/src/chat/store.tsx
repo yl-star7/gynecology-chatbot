@@ -1,45 +1,87 @@
 import type { ChatMessage, ChatSession } from "@gynecology-chatbot/app-core";
 import { createContext, useContext, useMemo, useState } from "react";
+import {
+  cacheChatSession,
+  readCachedChatSession,
+} from "../core/patientViewCache";
 
 interface ChatSessionsContextValue {
   sessions: ChatSession[];
   getSession(sessionId: string): ChatSession;
-  replaceSession(session: ChatSession): void;
+  replaceSession(sessionId: string, session: ChatSession): void;
   appendMessage(sessionId: string, title: string, message: ChatMessage): void;
 }
 
-const ChatSessionsContext = createContext<ChatSessionsContextValue | null>(null);
+const ChatSessionsContext = createContext<ChatSessionsContextValue | null>(
+  null,
+);
 
-export function ChatSessionsProvider({ children }: { children: React.ReactNode }) {
+export function ChatSessionsProvider({
+  children,
+  userId,
+}: {
+  children: React.ReactNode;
+  userId?: string | null;
+}) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
 
   const value = useMemo<ChatSessionsContextValue>(
     () => ({
       sessions,
       getSession(sessionId) {
-        return sessions.find((session) => session.id === sessionId) ?? { id: sessionId, title: "새 상담", messages: [] };
+        const inMemorySession =
+          sessions.find((session) => session.id === sessionId) ?? null;
+        const cachedSession = userId
+          ? readCachedChatSession(userId, sessionId)
+          : null;
+
+        return (
+          inMemorySession ??
+          cachedSession ?? {
+            id: sessionId,
+            title: "새 상담",
+            messages: [],
+          }
+        );
       },
-      replaceSession(session) {
-        setSessions((current) => [session, ...current.filter((item) => item.id !== session.id)]);
+      replaceSession(sessionId, session) {
+        if (userId) {
+          cacheChatSession(userId, sessionId, session);
+        }
+
+        setSessions((current) => [
+          session,
+          ...current.filter((item) => item.id !== session.id),
+        ]);
       },
       appendMessage(sessionId, title, message) {
         setSessions((current) => {
-          const existing = current.find((session) => session.id === sessionId);
-          if (!existing) {
-            return [{ id: sessionId, title, messages: [message] }, ...current];
+          const existing =
+            current.find((session) => session.id === sessionId) ??
+            (userId ? readCachedChatSession(userId, sessionId) : null);
+          const nextSession = existing
+            ? { ...existing, title, messages: [...existing.messages, message] }
+            : { id: sessionId, title, messages: [message] };
+
+          if (userId) {
+            cacheChatSession(userId, sessionId, nextSession);
           }
 
           return [
-            { ...existing, title, messages: [...existing.messages, message] },
+            nextSession,
             ...current.filter((session) => session.id !== sessionId),
           ];
         });
       },
     }),
-    [sessions],
+    [sessions, userId],
   );
 
-  return <ChatSessionsContext.Provider value={value}>{children}</ChatSessionsContext.Provider>;
+  return (
+    <ChatSessionsContext.Provider value={value}>
+      {children}
+    </ChatSessionsContext.Provider>
+  );
 }
 
 export function useChatSessions() {

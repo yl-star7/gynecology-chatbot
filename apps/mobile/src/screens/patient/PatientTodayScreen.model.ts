@@ -9,8 +9,10 @@ import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import {
   cacheTodayView,
+  hasFreshCachedRecentChats,
   hasFreshCachedRecordDayView,
   hasFreshCachedTodayView,
+  readCachedRecentChats,
   readCachedRecordDayView,
   readCachedTodayView,
 } from "../../core/patientViewCache";
@@ -52,10 +54,16 @@ export function usePatientTodayScreenModel() {
     }
 
     const cachedToday = readCachedTodayView(currentUser.id);
-    const cachedRecordDay = readCachedRecordDayView(currentUser.id, todayIsoDate);
+    const cachedRecordDay = readCachedRecordDayView(
+      currentUser.id,
+      todayIsoDate,
+    );
+    const cachedRecentChats = readCachedRecentChats(currentUser.id);
 
     setToday(cachedToday);
-    setRecentSessions(cachedRecordDay?.relatedSessions ?? []);
+    setRecentSessions(
+      cachedRecordDay?.relatedSessions ?? cachedRecentChats ?? [],
+    );
   }, [currentUser, todayIsoDate]);
 
   useFocusEffect(
@@ -71,11 +79,14 @@ export function usePatientTodayScreenModel() {
 
       if (
         hasFreshCachedTodayView(currentUser.id) &&
-        hasFreshCachedRecordDayView(currentUser.id, todayIsoDate)
+        (hasFreshCachedRecordDayView(currentUser.id, todayIsoDate) ||
+          hasFreshCachedRecentChats(currentUser.id))
       ) {
         setToday(readCachedTodayView(currentUser.id));
         setRecentSessions(
-          readCachedRecordDayView(currentUser.id, todayIsoDate)?.relatedSessions ??
+          readCachedRecordDayView(currentUser.id, todayIsoDate)
+            ?.relatedSessions ??
+            readCachedRecentChats(currentUser.id) ??
             [],
         );
         setHasAttemptedInfoViewed(false);
@@ -85,10 +96,15 @@ export function usePatientTodayScreenModel() {
       Promise.all([
         services.todayPort.getTodayView(),
         services.homePort.getRecordDay(todayIsoDate),
+        services.chatPort.listRecentChats(),
       ])
-        .then(([nextToday, nextRecordDay]) => {
+        .then(([nextToday, nextRecordDay, nextRecentChats]) => {
           setToday(nextToday);
-          setRecentSessions(nextRecordDay.relatedSessions);
+          setRecentSessions(
+            nextRecordDay.relatedSessions.length > 0
+              ? nextRecordDay.relatedSessions
+              : nextRecentChats,
+          );
           setHasAttemptedInfoViewed(false);
         })
         .catch(() => undefined);

@@ -1,6 +1,8 @@
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
+import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
+import { hasFreshCachedChatSession } from "../../core/patientViewCache";
 import {
   AppState,
   Keyboard,
@@ -59,6 +61,7 @@ export function usePatientConversationScreenModel({
   sessionId: string;
 }) {
   const router = useRouter();
+  const { currentUser } = useMobileAppSession();
   const services = useMobileServices();
   const scrollViewRef = useRef<ScrollView | null>(null);
 
@@ -97,14 +100,16 @@ export function usePatientConversationScreenModel({
   }, []);
 
   useEffect(() => {
-    if (isNewConversationSession(sessionId)) {
+    if (isNewConversationSession(sessionId) || !currentUser) {
       return;
     }
 
-    services.chatPort
-      .getSession(resolvedSessionId)
-      .then(replaceSession)
-      .catch(() => undefined);
+    if (!hasFreshCachedChatSession(currentUser.id, resolvedSessionId)) {
+      services.chatPort
+        .getSession(resolvedSessionId)
+        .then((nextSession) => replaceSession(resolvedSessionId, nextSession))
+        .catch(() => undefined);
+    }
 
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (nextState !== "active" || isNewConversationSession(sessionId)) {
@@ -113,12 +118,12 @@ export function usePatientConversationScreenModel({
 
       services.chatPort
         .getSession(resolvedSessionId)
-        .then(replaceSession)
+        .then((nextSession) => replaceSession(resolvedSessionId, nextSession))
         .catch(() => undefined);
     });
 
     return () => subscription.remove();
-  }, [replaceSession, resolvedSessionId, services, sessionId]);
+  }, [currentUser, replaceSession, resolvedSessionId, services, sessionId]);
 
   useEffect(() => {
     if (session.messages.length === 0 && !isSending) {

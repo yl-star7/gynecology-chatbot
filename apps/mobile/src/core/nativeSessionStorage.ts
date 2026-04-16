@@ -1,27 +1,56 @@
 import * as SecureStore from "expo-secure-store";
 
 const MOBILE_SESSION_TOKEN_KEY = "phedy-mobile-session-token";
+const MOBILE_USER_ID_KEY = "phedy-mobile-user-id";
 
-export async function readNativeSessionToken() {
-  if (!(await SecureStore.isAvailableAsync())) {
+async function isNativeStorageAvailable() {
+  return SecureStore.isAvailableAsync();
+}
+
+export async function readNativeStorageValue(key: string) {
+  if (!(await isNativeStorageAvailable())) {
     return null;
   }
 
-  return SecureStore.getItemAsync(MOBILE_SESSION_TOKEN_KEY);
+  return SecureStore.getItemAsync(key);
+}
+
+export async function persistNativeStorageValue(key: string, value: string) {
+  if (!(await isNativeStorageAvailable())) {
+    return;
+  }
+
+  await SecureStore.setItemAsync(key, value);
+}
+
+export async function clearNativeStorageValue(key: string) {
+  if (!(await isNativeStorageAvailable())) {
+    return;
+  }
+
+  await SecureStore.deleteItemAsync(key);
+}
+
+export async function readNativeSessionToken() {
+  return readNativeStorageValue(MOBILE_SESSION_TOKEN_KEY);
 }
 
 export async function persistNativeSessionToken(sessionToken: string) {
-  if (!(await SecureStore.isAvailableAsync())) {
-    return;
-  }
-
-  await SecureStore.setItemAsync(MOBILE_SESSION_TOKEN_KEY, sessionToken);
+  await persistNativeStorageValue(MOBILE_SESSION_TOKEN_KEY, sessionToken);
 }
 
 export async function clearNativeSessionToken() {
-  if (!(await SecureStore.isAvailableAsync())) {
-    return;
-  }
+  await clearNativeStorageValue(MOBILE_SESSION_TOKEN_KEY);
+}
 
-  await SecureStore.deleteItemAsync(MOBILE_SESSION_TOKEN_KEY);
+export async function readNativeUserId() {
+  return readNativeStorageValue(MOBILE_USER_ID_KEY);
+}
+
+export async function persistNativeUserId(userId: string) {
+  await persistNativeStorageValue(MOBILE_USER_ID_KEY, userId);
+}
+
+export async function clearNativeUserId() {
+  await clearNativeStorageValue(MOBILE_USER_ID_KEY);
 }
