@@ -19,6 +19,7 @@ import type { PatientTabKey } from "./PatientTabBar.model";
 export function PatientShell({
   children,
   activeTab: _activeTab,
+  title,
   showProfileButton = true,
   pageTone = "plain",
   headerCompact = false,
@@ -68,28 +69,29 @@ export function PatientShell({
               : null,
           ]}
         >
-          {headerLayout.leftSlot === "back" ? (
-            <Pressable
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                  return;
-                }
-                router.replace(backHref!);
-              }}
-              accessibilityLabel="뒤로가기"
-              style={styles.iconButton}
-              hitSlop={12}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={space.lg + space.sm}
-                color={surface.textPrimary}
-              />
-            </Pressable>
-          ) : (
-            <View style={styles.headerSpacer} />
-          )}
+          <View style={styles.headerLeading}>
+            {headerLayout.leftSlot === "back" ? (
+              <Pressable
+                onPress={() => {
+                  if (router.canGoBack()) {
+                    router.back();
+                    return;
+                  }
+                  router.replace(backHref!);
+                }}
+                accessibilityLabel="뒤로가기"
+                style={styles.iconButton}
+                hitSlop={12}
+              >
+                <Ionicons
+                  name="chevron-back"
+                  size={space.lg + space.sm}
+                  color={surface.textPrimary}
+                />
+              </Pressable>
+            ) : null}
+            {title ? <Text style={styles.headerTitle}>{title}</Text> : null}
+          </View>
           {headerLayout.rightSlot === "profile" ? (
             <Pressable
               onPress={() => router.navigate("/(tabs)/profile")}
@@ -98,7 +100,9 @@ export function PatientShell({
             >
               <Text style={styles.profileButtonLabel}>{avatarLabel}</Text>
             </Pressable>
-          ) : null}
+          ) : (
+            <View style={styles.trailingSpacer} />
+          )}
         </View>
       )}
       <View style={styles.body}>{children}</View>
@@ -137,8 +141,20 @@ const styles = StyleSheet.create({
   headerWithBackButton: {
     paddingTop: space.xl + space.xs,
   },
-  headerSpacer: {
+  headerLeading: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+  },
+  headerTitle: {
+    ...typo.titleSm,
+    color: surface.textPrimary,
+    flexShrink: 1,
+  },
+  trailingSpacer: {
+    width: space.xxxl + space.sm,
+    height: space.xxxl + space.sm,
   },
   headerWithoutRightSlot: {
     paddingBottom: 0,

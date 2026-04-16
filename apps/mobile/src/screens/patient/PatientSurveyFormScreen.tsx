@@ -15,7 +15,7 @@ import { normalizeSurveyFormUrl } from "./patientSurveyFormUrl.model";
 export function PatientSurveyFormScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { currentUser } = useMobileAppSession();
+  const { currentUser, isRestoringSession } = useMobileAppSession();
   const { profilePort } = useMobileServices();
   const contentInsets = buildPatientTabContentInsets({
     bottomInset: insets.bottom,
@@ -49,13 +49,17 @@ export function PatientSurveyFormScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (isRestoringSession) {
+        return;
+      }
+
       if (!currentUser) {
         router.replace("/auth/login");
         return;
       }
 
       void loadBranding();
-    }, [currentUser, loadBranding, router]),
+    }, [currentUser, isRestoringSession, loadBranding, router]),
   );
 
   return (

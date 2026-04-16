@@ -5,8 +5,8 @@ import {
   StyleSheet,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { HeroSection } from "../../components/ui";
 import { PatientProfileSettingsForm } from "../../components/patient/profile-settings/PatientProfileSettingsForm";
-import { PatientProfileSettingsSummaryCard } from "../../components/patient/profile-settings/PatientProfileSettingsSummaryCard";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { space } from "../../theme";
 import { buildPatientScrollContentInsets } from "./patientScreenLayout.model";
@@ -25,11 +25,11 @@ export function PatientProfileSettingsScreen() {
   return (
     <PatientShell
       activeTab="profile"
+      title="세부 설정"
       backHref="/(tabs)/profile"
       showProfileButton={false}
       pageTone="plain"
-      hideHeader
-      skipTopSafeArea
+      headerCompact
     >
       <KeyboardAvoidingView
         style={styles.flex}
@@ -47,11 +47,10 @@ export function PatientProfileSettingsScreen() {
           keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
         >
-          <PatientProfileSettingsSummaryCard
-            pregnancyWeekLabel={model.summaryPregnancyWeekLabel}
-            babyNickname={model.babyNickname}
-            hospitalName={model.hospitalName}
-            notificationTime={model.notificationTime}
+          <HeroSection
+            eyebrow="세부 설정"
+            title="지금 정보에 맞게 차분히 수정해보세요"
+            description={`${model.summaryPregnancyWeekLabel} 기준으로 보여드리고 있어요.`}
           />
 
           <PatientProfileSettingsForm
@@ -67,7 +66,6 @@ export function PatientProfileSettingsScreen() {
             onChangeBabyNickname={model.setBabyNickname}
             onChangeDueDate={model.setDueDate}
             onChangeHospitalName={model.setHospitalName}
-            onChangeNotificationTime={model.setNotificationTime}
             onSave={() => {
               void model.handleSave();
             }}

@@ -22,7 +22,6 @@ export function PatientProfileSettingsForm({
   onChangeBabyNickname,
   onChangeDueDate,
   onChangeHospitalName,
-  onChangeNotificationTime,
   onSave,
   onSelectTonePreference,
   onToggleTimePicker,
@@ -43,7 +42,6 @@ export function PatientProfileSettingsForm({
   onChangeBabyNickname: (value: string) => void;
   onChangeDueDate: (value: string) => void;
   onChangeHospitalName: (value: string) => void;
-  onChangeNotificationTime: (value: string) => void;
   onSave: () => void;
   onSelectNotificationTime: (value: string) => void;
   onSelectTonePreference: (value: string) => void;

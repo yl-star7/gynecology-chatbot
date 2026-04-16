@@ -36,7 +36,7 @@ function createDueDateMaxDate() {
 
 export function usePatientProfileSettingsScreenModel() {
   const router = useRouter();
-  const { currentUser } = useMobileAppSession();
+  const { currentUser, isRestoringSession } = useMobileAppSession();
   const { profilePort, homePort } = useMobileServices();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [home, setHome] = useState<HomeViewData | null>(null);
@@ -58,6 +58,10 @@ export function usePatientProfileSettingsScreenModel() {
   );
 
   useEffect(() => {
+    if (isRestoringSession) {
+      return;
+    }
+
     if (!currentUser) {
       router.replace("/auth/login");
       return;
@@ -84,7 +88,7 @@ export function usePatientProfileSettingsScreenModel() {
         }
         setError(message);
       });
-  }, [currentUser, homePort, profilePort, router]);
+  }, [currentUser, homePort, isRestoringSession, profilePort, router]);
 
   function toggleToneDropdown() {
     Keyboard.dismiss();

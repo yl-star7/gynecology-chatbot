@@ -45,7 +45,7 @@ type ConversationSection = "summary" | "heart";
 export function PatientProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { currentUser, signOut } = useMobileAppSession();
+  const { currentUser, isRestoringSession, signOut } = useMobileAppSession();
   const { profilePort, homePort, todayPort } = useMobileServices();
   const syncSnapshot = usePatientProfileSyncSnapshot();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
@@ -64,6 +64,10 @@ export function PatientProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (isRestoringSession) {
+        return;
+      }
+
       if (!currentUser) {
         router.replace("/auth/login");
         return;
@@ -83,7 +87,7 @@ export function PatientProfileScreen() {
         .catch((nextError) => {
           setError(resolvePatientProfileLoadError(nextError));
         });
-    }, [currentUser, homePort, profilePort, router, todayPort]),
+    }, [currentUser, homePort, isRestoringSession, profilePort, router, todayPort]),
   );
 
   useEffect(() => {
