@@ -48,9 +48,7 @@ export function PatientTodayConversationSection({
             >
               <Text style={styles.recentSessionTitle}>{item.title}</Text>
               {item.preview ? (
-                <Text style={styles.recentSessionPreview} numberOfLines={1}>
-                  {item.preview}
-                </Text>
+                <Text style={styles.recentSessionPreview}>{item.preview}</Text>
               ) : null}
             </Pressable>
           ))

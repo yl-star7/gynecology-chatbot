@@ -110,9 +110,6 @@ export function buildPromptFollowUpMessages(input: {
         : "";
       const descText =
         cleanDesc && cleanDesc !== cleanTitle ? `\n${cleanDesc}` : "";
-      const shortLabel =
-        cleanTitle.length > 30 ? cleanTitle.slice(0, 30) + "…" : cleanTitle;
-
       messages.push({
         role: "assistant",
         createdAtLabel: "방금 전",
@@ -135,9 +132,9 @@ export function buildPromptFollowUpMessages(input: {
             choices: buildQuickReplyChoices({
               baseId: checklist.id,
               options: [
-                `${shortLabel} 했어요`,
-                `${shortLabel} 아직 못 했어요`,
-                `${shortLabel} 더 설명해 주세요`,
+                `${cleanTitle} 했어요`,
+                `${cleanTitle} 아직 못 했어요`,
+                `${cleanTitle} 더 설명해 주세요`,
               ],
             }),
           },
@@ -176,15 +173,23 @@ export function stripFollowUpContentFromAnswer(
     }
 
     for (const qText of questionTexts) {
-      const escapedQ = qText.slice(0, 30).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const escapedQ = qText
+        .slice(0, 30)
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       text = text.replace(
         new RegExp(`(?:^|\\n)[-–""]?\\s*${escapedQ}[^\\n]*`, "g"),
         "",
       );
     }
 
-    text = text.replace(/(?:^|\n)오늘 할 일\s*\n?(?=\s*$|\n오늘 할 일|\n생각해볼)/g, "");
-    text = text.replace(/(?:^|\n)생각해볼 질문\s*\n?(?=\s*$|\n생각해볼|\n오늘 할 일)/g, "");
+    text = text.replace(
+      /(?:^|\n)오늘 할 일\s*\n?(?=\s*$|\n오늘 할 일|\n생각해볼)/g,
+      "",
+    );
+    text = text.replace(
+      /(?:^|\n)생각해볼 질문\s*\n?(?=\s*$|\n생각해볼|\n오늘 할 일)/g,
+      "",
+    );
     text = text.replace(/\n{3,}/g, "\n\n").trim();
 
     return { ...part, text };

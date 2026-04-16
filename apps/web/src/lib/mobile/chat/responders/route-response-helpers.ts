@@ -9,7 +9,6 @@ import {
 } from "@/lib/mobile/chat/workflow-payload";
 import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
 
-
 const CHARACTER_TONE_CONFIG = {
   calm: {
     label: "차분한 안내",
@@ -66,9 +65,13 @@ export function buildMemorySystemBlock(input: {
   return [
     input.compactSummary ? `최근 세션 요약: ${input.compactSummary}` : null,
     input.lastScenario ? `직전 상담 분기: ${input.lastScenario}` : null,
-    input.lastCharacterTone ? `직전 캐릭터 톤: ${input.lastCharacterTone}` : null,
+    input.lastCharacterTone
+      ? `직전 캐릭터 톤: ${input.lastCharacterTone}`
+      : null,
     input.lastEmotionTone ? `최근 감정 톤: ${input.lastEmotionTone}` : null,
-    input.tonePreference ? `사용자 선호 상담 분위기: ${input.tonePreference}` : null,
+    input.tonePreference
+      ? `사용자 선호 상담 분위기: ${input.tonePreference}`
+      : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -106,14 +109,6 @@ export function buildFallbackReply(input: {
         id: `text-${Date.now()}`,
         text: guidance || "질문이 접수됐어요. 잠시 후 다시 시도해주세요.",
       },
-      {
-        type: "deepLink",
-        id: `link-${Date.now()}`,
-        title: "임신수첩 체크리스트",
-        description: "임신수첩으로 이동해요.",
-        target: "notebook",
-        entityId: "visit-checklist",
-      },
     ],
   };
 }
@@ -142,15 +137,19 @@ function createCharacterImageUrl(
   };
 }
 
-export async function buildWorkflowAssistantMessage<TRun extends {
-  outputs?: Record<string, unknown>;
-  block_states?: unknown;
-}>(input: {
+export async function buildWorkflowAssistantMessage<
+  TRun extends {
+    outputs?: Record<string, unknown>;
+    block_states?: unknown;
+  },
+>(input: {
   run: TRun;
   loadCharacterImages: () => Promise<Record<string, string | null>>;
   extractOutputs: (run: TRun) => Record<string, unknown> | undefined;
 }): Promise<ChatMessage | null> {
-  const payload = parseWorkflowAssistantPayload(input.extractOutputs(input.run));
+  const payload = parseWorkflowAssistantPayload(
+    input.extractOutputs(input.run),
+  );
   if (!payload?.answer?.trim()) {
     return null;
   }
