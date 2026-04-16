@@ -22,7 +22,9 @@ export default function AccountDeletionPage() {
       <section style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: 18, marginBottom: 12 }}>삭제 요청 방법</h2>
         <ol style={{ paddingLeft: 20 }}>
-          <li>이메일 제목에 "아가야 계정 삭제 요청"을 적어 주세요.</li>
+          <li>
+            이메일 제목에 &quot;아가야 계정 삭제 요청&quot;을 적어 주세요.
+          </li>
           <li>가입에 사용한 전화번호를 함께 보내 주세요.</li>
           <li>
             아래 이메일로 보내 주시면 본인 확인 후 계정 삭제를 진행해 드립니다.
