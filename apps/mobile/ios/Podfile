@@ -53,6 +53,7 @@ target 'AI' do
     )
     fmt_header = File.join(__dir__, 'Pods', 'fmt', 'include', 'fmt', 'base.h')
     if File.exist?(fmt_header)
+      File.chmod(File.stat(fmt_header).mode | 0200, fmt_header)
       contents = File.read(fmt_header)
       marker = '#if !defined(__cpp_lib_is_constant_evaluated)'
       unless contents.include?('#ifdef FMT_USE_CONSTEVAL')
@@ -66,6 +67,7 @@ target 'AI' do
 
     fmt_inl = File.join(__dir__, 'Pods', 'fmt', 'include', 'fmt', 'format-inl.h')
     if File.exist?(fmt_inl)
+      File.chmod(File.stat(fmt_inl).mode | 0200, fmt_inl)
       contents = File.read(fmt_inl)
       replacements = {
         'fmt::format_to(it, FMT_STRING("{}{}"), message, SEP);' =>
