@@ -101,6 +101,211 @@ function createCharacterImageUrl(
   };
 }
 
+function normalizeAssistantMessageParts(
+  parts: unknown,
+): ChatMessage["parts"] | null {
+  if (!Array.isArray(parts) || parts.length === 0) {
+    return null;
+  }
+
+  const normalized: ChatMessage["parts"] = [];
+
+  for (const [index, part] of parts.entries()) {
+    if (!part || typeof part !== "object") {
+      continue;
+    }
+
+    const candidate = part as Record<string, unknown>;
+    const id =
+      typeof candidate.id === "string"
+        ? candidate.id
+        : `assistant-part-${index + 1}`;
+
+    switch (candidate.type) {
+      case "text": {
+        if (typeof candidate.text !== "string") {
+          continue;
+        }
+
+        normalized.push({
+          type: "text",
+          id,
+          text: sanitizeInlineCitationMarkers(candidate.text),
+        });
+        continue;
+      }
+      case "carousel": {
+        if (typeof candidate.title !== "string" || !Array.isArray(candidate.cards)) {
+          continue;
+        }
+
+        const cards = candidate.cards.flatMap((card, cardIndex) => {
+          if (!card || typeof card !== "object") {
+            return [];
+          }
+
+          const cardRecord = card as Record<string, unknown>;
+          if (
+            typeof cardRecord.eyebrow !== "string" ||
+            typeof cardRecord.title !== "string" ||
+            typeof cardRecord.description !== "string"
+          ) {
+            return [];
+          }
+
+          return [
+            {
+              id:
+                typeof cardRecord.id === "string"
+                  ? cardRecord.id
+                  : `${id}-card-${cardIndex + 1}`,
+              eyebrow: cardRecord.eyebrow,
+              title: cardRecord.title,
+              description: cardRecord.description,
+            },
+          ];
+        });
+
+        normalized.push({
+          type: "carousel",
+          id,
+          title: candidate.title,
+          cards,
+        });
+        continue;
+      }
+      case "deepLink": {
+        if (
+          typeof candidate.title !== "string" ||
+          typeof candidate.description !== "string" ||
+          (candidate.target !== "knowledge" && candidate.target !== "notebook")
+        ) {
+          continue;
+        }
+
+        normalized.push({
+          type: "deepLink",
+          id,
+          title: candidate.title,
+          description: candidate.description,
+          target: candidate.target,
+          entityId:
+            typeof candidate.entityId === "string"
+              ? candidate.entityId
+              : undefined,
+        });
+        continue;
+      }
+      default:
+        continue;
+    }
+  }
+
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeAssistantMessage(input: unknown): ChatMessage | null {
+  if (!input || typeof input !== "object") {
+    return null;
+  }
+
+  const candidate = input as Record<string, unknown>;
+  const parts = normalizeAssistantMessageParts(candidate.parts);
+  if (!parts) {
+    return null;
+  }
+
+  return {
+    id:
+      typeof candidate.id === "string"
+        ? candidate.id
+        : `assistant-${Date.now()}`,
+    role: "assistant",
+    createdAtLabel:
+      typeof candidate.createdAtLabel === "string"
+        ? candidate.createdAtLabel
+        : "방금 전",
+    parts,
+  };
+}
+
+function parseAssistantResponse(input: unknown): ChatMessage | null {
+  const direct = normalizeAssistantMessage(input);
+  if (direct) {
+    return direct;
+  }
+
+  if (!input || typeof input !== "object") {
+    return null;
+  }
+
+  const candidate = input as Record<string, unknown>;
+
+  if (candidate.experimental_output) {
+    const structured = normalizeAssistantMessage(candidate.experimental_output);
+    if (structured) {
+      return structured;
+    }
+  }
+
+  if (typeof candidate.text === "string") {
+    try {
+      const parsed = JSON.parse(candidate.text);
+      return normalizeAssistantMessage(parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+export function buildFallbackReply(input: {
+  currentWeek: number | null;
+}): ChatMessage {
+  const weekLabel = input.currentWeek
+    ? `${input.currentWeek}주차 기준`
+    : "현재 주차 기준";
+
+  return {
+    id: `assistant-${Date.now()}`,
+    role: "assistant",
+    createdAtLabel: "방금 전",
+    parts: [
+      {
+        type: "text",
+        id: `fallback-text-${Date.now()}`,
+        text: `${weekLabel} 증상이 언제부터 있었는지, 얼마나 자주 느껴지는지, 쉬면 달라지는지를 함께 적어주시면 더 정확히 도와드릴 수 있어요. 출혈이나 물처럼 흐르는 분비물, 참기 어려운 통증이 있으면 바로 진료를 받아야 해요.`,
+      },
+      {
+        type: "deepLink",
+        id: `fallback-link-${Date.now()}`,
+        title: "증상 기록 남기기",
+        description: "지금 느끼는 증상을 기록해두면 다음 상담에서 더 정확히 살펴볼 수 있어요.",
+        target: "notebook",
+      },
+    ],
+  };
+}
+
+export async function parseAssistantResponseWithRetry(input: {
+  generate: () => Promise<unknown>;
+  currentWeek: number | null;
+  maxAttempts?: number;
+}): Promise<ChatMessage> {
+  const maxAttempts = input.maxAttempts ?? 2;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const result = await input.generate();
+    const parsed = parseAssistantResponse(result);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  return buildFallbackReply({ currentWeek: input.currentWeek });
+}
+
 export async function buildWorkflowAssistantMessage<
   TRun extends {
     outputs?: Record<string, unknown>;
