@@ -10,11 +10,18 @@ import {
   storeCurrentMobileUserId,
 } from "../api/mobileApi";
 import { useMobileServices } from "./MobileServicesProvider";
-import { clearPatientViewCaches } from "./patientViewCache";
+import {
+  clearPatientViewCaches,
+  clearPersistedPatientViewCaches,
+  hydratePatientViewCaches,
+} from "./patientViewCache";
 import {
   clearNativeSessionToken,
+  clearNativeUserId,
   persistNativeSessionToken,
+  persistNativeUserId,
   readNativeSessionToken,
+  readNativeUserId,
 } from "./nativeSessionStorage";
 
 interface MobileAppSessionValue {
@@ -50,16 +57,22 @@ export function MobileAppSessionProvider({
     async function restoreSession() {
       const inMemoryToken = readCurrentMobileSessionToken();
       const nativeToken = await readNativeSessionToken();
+      const nativeUserId = await readNativeUserId();
 
       if (currentUser) {
         storeCurrentMobileUserId(currentUser.id);
         if (!inMemoryToken && nativeToken) {
           storeCurrentMobileSessionToken(nativeToken);
         }
+        await hydratePatientViewCaches(currentUser.id);
         if (!cancelled) {
           setIsRestoringSession(false);
         }
         return;
+      }
+
+      if (nativeUserId) {
+        await hydratePatientViewCaches(nativeUserId);
       }
 
       const persistedToken = inMemoryToken ?? nativeToken ?? null;
@@ -77,6 +90,7 @@ export function MobileAppSessionProvider({
 
       try {
         const payload = await fetchCurrentMobileSession();
+        await hydratePatientViewCaches(payload.user.id);
         if (!cancelled) {
           storeCurrentMobileUserId(payload.user.id);
           setCurrentUser(payload.user);
@@ -84,6 +98,7 @@ export function MobileAppSessionProvider({
         if (shouldPersistRestoredToken) {
           await persistNativeSessionToken(persistedToken);
         }
+        await persistNativeUserId(payload.user.id);
       } catch {
         if (cancelled) {
           return;
@@ -91,7 +106,10 @@ export function MobileAppSessionProvider({
 
         storeCurrentMobileSessionToken(null);
         storeCurrentMobileUserId(null);
+        clearPatientViewCaches(nativeUserId);
+        await clearPersistedPatientViewCaches(nativeUserId);
         await clearNativeSessionToken();
+        await clearNativeUserId();
       } finally {
         if (!cancelled) {
           setIsRestoringSession(false);
@@ -121,6 +139,8 @@ export function MobileAppSessionProvider({
         if (sessionToken) {
           await persistNativeSessionToken(sessionToken);
         }
+        await persistNativeUserId(nextUser.id);
+        await hydratePatientViewCaches(nextUser.id);
         storeCurrentMobileUserId(nextUser.id);
         setCurrentUser(nextUser);
         setIsRestoringSession(false);
@@ -128,14 +148,17 @@ export function MobileAppSessionProvider({
       },
       async completeOnboarding(input) {
         const nextUser = await services.onboardingPort.completeProfile(input);
+        await persistNativeUserId(nextUser.id);
         setCurrentUser(nextUser);
         return nextUser;
       },
       async signOut() {
         clearPatientViewCaches(currentUser?.id);
+        await clearPersistedPatientViewCaches(currentUser?.id);
         storeCurrentMobileSessionToken(null);
         storeCurrentMobileUserId(null);
         await clearNativeSessionToken();
+        await clearNativeUserId();
         setCurrentUser(null);
         setIsRestoringSession(false);
       },
