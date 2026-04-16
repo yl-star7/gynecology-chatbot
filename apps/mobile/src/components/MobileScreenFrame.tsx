@@ -9,7 +9,7 @@ import { useMobileAppSession } from "../core/MobileAppSessionProvider";
 import { palette, patientSurfacePalette as surface, shadows, space, typo } from "../theme";
 import { resolveBackNavigation } from "./MobileScreenFrame.model";
 
-const FAB_NURSE_SOURCE = require("../../assets/branding/fab-nurse.png");
+const FAB_NURSE_SOURCE = require("../../assets/branding/penguin-nurse/neutral.png");
 
 export function MobileScreenFrame({
   title,

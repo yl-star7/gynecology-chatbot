@@ -38,7 +38,18 @@ const EMOTION_CONFIG: Record<EmotionTone, EmotionConfig> = {
   },
 };
 
-const NURSE_IMAGE = require("../../../assets/branding/fab-nurse.png");
+const NURSE_IMAGES: Record<EmotionTone | "neutral", number> = {
+  neutral: require("../../../assets/branding/penguin-nurse/neutral.png"),
+  calm: require("../../../assets/branding/penguin-nurse/calm.png"),
+  joyful: require("../../../assets/branding/penguin-nurse/joyful.png"),
+  anxious: require("../../../assets/branding/penguin-nurse/anxious.png"),
+  tired: require("../../../assets/branding/penguin-nurse/tired.png"),
+  sad: require("../../../assets/branding/penguin-nurse/sad.png"),
+};
+
+function resolveNurseImage(tone?: EmotionTone | null): number {
+  return tone ? NURSE_IMAGES[tone] : NURSE_IMAGES.neutral;
+}
 
 interface NurseCharacterProps {
   emotionTone?: EmotionTone | null;
@@ -96,7 +107,7 @@ export function NurseCharacter({
         ]}
       >
         <Image
-          source={NURSE_IMAGE}
+          source={resolveNurseImage(emotionTone)}
           style={{ width: imageSize, height: imageSize }}
           resizeMode="contain"
           accessibilityLabel="간호사 캐릭터"
@@ -118,7 +129,7 @@ export function NurseAvatar({
   return (
     <View style={[styles.avatarWrap, { backgroundColor: tint }]}>
       <Image
-        source={NURSE_IMAGE}
+        source={resolveNurseImage(emotionTone)}
         style={styles.avatarImage}
         resizeMode="contain"
         accessibilityLabel="간호사 캐릭터"
