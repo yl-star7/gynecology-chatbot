@@ -56,3 +56,6 @@ supabase/migrations/drizzle/
 secrets/
 
 autoresearch-results.tsv
+
+# Google Play Service Account Key
+play-submit-key.json
