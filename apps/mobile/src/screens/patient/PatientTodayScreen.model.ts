@@ -10,6 +10,7 @@ import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
 import {
   cacheTodayView,
+  hasFreshCachedChatSession,
   hasFreshCachedRecentChats,
   hasFreshCachedRecordDayView,
   hasFreshCachedTodayView,
@@ -17,8 +18,7 @@ import {
   readCachedRecordDayView,
   readCachedTodayView,
 } from "../../core/patientViewCache";
-import { prefetchConversationSession } from "./patientConversationNavigation.model";
-import { resolvePatientConversationLoadError } from "./patientErrorCopy.model";
+import { warmConversationSessions } from "./patientConversationNavigation.model";
 import { buildPatientTodayViewModel } from "./view-models";
 
 const EMPTY_BABY_BODY = "오늘 아기의 변화를 준비 중이에요.";
@@ -53,6 +53,23 @@ export function usePatientTodayScreenModel() {
   const [hasAttemptedInfoViewed, setHasAttemptedInfoViewed] = useState(false);
   const todayIsoDate = createTodayIsoDate();
 
+  const warmRecentSessionDetails = useCallback(
+    (sessions: RecentChatSummary[]) => {
+      if (!currentUser || sessions.length === 0) {
+        return;
+      }
+
+      void warmConversationSessions({
+        sessionIds: sessions.map((session) => session.id),
+        getSession: services.chatPort.getSession.bind(services.chatPort),
+        replaceSession,
+        hasFreshSession: (sessionId) =>
+          hasFreshCachedChatSession(currentUser.id, sessionId),
+      });
+    },
+    [currentUser, replaceSession, services.chatPort],
+  );
+
   useEffect(() => {
     if (!currentUser) {
       setToday(null);
@@ -68,10 +85,11 @@ export function usePatientTodayScreenModel() {
     const cachedRecentChats = readCachedRecentChats(currentUser.id);
 
     setToday(cachedToday);
-    setRecentSessions(
-      cachedRecordDay?.relatedSessions ?? cachedRecentChats ?? [],
-    );
-  }, [currentUser, todayIsoDate]);
+    const nextRecentSessions =
+      cachedRecordDay?.relatedSessions ?? cachedRecentChats ?? [];
+    setRecentSessions(nextRecentSessions);
+    warmRecentSessionDetails(nextRecentSessions);
+  }, [currentUser, todayIsoDate, warmRecentSessionDetails]);
 
   useFocusEffect(
     useCallback(() => {
@@ -96,6 +114,12 @@ export function usePatientTodayScreenModel() {
             readCachedRecentChats(currentUser.id) ??
             [],
         );
+        warmRecentSessionDetails(
+          readCachedRecordDayView(currentUser.id, todayIsoDate)
+            ?.relatedSessions ??
+            readCachedRecentChats(currentUser.id) ??
+            [],
+        );
         setHasAttemptedInfoViewed(false);
         return;
       }
@@ -107,15 +131,23 @@ export function usePatientTodayScreenModel() {
       ])
         .then(([nextToday, nextRecordDay, nextRecentChats]) => {
           setToday(nextToday);
-          setRecentSessions(
+          const nextRecentSessions =
             nextRecordDay.relatedSessions.length > 0
               ? nextRecordDay.relatedSessions
-              : nextRecentChats,
-          );
+              : nextRecentChats;
+          setRecentSessions(nextRecentSessions);
+          warmRecentSessionDetails(nextRecentSessions);
           setHasAttemptedInfoViewed(false);
         })
         .catch(() => undefined);
-    }, [currentUser, isRestoringSession, router, services, todayIsoDate]),
+    }, [
+      currentUser,
+      isRestoringSession,
+      router,
+      services,
+      todayIsoDate,
+      warmRecentSessionDetails,
+    ]),
   );
 
   useEffect(() => {
@@ -214,19 +246,9 @@ export function usePatientTodayScreenModel() {
     router.push("/chat/new");
   }
 
-  async function openRecentSession(sessionId: string) {
+  function openRecentSession(sessionId: string) {
     setConversationOpenError(null);
-
-    try {
-      await prefetchConversationSession({
-        sessionId,
-        getSession: services.chatPort.getSession.bind(services.chatPort),
-        replaceSession,
-      });
-      router.push(`/chat/${sessionId}`);
-    } catch (error: unknown) {
-      setConversationOpenError(resolvePatientConversationLoadError(error));
-    }
+    router.push(`/chat/${sessionId}`);
   }
 
   function openOnboarding() {
