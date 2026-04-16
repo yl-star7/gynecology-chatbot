@@ -27,6 +27,7 @@ export function PatientConversationComposer({
   text,
   onChangeText,
   isSending,
+  isReadOnly = false,
   imageDataUri,
   onImageSelected,
   onRemoveImage,
@@ -39,6 +40,7 @@ export function PatientConversationComposer({
   text: string;
   onChangeText: (value: string) => void;
   isSending: boolean;
+  isReadOnly?: boolean;
   imageDataUri: string | null;
   onImageSelected: (value: string | null) => void;
   onRemoveImage: () => void;
@@ -48,6 +50,29 @@ export function PatientConversationComposer({
   onLayout: (event: LayoutChangeEvent) => void;
   bottomPadding: number;
 }) {
+  if (isReadOnly) {
+    return (
+      <View
+        style={[
+          styles.footerDock,
+          {
+            paddingBottom: bottomPadding,
+          },
+        ]}
+        onLayout={onLayout}
+      >
+        <Card variant="muted" style={styles.readOnlyCard}>
+          <Text style={styles.readOnlyText}>
+            지난 대화는 다시 읽어볼 수만 있어요. 새 대화는 오늘 채팅에서
+            이어가요.
+          </Text>
+        </Card>
+      </View>
+    );
+  }
+
+  const isSendDisabled = isSending;
+
   return (
     <View
       style={[
@@ -74,7 +99,7 @@ export function PatientConversationComposer({
         <View style={styles.composerRow}>
           <ChatImagePicker
             onImageSelected={onImageSelected}
-            disabled={isSending}
+            disabled={isSendDisabled}
           />
           <TextInput
             style={styles.input}
@@ -86,16 +111,16 @@ export function PatientConversationComposer({
             maxLength={3000}
           />
           <Pressable
-            style={isSending ? [styles.sendButton, styles.sendButtonDisabled] : styles.sendButton}
+            style={
+              isSendDisabled
+                ? [styles.sendButton, styles.sendButtonDisabled]
+                : styles.sendButton
+            }
             onPress={onSend}
-            disabled={isSending}
+            disabled={isSendDisabled}
             accessibilityLabel="메시지 보내기"
           >
-            <Ionicon
-              name="arrow-up"
-              size={20}
-              color={surface.surfacePrimary}
-            />
+            <Ionicon name="arrow-up" size={20} color={surface.surfacePrimary} />
           </Pressable>
         </View>
       </Card>
@@ -155,5 +180,15 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: space.xs,
     paddingHorizontal: space.md,
+  },
+  readOnlyCard: {
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    alignItems: "center",
+  },
+  readOnlyText: {
+    ...typo.caption,
+    color: surface.textSecondary,
+    textAlign: "center",
   },
 });
