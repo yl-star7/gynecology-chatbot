@@ -38,6 +38,7 @@ import {
 } from "../../theme";
 import { buildPatientHomeViewModel } from "./view-models";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
+import { prefetchWeekBabyImages } from "./prefetchWeekBabyImages";
 
 export function PatientHomeScreen() {
   const insets = useSafeAreaInsets();
@@ -130,6 +131,10 @@ export function PatientHomeScreen() {
   }, [currentUser, fetchData, isRestoringSession, navigation]);
 
   const viewModel = buildPatientHomeViewModel({ home, profile });
+
+  useEffect(() => {
+    prefetchWeekBabyImages(viewModel.imageWeekLabel);
+  }, [viewModel.imageWeekLabel]);
 
   return (
     <PatientShell

@@ -6,6 +6,7 @@ import {
 const DEFAULT_WEEK_BABY_IMAGE_WEEK = 18;
 const MIN_SUPPORTED_WEEK = 5;
 const MAX_SUPPORTED_WEEK = 40;
+const PRIORITY_RADIUS = 3;
 
 const SUPABASE_STORAGE_URL =
   "https://wmguogzglxktsxnqrqjd.supabase.co/storage/v1/object/public/pregnancy-content/weeks";
@@ -84,7 +85,60 @@ export function getWeekBabyImageSource(weekLabel?: string | null) {
     }),
   );
   const week = resolveWeekBabyImageWeek(normalizedWeekLabel ?? weekLabel);
+  return { uri: buildWeekBabyImageUri(week) };
+}
+
+function buildWeekBabyImageUri(week: number): string {
   const paddedWeek = String(week).padStart(2, "0");
   const fileName = weekBabyFileNames[week] ?? `w${paddedWeek}-baby.png`;
-  return { uri: `${SUPABASE_STORAGE_URL}/${paddedWeek}/${fileName}` };
+  return `${SUPABASE_STORAGE_URL}/${paddedWeek}/${fileName}`;
+}
+
+export function getAllWeekBabyImageUris(): string[] {
+  const uris: string[] = [];
+  for (let week = MIN_SUPPORTED_WEEK; week <= MAX_SUPPORTED_WEEK; week += 1) {
+    uris.push(buildWeekBabyImageUri(week));
+  }
+  return uris;
+}
+
+export function buildPrefetchPlan(currentWeek?: number | null): {
+  priority: string[];
+  deferred: string[];
+} {
+  const seen = new Set<number>();
+  const priorityWeeks: number[] = [];
+  const deferredWeeks: number[] = [];
+
+  const anchor =
+    typeof currentWeek === "number" && Number.isFinite(currentWeek)
+      ? Math.max(
+          MIN_SUPPORTED_WEEK,
+          Math.min(MAX_SUPPORTED_WEEK, Math.round(currentWeek)),
+        )
+      : null;
+
+  if (anchor != null) {
+    // 가까운 주차부터: 0, +1, -1, +2, -2, +3, -3
+    for (let offset = 0; offset <= PRIORITY_RADIUS; offset += 1) {
+      for (const delta of offset === 0 ? [0] : [offset, -offset]) {
+        const week = anchor + delta;
+        if (week < MIN_SUPPORTED_WEEK || week > MAX_SUPPORTED_WEEK) continue;
+        if (seen.has(week)) continue;
+        seen.add(week);
+        priorityWeeks.push(week);
+      }
+    }
+  }
+
+  for (let week = MIN_SUPPORTED_WEEK; week <= MAX_SUPPORTED_WEEK; week += 1) {
+    if (seen.has(week)) continue;
+    seen.add(week);
+    deferredWeeks.push(week);
+  }
+
+  return {
+    priority: priorityWeeks.map(buildWeekBabyImageUri),
+    deferred: deferredWeeks.map(buildWeekBabyImageUri),
+  };
 }

@@ -51,24 +51,7 @@ export function PatientConversationComposer({
   bottomPadding: number;
 }) {
   if (isReadOnly) {
-    return (
-      <View
-        style={[
-          styles.footerDock,
-          {
-            paddingBottom: bottomPadding,
-          },
-        ]}
-        onLayout={onLayout}
-      >
-        <Card variant="muted" style={styles.readOnlyCard}>
-          <Text style={styles.readOnlyText}>
-            지난 대화는 다시 읽어볼 수만 있어요. 새 대화는 오늘 채팅에서
-            이어가요.
-          </Text>
-        </Card>
-      </View>
-    );
+    return null;
   }
 
   const isSendDisabled = isSending;
@@ -180,15 +163,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: space.xs,
     paddingHorizontal: space.md,
-  },
-  readOnlyCard: {
-    paddingVertical: space.sm,
-    paddingHorizontal: space.md,
-    alignItems: "center",
-  },
-  readOnlyText: {
-    ...typo.caption,
-    color: surface.textSecondary,
-    textAlign: "center",
   },
 });
