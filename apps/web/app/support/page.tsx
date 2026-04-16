@@ -36,6 +36,34 @@ export default function SupportPage() {
       </section>
 
       <section style={{ marginBottom: 32 }}>
+        <h2 style={{ fontSize: 18, marginBottom: 12 }}>계정 삭제 요청 방법</h2>
+        <ol style={{ paddingLeft: 20, marginTop: 8 }}>
+          <li>이메일 제목에 "아가야 계정 삭제 요청"을 적어 주세요.</li>
+          <li>가입에 사용한 전화번호를 함께 보내 주세요.</li>
+          <li>
+            위 이메일로 보내 주시면 본인 확인 후 순차적으로 처리해 드립니다.
+          </li>
+        </ol>
+      </section>
+
+      <section style={{ marginBottom: 32 }}>
+        <h2 style={{ fontSize: 18, marginBottom: 12 }}>
+          삭제되는 데이터와 보관 정보
+        </h2>
+        <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+          <li>삭제되는 데이터: 전화번호 등 계정 식별 정보</li>
+          <li>삭제되는 데이터: 임신 관련 프로필 정보</li>
+          <li>삭제되는 데이터: 상담 대화 및 저장 기록</li>
+          <li>삭제되는 데이터: 푸시 알림 토큰</li>
+          <li>
+            보관 정보: 관련 법령에 따라 보관이 필요한 정보만 법정 보관 기간 동안
+            분리 보관한 뒤 삭제합니다.
+          </li>
+          <li>그 외 정보는 계정 삭제 처리 후 즉시 삭제합니다.</li>
+        </ul>
+      </section>
+
+      <section style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: 18, marginBottom: 12 }}>자주 묻는 질문</h2>
 
         <div style={{ marginBottom: 16 }}>
