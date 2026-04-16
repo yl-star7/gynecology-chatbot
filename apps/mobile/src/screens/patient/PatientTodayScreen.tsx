@@ -8,7 +8,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card, Pressable } from "../../components/ui";
 import { PatientTodayConversationSection } from "../../components/patient/today/PatientTodayConversationSection";
-import { PatientTodayChecklistSection } from "../../components/patient/today/PatientTodayChecklistSection";
 import { PatientTodayInfoSection } from "../../components/patient/today/PatientTodayInfoSection";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { PatientTodayTabs } from "../../components/patient/PatientTodayTabs";
@@ -68,16 +67,6 @@ export function PatientTodayScreen() {
             />
           ) : null}
 
-          {model.activeSection === "checklist" ? (
-            <PatientTodayChecklistSection
-              title={model.viewModel.checklistTitle}
-              items={model.viewModel.checklistItems}
-              pendingChecklistIds={model.pendingChecklistIds}
-              progressPercent={model.viewModel.checklistProgressPercent}
-              onToggleChecklistItem={model.handleToggleChecklistItem}
-            />
-          ) : null}
-
           {model.activeSection === "conversation" ? (
             <PatientTodayConversationSection
               title={model.viewModel.conversationTitle}
@@ -92,7 +81,10 @@ export function PatientTodayScreen() {
 
         {model.shouldShowOnboardingNudge ? (
           <Card variant="muted" style={styles.conversationComposerCard}>
-            <Pressable style={styles.onboardingNudge} onPress={model.openOnboarding}>
+            <Pressable
+              style={styles.onboardingNudge}
+              onPress={model.openOnboarding}
+            >
               <Text style={styles.onboardingNudgeText}>
                 내 정보를 등록하면 주차별 맞춤 상담을 받을 수 있어요
               </Text>

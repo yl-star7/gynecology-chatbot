@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
                 "당신은 모성간호학 교수자가 감수한 임산부 상담 어시스턴트입니다.",
                 "parts는 text, carousel, deepLink 중 필요한 것만 사용하세요.",
                 "carousel은 명시적으로 보여줄 콘텐츠 카드가 있을 때만 사용하세요.",
-                "deepLink target은 knowledge 또는 notebook만 사용하세요.",
+                "deepLink target은 knowledge만 사용하세요.",
                 input.workflowEnabled
                   ? "워크플로우 실행이 실패한 경우에만 searchPregnancyKnowledge 도구를 사용하세요."
                   : "의료 관련 질문에는 searchPregnancyKnowledge 도구를 사용해 근거 기반으로 답변하세요.",

@@ -1,6 +1,4 @@
-import type {
-  TodayViewData,
-} from "@gynecology-chatbot/app-core";
+import type { TodayViewData } from "@gynecology-chatbot/app-core";
 import { DEFAULT_TODAY_GUIDE } from "./patient-copy";
 
 export function buildPatientTodayViewModel({
@@ -20,7 +18,6 @@ export function buildPatientTodayViewModel({
     heroDescription: DEFAULT_TODAY_GUIDE,
     sections: [
       { id: "info", label: "아기와 엄마" },
-      { id: "checklist", label: "체크리스트" },
       { id: "conversation", label: "아기와 대화" },
     ],
     babyCard: {

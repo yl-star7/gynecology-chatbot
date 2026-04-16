@@ -1340,13 +1340,8 @@ describe("POST /api/mobile/chat", () => {
       type: "text",
       text: expect.stringContaining("29주차 기준"),
     });
-    expect(payload.assistantMessage.parts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: "deepLink",
-          target: "notebook",
-        }),
-      ]),
+    expect(payload.assistantMessage.parts).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: "deepLink" })]),
     );
   });
 

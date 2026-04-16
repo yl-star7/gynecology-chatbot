@@ -135,7 +135,10 @@ function normalizeAssistantMessageParts(
         continue;
       }
       case "carousel": {
-        if (typeof candidate.title !== "string" || !Array.isArray(candidate.cards)) {
+        if (
+          typeof candidate.title !== "string" ||
+          !Array.isArray(candidate.cards)
+        ) {
           continue;
         }
 
@@ -178,7 +181,7 @@ function normalizeAssistantMessageParts(
         if (
           typeof candidate.title !== "string" ||
           typeof candidate.description !== "string" ||
-          (candidate.target !== "knowledge" && candidate.target !== "notebook")
+          candidate.target !== "knowledge"
         ) {
           continue;
         }
@@ -276,13 +279,6 @@ export function buildFallbackReply(input: {
         type: "text",
         id: `fallback-text-${Date.now()}`,
         text: `${weekLabel} 증상이 언제부터 있었는지, 얼마나 자주 느껴지는지, 쉬면 달라지는지를 함께 적어주시면 더 정확히 도와드릴 수 있어요. 출혈이나 물처럼 흐르는 분비물, 참기 어려운 통증이 있으면 바로 진료를 받아야 해요.`,
-      },
-      {
-        type: "deepLink",
-        id: `fallback-link-${Date.now()}`,
-        title: "증상 기록 남기기",
-        description: "지금 느끼는 증상을 기록해두면 다음 상담에서 더 정확히 살펴볼 수 있어요.",
-        target: "notebook",
       },
     ],
   };
