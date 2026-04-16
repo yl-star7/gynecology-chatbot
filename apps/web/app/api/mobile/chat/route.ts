@@ -264,6 +264,23 @@ export async function POST(request: NextRequest) {
       buildFollowUps: buildPromptFollowUpMessages,
       createPromptEvents,
       getAlreadyPromptedIds,
+      decorateAssistantMessage: (message) => {
+        if (fileRagSources.length === 0) {
+          return message;
+        }
+
+        return {
+          ...message,
+          parts: [
+            ...message.parts,
+            {
+              type: "_rag_sources",
+              id: `rag-sources-${Date.now()}`,
+              sources: fileRagSources,
+            } as unknown as (typeof message.parts)[number],
+          ],
+        };
+      },
     });
 
     const result = await orchestrateChat({
@@ -274,15 +291,6 @@ export async function POST(request: NextRequest) {
       imageDataUris,
       hardGuardrailReason,
     });
-
-    // RAG 출처를 히든 파트로 추가 (관리자 대시보드에서 조회용, 앱에서는 무시)
-    if (fileRagSources.length > 0 && result.assistantMessage?.parts) {
-      (result.assistantMessage.parts as unknown[]).push({
-        type: "_rag_sources",
-        id: `rag-sources-${Date.now()}`,
-        sources: fileRagSources,
-      });
-    }
 
     return NextResponse.json({
       assistantMessage: result.assistantMessage,

@@ -56,6 +56,7 @@ export function buildChatOrchestrator(deps: {
     assistantMessage: ChatMessage;
     workflowMemoryPayload: WorkflowAssistantPayload | null;
   }>;
+  decorateAssistantMessage?: (message: ChatMessage) => ChatMessage;
   saveAssistantMessages: (input: {
     sessionId: string;
     userId: string;
@@ -147,6 +148,10 @@ export function buildChatOrchestrator(deps: {
         hardGuardrailReason: input.hardGuardrailReason,
       });
 
+    if (deps.decorateAssistantMessage) {
+      const decoratedMessage = deps.decorateAssistantMessage(assistantMessage);
+      assistantMessage.parts = decoratedMessage.parts;
+    }
     assistantMessage.parts = sanitizeChatParts(assistantMessage.parts);
 
     const assistantMessages: ChatMessage[] = [assistantMessage];
