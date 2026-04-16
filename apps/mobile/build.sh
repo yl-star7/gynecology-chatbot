@@ -50,6 +50,16 @@ if [[ "$PROFILE" != "preview" && "$PROFILE" != "production" ]]; then
   exit 1
 fi
 
+if [[ "$PLATFORM" == "aos" ]]; then
+  DEFAULT_ANDROID_SDK="$HOME/Library/Android/sdk"
+  if [[ -z "${ANDROID_HOME:-}" && -d "$DEFAULT_ANDROID_SDK" ]]; then
+    export ANDROID_HOME="$DEFAULT_ANDROID_SDK"
+  fi
+  if [[ -z "${ANDROID_SDK_ROOT:-}" && -d "$DEFAULT_ANDROID_SDK" ]]; then
+    export ANDROID_SDK_ROOT="$DEFAULT_ANDROID_SDK"
+  fi
+fi
+
 # ── Read version info ──────────────────────────────────
 APP_VERSION=$(node -e "console.log(require('./app.json').expo.version)")
 EAS_PLATFORM=$([[ "$PLATFORM" == "aos" ]] && echo "android" || echo "ios")
