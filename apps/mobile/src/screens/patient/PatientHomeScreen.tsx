@@ -20,6 +20,12 @@ import { PatientShell } from "../../components/patient/PatientShell";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import {
+  hasFreshCachedHomeView,
+  hasFreshCachedProfileView,
+  readCachedHomeView,
+  readCachedProfileView,
+} from "../../core/patientViewCache";
+import {
   mergePatientProfileSyncSnapshot,
   usePatientProfileSyncSnapshot,
 } from "./patientProfileSyncStore";
@@ -36,7 +42,7 @@ import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 export function PatientHomeScreen() {
   const insets = useSafeAreaInsets();
   const services = useMobileServices();
-  const { currentUser } = useMobileAppSession();
+  const { currentUser, isRestoringSession } = useMobileAppSession();
   const syncSnapshot = usePatientProfileSyncSnapshot();
   const [home, setHome] = useState<HomeViewData | null>(null);
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
@@ -56,12 +62,37 @@ export function PatientHomeScreen() {
     setProfile(nextProfile);
   }, [services]);
 
+  useEffect(() => {
+    if (!currentUser) {
+      setHome(null);
+      setProfile(null);
+      return;
+    }
+
+    const cachedHome = readCachedHomeView(currentUser.id);
+    const cachedProfile = readCachedProfileView(currentUser.id);
+
+    setHome(cachedHome);
+    setProfile(cachedProfile);
+  }, [currentUser]);
+
   const navigation = useNavigation();
   const hasMounted = useRef(false);
 
   useEffect(() => {
+    if (isRestoringSession || !currentUser) {
+      return;
+    }
+
+    if (
+      hasFreshCachedHomeView(currentUser.id) &&
+      hasFreshCachedProfileView(currentUser.id)
+    ) {
+      return;
+    }
+
     fetchData().catch(() => undefined);
-  }, [fetchData]);
+  }, [currentUser, fetchData, isRestoringSession]);
 
   useEffect(() => {
     setProfile((current) =>
@@ -75,13 +106,28 @@ export function PatientHomeScreen() {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
-      if (hasMounted.current) {
-        fetchData().catch(() => undefined);
+      if (isRestoringSession || !currentUser) {
+        return;
       }
-      hasMounted.current = true;
+
+      if (!hasMounted.current) {
+        hasMounted.current = true;
+        return;
+      }
+
+      if (
+        hasFreshCachedHomeView(currentUser.id) &&
+        hasFreshCachedProfileView(currentUser.id)
+      ) {
+        setHome(readCachedHomeView(currentUser.id));
+        setProfile(readCachedProfileView(currentUser.id));
+        return;
+      }
+
+      fetchData().catch(() => undefined);
     });
     return unsubscribe;
-  }, [fetchData, navigation]);
+  }, [currentUser, fetchData, isRestoringSession, navigation]);
 
   const viewModel = buildPatientHomeViewModel({ home, profile });
 

@@ -7,6 +7,7 @@ import type {
 } from "@gynecology-chatbot/app-core";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import {
+  cacheProfileView,
   hasFreshCachedHomeView,
   hasFreshCachedProfileView,
   readCachedHomeView,
@@ -76,6 +77,7 @@ export function usePatientProfileSettingsScreenModel() {
         cachedProfile.notificationTime ?? DEFAULT_NOTIFICATION_TIME,
       );
       publishPatientProfileSyncProfile(cachedProfile);
+      cacheProfileView(currentUser.id, cachedProfile);
     }
 
     if (cachedHome) {
@@ -193,6 +195,9 @@ export function usePatientProfileSettingsScreenModel() {
     setIsTimePickerOpen(false);
     setNotificationTime(normalizedNotificationTime);
     setProfile(optimisticProfile);
+    if (optimisticProfile) {
+      cacheProfileView(currentUser.id, optimisticProfile);
+    }
     publishPatientProfileSyncProfile(optimisticProfile);
 
     try {
@@ -269,11 +274,17 @@ export function usePatientProfileSettingsScreenModel() {
 
       setProfile(nextProfile);
       setHome(nextHome);
+      if (nextProfile) {
+        cacheProfileView(currentUser.id, nextProfile);
+      }
       publishPatientProfileSyncProfile(nextProfile);
       router.replace("/(tabs)/profile");
     } catch (saveError) {
       setProfile(previousProfile);
       setHome(previousHome);
+      if (previousProfile) {
+        cacheProfileView(currentUser.id, previousProfile);
+      }
       publishPatientProfileSyncProfile(previousProfile);
       const saveMessage = resolvePatientProfileSaveError(saveError);
       if (saveMessage.includes("세션이 만료되었어요")) {

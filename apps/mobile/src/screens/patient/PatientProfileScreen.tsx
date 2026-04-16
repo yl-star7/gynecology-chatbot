@@ -22,6 +22,16 @@ import { PatientProfileHeroCard } from "../../components/patient/profile/Patient
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import {
+  hasFreshCachedHomeView,
+  hasFreshCachedProfileView,
+  hasFreshCachedRecordDayView,
+  hasFreshCachedTodayView,
+  readCachedHomeView,
+  readCachedProfileView,
+  readCachedRecordDayView,
+  readCachedTodayView,
+} from "../../core/patientViewCache";
+import {
   mergePatientProfileSyncSnapshot,
   usePatientProfileSyncSnapshot,
 } from "./patientProfileSyncStore";
@@ -62,6 +72,23 @@ export function PatientProfileScreen() {
   const [conversationSection, setConversationSection] =
     useState<ConversationSection>("summary");
 
+  useEffect(() => {
+    if (!currentUser) {
+      setProfile(null);
+      setHome(null);
+      setToday(null);
+      return;
+    }
+
+    const cachedProfile = readCachedProfileView(currentUser.id);
+    const cachedHome = readCachedHomeView(currentUser.id);
+    const cachedToday = readCachedTodayView(currentUser.id);
+
+    setProfile(cachedProfile);
+    setHome(cachedHome);
+    setToday(cachedToday);
+  }, [currentUser]);
+
   useFocusEffect(
     useCallback(() => {
       if (isRestoringSession) {
@@ -70,6 +97,18 @@ export function PatientProfileScreen() {
 
       if (!currentUser) {
         router.replace("/auth/login");
+        return;
+      }
+
+      if (
+        hasFreshCachedProfileView(currentUser.id) &&
+        hasFreshCachedHomeView(currentUser.id) &&
+        hasFreshCachedTodayView(currentUser.id)
+      ) {
+        setProfile(readCachedProfileView(currentUser.id));
+        setHome(readCachedHomeView(currentUser.id));
+        setToday(readCachedTodayView(currentUser.id));
+        setError(null);
         return;
       }
 
@@ -128,8 +167,21 @@ export function PatientProfileScreen() {
       return;
     }
 
-    let cancelled = false;
+    const cachedRecordDay = currentUser
+      ? readCachedRecordDayView(currentUser.id, selectedIsoDate)
+      : null;
+    setSelectedRecordDay(cachedRecordDay);
     setRecordDayError(null);
+
+    if (!currentUser) {
+      return;
+    }
+
+    if (hasFreshCachedRecordDayView(currentUser.id, selectedIsoDate)) {
+      return;
+    }
+
+    let cancelled = false;
 
     homePort
       .getRecordDay(selectedIsoDate)
@@ -140,7 +192,7 @@ export function PatientProfileScreen() {
       })
       .catch((nextError) => {
         if (!cancelled) {
-          setSelectedRecordDay(null);
+          setSelectedRecordDay(cachedRecordDay);
           setRecordDayError(resolvePatientRecordDayLoadError(nextError));
         }
       });
@@ -148,7 +200,7 @@ export function PatientProfileScreen() {
     return () => {
       cancelled = true;
     };
-  }, [homePort, selectedIsoDate]);
+  }, [currentUser, homePort, selectedIsoDate]);
 
   async function handleLogout() {
     await signOut();

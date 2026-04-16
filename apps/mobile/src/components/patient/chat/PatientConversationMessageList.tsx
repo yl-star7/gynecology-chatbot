@@ -2,6 +2,7 @@ import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import { ChatPartRenderer, TypingIndicator } from "../../chat";
 import { NurseCharacter } from "../NurseCharacter";
+import { Pressable } from "../../ui";
 import {
   palette,
   patientSurfacePalette as surface,
@@ -9,6 +10,13 @@ import {
   space,
   typo,
 } from "../../../theme";
+
+const EMPTY_STATE_QUICK_REPLIES = [
+  { id: "baby", label: "아기 괜찮을까요?", message: "오늘 아기 상태가 괜찮은지 궁금해요." },
+  { id: "pain", label: "배가 당겨요", message: "배가 당기는데 괜찮은지 알려주세요." },
+  { id: "sleep", label: "잠이 안 와요", message: "잠이 잘 안 와서 힘들어요." },
+  { id: "mood", label: "마음이 불안해요", message: "괜히 마음이 불안한데 괜찮을까요?" },
+];
 
 export function PatientConversationMessageList({
   scrollViewRef,
@@ -47,6 +55,22 @@ export function PatientConversationMessageList({
             <Text style={styles.subtitle}>
               오늘 마음이나 몸 상태를 편하게 적어보세요.
             </Text>
+          </View>
+          <View style={styles.quickRepliesWrapper}>
+            <Text style={styles.quickRepliesTitle}>이렇게 시작해보세요</Text>
+            <View style={styles.quickRepliesRow}>
+              {EMPTY_STATE_QUICK_REPLIES.map((choice) => (
+                <Pressable
+                  key={choice.id}
+                  style={styles.quickReplyPill}
+                  onPress={() => onQuickReplySelect(choice.message)}
+                  accessibilityRole="button"
+                  accessibilityLabel={choice.label}
+                >
+                  <Text style={styles.quickReplyLabel}>{choice.label}</Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
         </View>
       ) : (
@@ -127,6 +151,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
+    gap: space.lg,
     paddingBottom: space.xxxl,
   },
   heroSection: {
@@ -143,6 +168,35 @@ const styles = StyleSheet.create({
     ...typo.body,
     color: surface.textSecondary,
     textAlign: "center",
+  },
+  quickRepliesWrapper: {
+    width: "100%",
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+  },
+  quickRepliesTitle: {
+    ...typo.caption,
+    color: surface.textSecondary,
+    textAlign: "center",
+  },
+  quickRepliesRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: space.sm,
+  },
+  quickReplyPill: {
+    borderRadius: radii.full,
+    borderWidth: 1,
+    borderColor: palette.accent,
+    backgroundColor: surface.surfacePrimary,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.lg,
+  },
+  quickReplyLabel: {
+    ...typo.caption,
+    color: palette.accent,
+    fontWeight: "600",
   },
   threadedContent: {
     flexGrow: 1,

@@ -1,7 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
-import type { ChatMessage, RecentChatSummary, TodayViewData } from "@gynecology-chatbot/app-core";
+import type {
+  ChatMessage,
+  RecentChatSummary,
+  TodayViewData,
+} from "@gynecology-chatbot/app-core";
+import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
+import {
+  cacheTodayView,
+  hasFreshCachedRecordDayView,
+  hasFreshCachedTodayView,
+  readCachedRecordDayView,
+  readCachedTodayView,
+} from "../../core/patientViewCache";
 import { buildPatientTodayViewModel } from "./view-models";
 
 const EMPTY_BABY_BODY = "오늘 아기의 변화를 준비 중이에요.";
@@ -23,18 +35,56 @@ export function appendAssistantMessages(
 
 export function usePatientTodayScreenModel() {
   const router = useRouter();
+  const { currentUser, isRestoringSession } = useMobileAppSession();
   const services = useMobileServices();
   const [today, setToday] = useState<TodayViewData | null>(null);
   const [recentSessions, setRecentSessions] = useState<RecentChatSummary[]>([]);
   const [activeSection, setActiveSection] = useState("info");
   const [pendingChecklistIds, setPendingChecklistIds] = useState<string[]>([]);
   const [hasAttemptedInfoViewed, setHasAttemptedInfoViewed] = useState(false);
+  const todayIsoDate = createTodayIsoDate();
+
+  useEffect(() => {
+    if (!currentUser) {
+      setToday(null);
+      setRecentSessions([]);
+      return;
+    }
+
+    const cachedToday = readCachedTodayView(currentUser.id);
+    const cachedRecordDay = readCachedRecordDayView(currentUser.id, todayIsoDate);
+
+    setToday(cachedToday);
+    setRecentSessions(cachedRecordDay?.relatedSessions ?? []);
+  }, [currentUser, todayIsoDate]);
 
   useFocusEffect(
     useCallback(() => {
+      if (isRestoringSession) {
+        return;
+      }
+
+      if (!currentUser) {
+        router.replace("/auth/login");
+        return;
+      }
+
+      if (
+        hasFreshCachedTodayView(currentUser.id) &&
+        hasFreshCachedRecordDayView(currentUser.id, todayIsoDate)
+      ) {
+        setToday(readCachedTodayView(currentUser.id));
+        setRecentSessions(
+          readCachedRecordDayView(currentUser.id, todayIsoDate)?.relatedSessions ??
+            [],
+        );
+        setHasAttemptedInfoViewed(false);
+        return;
+      }
+
       Promise.all([
         services.todayPort.getTodayView(),
-        services.homePort.getRecordDay(createTodayIsoDate()),
+        services.homePort.getRecordDay(todayIsoDate),
       ])
         .then(([nextToday, nextRecordDay]) => {
           setToday(nextToday);
@@ -42,7 +92,7 @@ export function usePatientTodayScreenModel() {
           setHasAttemptedInfoViewed(false);
         })
         .catch(() => undefined);
-    }, [services]),
+    }, [currentUser, isRestoringSession, router, services, todayIsoDate]),
   );
 
   useEffect(() => {
@@ -56,14 +106,26 @@ export function usePatientTodayScreenModel() {
     }
 
     setHasAttemptedInfoViewed(true);
-    setToday((current) =>
-      current ? { ...current, infoViewed: true } : current,
-    );
+    setToday((current) => {
+      if (!currentUser || !current) {
+        return current;
+      }
+
+      const nextToday = { ...current, infoViewed: true };
+      cacheTodayView(currentUser.id, nextToday);
+      return nextToday;
+    });
 
     services.todayPort.markInfoViewed().catch(() => {
-      setToday((current) =>
-        current ? { ...current, infoViewed: false } : current,
-      );
+      setToday((current) => {
+        if (!currentUser || !current) {
+          return current;
+        }
+
+        const nextToday = { ...current, infoViewed: false };
+        cacheTodayView(currentUser.id, nextToday);
+        return nextToday;
+      });
     });
   }, [
     activeSection,
@@ -79,16 +141,20 @@ export function usePatientTodayScreenModel() {
     }
 
     setPendingChecklistIds((current) => [...current, checklistId]);
-    setToday((current) =>
-      current
-        ? {
-            ...current,
-            checklistItems: current.checklistItems.map((item) =>
-              item.id === checklistId ? { ...item, completed } : item,
-            ),
-          }
-        : current,
-    );
+    setToday((current) => {
+      if (!currentUser || !current) {
+        return current;
+      }
+
+      const nextToday = {
+        ...current,
+        checklistItems: current.checklistItems.map((item) =>
+          item.id === checklistId ? { ...item, completed } : item,
+        ),
+      };
+      cacheTodayView(currentUser.id, nextToday);
+      return nextToday;
+    });
 
     services.todayPort
       .setChecklistItemCompleted({
@@ -96,18 +162,22 @@ export function usePatientTodayScreenModel() {
         completed,
       })
       .catch(() => {
-        setToday((current) =>
-          current
-            ? {
-                ...current,
-                checklistItems: current.checklistItems.map((item) =>
-                  item.id === checklistId
-                    ? { ...item, completed: !completed }
-                    : item,
-                ),
-              }
-            : current,
-        );
+        setToday((current) => {
+          if (!currentUser || !current) {
+            return current;
+          }
+
+          const nextToday = {
+            ...current,
+            checklistItems: current.checklistItems.map((item) =>
+              item.id === checklistId
+                ? { ...item, completed: !completed }
+                : item,
+            ),
+          };
+          cacheTodayView(currentUser.id, nextToday);
+          return nextToday;
+        });
       })
       .finally(() => {
         setPendingChecklistIds((current) =>
