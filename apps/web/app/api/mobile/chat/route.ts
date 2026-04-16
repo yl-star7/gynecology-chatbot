@@ -36,10 +36,7 @@ import {
   ProfileMemoryPayload,
   SessionMemoryPayload,
 } from "@/lib/mobile/chat/workflow-payload";
-import {
-  buildFallbackReply,
-  parseAssistantResponseWithSingleRetry,
-} from "@/lib/mobile/chat/responders/route-response-helpers";
+import { parseAssistantResponseWithRetry } from "@/lib/mobile/chat/responders/route-response-helpers";
 import {
   isMobileSessionError,
   requireMobileSession,
@@ -176,7 +173,7 @@ export async function POST(request: NextRequest) {
           }),
         };
 
-        return parseAssistantResponseWithSingleRetry({
+        return parseAssistantResponseWithRetry({
           generate: async () => {
             const { text: responseText } = await generateText({
               model: google("gemini-2.5-flash-lite"),
@@ -230,12 +227,6 @@ export async function POST(request: NextRequest) {
 
             return responseText;
           },
-          buildFallback: () =>
-            buildFallbackReply({
-              text: input.text,
-              hasImages: input.imageDataUris.length > 0,
-              pregnancyWeek: input.currentWeek,
-            }),
         });
       },
     });
