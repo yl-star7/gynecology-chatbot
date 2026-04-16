@@ -146,3 +146,23 @@ pnpm --filter @gynecology-chatbot/app-core type-check
 - Vercel 배포 (웹)
 - EAS Build (모바일)
 - 배포 전 `TODO.md`의 체크리스트 확인
+
+### 모바일 로컬 빌드 (`apps/mobile/build.sh`)
+
+로컬 머신에서 빌드 + 스토어 업로드를 한 번에 수행하는 스크립트.
+
+```bash
+cd apps/mobile
+
+./build.sh aos              # Android production 빌드 + Play Console 업로드
+./build.sh ios              # iOS production 빌드 + App Store 업로드
+./build.sh aos preview      # Android preview APK만 빌드 (업로드 안함)
+SKIP_SUBMIT=1 ./build.sh ios # iOS 빌드만, 업로드 생략
+```
+
+- `eas build --local`로 로컬 빌드 (EAS 크레덴셜/키스토어 자동 사용)
+- 버전코드는 EAS remote에서 조회 → 자동 증가
+- 출력 파일: `builds/<platform>/agaya-v{version}-vc{N}-{profile}.{apk|aab|ipa}`
+- production → `eas submit`으로 스토어 자동 업로드
+- preview → 빌드만 (내부 배포용)
+- Android 스토어 업로드에 `play-submit-key.json` (Service Account Key) 필요

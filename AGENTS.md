@@ -129,3 +129,35 @@ const styles = StyleSheet.create({
 - content 스키마 테이블은 **직접 쿼리 금지** (Supabase REST가 406 반환)
 - 대신 public view 사용: `published_knowledge_items`, `v_pregnancy_week_data`, `v_pregnancy_day_contents`, `v_week_checklists`, `v_week_questions`
 - public 스키마는 prefix 없이 사용 (예: `calendar_logs`)
+
+---
+
+## 모바일 빌드 & 배포
+
+### 로컬 빌드 스크립트 (`apps/mobile/build.sh`)
+
+```bash
+./build.sh <aos|ios> [profile]    # profile: preview | production (기본: production)
+SKIP_SUBMIT=1 ./build.sh aos     # 빌드만, 업로드 생략
+```
+
+- `eas build --local` 사용 — EAS 키스토어/크레덴셜 자동 적용
+- 출력: `builds/<platform>/agaya-v{version}-vc{N}-{profile}.{apk|aab|ipa}`
+- production 빌드 시 `eas submit`으로 스토어 자동 업로드
+- preview 빌드는 스토어 업로드 대상 아님 (내부 배포용)
+
+### 빌드 관련 파일
+
+| 파일 | 용도 |
+|------|------|
+| `eas.json` | EAS 빌드/서브밋 프로필 설정 |
+| `app.json` | Expo 앱 설정 (패키지명, 버전, 플러그인) |
+| `plugins/withAdiRegistration.js` | Play Console 패키지 인증 토큰 주입 플러그인 |
+| `play-submit-key.json` | Google Play API 서비스 계정 키 (gitignore 대상) |
+| `builds/` | 로컬 빌드 산출물 디렉토리 (gitignore 대상) |
+
+### 주의사항
+
+- `android/`, `ios/` 디렉토리는 gitignored — EAS가 prebuild 시 재생성
+- 로컬 파일을 APK에 포함하려면 Expo config plugin으로 주입해야 함 (`withAdiRegistration` 참고)
+- `play-submit-key.json`은 절대 커밋하지 않음
