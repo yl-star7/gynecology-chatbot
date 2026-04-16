@@ -16,7 +16,9 @@ export async function GET(
     const { userId } = await requireMobileSession(request, hintedUserId);
 
     const [sessions, messages] = await Promise.all([
-      supabaseSelect<Array<{ id: string; title: string; last_message_at: string | null }>>(
+      supabaseSelect<
+        Array<{ id: string; title: string; last_message_at: string | null }>
+      >(
         `chat_sessions?select=id,title,last_message_at&id=eq.${sessionId}&user_id=eq.${userId}&limit=1`,
       ),
       supabaseSelect<
@@ -26,7 +28,9 @@ export async function GET(
           parts: never[];
           created_at: string;
         }>
-      >(`chat_messages?select=id,role,parts,created_at&session_id=eq.${sessionId}&user_id=eq.${userId}&order=created_at.asc`),
+      >(
+        `chat_messages?select=id,role,parts,created_at&session_id=eq.${sessionId}&order=created_at.asc`,
+      ),
     ]);
 
     if (!sessions[0]) {
