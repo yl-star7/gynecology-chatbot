@@ -9,7 +9,9 @@ import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
 import {
+  cacheRecordDayView,
   cacheTodayView,
+  clearCachedHomeView,
   hasFreshCachedChatSession,
   hasFreshCachedRecentChats,
   hasFreshCachedRecordDayView,
@@ -212,6 +214,22 @@ export function usePatientTodayScreenModel() {
       return nextToday;
     });
 
+    if (currentUser) {
+      const cachedRecordDay = readCachedRecordDayView(
+        currentUser.id,
+        todayIsoDate,
+      );
+      if (cachedRecordDay) {
+        cacheRecordDayView(currentUser.id, todayIsoDate, {
+          ...cachedRecordDay,
+          checklistItems: cachedRecordDay.checklistItems.map((item) =>
+            item.id === checklistId ? { ...item, completed } : item,
+          ),
+        });
+      }
+      clearCachedHomeView(currentUser.id);
+    }
+
     services.todayPort
       .setChecklistItemCompleted({
         checklistId,
@@ -234,6 +252,23 @@ export function usePatientTodayScreenModel() {
           cacheTodayView(currentUser.id, nextToday);
           return nextToday;
         });
+
+        if (currentUser) {
+          const cachedRecordDay = readCachedRecordDayView(
+            currentUser.id,
+            todayIsoDate,
+          );
+          if (cachedRecordDay) {
+            cacheRecordDayView(currentUser.id, todayIsoDate, {
+              ...cachedRecordDay,
+              checklistItems: cachedRecordDay.checklistItems.map((item) =>
+                item.id === checklistId
+                  ? { ...item, completed: !completed }
+                  : item,
+              ),
+            });
+          }
+        }
       })
       .finally(() => {
         setPendingChecklistIds((current) =>
