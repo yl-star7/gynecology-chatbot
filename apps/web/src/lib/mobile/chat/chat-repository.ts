@@ -267,18 +267,47 @@ export async function getAlreadyPromptedIds(input: {
   };
 }
 
+function isLocalDateToday(iso: string | null | undefined) {
+  if (!iso) {
+    return true;
+  }
+  const target = new Date(iso);
+  if (Number.isNaN(target.getTime())) {
+    return true;
+  }
+  const now = new Date();
+  return (
+    target.getFullYear() === now.getFullYear() &&
+    target.getMonth() === now.getMonth() &&
+    target.getDate() === now.getDate()
+  );
+}
+
+export class PastSessionWriteError extends Error {
+  constructor() {
+    super("past chat session is read-only");
+    this.name = "PastSessionWriteError";
+  }
+}
+
 export async function ensureChatSession(input: {
   userId: string;
   sessionId: string;
   title: string;
 }) {
   const existingSessions = await supabaseSelect<
-    Array<{ id: string; title: string }>
+    Array<{ id: string; title: string; last_message_at: string | null }>
   >(
-    `chat_sessions?select=id,title&id=eq.${input.sessionId}&user_id=eq.${input.userId}&limit=1`,
+    `chat_sessions?select=id,title,last_message_at&id=eq.${input.sessionId}&user_id=eq.${input.userId}&limit=1`,
   );
 
-  if (!existingSessions[0]) {
+  const existingSession = existingSessions[0];
+
+  if (existingSession) {
+    if (!isLocalDateToday(existingSession.last_message_at)) {
+      throw new PastSessionWriteError();
+    }
+  } else {
     await supabaseInsert("chat_sessions", {
       id: input.sessionId,
       user_id: input.userId,

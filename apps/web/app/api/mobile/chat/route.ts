@@ -23,6 +23,7 @@ import {
   getAlreadyPromptedIds,
   getPromptContext,
   markOutstandingPromptEventsAnswered,
+  PastSessionWriteError,
   saveAssistantChatMessages,
   saveUserChatMessage,
   touchChatSessionActivity,
@@ -305,6 +306,15 @@ export async function POST(request: NextRequest) {
           error: error.message,
         },
         { status: 401 },
+      );
+    }
+    if (error instanceof PastSessionWriteError) {
+      return NextResponse.json(
+        {
+          error:
+            "지난 대화는 다시 읽어볼 수만 있어요. 새 대화는 오늘 채팅에서 이어가요.",
+        },
+        { status: 409 },
       );
     }
     return NextResponse.json(
