@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isPastConversationSession } from "./PatientConversationScreen.model.ts";
+import { isPastConversationSession } from "./patientConversationSessionStatus.model.ts";
 
 const now = new Date("2026-04-17T10:00:00+09:00");
 

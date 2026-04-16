@@ -130,7 +130,14 @@ export function PatientProfileScreen() {
         .catch((nextError) => {
           setError(resolvePatientProfileLoadError(nextError));
         });
-    }, [currentUser, homePort, isRestoringSession, profilePort, router, todayPort]),
+    }, [
+      currentUser,
+      homePort,
+      isRestoringSession,
+      profilePort,
+      router,
+      todayPort,
+    ]),
   );
 
   useEffect(() => {
@@ -228,20 +235,18 @@ export function PatientProfileScreen() {
     router.navigate("/(tabs)/today");
   }
 
-  async function openConversationSession(sessionId: string) {
+  function openConversationSession(sessionId: string) {
     setRecordDayError(null);
+    closeCalendarDayModal();
+    router.push(`/chat/${sessionId}`);
 
-    try {
-      await prefetchConversationSession({
-        sessionId,
-        getSession: chatPort.getSession.bind(chatPort),
-        replaceSession,
-      });
-      closeCalendarDayModal();
-      router.push(`/chat/${sessionId}`);
-    } catch (error: unknown) {
-      setRecordDayError(resolvePatientConversationLoadError(error));
-    }
+    void prefetchConversationSession({
+      sessionId,
+      getSession: chatPort.getSession.bind(chatPort),
+      replaceSession,
+    }).catch(() => {
+      // 채팅 화면 자체가 loadSessionDetail 로 재시도하므로 여기선 조용히 실패
+    });
   }
 
   const calendarModel = useMemo(
