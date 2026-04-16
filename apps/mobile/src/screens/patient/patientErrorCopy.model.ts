@@ -1,4 +1,4 @@
-import { DEFAULT_CONTENT_EMPTY } from "./view-models/patient-copy";
+import { DEFAULT_CONTENT_EMPTY } from "./view-models/patient-copy.ts";
 
 const SESSION_EXPIRED_MESSAGE = "세션이 만료되었어요. 다시 로그인해주세요.";
 const PROFILE_LOAD_ERROR = "내 정보를 불러오지 못했어요.";

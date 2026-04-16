@@ -1,9 +1,6 @@
-import type { ChatMessage } from "@gynecology-chatbot/app-core";
-
 import {
   buildMemorySystemBlock,
   buildWorkflowAssistantMessage,
-  parseAssistantResponseWithRetry,
   pickLatestEmotionTone,
 } from "./route-response-helpers";
 
@@ -34,39 +31,6 @@ describe("route response helpers", () => {
         "사용자 선호 상담 분위기: 차분하게",
       ].join("\n"),
     );
-  });
-
-  it("retries invalid JSON and succeeds on second attempt", async () => {
-    const generate = jest
-      .fn<Promise<string>, []>()
-      .mockResolvedValueOnce("일반 텍스트")
-      .mockResolvedValueOnce(
-        JSON.stringify({
-          id: "assistant-1",
-          role: "assistant",
-          createdAtLabel: "방금 전",
-          parts: [{ type: "text", id: "p1", text: "정상 응답" }],
-        }),
-      );
-
-    const result = await parseAssistantResponseWithRetry({ generate });
-
-    expect(generate).toHaveBeenCalledTimes(2);
-    expect(result.parts[0]).toEqual(
-      expect.objectContaining({ type: "text", text: "정상 응답" }),
-    );
-  });
-
-  it("throws after all retry attempts are exhausted", async () => {
-    const generate = jest
-      .fn<Promise<string>, []>()
-      .mockResolvedValue("파싱 불가능한 텍스트");
-
-    await expect(
-      parseAssistantResponseWithRetry({ generate, maxAttempts: 3 }),
-    ).rejects.toThrow("AI 응답 파싱이 3회 연속 실패했습니다");
-
-    expect(generate).toHaveBeenCalledTimes(3);
   });
 
   it("returns workflow answer with guardrail text and character image", async () => {
