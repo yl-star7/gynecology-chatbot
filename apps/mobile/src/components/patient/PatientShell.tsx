@@ -174,9 +174,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: surface.surfacePrimary,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: surface.strokeSubtle,
+    backgroundColor: "transparent",
   },
   profileButtonLabel: {
     ...typo.label,

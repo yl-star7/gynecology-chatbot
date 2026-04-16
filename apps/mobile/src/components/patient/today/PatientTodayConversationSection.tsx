@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   recentSessionCard: {
     gap: space.xs,
     borderRadius: radii.lg,
-    backgroundColor: surface.surfaceSecondary,
+    backgroundColor: surface.pageBackground,
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
   },
