@@ -25,17 +25,7 @@ export function buildTabsScreenOptions(colors: {
     ...HIDDEN_HEADER_SCREEN_OPTIONS,
     tabBarActiveTintColor: colors.accent,
     tabBarInactiveTintColor: colors.subInk,
-    tabBarStyle: {
-      backgroundColor: colors.card,
-      borderTopWidth: 0,
-      borderTopColor: "transparent",
-      height: space.xxxl * 2 + space.md,
-      paddingTop: space.xs,
-      paddingBottom: space.lg,
-      elevation: 0,
-      shadowOpacity: 0,
-      shadowColor: "transparent",
-    },
+    tabBarStyle: { display: "none" },
     tabBarLabelStyle: {
       fontSize: 12,
       fontWeight: "600",

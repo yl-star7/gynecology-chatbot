@@ -38,7 +38,6 @@ export function PatientTodayScreen() {
       title="오늘,우리"
       pageTone="plain"
       headerCompact
-      showProfileButton={false}
     >
       <KeyboardAvoidingView
         style={styles.flex}
