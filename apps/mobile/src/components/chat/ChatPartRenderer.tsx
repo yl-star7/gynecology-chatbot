@@ -336,6 +336,7 @@ export function ChatPartRenderer({
 // ─── Constants ────────────────────────────────────────────
 
 const CAROUSEL_CARD_WIDTH = 240;
+const CHAT_IMAGE_WIDTH = space.xxxl * 5;
 
 // ─── Styles ───────────────────────────────────────────────
 
@@ -357,10 +358,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   image: {
-    width: "100%",
+    width: CHAT_IMAGE_WIDTH,
+    maxWidth: "100%",
     height: 280,
     borderRadius: radii.lg,
     backgroundColor: surface.surfaceSecondary,
+    alignSelf: "stretch",
   },
   imageCaption: {
     ...typo.caption,

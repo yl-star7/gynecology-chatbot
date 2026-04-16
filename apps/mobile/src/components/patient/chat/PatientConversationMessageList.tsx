@@ -18,6 +18,8 @@ const EMPTY_STATE_QUICK_REPLIES = [
   { id: "mood", label: "마음이 불안해요", message: "괜히 마음이 불안한데 괜찮을까요?" },
 ];
 
+const CHAT_IMAGE_WIDTH = space.xxxl * 5;
+
 export function PatientConversationMessageList({
   scrollViewRef,
   messages,
@@ -218,9 +220,11 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   userBubbleImage: {
-    width: "100%",
+    width: CHAT_IMAGE_WIDTH,
+    maxWidth: "100%",
     height: 160,
     borderRadius: radii.lg,
+    alignSelf: "stretch",
   },
   assistantColumn: {
     alignItems: "flex-start",
