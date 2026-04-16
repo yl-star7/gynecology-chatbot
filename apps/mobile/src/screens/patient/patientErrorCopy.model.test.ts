@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   resolvePatientContentLoadError,
+  resolvePatientConversationLoadError,
   resolvePatientConversationSendError,
   resolvePatientProfileLoadError,
   resolvePatientRecordDayLoadError,
@@ -53,5 +54,19 @@ test("patient conversation send error keeps 429 guidance but hides other raw det
   assert.equal(
     resolvePatientConversationSendError(new Error("socket hang up")),
     "메시지를 보내지 못했어요. 다시 시도해주세요.",
+  );
+});
+
+test("patient conversation load error distinguishes missing sessions", () => {
+  assert.equal(
+    resolvePatientConversationLoadError(new Error("session not found")),
+    "대화를 찾지 못했어요. 다른 상담을 선택해 주세요.",
+  );
+});
+
+test("patient conversation load error hides raw backend messages", () => {
+  assert.equal(
+    resolvePatientConversationLoadError(new Error("database failed")),
+    "대화를 불러오지 못했어요. 잠시 후 다시 시도해주세요.",
   );
 });

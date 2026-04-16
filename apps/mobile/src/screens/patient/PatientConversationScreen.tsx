@@ -35,8 +35,11 @@ export function PatientConversationScreen({
             scrollViewRef={model.handleScrollViewRef}
             messages={model.session.messages}
             isSending={model.isSending}
+            isLoadingSessionDetail={model.isLoadingSessionDetail}
+            sessionLoadErrorMessage={model.sessionLoadErrorMessage}
             scrollBottomPadding={model.scrollBottomPadding}
             onQuickReplySelect={model.handleQuickReply}
+            onRetrySessionLoad={model.handleRetrySessionLoad}
             onSurveyAnswer={model.handleSurveyAnswer}
             surveySaveErrorText={resolvePatientSurveySaveError(new Error())}
             onDeepLinkPress={model.handleDeepLink}

@@ -1,5 +1,5 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText, tool, stepCountIs } from "ai";
+import { generateText, tool, stepCountIs, output } from "ai";
 import { z } from "zod";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -36,7 +36,7 @@ import {
   ProfileMemoryPayload,
   SessionMemoryPayload,
 } from "@/lib/mobile/chat/workflow-payload";
-import { parseAssistantResponseWithRetry } from "@/lib/mobile/chat/responders/route-response-helpers";
+import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
 import {
   isMobileSessionError,
   requireMobileSession,

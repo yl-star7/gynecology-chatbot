@@ -12,6 +12,10 @@ const SURVEY_SAVE_ERROR = "설문 답변을 저장하지 못했어요.";
 const CONVERSATION_RATE_LIMIT_ERROR =
   "잠시 쉬어 가요. 조금 뒤에 다시 이야기해요.";
 const CONVERSATION_SEND_ERROR = "메시지를 보내지 못했어요. 다시 시도해주세요.";
+const CONVERSATION_LOAD_NOT_FOUND_ERROR =
+  "대화를 찾지 못했어요. 다른 상담을 선택해 주세요.";
+const CONVERSATION_LOAD_ERROR =
+  "대화를 불러오지 못했어요. 잠시 후 다시 시도해주세요.";
 
 function readErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "";
@@ -66,4 +70,13 @@ export function resolvePatientConversationSendError(error: unknown) {
   if (message.includes("429")) return CONVERSATION_RATE_LIMIT_ERROR;
   if (message.includes("세션이 만료되었어요")) return SESSION_EXPIRED_MESSAGE;
   return CONVERSATION_SEND_ERROR;
+}
+
+export function resolvePatientConversationLoadError(error: unknown) {
+  const message = readErrorMessage(error);
+  if (message.includes("세션이 만료되었어요")) return SESSION_EXPIRED_MESSAGE;
+  if (message.toLowerCase().includes("not found")) {
+    return CONVERSATION_LOAD_NOT_FOUND_ERROR;
+  }
+  return CONVERSATION_LOAD_ERROR;
 }

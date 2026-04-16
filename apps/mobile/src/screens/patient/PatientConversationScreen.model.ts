@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { hasFreshCachedChatSession } from "../../core/patientViewCache";
@@ -13,7 +13,10 @@ import {
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
 import { space } from "../../theme";
-import { resolvePatientConversationSendError } from "./patientErrorCopy.model";
+import {
+  resolvePatientConversationLoadError,
+  resolvePatientConversationSendError,
+} from "./patientErrorCopy.model";
 
 function createSessionId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
@@ -78,6 +81,10 @@ export function usePatientConversationScreenModel({
   const [isSending, setIsSending] = useState(false);
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isLoadingSessionDetail, setIsLoadingSessionDetail] = useState(false);
+  const [sessionLoadErrorMessage, setSessionLoadErrorMessage] = useState<
+    string | null
+  >(null);
   const [composerHeight, setComposerHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
@@ -99,16 +106,36 @@ export function usePatientConversationScreenModel({
     };
   }, []);
 
-  useEffect(() => {
+  const loadSessionDetail = useCallback(async () => {
     if (isNewConversationSession(sessionId) || !currentUser) {
       return;
     }
 
+    setIsLoadingSessionDetail(true);
+    setSessionLoadErrorMessage(null);
+
+    try {
+      const nextSession = await services.chatPort.getSession(resolvedSessionId);
+      replaceSession(resolvedSessionId, nextSession);
+    } catch (error: unknown) {
+      setSessionLoadErrorMessage(resolvePatientConversationLoadError(error));
+    } finally {
+      setIsLoadingSessionDetail(false);
+    }
+  }, [currentUser, replaceSession, resolvedSessionId, services, sessionId]);
+
+  useEffect(() => {
+    if (isNewConversationSession(sessionId) || !currentUser) {
+      setIsLoadingSessionDetail(false);
+      setSessionLoadErrorMessage(null);
+      return;
+    }
+
     if (!hasFreshCachedChatSession(currentUser.id, resolvedSessionId)) {
-      services.chatPort
-        .getSession(resolvedSessionId)
-        .then((nextSession) => replaceSession(resolvedSessionId, nextSession))
-        .catch(() => undefined);
+      void loadSessionDetail();
+    } else {
+      setIsLoadingSessionDetail(false);
+      setSessionLoadErrorMessage(null);
     }
 
     const subscription = AppState.addEventListener("change", (nextState) => {
@@ -116,14 +143,11 @@ export function usePatientConversationScreenModel({
         return;
       }
 
-      services.chatPort
-        .getSession(resolvedSessionId)
-        .then((nextSession) => replaceSession(resolvedSessionId, nextSession))
-        .catch(() => undefined);
+      void loadSessionDetail();
     });
 
     return () => subscription.remove();
-  }, [currentUser, replaceSession, resolvedSessionId, services, sessionId]);
+  }, [currentUser, loadSessionDetail, resolvedSessionId, sessionId]);
 
   useEffect(() => {
     if (session.messages.length === 0 && !isSending) {
@@ -214,6 +238,8 @@ export function usePatientConversationScreenModel({
     text,
     setText,
     isSending,
+    isLoadingSessionDetail,
+    sessionLoadErrorMessage,
     imageDataUri,
     setImageDataUri,
     errorMessage,
@@ -221,6 +247,7 @@ export function usePatientConversationScreenModel({
     isKeyboardVisible,
     scrollBottomPadding: composerHeight + space.md,
     handleSend,
+    handleRetrySessionLoad: loadSessionDetail,
     handleQuickReply,
     handleSurveyAnswer,
     handleDeepLink,

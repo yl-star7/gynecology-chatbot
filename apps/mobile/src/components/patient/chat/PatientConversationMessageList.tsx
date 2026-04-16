@@ -10,6 +10,7 @@ import {
   space,
   typo,
 } from "../../../theme";
+import { resolveConversationMessageListState } from "./PatientConversationMessageList.model";
 
 const EMPTY_STATE_QUICK_REPLIES = [
   {
@@ -36,8 +37,11 @@ export function PatientConversationMessageList({
   scrollViewRef,
   messages,
   isSending,
+  isLoadingSessionDetail,
+  sessionLoadErrorMessage,
   scrollBottomPadding,
   onQuickReplySelect,
+  onRetrySessionLoad,
   onSurveyAnswer,
   surveySaveErrorText,
   onDeepLinkPress,
@@ -45,12 +49,21 @@ export function PatientConversationMessageList({
   scrollViewRef: (instance: ScrollView | null) => void;
   messages: ChatMessage[];
   isSending: boolean;
+  isLoadingSessionDetail: boolean;
+  sessionLoadErrorMessage: string | null;
   scrollBottomPadding: number;
   onQuickReplySelect: (message: string) => void;
+  onRetrySessionLoad: () => void;
   onSurveyAnswer: (surveyId: string, choiceId: string) => Promise<boolean>;
   surveySaveErrorText: string;
   onDeepLinkPress: (target: string, entityId?: string) => void;
 }) {
+  const listState = resolveConversationMessageListState({
+    messagesLength: messages.length,
+    isLoadingSessionDetail,
+    sessionLoadErrorMessage,
+  });
+
   return (
     <ScrollView
       ref={scrollViewRef}
@@ -61,7 +74,33 @@ export function PatientConversationMessageList({
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {messages.length === 0 ? (
+      {listState === "loading" ? (
+        <View style={styles.stateContent}>
+          <NurseCharacter size="md" />
+          <Text style={styles.stateTitle}>대화를 불러오고 있어요</Text>
+          <Text style={styles.subtitle}>잠시만 기다려주세요.</Text>
+        </View>
+      ) : null}
+
+      {listState === "error" ? (
+        <View style={styles.stateContent}>
+          <NurseCharacter size="md" />
+          <Text style={styles.stateTitle}>
+            {sessionLoadErrorMessage ?? "대화를 불러오지 못했어요."}
+          </Text>
+          <Text style={styles.subtitle}>잠시 후 다시 확인해 주세요.</Text>
+          <Pressable
+            style={styles.retryButton}
+            onPress={onRetrySessionLoad}
+            accessibilityRole="button"
+            accessibilityLabel="대화 다시 불러오기"
+          >
+            <Text style={styles.retryButtonLabel}>다시 불러오기</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {listState === "empty" ? (
         <View style={styles.emptyStateContent}>
           <View style={styles.heroSection}>
             <NurseCharacter size="md" />
@@ -86,7 +125,9 @@ export function PatientConversationMessageList({
             </View>
           </View>
         </View>
-      ) : (
+      ) : null}
+
+      {listState === "messages" ? (
         <View style={styles.threadedContent}>
           <View style={styles.messageList}>
             {messages.map((message) => {
@@ -155,7 +196,7 @@ export function PatientConversationMessageList({
             ) : null}
           </View>
         </View>
-      )}
+      ) : null}
     </ScrollView>
   );
 }
@@ -182,6 +223,31 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typo.body,
     color: surface.textSecondary,
+    textAlign: "center",
+  },
+  stateContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    paddingBottom: space.xl,
+  },
+  stateTitle: {
+    ...typo.titleSm,
+    color: surface.textPrimary,
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: space.xs,
+    borderRadius: radii.lg,
+    backgroundColor: palette.accent,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.xl,
+  },
+  retryButtonLabel: {
+    ...typo.button,
+    color: surface.surfacePrimary,
     textAlign: "center",
   },
   quickRepliesWrapper: {
