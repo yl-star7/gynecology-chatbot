@@ -77,42 +77,6 @@ export function buildMemorySystemBlock(input: {
     .join("\n");
 }
 
-export function buildFallbackReply(input: {
-  text: string;
-  hasImages: boolean;
-  pregnancyWeek?: number | null;
-  ragSummary?: string;
-}): ChatMessage {
-  const guidance = [
-    input.pregnancyWeek
-      ? `현재 ${input.pregnancyWeek}주차 기준으로 우선 안내드릴게요.`
-      : null,
-    input.text ? `문의하신 내용은 "${input.text}"입니다.` : null,
-    input.hasImages
-      ? "첨부 이미지는 저장되었고, 필요 시 진료 시점에 함께 보여주실 수 있습니다."
-      : null,
-    input.ragSummary && input.ragSummary !== "검색된 임신 주차 문서 없음"
-      ? input.ragSummary.split("\n").slice(0, 5).join(" ")
-      : null,
-    "증상이 심해지거나 출혈, 극심한 통증, 호흡곤란처럼 응급 신호가 있으면 바로 의료진 진료를 권합니다.",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return {
-    id: `assistant-${Date.now()}`,
-    role: "assistant",
-    createdAtLabel: "방금 전",
-    parts: [
-      {
-        type: "text",
-        id: `text-${Date.now()}`,
-        text: guidance || "질문이 접수됐어요. 잠시 후 다시 시도해주세요.",
-      },
-    ],
-  };
-}
-
 function createCharacterImageUrl(
   tone: CharacterTone,
   customImageUrl?: string | null,
@@ -277,21 +241,23 @@ function parseAssistantResponse(rawText: string): ChatMessage {
   };
 }
 
-export async function parseAssistantResponseWithSingleRetry(input: {
+export async function parseAssistantResponseWithRetry(input: {
   generate: () => Promise<string>;
-  buildFallback: () => ChatMessage;
+  maxAttempts?: number;
 }) {
-  const firstResponseText = await input.generate();
+  const maxAttempts = input.maxAttempts ?? 3;
+  let lastError: unknown;
 
-  try {
-    return parseAssistantResponse(firstResponseText);
-  } catch {
-    const retryResponseText = await input.generate();
-
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const responseText = await input.generate();
     try {
-      return parseAssistantResponse(retryResponseText);
-    } catch {
-      return input.buildFallback();
+      return parseAssistantResponse(responseText);
+    } catch (err) {
+      lastError = err;
     }
   }
+
+  throw new Error(
+    `AI 응답 파싱이 ${maxAttempts}회 연속 실패했습니다: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+  );
 }

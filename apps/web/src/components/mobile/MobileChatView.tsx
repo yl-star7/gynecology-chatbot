@@ -136,7 +136,9 @@ function renderMessagePart(
     return (
       <div key={part.id} className="grid gap-2">
         {part.title ? (
-          <p className="text-sm font-semibold text-[var(--text)]">{part.title}</p>
+          <p className="text-sm font-semibold text-[var(--text)]">
+            {part.title}
+          </p>
         ) : null}
         <div className="flex flex-wrap gap-2">
           {part.choices.map((choice) => (
@@ -144,7 +146,7 @@ function renderMessagePart(
               key={choice.id}
               type="button"
               onClick={() => onQuickReplySelect(choice.message)}
-              className="rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
+              className="max-w-full whitespace-normal break-keep rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
             >
               {choice.label}
             </button>
@@ -210,8 +212,14 @@ function renderMessagePart(
       key={fallback.id ?? "unknown"}
       className="rounded-[18px] border border-[var(--line)] bg-[var(--panel-muted)] p-4"
     >
-      {fallback.title ? <p className="font-medium text-[var(--text)]">{fallback.title}</p> : null}
-      {fallback.body ? <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">{fallback.body}</p> : null}
+      {fallback.title ? (
+        <p className="font-medium text-[var(--text)]">{fallback.title}</p>
+      ) : null}
+      {fallback.body ? (
+        <p className="mt-1 text-sm leading-6 text-[var(--text-soft)]">
+          {fallback.body}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -330,70 +338,76 @@ export function MobileChatView({
     [],
   );
 
-  const handleSend = useCallback(async (prefilledText?: string) => {
-    if (!resolvedUserId) {
-      return;
-    }
-
-    const nextText = (prefilledText ?? text).trim();
-
-    if (!nextText && !imageDataUrl) {
-      return;
-    }
-
-    const draftMessage = createDraftMessage(nextText, imageDataUrl ?? undefined);
-    const draftMessageId = draftMessage.id;
-    setMessages((current) => [...current, draftMessage]);
-    setSessionTitle((current) =>
-      current === "새 채팅" && nextText ? nextText.slice(0, 24) : current,
-    );
-    setIsSending(true);
-    setError(null);
-
-    try {
-      const payload = await sendChatMessage({
-        userId: resolvedUserId,
-        sessionId: resolvedSessionId,
-        text: nextText,
-        imageDataUris: imageDataUrl ? [imageDataUrl] : [],
-      });
-
-      if (payload.sessionId && payload.sessionId !== resolvedSessionId) {
-        setResolvedSessionId(payload.sessionId);
+  const handleSend = useCallback(
+    async (prefilledText?: string) => {
+      if (!resolvedUserId) {
+        return;
       }
 
-      setMessages((current) =>
-        current.map((message) =>
-          message.id === draftMessageId
-            ? { ...message, createdAtLabel: "방금 전" }
-            : message,
-        ),
+      const nextText = (prefilledText ?? text).trim();
+
+      if (!nextText && !imageDataUrl) {
+        return;
+      }
+
+      const draftMessage = createDraftMessage(
+        nextText,
+        imageDataUrl ?? undefined,
       );
-      setMessages((current) => [
-        ...current,
-        ...(payload.assistantMessages ?? [payload.assistantMessage]),
-      ]);
-      setText("");
-      setImageDataUrl(null);
-      const nextSessions = await fetchSessions(resolvedUserId);
-      setRecentSessions(nextSessions.sessions.slice(0, 12));
-    } catch (nextError) {
-      setMessages((current) =>
-        current.map((message) =>
-          message.id === draftMessageId
-            ? { ...message, createdAtLabel: "전송 실패" }
-            : message,
-        ),
+      const draftMessageId = draftMessage.id;
+      setMessages((current) => [...current, draftMessage]);
+      setSessionTitle((current) =>
+        current === "새 채팅" && nextText ? nextText.slice(0, 24) : current,
       );
-      setError(
-        nextError instanceof Error
-          ? nextError.message
-          : "메시지를 보내지 못했어요.",
-      );
-    } finally {
-      setIsSending(false);
-    }
-  }, [imageDataUrl, resolvedSessionId, resolvedUserId, text]);
+      setIsSending(true);
+      setError(null);
+
+      try {
+        const payload = await sendChatMessage({
+          userId: resolvedUserId,
+          sessionId: resolvedSessionId,
+          text: nextText,
+          imageDataUris: imageDataUrl ? [imageDataUrl] : [],
+        });
+
+        if (payload.sessionId && payload.sessionId !== resolvedSessionId) {
+          setResolvedSessionId(payload.sessionId);
+        }
+
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === draftMessageId
+              ? { ...message, createdAtLabel: "방금 전" }
+              : message,
+          ),
+        );
+        setMessages((current) => [
+          ...current,
+          ...(payload.assistantMessages ?? [payload.assistantMessage]),
+        ]);
+        setText("");
+        setImageDataUrl(null);
+        const nextSessions = await fetchSessions(resolvedUserId);
+        setRecentSessions(nextSessions.sessions.slice(0, 12));
+      } catch (nextError) {
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === draftMessageId
+              ? { ...message, createdAtLabel: "전송 실패" }
+              : message,
+          ),
+        );
+        setError(
+          nextError instanceof Error
+            ? nextError.message
+            : "메시지를 보내지 못했어요.",
+        );
+      } finally {
+        setIsSending(false);
+      }
+    },
+    [imageDataUrl, resolvedSessionId, resolvedUserId, text],
+  );
 
   const handlePromptSelect = useCallback((prompt: string) => {
     setText((current) => (current.trim() ? `${current}\n${prompt}` : prompt));

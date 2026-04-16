@@ -161,7 +161,10 @@ function SurveyPartView({
               style={({ pressed }) => [
                 styles.surveyChoice,
                 isSelected && styles.surveyChoiceSelected,
-                pressed && !selectedId && !isSaving && styles.surveyChoicePressed,
+                pressed &&
+                  !selectedId &&
+                  !isSaving &&
+                  styles.surveyChoicePressed,
               ]}
               onPress={() => handlePress(choice.id)}
               accessibilityRole="button"
@@ -181,7 +184,9 @@ function SurveyPartView({
           );
         })}
       </View>
-      {errorText ? <Text style={styles.surveyErrorText}>{errorText}</Text> : null}
+      {errorText ? (
+        <Text style={styles.surveyErrorText}>{errorText}</Text>
+      ) : null}
     </View>
   );
 }
@@ -483,6 +488,7 @@ const styles = StyleSheet.create({
     borderColor: palette.accent,
     paddingVertical: space.sm,
     paddingHorizontal: space.lg,
+    maxWidth: "100%",
   },
   quickReplyPillPressed: {
     backgroundColor: surface.surfaceAccent,
@@ -492,6 +498,7 @@ const styles = StyleSheet.create({
     ...typo.caption,
     color: palette.accent,
     fontWeight: "600",
+    flexShrink: 1,
   },
 
   // DeepLinkPart

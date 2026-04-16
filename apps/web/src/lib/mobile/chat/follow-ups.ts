@@ -21,11 +21,14 @@ export type PromptFollowUpResult = {
   selectedQuestions: QuestionRow[];
 };
 
-function buildQuickReplyChoices(input: { baseId: string; options: string[] }) {
+function buildQuickReplyChoices(input: {
+  baseId: string;
+  options: Array<string | { label: string; message: string }>;
+}) {
   return input.options.slice(0, 4).map((option, index) => ({
     id: `${input.baseId}-choice-${index + 1}`,
-    label: option,
-    message: option,
+    label: typeof option === "string" ? option : option.label,
+    message: typeof option === "string" ? option : option.message,
   }));
 }
 
@@ -132,9 +135,18 @@ export function buildPromptFollowUpMessages(input: {
             choices: buildQuickReplyChoices({
               baseId: checklist.id,
               options: [
-                `${cleanTitle} 했어요`,
-                `${cleanTitle} 아직 못 했어요`,
-                `${cleanTitle} 더 설명해 주세요`,
+                {
+                  label: "했어요",
+                  message: `${cleanTitle} 했어요`,
+                },
+                {
+                  label: "아직 못 했어요",
+                  message: `${cleanTitle} 아직 못 했어요`,
+                },
+                {
+                  label: "설명해 주세요",
+                  message: `${cleanTitle} 더 설명해 주세요`,
+                },
               ],
             }),
           },

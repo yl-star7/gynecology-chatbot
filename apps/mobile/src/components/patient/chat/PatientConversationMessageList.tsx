@@ -207,11 +207,13 @@ const styles = StyleSheet.create({
     backgroundColor: surface.surfacePrimary,
     paddingVertical: space.sm,
     paddingHorizontal: space.lg,
+    maxWidth: "100%",
   },
   quickReplyLabel: {
     ...typo.caption,
     color: palette.accent,
     fontWeight: "600",
+    flexShrink: 1,
   },
   threadedContent: {
     flexGrow: 1,

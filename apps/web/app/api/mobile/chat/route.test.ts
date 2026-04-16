@@ -366,6 +366,58 @@ describe("chat pure helpers", () => {
       }),
     );
   });
+
+  it("uses short quick reply labels and full checklist messages", () => {
+    const followUp = buildPromptFollowUpMessages({
+      week: {
+        id: "week-13",
+        week_number: 13,
+        title: "13주차",
+        baby_summary: null,
+        mother_summary: null,
+        warning_signs: null,
+        recommended_actions: null,
+        checklist_intro: "오늘 할 일",
+        question_intro: "생각해볼 질문",
+        status: "published",
+      },
+      dayContent: null,
+      checklists: [
+        {
+          id: "check-1",
+          code: "lie-down-left",
+          title: "왼쪽으로 누워서 10분 쉬기",
+          description: null,
+          checklist_payload: null,
+          display_order: 1,
+          is_required: true,
+        },
+      ],
+      questions: [],
+    });
+
+    expect(followUp.selectedQuestions).toHaveLength(0);
+    expect(followUp.selectedChecklists).toHaveLength(1);
+    expect(followUp.messages[0]?.parts[1]).toEqual(
+      expect.objectContaining({
+        type: "quickReplies",
+        choices: [
+          expect.objectContaining({
+            label: "했어요",
+            message: "왼쪽으로 누워서 10분 쉬기 했어요",
+          }),
+          expect.objectContaining({
+            label: "아직 못 했어요",
+            message: "왼쪽으로 누워서 10분 쉬기 아직 못 했어요",
+          }),
+          expect.objectContaining({
+            label: "설명해 주세요",
+            message: "왼쪽으로 누워서 10분 쉬기 더 설명해 주세요",
+          }),
+        ],
+      }),
+    );
+  });
 });
 
 describe("POST /api/mobile/chat", () => {

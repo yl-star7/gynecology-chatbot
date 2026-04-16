@@ -76,7 +76,7 @@ function renderPart(
               key={choice.id}
               type="button"
               onClick={() => onQuickReply?.(choice.message)}
-              className="rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
+              className="max-w-full whitespace-normal break-keep rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
             >
               {choice.label}
             </button>
