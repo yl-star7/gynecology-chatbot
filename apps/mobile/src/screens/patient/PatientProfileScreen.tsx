@@ -45,7 +45,6 @@ import {
   buildProfileInfoCards,
 } from "./PatientProfileScreen.model";
 import {
-  resolvePatientConversationLoadError,
   resolvePatientProfileLoadError,
   resolvePatientRecordDayLoadError,
 } from "./patientErrorCopy.model";

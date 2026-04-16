@@ -10,10 +10,7 @@ import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
 import { createRecordDayActions } from "./PatientRecordDayScreen.model";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
-import {
-  resolvePatientConversationLoadError,
-  resolvePatientRecordDayLoadError,
-} from "./patientErrorCopy.model";
+import { resolvePatientRecordDayLoadError } from "./patientErrorCopy.model";
 import { prefetchConversationSession } from "./patientConversationNavigation.model";
 import {
   palette,
@@ -69,19 +66,17 @@ export function PatientRecordDayScreen({
     topSpacing: space.md,
   });
 
-  async function openConversationSession(sessionId: string) {
+  function openConversationSession(sessionId: string) {
     setError(null);
+    router.push(`/chat/${sessionId}`);
 
-    try {
-      await prefetchConversationSession({
-        sessionId,
-        getSession: chatPort.getSession.bind(chatPort),
-        replaceSession,
-      });
-      router.push(`/chat/${sessionId}`);
-    } catch (nextError: unknown) {
-      setError(resolvePatientConversationLoadError(nextError));
-    }
+    void prefetchConversationSession({
+      sessionId,
+      getSession: chatPort.getSession.bind(chatPort),
+      replaceSession,
+    }).catch(() => {
+      // 채팅 화면 자체가 loadSessionDetail 로 재시도하므로 여기선 조용히 실패
+    });
   }
 
   useEffect(() => {
