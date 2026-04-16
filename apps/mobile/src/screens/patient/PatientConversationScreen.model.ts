@@ -58,6 +58,30 @@ function isNewConversationSession(sessionId: string) {
   return sessionId === "new" || sessionId === "heart-talk";
 }
 
+function toLocalDateKey(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+export function isPastConversationSession(
+  lastMessageAtIso: string | null | undefined,
+  now: Date = new Date(),
+) {
+  if (!lastMessageAtIso) {
+    return false;
+  }
+
+  const lastDate = new Date(lastMessageAtIso);
+  if (Number.isNaN(lastDate.getTime())) {
+    return false;
+  }
+
+  return toLocalDateKey(lastDate) !== toLocalDateKey(now);
+}
+
 export function usePatientConversationScreenModel({
   sessionId,
 }: {
@@ -161,9 +185,13 @@ export function usePatientConversationScreenModel({
     return () => clearTimeout(timer);
   }, [isSending, session.messages.length]);
 
+  const isReadOnly =
+    !isNewConversationSession(sessionId) &&
+    isPastConversationSession(session.lastMessageAtIso);
+
   async function handleSend(overrideText?: string) {
     const nextText = (overrideText ?? text).trim();
-    if (!nextText || isSending) {
+    if (!nextText || isSending || isReadOnly) {
       return;
     }
 
@@ -233,6 +261,7 @@ export function usePatientConversationScreenModel({
   return {
     session,
     resolvedSessionId,
+    isReadOnly,
     scrollViewRef,
     handleScrollViewRef,
     text,

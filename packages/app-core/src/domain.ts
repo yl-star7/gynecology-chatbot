@@ -168,6 +168,7 @@ export interface ChatSession {
   id: string;
   title: string;
   messages: ChatMessage[];
+  lastMessageAtIso?: string | null;
 }
 
 export interface ChatComposerInput {

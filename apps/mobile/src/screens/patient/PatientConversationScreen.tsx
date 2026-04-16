@@ -49,6 +49,7 @@ export function PatientConversationScreen({
             text={model.text}
             onChangeText={model.setText}
             isSending={model.isSending}
+            isReadOnly={model.isReadOnly}
             imageDataUri={model.imageDataUri}
             onImageSelected={model.setImageDataUri}
             onRemoveImage={() => model.setImageDataUri(null)}
@@ -62,7 +63,6 @@ export function PatientConversationScreen({
               model.isKeyboardVisible ? space.xs : insets.bottom + space.xs
             }
           />
-
         </View>
       </KeyboardAvoidingView>
     </PatientShell>

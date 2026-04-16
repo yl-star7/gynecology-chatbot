@@ -223,9 +223,10 @@ export function toRecentChats(sessions: SessionRow[]): RecentChatSummary[] {
   return sessions.map((session) => ({
     id: session.id,
     title: session.title,
-    preview: resolveRecentChatPreview({
-      plainText: session.last_message_preview,
-    }) || "",
+    preview:
+      resolveRecentChatPreview({
+        plainText: session.last_message_preview,
+      }) || "",
     updatedAtLabel: formatRecentChatLabel(session.last_message_at),
     updatedAtIso: session.last_message_at,
   }));
@@ -235,9 +236,13 @@ export function toChatSession(
   session: SessionRow,
   messages: MessageRow[],
 ): ChatSession {
+  const fallbackLastMessageAt =
+    messages.length > 0 ? messages[messages.length - 1].created_at : null;
+
   return {
     id: session.id,
     title: session.title,
+    lastMessageAtIso: session.last_message_at ?? fallbackLastMessageAt,
     messages: messages.map((message) => ({
       id: message.id,
       role: message.role === "system" ? "assistant" : message.role,
