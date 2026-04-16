@@ -38,17 +38,7 @@ WHERE uqe.status = 'answered' AND uqe.answered_at IS NOT NULL
 
 UNION ALL
 
--- 4) 감정 체크인
-SELECT
-  el.user_id,
-  el.date,
-  'emotion' AS entry_type,
-  el.emotion_tone AS summary
-FROM public.emotion_logs el
-
-UNION ALL
-
--- 5) 기존 calendar_logs (ai_summary, today_info_view 등 cron 생성 데이터)
+-- 4) 기존 calendar_logs (ai_summary, today_info_view 등 cron 생성 데이터)
 SELECT
   cl.user_id,
   cl.date,
