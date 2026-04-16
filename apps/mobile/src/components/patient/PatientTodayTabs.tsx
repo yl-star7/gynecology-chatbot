@@ -49,8 +49,9 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     gap: space.xs,
-    backgroundColor: "transparent",
-    padding: 0,
+    backgroundColor: surface.surfaceSecondary,
+    borderRadius: radii.xxl,
+    padding: space.xs,
   },
   tab: {
     flex: 1,

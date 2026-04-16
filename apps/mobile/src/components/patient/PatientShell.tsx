@@ -10,6 +10,7 @@ import {
   palette,
   patientSurfacePalette as surface,
   radii,
+  shadows,
   space,
   typo,
 } from "../../theme";
@@ -174,7 +175,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "transparent",
+    backgroundColor: surface.surfacePrimary,
+    ...shadows.card,
   },
   profileButtonLabel: {
     ...typo.label,
