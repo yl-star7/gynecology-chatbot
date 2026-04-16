@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 2,
-    backgroundColor: surface.surfaceSecondary,
+    backgroundColor: "transparent",
   },
   tabActive: {
     backgroundColor: surface.surfaceAccent,

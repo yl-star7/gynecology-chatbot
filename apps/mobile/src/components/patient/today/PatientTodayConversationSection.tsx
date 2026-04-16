@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { Card, Pressable } from "../../ui";
+import { Pressable } from "../../ui";
 import {
   palette,
   patientSurfacePalette as surface,
@@ -24,7 +24,7 @@ export function PatientTodayConversationSection({
   onOpenRecentSession: (sessionId: string) => void;
 }) {
   return (
-    <Card style={[styles.segmentCard, styles.conversationLauncherCard]}>
+    <View style={[styles.segmentCard, styles.conversationLauncherSection]}>
       <View style={styles.conversationLauncherHeader}>
         <Text style={styles.sectionTitle}>{title}</Text>
         <Pressable
@@ -60,7 +60,7 @@ export function PatientTodayConversationSection({
           </Text>
         )}
       </View>
-    </Card>
+    </View>
   );
 }
 
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     gap: space.sm,
     padding: space.md,
   },
-  conversationLauncherCard: {
+  conversationLauncherSection: {
     gap: space.md,
   },
   conversationLauncherHeader: {
@@ -104,9 +104,9 @@ const styles = StyleSheet.create({
   recentSessionCard: {
     gap: space.xs,
     borderRadius: radii.lg,
-    backgroundColor: surface.pageBackground,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+    backgroundColor: "transparent",
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
   },
   recentSessionTitle: {
     ...typo.label,
