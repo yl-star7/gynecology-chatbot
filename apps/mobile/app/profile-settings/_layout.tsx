@@ -1,14 +1,11 @@
 // @ts-nocheck
 import { Stack } from "expo-router";
-import { buildNativeHeaderScreenOptions } from "../nativeHeaderOptions.model";
+import { HIDDEN_HEADER_SCREEN_OPTIONS } from "../detailStackOptions.model";
 
 export default function ProfileSettingsLayout() {
   return (
     <Stack>
-      <Stack.Screen
-        name="index"
-        options={buildNativeHeaderScreenOptions("설정")}
-      />
+      <Stack.Screen name="index" options={HIDDEN_HEADER_SCREEN_OPTIONS} />
     </Stack>
   );
 }

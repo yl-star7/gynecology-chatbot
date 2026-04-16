@@ -3,12 +3,11 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientProfileSettingsForm } from "../../components/patient/profile-settings/PatientProfileSettingsForm";
 import { PatientShell } from "../../components/patient/PatientShell";
-import { patientSurfacePalette as surface, space, typo } from "../../theme";
+import { space } from "../../theme";
 import { buildPatientScrollContentInsets } from "./patientScreenLayout.model";
 import { usePatientProfileSettingsScreenModel } from "./PatientProfileSettingsScreen.model";
 
@@ -47,10 +46,6 @@ export function PatientProfileSettingsScreen() {
           keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.helperText}>
-            필요한 정보만 편하게 바꿔보세요.
-          </Text>
-
           <PatientProfileSettingsForm
             babyNickname={model.babyNickname}
             dueDate={model.dueDate}
@@ -86,10 +81,5 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: space.lg,
-    gap: space.sm,
-  },
-  helperText: {
-    ...typo.body,
-    color: surface.textSecondary,
   },
 });
