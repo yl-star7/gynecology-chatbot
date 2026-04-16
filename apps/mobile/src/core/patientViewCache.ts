@@ -18,7 +18,7 @@ import {
 const VIEW_CACHE_TTL_MS = 60 * 1000;
 const PATIENT_VIEW_CACHE_VERSION = 1;
 const PATIENT_VIEW_CACHE_STORAGE_PREFIX = "phedy-mobile-patient-view-cache";
-const PATIENT_VIEW_CACHE_USERS_KEY = `${PATIENT_VIEW_CACHE_STORAGE_PREFIX}:users`;
+const PATIENT_VIEW_CACHE_USERS_KEY = `${PATIENT_VIEW_CACHE_STORAGE_PREFIX}-users`;
 
 type CacheEntry<T> = {
   value: T;
@@ -86,7 +86,7 @@ function createChatSessionCacheKey(userId: string, sessionId: string) {
 }
 
 function createPersistedPatientViewCacheKey(userId: string) {
-  return `${PATIENT_VIEW_CACHE_STORAGE_PREFIX}:${userId}`;
+  return `${PATIENT_VIEW_CACHE_STORAGE_PREFIX}-${userId}`;
 }
 
 function queuePersistedPatientViewCacheOperation(operation: () => Promise<void>) {

@@ -2,7 +2,7 @@ import * as SecureStore from "expo-secure-store";
 
 const MOBILE_SESSION_TOKEN_KEY = "phedy-mobile-session-token";
 const MOBILE_USER_ID_KEY = "phedy-mobile-user-id";
-const NATIVE_STORAGE_CHUNK_SIZE = 1500;
+const NATIVE_STORAGE_CHUNK_SIZE = 480;
 
 async function isNativeStorageAvailable() {
   return SecureStore.isAvailableAsync();
