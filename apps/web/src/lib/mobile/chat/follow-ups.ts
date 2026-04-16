@@ -140,12 +140,12 @@ export function buildPromptFollowUpMessages(input: {
                   message: `${cleanTitle} 했어요`,
                 },
                 {
-                  label: "아직 못 했어요",
-                  message: `${cleanTitle} 아직 못 했어요`,
+                  label: "안 했어요",
+                  message: `${cleanTitle} 안 했어요`,
                 },
                 {
-                  label: "설명해 주세요",
-                  message: `${cleanTitle} 더 설명해 주세요`,
+                  label: "왜 해야 하나요?",
+                  message: `${cleanTitle} 왜 해야 하나요?`,
                 },
               ],
             }),

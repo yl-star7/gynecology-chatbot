@@ -407,12 +407,12 @@ describe("chat pure helpers", () => {
             message: "왼쪽으로 누워서 10분 쉬기 했어요",
           }),
           expect.objectContaining({
-            label: "아직 못 했어요",
-            message: "왼쪽으로 누워서 10분 쉬기 아직 못 했어요",
+            label: "안 했어요",
+            message: "왼쪽으로 누워서 10분 쉬기 안 했어요",
           }),
           expect.objectContaining({
-            label: "설명해 주세요",
-            message: "왼쪽으로 누워서 10분 쉬기 더 설명해 주세요",
+            label: "왜 해야 하나요?",
+            message: "왼쪽으로 누워서 10분 쉬기 왜 해야 하나요?",
           }),
         ],
       }),
