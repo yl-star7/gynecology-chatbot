@@ -167,13 +167,6 @@ export function usePatientConversationScreenModel({
       return;
     }
 
-    if (
-      session.messages.length === 0 &&
-      (isLoadingSessionDetail || sessionLoadErrorMessage)
-    ) {
-      return;
-    }
-
     const capturedImage = imageDataUri;
     appendMessage(
       resolvedSessionId,
@@ -237,13 +230,6 @@ export function usePatientConversationScreenModel({
     }
   }
 
-  const shouldShowInitialSessionLoading =
-    !isNewConversationSession(sessionId) &&
-    !!currentUser &&
-    session.messages.length === 0 &&
-    !sessionLoadErrorMessage &&
-    !hasFreshCachedChatSession(currentUser.id, resolvedSessionId);
-
   return {
     session,
     resolvedSessionId,
@@ -252,8 +238,7 @@ export function usePatientConversationScreenModel({
     text,
     setText,
     isSending,
-    isLoadingSessionDetail:
-      isLoadingSessionDetail || shouldShowInitialSessionLoading,
+    isLoadingSessionDetail,
     sessionLoadErrorMessage,
     imageDataUri,
     setImageDataUri,

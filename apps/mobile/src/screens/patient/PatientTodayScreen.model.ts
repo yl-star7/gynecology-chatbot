@@ -7,6 +7,7 @@ import type {
 } from "@gynecology-chatbot/app-core";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
+import { useChatSessions } from "../../chat/store";
 import {
   cacheTodayView,
   hasFreshCachedRecentChats,
@@ -16,6 +17,8 @@ import {
   readCachedRecordDayView,
   readCachedTodayView,
 } from "../../core/patientViewCache";
+import { prefetchConversationSession } from "./patientConversationNavigation.model";
+import { resolvePatientConversationLoadError } from "./patientErrorCopy.model";
 import { buildPatientTodayViewModel } from "./view-models";
 
 const EMPTY_BABY_BODY = "오늘 아기의 변화를 준비 중이에요.";
@@ -39,10 +42,14 @@ export function usePatientTodayScreenModel() {
   const router = useRouter();
   const { currentUser, isRestoringSession } = useMobileAppSession();
   const services = useMobileServices();
+  const { replaceSession } = useChatSessions();
   const [today, setToday] = useState<TodayViewData | null>(null);
   const [recentSessions, setRecentSessions] = useState<RecentChatSummary[]>([]);
   const [activeSection, setActiveSection] = useState("info");
   const [pendingChecklistIds, setPendingChecklistIds] = useState<string[]>([]);
+  const [conversationOpenError, setConversationOpenError] = useState<
+    string | null
+  >(null);
   const [hasAttemptedInfoViewed, setHasAttemptedInfoViewed] = useState(false);
   const todayIsoDate = createTodayIsoDate();
 
@@ -145,6 +152,7 @@ export function usePatientTodayScreenModel() {
     });
   }, [
     activeSection,
+    currentUser,
     hasAttemptedInfoViewed,
     services.todayPort,
     today,
@@ -206,8 +214,19 @@ export function usePatientTodayScreenModel() {
     router.push("/chat/new");
   }
 
-  function openRecentSession(sessionId: string) {
-    router.push(`/chat/${sessionId}`);
+  async function openRecentSession(sessionId: string) {
+    setConversationOpenError(null);
+
+    try {
+      await prefetchConversationSession({
+        sessionId,
+        getSession: services.chatPort.getSession.bind(services.chatPort),
+        replaceSession,
+      });
+      router.push(`/chat/${sessionId}`);
+    } catch (error: unknown) {
+      setConversationOpenError(resolvePatientConversationLoadError(error));
+    }
   }
 
   function openOnboarding() {
@@ -218,6 +237,7 @@ export function usePatientTodayScreenModel() {
     activeSection,
     setActiveSection,
     pendingChecklistIds,
+    conversationOpenError,
     recentSessions,
     today,
     viewModel: buildPatientTodayViewModel({ today }),

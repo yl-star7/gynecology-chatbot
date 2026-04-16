@@ -14,14 +14,16 @@ export function PatientTodayConversationSection({
   title,
   description,
   recentSessions,
+  openErrorMessage,
   onOpenNewChat,
   onOpenRecentSession,
 }: {
   title: string;
   description: string;
   recentSessions: RecentChatSummary[];
+  openErrorMessage: string | null;
   onOpenNewChat: () => void;
-  onOpenRecentSession: (sessionId: string) => void;
+  onOpenRecentSession: (sessionId: string) => void | Promise<void>;
 }) {
   return (
     <Card style={[styles.segmentCard, styles.conversationLauncherCard]}>
@@ -58,6 +60,9 @@ export function PatientTodayConversationSection({
           </Text>
         )}
       </View>
+      {openErrorMessage ? (
+        <Text style={styles.openErrorText}>{openErrorMessage}</Text>
+      ) : null}
     </Card>
   );
 }
@@ -117,6 +122,11 @@ const styles = StyleSheet.create({
   recentSessionEmptyText: {
     ...typo.body,
     color: surface.textSecondary,
+    textAlign: "center",
+  },
+  openErrorText: {
+    ...typo.caption,
+    color: palette.errorText,
     textAlign: "center",
   },
 });

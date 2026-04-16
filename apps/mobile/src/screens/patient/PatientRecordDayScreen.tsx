@@ -7,9 +7,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card, Pressable } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { useMobileServices } from "../../core/MobileServicesProvider";
+import { useChatSessions } from "../../chat/store";
 import { createRecordDayActions } from "./PatientRecordDayScreen.model";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
-import { resolvePatientRecordDayLoadError } from "./patientErrorCopy.model";
+import {
+  resolvePatientConversationLoadError,
+  resolvePatientRecordDayLoadError,
+} from "./patientErrorCopy.model";
+import { prefetchConversationSession } from "./patientConversationNavigation.model";
 import {
   palette,
   patientSurfacePalette as surface,
@@ -48,7 +53,8 @@ export function PatientRecordDayScreen({
 }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { homePort, todayPort } = useMobileServices();
+  const { homePort, todayPort, chatPort } = useMobileServices();
+  const { replaceSession } = useChatSessions();
   const actions = useMemo(
     () => createRecordDayActions({ homePort, todayPort }),
     [homePort, todayPort],
@@ -62,6 +68,21 @@ export function PatientRecordDayScreen({
     bottomInset: insets.bottom,
     topSpacing: space.md,
   });
+
+  async function openConversationSession(sessionId: string) {
+    setError(null);
+
+    try {
+      await prefetchConversationSession({
+        sessionId,
+        getSession: chatPort.getSession.bind(chatPort),
+        replaceSession,
+      });
+      router.push(`/chat/${sessionId}`);
+    } catch (nextError: unknown) {
+      setError(resolvePatientConversationLoadError(nextError));
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -196,7 +217,9 @@ export function PatientRecordDayScreen({
                 <Pressable
                   key={session.id}
                   style={[styles.recordCard, shadows.card]}
-                  onPress={() => router.push(`/chat/${session.id}`)}
+                  onPress={() => {
+                    void openConversationSession(session.id);
+                  }}
                 >
                   <Text style={styles.recordType}>
                     {session.updatedAtLabel}

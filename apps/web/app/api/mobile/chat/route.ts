@@ -245,7 +245,6 @@ export async function POST(request: NextRequest) {
               : []),
           ].join("\n"),
           prompt: [
-            `세션 ID: ${input.normalizedSessionId || "(없음)"}`,
             `현재 임신 주차: ${input.currentWeek ?? "(정보 없음)"}`,
             `사용자 텍스트: ${input.text || "(텍스트 없음)"}`,
             `첨부 이미지 수: ${input.imageDataUris.length}`,
@@ -326,14 +325,13 @@ export async function POST(request: NextRequest) {
       hardGuardrailReason,
     });
 
-    // 참조 파일 출처를 assistant 메시지 parts에 히든 파트로 추가
-    // (앱에서는 unknown type 무시, 관리자 세션 로그에서 확인 가능)
+    // RAG 출처를 히든 파트로 추가 (관리자 대시보드에서 조회용, 앱에서는 무시)
     if (fileRagSources.length > 0 && result.assistantMessage?.parts) {
-      result.assistantMessage.parts.push({
+      (result.assistantMessage.parts as unknown[]).push({
         type: "_rag_sources",
         id: `rag-sources-${Date.now()}`,
         sources: fileRagSources,
-      } as unknown as (typeof result.assistantMessage.parts)[number]);
+      });
     }
 
     return NextResponse.json({

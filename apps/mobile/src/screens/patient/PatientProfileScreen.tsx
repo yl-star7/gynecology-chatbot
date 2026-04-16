@@ -21,6 +21,7 @@ import { PatientProfileDayModal } from "../../components/patient/profile/Patient
 import { PatientProfileHeroCard } from "../../components/patient/profile/PatientProfileHeroCard";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
+import { useChatSessions } from "../../chat/store";
 import {
   hasFreshCachedHomeView,
   hasFreshCachedProfileView,
@@ -44,9 +45,11 @@ import {
   buildProfileInfoCards,
 } from "./PatientProfileScreen.model";
 import {
+  resolvePatientConversationLoadError,
   resolvePatientProfileLoadError,
   resolvePatientRecordDayLoadError,
 } from "./patientErrorCopy.model";
+import { prefetchConversationSession } from "./patientConversationNavigation.model";
 import { buildPatientHomeViewModel } from "./view-models";
 
 type ModalSection = "conversation" | "checklist" | "info";
@@ -56,7 +59,8 @@ export function PatientProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser, isRestoringSession, signOut } = useMobileAppSession();
-  const { profilePort, homePort, todayPort } = useMobileServices();
+  const { profilePort, homePort, todayPort, chatPort } = useMobileServices();
+  const { replaceSession } = useChatSessions();
   const syncSnapshot = usePatientProfileSyncSnapshot();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [home, setHome] = useState<HomeViewData | null>(null);
@@ -224,9 +228,20 @@ export function PatientProfileScreen() {
     router.navigate("/(tabs)/today");
   }
 
-  function openConversationSession(sessionId: string) {
-    closeCalendarDayModal();
-    router.push(`/chat/${sessionId}`);
+  async function openConversationSession(sessionId: string) {
+    setRecordDayError(null);
+
+    try {
+      await prefetchConversationSession({
+        sessionId,
+        getSession: chatPort.getSession.bind(chatPort),
+        replaceSession,
+      });
+      closeCalendarDayModal();
+      router.push(`/chat/${sessionId}`);
+    } catch (error: unknown) {
+      setRecordDayError(resolvePatientConversationLoadError(error));
+    }
   }
 
   const calendarModel = useMemo(
