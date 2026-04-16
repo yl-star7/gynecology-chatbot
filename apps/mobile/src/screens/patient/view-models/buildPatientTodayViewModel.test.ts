@@ -9,6 +9,7 @@ test("today view model exposes the three top segments used by the screen", () =>
 
   assert.deepEqual(viewModel.sections, [
     { id: "info", label: "아기와 엄마" },
+    { id: "checklist", label: "체크리스트" },
     { id: "conversation", label: "아기와 대화" },
   ]);
 });
