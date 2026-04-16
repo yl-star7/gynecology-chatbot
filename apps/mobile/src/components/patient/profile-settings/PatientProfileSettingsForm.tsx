@@ -60,6 +60,7 @@ export function PatientProfileSettingsForm({
           value={babyNickname}
           onChangeText={onChangeBabyNickname}
           placeholder="우리 아기 별명"
+          accessibilityLabel="태명 입력"
         />
         <View style={styles.fieldBlock}>
           <Text style={styles.fieldLabel}>출산 예정일</Text>
@@ -75,6 +76,7 @@ export function PatientProfileSettingsForm({
           value={hospitalName}
           onChangeText={onChangeHospitalName}
           placeholder="다니는 병원 이름"
+          accessibilityLabel="병원 입력"
         />
         <PatientNotificationTimeField
           value={notificationTime}

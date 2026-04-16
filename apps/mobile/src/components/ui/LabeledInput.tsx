@@ -13,6 +13,7 @@ export function LabeledInput({
   multiline = false,
   returnKeyType,
   onSubmitEditing,
+  accessibilityLabel,
 }: {
   label: string;
   value: string;
@@ -22,6 +23,7 @@ export function LabeledInput({
   multiline?: boolean;
   returnKeyType?: "done" | "go" | "next" | "search" | "send";
   onSubmitEditing?: () => void;
+  accessibilityLabel?: string;
 }) {
   return (
     <View style={styles.field}>
@@ -36,6 +38,7 @@ export function LabeledInput({
         multiline={multiline}
         returnKeyType={returnKeyType}
         onSubmitEditing={onSubmitEditing}
+        accessibilityLabel={accessibilityLabel}
       />
     </View>
   );
