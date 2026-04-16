@@ -7,8 +7,11 @@ import type {
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
 import {
+  clearNativeChunkedValue,
   clearNativeStorageValue,
+  persistNativeChunkedValue,
   persistNativeStorageValue,
+  readNativeChunkedValue,
   readNativeStorageValue,
 } from "./nativeSessionStorage";
 
@@ -269,12 +272,12 @@ async function persistPatientViewCacheSnapshot(userId: string) {
   const snapshot = createPersistedPatientViewCacheSnapshot(userId);
 
   if (!hasPersistedPatientViewCacheContent(snapshot)) {
-    await clearNativeStorageValue(createPersistedPatientViewCacheKey(userId));
+    await clearNativeChunkedValue(createPersistedPatientViewCacheKey(userId));
     await removePersistedPatientViewCacheUser(userId);
     return;
   }
 
-  await persistNativeStorageValue(
+  await persistNativeChunkedValue(
     createPersistedPatientViewCacheKey(userId),
     JSON.stringify(snapshot),
   );
@@ -294,7 +297,7 @@ export async function hydratePatientViewCaches(userId?: string | null) {
 
   await waitForPersistedPatientViewCacheOperations();
 
-  const rawValue = await readNativeStorageValue(
+  const rawValue = await readNativeChunkedValue(
     createPersistedPatientViewCacheKey(userId),
   );
 
@@ -340,7 +343,7 @@ export async function clearPersistedPatientViewCaches(userId?: string | null) {
     if (!userId) {
       const persistedUserIds = await readPersistedPatientViewCacheUsers();
       for (const persistedUserId of persistedUserIds) {
-        await clearNativeStorageValue(
+        await clearNativeChunkedValue(
           createPersistedPatientViewCacheKey(persistedUserId),
         );
       }
@@ -348,7 +351,7 @@ export async function clearPersistedPatientViewCaches(userId?: string | null) {
       return;
     }
 
-    await clearNativeStorageValue(createPersistedPatientViewCacheKey(userId));
+    await clearNativeChunkedValue(createPersistedPatientViewCacheKey(userId));
     await removePersistedPatientViewCacheUser(userId);
   });
 }
