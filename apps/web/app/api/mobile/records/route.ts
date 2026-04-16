@@ -331,7 +331,7 @@ export async function GET(request: NextRequest) {
     const latestMessages =
       sessionIds.length > 0
         ? await supabaseSelect<MessagePreviewRow[]>(
-            `chat_messages?select=session_id,plain_text,parts&user_id=eq.${userId}&session_id=in.(${sessionIds.join(",")})&order=created_at.desc`,
+            `chat_messages?select=session_id,plain_text,parts&session_id=in.(${sessionIds.join(",")})&order=created_at.desc`,
           )
         : [];
     const previewBySessionId = new Map<string, string>();

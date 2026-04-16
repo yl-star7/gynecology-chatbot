@@ -4,7 +4,10 @@ import {
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/supabase/admin-client";
-import { resolveRecentChatPreview, toRecentChats } from "@/lib/mobile/serializers";
+import {
+  resolveRecentChatPreview,
+  toRecentChats,
+} from "@/lib/mobile/serializers";
 
 type SessionRow = {
   id: string;
@@ -15,7 +18,11 @@ type SessionRow = {
 type MessagePreviewRow = {
   session_id: string;
   plain_text: string | null;
-  parts: Array<{ type?: string; text?: string; choices?: unknown[] | null }> | null;
+  parts: Array<{
+    type?: string;
+    text?: string;
+    choices?: unknown[] | null;
+  }> | null;
 };
 
 export async function GET(request: NextRequest) {
@@ -31,7 +38,7 @@ export async function GET(request: NextRequest) {
     const latestMessages =
       sessionIds.length > 0
         ? await supabaseSelect<MessagePreviewRow[]>(
-            `chat_messages?select=session_id,plain_text,parts&user_id=eq.${userId}&session_id=in.(${sessionIds.join(",")})&order=created_at.desc`,
+            `chat_messages?select=session_id,plain_text,parts&session_id=in.(${sessionIds.join(",")})&order=created_at.desc`,
           )
         : [];
 
