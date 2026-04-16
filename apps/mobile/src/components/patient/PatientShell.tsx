@@ -101,9 +101,7 @@ export function PatientShell({
             >
               <Text style={styles.profileButtonLabel}>{avatarLabel}</Text>
             </Pressable>
-          ) : (
-            <View style={styles.trailingSpacer} />
-          )}
+          ) : null}
         </View>
       )}
       <View style={styles.body}>{children}</View>
@@ -141,7 +139,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   headerWithBackButton: {
-    paddingTop: space.sm,
+    paddingTop: 0,
   },
   headerLeading: {
     flex: 1,
@@ -154,12 +152,8 @@ const styles = StyleSheet.create({
     color: surface.textPrimary,
     flexShrink: 1,
   },
-  trailingSpacer: {
-    width: space.xxxl + space.sm,
-    height: space.xxxl + space.sm,
-  },
   headerWithoutRightSlot: {
-    paddingBottom: space.xs,
+    paddingBottom: 0,
   },
   profileButton: {
     width: space.xxxl + space.sm,

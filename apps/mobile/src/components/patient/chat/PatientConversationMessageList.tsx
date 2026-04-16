@@ -12,10 +12,22 @@ import {
 } from "../../../theme";
 
 const EMPTY_STATE_QUICK_REPLIES = [
-  { id: "baby", label: "아기 괜찮을까요?", message: "오늘 아기 상태가 괜찮은지 궁금해요." },
-  { id: "pain", label: "배가 당겨요", message: "배가 당기는데 괜찮은지 알려주세요." },
+  {
+    id: "baby",
+    label: "아기 괜찮을까요?",
+    message: "오늘 아기 상태가 괜찮은지 궁금해요.",
+  },
+  {
+    id: "pain",
+    label: "배가 당겨요",
+    message: "배가 당기는데 괜찮은지 알려주세요.",
+  },
   { id: "sleep", label: "잠이 안 와요", message: "잠이 잘 안 와서 힘들어요." },
-  { id: "mood", label: "마음이 불안해요", message: "괜히 마음이 불안한데 괜찮을까요?" },
+  {
+    id: "mood",
+    label: "마음이 불안해요",
+    message: "괜히 마음이 불안한데 괜찮을까요?",
+  },
 ];
 
 const CHAT_IMAGE_WIDTH = space.xxxl * 5;
@@ -53,7 +65,6 @@ export function PatientConversationMessageList({
         <View style={styles.emptyStateContent}>
           <View style={styles.heroSection}>
             <NurseCharacter size="md" />
-            <Text style={styles.title}>아기와 대화</Text>
             <Text style={styles.subtitle}>
               오늘 마음이나 몸 상태를 편하게 적어보세요.
             </Text>
@@ -80,8 +91,12 @@ export function PatientConversationMessageList({
           <View style={styles.messageList}>
             {messages.map((message) => {
               if (message.role === "user") {
-                const textPart = message.parts.find((part) => part.type === "text");
-                const imagePart = message.parts.find((part) => part.type === "image");
+                const textPart = message.parts.find(
+                  (part) => part.type === "text",
+                );
+                const imagePart = message.parts.find(
+                  (part) => part.type === "image",
+                );
                 const bodyText = textPart?.type === "text" ? textPart.text : "";
 
                 return (
@@ -98,7 +113,9 @@ export function PatientConversationMessageList({
                       />
                     ) : null}
                     {bodyText ? (
-                      <Text style={[styles.messageText, styles.userMessageText]}>
+                      <Text
+                        style={[styles.messageText, styles.userMessageText]}
+                      >
                         {bodyText}
                       </Text>
                     ) : null}
@@ -147,24 +164,20 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: space.lg,
-    paddingTop: space.xs,
+    paddingTop: 0,
   },
   emptyStateContent: {
     flexGrow: 1,
-    justifyContent: "center",
+    justifyContent: "flex-start",
     alignItems: "center",
-    gap: space.lg,
-    paddingBottom: space.xxxl,
+    gap: space.md,
+    paddingTop: space.sm,
+    paddingBottom: space.xl,
   },
   heroSection: {
     alignItems: "center",
     gap: space.sm,
     paddingHorizontal: space.lg,
-  },
-  title: {
-    ...typo.titleSm,
-    color: surface.textPrimary,
-    textAlign: "center",
   },
   subtitle: {
     ...typo.body,

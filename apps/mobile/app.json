@@ -43,7 +43,7 @@
       [
         "expo-dev-client",
         {
-          "launchMode": "launcher"
+          "launchMode": "most-recent"
         }
       ],
       [

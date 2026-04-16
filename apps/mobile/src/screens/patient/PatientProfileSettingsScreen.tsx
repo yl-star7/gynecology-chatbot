@@ -3,12 +3,12 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Text,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { HeroSection } from "../../components/ui";
 import { PatientProfileSettingsForm } from "../../components/patient/profile-settings/PatientProfileSettingsForm";
 import { PatientShell } from "../../components/patient/PatientShell";
-import { space } from "../../theme";
+import { patientSurfacePalette as surface, space, typo } from "../../theme";
 import { buildPatientScrollContentInsets } from "./patientScreenLayout.model";
 import { usePatientProfileSettingsScreenModel } from "./PatientProfileSettingsScreen.model";
 
@@ -19,7 +19,7 @@ export function PatientProfileSettingsScreen() {
     bottomInset: insets.bottom,
     tabBarHeight: 0,
     extraBottomSpacing: space.xl,
-    topSpacing: space.sm,
+    topSpacing: 0,
   });
 
   return (
@@ -47,11 +47,9 @@ export function PatientProfileSettingsScreen() {
           keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
         >
-          <HeroSection
-            eyebrow="세부 설정"
-            title="지금 정보에 맞게 차분히 수정해보세요"
-            description={`${model.summaryPregnancyWeekLabel} 기준으로 보여드리고 있어요.`}
-          />
+          <Text style={styles.helperText}>
+            필요한 정보만 편하게 바꿔보세요.
+          </Text>
 
           <PatientProfileSettingsForm
             babyNickname={model.babyNickname}
@@ -88,6 +86,10 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: space.lg,
-    gap: space.md,
+    gap: space.sm,
+  },
+  helperText: {
+    ...typo.body,
+    color: surface.textSecondary,
   },
 });

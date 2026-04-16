@@ -19,6 +19,7 @@ export function PatientConversationScreen({
   return (
     <PatientShell
       activeTab="today"
+      title="아기와 대화"
       backHref="/(tabs)/today"
       pageTone="plain"
       headerCompact
