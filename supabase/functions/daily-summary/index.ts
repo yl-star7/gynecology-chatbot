@@ -31,8 +31,16 @@ interface ChatSnippet {
 
 interface UserDayData {
   userId: string;
-  checklists: Array<{ title: string; answer: string | null; completed: boolean }>;
-  questions: Array<{ question: string; answer: string | null; answered: boolean }>;
+  checklists: Array<{
+    title: string;
+    answer: string | null;
+    completed: boolean;
+  }>;
+  questions: Array<{
+    question: string;
+    answer: string | null;
+    answered: boolean;
+  }>;
   chatSnippets: string;
   sessionCount: number;
 }
@@ -52,12 +60,16 @@ async function fetchUserDayData(targetDate: string): Promise<UserDayData[]> {
     await Promise.all([
       supabase
         .from("user_checklist_events")
-        .select("user_id, answer_text, status, completed_at, week_checklists:checklist_id(title)")
+        .select(
+          "user_id, answer_text, status, completed_at, week_checklists:checklist_id(title)",
+        )
         .gte("updated_at", kstStart)
         .lt("updated_at", kstEnd),
       supabase
         .from("user_question_events")
-        .select("user_id, answer_text, status, answered_at, week_questions:question_id(question_text)")
+        .select(
+          "user_id, answer_text, status, answered_at, week_questions:question_id(question_text)",
+        )
         .gte("updated_at", kstStart)
         .lt("updated_at", kstEnd),
       supabase.rpc("get_chat_snippets_for_date", { target_date: targetDate }),
@@ -133,7 +145,10 @@ function buildDaySummaryPrompt(data: UserDayData): string {
     parts.push(
       "[체크리스트]\n" +
         data.checklists
-          .map((c) => `- ${c.title}: ${c.completed ? (c.answer ?? "완료") : "미완료"}`)
+          .map(
+            (c) =>
+              `- ${c.title}: ${c.completed ? (c.answer ?? "완료") : "미완료"}`,
+          )
           .join("\n"),
     );
   }
@@ -141,7 +156,10 @@ function buildDaySummaryPrompt(data: UserDayData): string {
     parts.push(
       "[질문 응답]\n" +
         data.questions
-          .map((q) => `- ${q.question}: ${q.answered ? (q.answer ?? "응답함") : "미응답"}`)
+          .map(
+            (q) =>
+              `- ${q.question}: ${q.answered ? (q.answer ?? "응답함") : "미응답"}`,
+          )
           .join("\n"),
     );
   }
@@ -164,7 +182,8 @@ function buildFallbackDaySummary(data: UserDayData): string {
   if (done > 0) parts.push(`체크리스트 ${done}개를 완료했어요`);
   const answered = data.questions.filter((q) => q.answered).length;
   if (answered > 0) parts.push(`질문 ${answered}개에 응답했어요`);
-  if (data.sessionCount > 0) parts.push(`${data.sessionCount}개의 대화를 나눴어요`);
+  if (data.sessionCount > 0)
+    parts.push(`${data.sessionCount}개의 대화를 나눴어요`);
   return parts.length > 0
     ? `이날에는 ${parts.join(", ")}.`
     : "이날에는 활동 기록이 없어요.";
@@ -189,22 +208,35 @@ Deno.serve(async (req) => {
 
     let aiSummaryCount = 0;
     let questionSummaryCount = 0;
+    let skippedAiSummary = 0;
+    let skippedQuestionSummary = 0;
 
-    // 기존 요약 삭제 (재실행 안전)
-    await Promise.all([
-      supabase
-        .from("calendar_logs")
-        .delete()
-        .eq("date", targetDate)
-        .eq("entry_type", "ai_summary")
-        .filter("payload->>source", "eq", "daily_conversation_summary"),
-      supabase
-        .from("calendar_logs")
-        .delete()
-        .eq("date", targetDate)
-        .eq("entry_type", "question_summary")
-        .filter("payload->>source", "eq", "daily_question_summary"),
-    ]);
+    // 이미 생성된 요약 목록 조회 (재실행 시 덮어쓰지 않고 건너뛴다)
+    const [{ data: existingAiRows }, { data: existingQuestionRows }] =
+      await Promise.all([
+        supabase
+          .from("calendar_logs")
+          .select("user_id")
+          .eq("date", targetDate)
+          .eq("entry_type", "ai_summary")
+          .filter("payload->>source", "eq", "daily_conversation_summary"),
+        supabase
+          .from("calendar_logs")
+          .select("user_id, payload")
+          .eq("date", targetDate)
+          .eq("entry_type", "question_summary")
+          .filter("payload->>source", "eq", "daily_question_summary"),
+      ]);
+
+    const existingAiUserIds = new Set(
+      (existingAiRows ?? []).map((row) => row.user_id as string),
+    );
+    const existingQuestionKeys = new Set(
+      (existingQuestionRows ?? []).map((row) => {
+        const payload = row.payload as { question?: string } | null;
+        return `${row.user_id}:${payload?.question ?? ""}`;
+      }),
+    );
 
     const errors: string[] = [];
 
@@ -221,33 +253,40 @@ Deno.serve(async (req) => {
       }
 
       // ── 하루 전체 요약 ──
-      const dayPrompt = buildDaySummaryPrompt(userData);
-      const daySummary = dayPrompt
-        ? (await callGemini(dayPrompt)) ?? buildFallbackDaySummary(userData)
-        : buildFallbackDaySummary(userData);
+      if (existingAiUserIds.has(userData.userId)) {
+        skippedAiSummary++;
+        console.log(
+          `[daily-summary] ai_summary exists, skip ${userData.userId}`,
+        );
+      } else {
+        const dayPrompt = buildDaySummaryPrompt(userData);
+        const daySummary = dayPrompt
+          ? ((await callGemini(dayPrompt)) ?? buildFallbackDaySummary(userData))
+          : buildFallbackDaySummary(userData);
 
-      const { error: dayError } = await supabase
-        .from("calendar_logs")
-        .insert({
-          user_id: userData.userId,
-          date: targetDate,
-          entry_type: "ai_summary",
-          title: "하루 요약",
-          summary: daySummary,
-          payload: {
-            source: "daily_conversation_summary",
-            checklistCount: userData.checklists.length,
-            questionCount: userData.questions.length,
-            sessionCount: userData.sessionCount,
-            generatedAt: new Date().toISOString(),
-          },
-        });
+        const { error: dayError } = await supabase
+          .from("calendar_logs")
+          .insert({
+            user_id: userData.userId,
+            date: targetDate,
+            entry_type: "ai_summary",
+            title: "하루 요약",
+            summary: daySummary,
+            payload: {
+              source: "daily_conversation_summary",
+              checklistCount: userData.checklists.length,
+              questionCount: userData.questions.length,
+              sessionCount: userData.sessionCount,
+              generatedAt: new Date().toISOString(),
+            },
+          });
 
-      if (!dayError) aiSummaryCount++;
-      else {
-        const msg = `ai_summary: ${dayError.message} (${dayError.code})`;
-        console.error(`[daily-summary]`, msg);
-        errors.push(msg);
+        if (!dayError) aiSummaryCount++;
+        else {
+          const msg = `ai_summary: ${dayError.message} (${dayError.code})`;
+          console.error(`[daily-summary]`, msg);
+          errors.push(msg);
+        }
       }
 
       // ── 질문별 개별 저장 (question_summary) ──
@@ -255,21 +294,25 @@ Deno.serve(async (req) => {
         (q) => q.answered && q.answer,
       );
       for (const q of answeredQuestions) {
-        const { error: qError } = await supabase
-          .from("calendar_logs")
-          .insert({
-            user_id: userData.userId,
-            date: targetDate,
-            entry_type: "question_summary",
-            title: q.question,
-            summary: q.answer!,
-            payload: {
-              source: "daily_question_summary",
-              question: q.question,
-              answer: q.answer,
-              generatedAt: new Date().toISOString(),
-            },
-          });
+        const key = `${userData.userId}:${q.question}`;
+        if (existingQuestionKeys.has(key)) {
+          skippedQuestionSummary++;
+          continue;
+        }
+
+        const { error: qError } = await supabase.from("calendar_logs").insert({
+          user_id: userData.userId,
+          date: targetDate,
+          entry_type: "question_summary",
+          title: q.question,
+          summary: q.answer!,
+          payload: {
+            source: "daily_question_summary",
+            question: q.question,
+            answer: q.answer,
+            generatedAt: new Date().toISOString(),
+          },
+        });
 
         if (!qError) questionSummaryCount++;
         else {
@@ -285,6 +328,8 @@ Deno.serve(async (req) => {
       processedUsers: users.length,
       aiSummaries: aiSummaryCount,
       questionSummaries: questionSummaryCount,
+      skippedAiSummary,
+      skippedQuestionSummary,
       ...(errors.length > 0 ? { errors } : {}),
     };
     console.log(`[daily-summary] done:`, result);
