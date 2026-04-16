@@ -22,6 +22,8 @@ describe("solapi-sms", () => {
     delete process.env.SOLAPI_API_KEY;
     delete process.env.SOLAPI_API_SECRET;
     delete process.env.SOLAPI_SENDER_NUMBER;
+    delete process.env.GOOGLE_PLAY_REVIEW_PHONE_NUMBER;
+    delete process.env.GOOGLE_PLAY_REVIEW_CODE;
     global.fetch = jest.fn();
   });
 
@@ -95,6 +97,41 @@ describe("solapi-sms", () => {
           ),
         }),
       }),
+    );
+  });
+
+  test("uses Google Play review credentials without sending SMS", async () => {
+    process.env.SOLAPI_API_KEY = "TESTKEY123";
+    process.env.SOLAPI_API_SECRET = "TESTSECRET456";
+    process.env.SOLAPI_SENDER_NUMBER = "01012340000";
+    process.env.GOOGLE_PLAY_REVIEW_PHONE_NUMBER = "01012345678";
+    process.env.GOOGLE_PLAY_REVIEW_CODE = "123456";
+
+    await expect(sendSmsVerification("01012345678")).resolves.toEqual({
+      sid: expect.stringMatching(/^[a-f0-9]{64}$/),
+      status: "pending",
+      to: "+821012345678",
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    await expect(
+      checkSmsVerification("01012345678", "123456"),
+    ).resolves.toEqual({
+      sid: expect.stringMatching(/^[a-f0-9]{64}$/),
+      status: "approved",
+      to: "+821012345678",
+    });
+  });
+
+  test("rejects the Google Play review phone number when the code is wrong", async () => {
+    process.env.SOLAPI_API_KEY = "TESTKEY123";
+    process.env.SOLAPI_API_SECRET = "TESTSECRET456";
+    process.env.SOLAPI_SENDER_NUMBER = "01012340000";
+    process.env.GOOGLE_PLAY_REVIEW_PHONE_NUMBER = "01012345678";
+    process.env.GOOGLE_PLAY_REVIEW_CODE = "123456";
+
+    await expect(checkSmsVerification("01012345678", "000000")).rejects.toThrow(
+      "인증 코드를 확인해 주세요.",
     );
   });
 

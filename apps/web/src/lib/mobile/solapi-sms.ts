@@ -15,6 +15,11 @@ type SolapiConfig = {
   senderNumber: string;
 };
 
+type ReviewAccessConfig = {
+  phoneNumber: string;
+  verificationCode: string;
+};
+
 const SMS_CONFIG_ERROR_MESSAGE =
   "문자 발송 설정이 비어 있어요. 운영 환경 설정을 확인해 주세요.";
 
@@ -28,6 +33,34 @@ function getSolapiConfig(): SolapiConfig | null {
   const senderNumber = process.env.SOLAPI_SENDER_NUMBER;
   if (!apiKey || !apiSecret || !senderNumber) return null;
   return { apiKey, apiSecret, senderNumber };
+}
+
+function getReviewAccessConfig(): ReviewAccessConfig | null {
+  const phoneNumber = process.env.GOOGLE_PLAY_REVIEW_PHONE_NUMBER?.trim();
+  const verificationCode = process.env.GOOGLE_PLAY_REVIEW_CODE?.trim();
+  if (!phoneNumber || !verificationCode) return null;
+
+  return {
+    phoneNumber: normalizePhoneNumberToE164(phoneNumber),
+    verificationCode,
+  };
+}
+
+function isReviewAccessPhoneNumber(phoneNumber: string) {
+  const config = getReviewAccessConfig();
+  if (!config) return false;
+
+  return normalizePhoneNumberToE164(phoneNumber) === config.phoneNumber;
+}
+
+function isReviewAccessCode(phoneNumber: string, verificationCode: string) {
+  const config = getReviewAccessConfig();
+  if (!config) return false;
+
+  return (
+    normalizePhoneNumberToE164(phoneNumber) === config.phoneNumber &&
+    verificationCode.trim() === config.verificationCode
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -170,6 +203,15 @@ type PhoneVerificationRow = {
  */
 export async function sendSmsVerification(phoneNumber: string) {
   const to = normalizePhoneNumberToE164(phoneNumber);
+  if (isReviewAccessPhoneNumber(to)) {
+    const config = getReviewAccessConfig();
+    return {
+      sid: hashOtpCode(config?.verificationCode ?? ""),
+      status: "pending",
+      to,
+    };
+  }
+
   const config = getSolapiConfig();
 
   if (!config) {
@@ -210,6 +252,17 @@ export async function checkSmsVerification(
 ) {
   const to = normalizePhoneNumberToE164(phoneNumber);
   const code = verificationCode.trim();
+  if (isReviewAccessCode(to, code)) {
+    return {
+      sid: hashOtpCode(code),
+      status: "approved",
+      to,
+    };
+  }
+  if (isReviewAccessPhoneNumber(to)) {
+    throw new Error("인증 코드를 확인해 주세요.");
+  }
+
   const config = getSolapiConfig();
 
   if (!config) {

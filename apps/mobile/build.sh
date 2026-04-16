@@ -50,7 +50,14 @@ if [[ "$PROFILE" != "preview" && "$PROFILE" != "production" ]]; then
   exit 1
 fi
 
+export npm_config_cache="${npm_config_cache:-/tmp/si-npm-cache}"
+export EXPO_HOME="${EXPO_HOME:-/tmp/si-expo-home}"
+mkdir -p "$npm_config_cache" "$EXPO_HOME"
+
 if [[ "$PLATFORM" == "aos" ]]; then
+  export GRADLE_USER_HOME="${GRADLE_USER_HOME:-/tmp/si-gradle-cache}"
+  mkdir -p "$GRADLE_USER_HOME"
+
   DEFAULT_ANDROID_SDK="$HOME/Library/Android/sdk"
   if [[ -z "${ANDROID_HOME:-}" && -d "$DEFAULT_ANDROID_SDK" ]]; then
     export ANDROID_HOME="$DEFAULT_ANDROID_SDK"
@@ -58,6 +65,13 @@ if [[ "$PLATFORM" == "aos" ]]; then
   if [[ -z "${ANDROID_SDK_ROOT:-}" && -d "$DEFAULT_ANDROID_SDK" ]]; then
     export ANDROID_SDK_ROOT="$DEFAULT_ANDROID_SDK"
   fi
+fi
+
+if [[ "$PLATFORM" == "ios" ]]; then
+  # Xcode export invokes /usr/bin/rsync with Apple-specific extended-attribute
+  # flags. Keep Apple system tools ahead of Homebrew so the rsync server side
+  # does not resolve to GNU/Homebrew rsync and fail IPA packaging.
+  export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 fi
 
 # ── Read version info ──────────────────────────────────

@@ -29,7 +29,7 @@
     "crons": [
         {
             "path": "/api/cron/daily-push",
-            "schedule": "* * * * *"
+            "schedule": "0 0 * * *"
         },
         {
             "path": "/api/cron/proactive-chat",
