@@ -64,11 +64,11 @@ export function createMobileServices(
   return {
     authPort: new ApiMobileAuthAdapter(client),
     onboardingPort: new ApiOnboardingAdapter(client, resolveUserId),
-    homePort: new ApiMobileHomeAdapter(client),
-    todayPort: new ApiTodayAdapter(client),
+    homePort: new ApiMobileHomeAdapter(client, resolveUserId),
+    todayPort: new ApiTodayAdapter(client, resolveUserId),
     chatPort: new ApiMobileChatAdapter(client),
     knowledgePort: new ApiKnowledgeAdapter(client),
-    profilePort: new ApiMobileProfileAdapter(client),
+    profilePort: new ApiMobileProfileAdapter(client, resolveUserId),
     recordsPort: new ApiMobileRecordsAdapter(client, resolveUserId),
   };
 }

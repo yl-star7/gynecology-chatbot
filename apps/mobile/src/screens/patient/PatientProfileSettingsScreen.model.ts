@@ -6,6 +6,12 @@ import type {
   MobileProfileViewData,
 } from "@gynecology-chatbot/app-core";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
+import {
+  hasFreshCachedHomeView,
+  hasFreshCachedProfileView,
+  readCachedHomeView,
+  readCachedProfileView,
+} from "../../core/patientViewCache";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { scheduleDailyLocalNotification } from "../../notifications/dailyLocalNotification";
 import {
@@ -52,6 +58,31 @@ export function usePatientProfileSettingsScreenModel() {
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+
+    const cachedProfile = readCachedProfileView(currentUser.id);
+    const cachedHome = readCachedHomeView(currentUser.id);
+
+    if (cachedProfile) {
+      setProfile(cachedProfile);
+      setDueDate(cachedProfile.dueDate ?? "");
+      setTonePreference(cachedProfile.tonePreference ?? "");
+      setBabyNickname(cachedProfile.babyNickname ?? "");
+      setHospitalName(cachedProfile.hospitalName ?? "");
+      setNotificationTime(
+        cachedProfile.notificationTime ?? DEFAULT_NOTIFICATION_TIME,
+      );
+      publishPatientProfileSyncProfile(cachedProfile);
+    }
+
+    if (cachedHome) {
+      setHome(cachedHome);
+    }
+  }, [currentUser]);
+
   const homeViewModel = useMemo(
     () => buildPatientHomeViewModel({ home, profile }),
     [home, profile],
@@ -64,6 +95,13 @@ export function usePatientProfileSettingsScreenModel() {
 
     if (!currentUser) {
       router.replace("/auth/login");
+      return;
+    }
+
+    if (
+      hasFreshCachedProfileView(currentUser.id) &&
+      hasFreshCachedHomeView(currentUser.id)
+    ) {
       return;
     }
 

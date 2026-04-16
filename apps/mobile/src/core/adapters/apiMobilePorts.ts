@@ -11,6 +11,12 @@ import type {
   TodayPort,
 } from "@gynecology-chatbot/app-core";
 import type { MobileApiClient } from "../../api/mobileApi.ts";
+import {
+  cacheHomeView,
+  cacheProfileView,
+  cacheRecordDayView,
+  cacheTodayView,
+} from "../patientViewCache";
 
 export class ApiMobileAuthAdapter implements AuthPort {
   private readonly client: MobileApiClient;
@@ -55,18 +61,22 @@ export class ApiOnboardingAdapter implements OnboardingPort {
 
 export class ApiMobileHomeAdapter implements MobileHomePort {
   private readonly client: MobileApiClient;
+  private readonly getUserId: () => string;
 
-  constructor(client: MobileApiClient) {
+  constructor(client: MobileApiClient, getUserId: () => string) {
     this.client = client;
+    this.getUserId = getUserId;
   }
 
   async getHomeView() {
     const payload = await this.client.fetchHome();
+    cacheHomeView(this.getUserId(), payload.home);
     return payload.home;
   }
 
   async getRecordDay(isoDate: string) {
     const payload = await this.client.fetchRecordDay(isoDate);
+    cacheRecordDayView(this.getUserId(), isoDate, payload.recordDay);
     return payload.recordDay;
   }
 }
@@ -91,13 +101,16 @@ export class ApiMobileRecordsAdapter implements MobileRecordsPort {
 
 export class ApiTodayAdapter implements TodayPort {
   private readonly client: MobileApiClient;
+  private readonly getUserId: () => string;
 
-  constructor(client: MobileApiClient) {
+  constructor(client: MobileApiClient, getUserId: () => string) {
     this.client = client;
+    this.getUserId = getUserId;
   }
 
   async getTodayView() {
     const payload = await this.client.fetchTodayView();
+    cacheTodayView(this.getUserId(), payload.today);
     return payload.today;
   }
 
@@ -174,13 +187,16 @@ export class ApiKnowledgeAdapter implements KnowledgePort {
 
 export class ApiMobileProfileAdapter implements MobileProfilePort {
   private readonly client: MobileApiClient;
+  private readonly getUserId: () => string;
 
-  constructor(client: MobileApiClient) {
+  constructor(client: MobileApiClient, getUserId: () => string) {
     this.client = client;
+    this.getUserId = getUserId;
   }
 
   async getProfile() {
     const payload = await this.client.fetchMobileProfile();
+    cacheProfileView(this.getUserId(), payload.profile);
     return payload.profile;
   }
 

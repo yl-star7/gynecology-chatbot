@@ -113,12 +113,13 @@ export function PatientShell({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    backgroundColor: surface.pageBackground,
   },
   safeAreaMain: {
     backgroundColor: surface.pageBackground,
   },
   safeAreaPlain: {
-    backgroundColor: surface.surfacePrimary,
+    backgroundColor: surface.pageBackground,
   },
   header: {
     flexDirection: "row",
@@ -135,11 +136,11 @@ const styles = StyleSheet.create({
     backgroundColor: surface.pageBackground,
   },
   headerCompact: {
-    paddingTop: space.xs,
+    paddingTop: 0,
     paddingBottom: 0,
   },
   headerWithBackButton: {
-    paddingTop: space.xl + space.xs,
+    paddingTop: space.sm,
   },
   headerLeading: {
     flex: 1,

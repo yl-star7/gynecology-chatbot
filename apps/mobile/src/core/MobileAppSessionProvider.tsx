@@ -10,6 +10,7 @@ import {
   storeCurrentMobileUserId,
 } from "../api/mobileApi";
 import { useMobileServices } from "./MobileServicesProvider";
+import { clearPatientViewCaches } from "./patientViewCache";
 import {
   clearNativeSessionToken,
   persistNativeSessionToken,
@@ -131,6 +132,7 @@ export function MobileAppSessionProvider({
         return nextUser;
       },
       async signOut() {
+        clearPatientViewCaches(currentUser?.id);
         storeCurrentMobileSessionToken(null);
         storeCurrentMobileUserId(null);
         await clearNativeSessionToken();
