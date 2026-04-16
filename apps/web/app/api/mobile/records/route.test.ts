@@ -108,6 +108,80 @@ describe("GET /api/mobile/records", () => {
       }),
     });
   });
+
+  it("related session preview를 structured event 요약으로 내려준다", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockedSupabaseSelect
+      .mockResolvedValueOnce([
+        {
+          pregnancy_day_count: 165,
+          pregnancy_week: 24,
+          pregnancy_day_in_week: 4,
+        },
+      ] as never)
+      .mockResolvedValueOnce([{ id: "week-24" }] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "record-1",
+          title: "상담 기록",
+          summary: null,
+          entry_type: "chat",
+          session_id: "session-1",
+          payload: null,
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "session-1",
+          title: "오늘 상담",
+          last_message_at: "2026-04-13T10:00:00.000Z",
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          session_id: "session-1",
+          plain_text: null,
+          parts: [
+            {
+              type: "quickReplies",
+              choices: [{}, {}, {}],
+            },
+          ],
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          pregnancy_day_count: 165,
+          pregnancy_week: 24,
+          pregnancy_day_in_week: 4,
+        },
+      ] as never)
+      .mockResolvedValueOnce([{ id: "week-24" }] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const request = new Request(
+      "http://localhost:3000/api/mobile/records?userId=user-1&date=2026-04-13",
+    ) as Request & { nextUrl: URL };
+    request.nextUrl = new URL(request.url);
+
+    const response = await GET(request as never);
+    const payload = await response.json();
+
+    expect(payload.recordDay.relatedSessions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "session-1",
+          preview: "event {actions(3)}",
+        }),
+      ]),
+    );
+  });
 });
 
 describe("POST /api/mobile/records", () => {

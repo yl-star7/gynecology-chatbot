@@ -4,7 +4,7 @@ import {
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
 import { supabaseSelect } from "@/lib/supabase/admin-client";
-import { toRecentChats } from "@/lib/mobile/serializers";
+import { resolveRecentChatPreview, toRecentChats } from "@/lib/mobile/serializers";
 
 type SessionRow = {
   id: string;
@@ -15,25 +15,8 @@ type SessionRow = {
 type MessagePreviewRow = {
   session_id: string;
   plain_text: string | null;
-  parts: Array<{ type?: string; text?: string }> | null;
+  parts: Array<{ type?: string; text?: string; choices?: unknown[] | null }> | null;
 };
-
-function resolveMessagePreview(message: MessagePreviewRow) {
-  const plainText = message.plain_text?.replace(/\s+/g, " ").trim();
-  if (plainText) {
-    return plainText;
-  }
-
-  const partsText = (message.parts ?? [])
-    .flatMap((part) =>
-      part.type === "text" && typeof part.text === "string" ? [part.text] : [],
-    )
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return partsText || null;
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -58,7 +41,10 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      const preview = resolveMessagePreview(message);
+      const preview = resolveRecentChatPreview({
+        plainText: message.plain_text,
+        parts: message.parts,
+      });
       if (preview) {
         previewBySessionId.set(message.session_id, preview);
       }

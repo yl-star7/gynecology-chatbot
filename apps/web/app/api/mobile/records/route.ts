@@ -10,7 +10,7 @@ import {
   supabaseUpdate,
 } from "@/lib/supabase/admin-client";
 import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
-import { toRecordDayView } from "@/lib/mobile/serializers";
+import { resolveRecentChatPreview, toRecordDayView } from "@/lib/mobile/serializers";
 
 type CalendarRecordRow = {
   id: string;
@@ -36,25 +36,8 @@ type SessionRow = {
 type MessagePreviewRow = {
   session_id: string;
   plain_text: string | null;
-  parts: Array<{ type?: string; text?: string }> | null;
+  parts: Array<{ type?: string; text?: string; choices?: unknown[] | null }> | null;
 };
-
-function resolveMessagePreview(message: MessagePreviewRow) {
-  const plainText = message.plain_text?.replace(/\s+/g, " ").trim();
-  if (plainText) {
-    return plainText;
-  }
-
-  const partsText = (message.parts ?? [])
-    .flatMap((part) =>
-      part.type === "text" && typeof part.text === "string" ? [part.text] : [],
-    )
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return partsText || null;
-}
 
 type ProfileRow = {
   pregnancy_day_count: number | null;
@@ -358,7 +341,10 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      const preview = resolveMessagePreview(message);
+      const preview = resolveRecentChatPreview({
+        plainText: message.plain_text,
+        parts: message.parts,
+      });
       if (preview) {
         previewBySessionId.set(message.session_id, preview);
       }

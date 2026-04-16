@@ -45,6 +45,12 @@ type SessionRow = {
   last_message_preview?: string | null;
 };
 
+type MessagePreviewPart = {
+  type?: string;
+  text?: string;
+  choices?: unknown[] | null;
+};
+
 type MessageRow = {
   id: string;
   role: "user" | "assistant" | "system";
@@ -163,20 +169,66 @@ function formatRecentChatLabel(value: string | null) {
   });
 }
 
-export function toRecentChats(sessions: SessionRow[]): RecentChatSummary[] {
-  return sessions.map((session) => {
-    const latestMessage = session.last_message_preview
-      ?.replace(/\s+/g, " ")
-      .trim();
+export function resolveRecentChatPreview(input: {
+  plainText?: string | null;
+  parts?: MessagePreviewPart[] | null;
+}) {
+  const plainText = input.plainText?.replace(/\s+/g, " ").trim();
+  if (plainText) {
+    return plainText;
+  }
 
-    return {
-      id: session.id,
-      title: session.title,
-      preview: latestMessage || "",
-      updatedAtLabel: formatRecentChatLabel(session.last_message_at),
-      updatedAtIso: session.last_message_at,
-    };
-  });
+  const quickRepliesCount = input.parts?.find(
+    (part) =>
+      part?.type === "quickReplies" &&
+      Array.isArray(part.choices) &&
+      part.choices.length > 0,
+  )?.choices?.length;
+  if (typeof quickRepliesCount === "number" && quickRepliesCount > 0) {
+    return `event {actions(${quickRepliesCount})}`;
+  }
+
+  const surveyCount = input.parts?.find(
+    (part) =>
+      part?.type === "survey" &&
+      Array.isArray(part.choices) &&
+      part.choices.length > 0,
+  )?.choices?.length;
+  if (typeof surveyCount === "number" && surveyCount > 0) {
+    return `event {actions(${surveyCount})}`;
+  }
+
+  const partsText = (input.parts ?? [])
+    .flatMap((part) =>
+      part.type === "text" && typeof part.text === "string" ? [part.text] : [],
+    )
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (partsText) {
+    return partsText;
+  }
+
+  const firstEventPart = input.parts?.find(
+    (part) => typeof part?.type === "string" && part.type !== "text",
+  );
+  if (firstEventPart?.type) {
+    return `event {${firstEventPart.type}}`;
+  }
+
+  return null;
+}
+
+export function toRecentChats(sessions: SessionRow[]): RecentChatSummary[] {
+  return sessions.map((session) => ({
+    id: session.id,
+    title: session.title,
+    preview: resolveRecentChatPreview({
+      plainText: session.last_message_preview,
+    }) || "",
+    updatedAtLabel: formatRecentChatLabel(session.last_message_at),
+    updatedAtIso: session.last_message_at,
+  }));
 }
 
 export function toChatSession(

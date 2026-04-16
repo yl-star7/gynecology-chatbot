@@ -1,4 +1,4 @@
-import { toHomeViewData } from "./serializers";
+import { resolveRecentChatPreview, toHomeViewData } from "./serializers";
 
 describe("toHomeViewData", () => {
   beforeEach(() => {
@@ -69,5 +69,48 @@ describe("toHomeViewData", () => {
 
     expect(home.pregnancyDayCount).toBe(206);
     expect(home.pregnancyWeekLabel).toBe("29주 3일");
+  });
+});
+
+describe("resolveRecentChatPreview", () => {
+  it("returns event actions summary for quick replies", () => {
+    expect(
+      resolveRecentChatPreview({
+        plainText: null,
+        parts: [
+          {
+            type: "quickReplies",
+            choices: [{}, {}, {}],
+          },
+        ],
+      }),
+    ).toBe("event {actions(3)}");
+  });
+
+  it("returns event part name when only non-text structured parts exist", () => {
+    expect(
+      resolveRecentChatPreview({
+        plainText: null,
+        parts: [
+          {
+            type: "deepLink",
+          },
+        ],
+      }),
+    ).toBe("event {deepLink}");
+  });
+
+  it("prefers plain text when available", () => {
+    expect(
+      resolveRecentChatPreview({
+        plainText: "  불안해서 잠이 안 와요.  ",
+        parts: [
+          {
+            type: "quickReplies",
+            choices: [{}, {}, {}],
+          },
+        ],
+      }),
+    ).toBe("불안해서 잠이 안 와요.");
   });
 });
