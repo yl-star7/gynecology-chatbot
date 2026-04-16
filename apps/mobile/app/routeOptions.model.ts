@@ -27,10 +27,14 @@ export function buildTabsScreenOptions(colors: {
     tabBarInactiveTintColor: colors.subInk,
     tabBarStyle: {
       backgroundColor: colors.card,
-      borderTopColor: colors.line,
+      borderTopWidth: 0,
+      borderTopColor: "transparent",
       height: space.xxxl * 2 + space.md,
       paddingTop: space.xs,
       paddingBottom: space.lg,
+      elevation: 0,
+      shadowOpacity: 0,
+      shadowColor: "transparent",
     },
     tabBarLabelStyle: {
       fontSize: 12,

@@ -41,8 +41,6 @@ export function PatientTodayInfoSection({
         </View>
       </View>
 
-      <View style={styles.segmentDivider} />
-
       <View style={styles.segmentSection}>
         <View style={styles.iconTitleRow}>
           <View style={[styles.sectionIconWrap, styles.momIconWrap]}>
@@ -69,10 +67,6 @@ const styles = StyleSheet.create({
   },
   segmentSection: {
     gap: space.md,
-  },
-  segmentDivider: {
-    height: 1,
-    backgroundColor: surface.strokeSubtle,
   },
   iconTitleRow: {
     flexDirection: "row",

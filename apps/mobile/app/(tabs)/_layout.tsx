@@ -10,7 +10,7 @@ import { buildTabsScreenOptions } from "../routeOptions.model";
 const TABS_SCREEN_OPTIONS = buildTabsScreenOptions({
   accent: palette.accent,
   subInk: surface.textSecondary,
-  card: surface.surfacePrimary,
+  card: surface.pageBackground,
   line: surface.strokeSubtle,
 });
 

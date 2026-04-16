@@ -143,10 +143,7 @@ const styles = StyleSheet.create({
     color: surface.textSecondary,
   },
   progressMetaRow: {
-    marginTop: space.lg,
-    paddingTop: space.md,
-    borderTopWidth: 1,
-    borderTopColor: surface.strokeSubtle,
+    marginTop: space.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -160,10 +157,10 @@ const styles = StyleSheet.create({
     color: palette.successText,
   },
   progressTrack: {
-    marginTop: space.md,
+    marginTop: space.sm,
     height: 10,
     borderRadius: radii.full,
-    backgroundColor: surface.strokeSubtle,
+    backgroundColor: surface.surfaceSecondary,
     overflow: "hidden",
   },
   progressFill: {
