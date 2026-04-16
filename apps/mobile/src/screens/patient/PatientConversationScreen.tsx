@@ -71,6 +71,6 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
-    backgroundColor: surface.surfacePrimary,
+    backgroundColor: surface.pageBackground,
   },
 });

@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     height: space.xxxl + space.sm,
   },
   headerWithoutRightSlot: {
-    paddingBottom: 0,
+    paddingBottom: space.xs,
   },
   profileButton: {
     width: space.xxxl + space.sm,
@@ -174,7 +174,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: surface.surfaceSecondary,
+    backgroundColor: surface.surfacePrimary,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: surface.strokeSubtle,
   },
   profileButtonLabel: {
     ...typo.label,
