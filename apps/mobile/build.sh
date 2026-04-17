@@ -62,6 +62,33 @@ export npm_config_prefer_offline="${npm_config_prefer_offline:-true}"
 # 빌드 자체엔 영향 없으므로 skip.
 export EAS_BUILD_DISABLE_EXPO_DOCTOR_STEP="${EAS_BUILD_DISABLE_EXPO_DOCTOR_STEP:-1}"
 mkdir -p "$npm_config_cache" "$EXPO_HOME" "$CP_HOME_DIR"
+
+# ── @expo/build-tools runtimeversion:resolve 서브프로세스 hang 우회 ───
+# eas-cli-local-build-plugin이 spawn하는 `env node expo-updates/bin/cli.js runtimeversion:resolve`가
+# 이 머신에서 _dyld_start에서 무한 freeze (직접 실행하면 0.35초). 원인 불명의 macOS subprocess 이슈.
+# app.json의 runtimeVersion이 static string이므로 subprocess 없이 동기 반환하도록 패치.
+patch_runtimeversion_resolver() {
+  local target
+  while IFS= read -r target; do
+    [[ -z "$target" ]] && continue
+    grep -q "\[patched\] runtimeVersion static" "$target" 2>/dev/null && continue
+    cat > "$target" <<'PATCH_EOF'
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.resolveRuntimeVersionAsync = resolveRuntimeVersionAsync;
+async function resolveRuntimeVersionAsync({ exp, platform, logger }) {
+    const rv = exp && exp.runtimeVersion;
+    if (typeof rv === 'string') {
+        if (logger && logger.debug) logger.debug(`[patched] runtimeVersion static: ${rv}`);
+        return { runtimeVersion: rv, fingerprintSources: null };
+    }
+    return { runtimeVersion: null, fingerprintSources: null };
+}
+PATCH_EOF
+    log "패치 적용: $target"
+  done < <(find "$npm_config_cache" -name "resolveRuntimeVersionAsync.js" -path "*/build-tools/*" 2>/dev/null)
+}
+patch_runtimeversion_resolver
 # NOTE: EAS_LOCAL_BUILD_WORKINGDIR / SKIP_CLEANUP은 의도적으로 설정하지 않는다.
 # EAS는 매 빌드 workingdir이 비어있어야 하고, SKIP_CLEANUP=1로 재사용하려
 # 하면 "Workingdir is not empty" 에러. 위 3개 캐시만으로 충분히 빠르다.
