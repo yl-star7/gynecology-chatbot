@@ -30,12 +30,10 @@
 - [ ] Expo push notification 인증서 설정 (docs/PUSH_SETUP.md 참조)
 - [ ] pg_cron에 proactive trigger URL 교체 (내재화된 `/api/admin/proactive/trigger` 사용)
 
-## P2 — 채팅 응답 생성 workflow 이관
+## P2 — 메인 워크플로우 관리 (현황 확인)
 
-- [ ] `apps/web/app/api/mobile/chat/route.ts`의 fallback Gemini generateText 전체를 Schift workflow로 이관 (system prompt, tool 정의, RAG 주입, guardrail 문구 포함)
-- [ ] route.ts에 남는 책임: 요청 파싱, 세션/레이트 리밋, workflow 실행 호출, 응답 직렬화
-- [ ] 체크리스트 contextual quickReplies 생성(`generateChecklistChoices`)도 workflow 블록으로 편입
-- [ ] prompt 템플릿(문체, 상담 분기, parts 가이드)은 workflow 쪽 prompt 자산으로 이전, 버전 관리 일원화
+- 메인 응답 경로는 이미 Schift workflow(`maternal-nursing.yaml` → Supabase Storage `workflow-config/`)로 서버 관리 중. route.ts는 workflow 호출 + Schift 장애 시 mobile-local Gemini fallback만 담당. 이관 불필요.
+- 추가 튜닝이 필요할 경우 `apps/web/src/lib/mobile/workflows/maternal-nursing.yaml`의 `prompts.system` / `prompts.template` 수정 후 Supabase Storage 업로드 → `refreshWorkflowFromStorage()` 또는 5분 TTL 경과로 반영.
 
 ## P3
 
