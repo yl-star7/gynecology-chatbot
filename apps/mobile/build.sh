@@ -51,38 +51,16 @@ if [[ "$PROFILE" != "preview" && "$PROFILE" != "production" ]]; then
 fi
 
 SI_CACHE_ROOT="${SI_CACHE_ROOT:-$HOME/.cache/si-build}"
+# 패키지 매니저 캐시 — 이 3개만으로 재다운로드 대부분 방지됨.
+# npm/yarn 의존성, Expo CLI 설치, CocoaPods specs/archive가 모두 여기서 재사용.
 export npm_config_cache="${npm_config_cache:-$SI_CACHE_ROOT/npm}"
 export EXPO_HOME="${EXPO_HOME:-$SI_CACHE_ROOT/expo}"
 export CP_HOME_DIR="${CP_HOME_DIR:-$SI_CACHE_ROOT/cocoapods}"
-# Keep EAS temp working directory so node_modules/Pods persist across builds.
-# Platform-specific to avoid iOS/Android collisions when run in parallel.
-export EAS_LOCAL_BUILD_SKIP_CLEANUP="${EAS_LOCAL_BUILD_SKIP_CLEANUP:-1}"
-export EAS_LOCAL_BUILD_WORKINGDIR="${EAS_LOCAL_BUILD_WORKINGDIR:-$SI_CACHE_ROOT/eas-workingdir-$PLATFORM}"
 export npm_config_prefer_offline="${npm_config_prefer_offline:-true}"
-mkdir -p "$npm_config_cache" "$EXPO_HOME" "$CP_HOME_DIR" "$EAS_LOCAL_BUILD_WORKINGDIR"
-
-# ── Stale workingdir recovery ───────────────────────────
-# SKIP_CLEANUP으로 workingdir 재사용하지만, 이전 빌드가 비정상 종료되면
-# node_modules/Pods가 중간 상태로 남아 다음 빌드가 멈춘다.
-# 성공 시에만 제거되는 marker로 비정상 종료 자동 감지 → workingdir 초기화.
-BUILD_MARKER="$EAS_LOCAL_BUILD_WORKINGDIR/.build-in-progress"
-if [[ -f "$BUILD_MARKER" ]]; then
-  warn "이전 빌드가 비정상 종료된 흔적 발견 — workingdir 재초기화"
-  rm -rf "$EAS_LOCAL_BUILD_WORKINGDIR"
-  mkdir -p "$EAS_LOCAL_BUILD_WORKINGDIR"
-fi
-touch "$BUILD_MARKER"
-# 어떤 경로로 종료되든 (성공/실패/인터럽트) marker 처리
-cleanup_marker() {
-  local exit_code=$?
-  if [[ $exit_code -eq 0 ]]; then
-    rm -f "$BUILD_MARKER"
-  else
-    # 실패 시 marker 유지 → 다음 실행에서 자동 복구
-    warn "빌드 종료 코드 $exit_code — workingdir marker 유지(다음 실행에서 자동 재초기화)"
-  fi
-}
-trap cleanup_marker EXIT
+mkdir -p "$npm_config_cache" "$EXPO_HOME" "$CP_HOME_DIR"
+# NOTE: EAS_LOCAL_BUILD_WORKINGDIR / SKIP_CLEANUP은 의도적으로 설정하지 않는다.
+# EAS는 매 빌드 workingdir이 비어있어야 하고, SKIP_CLEANUP=1로 재사용하려
+# 하면 "Workingdir is not empty" 에러. 위 3개 캐시만으로 충분히 빠르다.
 
 if [[ "$PLATFORM" == "aos" ]]; then
   export GRADLE_USER_HOME="${GRADLE_USER_HOME:-$SI_CACHE_ROOT/gradle}"
