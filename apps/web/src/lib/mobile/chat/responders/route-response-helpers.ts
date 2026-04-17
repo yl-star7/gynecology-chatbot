@@ -199,6 +199,52 @@ function normalizeAssistantMessageParts(
         });
         continue;
       }
+      case "quickReplies": {
+        if (!Array.isArray(candidate.choices)) {
+          continue;
+        }
+
+        const choices = candidate.choices.flatMap((choice, choiceIndex) => {
+          if (!choice || typeof choice !== "object") {
+            return [];
+          }
+          const choiceRecord = choice as Record<string, unknown>;
+          const label =
+            typeof choiceRecord.label === "string"
+              ? choiceRecord.label.trim()
+              : "";
+          if (!label) {
+            return [];
+          }
+          const rawMessage =
+            typeof choiceRecord.message === "string"
+              ? choiceRecord.message.trim()
+              : "";
+          return [
+            {
+              id:
+                typeof choiceRecord.id === "string" && choiceRecord.id
+                  ? choiceRecord.id
+                  : `${id}-choice-${choiceIndex + 1}`,
+              label,
+              message: rawMessage || label,
+            },
+          ];
+        });
+
+        if (choices.length === 0) {
+          continue;
+        }
+
+        normalized.push({
+          type: "quickReplies",
+          id,
+          title:
+            typeof candidate.title === "string" ? candidate.title : undefined,
+          choices,
+        });
+        continue;
+      }
       default:
         continue;
     }

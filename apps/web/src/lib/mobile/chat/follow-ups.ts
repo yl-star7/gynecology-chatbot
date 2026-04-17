@@ -21,6 +21,22 @@ export type PromptFollowUpResult = {
   selectedQuestions: QuestionRow[];
 };
 
+export type ChecklistChoice = { label: string; message: string };
+
+export type ChecklistChoicesGenerator = (input: {
+  checklistId: string;
+  checklistCode: string;
+  title: string;
+  description: string;
+  weekNumber: number | null;
+}) => Promise<ChecklistChoice[] | null>;
+
+const DEFAULT_CHECKLIST_CHOICES: ChecklistChoice[] = [
+  { label: "했어요", message: "했어요" },
+  { label: "안 했어요", message: "안 했어요" },
+  { label: "왜 해야 하나요?", message: "왜 해야 하나요?" },
+];
+
 function buildQuickReplyChoices(input: {
   baseId: string;
   options: Array<string | { label: string; message: string }>;
@@ -32,14 +48,15 @@ function buildQuickReplyChoices(input: {
   }));
 }
 
-export function buildPromptFollowUpMessages(input: {
+export async function buildPromptFollowUpMessages(input: {
   week: WeekDataRow;
   dayContent: DayContentLike;
   checklists: ChecklistRow[];
   questions: QuestionRow[];
   excludeChecklistIds?: Set<string>;
   excludeQuestionIds?: Set<string>;
-}): PromptFollowUpResult {
+  generateChecklistChoices?: ChecklistChoicesGenerator;
+}): Promise<PromptFollowUpResult> {
   const messages: AssistantFollowUpMessage[] = [];
   const selectedChecklists: ChecklistRow[] = [];
   const selectedQuestions: QuestionRow[] = [];
@@ -113,6 +130,25 @@ export function buildPromptFollowUpMessages(input: {
         : "";
       const descText =
         cleanDesc && cleanDesc !== cleanTitle ? `\n${cleanDesc}` : "";
+
+      let choices: ChecklistChoice[] = DEFAULT_CHECKLIST_CHOICES;
+      if (input.generateChecklistChoices) {
+        try {
+          const generated = await input.generateChecklistChoices({
+            checklistId: checklist.id,
+            checklistCode: checklist.code,
+            title: cleanTitle,
+            description: cleanDesc,
+            weekNumber: input.week.week_number ?? null,
+          });
+          if (generated && generated.length > 0) {
+            choices = generated.slice(0, 4);
+          }
+        } catch {
+          // fall back to defaults silently
+        }
+      }
+
       messages.push({
         role: "assistant",
         createdAtLabel: "방금 전",
@@ -134,20 +170,7 @@ export function buildPromptFollowUpMessages(input: {
             title: "빠르게 답해보세요",
             choices: buildQuickReplyChoices({
               baseId: checklist.id,
-              options: [
-                {
-                  label: "했어요",
-                  message: "했어요",
-                },
-                {
-                  label: "안 했어요",
-                  message: "안 했어요",
-                },
-                {
-                  label: "왜 해야 하나요?",
-                  message: "왜 해야 하나요?",
-                },
-              ],
+              options: choices,
             }),
           },
         ],
