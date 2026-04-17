@@ -54,7 +54,12 @@ SI_CACHE_ROOT="${SI_CACHE_ROOT:-$HOME/.cache/si-build}"
 export npm_config_cache="${npm_config_cache:-$SI_CACHE_ROOT/npm}"
 export EXPO_HOME="${EXPO_HOME:-$SI_CACHE_ROOT/expo}"
 export CP_HOME_DIR="${CP_HOME_DIR:-$SI_CACHE_ROOT/cocoapods}"
-mkdir -p "$npm_config_cache" "$EXPO_HOME" "$CP_HOME_DIR"
+# Keep EAS temp working directory so node_modules/Pods persist across builds.
+# Platform-specific to avoid iOS/Android collisions when run in parallel.
+export EAS_LOCAL_BUILD_SKIP_CLEANUP="${EAS_LOCAL_BUILD_SKIP_CLEANUP:-1}"
+export EAS_LOCAL_BUILD_WORKINGDIR="${EAS_LOCAL_BUILD_WORKINGDIR:-$SI_CACHE_ROOT/eas-workingdir-$PLATFORM}"
+export npm_config_prefer_offline="${npm_config_prefer_offline:-true}"
+mkdir -p "$npm_config_cache" "$EXPO_HOME" "$CP_HOME_DIR" "$EAS_LOCAL_BUILD_WORKINGDIR"
 
 if [[ "$PLATFORM" == "aos" ]]; then
   export GRADLE_USER_HOME="${GRADLE_USER_HOME:-$SI_CACHE_ROOT/gradle}"
