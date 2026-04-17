@@ -33,12 +33,7 @@ export function PatientTodayScreen() {
   });
 
   return (
-    <PatientShell
-      activeTab="today"
-      title="오늘,우리"
-      pageTone="plain"
-      headerCompact
-    >
+    <PatientShell activeTab="today" pageTone="plain" headerCompact>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -91,7 +86,10 @@ export function PatientTodayScreen() {
 
         {model.shouldShowOnboardingNudge ? (
           <Card variant="muted" style={styles.conversationComposerCard}>
-            <Pressable style={styles.onboardingNudge} onPress={model.openOnboarding}>
+            <Pressable
+              style={styles.onboardingNudge}
+              onPress={model.openOnboarding}
+            >
               <Text style={styles.onboardingNudgeText}>
                 내 정보를 등록하면 주차별 맞춤 상담을 받을 수 있어요
               </Text>

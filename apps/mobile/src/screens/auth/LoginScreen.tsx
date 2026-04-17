@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import {
   BrandMark,
@@ -38,9 +38,24 @@ export function LoginScreen() {
 
   const isBypassPhoneNumber = useMemo(
     () =>
-      allowDevelopmentBypass && isDevelopmentAutoVerifiedPhoneNumber(phoneNumber),
+      allowDevelopmentBypass &&
+      isDevelopmentAutoVerifiedPhoneNumber(phoneNumber),
     [allowDevelopmentBypass, phoneNumber],
   );
+
+  const autoLoginFiredRef = useRef(false);
+  useEffect(() => {
+    if (
+      isBypassPhoneNumber &&
+      hasRequestedCode &&
+      verificationCode.trim() &&
+      !autoLoginFiredRef.current
+    ) {
+      autoLoginFiredRef.current = true;
+      handleLogin();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBypassPhoneNumber, hasRequestedCode, verificationCode]);
 
   async function handleRequestCode() {
     try {
@@ -146,4 +161,3 @@ const styles = StyleSheet.create({
   error: { ...typo.caption, color: palette.errorText, textAlign: "center" },
   status: { ...typo.caption, color: palette.accent, textAlign: "center" },
 });
-

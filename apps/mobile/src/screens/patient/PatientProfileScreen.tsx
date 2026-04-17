@@ -297,7 +297,6 @@ export function PatientProfileScreen() {
   return (
     <PatientShell
       activeTab="profile"
-      title="마이페이지"
       showProfileButton={false}
       pageTone="plain"
       headerCompact
