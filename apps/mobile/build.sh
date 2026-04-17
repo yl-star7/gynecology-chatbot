@@ -57,6 +57,10 @@ export npm_config_cache="${npm_config_cache:-$SI_CACHE_ROOT/npm}"
 export EXPO_HOME="${EXPO_HOME:-$SI_CACHE_ROOT/expo}"
 export CP_HOME_DIR="${CP_HOME_DIR:-$SI_CACHE_ROOT/cocoapods}"
 export npm_config_prefer_offline="${npm_config_prefer_offline:-true}"
+# expo-doctor는 monorepo metro 설정을 이해 못해서 metro.config.js 경고를 에러로 던짐.
+# 이 프로젝트는 monorepo(pnpm workspace) + React 해석 커스터마이즈가 의도된 설계.
+# 빌드 자체엔 영향 없으므로 skip.
+export EAS_BUILD_DISABLE_EXPO_DOCTOR_STEP="${EAS_BUILD_DISABLE_EXPO_DOCTOR_STEP:-1}"
 mkdir -p "$npm_config_cache" "$EXPO_HOME" "$CP_HOME_DIR"
 # NOTE: EAS_LOCAL_BUILD_WORKINGDIR / SKIP_CLEANUP은 의도적으로 설정하지 않는다.
 # EAS는 매 빌드 workingdir이 비어있어야 하고, SKIP_CLEANUP=1로 재사용하려
