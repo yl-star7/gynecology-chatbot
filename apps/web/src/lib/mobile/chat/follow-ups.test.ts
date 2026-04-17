@@ -45,6 +45,10 @@ describe("buildPromptFollowUpMessages", () => {
     );
 
     expect(quickReplies?.type).toBe("quickReplies");
+    if (quickReplies?.type !== "quickReplies") {
+      throw new Error("quick replies part was not created");
+    }
+
     expect(quickReplies?.choices.map((choice) => choice.label)).toEqual([
       "좋아요",
       "우울해요",
