@@ -387,6 +387,19 @@ export async function buildWorkflowAssistantMessage<
     text: sanitizeInlineCitationMarkers(payload.answer.trim()),
   });
 
+  if (payload.quickReplies && payload.quickReplies.length > 0) {
+    const quickRepliesId = `workflow-quick-${Date.now()}`;
+    parts.push({
+      type: "quickReplies",
+      id: quickRepliesId,
+      choices: payload.quickReplies.map((choice, index) => ({
+        id: `${quickRepliesId}-choice-${index + 1}`,
+        label: choice.label,
+        message: choice.message,
+      })),
+    });
+  }
+
   return {
     id: `assistant-${Date.now()}`,
     role: "assistant",

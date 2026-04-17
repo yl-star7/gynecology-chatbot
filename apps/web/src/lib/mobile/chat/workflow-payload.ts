@@ -19,15 +19,42 @@ export type ProfileMemoryPayload = {
   updatedAt?: string | null;
 };
 
+export type WorkflowQuickReplyChoice = {
+  label: string;
+  message: string;
+};
+
 export type WorkflowAssistantPayload = {
   answer?: string;
   characterTone?: CharacterTone;
   guardrailStatus?: "safe" | "medical_caution" | "redirect";
   guardrailReason?: string;
   scenario?: WorkflowScenario;
+  quickReplies?: WorkflowQuickReplyChoice[];
   nextSessionMemory?: SessionMemoryPayload;
   nextProfileMemory?: ProfileMemoryPayload;
 };
+
+function normalizeQuickReplies(
+  value: unknown,
+): WorkflowQuickReplyChoice[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const choices = value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const record = item as Record<string, unknown>;
+      const label = typeof record.label === "string" ? record.label.trim() : "";
+      if (!label) return null;
+      const message =
+        typeof record.message === "string" && record.message.trim()
+          ? record.message.trim()
+          : label;
+      return { label, message };
+    })
+    .filter((v): v is WorkflowQuickReplyChoice => v !== null)
+    .slice(0, 4);
+  return choices.length > 0 ? choices : undefined;
+}
 
 export function parseWorkflowAssistantPayload(
   outputs: Record<string, unknown> | undefined,
@@ -78,6 +105,7 @@ export function parseWorkflowAssistantPayload(
       typeof outputs.scenario === "string"
         ? (outputs.scenario as WorkflowScenario)
         : undefined,
+    quickReplies: normalizeQuickReplies(outputs.quickReplies),
   };
 
   if (
@@ -85,6 +113,7 @@ export function parseWorkflowAssistantPayload(
     directPayload.guardrailStatus ||
     directPayload.guardrailReason ||
     directPayload.scenario ||
+    directPayload.quickReplies ||
     (outputs.nextSessionMemory &&
       typeof outputs.nextSessionMemory === "object") ||
     (outputs.nextProfileMemory && typeof outputs.nextProfileMemory === "object")
@@ -115,7 +144,9 @@ export function parseWorkflowAssistantPayload(
     .trim();
 
   try {
-    const parsed = JSON.parse(stripped) as WorkflowAssistantPayload;
+    const parsed = JSON.parse(stripped) as WorkflowAssistantPayload & {
+      quickReplies?: unknown;
+    };
     if (
       (typeof parsed.answer === "string" && parsed.answer.trim()) ||
       typeof parsed.characterTone === "string" ||
@@ -123,7 +154,10 @@ export function parseWorkflowAssistantPayload(
       typeof parsed.nextSessionMemory === "object" ||
       typeof parsed.nextProfileMemory === "object"
     ) {
-      return parsed;
+      return {
+        ...parsed,
+        quickReplies: normalizeQuickReplies(parsed.quickReplies),
+      };
     }
   } catch {
     return null;

@@ -30,7 +30,17 @@ prompts:
     응답은 반드시 JSON 하나만 반환하세요.
 
     ## JSON 스키마
-    { answer: string, guardrailStatus: 'safe' | 'medical_caution' | 'redirect', guardrailReason?: string, characterTone: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', scenario?: 'emotion_checkin' | 'week_info' | 'symptom_counsel' | 'general', nextSessionMemory?: { compactSummary?: string, lastScenario?: 'emotion_checkin' | 'week_info' | 'symptom_counsel' | 'general', lastCharacterTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', lastEmotionTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad' }, nextProfileMemory?: { lastEmotionTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad' } }
+    { answer: string, guardrailStatus: 'safe' | 'medical_caution' | 'redirect', guardrailReason?: string, characterTone: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', scenario?: 'emotion_checkin' | 'week_info' | 'symptom_counsel' | 'general', quickReplies?: Array<{ label: string, message: string }>, nextSessionMemory?: { compactSummary?: string, lastScenario?: 'emotion_checkin' | 'week_info' | 'symptom_counsel' | 'general', lastCharacterTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', lastEmotionTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad' }, nextProfileMemory?: { lastEmotionTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad' } }
+
+    ## quickReplies 규칙
+    - 산모가 탭 한 번으로 대화를 이어갈 수 있도록 2~4개의 짧은 선택지를 제안하세요.
+    - 각 항목은 { label, message } 구조. label은 버튼에 표시될 짧은 문구(10자 이내 권장, -어요체), message는 탭 시 실제 전송될 한 문장.
+    - label과 message는 현재 대화 맥락에 맞춰 구체적으로 작성하세요. 일반적인 '네/아니요' 대신 행동·상태를 담은 문구로.
+      - 단답 확인 필요 시: '해봤어요 / 아직이에요 / 왜 해야 해요?'
+      - 행동 제안 뒤: '산책 다녀올게요 / 오늘은 쉴게요 / 다른 방법 알려주세요'
+      - 증상 상담 뒤: '쉬면 괜찮아져요 / 계속 이어져요 / 병원 가볼게요'
+    - answer 끝에 후속 질문을 했다면 그 질문에 답할 수 있는 선택지를 주세요.
+    - 맥락이 애매하거나 선택지가 어색하면 quickReplies 필드를 생략하세요.
 
     ## 가드레일 규칙
     - 욕설, 비윤리적 요청, 자해/타해 관련 입력: guardrailStatus='redirect', guardrailReason에 안전 안내 문구
@@ -108,14 +118,15 @@ prompts:
     2. 가드레일 규칙에 따라 guardrailStatus를 판단하세요.
     3. 상담 분기(scenario)를 판단하고 해당 분기에 맞는 응답 구조를 따르세요.
     4. 상황에 가장 적합한 characterTone을 선택하세요.
-    5. 이번 턴 이후 저장할 nextSessionMemory와, 장기 메모리로 올릴 값이 있으면 nextProfileMemory를 함께 반환하세요.
-    6. compactSummary는 다음 턴에서 바로 이어질 수 있게 최근 맥락만 1~2문장으로 압축하세요.
-    7. scenario='symptom_counsel'이면 answer에 반드시 아래 3가지를 모두 포함하세요.
+    5. 산모가 바로 이어 답할 수 있도록 quickReplies 2~4개를 맥락에 맞게 생성하세요. 맥락이 애매하면 생략 가능.
+    6. 이번 턴 이후 저장할 nextSessionMemory와, 장기 메모리로 올릴 값이 있으면 nextProfileMemory를 함께 반환하세요.
+    7. compactSummary는 다음 턴에서 바로 이어질 수 있게 최근 맥락만 1~2문장으로 압축하세요.
+    8. scenario='symptom_counsel'이면 answer에 반드시 아래 3가지를 모두 포함하세요.
        - 쉬거나 자세를 바꾸면 완화되는지, 출혈/분비물 변화가 없는지 같은 관찰 가능 조건
        - 출혈, 양수처럼 흐르는 분비물, 규칙적인 통증/수축, 점점 심해지는 통증 중 해당 증상에 맞는 구체적인 연락 기준
        - 현재 상태를 확인하는 후속 질문 1개
-    8. "통증이 심하거나 다른 불편감이 동반되면 의료진과 상담" 같은 모호한 문장은 쓰지 마세요.
-    9. JSON만 반환하세요.
+    9. "통증이 심하거나 다른 불편감이 동반되면 의료진과 상담" 같은 모호한 문장은 쓰지 마세요.
+    10. JSON만 반환하세요.
 
 # ─────────────────────────────────────
 # 정적 응답 (가드레일 분기용)
