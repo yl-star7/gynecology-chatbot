@@ -321,7 +321,7 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           last_message_at: string | null;
         }>
       >(
-        "chat_sessions?select=id,user_id,title,last_message_at&order=last_message_at.desc.nullslast",
+        "chat_sessions?select=id,user_id,title,last_message_at&order=last_message_at.desc.nullslast&limit=10000",
       ),
       supabaseSelect<
         Array<{
@@ -340,7 +340,7 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           created_at: string;
         }>
       >(
-        "chat_messages?select=id,session_id,role,plain_text,parts,created_at&order=created_at.desc",
+        "chat_messages?select=id,session_id,role,plain_text,parts,created_at&order=created_at.desc&limit=50000",
       ),
       supabaseSelect<
         Array<{
@@ -628,9 +628,7 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           : dashboard.userActions,
       workflowRules: (() => {
         // Schift API에 실제 존재하는 워크플로우 ID 집합
-        const schiftIdSet = new Set(
-          schiftWorkflowRules.map((wf) => wf.id),
-        );
+        const schiftIdSet = new Set(schiftWorkflowRules.map((wf) => wf.id));
         // Schift 워크플로우를 identity로 빠르게 검색할 수 있도록 맵 구성
         const schiftByIdentity = new Map(
           schiftWorkflowRules.map((wf) => [
@@ -658,9 +656,7 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
             return match ? { ...def, id: match.id } : def;
           });
 
-        const seenWorkflowIds = new Set(
-          mappedDefinitions.map((def) => def.id),
-        );
+        const seenWorkflowIds = new Set(mappedDefinitions.map((def) => def.id));
         const seenWorkflowIdentities = new Set(
           mappedDefinitions.map((workflow) =>
             buildWorkflowIdentity({

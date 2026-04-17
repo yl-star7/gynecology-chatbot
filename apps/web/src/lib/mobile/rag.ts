@@ -234,6 +234,30 @@ export type RagSearchResult = {
   sources: RagSource[];
 };
 
+const FILE_RAG_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 /** 파일 RAG 검색 — Schift collection에서 top-K 검색 + 출처 반환 */
 export async function searchFileRag(input: {
   query: string;
@@ -248,11 +272,15 @@ export async function searchFileRag(input: {
 
   try {
     const [response, disabledIds] = await Promise.all([
-      schift.search({
-        query: input.query,
-        collection: "pregnancy-knowledge",
-        topK: count + 10,
-      }),
+      withTimeout(
+        schift.search({
+          query: input.query,
+          collection: "pregnancy-knowledge",
+          topK: count + 10,
+        }),
+        FILE_RAG_TIMEOUT_MS,
+        "File RAG search",
+      ),
       getDisabledFileIds(),
     ]);
 
