@@ -33,7 +33,7 @@ describe("route response helpers", () => {
     );
   });
 
-  it("returns workflow answer with guardrail text and character image", async () => {
+  it("returns workflow answer with guardrail text and quick replies", async () => {
     const message = await buildWorkflowAssistantMessage({
       run: {
         outputs: {
@@ -42,6 +42,10 @@ describe("route response helpers", () => {
             guardrailStatus: "medical_caution",
             guardrailReason: "응급 신호 가능성을 먼저 확인해야 해요.",
             characterTone: "anxious",
+            quickReplies: [
+              { label: "쉬어볼게요", message: "일단 쉬어볼게요" },
+              { label: "계속 아파요", message: "계속 아파요" },
+            ],
           }),
         },
       },
@@ -53,16 +57,19 @@ describe("route response helpers", () => {
     expect(message?.parts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "image",
-          alt: expect.stringContaining("안내"),
-        }),
-        expect.objectContaining({
           type: "text",
           text: expect.stringContaining("응급 신호 가능성"),
         }),
         expect.objectContaining({
           type: "text",
           text: "무리하지 말고 쉬어보세요.",
+        }),
+        expect.objectContaining({
+          type: "quickReplies",
+          choices: [
+            expect.objectContaining({ label: "쉬어볼게요" }),
+            expect.objectContaining({ label: "계속 아파요" }),
+          ],
         }),
       ]),
     );

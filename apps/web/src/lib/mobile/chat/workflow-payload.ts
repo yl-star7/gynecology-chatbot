@@ -52,7 +52,7 @@ function normalizeQuickReplies(
       return { label, message };
     })
     .filter((v): v is WorkflowQuickReplyChoice => v !== null)
-    .slice(0, 4);
+    .slice(0, 5);
   return choices.length > 0 ? choices : undefined;
 }
 

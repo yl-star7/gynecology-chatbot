@@ -41,7 +41,7 @@ function buildQuickReplyChoices(input: {
   baseId: string;
   options: Array<string | { label: string; message: string }>;
 }) {
-  return input.options.slice(0, 4).map((option, index) => ({
+  return input.options.slice(0, 5).map((option, index) => ({
     id: `${input.baseId}-choice-${index + 1}`,
     label: typeof option === "string" ? option : option.label,
     message: typeof option === "string" ? option : option.message,
@@ -142,7 +142,7 @@ export async function buildPromptFollowUpMessages(input: {
             weekNumber: input.week.week_number ?? null,
           });
           if (generated && generated.length > 0) {
-            choices = generated.slice(0, 4);
+            choices = generated.slice(0, 5);
           }
         } catch {
           // fall back to defaults silently
