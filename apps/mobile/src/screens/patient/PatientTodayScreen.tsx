@@ -33,7 +33,12 @@ export function PatientTodayScreen() {
   });
 
   return (
-    <PatientShell activeTab="today" pageTone="plain" headerCompact>
+    <PatientShell
+      activeTab="today"
+      pageTone="plain"
+      showProfileButton={false}
+      headerCompact
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}

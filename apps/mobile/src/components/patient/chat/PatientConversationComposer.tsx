@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   composerRow: {
     flexDirection: "row",
     gap: space.xs,
-    alignItems: "flex-end",
+    alignItems: "center",
   },
   input: {
     flex: 1,

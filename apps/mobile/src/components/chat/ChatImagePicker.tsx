@@ -143,7 +143,7 @@ export function ChatImagePicker(props: ChatImagePickerProps): JSX.Element {
     >
       <Ionicons
         name="image-outline"
-        size={22}
+        size={32}
         color={disabled ? surface.strokeSubtle : surface.textSecondary}
       />
     </Pressable>
@@ -185,11 +185,11 @@ const PREVIEW_SIZE = 64;
 
 const styles = StyleSheet.create({
   button: {
-    width: 28,
-    height: 28,
+    width: 44,
+    height: 44,
     marginLeft: space.xs,
     padding: 0,
-    borderRadius: radii.sm,
+    borderRadius: radii.md,
     alignItems: "center",
     justifyContent: "center",
   },

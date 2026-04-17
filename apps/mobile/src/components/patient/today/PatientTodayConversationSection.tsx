@@ -27,18 +27,17 @@ export function PatientTodayConversationSection({
 }) {
   return (
     <Card style={[styles.segmentCard, styles.conversationLauncherCard]}>
-      <View style={styles.conversationLauncherHeader}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        <Pressable
-          style={styles.openChatButton}
-          onPress={onOpenNewChat}
-          accessibilityLabel="새 채팅 열기"
-        >
-          <Text style={styles.openChatButtonText}>새 채팅</Text>
-        </Pressable>
-      </View>
+      <Text style={styles.sectionTitle}>{title}</Text>
 
       <Text style={styles.emptyText}>{description}</Text>
+
+      <Pressable
+        style={styles.openChatButton}
+        onPress={onOpenNewChat}
+        accessibilityLabel="새 채팅 열기"
+      >
+        <Text style={styles.openChatButtonText}>새 채팅 시작하기</Text>
+      </Pressable>
 
       <View style={styles.recentSessionList}>
         {recentSessions.length > 0 ? (
@@ -87,13 +86,15 @@ const styles = StyleSheet.create({
   },
   openChatButton: {
     borderRadius: radii.full,
-    backgroundColor: palette.accentSoft,
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs,
+    backgroundColor: palette.accent,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
   openChatButtonText: {
-    ...typo.label,
-    color: palette.accent,
+    ...typo.titleSm,
+    color: surface.surfacePrimary,
   },
   emptyText: {
     ...typo.body,

@@ -406,7 +406,7 @@ export function createMobileApiClient(
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30_000);
+      const timeoutId = setTimeout(() => controller.abort(), 60_000);
       try {
         const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/chat`, {
           method: "POST",
