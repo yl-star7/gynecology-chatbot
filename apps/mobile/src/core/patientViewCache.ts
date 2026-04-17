@@ -62,14 +62,21 @@ function readCacheValue<T>(
   return cache.get(key)?.value ?? null;
 }
 
-function cacheValue<T>(cache: Map<string, CacheEntry<T>>, key: string, value: T) {
+function cacheValue<T>(
+  cache: Map<string, CacheEntry<T>>,
+  key: string,
+  value: T,
+) {
   cache.set(key, {
     value,
     updatedAt: Date.now(),
   });
 }
 
-function clearCacheKey<T>(cache: Map<string, CacheEntry<T>>, key?: string | null) {
+function clearCacheKey<T>(
+  cache: Map<string, CacheEntry<T>>,
+  key?: string | null,
+) {
   if (!key) {
     return;
   }
@@ -89,7 +96,9 @@ function createPersistedPatientViewCacheKey(userId: string) {
   return `${PATIENT_VIEW_CACHE_STORAGE_PREFIX}-${userId}`;
 }
 
-function queuePersistedPatientViewCacheOperation(operation: () => Promise<void>) {
+function queuePersistedPatientViewCacheOperation(
+  operation: () => Promise<void>,
+) {
   const nextOperation = persistedPatientViewCacheQueue
     .catch(() => undefined)
     .then(operation);
@@ -185,7 +194,12 @@ function collectRecordDayEntries(userId: string) {
       return [];
     }
 
-    return [[key.slice(userId.length + 1), entry] as [string, CacheEntry<RecordDayView>]];
+    return [
+      [key.slice(userId.length + 1), entry] as [
+        string,
+        CacheEntry<RecordDayView>,
+      ],
+    ];
   });
 }
 
@@ -207,10 +221,10 @@ function hasPersistedPatientViewCacheContent(
 ) {
   return Boolean(
     snapshot.profile ||
-      snapshot.home ||
-      snapshot.today ||
-      snapshot.recentChats ||
-      snapshot.recordDays.length > 0,
+    snapshot.home ||
+    snapshot.today ||
+    snapshot.recentChats ||
+    snapshot.recordDays.length > 0,
   );
 }
 
@@ -368,13 +382,19 @@ export function hasFreshCachedProfileView(userId?: string | null) {
   return isFreshEntry(profileCache.get(userId));
 }
 
-export function cacheProfileView(userId: string, profile: MobileProfileViewData) {
+export function cacheProfileView(
+  userId: string,
+  profile: MobileProfileViewData,
+) {
   cacheValue(profileCache, userId, profile);
   schedulePersistedPatientViewCache(userId);
 }
 
 export function clearCachedProfileView(userId?: string | null) {
   clearCacheKey(profileCache, userId);
+  if (userId) {
+    schedulePersistedPatientViewCache(userId);
+  }
 }
 
 export function readCachedHomeView(userId?: string | null) {
@@ -396,6 +416,9 @@ export function cacheHomeView(userId: string, home: HomeViewData) {
 
 export function clearCachedHomeView(userId?: string | null) {
   clearCacheKey(homeCache, userId);
+  if (userId) {
+    schedulePersistedPatientViewCache(userId);
+  }
 }
 
 export function readCachedTodayView(userId?: string | null) {
@@ -417,6 +440,9 @@ export function cacheTodayView(userId: string, today: TodayViewData) {
 
 export function clearCachedTodayView(userId?: string | null) {
   clearCacheKey(todayCache, userId);
+  if (userId) {
+    schedulePersistedPatientViewCache(userId);
+  }
 }
 
 export function readCachedRecordDayView(
@@ -427,7 +453,10 @@ export function readCachedRecordDayView(
     return null;
   }
 
-  return readCacheValue(recordDayCache, createRecordDayCacheKey(userId, isoDate));
+  return readCacheValue(
+    recordDayCache,
+    createRecordDayCacheKey(userId, isoDate),
+  );
 }
 
 export function readCachedRecentChats(userId?: string | null) {
@@ -442,13 +471,19 @@ export function hasFreshCachedRecentChats(userId?: string | null) {
   return isFreshEntry(recentChatsCache.get(userId));
 }
 
-export function cacheRecentChats(userId: string, recentChats: RecentChatSummary[]) {
+export function cacheRecentChats(
+  userId: string,
+  recentChats: RecentChatSummary[],
+) {
   cacheValue(recentChatsCache, userId, recentChats);
   schedulePersistedPatientViewCache(userId);
 }
 
 export function clearCachedRecentChats(userId?: string | null) {
   clearCacheKey(recentChatsCache, userId);
+  if (userId) {
+    schedulePersistedPatientViewCache(userId);
+  }
 }
 
 export function readCachedChatSession(
@@ -483,7 +518,11 @@ export function cacheChatSession(
   sessionId: string,
   session: ChatSession,
 ) {
-  cacheValue(chatSessionCache, createChatSessionCacheKey(userId, sessionId), session);
+  cacheValue(
+    chatSessionCache,
+    createChatSessionCacheKey(userId, sessionId),
+    session,
+  );
 }
 
 export function clearCachedChatSession(
@@ -505,7 +544,9 @@ export function hasFreshCachedRecordDayView(
     return false;
   }
 
-  return isFreshEntry(recordDayCache.get(createRecordDayCacheKey(userId, isoDate)));
+  return isFreshEntry(
+    recordDayCache.get(createRecordDayCacheKey(userId, isoDate)),
+  );
 }
 
 export function cacheRecordDayView(
@@ -513,7 +554,11 @@ export function cacheRecordDayView(
   isoDate: string,
   recordDay: RecordDayView,
 ) {
-  cacheValue(recordDayCache, createRecordDayCacheKey(userId, isoDate), recordDay);
+  cacheValue(
+    recordDayCache,
+    createRecordDayCacheKey(userId, isoDate),
+    recordDay,
+  );
   schedulePersistedPatientViewCache(userId);
 }
 
