@@ -38,6 +38,7 @@
     "production": {
       "android": {
         "track": "internal",
+        "releaseStatus": "draft",
         "serviceAccountKeyPath": "./play-submit-key.json"
       },
       "ios": {
