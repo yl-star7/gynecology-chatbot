@@ -56,7 +56,7 @@ export EXPO_HOME="${EXPO_HOME:-$SI_CACHE_ROOT/expo}"
 export CP_HOME_DIR="${CP_HOME_DIR:-$SI_CACHE_ROOT/cocoapods}"
 # Keep EAS temp working directory so node_modules/Pods persist across builds
 export EAS_LOCAL_BUILD_SKIP_CLEANUP="${EAS_LOCAL_BUILD_SKIP_CLEANUP:-1}"
-export EAS_LOCAL_BUILD_WORKINGDIR="${EAS_LOCAL_BUILD_WORKINGDIR:-$SI_CACHE_ROOT/eas-workingdir}"
+export EAS_LOCAL_BUILD_WORKINGDIR="${EAS_LOCAL_BUILD_WORKINGDIR:-$SI_CACHE_ROOT/eas-workingdir-$PLATFORM}"
 # Prefer lockfile resolution against the local pnpm/npm cache before hitting registry
 export npm_config_prefer_offline="${npm_config_prefer_offline:-true}"
 mkdir -p "$npm_config_cache" "$EXPO_HOME" "$CP_HOME_DIR" "$EAS_LOCAL_BUILD_WORKINGDIR"
