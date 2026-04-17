@@ -24,6 +24,7 @@ type RagProvider = "schift" | "supabase" | "auto";
 
 type ConfigRow = { key: string; value: { ragProvider?: RagProvider } };
 const PGVECTOR_DIMENSION = 1536;
+const FILE_RAG_TIMEOUT_MS = 5000;
 
 function normalizeEmbeddingLength(values: number[]) {
   return values.slice(0, PGVECTOR_DIMENSION);
@@ -88,11 +89,15 @@ async function searchViaSchift(
   if (!schift) throw new Error("Schift client not configured");
 
   const [response, disabledIds] = await Promise.all([
-    schift.search({
-      query,
-      collection: "pregnancy-knowledge",
-      topK: matchCount + 10,
-    }),
+    withTimeout(
+      schift.search({
+        query,
+        collection: "pregnancy-knowledge",
+        topK: matchCount + 10,
+      }),
+      FILE_RAG_TIMEOUT_MS,
+      "Schift RAG search",
+    ),
     getDisabledFileIds(),
   ]);
 
@@ -175,15 +180,25 @@ export async function retrievePregnancyContext(input: {
     return await searchViaSupabase(input.query, input.currentWeek, count);
   }
 
-  // auto: try Schift first, then explicit failure if unavailable/fails
+  // auto: Schift 먼저 시도, 실패하면 Supabase로 폴백, 그것도 실패하면 빈 배열
   const schift = getSchiftClient();
-  if (!schift) {
-    throw new Error(
-      "RAG provider auto mode requires Schift client configuration",
-    );
+  if (schift) {
+    try {
+      return await searchViaSchift(input.query, count);
+    } catch (error) {
+      console.warn(
+        "Schift RAG failed in auto mode, falling back to Supabase:",
+        error,
+      );
+    }
   }
 
-  return await searchViaSchift(input.query, count);
+  try {
+    return await searchViaSupabase(input.query, input.currentWeek, count);
+  } catch (error) {
+    console.warn("Supabase RAG fallback also failed:", error);
+    return [];
+  }
 }
 
 export async function embedPregnancyDocument(
@@ -233,8 +248,6 @@ export type RagSearchResult = {
   context: string;
   sources: RagSource[];
 };
-
-const FILE_RAG_TIMEOUT_MS = 5000;
 
 function withTimeout<T>(
   promise: Promise<T>,
