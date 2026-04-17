@@ -303,8 +303,8 @@ describe("chat pure helpers", () => {
     );
   });
 
-  it("prefers question follow-up over checklist and strips duplicate text", () => {
-    const followUp = buildPromptFollowUpMessages({
+  it("prefers question follow-up over checklist and strips duplicate text", async () => {
+    const followUp = await buildPromptFollowUpMessages({
       week: {
         id: "week-13",
         week_number: 13,
@@ -367,8 +367,8 @@ describe("chat pure helpers", () => {
     );
   });
 
-  it("uses short quick reply labels and full checklist messages", () => {
-    const followUp = buildPromptFollowUpMessages({
+  it("uses short quick reply labels and full checklist messages", async () => {
+    const followUp = await buildPromptFollowUpMessages({
       week: {
         id: "week-13",
         week_number: 13,

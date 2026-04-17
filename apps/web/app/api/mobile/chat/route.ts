@@ -263,7 +263,68 @@ export async function POST(request: NextRequest) {
           timestamp,
         });
       },
-      buildFollowUps: buildPromptFollowUpMessages,
+      buildFollowUps: (input) =>
+        buildPromptFollowUpMessages({
+          ...input,
+          generateChecklistChoices: async ({
+            title,
+            description,
+            weekNumber,
+          }) => {
+            try {
+              const weekLine = weekNumber ? `${weekNumber}주차 ` : "";
+              const descLine = description?.trim()
+                ? `설명: ${description.trim()}`
+                : "";
+              const { text: rawText } = await generateText({
+                model: google("gemini-2.5-flash-lite"),
+                system: [
+                  "당신은 임산부 상담 앱의 체크리스트 응답 버튼 라벨을 만드는 도우미입니다.",
+                  "체크리스트 항목 하나가 주어지면 산모가 탭으로 바로 답할 수 있는 3개의 짧은 선택지를 JSON 배열로만 출력하세요.",
+                  "각 항목은 { label, message } 구조이고 label은 화면에 표시할 버튼 글자(최대 10자, 따뜻한 -어요체), message는 탭 시 전송될 한 문장입니다.",
+                  "첫 번째는 '완료' 의미, 두 번째는 '아직 못함' 의미, 세 번째는 '어떻게/왜 해야 하는지' 묻는 의미로 구성하세요.",
+                  "JSON 외 어떤 텍스트도 포함하지 마세요. 코드 블록 래핑 없이 순수 JSON만.",
+                ].join("\n"),
+                prompt: [
+                  `${weekLine}체크리스트 항목:`,
+                  `제목: ${title}`,
+                  descLine,
+                  "",
+                  '예시 형식: [{"label":"…","message":"…"},{"label":"…","message":"…"},{"label":"…","message":"…"}]',
+                ]
+                  .filter(Boolean)
+                  .join("\n"),
+              });
+              const cleaned = rawText
+                .trim()
+                .replace(/^```(?:json)?/i, "")
+                .replace(/```$/i, "")
+                .trim();
+              const parsed = JSON.parse(cleaned);
+              if (!Array.isArray(parsed)) return null;
+              return parsed
+                .map((item) => {
+                  if (!item || typeof item !== "object") return null;
+                  const record = item as Record<string, unknown>;
+                  const label =
+                    typeof record.label === "string" ? record.label.trim() : "";
+                  if (!label) return null;
+                  const message =
+                    typeof record.message === "string" && record.message.trim()
+                      ? record.message.trim()
+                      : label;
+                  return { label, message };
+                })
+                .filter(
+                  (v): v is { label: string; message: string } => v !== null,
+                )
+                .slice(0, 3);
+            } catch (error) {
+              console.warn("generateChecklistChoices failed", error);
+              return null;
+            }
+          },
+        }),
       createPromptEvents,
       getAlreadyPromptedIds,
       decorateAssistantMessage: (message) => {

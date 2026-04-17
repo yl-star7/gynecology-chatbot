@@ -81,7 +81,7 @@ export function buildChatOrchestrator(deps: {
     questions: PromptContext["questions"];
     excludeChecklistIds?: Set<string>;
     excludeQuestionIds?: Set<string>;
-  }) => PromptFollowUpResult;
+  }) => PromptFollowUpResult | Promise<PromptFollowUpResult>;
   createPromptEvents: (input: {
     userId: string;
     sessionId: string;
@@ -163,7 +163,7 @@ export function buildChatOrchestrator(deps: {
       const alreadyPrompted = await deps.getAlreadyPromptedIds({
         userId: input.userId,
       });
-      const followUpResult = deps.buildFollowUps({
+      const followUpResult = await deps.buildFollowUps({
         week: promptContext.week,
         dayContent: promptContext.dayContent,
         checklists: promptContext.checklists,

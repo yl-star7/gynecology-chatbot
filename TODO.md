@@ -30,6 +30,13 @@
 - [ ] Expo push notification 인증서 설정 (docs/PUSH_SETUP.md 참조)
 - [ ] pg_cron에 proactive trigger URL 교체 (내재화된 `/api/admin/proactive/trigger` 사용)
 
+## P2 — 채팅 응답 생성 workflow 이관
+
+- [ ] `apps/web/app/api/mobile/chat/route.ts`의 fallback Gemini generateText 전체를 Schift workflow로 이관 (system prompt, tool 정의, RAG 주입, guardrail 문구 포함)
+- [ ] route.ts에 남는 책임: 요청 파싱, 세션/레이트 리밋, workflow 실행 호출, 응답 직렬화
+- [ ] 체크리스트 contextual quickReplies 생성(`generateChecklistChoices`)도 workflow 블록으로 편입
+- [ ] prompt 템플릿(문체, 상담 분기, parts 가이드)은 workflow 쪽 prompt 자산으로 이전, 버전 관리 일원화
+
 ## P3
 
 없음. 오프라인/i18n은 현 제품 범위에서 불필요.
