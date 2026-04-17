@@ -404,15 +404,15 @@ describe("chat pure helpers", () => {
         choices: [
           expect.objectContaining({
             label: "했어요",
-            message: "왼쪽으로 누워서 10분 쉬기 했어요",
+            message: "했어요",
           }),
           expect.objectContaining({
             label: "안 했어요",
-            message: "왼쪽으로 누워서 10분 쉬기 안 했어요",
+            message: "안 했어요",
           }),
           expect.objectContaining({
             label: "왜 해야 하나요?",
-            message: "왼쪽으로 누워서 10분 쉬기 왜 해야 하나요?",
+            message: "왜 해야 하나요?",
           }),
         ],
       }),
