@@ -1,9 +1,33 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildProfileChecklistItemState,
   buildProfileInfoCards,
   buildProfileDayState,
 } from "./PatientProfileScreen.model.ts";
+
+test("profile checklist item state exposes completed and incomplete labels", () => {
+  assert.deepEqual(
+    buildProfileChecklistItemState({
+      label: "물 마시기",
+      completed: true,
+    }),
+    {
+      accessibilityLabel: "물 마시기 완료됨",
+      statusLabel: "완료",
+    },
+  );
+  assert.deepEqual(
+    buildProfileChecklistItemState({
+      label: "산책하기",
+      completed: false,
+    }),
+    {
+      accessibilityLabel: "산책하기 미완료",
+      statusLabel: "아직",
+    },
+  );
+});
 
 test("profile modal info cards use the selected record day instead of always reusing today's copy", () => {
   const cards = buildProfileInfoCards({

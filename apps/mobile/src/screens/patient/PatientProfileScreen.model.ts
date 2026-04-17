@@ -24,6 +24,16 @@ export type ProfileHeartShareItem = {
   summary: string;
 };
 
+export function buildProfileChecklistItemState(item: {
+  label: string;
+  completed: boolean;
+}) {
+  return {
+    accessibilityLabel: `${item.label} ${item.completed ? "완료됨" : "미완료"}`,
+    statusLabel: item.completed ? "완료" : "아직",
+  };
+}
+
 function isSameIsoDate(isoDate: string, now: Date) {
   const todayIsoDate = [
     now.getFullYear(),

@@ -18,6 +18,7 @@ import type {
   ProfileStatusBadge,
   ProfileStatusTone,
 } from "../../../screens/patient/PatientProfileScreen.model";
+import { buildProfileChecklistItemState } from "../../../screens/patient/PatientProfileScreen.model";
 
 const CloseIcon = Ionicons as unknown as ComponentType<{
   name: "close";
@@ -33,6 +34,12 @@ const BookIcon = Ionicons as unknown as ComponentType<{
 
 const CheckIcon = Ionicons as unknown as ComponentType<{
   name: "checkmark-circle-outline";
+  size: number;
+  color: string;
+}>;
+
+const CheckboxMarkIcon = Ionicons as unknown as ComponentType<{
+  name: "checkmark";
   size: number;
   color: string;
 }>;
@@ -238,21 +245,47 @@ export function PatientProfileDayModal({
                   : "지난 날짜 기록은 확인만 할 수 있어요."}
               </Text>
               <View style={styles.modalChecklistList}>
-                {checklistItems.map((item) => (
-                  <View
-                    key={item.id}
-                    style={[styles.modalChecklistCard, shadows.card]}
-                  >
+                {checklistItems.map((item) => {
+                  const itemState = buildProfileChecklistItemState(item);
+
+                  return (
                     <View
-                      style={
-                        item.completed
-                          ? [styles.modalCheckbox, styles.modalCheckboxChecked]
-                          : styles.modalCheckbox
-                      }
-                    />
-                    <Text style={styles.modalChecklistLabel}>{item.label}</Text>
-                  </View>
-                ))}
+                      key={item.id}
+                      style={[styles.modalChecklistCard, shadows.card]}
+                      accessible
+                      accessibilityLabel={itemState.accessibilityLabel}
+                    >
+                      <View
+                        style={
+                          item.completed
+                            ? [styles.modalCheckbox, styles.modalCheckboxChecked]
+                            : styles.modalCheckbox
+                        }
+                      >
+                        {item.completed ? (
+                          <CheckboxMarkIcon
+                            name="checkmark"
+                            size={space.lg}
+                            color={surface.surfacePrimary}
+                          />
+                        ) : null}
+                      </View>
+                      <Text style={styles.modalChecklistLabel}>{item.label}</Text>
+                      <Text
+                        style={
+                          item.completed
+                            ? [
+                                styles.modalChecklistStatus,
+                                styles.modalChecklistStatusDone,
+                              ]
+                            : styles.modalChecklistStatus
+                        }
+                      >
+                        {itemState.statusLabel}
+                      </Text>
+                    </View>
+                  );
+                })}
                 {checklistItems.length === 0 ? (
                   <Text style={styles.modalEmptyText}>
                     이 날짜에 남아 있는 체크리스트가 없어요.
@@ -459,6 +492,8 @@ const styles = StyleSheet.create({
     width: space.xl + space.xs,
     height: space.xl + space.xs,
     borderRadius: radii.sm,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: surface.fieldSurface,
   },
   modalCheckboxChecked: {
@@ -468,6 +503,13 @@ const styles = StyleSheet.create({
     ...typo.body,
     color: surface.textPrimary,
     flex: 1,
+  },
+  modalChecklistStatus: {
+    ...typo.label,
+    color: surface.textSecondary,
+  },
+  modalChecklistStatusDone: {
+    color: palette.accent,
   },
   modalEmptyText: {
     ...typo.body,
