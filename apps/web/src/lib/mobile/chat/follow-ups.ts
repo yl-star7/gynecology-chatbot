@@ -137,15 +137,15 @@ export function buildPromptFollowUpMessages(input: {
               options: [
                 {
                   label: "했어요",
-                  message: `${cleanTitle} 했어요`,
+                  message: "했어요",
                 },
                 {
                   label: "안 했어요",
-                  message: `${cleanTitle} 안 했어요`,
+                  message: "안 했어요",
                 },
                 {
                   label: "왜 해야 하나요?",
-                  message: `${cleanTitle} 왜 해야 하나요?`,
+                  message: "왜 해야 하나요?",
                 },
               ],
             }),

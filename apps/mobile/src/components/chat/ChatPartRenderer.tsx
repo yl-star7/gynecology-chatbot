@@ -91,8 +91,119 @@ export interface ChatPartRendererProps {
 
 // ─── Part renderers ───────────────────────────────────────
 
+function renderInline(text: string, keyPrefix: string) {
+  // **bold** inline
+  const nodes: React.ReactNode[] = [];
+  const regex = /\*\*([^*]+)\*\*/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let i = 0;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(
+        <Text key={`${keyPrefix}-t-${i++}`}>
+          {text.slice(lastIndex, match.index)}
+        </Text>,
+      );
+    }
+    nodes.push(
+      <Text key={`${keyPrefix}-b-${i++}`} style={styles.mdBold}>
+        {match[1]}
+      </Text>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    nodes.push(
+      <Text key={`${keyPrefix}-t-${i++}`}>{text.slice(lastIndex)}</Text>,
+    );
+  }
+  return nodes;
+}
+
 function TextPartView({ part }: { part: TextPart }) {
-  return <Text style={styles.text}>{part.text}</Text>;
+  const lines = part.text.replace(/\r\n/g, "\n").split("\n");
+  const blocks: React.ReactNode[] = [];
+  let paragraph: string[] = [];
+  let bullets: string[] = [];
+
+  const flushParagraph = (key: string) => {
+    if (paragraph.length === 0) return;
+    const joined = paragraph.join(" ");
+    blocks.push(
+      <Text key={key} style={styles.mdParagraph}>
+        {renderInline(joined, key)}
+      </Text>,
+    );
+    paragraph = [];
+  };
+  const flushBullets = (key: string) => {
+    if (bullets.length === 0) return;
+    blocks.push(
+      <View key={key} style={styles.mdList}>
+        {bullets.map((item, idx) => (
+          <View key={`${key}-${idx}`} style={styles.mdListItem}>
+            <Text style={styles.mdBullet}>•</Text>
+            <Text style={styles.mdListItemText}>
+              {renderInline(item, `${key}-${idx}`)}
+            </Text>
+          </View>
+        ))}
+      </View>,
+    );
+    bullets = [];
+  };
+
+  lines.forEach((raw, idx) => {
+    const line = raw.trimEnd();
+    const key = `ln-${idx}`;
+    const headingMatch = /^(#{1,3})\s+(.*)$/.exec(line);
+    const bulletMatch = /^\s*[-*]\s+(.*)$/.exec(line);
+    const quoteMatch = /^\s*>\s+(.*)$/.exec(line);
+
+    if (line.trim() === "") {
+      flushParagraph(`${key}-p`);
+      flushBullets(`${key}-u`);
+      return;
+    }
+    if (headingMatch) {
+      flushParagraph(`${key}-p`);
+      flushBullets(`${key}-u`);
+      const level = headingMatch[1].length;
+      const content = headingMatch[2];
+      const headingStyle =
+        level === 1 ? styles.mdH1 : level === 2 ? styles.mdH2 : styles.mdH3;
+      blocks.push(
+        <Text key={key} style={headingStyle}>
+          {renderInline(content, key)}
+        </Text>,
+      );
+      return;
+    }
+    if (bulletMatch) {
+      flushParagraph(`${key}-p`);
+      bullets.push(bulletMatch[1]);
+      return;
+    }
+    if (quoteMatch) {
+      flushParagraph(`${key}-p`);
+      flushBullets(`${key}-u`);
+      blocks.push(
+        <View key={key} style={styles.mdQuote}>
+          <Text style={styles.mdQuoteText}>
+            {renderInline(quoteMatch[1], key)}
+          </Text>
+        </View>,
+      );
+      return;
+    }
+    flushBullets(`${key}-u`);
+    paragraph.push(line.trim());
+  });
+  flushParagraph("p-final");
+  flushBullets("u-final");
+
+  return <View style={styles.mdRoot}>{blocks}</View>;
 }
 
 function ImagePartView({ part }: { part: ImagePart }) {
@@ -351,10 +462,76 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
 
-  // TextPart
+  // TextPart (Markdown)
   text: {
     ...typo.body,
     color: surface.textPrimary,
+  },
+  mdRoot: {
+    gap: space.xs,
+  },
+  mdParagraph: {
+    ...typo.body,
+    color: "#1a1a1a",
+    fontSize: 15.5,
+    fontWeight: "500",
+    lineHeight: 24,
+  },
+  mdBold: {
+    fontWeight: "800",
+    color: "#000",
+  },
+  mdH1: {
+    ...typo.titleSm,
+    fontSize: 20,
+    fontWeight: "700",
+    color: surface.textPrimary,
+    marginTop: space.xs,
+  },
+  mdH2: {
+    ...typo.titleSm,
+    fontSize: 17,
+    fontWeight: "700",
+    color: surface.textPrimary,
+    marginTop: space.xs,
+  },
+  mdH3: {
+    ...typo.body,
+    fontSize: 15,
+    fontWeight: "700",
+    color: surface.textPrimary,
+    marginTop: space.xs,
+  },
+  mdList: {
+    gap: 2,
+    paddingLeft: space.xs,
+  },
+  mdListItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: space.xs,
+  },
+  mdBullet: {
+    ...typo.body,
+    color: palette.accent,
+    lineHeight: 22,
+  },
+  mdListItemText: {
+    ...typo.body,
+    color: surface.textPrimary,
+    flex: 1,
+    lineHeight: 22,
+  },
+  mdQuote: {
+    borderLeftWidth: 3,
+    borderLeftColor: palette.accent,
+    paddingLeft: space.sm,
+    paddingVertical: 2,
+  },
+  mdQuoteText: {
+    ...typo.body,
+    color: surface.textSecondary,
+    fontStyle: "italic",
   },
 
   // ImagePart

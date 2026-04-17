@@ -321,25 +321,7 @@ export async function buildWorkflowAssistantMessage<
 
   const parts: ChatMessage["parts"] = [];
 
-  if (payload.characterTone) {
-    const characterImages = await input.loadCharacterImages();
-    const customUrl = characterImages[payload.characterTone] ?? null;
-    const { imageUrl, useIllustration } = createCharacterImageUrl(
-      payload.characterTone,
-      customUrl,
-    );
-    const toneLabel = CHARACTER_TONE_CONFIG[payload.characterTone].label;
-
-    parts.push({
-      type: "image",
-      id: `character-${Date.now()}`,
-      imageUrl,
-      alt: toneLabel,
-      caption: useIllustration
-        ? "C간호사 캐릭터"
-        : "워크플로우가 선택한 캐릭터 표정",
-    });
-  }
+  // C간호사 캐릭터 이미지는 채팅 말풍선에 포함하지 않는다.
 
   if (
     payload.guardrailStatus &&

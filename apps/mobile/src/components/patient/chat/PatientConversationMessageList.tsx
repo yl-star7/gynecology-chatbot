@@ -174,16 +174,35 @@ export function PatientConversationMessageList({
               }
 
               return (
-                <View key={message.id} style={styles.assistantColumn}>
-                  <View style={styles.assistantMessageWrapper}>
-                    <ChatPartRenderer
-                      message={message}
-                      onQuickReplySelect={onQuickReplySelect}
-                      onSurveyAnswer={onSurveyAnswer}
-                      surveySaveErrorText={surveySaveErrorText}
-                      onDeepLinkPress={onDeepLinkPress}
-                    />
-                  </View>
+                <View key={message.id} style={styles.assistantStack}>
+                  {message.parts.map((part) => {
+                    if (
+                      part.type === "text" &&
+                      (part.text.trim() === "" || part.text.trim() === "...")
+                    ) {
+                      return null;
+                    }
+                    const isImage = part.type === "image";
+                    return (
+                      <View
+                        key={part.id}
+                        style={[
+                          styles.assistantColumn,
+                          isImage
+                            ? styles.assistantImageWrapper
+                            : styles.assistantMessageWrapper,
+                        ]}
+                      >
+                        <ChatPartRenderer
+                          message={{ ...message, parts: [part] }}
+                          onQuickReplySelect={onQuickReplySelect}
+                          onSurveyAnswer={onSurveyAnswer}
+                          surveySaveErrorText={surveySaveErrorText}
+                          onDeepLinkPress={onDeepLinkPress}
+                        />
+                      </View>
+                    );
+                  })}
                 </View>
               );
             })}
@@ -307,17 +326,35 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     alignSelf: "stretch",
   },
+  assistantStack: {
+    alignSelf: "flex-start",
+    maxWidth: "100%",
+    gap: space.sm,
+  },
   assistantColumn: {
     alignItems: "flex-start",
     alignSelf: "flex-start",
     maxWidth: "100%",
   },
-  assistantMessageWrapper: {
-    backgroundColor: surface.surfaceSecondary,
+  assistantImageWrapper: {
     borderRadius: radii.xl,
+    overflow: "hidden",
+    backgroundColor: "transparent",
+    maxWidth: "100%",
+  },
+  assistantMessageWrapper: {
+    backgroundColor: surface.surfacePrimary,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    borderColor: surface.strokeSubtle,
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
     maxWidth: "100%",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   messageText: {
     ...typo.body,
