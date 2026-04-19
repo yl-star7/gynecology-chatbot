@@ -116,9 +116,7 @@ async function postPersonaSignalWebhook(input: {
 
   if (!response.ok) {
     const text = await response.text();
-    console.warn(
-      `persona signal webhook failed (${response.status}): ${text}`,
-    );
+    console.warn(`persona signal webhook failed (${response.status}): ${text}`);
   }
 }
 
@@ -249,7 +247,8 @@ export async function POST(request: NextRequest) {
                 "3. 모체 변화 정보: 사용자가 원하면 현재 주수의 엄마 몸 변화를 안내하세요.",
                 "4. 생활 체크리스트: 사용자가 원하면 오늘 할 작은 행동 3개를 말풍선 안에 불릿으로 제안하고 quickReplies는 다 했어요 / 하나만 했어요 / 이따가 할래요를 사용하세요.",
                 "5. 모아애착 질문: 체크리스트 후 질문 2개를 고르게 하세요.",
-                "6. AI 공감 대화: 답변에 공감하고 의미화하세요.",
+                "6. AI 공감 대화: 사용자의 답에 공감·정상화·의미화한 뒤 **부드러운 열린 후속 질문 1개**로 끝내 대화를 이어가세요. 한 턴에 끝내지 말고 3~5턴 왕복하도록 유도하세요. 이 단계에서는 quickReplies를 생략하고 사용자가 입력창으로 자유롭게 답하도록 하세요.",
+                "7. 공감 대화 마무리: 사용자가 '괜찮아졌어요', '고마워요', '위로됐어요' 같은 해소/감사 신호를 보이거나 4~5턴 이상 이어졌을 때만 '오늘 하루도 고생 많았어요. 내일 또 만나요' 같은 따뜻한 마무리 인사와 함께 quickReplies ['오늘은 여기까지 할래요', '조금 더 이야기할래요']를 제시하세요.",
                 input.workflowEnabled
                   ? "워크플로우 실행이 실패한 경우에만 searchPregnancyKnowledge 도구를 사용하세요."
                   : "의료 관련 질문에는 searchPregnancyKnowledge 도구를 사용해 근거 기반으로 답변하세요.",
