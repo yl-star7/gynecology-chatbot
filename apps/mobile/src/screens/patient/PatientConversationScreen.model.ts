@@ -18,6 +18,7 @@ import {
   resolvePatientConversationSendError,
 } from "./patientErrorCopy.model";
 import { isPastConversationSession } from "./patientConversationSessionStatus.model";
+import { createInitialConversationMessage } from "./PatientConversationInitialMessage.model";
 
 function createSessionId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
@@ -88,6 +89,7 @@ export function usePatientConversationScreenModel({
   >(null);
   const [composerHeight, setComposerHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const didSeedInitialMessageRef = useRef(false);
 
   useEffect(() => {
     const showEvent =
@@ -149,6 +151,23 @@ export function usePatientConversationScreenModel({
 
     return () => subscription.remove();
   }, [currentUser, loadSessionDetail, resolvedSessionId, sessionId]);
+
+  useEffect(() => {
+    if (
+      !isNewConversationSession(sessionId) ||
+      didSeedInitialMessageRef.current ||
+      session.messages.length > 0
+    ) {
+      return;
+    }
+
+    didSeedInitialMessageRef.current = true;
+    appendMessage(
+      resolvedSessionId,
+      "아기와 대화",
+      createInitialConversationMessage(),
+    );
+  }, [appendMessage, resolvedSessionId, session.messages.length, sessionId]);
 
   useEffect(() => {
     if (session.messages.length === 0 && !isSending) {

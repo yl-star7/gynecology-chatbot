@@ -59,6 +59,9 @@ describe("chat orchestrator", () => {
       ]);
     const updateSession = jest.fn().mockResolvedValue(undefined);
     const updateProfile = jest.fn().mockResolvedValue(undefined);
+    const dispatchPersonaSignalWebhook = jest
+      .fn()
+      .mockResolvedValue(undefined);
 
     const orchestrator = buildChatOrchestrator({
       ensureSession: jest.fn().mockResolvedValue({ sessionId: "session-1" }),
@@ -89,6 +92,7 @@ describe("chat orchestrator", () => {
       saveAssistantMessages,
       updateSessionMemory: updateSession,
       updateProfileMemory: updateProfile,
+      dispatchPersonaSignalWebhook,
       buildFollowUps: jest.fn().mockReturnValue({
         messages: [],
         selectedChecklists: [],
@@ -118,5 +122,100 @@ describe("chat orchestrator", () => {
       expect.any(String),
     );
     expect(updateProfile).not.toHaveBeenCalled();
+    expect(dispatchPersonaSignalWebhook).not.toHaveBeenCalled();
+  });
+
+  it("dispatches persona memory through the webhook hook after assistant save", async () => {
+    const promptContext = {
+      pregnancyWeek: 13,
+      dayNumber: 1,
+      week: {
+        id: "week-13",
+        week_number: 13,
+        title: "13주차",
+        baby_summary: null,
+        mother_summary: null,
+        warning_signs: null,
+        recommended_actions: null,
+        checklist_intro: null,
+        question_intro: null,
+        status: "published",
+      },
+      dayContent: null,
+      checklists: [],
+      questions: [],
+      tonePreference: null,
+      profileMemory: null,
+      sessionMemory: null,
+      onboardingPayload: null,
+      missingFields: [],
+    } satisfies PromptContext;
+    const updateProfile = jest.fn().mockResolvedValue(undefined);
+    const dispatchPersonaSignalWebhook = jest
+      .fn()
+      .mockResolvedValue(undefined);
+
+    const orchestrator = buildChatOrchestrator({
+      ensureSession: jest.fn().mockResolvedValue({ sessionId: "session-1" }),
+      saveUserMessage: jest.fn().mockResolvedValue({ id: "user-message-1" }),
+      touchSessionActivity: jest.fn().mockResolvedValue(undefined),
+      recordUserAction: jest.fn().mockResolvedValue(undefined),
+      markOutstandingPromptEventsAnswered: jest
+        .fn()
+        .mockResolvedValue({ answeredCount: 1 }),
+      getPromptContext: jest.fn().mockResolvedValue(promptContext),
+      resolveAssistantResponse: jest.fn().mockResolvedValue({
+        assistantMessage: {
+          id: "assistant-1",
+          role: "assistant",
+          createdAtLabel: "방금 전",
+          parts: [{ type: "text", id: "text-1", text: "기준을 볼게요." }],
+        } as ChatMessage,
+        workflowMemoryPayload: {
+          nextProfileMemory: {
+            personaHint: "practical",
+            personaConfidence: "medium",
+            personaEvidence: "태동 기준을 구체적으로 질문함",
+          },
+        },
+      }),
+      saveAssistantMessages: jest
+        .fn()
+        .mockResolvedValue([{ id: "assistant-main" }]),
+      updateSessionMemory: jest.fn().mockResolvedValue(undefined),
+      updateProfileMemory: updateProfile,
+      dispatchPersonaSignalWebhook,
+      buildFollowUps: jest.fn().mockReturnValue({
+        messages: [],
+        selectedChecklists: [],
+        selectedQuestions: [],
+      }),
+      createPromptEvents: jest.fn().mockResolvedValue(undefined),
+      getAlreadyPromptedIds: jest.fn().mockResolvedValue({
+        checklistIds: new Set<string>(),
+        questionIds: new Set<string>(),
+      }),
+    });
+
+    await orchestrator({
+      userId: "user-1",
+      text: "태동 기준 알려줘",
+      sessionId: "session-1",
+      pregnancyWeek: 13,
+      imageDataUris: [],
+      hardGuardrailReason: null,
+    });
+
+    expect(updateProfile).toHaveBeenCalled();
+    expect(dispatchPersonaSignalWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        sessionId: "session-1",
+        sourceMessageId: "assistant-main",
+        nextProfileMemory: expect.objectContaining({
+          personaHint: "practical",
+        }),
+      }),
+    );
   });
 });

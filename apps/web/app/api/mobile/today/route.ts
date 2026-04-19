@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  mobileNoStoreJson,
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest) {
     const profile = profiles[0];
 
     if (!profile?.pregnancy_week && !profile?.due_date) {
-      return NextResponse.json({
+      return mobileNoStoreJson({
         today: {
           babyBody: "오늘 아기의 변화를 준비 중이에요.",
           momBody: "오늘 엄마의 변화를 준비 중이에요.",
@@ -141,7 +142,7 @@ export async function GET(request: NextRequest) {
     const week = weeks[0];
 
     if (!week) {
-      return NextResponse.json({
+      return mobileNoStoreJson({
         today: {
           babyBody: "오늘 아기의 변화를 준비 중이에요.",
           momBody: "오늘 엄마의 변화를 준비 중이에요.",
@@ -177,7 +178,7 @@ export async function GET(request: NextRequest) {
       : [];
     const completedByChecklistId = buildChecklistStatusMap(checklistEvents);
 
-    return NextResponse.json({
+    return mobileNoStoreJson({
       today: {
         babyBody: firstText(
           day?.baby_message,

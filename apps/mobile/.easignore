@@ -1,0 +1,15 @@
+ios/build/
+ios/build-*/
+ios/DerivedData/
+ios/Pods/
+android/
+builds/
+dist/
+.expo/
+.turbo/
+.vercel/
+node_modules/
+coverage/
+test-results/
+screenshots/
+*.log

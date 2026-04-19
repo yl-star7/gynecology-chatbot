@@ -19,7 +19,7 @@ export function PatientConversationScreen({
   return (
     <PatientShell
       activeTab="today"
-      title="아기와 대화"
+      title="아가야"
       backHref="/(tabs)/today"
       pageTone="plain"
       headerCompact
@@ -75,6 +75,6 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
-    backgroundColor: surface.pageBackground,
+    backgroundColor: surface.surfaceSecondary,
   },
 });

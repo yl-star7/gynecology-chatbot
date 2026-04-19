@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  mobileNoStoreJson,
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
 
     const profile = profiles[0] ?? null;
 
-    return NextResponse.json({
+    return mobileNoStoreJson({
       home: toHomeViewData({
         user: { display_name: profile?.display_name ?? "사용자" },
         profile,

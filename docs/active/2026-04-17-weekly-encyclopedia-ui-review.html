@@ -1,0 +1,1502 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>주차별 임신백과 UI 검토본</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23d48ea5'/%3E%3Cpath d='M9 17.5 14 22 23.5 10' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #fffafc;
+        --surface: #ffffff;
+        --surface-soft: #faebf1;
+        --surface-cool: #fcf4f7;
+        --ink: #34262d;
+        --ink-soft: #7f6974;
+        --muted: #a08a95;
+        --line: #eadce3;
+        --teal: #d48ea5;
+        --teal-strong: #b67087;
+        --coral: #95687a;
+        --yellow: #a46d3e;
+        --green: #5b7d6a;
+        --nav: #34262d;
+        --radius: 8px;
+        --shadow: 0 18px 48px rgba(139, 111, 125, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        font-size: 16px;
+        line-height: 1.55;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      img {
+        display: block;
+        max-width: 100%;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .page {
+        min-height: 100vh;
+        padding: 28px;
+      }
+
+      .review-header {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 24px;
+        align-items: end;
+        max-width: 1440px;
+        margin: 0 auto 24px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .review-kicker {
+        margin: 0 0 8px;
+        color: var(--teal);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .review-title {
+        margin: 0;
+        font-size: 34px;
+        line-height: 1.15;
+        letter-spacing: 0;
+      }
+
+      .review-copy {
+        max-width: 760px;
+        margin: 12px 0 0;
+        color: var(--ink-soft);
+      }
+
+      .review-meta {
+        display: grid;
+        gap: 8px;
+        min-width: 270px;
+      }
+
+      .meta-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--line);
+        color: var(--ink-soft);
+        font-size: 13px;
+      }
+
+      .meta-row strong {
+        color: var(--ink);
+      }
+
+      .marker {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 48px;
+        min-height: 24px;
+        padding: 2px 8px;
+        border: 1px solid rgba(8, 117, 111, 0.34);
+        border-radius: 999px;
+        background: #ffffff;
+        color: var(--teal-strong);
+        font-size: 11px;
+        font-weight: 900;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .marker.dark {
+        border-color: rgba(255, 255, 255, 0.36);
+        background: rgba(255, 255, 255, 0.12);
+        color: #ffffff;
+      }
+
+      .marker.coral {
+        border-color: rgba(217, 79, 69, 0.34);
+        color: var(--coral);
+      }
+
+      .section-head {
+        max-width: 1440px;
+        margin: 34px auto 14px;
+      }
+
+      .section-head h2 {
+        margin: 0;
+        font-size: 22px;
+        letter-spacing: 0;
+      }
+
+      .section-head p {
+        margin: 6px 0 0;
+        color: var(--ink-soft);
+      }
+
+      .legend {
+        max-width: 1440px;
+        margin: 0 auto 28px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .scope-board {
+        max-width: 1440px;
+        margin: 0 auto 28px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .scope-column {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .scope-column h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .scope-column p {
+        margin: 6px 0 14px;
+        color: var(--ink-soft);
+        font-size: 14px;
+      }
+
+      .scope-list {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .scope-list li {
+        display: grid;
+        grid-template-columns: 58px minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+        color: var(--ink-soft);
+        font-size: 14px;
+      }
+
+      .legend-list {
+        display: grid;
+        gap: 8px;
+        margin: 0;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .legend-item {
+        display: grid;
+        grid-template-columns: 58px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        color: var(--ink-soft);
+        font-size: 14px;
+      }
+
+      .prototype-grid {
+        max-width: 1440px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 460px minmax(0, 1fr);
+        gap: 28px;
+        align-items: start;
+      }
+
+      .phone-stage {
+        display: grid;
+        gap: 18px;
+      }
+
+      .phone {
+        position: relative;
+        width: 390px;
+        min-height: 820px;
+        margin: 0 auto;
+        overflow: hidden;
+        border: 10px solid #162623;
+        border-radius: 28px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .phone-screen {
+        min-height: 800px;
+        background: #fbfcfc;
+      }
+
+      .phone-header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: 44px 1fr 54px;
+        gap: 8px;
+        align-items: center;
+        padding: 18px 18px 12px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.94);
+        backdrop-filter: blur(14px);
+      }
+
+      .phone-back {
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: var(--radius);
+        background: var(--surface-soft);
+        color: var(--teal);
+        font-weight: 900;
+      }
+
+      .phone-title {
+        margin: 0;
+        text-align: center;
+        font-size: 18px;
+        line-height: 1.2;
+      }
+
+      .phone-body {
+        padding: 18px 18px 88px;
+      }
+
+      .profile-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 74px;
+        gap: 14px;
+        align-items: center;
+        padding-bottom: 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .profile-hero h3 {
+        margin: 0;
+        font-size: 26px;
+        line-height: 1.18;
+        letter-spacing: 0;
+      }
+
+      .profile-hero p {
+        margin: 8px 0 0;
+        color: var(--ink-soft);
+        font-size: 14px;
+      }
+
+      .profile-avatar {
+        display: grid;
+        place-items: center;
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: var(--surface-soft);
+        overflow: hidden;
+      }
+
+      .profile-avatar img {
+        width: 62px;
+        height: 62px;
+        object-fit: contain;
+      }
+
+      .profile-group {
+        padding: 18px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .profile-group h4 {
+        margin: 0 0 10px;
+        font-size: 17px;
+      }
+
+      .profile-link {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .profile-link:last-child {
+        border-bottom: 0;
+      }
+
+      .profile-icon {
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius);
+        background: var(--surface-soft);
+        color: var(--teal);
+        font-weight: 900;
+      }
+
+      .profile-link strong {
+        display: block;
+        font-size: 15px;
+      }
+
+      .profile-link span {
+        color: var(--ink-soft);
+        font-size: 13px;
+      }
+
+      .profile-chevron {
+        color: var(--muted);
+        font-size: 20px;
+        font-weight: 900;
+      }
+
+      .week-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 116px;
+        gap: 16px;
+        align-items: center;
+        padding-bottom: 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .eyebrow {
+        margin: 0 0 6px;
+        color: var(--teal);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .week-hero h3 {
+        margin: 0;
+        font-size: 30px;
+        line-height: 1.12;
+        letter-spacing: 0;
+      }
+
+      .week-hero p {
+        margin: 10px 0 0;
+        color: var(--ink-soft);
+        font-size: 15px;
+      }
+
+      .baby-visual {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 112px;
+        height: 112px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 50%;
+        background: var(--surface-cool);
+      }
+
+      .baby-visual img {
+        width: 96px;
+        height: 96px;
+        object-fit: contain;
+      }
+
+      .component-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .summary-band {
+        margin-top: 18px;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .summary-band h4,
+      .content-section h4,
+      .guide-list h4 {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.25;
+      }
+
+      .summary-band p,
+      .content-section p {
+        margin: 8px 0 0;
+        color: var(--ink-soft);
+      }
+
+      .week-action {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .primary-button,
+      .secondary-button {
+        min-height: 42px;
+        border-radius: var(--radius);
+        border: 0;
+        padding: 0 14px;
+        font-weight: 800;
+        cursor: default;
+      }
+
+      .primary-button {
+        background: var(--teal);
+        color: #ffffff;
+      }
+
+      .secondary-button {
+        border: 1px solid var(--line);
+        background: #ffffff;
+        color: var(--teal-strong);
+      }
+
+      .category-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 18px 0 10px;
+      }
+
+      .category-tab {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #ffffff;
+        padding: 8px 10px;
+        color: var(--ink-soft);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .category-tab.active {
+        border-color: var(--teal);
+        background: var(--surface-soft);
+        color: var(--teal-strong);
+      }
+
+      .content-section {
+        padding: 18px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .section-topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+
+      .section-status {
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .guide-list {
+        padding: 18px 0 0;
+      }
+
+      .guide-items {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .guide-item {
+        display: grid;
+        grid-template-columns: 26px minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--line);
+        color: var(--ink-soft);
+      }
+
+      .checkmark {
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--surface-soft);
+        color: var(--teal);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .bottom-nav {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+        padding: 10px 10px 16px;
+        border-top: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(14px);
+      }
+
+      .nav-item {
+        border-radius: var(--radius);
+        padding: 7px 4px;
+        color: var(--muted);
+        text-align: center;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .nav-item.active {
+        background: var(--surface-soft);
+        color: var(--teal-strong);
+      }
+
+      .phone.alt {
+        min-height: 620px;
+      }
+
+      .phone.alt .phone-screen {
+        min-height: 600px;
+      }
+
+      .sheet-demo {
+        padding: 18px;
+      }
+
+      .week-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      .week-cell {
+        display: grid;
+        place-items: center;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #ffffff;
+        color: var(--ink-soft);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .week-cell.current {
+        border-color: var(--teal);
+        background: var(--surface-soft);
+        color: var(--teal-strong);
+      }
+
+      .week-cell.pending {
+        background: #f0f4f3;
+        color: var(--muted);
+      }
+
+      .pending-note {
+        margin-top: 18px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #ffffff;
+      }
+
+      .pending-note h4 {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .pending-note p {
+        margin: 6px 0 0;
+        color: var(--ink-soft);
+        font-size: 14px;
+      }
+
+      .admin-shell {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .admin-layout {
+        display: grid;
+        grid-template-columns: 232px minmax(0, 1fr);
+        min-height: 920px;
+      }
+
+      .admin-sidebar {
+        padding: 22px 18px;
+        background: var(--nav);
+        color: #ffffff;
+      }
+
+      .admin-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+      }
+
+      .admin-brand strong {
+        display: block;
+        font-size: 17px;
+        line-height: 1.2;
+      }
+
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.1);
+        font-weight: 900;
+      }
+
+      .admin-nav {
+        display: grid;
+        gap: 6px;
+        margin-top: 20px;
+      }
+
+      .admin-nav a {
+        border-radius: var(--radius);
+        padding: 10px;
+        color: rgba(255, 255, 255, 0.74);
+        font-size: 14px;
+        font-weight: 800;
+        text-decoration: none;
+      }
+
+      .admin-nav a.active {
+        background: rgba(255, 255, 255, 0.12);
+        color: #ffffff;
+      }
+
+      .admin-main {
+        background: #fbfcfc;
+      }
+
+      .admin-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 22px 26px;
+        border-bottom: 1px solid var(--line);
+        background: #ffffff;
+      }
+
+      .admin-topbar h2 {
+        margin: 0;
+        font-size: 24px;
+        letter-spacing: 0;
+      }
+
+      .admin-topbar p {
+        margin: 4px 0 0;
+        color: var(--ink-soft);
+        font-size: 14px;
+      }
+
+      .admin-content {
+        padding: 22px 26px 30px;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .metric {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #ffffff;
+      }
+
+      .metric span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .metric strong {
+        display: block;
+        margin-top: 6px;
+        font-size: 24px;
+      }
+
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 18px 0;
+      }
+
+      .filter-chip {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #ffffff;
+        padding: 8px 10px;
+        color: var(--ink-soft);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .filter-chip.active {
+        border-color: var(--teal);
+        background: var(--surface-soft);
+        color: var(--teal-strong);
+      }
+
+      .admin-table {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #ffffff;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 13px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: middle;
+        font-size: 13px;
+      }
+
+      th {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .status {
+        display: inline-flex;
+        min-height: 24px;
+        align-items: center;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .status.ready {
+        background: #e3f2ec;
+        color: var(--green);
+      }
+
+      .status.review {
+        background: #fff4d2;
+        color: #8a6412;
+      }
+
+      .status.missing {
+        background: #fae7e4;
+        color: var(--coral);
+      }
+
+      .detail-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .editor,
+      .preview {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #ffffff;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .panel-head h3 {
+        margin: 0;
+        font-size: 17px;
+      }
+
+      .editor-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+      }
+
+      .source-pane,
+      .copy-pane {
+        min-height: 280px;
+        padding: 16px;
+      }
+
+      .source-pane {
+        border-right: 1px solid var(--line);
+        background: #f8faf9;
+      }
+
+      .pane-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .source-text,
+      .copy-textarea {
+        min-height: 210px;
+        margin: 0;
+        border-radius: var(--radius);
+        padding: 12px;
+        font-size: 14px;
+      }
+
+      .source-text {
+        border: 1px solid var(--line);
+        background: #ffffff;
+        color: var(--ink-soft);
+      }
+
+      .copy-textarea {
+        width: 100%;
+        border: 1px solid var(--teal);
+        background: #ffffff;
+        color: var(--ink);
+        resize: none;
+      }
+
+      .review-checks {
+        display: grid;
+        gap: 10px;
+        padding: 16px;
+        border-top: 1px solid var(--line);
+      }
+
+      .check-row {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+        color: var(--ink-soft);
+        font-size: 14px;
+      }
+
+      .preview-phone {
+        width: 270px;
+        margin: 16px auto;
+        border: 8px solid #162623;
+        border-radius: 24px;
+        background: #ffffff;
+      }
+
+      .preview-content {
+        padding: 14px;
+      }
+
+      .preview-content h4 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .preview-content p {
+        margin: 8px 0 0;
+        color: var(--ink-soft);
+        font-size: 13px;
+      }
+
+      .preview-divider {
+        margin: 12px 0;
+        border: 0;
+        border-top: 1px solid var(--line);
+      }
+
+      @keyframes enter {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .phone,
+      .admin-shell,
+      .legend-list,
+      .scope-column {
+        animation: enter 420ms ease both;
+      }
+
+      @media (max-width: 1180px) {
+        .prototype-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .admin-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .admin-sidebar {
+          display: none;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .page {
+          padding: 16px;
+        }
+
+        .review-header,
+        .legend,
+        .scope-board,
+        .detail-panel,
+        .editor-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .phone {
+          width: min(390px, 100%);
+        }
+
+        .metrics {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .source-pane {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="review-header">
+        <div>
+          <p class="review-kicker">주차별 임신백과 UI 검토본</p>
+          <h1 class="review-title">주차를 고르고, 완성된 사전 콘텐츠만 읽는 구조</h1>
+          <p class="review-copy">
+            피드백은 `M-04 문구를 줄이자`, `A-08 편집 영역을 넓히자`처럼
+            기호 기준으로 남기면 바로 반영할 수 있습니다.
+          </p>
+        </div>
+        <div class="review-meta" aria-label="검토 메타데이터">
+          <div class="meta-row"><span>범위</span><strong>APP + 관리자</strong></div>
+          <div class="meta-row"><span>검색/RAG</span><strong>MVP 제외</strong></div>
+          <div class="meta-row"><span>사용자 노출</span><strong>완성본만</strong></div>
+        </div>
+      </header>
+
+      <section class="legend" aria-label="컴포넌트 기호표">
+        <div class="legend-list">
+          <div class="legend-item"><span class="marker">M-01</span><span>마이페이지 상단 헤더</span></div>
+          <div class="legend-item"><span class="marker">M-02</span><span>산모 프로필 요약</span></div>
+          <div class="legend-item"><span class="marker">M-03</span><span>임신백과 섹션 진입점</span></div>
+          <div class="legend-item"><span class="marker">M-04</span><span>임신백과 상세 헤더</span></div>
+          <div class="legend-item"><span class="marker">M-05</span><span>주차 히어로와 아기 이미지</span></div>
+          <div class="legend-item"><span class="marker">M-06</span><span>카테고리 탭</span></div>
+          <div class="legend-item"><span class="marker">M-07</span><span>사전 콘텐츠 섹션</span></div>
+          <div class="legend-item"><span class="marker">M-08</span><span>주차 선택과 준비 중 상태</span></div>
+        </div>
+        <div class="legend-list">
+          <div class="legend-item"><span class="marker coral">A-01</span><span>관리자 사이드바</span></div>
+          <div class="legend-item"><span class="marker coral">A-02</span><span>주차 상태 요약</span></div>
+          <div class="legend-item"><span class="marker coral">A-03</span><span>상태 필터</span></div>
+          <div class="legend-item"><span class="marker coral">A-04</span><span>주차 목록 테이블</span></div>
+          <div class="legend-item"><span class="marker coral">A-05</span><span>상태 배지</span></div>
+          <div class="legend-item"><span class="marker coral">A-06</span><span>주차 상세 편집 헤더</span></div>
+          <div class="legend-item"><span class="marker coral">A-07</span><span>원문 연결 패널</span></div>
+          <div class="legend-item"><span class="marker coral">A-08</span><span>사용자 노출본 편집 패널</span></div>
+          <div class="legend-item"><span class="marker coral">A-09</span><span>검수 체크리스트</span></div>
+          <div class="legend-item"><span class="marker coral">A-10</span><span>앱 미리보기</span></div>
+        </div>
+      </section>
+
+      <section class="scope-board" aria-label="기존 뷰 변경점과 신규 뷰 구분">
+        <div class="scope-column">
+          <h2>기존 뷰에서 변경점</h2>
+          <p>이미 있는 화면에 진입점과 운영 상태를 덧붙입니다.</p>
+          <ul class="scope-list">
+            <li><span class="marker">M-01~03</span><span>마이페이지에 `임신백과` 섹션과 두 개의 진입 항목을 추가합니다.</span></li>
+            <li><span class="marker">탭</span><span>하단 탭은 `홈 / 오늘,우리 / 마이페이지` 3개를 유지합니다.</span></li>
+            <li><span class="marker coral">A-01~05</span><span>기존 관리자 주차 목록에 완료, 검수, 누락 상태를 더 명확히 표시합니다.</span></li>
+            <li><span class="marker coral">A-06~09</span><span>기존 주차 편집 흐름에 원문/사용자 노출본 비교와 검수 체크를 추가합니다.</span></li>
+          </ul>
+        </div>
+        <div class="scope-column">
+          <h2>신규 뷰</h2>
+          <p>마이페이지 진입 후 새로 열리는 사전형 화면입니다.</p>
+          <ul class="scope-list">
+            <li><span class="marker">M-04~07</span><span>현재 주차의 임신백과 상세 화면을 새로 제공합니다.</span></li>
+            <li><span class="marker">M-08</span><span>다른 주차를 선택하고 준비 중 주차를 확인하는 화면을 제공합니다.</span></li>
+            <li><span class="marker coral">A-08~09</span><span>Paraphrase 검수 패널을 운영자용 신규 작업 표면으로 둡니다.</span></li>
+            <li><span class="marker coral">A-10</span><span>사용자 앱 미리보기 패널을 추가합니다.</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="section-head">
+        <h2>APP 화면</h2>
+        <p>사용자는 맨 오른쪽 마이페이지에서 임신백과 섹션으로 들어갑니다.</p>
+      </div>
+
+      <section class="prototype-grid" aria-label="앱과 관리자 UI 목업">
+        <div class="phone-stage">
+          <article class="phone alt" aria-label="모바일 앱 마이페이지 진입 화면">
+            <div class="phone-screen">
+              <header class="phone-header">
+                <button class="phone-back" type="button">‹</button>
+                <h2 class="phone-title">마이페이지</h2>
+                <span class="marker">M-01</span>
+              </header>
+
+              <div class="phone-body">
+                <section class="profile-hero" aria-label="산모 프로필 요약">
+                  <div>
+                    <div class="component-label">
+                      <span class="marker">M-02</span>
+                      <p class="eyebrow">내 정보</p>
+                    </div>
+                    <h3>지유님과 별이</h3>
+                    <p>현재 18주차예요. 태명과 주차 정보는 언제든 바꿀 수 있어요.</p>
+                  </div>
+                  <div class="profile-avatar">
+                    <img
+                      src="../../apps/mobile/assets/branding/penguin-nurse/neutral.png"
+                      alt="간호사 캐릭터"
+                    />
+                  </div>
+                </section>
+
+                <section class="profile-group" aria-label="마이페이지 콘텐츠 섹션">
+                  <div class="component-label">
+                    <span class="marker">M-03</span>
+                    <h4>임신백과</h4>
+                  </div>
+                  <div class="profile-link">
+                    <span class="profile-icon">18</span>
+                    <div>
+                      <strong>이번 주 백과 보기</strong>
+                      <span>태아 발달, 엄마 몸 변화, 생활 가이드를 주차별로 읽어요.</span>
+                    </div>
+                    <span class="profile-chevron">›</span>
+                  </div>
+                  <div class="profile-link">
+                    <span class="profile-icon">주</span>
+                    <div>
+                      <strong>다른 주차 찾아보기</strong>
+                      <span>이전 주차와 다음 주차 정보도 사전처럼 확인해요.</span>
+                    </div>
+                    <span class="profile-chevron">›</span>
+                  </div>
+                </section>
+
+                <section class="profile-group" aria-label="마이페이지 일반 설정">
+                  <h4>설정</h4>
+                  <div class="profile-link">
+                    <span class="profile-icon">태</span>
+                    <div>
+                      <strong>이름과 태명</strong>
+                      <span>앱에서 부르는 이름을 바꿔요.</span>
+                    </div>
+                    <span class="profile-chevron">›</span>
+                  </div>
+                  <div class="profile-link">
+                    <span class="profile-icon">알</span>
+                    <div>
+                      <strong>알림 시간</strong>
+                      <span>매일 받고 싶은 시간을 정해요.</span>
+                    </div>
+                    <span class="profile-chevron">›</span>
+                  </div>
+                </section>
+              </div>
+
+              <nav class="bottom-nav" aria-label="앱 하단 탭">
+                <span class="nav-item">홈</span>
+                <span class="nav-item">오늘,우리</span>
+                <span class="nav-item active">마이페이지</span>
+              </nav>
+            </div>
+          </article>
+
+          <article class="phone" aria-label="마이페이지에서 열린 임신백과 상세 화면">
+            <div class="phone-screen">
+              <header class="phone-header">
+                <button class="phone-back" type="button">‹</button>
+                <h2 class="phone-title">임신백과</h2>
+                <span class="marker">M-04</span>
+              </header>
+
+              <div class="phone-body">
+                <section class="week-hero" aria-label="18주차 히어로">
+                  <div>
+                    <div class="component-label">
+                      <span class="marker">M-05</span>
+                      <p class="eyebrow">이번 주 백과</p>
+                    </div>
+                    <h3>18주차</h3>
+                    <p>아기는 고구마만큼 자라고 있어요.</p>
+                  </div>
+                  <div class="baby-visual">
+                    <img
+                      src="../../apps/web/public/week-baby/week-baby-w18.png"
+                      alt="18주차 아기 이미지"
+                    />
+                  </div>
+                </section>
+
+                <section class="summary-band" aria-label="이번 주 요약">
+                  <div class="component-label">
+                    <span class="marker">M-07</span>
+                    <h4>18주차 한눈에 보기</h4>
+                  </div>
+                  <p>
+                    이번 주에는 아기의 움직임과 엄마의 몸 변화를 함께 살펴봐요.
+                    컨디션이 달라지는 느낌도 자연스럽게 확인해볼 수 있어요.
+                  </p>
+                  <div class="week-action">
+                    <button class="primary-button" type="button">다른 주차 보기</button>
+                    <span class="section-status">노출 가능</span>
+                  </div>
+                </section>
+
+                <nav class="category-tabs" aria-label="임신백과 카테고리">
+                  <span class="marker">M-06</span>
+                  <button class="category-tab active" type="button">태아 발달</button>
+                  <button class="category-tab" type="button">엄마 몸 변화</button>
+                  <button class="category-tab" type="button">생활 가이드</button>
+                </nav>
+
+                <section class="content-section" aria-label="태아 발달">
+                  <div class="section-topline">
+                    <div class="component-label">
+                      <span class="marker">M-07</span>
+                      <h4>태아 발달</h4>
+                    </div>
+                    <span class="section-status">완성본</span>
+                  </div>
+                  <p>
+                    아기는 몸을 더 활발히 움직이고, 감각 발달도 조금씩 이어져요.
+                    작은 움직임이 느껴지지 않아도 아직은 개인차가 클 수 있어요.
+                  </p>
+                </section>
+
+                <section class="content-section" aria-label="엄마 몸 변화">
+                  <div class="section-topline">
+                    <div class="component-label">
+                      <span class="marker">M-07</span>
+                      <h4>엄마 몸 변화</h4>
+                    </div>
+                    <span class="section-status">완성본</span>
+                  </div>
+                  <p>
+                    배가 조금씩 더 도드라지고, 허리나 골반에 부담이 느껴질 수
+                    있어요. 불편함이 오래가거나 심해지면 진료 때 꼭 이야기해요.
+                  </p>
+                </section>
+
+                <section class="guide-list" aria-label="생활 가이드">
+                  <div class="component-label">
+                    <span class="marker">M-07</span>
+                    <h4>생활 가이드</h4>
+                  </div>
+                  <div class="guide-items">
+                    <div class="guide-item">
+                      <span class="checkmark">1</span>
+                      <span>물을 충분히 마시고, 오래 서 있는 시간은 줄여요.</span>
+                    </div>
+                    <div class="guide-item">
+                      <span class="checkmark">2</span>
+                      <span>무리하지 않는 산책으로 몸을 부드럽게 움직여요.</span>
+                    </div>
+                    <div class="guide-item">
+                      <span class="checkmark">3</span>
+                      <span>복통이나 출혈이 있으면 의료진과 상담해요.</span>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <nav class="bottom-nav" aria-label="앱 하단 탭">
+                <span class="nav-item">홈</span>
+                <span class="nav-item">오늘,우리</span>
+                <span class="nav-item active">마이페이지</span>
+              </nav>
+            </div>
+          </article>
+
+          <article class="phone alt" aria-label="모바일 앱 주차 선택 화면">
+            <div class="phone-screen">
+              <header class="phone-header">
+                <button class="phone-back" type="button">‹</button>
+                <h2 class="phone-title">주차 선택</h2>
+                <span class="marker">M-08</span>
+              </header>
+              <div class="sheet-demo">
+                <p class="eyebrow">다른 주차 보기</p>
+                <h3>주차를 선택해 주세요</h3>
+                <button class="secondary-button" type="button">현재 주차로 돌아가기</button>
+                <div class="week-grid" aria-label="주차 선택 그리드">
+                  <span class="week-cell">13주</span>
+                  <span class="week-cell">14주</span>
+                  <span class="week-cell">15주</span>
+                  <span class="week-cell">16주</span>
+                  <span class="week-cell">17주</span>
+                  <span class="week-cell current">18주</span>
+                  <span class="week-cell">19주</span>
+                  <span class="week-cell">20주</span>
+                  <span class="week-cell">33주</span>
+                  <span class="week-cell">34주</span>
+                  <span class="week-cell">35주</span>
+                  <span class="week-cell pending">36주</span>
+                </div>
+                <div class="pending-note">
+                  <h4>36주차 정보는 정리 중이에요</h4>
+                  <p>준비되는 대로 차분히 읽을 수 있게 보여드릴게요.</p>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <section class="admin-shell" aria-label="관리자 웹 주차별 임신백과 화면">
+          <div class="admin-layout">
+            <aside class="admin-sidebar" aria-label="관리자 사이드바">
+              <div class="admin-brand">
+                <span class="brand-mark">S</span>
+                <strong>운영 제어 센터</strong>
+                <span class="marker dark">A-01</span>
+              </div>
+              <nav class="admin-nav">
+                <a href="#">운영 상태</a>
+                <a href="#">계정</a>
+                <a class="active" href="#">콘텐츠</a>
+                <a href="#">참조 파일</a>
+                <a href="#">지식 콘텐츠</a>
+                <a class="active" href="#">주차별 아기는요?</a>
+                <a href="#">응답 워크플로우</a>
+                <a href="#">모니터링</a>
+              </nav>
+            </aside>
+
+            <div class="admin-main">
+              <header class="admin-topbar">
+                <div>
+                  <h2>주차별 임신백과</h2>
+                  <p>사용자 앱에 노출될 주차별 사전 콘텐츠를 검수합니다.</p>
+                </div>
+                <button class="secondary-button" type="button">세션 종료</button>
+              </header>
+
+              <div class="admin-content">
+                <section class="metrics" aria-label="주차 상태 요약">
+                  <div class="metric">
+                    <span><span class="marker coral">A-02</span> 전체 주차</span>
+                    <strong>40</strong>
+                  </div>
+                  <div class="metric">
+                    <span>노출 가능</span>
+                    <strong>23</strong>
+                  </div>
+                  <div class="metric">
+                    <span>검수 필요</span>
+                    <strong>11</strong>
+                  </div>
+                  <div class="metric">
+                    <span>누락 있음</span>
+                    <strong>6</strong>
+                  </div>
+                </section>
+
+                <nav class="filters" aria-label="관리자 상태 필터">
+                  <span class="marker coral">A-03</span>
+                  <button class="filter-chip active" type="button">전체</button>
+                  <button class="filter-chip" type="button">노출 가능</button>
+                  <button class="filter-chip" type="button">검수 필요</button>
+                  <button class="filter-chip" type="button">누락 있음</button>
+                  <button class="filter-chip" type="button">준비 중</button>
+                </nav>
+
+                <section class="admin-table" aria-label="주차 목록 테이블">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th><span class="marker coral">A-04</span> 주차</th>
+                        <th>상태</th>
+                        <th>태아</th>
+                        <th>엄마</th>
+                        <th>생활</th>
+                        <th>질문</th>
+                        <th>이미지</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>18주차</td>
+                        <td><span class="status ready">A-05 노출 가능</span></td>
+                        <td>완료</td>
+                        <td>완료</td>
+                        <td>완료</td>
+                        <td>완료</td>
+                        <td>있음</td>
+                      </tr>
+                      <tr>
+                        <td>29주차</td>
+                        <td><span class="status review">A-05 검수 필요</span></td>
+                        <td>완료</td>
+                        <td>검수</td>
+                        <td>완료</td>
+                        <td>검수</td>
+                        <td>있음</td>
+                      </tr>
+                      <tr>
+                        <td>36주차</td>
+                        <td><span class="status missing">A-05 누락 있음</span></td>
+                        <td>필요</td>
+                        <td>필요</td>
+                        <td>필요</td>
+                        <td>필요</td>
+                        <td>없음</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </section>
+
+                <section class="detail-panel" aria-label="주차 상세 편집">
+                  <div class="editor">
+                    <header class="panel-head">
+                      <h3>18주차 편집</h3>
+                      <span class="marker coral">A-06</span>
+                    </header>
+                    <div class="editor-grid">
+                      <div class="source-pane">
+                        <div class="pane-title">
+                          <span class="marker coral">A-07</span>
+                          원문 연결
+                        </div>
+                        <p class="source-text">
+                          Day 1 태아 발달 정보, Day 2 모체 변화 정보, 생활 체크리스트
+                          항목을 이 주차 사전의 근거로 연결합니다. 이 영역은 관리자에게만
+                          표시됩니다.
+                        </p>
+                      </div>
+                      <div class="copy-pane">
+                        <div class="pane-title">
+                          <span class="marker coral">A-08</span>
+                          사용자 노출본
+                        </div>
+                        <textarea class="copy-textarea" aria-label="사용자 노출본 편집">
+아기는 몸을 더 활발히 움직이고, 감각 발달도 조금씩 이어져요.
+
+작은 움직임이 느껴지지 않아도 아직은 개인차가 클 수 있어요.</textarea>
+                      </div>
+                    </div>
+                    <div class="review-checks">
+                      <div class="pane-title">
+                        <span class="marker coral">A-09</span>
+                        검수 체크
+                      </div>
+                      <label class="check-row"><span class="checkmark">1</span><span>원문의 의미가 유지됨</span></label>
+                      <label class="check-row"><span class="checkmark">2</span><span>숫자와 주차 정보가 바뀌지 않음</span></label>
+                      <label class="check-row"><span class="checkmark">3</span><span>산모 대상 문체로 작성됨</span></label>
+                      <label class="check-row"><span class="checkmark">4</span><span>원문 문장 복사가 없음</span></label>
+                    </div>
+                  </div>
+
+                  <aside class="preview" aria-label="사용자 앱 미리보기">
+                    <header class="panel-head">
+                      <h3>앱 미리보기</h3>
+                      <span class="marker coral">A-10</span>
+                    </header>
+                    <div class="preview-phone">
+                      <div class="preview-content">
+                        <p class="eyebrow">이번 주 백과</p>
+                        <h4>18주차</h4>
+                        <p>아기는 고구마만큼 자라고 있어요.</p>
+                        <hr class="preview-divider" />
+                        <p class="eyebrow">태아 발달</p>
+                        <p>
+                          아기는 몸을 더 활발히 움직이고, 감각 발달도 조금씩
+                          이어져요.
+                        </p>
+                        <hr class="preview-divider" />
+                        <p class="eyebrow">생활 가이드</p>
+                        <p>물을 충분히 마시고, 무리하지 않는 산책을 해요.</p>
+                      </div>
+                    </div>
+                  </aside>
+                </section>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

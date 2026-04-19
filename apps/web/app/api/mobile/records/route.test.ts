@@ -1,5 +1,14 @@
 jest.mock("@/lib/mobile/session-auth", () => ({
   requireMobileSession: jest.fn(),
+  mobileNoStoreJson: jest.fn((payload: unknown, init?: ResponseInit) =>
+    Response.json(payload, {
+      ...init,
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+        ...(init?.headers as Record<string, string> | undefined),
+      },
+    }),
+  ),
   mobileRouteErrorResponse: jest.fn((error: unknown, fallbackMessage: string) =>
     Response.json(
       { error: error instanceof Error ? error.message : fallbackMessage },
@@ -181,6 +190,71 @@ describe("GET /api/mobile/records", () => {
         }),
       ]),
     );
+  });
+
+  it("due_date 기준 주차로 오늘 캘린더 상세 체크리스트 완료 상태를 읽는다", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockedSupabaseSelect
+      .mockResolvedValueOnce([
+        {
+          pregnancy_day_count: 165,
+          pregnancy_week: 24,
+          pregnancy_day_in_week: 4,
+          due_date: "2026-07-01",
+        },
+      ] as never)
+      .mockResolvedValueOnce([{ id: "week-30" }] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "check-due-date",
+          title: "예정일 기준 체크리스트",
+          description: null,
+          display_order: 1,
+        },
+      ] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        { checklist_id: "check-due-date", status: "completed" },
+      ] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        {
+          pregnancy_day_count: 165,
+          pregnancy_week: 24,
+          pregnancy_day_in_week: 4,
+          due_date: "2026-07-01",
+        },
+      ] as never)
+      .mockResolvedValueOnce([{ id: "week-30" }] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const request = new Request(
+      "http://localhost:3000/api/mobile/records?userId=user-1&date=2026-04-13",
+    ) as Request & { nextUrl: URL };
+    request.nextUrl = new URL(request.url);
+
+    const response = await GET(request as never);
+
+    expect(mockedSupabaseSelect).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "content_pregnancy_week_data?select=id&week_number=eq.30&status=eq.published&limit=1",
+      ),
+    );
+    await expect(response.json()).resolves.toEqual({
+      recordDay: expect.objectContaining({
+        checklistItems: [
+          {
+            id: "check-due-date",
+            label: "예정일 기준 체크리스트",
+            completed: true,
+          },
+        ],
+      }),
+    });
   });
 });
 

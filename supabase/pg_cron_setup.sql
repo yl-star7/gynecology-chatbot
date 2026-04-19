@@ -53,11 +53,10 @@ SELECT cron.schedule(
   $$
 );
 
--- 5. 매일 정오(KST)에 전날 대화 요약 생성 (Edge Function으로 AI 요약)
--- pg_cron 기본 시간대가 UTC라면 KST 12:00는 UTC 03:00 입니다.
+-- 5. 6시간마다 대화 요약 생성 (Edge Function으로 AI 요약)
 SELECT cron.schedule(
   'mobile-daily-conversation-summary',
-  '0 3 * * *',
+  '0 */6 * * *',
   $$
   SELECT net.http_post(
     url := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/daily-summary',

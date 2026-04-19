@@ -122,12 +122,13 @@ const styles = StyleSheet.create({
 | `/api/admin/schift/chat` | POST | Schift RAG 채팅 테스트 |
 | `/api/admin/workflow-rules/[ruleId]` | GET/PUT/DELETE | 응답 정책 |
 | `/api/admin/allowed-phone-numbers` | GET/POST | 허용 번호 관리 |
+| `/api/admin/users/persona` | GET/POST | 상담 성향 profile/signals 조회 및 수동 signal 추가 |
 
 ### DB 쿼리 패턴
 
 - `supabaseSelect`, `supabaseInsert`, `supabaseUpdate` 사용 (`@/lib/mobile/supabase-rest`)
 - content 스키마 테이블은 **직접 쿼리 금지** (Supabase REST가 406 반환)
-- 대신 public view 사용: `published_knowledge_items`, `v_pregnancy_week_data`, `v_pregnancy_day_contents`, `v_week_checklists`, `v_week_questions`
+- 운영 API는 public mirror 테이블/view 사용: `content_knowledge_items`, `content_pregnancy_week_data`, `content_pregnancy_day_contents`, `content_week_checklists`, `content_week_questions`, `content_pregnancy_documents`, `v_user_persona_profiles`, `v_user_calendar_activity`
 - public 스키마는 prefix 없이 사용 (예: `calendar_logs`)
 
 ---

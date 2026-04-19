@@ -32,9 +32,9 @@
 | 허용 번호 CRUD | 완료 | 연구 참여 번호 화이트리스트 |
 | 사용자 전화번호 변경 | 완료 | 감사 로그 기록 |
 | 사용자 세션 초기화 | 완료 | `reset-session` 경로 사용 |
-| `knowledge_items` CRUD | 완료 | `content.knowledge_items` 기준 |
-| RAG 문헌 업로드 | 완료 | `content.pregnancy_documents` 기준 |
-| 주차별 데이터 CRUD | 완료 | `content.pregnancy_weeks*` 기준 |
+| `content_knowledge_items` CRUD | 완료 | public mirror 테이블 기준 |
+| RAG 문헌 업로드 | 완료 | `content_pregnancy_documents` 기준 |
+| 주차별 데이터 CRUD | 완료 | `content_pregnancy_week_data` + day/checklist/question 테이블 기준 |
 
 ## 4. 데이터/스키마
 
@@ -42,8 +42,9 @@
 |---|---|---|
 | `users` 인증 전용화 | 완료 | 전화번호 중심 |
 | `pregnancy_profiles` 프로필 통합 | 완료 | 이름/태명/테마 포함 |
-| `content` 스키마 분리 | 완료 | 정적 문헌 분리 |
-| `emotion_logs` 제거 방향 | 완료 | 마이그레이션에서 드롭 |
+| public mirror 콘텐츠 테이블 | 완료 | 운영 REST API 기준 |
+| `user_persona_signals` | 완료 | 상담 성향 신호 누적 |
+| `emotion_logs` 제거 방향 | 완료 | 별도 운영 테이블 없이 memory/persona signal로 대체 |
 
 ## 5. 남은 실무 리스크
 

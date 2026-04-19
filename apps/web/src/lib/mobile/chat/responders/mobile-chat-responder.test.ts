@@ -40,7 +40,11 @@ describe("mobile chat responder", () => {
         checklists: [],
         questions: [],
         tonePreference: "차분하게",
-        profileMemory: { lastEmotionTone: "tired" },
+        profileMemory: {
+          lastEmotionTone: "tired",
+          personaHint: "practical",
+          personaConfidence: "medium",
+        },
         sessionMemory: {
           compactSummary: "최근 복통 상담",
           lastScenario: "symptom_counsel",
@@ -63,6 +67,8 @@ describe("mobile chat responder", () => {
         lastScenario: "symptom_counsel",
         lastCharacterTone: "anxious",
         lastEmotionTone: "tired",
+        personaHint: "practical",
+        personaConfidence: "medium",
         tonePreference: "차분하게",
       }),
     });
@@ -100,6 +106,69 @@ describe("mobile chat responder", () => {
     });
 
     expect(result.assistantMessage).toEqual(fallbackMessage);
+    expect(result.workflowMemoryPayload).toBeNull();
+  });
+
+  it("falls back when workflow output is not structured chat JSON", async () => {
+    const fallbackMessage: ChatMessage = {
+      id: "assistant-fallback",
+      role: "assistant",
+      createdAtLabel: "방금 전",
+      parts: [{ type: "text", id: "p1", text: "fallback 답변" }],
+    };
+
+    const responder = createMobileChatResponder({
+      getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
+      runSchiftWorkflow: jest.fn().mockResolvedValue({
+        run: {
+          status: "completed",
+          outputs: { text: "SPECIAL INSTRUCTION" },
+        },
+      }),
+      extractSchiftWorkflowOutputs: (run) => run.outputs ?? {},
+      formatSchiftWorkflowRun: () => "답변: SPECIAL INSTRUCTION",
+      loadCharacterImages: async () => ({}),
+      runFallbackModel: jest.fn().mockResolvedValue(fallbackMessage),
+    });
+
+    const result = await responder({
+      promptContext: null,
+      currentWeek: 13,
+      normalizedSessionId: "session-1",
+      text: "오늘은 마음이 불안해요",
+      imageDataUris: [],
+      hardGuardrailReason: null,
+    });
+
+    expect(result.assistantMessage).toEqual(fallbackMessage);
+    expect(result.workflowMemoryPayload).toBeNull();
+  });
+
+  it("returns a local workflow fallback when the fallback model also fails", async () => {
+    const responder = createMobileChatResponder({
+      getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
+      runSchiftWorkflow: jest.fn().mockRejectedValue(new Error("No output specified.")),
+      extractSchiftWorkflowOutputs: (run) => run.outputs ?? {},
+      formatSchiftWorkflowRun: () => "답변: workflow 출력이 없어요.",
+      loadCharacterImages: async () => ({}),
+      runFallbackModel: jest.fn().mockRejectedValue(new Error("No output specified.")),
+    });
+
+    const result = await responder({
+      promptContext: null,
+      currentWeek: 40,
+      normalizedSessionId: "session-1",
+      text: "오늘은 마음이 불안해요",
+      imageDataUris: [],
+      hardGuardrailReason: null,
+    });
+
+    expect(result.assistantMessage.characterTone).toBe("anxious");
+    expect(result.assistantMessage.parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "quickReplies" }),
+      ]),
+    );
     expect(result.workflowMemoryPayload).toBeNull();
   });
 });

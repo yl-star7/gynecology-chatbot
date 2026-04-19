@@ -74,6 +74,13 @@ export function buildChatOrchestrator(deps: {
     nextProfileMemory: ProfileMemoryPayload | null | undefined,
     timestamp: string,
   ) => Promise<void>;
+  dispatchPersonaSignalWebhook?: (input: {
+    userId: string;
+    sessionId: string;
+    sourceMessageId: string | null;
+    nextProfileMemory: ProfileMemoryPayload | null | undefined;
+    idempotencyKey: string;
+  }) => Promise<void>;
   buildFollowUps: (input: {
     week: PromptContext["week"];
     dayContent: PromptContext["dayContent"];
@@ -203,6 +210,7 @@ export function buildChatOrchestrator(deps: {
       assistantMessageAt,
     );
     if (workflowMemoryPayload?.nextProfileMemory) {
+      const sourceMessageId = savedIds[0]?.id ?? null;
       await deps.updateProfileMemory(
         input.userId,
         promptContext?.onboardingPayload ?? null,
@@ -210,6 +218,18 @@ export function buildChatOrchestrator(deps: {
         workflowMemoryPayload.nextProfileMemory,
         assistantMessageAt,
       );
+      await deps.dispatchPersonaSignalWebhook?.({
+        userId: input.userId,
+        sessionId,
+        sourceMessageId,
+        nextProfileMemory: workflowMemoryPayload.nextProfileMemory,
+        idempotencyKey: [
+          sessionId,
+          sourceMessageId ?? "",
+          workflowMemoryPayload.nextProfileMemory.personaHint ?? "",
+          workflowMemoryPayload.nextProfileMemory.personaConfidence ?? "",
+        ].join(":"),
+      });
     }
 
     return {

@@ -579,13 +579,13 @@ async function ensureSeedData() {
       status: "published",
       isActive: true,
       config: {
-        modelName: "gemini-2.5-flash-lite",
+        modelName: "gemini-3.1-flash-lite-preview",
         retrievalScope: "현재 주차 ±1주 + 공통 문서",
       },
       metadata: {
         trigger: "일반 채팅",
         retrievalScope: "현재 주차 ±1주 + 공통 문서",
-        modelName: "gemini-2.5-flash-lite",
+        modelName: "gemini-3.1-flash-lite-preview",
       },
     },
     {
@@ -596,13 +596,13 @@ async function ensureSeedData() {
       status: "draft",
       isActive: false,
       config: {
-        modelName: "gemini-2.5-flash-lite",
+        modelName: "gemini-3.1-flash-lite-preview",
         retrievalScope: "위험 신호 문서 우선",
       },
       metadata: {
         trigger: "이미지 + 텍스트 입력",
         retrievalScope: "위험 신호 문서 우선",
-        modelName: "gemini-2.5-flash-lite",
+        modelName: "gemini-3.1-flash-lite-preview",
       },
     },
   ];

@@ -201,10 +201,27 @@ describe("createDefaultInternalAnswerWorkflow", () => {
 
   it("reuses healthy canonical workflows without recreating them", async () => {
     const createMock = jest.fn();
+    const addBlockMock = jest.fn(async (block: unknown) => ({
+      id: `added-${Math.random().toString(36).slice(2, 8)}`,
+      ...(typeof block === "object" ? block : {}),
+    }));
+    const addEdgeMock = jest.fn(async () => ({
+      id: `edge-${Math.random().toString(36).slice(2, 8)}`,
+    }));
+    const removeBlockMock = jest.fn(async () => ({}));
     const SchiftMock = require("@schift-io/sdk").Schift as jest.Mock;
     SchiftMock.mockImplementation(() => ({
       workflows: {
         create: createMock,
+        get: jest.fn(async () => ({
+          id: "wf-existing",
+          graph: { blocks: [{ id: "old-start" }], edges: [] },
+        })),
+        removeBlock: removeBlockMock,
+        addBlock: jest.fn(async (_wfId: string, block: unknown) =>
+          addBlockMock(block),
+        ),
+        addEdge: addEdgeMock,
       },
     }));
 
@@ -250,6 +267,9 @@ describe("createDefaultInternalAnswerWorkflow", () => {
     await createDefaultInternalAnswerWorkflow();
 
     expect(createMock).not.toHaveBeenCalled();
+    expect(removeBlockMock).toHaveBeenCalledWith("wf-existing", "old-start");
+    expect(addBlockMock).toHaveBeenCalled();
+    expect(addEdgeMock).toHaveBeenCalled();
     expect(global.fetch).not.toHaveBeenCalledWith(
       expect.stringContaining("/v1/workflows/wf-existing"),
       expect.objectContaining({

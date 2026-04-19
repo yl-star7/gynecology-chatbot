@@ -152,7 +152,9 @@
 
 1. **DB 준비 (Supabase)**
    - 운영 Supabase 프로젝트 접근 권한 확인
-   - 마이그레이션/스키마 최신 상태 반영
+   - `supabase db push --dry-run` 결과가 `Remote database is up to date.`인지 확인
+   - active migration chain은 `supabase/migrations/`의 원격 history 일치 파일만 기준으로 확인
+   - baseline 이전 SQL은 `supabase/migrations_legacy/` 보관용이며 운영 DB에 재적용하지 않음
    - 서비스 롤 키/퍼블리셔블 키 발급 상태 확인
 
 2. **web 배포 준비 (Vercel)**

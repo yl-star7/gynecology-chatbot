@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  mobileNoStoreJson,
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
@@ -37,7 +38,9 @@ export async function GET(
       return NextResponse.json({ error: "session not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ session: toChatSession(sessions[0], messages) });
+    return mobileNoStoreJson({
+      session: toChatSession(sessions[0], messages),
+    });
   } catch (error) {
     console.error("mobile session detail route error", error);
     return mobileRouteErrorResponse(error, "failed to load session");

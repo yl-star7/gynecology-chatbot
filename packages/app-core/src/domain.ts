@@ -161,6 +161,7 @@ export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   createdAtLabel: string;
+  characterTone?: EmotionTone | null;
   parts: ChatPart[];
 }
 
@@ -191,6 +192,27 @@ export interface MobileContentListItem {
   section: "knowledge" | "notebook";
   title: string;
   preview: string;
+}
+
+export interface MobileWeeklyEncyclopediaSection {
+  title: string | null;
+  summary: string | null;
+  body: string | null;
+  items: unknown[];
+}
+
+export interface MobilePregnancyWeekSummary {
+  weekNumber: number;
+  title: string;
+  babySizeLabel: string | null;
+  babySummary: string | null;
+  motherSummary: string | null;
+  lifeGuide?: MobileWeeklyEncyclopediaSection | null;
+  caution?: MobileWeeklyEncyclopediaSection | null;
+  faq?: {
+    title: string | null;
+    items: unknown[];
+  } | null;
 }
 
 export interface AuthenticatedUser {

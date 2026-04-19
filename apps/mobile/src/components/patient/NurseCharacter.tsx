@@ -4,40 +4,6 @@ import { patientSurfacePalette as surface, radii } from "../../theme";
 
 export type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
 
-interface EmotionConfig {
-  backgroundTint: string;
-  bubbleText: string;
-  accentColor: string;
-}
-
-const EMOTION_CONFIG: Record<EmotionTone, EmotionConfig> = {
-  calm: {
-    backgroundTint: "#EDE9FF",
-    bubbleText: "차분하게 함께 있을게요. 오늘도 잘하고 있어요.",
-    accentColor: "#7C6FCD",
-  },
-  joyful: {
-    backgroundTint: "#FFF4E0",
-    bubbleText: "기분이 좋으시군요! 저도 함께 기뻐요.",
-    accentColor: "#F5A623",
-  },
-  anxious: {
-    backgroundTint: "#E8F4FF",
-    bubbleText: "걱정되는 게 있으시죠? 천천히 이야기해 주세요.",
-    accentColor: "#4A90D9",
-  },
-  tired: {
-    backgroundTint: "#EAFAF1",
-    bubbleText: "많이 힘드시죠. 충분히 쉬어도 괜찮아요.",
-    accentColor: "#27AE60",
-  },
-  sad: {
-    backgroundTint: "#F5F5F5",
-    bubbleText: "슬플 때 옆에 있어 드릴게요.",
-    accentColor: "#7F8C8D",
-  },
-};
-
 const NURSE_IMAGES: Record<EmotionTone | "neutral", number> = {
   neutral: require("../../../assets/branding/penguin-nurse/neutral.png"),
   calm: require("../../../assets/branding/penguin-nurse/calm.png"),
@@ -89,9 +55,6 @@ export function NurseCharacter({
     ]).start();
   }, [emotionTone, scaleAnim]);
 
-  const config = emotionTone ? EMOTION_CONFIG[emotionTone] : null;
-  const tint = config?.backgroundTint ?? surface.surfaceSecondary;
-
   return (
     <View style={styles.root}>
       <Animated.View
@@ -101,7 +64,7 @@ export function NurseCharacter({
             width: wrapperSize,
             height: wrapperSize,
             borderRadius: radii.full,
-            backgroundColor: tint,
+            backgroundColor: surface.surfaceSecondary,
             transform: [{ scale: scaleAnim }],
           },
         ]}
@@ -120,17 +83,19 @@ export function NurseCharacter({
 // ─── 채팅 메시지 아바타 (작은 버전) ───────────────────────
 export function NurseAvatar({
   emotionTone,
+  size = "md",
 }: {
   emotionTone?: EmotionTone | null;
+  size?: "sm" | "md";
 }) {
-  const config = emotionTone ? EMOTION_CONFIG[emotionTone] : null;
-  const tint = config?.backgroundTint ?? surface.surfaceSecondary;
+  const avatarStyle = size === "sm" ? styles.avatarWrapSm : styles.avatarWrap;
+  const imageStyle = size === "sm" ? styles.avatarImageSm : styles.avatarImage;
 
   return (
-    <View style={[styles.avatarWrap, { backgroundColor: tint }]}>
+    <View style={avatarStyle}>
       <Image
         source={resolveNurseImage(emotionTone)}
-        style={styles.avatarImage}
+        style={imageStyle}
         resizeMode="contain"
         accessibilityLabel="간호사 캐릭터"
       />
@@ -149,15 +114,27 @@ const styles = StyleSheet.create({
   },
   // ─── Avatar (채팅 메시지용) ───
   avatarWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: radii.full,
+    width: 54,
+    height: 54,
+    borderRadius: radii.xl,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
   avatarImage: {
-    width: 24,
-    height: 24,
+    width: 52,
+    height: 52,
+  },
+  avatarWrapSm: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatarImageSm: {
+    width: 42,
+    height: 42,
   },
 });

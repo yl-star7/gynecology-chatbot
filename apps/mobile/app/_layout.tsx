@@ -4,7 +4,7 @@ import {
   HIDDEN_HEADER_SCREEN_OPTIONS,
   ROOT_STACK_ROUTE_NAMES,
 } from "./routeOptions.model";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -13,9 +13,13 @@ import {
   MobileAppSessionProvider,
   useMobileAppSession,
 } from "../src/core/MobileAppSessionProvider";
-import { MobileServicesProvider } from "../src/core/MobileServicesProvider";
+import {
+  MobileServicesProvider,
+  useMobileServices,
+} from "../src/core/MobileServicesProvider";
 import { DailyLocalNotificationRegistrar } from "../src/components/DailyLocalNotificationRegistrar";
 import { PushTokenRegistrar } from "../src/components/PushTokenRegistrar";
+import { preloadPatientAppData } from "../src/core/mobileBootstrap.model";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,18 +45,55 @@ function SessionScopedStack() {
   );
 }
 
-export default function RootLayout() {
-  useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
+function BootstrapGate({ children }: { children: React.ReactNode }) {
+  const { currentUser, isRestoringSession } = useMobileAppSession();
+  const services = useMobileServices();
+  const [isReady, setIsReady] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function prepareApp() {
+      if (isRestoringSession) {
+        setIsReady(false);
+        return;
+      }
+
+      setIsReady(false);
+      await preloadPatientAppData({ currentUser, services });
+
+      if (cancelled) {
+        return;
+      }
+
+      setIsReady(true);
+      await SplashScreen.hideAsync().catch(() => undefined);
+    }
+
+    void prepareApp();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, isRestoringSession, services]);
+
+  if (!isReady) {
+    return null;
+  }
+
+  return children;
+}
+
+export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <MobileServicesProvider>
         <MobileAppSessionProvider>
-          <DailyLocalNotificationRegistrar />
-          <PushTokenRegistrar />
-          <SessionScopedStack />
+          <BootstrapGate>
+            <DailyLocalNotificationRegistrar />
+            <PushTokenRegistrar />
+            <SessionScopedStack />
+          </BootstrapGate>
         </MobileAppSessionProvider>
       </MobileServicesProvider>
     </SafeAreaProvider>

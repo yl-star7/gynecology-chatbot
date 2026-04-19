@@ -2,8 +2,11 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  index,
   integer,
   jsonb,
+  numeric,
+  pgTable,
   pgSchema,
   text,
   timestamp,
@@ -227,6 +230,95 @@ export const weekQuestions = contentSchema.table(
     dayRange: check(
       "week_questions_day_number_range",
       sql`${table.dayNumber} IS NULL OR ${table.dayNumber} BETWEEN 1 AND 7`,
+    ),
+  }),
+);
+
+export const contentParaphraseRuns = pgTable(
+  "content_paraphrase_runs",
+  {
+    id: uuid("id").primaryKey().default(genRandomUuid),
+    model: varchar("model", { length: 120 }).notNull(),
+    promptVersion: varchar("prompt_version", { length: 80 }).notNull(),
+    scope: varchar("scope", { length: 40 }).notNull(),
+    targetWeekNumber: integer("target_week_number"),
+    status: varchar("status", { length: 40 }).notNull().default("processing"),
+    inputTokenCount: integer("input_token_count"),
+    outputTokenCount: integer("output_token_count"),
+    totalTokenCount: integer("total_token_count"),
+    costUsd: numeric("cost_usd", { precision: 10, scale: 6 }),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => ({
+    targetWeekIdx: index("idx_content_paraphrase_runs_target_week").on(
+      table.targetWeekNumber,
+      table.createdAt,
+    ),
+    statusIdx: index("idx_content_paraphrase_runs_status").on(table.status),
+    statusCheck: check(
+      "content_paraphrase_runs_status_check",
+      sql`${table.status} IN ('processing', 'completed', 'failed')`,
+    ),
+    scopeCheck: check(
+      "content_paraphrase_runs_scope_check",
+      sql`${table.scope} IN ('week', 'full', 'single_item')`,
+    ),
+  }),
+);
+
+export const contentParaphrasedItems = pgTable(
+  "content_paraphrased_items",
+  {
+    id: uuid("id").primaryKey().default(genRandomUuid),
+    sourceTable: varchar("source_table", { length: 120 }).notNull(),
+    sourceId: uuid("source_id"),
+    sourceWeekNumber: integer("source_week_number").notNull(),
+    sourceDayNumber: integer("source_day_number"),
+    sourceCode: varchar("source_code", { length: 160 }),
+    sourceHash: varchar("source_hash", { length: 128 }).notNull(),
+    runId: uuid("run_id").references(() => contentParaphraseRuns.id, {
+      onDelete: "set null",
+    }),
+    contentScope: varchar("content_scope", { length: 60 }).notNull(),
+    category: varchar("category", { length: 80 }).notNull(),
+    title: text("title"),
+    summary: text("summary"),
+    body: text("body"),
+    items: jsonb("items").notNull().default(sql`'[]'::jsonb`),
+    status: varchar("status", { length: 40 }).notNull().default("needs_review"),
+    reviewNote: text("review_note"),
+    reviewedBy: uuid("reviewed_by"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    isActive: boolean("is_active").notNull().default(false),
+    model: varchar("model", { length: 120 }).notNull(),
+    promptVersion: varchar("prompt_version", { length: 80 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+  },
+  (table) => ({
+    weekCategoryIdx: index("idx_content_paraphrased_items_week_category").on(
+      table.sourceWeekNumber,
+      table.category,
+      table.status,
+    ),
+    sourceHashIdx: index("idx_content_paraphrased_items_source_hash").on(
+      table.sourceHash,
+    ),
+    statusCheck: check(
+      "content_paraphrased_items_status_check",
+      sql`${table.status} IN ('needs_review', 'ready', 'archived', 'failed')`,
+    ),
+    weekRange: check(
+      "content_paraphrased_items_week_number_range",
+      sql`${table.sourceWeekNumber} BETWEEN 1 AND 40`,
     ),
   }),
 );

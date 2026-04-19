@@ -1,36 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isPastConversationSession } from "./patientConversationSessionStatus.model.ts";
+import { createInitialConversationMessage } from "./PatientConversationInitialMessage.model.ts";
 
-const now = new Date("2026-04-17T10:00:00+09:00");
+test("initial conversation message starts the workflow with emotion choices", () => {
+  const message = createInitialConversationMessage();
 
-test("isPastConversationSession treats missing timestamp as not past", () => {
-  assert.equal(isPastConversationSession(null, now), false);
-  assert.equal(isPastConversationSession(undefined, now), false);
-});
-
-test("isPastConversationSession keeps today's session editable", () => {
-  assert.equal(
-    isPastConversationSession("2026-04-17T00:05:00+09:00", now),
-    false,
+  assert.equal(message.role, "assistant");
+  assert.equal(message.characterTone, "calm");
+  assert.deepEqual(
+    message.parts.map((part) => part.type),
+    ["text", "quickReplies"],
   );
-  assert.equal(
-    isPastConversationSession("2026-04-17T23:55:00+09:00", now),
-    false,
-  );
-});
 
-test("isPastConversationSession marks yesterday or earlier as past", () => {
-  assert.equal(
-    isPastConversationSession("2026-04-16T23:59:00+09:00", now),
-    true,
+  const quickReplies = message.parts.find(
+    (part) => part.type === "quickReplies",
   );
-  assert.equal(
-    isPastConversationSession("2026-01-01T10:00:00+09:00", now),
-    true,
+  assert.deepEqual(
+    quickReplies?.type === "quickReplies"
+      ? quickReplies.choices.map((choice) => choice.label)
+      : [],
+    ["좋아요", "우울해요", "슬퍼요", "화나요", "직접 입력"],
   );
-});
-
-test("isPastConversationSession ignores unparseable values", () => {
-  assert.equal(isPastConversationSession("not-a-date", now), false);
 });

@@ -1,0 +1,189 @@
+{
+  "generatedAt": "2026-04-17T14:31:53.153Z",
+  "promptVersion": "weekly-encyclopedia-v2.1",
+  "model": "gemini-2.5-flash-lite",
+  "runCount": 36,
+  "itemCount": 1466,
+  "inputTokens": 302964,
+  "outputTokens": 206861,
+  "totalTokens": 509867,
+  "costUsd": 0.113042,
+  "sourceNullCount": 0,
+  "weeks": [
+    {
+      "weekNumber": 5,
+      "itemCount": 48
+    },
+    {
+      "weekNumber": 6,
+      "itemCount": 48
+    },
+    {
+      "weekNumber": 7,
+      "itemCount": 48
+    },
+    {
+      "weekNumber": 8,
+      "itemCount": 48
+    },
+    {
+      "weekNumber": 9,
+      "itemCount": 48
+    },
+    {
+      "weekNumber": 10,
+      "itemCount": 48
+    },
+    {
+      "weekNumber": 11,
+      "itemCount": 48
+    },
+    {
+      "weekNumber": 12,
+      "itemCount": 48
+    },
+    {
+      "weekNumber": 13,
+      "itemCount": 40
+    },
+    {
+      "weekNumber": 14,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 15,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 16,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 17,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 18,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 19,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 20,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 21,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 22,
+      "itemCount": 42
+    },
+    {
+      "weekNumber": 23,
+      "itemCount": 40
+    },
+    {
+      "weekNumber": 24,
+      "itemCount": 40
+    },
+    {
+      "weekNumber": 25,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 26,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 27,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 28,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 29,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 30,
+      "itemCount": 28
+    },
+    {
+      "weekNumber": 31,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 32,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 33,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 34,
+      "itemCount": 41
+    },
+    {
+      "weekNumber": 35,
+      "itemCount": 31
+    },
+    {
+      "weekNumber": 36,
+      "itemCount": 31
+    },
+    {
+      "weekNumber": 37,
+      "itemCount": 28
+    },
+    {
+      "weekNumber": 38,
+      "itemCount": 33
+    },
+    {
+      "weekNumber": 39,
+      "itemCount": 30
+    },
+    {
+      "weekNumber": 40,
+      "itemCount": 42
+    }
+  ],
+  "byCategory": [
+    {
+      "category": "baby_development",
+      "count": 36
+    },
+    {
+      "category": "caution",
+      "count": 36
+    },
+    {
+      "category": "faq",
+      "count": 36
+    },
+    {
+      "category": "life_guide",
+      "count": 734
+    },
+    {
+      "category": "mother_body",
+      "count": 36
+    },
+    {
+      "category": "overview",
+      "count": 36
+    },
+    {
+      "category": "reflection_question",
+      "count": 552
+    }
+  ],
+  "status": "all rows inserted as needs_review and inactive"
+}

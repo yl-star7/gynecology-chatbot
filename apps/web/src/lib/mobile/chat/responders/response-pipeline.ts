@@ -40,7 +40,11 @@ export async function resolveAssistantResponse(input: {
   if (input.workflowEnabled) {
     try {
       return await input.runWorkflow();
-    } catch {
+    } catch (error) {
+      console.warn(
+        "mobile chat workflow failed; using fallback",
+        error instanceof Error ? error.message : error,
+      );
       return {
         assistantMessage: await input.runFallback(),
         workflowMemoryPayload: null,

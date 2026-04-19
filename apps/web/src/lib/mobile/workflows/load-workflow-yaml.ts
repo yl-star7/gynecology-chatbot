@@ -135,7 +135,20 @@ async function fetchFromSupabaseStorage(): Promise<string | null> {
 // ── 로컬 파일 fallback ──
 
 function loadLocalYaml(): WorkflowYaml {
-  const filePath = path.join(__dirname, "maternal-nursing.yaml");
+  const candidates = [
+    path.join(__dirname, "maternal-nursing.yaml"),
+    path.join(process.cwd(), "src/lib/mobile/workflows/maternal-nursing.yaml"),
+    path.join(
+      process.cwd(),
+      "apps/web/src/lib/mobile/workflows/maternal-nursing.yaml",
+    ),
+  ];
+  const filePath = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!filePath) {
+    throw new Error(
+      `maternal-nursing.yaml not found in: ${candidates.join(", ")}`,
+    );
+  }
   const raw = fs.readFileSync(filePath, "utf-8");
   return parseYaml(raw) as WorkflowYaml;
 }

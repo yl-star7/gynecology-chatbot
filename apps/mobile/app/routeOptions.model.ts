@@ -10,6 +10,8 @@ export const ROOT_STACK_ROUTE_NAMES = [
   "onboarding/index",
   "(tabs)",
   "chat",
+  "encyclopedia",
+  "dev",
   "records",
   "profile-settings",
   "profile-survey",

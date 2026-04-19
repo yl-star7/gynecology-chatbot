@@ -32,6 +32,11 @@ export type SupabaseRequestOptions = {
   schema?: "public" | "content";
 };
 
+export type SupabaseInsertOptions = SupabaseRequestOptions & {
+  onConflict?: string;
+  ignoreDuplicates?: boolean;
+};
+
 type QueryLike<T> = {
   eq(column: string, value: string): T;
   is(column: string, value: boolean | null): T;
@@ -265,7 +270,7 @@ export async function supabaseSelect<T>(
 export async function supabaseInsert<T>(
   table: string,
   payload: object | object[],
-  options: SupabaseRequestOptions = {},
+  options: SupabaseInsertOptions = {},
 ) {
   assertSelectedProviderConfig();
   if (shouldUseLocalPostgres()) {
@@ -273,11 +278,20 @@ export async function supabaseInsert<T>(
   }
 
   const target = parseSchemaScopedTarget(applySchema(table, options.schema));
-  const { data, error } = await getSupabaseAdminClient()
-    .schema(target.schema)
-    .from(target.relation)
-    .insert(payload)
-    .select();
+  const query = options.onConflict
+    ? getSupabaseAdminClient()
+        .schema(target.schema)
+        .from(target.relation)
+        .upsert(payload, {
+          onConflict: options.onConflict,
+          ignoreDuplicates: options.ignoreDuplicates,
+        })
+    : getSupabaseAdminClient()
+        .schema(target.schema)
+        .from(target.relation)
+        .insert(payload);
+
+  const { data, error } = await query.select();
   if (error) throw new Error(`Supabase insert failed: ${error.message}`);
   return (data ?? []) as T;
 }

@@ -5,6 +5,7 @@ import type {
   HomeViewData,
   LinkTargetContent,
   MobileContentListItem,
+  MobilePregnancyWeekSummary,
   MobileProfileViewData,
   OnboardingProfileInput,
   RecentChatSummary,
@@ -68,6 +69,7 @@ export interface MobileApiClient {
   fetchContentItems(
     section: "knowledge" | "notebook",
   ): Promise<{ items: MobileContentListItem[] }>;
+  fetchPregnancyWeeks(): Promise<{ weeks: MobilePregnancyWeekSummary[] }>;
   fetchLinkTarget(
     target: string,
     entityId?: string,
@@ -356,6 +358,13 @@ export function createMobileApiClient(
         },
       );
       return parseJson<{ items: MobileContentListItem[] }>(response);
+    },
+
+    async fetchPregnancyWeeks() {
+      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/weeks`, {
+        headers: buildMobileSessionHeaders(),
+      });
+      return parseJson<{ weeks: MobilePregnancyWeekSummary[] }>(response);
     },
 
     async fetchLinkTarget(target, entityId) {

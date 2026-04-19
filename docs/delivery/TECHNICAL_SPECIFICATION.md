@@ -144,6 +144,8 @@
 | POST | `/api/admin/users/status` | 필요 | 사용자 계정 상태 변경 (중단/활성화) |
 | POST | `/api/admin/users/update-phone` | 필요 | 사용자 전화번호 변경 |
 | POST | `/api/admin/users/reset-session` | 필요 | 사용자 세션 강제 초기화 |
+| GET | `/api/admin/users/persona?userId={id}` | 필요 | 사용자 상담 성향 profile/signals 조회 |
+| POST | `/api/admin/users/persona` | 필요 | 상담 성향 signal 수동 추가 |
 
 #### 허용 전화번호
 
@@ -261,11 +263,14 @@
 
 | 테이블 | 설명 | 주요 컬럼 |
 |--------|------|-----------|
-| `knowledge_items` | 지식/안내 콘텐츠 | title, body, category, section, publish_status |
-| `pregnancy_documents` | RAG 문서 | title, content, pregnancy_week_range |
-| `pregnancy_weeks` | 주차별 간호 정보 | week_number (1-40), title, description |
-| `pregnancy_week_sections` | 주차 콘텐츠 섹션 | week_number, section_name, body_html |
-| `pregnancy_week_assets` | 주차 미디어 | week_number, asset_type, asset_url |
+| `content_knowledge_items` | 지식/안내 콘텐츠 | slug, section, title, body, image_url, status |
+| `content_pregnancy_documents` | RAG 문서 | title, content, pregnancy_week, category, embedding |
+| `content_pregnancy_week_data` | 주차별 간호 정보 | week_number, title, baby_summary, mother_summary |
+| `content_pregnancy_day_contents` | 일차별 콘텐츠 | week_data_id, day_number, baby_message |
+| `content_week_checklists` | 주차/일차 체크리스트 | week_data_id, day_number, title, checklist_payload |
+| `content_week_questions` | 모아애착 질문 | week_data_id, day_number, question_text |
+| `content_pregnancy_week_media` | 주차 미디어 | week_data_id, object_path, media_role |
+| `user_persona_signals` | 상담 성향 신호 | user_id, persona_hint, confidence, evidence, weight |
 
 ### 3.3 발행 뷰 (모바일 읽기 전용)
 
@@ -274,6 +279,8 @@
 - `v_pregnancy_day_contents` - 일별 콘텐츠
 - `v_week_checklists` - 주차 체크리스트
 - `v_week_questions` - 주차 질문
+- `v_user_persona_profiles` - 상담 성향 신호 가중 합산 결과
+- `v_user_calendar_activity` - 캘린더 활동 집계
 
 ---
 

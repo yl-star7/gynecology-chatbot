@@ -2,6 +2,7 @@ import type {
   AuthPort,
   KnowledgePort,
   MobileContentListItem,
+  MobilePregnancyWeekSummary,
   MobileChatPort,
   MobileHomePort,
   MobileProfileViewData,
@@ -18,7 +19,19 @@ import {
   cacheRecentChats,
   cacheRecordDayView,
   cacheTodayView,
+  clearCachedHomeView,
+  clearCachedRecentChats,
+  clearCachedRecordDayView,
 } from "../patientViewCache";
+
+function createTodayIsoDate() {
+  const now = new Date();
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+}
 
 export class ApiMobileAuthAdapter implements AuthPort {
   private readonly client: MobileApiClient;
@@ -162,6 +175,11 @@ export class ApiMobileChatAdapter implements MobileChatPort {
       pregnancyWeek: input.pregnancyWeek,
       imageDataUris: input.imageUris,
     });
+    const userId = this.getUserId();
+
+    clearCachedRecentChats(userId);
+    clearCachedRecordDayView(userId, createTodayIsoDate());
+    clearCachedHomeView(userId);
 
     return payload.assistantMessages ?? [payload.assistantMessage];
   }
@@ -184,6 +202,11 @@ export class ApiKnowledgeAdapter implements KnowledgePort {
   ): Promise<MobileContentListItem[]> {
     const payload = await this.client.fetchContentItems(section);
     return payload.items;
+  }
+
+  async listPregnancyWeeks(): Promise<MobilePregnancyWeekSummary[]> {
+    const payload = await this.client.fetchPregnancyWeeks();
+    return payload.weeks;
   }
 
   async getLinkTarget(target: string, entityId?: string) {

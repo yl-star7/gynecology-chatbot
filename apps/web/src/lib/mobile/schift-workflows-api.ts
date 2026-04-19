@@ -143,7 +143,7 @@ async function createWorkflowWithBlocks(
     const added = await schiftClient.workflows.addBlock(shell.id, {
       type: block.type,
       title: block.title ?? block.id,
-      config: block.config ?? {},
+      config: withProviderKey(block.type, block.config ?? {}),
     });
     blockIdMap.set(block.id, added.id);
   }
@@ -162,8 +162,72 @@ async function createWorkflowWithBlocks(
   return shell;
 }
 
-export async function createDefaultInternalAnswerWorkflow() {
-  const wfDef = loadMaternalNursingWorkflow();
+async function syncWorkflowGraphWithBlocks(
+  schiftClient: Schift,
+  workflowId: string,
+  wfDef: ReturnType<typeof loadMaternalNursingWorkflow>,
+) {
+  const current = await schiftClient.workflows.get(workflowId);
+  const currentGraph = current.graph as WorkflowGraph & {
+    nodes?: WorkflowGraph["blocks"];
+  };
+
+  for (const block of currentGraph.nodes ?? currentGraph.blocks ?? []) {
+    try {
+      await schiftClient.workflows.removeBlock(workflowId, block.id);
+    } catch {
+      // Ignore already-removed or provider-normalized block ids.
+    }
+  }
+
+  const blockIdMap = new Map<string, string>();
+  for (const block of wfDef.graph.blocks) {
+    const added = await schiftClient.workflows.addBlock(workflowId, {
+      type: block.type,
+      title: block.title ?? block.id,
+      config: withProviderKey(block.type, block.config ?? {}),
+    });
+    blockIdMap.set(block.id, added.id);
+  }
+
+  for (const edge of wfDef.graph.edges) {
+    const source = blockIdMap.get(edge.source) ?? edge.source;
+    const target = blockIdMap.get(edge.target) ?? edge.target;
+    await schiftClient.workflows.addEdge(workflowId, {
+      source,
+      target,
+      source_handle: edge.source_handle ?? "output",
+      target_handle: edge.target_handle ?? "input",
+    });
+  }
+}
+
+function withProviderKey(
+  blockType: string,
+  config: Record<string, unknown>,
+): Record<string, unknown> {
+  if (blockType !== "ai_router" && blockType !== "llm") {
+    return config;
+  }
+
+  const apiKey =
+    process.env.GEMINI_API_KEY ??
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ??
+    process.env.GOOGLE_API_KEY;
+  if (!apiKey || config.api_key) {
+    return config;
+  }
+
+  return {
+    ...config,
+    api_key: apiKey,
+  };
+}
+
+export async function createDefaultInternalAnswerWorkflow(
+  workflowDefinition?: ReturnType<typeof loadMaternalNursingWorkflow>,
+) {
+  const wfDef = workflowDefinition ?? loadMaternalNursingWorkflow();
   const workflows = await listSchiftWorkflows();
   const existing = workflows.find(
     (workflow) =>
@@ -192,6 +256,8 @@ export async function createDefaultInternalAnswerWorkflow() {
     }
 
     baseWorkflow = await createWorkflowWithBlocks(schiftClient, wfDef);
+  } else {
+    await syncWorkflowGraphWithBlocks(schiftClient, baseWorkflow.id, wfDef);
   }
 
   const adminMetadata = {

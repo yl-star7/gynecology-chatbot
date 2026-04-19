@@ -1,5 +1,14 @@
 jest.mock("@/lib/mobile/session-auth", () => ({
   requireMobileSession: jest.fn(),
+  mobileNoStoreJson: jest.fn((payload: unknown, init?: ResponseInit) =>
+    Response.json(payload, {
+      ...init,
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+        ...(init?.headers as Record<string, string> | undefined),
+      },
+    }),
+  ),
   isMobileSessionError: jest.fn((error: unknown) => {
     return (
       error instanceof Error &&
@@ -90,7 +99,7 @@ describe("GET /api/mobile/home", () => {
     expect(response.status).toBe(200);
     expect(supabaseSelect).toHaveBeenNthCalledWith(
       2,
-      "calendar_logs?select=date,summary,entry_type&user_id=eq.user-1&date=gte.2026-04-01&date=lte.2026-04-30",
+      "v_user_calendar_activity?select=date,summary,entry_type&user_id=eq.user-1&date=gte.2026-04-01&date=lte.2026-04-30",
     );
   });
 });

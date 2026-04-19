@@ -10,7 +10,10 @@ import {
   supabaseUpdate,
 } from "@/lib/supabase/admin-client";
 import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
-import { resolveRecentChatPreview, toRecordDayView } from "@/lib/mobile/serializers";
+import {
+  resolveRecentChatPreview,
+  toRecordDayView,
+} from "@/lib/mobile/serializers";
 
 type CalendarRecordRow = {
   id: string;
@@ -36,13 +39,18 @@ type SessionRow = {
 type MessagePreviewRow = {
   session_id: string;
   plain_text: string | null;
-  parts: Array<{ type?: string; text?: string; choices?: unknown[] | null }> | null;
+  parts: Array<{
+    type?: string;
+    text?: string;
+    choices?: unknown[] | null;
+  }> | null;
 };
 
 type ProfileRow = {
   pregnancy_day_count: number | null;
   pregnancy_week: number | null;
   pregnancy_day_in_week: number | null;
+  due_date: string | null;
 };
 
 type WeekRow = {
@@ -86,6 +94,10 @@ const VALID_EMOTION_TONES: EmotionTone[] = [
   "sad",
 ];
 
+const MAX_PREGNANCY_DAYS = 294;
+const MIN_PREGNANCY_WEEK = 1;
+const MAX_PREGNANCY_WEEK = 42;
+
 const EMOTION_TONE_LABELS: Record<EmotionTone, string> = {
   calm: "차분함",
   joyful: "기쁨",
@@ -117,6 +129,28 @@ function diffCalendarDays(targetIsoDate: string, baseIsoDate: string) {
   return Math.round((target - base) / 86_400_000);
 }
 
+function calculatePregnancyPositionFromDueDate(
+  dueDate: string,
+  targetIsoDate: string,
+) {
+  const diffDays = diffCalendarDays(dueDate, targetIsoDate);
+  if (diffDays < 0) {
+    return { weekNumber: 40, dayNumber: 1 };
+  }
+
+  const pregnancyDayCount = Math.max(
+    0,
+    Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diffDays),
+  );
+  const weekNumber = Math.max(
+    MIN_PREGNANCY_WEEK,
+    Math.min(MAX_PREGNANCY_WEEK, Math.floor(pregnancyDayCount / 7)),
+  );
+  const dayNumber = (pregnancyDayCount % 7) + 1;
+
+  return { weekNumber, dayNumber };
+}
+
 function resolveCurrentPregnancyDayCount(profile: ProfileRow) {
   if (
     typeof profile.pregnancy_day_count === "number" &&
@@ -133,6 +167,31 @@ function resolveCurrentPregnancyDayCount(profile: ProfileRow) {
   }
 
   return null;
+}
+
+function resolveSelectedPregnancyPosition(
+  profile: ProfileRow,
+  isoDate: string,
+) {
+  if (profile.due_date) {
+    return calculatePregnancyPositionFromDueDate(profile.due_date, isoDate);
+  }
+
+  const currentPregnancyDayCount = resolveCurrentPregnancyDayCount(profile);
+  if (!currentPregnancyDayCount) {
+    return null;
+  }
+
+  const dayOffset = diffCalendarDays(isoDate, getKstDateKey());
+  const selectedPregnancyDayCount = currentPregnancyDayCount + dayOffset;
+  if (selectedPregnancyDayCount <= 0) {
+    return null;
+  }
+
+  return {
+    weekNumber: Math.ceil(selectedPregnancyDayCount / 7),
+    dayNumber: ((selectedPregnancyDayCount - 1) % 7) + 1,
+  };
 }
 
 function buildChecklistStatusMap(events: ChecklistEventRow[]) {
@@ -181,29 +240,20 @@ async function loadChecklistItems(
   isoDate: string,
 ): Promise<TodayChecklistItem[]> {
   const profiles = await supabaseSelect<ProfileRow[]>(
-    `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
+    `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date&user_id=eq.${userId}&limit=1`,
   );
   const profile = profiles[0];
   if (!profile) {
     return [];
   }
 
-  const currentPregnancyDayCount = resolveCurrentPregnancyDayCount(profile);
-  if (!currentPregnancyDayCount) {
+  const position = resolveSelectedPregnancyPosition(profile, isoDate);
+  if (!position) {
     return [];
   }
-
-  const dayOffset = diffCalendarDays(isoDate, getKstDateKey());
-  const selectedPregnancyDayCount = currentPregnancyDayCount + dayOffset;
-  if (selectedPregnancyDayCount <= 0) {
-    return [];
-  }
-
-  const targetWeekNumber = Math.ceil(selectedPregnancyDayCount / 7);
-  const targetDayNumber = ((selectedPregnancyDayCount - 1) % 7) + 1;
 
   const weeks = await supabaseSelect<WeekRow[]>(
-    `content_pregnancy_week_data?select=id&week_number=eq.${targetWeekNumber}&status=eq.published&limit=1`,
+    `content_pregnancy_week_data?select=id&week_number=eq.${position.weekNumber}&status=eq.published&limit=1`,
   );
   const week = weeks[0];
   if (!week) {
@@ -212,7 +262,7 @@ async function loadChecklistItems(
 
   const [datedChecklistRows, genericChecklistRows] = await Promise.all([
     supabaseSelect<ChecklistRow[]>(
-      `content_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc`,
+      `content_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${position.dayNumber}&is_active=eq.true&order=display_order.asc`,
     ),
     supabaseSelect<ChecklistRow[]>(
       `content_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
@@ -241,29 +291,20 @@ async function loadDailyQuestion(
   records: CalendarRecordRow[],
 ) {
   const profiles = await supabaseSelect<ProfileRow[]>(
-    `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week&user_id=eq.${userId}&limit=1`,
+    `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date&user_id=eq.${userId}&limit=1`,
   );
   const profile = profiles[0];
   if (!profile) {
     return null;
   }
 
-  const currentPregnancyDayCount = resolveCurrentPregnancyDayCount(profile);
-  if (!currentPregnancyDayCount) {
+  const position = resolveSelectedPregnancyPosition(profile, isoDate);
+  if (!position) {
     return null;
   }
-
-  const dayOffset = diffCalendarDays(isoDate, getKstDateKey());
-  const selectedPregnancyDayCount = currentPregnancyDayCount + dayOffset;
-  if (selectedPregnancyDayCount <= 0) {
-    return null;
-  }
-
-  const targetWeekNumber = Math.ceil(selectedPregnancyDayCount / 7);
-  const targetDayNumber = ((selectedPregnancyDayCount - 1) % 7) + 1;
 
   const weeks = await supabaseSelect<WeekRow[]>(
-    `content_pregnancy_week_data?select=id&week_number=eq.${targetWeekNumber}&status=eq.published&limit=1`,
+    `content_pregnancy_week_data?select=id&week_number=eq.${position.weekNumber}&status=eq.published&limit=1`,
   );
   const week = weeks[0];
   if (!week) {
@@ -272,7 +313,7 @@ async function loadDailyQuestion(
 
   const [datedQuestions, genericQuestions] = await Promise.all([
     supabaseSelect<QuestionRow[]>(
-      `content_week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=eq.${targetDayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
+      `content_week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=eq.${position.dayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
     ),
     supabaseSelect<QuestionRow[]>(
       `content_week_questions?select=id,question_text,day_number&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,

@@ -1,5 +1,14 @@
 jest.mock("@/lib/mobile/session-auth", () => ({
   requireMobileSession: jest.fn(),
+  mobileNoStoreJson: jest.fn((payload: unknown, init?: ResponseInit) =>
+    Response.json(payload, {
+      ...init,
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+        ...(init?.headers as Record<string, string> | undefined),
+      },
+    }),
+  ),
   isMobileSessionError: jest.fn((error: unknown) => {
     return (
       error instanceof Error &&

@@ -12,6 +12,11 @@ node_modules
 
 # testing
 coverage
+test-results/
+apps/**/test-results/
+playwright-report/
+apps/**/playwright-report/
+screenshots/
 
 # build / next.js
 .next/
@@ -19,6 +24,14 @@ apps/**/.next/
 out/
 build/
 dist/
+apps/mobile/ios/build/
+apps/mobile/ios/build-*/
+apps/mobile/ios/DerivedData/
+apps/mobile/android/build/
+apps/mobile/android/.gradle/
+apps/mobile/android/.cxx/
+apps/mobile/builds/
+apps/mobile/dist/
 .turbo/
 
 # misc
@@ -32,8 +45,8 @@ package-lock.json
 artifacts/
 .playwright-cli/
 .superpowers/
+output/
 output/playwright/
-test-results/
 
 # env files
 .env*

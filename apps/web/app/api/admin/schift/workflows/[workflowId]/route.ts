@@ -64,7 +64,7 @@ function normalizeGraph(
     const configMap: Record<string, Record<string, unknown>> = {
       retriever: { collection: "pregnancy-knowledge", top_k: 8 },
       llm: {
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-3.1-flash-lite-preview",
         temperature: 0.1,
         max_tokens: 1024,
       },

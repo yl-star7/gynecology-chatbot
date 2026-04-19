@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type {
   AuthenticatedUser,
+  MobilePregnancyWeekSummary,
   MobileProfileViewData,
   RecordDayView,
   TodayViewData,
@@ -59,6 +60,16 @@ const todayPayload: TodayViewData = {
   infoViewed: false,
   checklistItems: [{ id: "water", label: "물 마시기", completed: false }],
 };
+
+const pregnancyWeeksPayload: MobilePregnancyWeekSummary[] = [
+  {
+    weekNumber: 18,
+    title: "18주차",
+    babySizeLabel: "고구마",
+    babySummary: "아기가 활발히 움직여요.",
+    motherSummary: "배가 조금씩 더 도드라져요.",
+  },
+];
 
 test("fetchMobileProfile targets the mobile profile endpoint with the resolved user id", async () => {
   const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
@@ -185,6 +196,24 @@ test("fetchTodayView targets the mobile today endpoint with the resolved user id
     "http://example.com/api/mobile/today?userId=user-1",
   );
   assert.equal(response.today.checklistItems[0]?.label, "물 마시기");
+});
+
+test("fetchPregnancyWeeks targets the mobile weeks endpoint", async () => {
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  const client = createMobileApiClient({
+    getApiBaseUrl: () => "http://example.com",
+    getUserId: () => "user-1",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, init });
+      return Response.json({ weeks: pregnancyWeeksPayload });
+    },
+  });
+
+  const response = await client.fetchPregnancyWeeks();
+
+  assert.equal(calls[0]?.input, "http://example.com/api/mobile/weeks");
+  assert.equal(response.weeks[0]?.weekNumber, 18);
+  assert.equal(response.weeks[0]?.babySizeLabel, "고구마");
 });
 
 test("updateTodayChecklistItem sends PATCH to the mobile today endpoint", async () => {

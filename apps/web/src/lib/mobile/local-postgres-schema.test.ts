@@ -26,4 +26,18 @@ describe("buildLocalPostgresBootstrapSql", () => {
 
     expect(sql).toContain('memory_payload jsonb NOT NULL DEFAULT \'{}\'::jsonb');
   });
+
+  test("includes paraphrase tables and active encyclopedia view", () => {
+    const sql = buildLocalPostgresBootstrapSql("gynecology_local");
+
+    expect(sql).toContain(
+      'CREATE TABLE IF NOT EXISTS "gynecology_local"."content_paraphrase_runs"',
+    );
+    expect(sql).toContain(
+      'CREATE TABLE IF NOT EXISTS "gynecology_local"."content_paraphrased_items"',
+    );
+    expect(sql).toContain(
+      'CREATE OR REPLACE VIEW "gynecology_local"."v_weekly_encyclopedia"',
+    );
+  });
 });

@@ -70,6 +70,19 @@ describe("chat repository", () => {
         ]);
       }
 
+      if (path.startsWith("v_user_persona_profiles?")) {
+        return Promise.resolve([
+          {
+            user_id: "user-1",
+            persona_hint: "practical",
+            confidence: "medium",
+            evidence_summary: "최근 검사 기준과 태동 횟수를 질문함",
+            weighted_score: 3.5,
+            last_observed_at: "2026-04-17T09:00:00.000Z",
+          },
+        ]);
+      }
+
       if (path.startsWith("content_pregnancy_week_data?")) {
         return Promise.resolve([
           {
@@ -139,11 +152,45 @@ describe("chat repository", () => {
         pregnancyWeek: 13,
         dayNumber: 1,
         tonePreference: "차분하게",
-        profileMemory: expect.objectContaining({ lastEmotionTone: "anxious" }),
+        profileMemory: expect.objectContaining({
+          lastEmotionTone: "anxious",
+          personaHint: "practical",
+          personaConfidence: "medium",
+          personaEvidence: "최근 검사 기준과 태동 횟수를 질문함",
+        }),
         sessionMemory: expect.objectContaining({
           compactSummary: "최근 복통 상담",
         }),
         missingFields: ["태명", "출산 예정일", "이름"],
+      }),
+    );
+  });
+
+  it("does not store persona hints in pregnancy profile memory", async () => {
+    mockedSupabaseUpdate.mockResolvedValue([] as never);
+
+    await updateProfileMemory({
+      userId: "user-1",
+      onboardingPayload: { tonePreference: "차분하게" },
+      currentProfileMemory: { lastEmotionTone: "tired" },
+      nextProfileMemory: {
+        lastEmotionTone: "anxious",
+        personaHint: "anxious",
+        personaConfidence: "medium",
+        personaEvidence: "아기가 잘 자라는지 반복해서 확인함",
+      },
+      timestamp: "2026-04-17T10:01:00.000Z",
+    });
+
+    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+      "pregnancy_profiles?user_id=eq.user-1",
+      expect.objectContaining({
+        onboarding_payload: expect.objectContaining({
+          profileMemory: {
+            lastEmotionTone: "anxious",
+            updatedAt: "2026-04-17T10:01:00.000Z",
+          },
+        }),
       }),
     );
   });
@@ -319,7 +366,7 @@ describe("chat repository", () => {
       expect.arrayContaining([
         expect.objectContaining({
           role: "assistant",
-          model_name: "gemini-2.5-flash-lite",
+          model_name: "gemini-3.1-flash-lite-preview",
         }),
       ]),
     );

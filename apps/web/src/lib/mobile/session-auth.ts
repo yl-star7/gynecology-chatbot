@@ -65,6 +65,17 @@ export function mobileRouteErrorResponse(
   );
 }
 
+export function mobileNoStoreJson<T>(payload: T, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set("Cache-Control", "no-store, max-age=0");
+  headers.set("Pragma", "no-cache");
+
+  return NextResponse.json(payload, {
+    ...init,
+    headers,
+  });
+}
+
 export async function requireMobileSession(
   request: NextRequest,
   expectedUserId?: string | null,

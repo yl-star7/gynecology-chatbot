@@ -13,7 +13,6 @@ import {
   palette,
   patientSurfacePalette as surface,
   radii,
-  shadows,
   space,
   typo,
 } from "../../theme";
@@ -342,6 +341,12 @@ function QuickRepliesPartView({
   part: QuickRepliesPart;
   onQuickReplySelect?: (message: string) => void;
 }) {
+  const [didChoose, setDidChoose] = useState(false);
+
+  if (didChoose) {
+    return null;
+  }
+
   return (
     <View style={styles.quickRepliesWrapper}>
       {part.title ? (
@@ -355,7 +360,10 @@ function QuickRepliesPartView({
               styles.quickReplyPill,
               pressed && styles.quickReplyPillPressed,
             ]}
-            onPress={() => onQuickReplySelect?.(choice.message)}
+            onPress={() => {
+              setDidChoose(true);
+              onQuickReplySelect?.(choice.message);
+            }}
             accessibilityRole="button"
             accessibilityLabel={choice.label}
           >
@@ -385,12 +393,14 @@ function DeepLinkPartView({
       accessibilityLabel={`${part.title} — ${part.description}`}
     >
       <View style={styles.deepLinkContent}>
-        <Text style={styles.deepLinkTitle}>{part.title}</Text>
-        <Text style={styles.deepLinkDesc}>{part.description}</Text>
+        <Text style={styles.deepLinkTitle}>{part.title} 보기</Text>
+        {part.description ? (
+          <Text style={styles.deepLinkDesc}>{part.description}</Text>
+        ) : null}
       </View>
       <Ionicons
-        name="chevron-forward-outline"
-        size={20}
+        name="arrow-forward"
+        size={16}
         color={palette.accent}
       />
     </Pressable>
@@ -472,14 +482,14 @@ const styles = StyleSheet.create({
   },
   mdParagraph: {
     ...typo.body,
-    color: "#1a1a1a",
+    color: surface.textPrimary,
     fontSize: 15.5,
     fontWeight: "500",
     lineHeight: 24,
   },
   mdBold: {
     fontWeight: "800",
-    color: "#000",
+    color: surface.textPrimary,
   },
   mdH1: {
     ...typo.titleSm,
@@ -523,10 +533,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   mdQuote: {
-    borderLeftWidth: 3,
-    borderLeftColor: palette.accent,
     paddingLeft: space.sm,
     paddingVertical: 2,
+    backgroundColor: surface.surfaceAccent,
+    borderRadius: radii.sm,
   },
   mdQuoteText: {
     ...typo.body,
@@ -557,12 +567,9 @@ const styles = StyleSheet.create({
 
   // SurveyPart
   surveyCard: {
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    backgroundColor: surface.surfacePrimary,
-    padding: space.xl,
-    ...shadows.card,
+    borderRadius: radii.lg,
+    backgroundColor: surface.surfaceSecondary,
+    padding: space.md,
   },
   surveyTitle: {
     ...typo.titleSm,
@@ -579,16 +586,13 @@ const styles = StyleSheet.create({
   },
   surveyChoice: {
     borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    backgroundColor: surface.surfaceSecondary,
-    paddingVertical: space.md,
-    paddingHorizontal: space.lg,
+    backgroundColor: surface.surfacePrimary,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
     alignItems: "center",
   },
   surveyChoiceSelected: {
     backgroundColor: surface.surfaceAccent,
-    borderColor: palette.accent,
   },
   surveyChoicePressed: {
     opacity: 0.7,
@@ -622,13 +626,10 @@ const styles = StyleSheet.create({
   },
   carouselCard: {
     width: CAROUSEL_CARD_WIDTH,
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
+    borderRadius: radii.lg,
     backgroundColor: surface.surfacePrimary,
-    padding: space.xl,
+    padding: space.md,
     gap: space.xs,
-    ...shadows.card,
   },
   carouselEyebrow: {
     fontSize: 11,
@@ -648,7 +649,7 @@ const styles = StyleSheet.create({
 
   // QuickRepliesPart
   quickRepliesWrapper: {
-    gap: space.sm,
+    gap: space.xs,
   },
   quickRepliesTitle: {
     ...typo.caption,
@@ -657,14 +658,13 @@ const styles = StyleSheet.create({
   quickRepliesRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: space.sm,
+    gap: space.xs,
   },
   quickReplyPill: {
     borderRadius: radii.full,
-    borderWidth: 1,
-    borderColor: palette.accent,
-    paddingVertical: space.sm,
-    paddingHorizontal: space.lg,
+    backgroundColor: surface.surfacePrimary,
+    paddingVertical: space.xs,
+    paddingHorizontal: space.md,
     maxWidth: "100%",
   },
   quickReplyPillPressed: {
@@ -682,10 +682,11 @@ const styles = StyleSheet.create({
   deepLinkCard: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: radii.xl,
+    borderRadius: radii.lg,
     backgroundColor: surface.surfaceAccent,
-    padding: space.xl,
-    gap: space.md,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    gap: space.sm,
   },
   deepLinkCardPressed: {
     opacity: 0.75,
@@ -695,8 +696,8 @@ const styles = StyleSheet.create({
     gap: space.xs,
   },
   deepLinkTitle: {
-    ...typo.body,
-    color: surface.textPrimary,
+    ...typo.label,
+    color: palette.accent,
     fontWeight: "700",
   },
   deepLinkDesc: {

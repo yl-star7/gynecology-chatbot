@@ -1,11 +1,5 @@
-// @ts-nocheck
-import { ContentListScreen } from "../../src/screens/ContentListScreen";
+import { Redirect } from "expo-router";
 
 export default function KnowledgeRoute() {
-  return (
-    <ContentListScreen
-      section="knowledge"
-      title="임신 지식"
-    />
-  );
+  return <Redirect href={"/encyclopedia" as never} />;
 }

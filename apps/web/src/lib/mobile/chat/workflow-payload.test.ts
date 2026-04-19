@@ -28,4 +28,74 @@ describe("workflow payload", () => {
       "직접 입력",
     ]);
   });
+
+  it("parses persona hints from workflow profile memory", () => {
+    const payload = parseWorkflowAssistantPayload({
+      answer: JSON.stringify({
+        answer: "기준을 하나씩 확인해볼게요.",
+        nextProfileMemory: {
+          personaHint: "practical",
+          personaConfidence: "medium",
+          personaEvidence: "태동 횟수와 정상 기준을 구체적으로 질문함",
+        },
+      }),
+    });
+
+    expect(payload?.nextProfileMemory).toMatchObject({
+      personaHint: "practical",
+      personaConfidence: "medium",
+      personaEvidence: "태동 횟수와 정상 기준을 구체적으로 질문함",
+    });
+  });
+
+  it("unwraps Schift answer result text payloads", () => {
+    const payload = parseWorkflowAssistantPayload({
+      result: {
+        answer: JSON.stringify({
+          text: JSON.stringify({
+            answer: "그렇게 느낄 수 있어요.",
+            characterTone: "anxious",
+            scenario: "emotion_checkin",
+            quickReplies: [
+              {
+                label: "말할래요",
+                message: "조금 더 말하고 싶어요.",
+              },
+            ],
+          }),
+          sources: [],
+        }),
+      },
+    });
+
+    expect(payload).toEqual(
+      expect.objectContaining({
+        answer: "그렇게 느낄 수 있어요.",
+        characterTone: "anxious",
+        scenario: "emotion_checkin",
+        quickReplies: [
+          { label: "말할래요", message: "조금 더 말하고 싶어요." },
+        ],
+      }),
+    );
+  });
+
+  it("accepts concrete workflow stage scenarios for session memory", () => {
+    const payload = parseWorkflowAssistantPayload({
+      answer: JSON.stringify({
+        answer: "오늘 할 일을 해보셨어요.",
+        scenario: "attachment_question",
+        nextSessionMemory: {
+          compactSummary: "현재 단계: 모아애착 질문",
+          lastScenario: "attachment_question",
+          lastCharacterTone: "calm",
+        },
+      }),
+    });
+
+    expect(payload?.scenario).toBe("attachment_question");
+    expect(payload?.nextSessionMemory?.lastScenario).toBe(
+      "attachment_question",
+    );
+  });
 });

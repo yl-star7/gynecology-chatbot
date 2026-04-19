@@ -7,7 +7,7 @@ import {
   type LayoutChangeEvent,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Card, Pressable } from "../../ui";
+import { Pressable } from "../../ui";
 import { ChatImagePicker, ChatImagePreview } from "../../chat";
 import {
   palette,
@@ -78,7 +78,7 @@ export function PatientConversationComposer({
         </Pressable>
       ) : null}
 
-      <Card variant="muted" style={styles.composerCard}>
+      <View style={styles.composerBar}>
         <View style={styles.composerRow}>
           <ChatImagePicker
             onImageSelected={onImageSelected}
@@ -106,7 +106,7 @@ export function PatientConversationComposer({
             <Ionicon name="arrow-up" size={20} color={surface.surfacePrimary} />
           </Pressable>
         </View>
-      </Card>
+      </View>
     </View>
   );
 }
@@ -114,30 +114,27 @@ export function PatientConversationComposer({
 const styles = StyleSheet.create({
   footerDock: {
     gap: space.xs,
-    paddingTop: space.xs,
-    paddingHorizontal: space.lg,
+    paddingTop: space.sm,
+    paddingHorizontal: space.md,
     backgroundColor: surface.surfacePrimary,
   },
   imagePreviewRow: {
     alignItems: "flex-start",
     paddingHorizontal: space.xs,
   },
-  composerCard: {
-    paddingTop: space.xs,
-    paddingBottom: space.xs,
-    paddingLeft: space.xs,
-    paddingRight: space.xs,
+  composerBar: {
+    paddingVertical: space.xs,
   },
   composerRow: {
     flexDirection: "row",
-    gap: space.xs,
+    gap: space.sm,
     alignItems: "center",
   },
   input: {
     flex: 1,
     minHeight: 44,
     maxHeight: space.xxxl * 3,
-    borderRadius: radii.xl,
+    borderRadius: radii.lg,
     backgroundColor: surface.fieldSurface,
     paddingHorizontal: space.md,
     paddingTop: space.sm,

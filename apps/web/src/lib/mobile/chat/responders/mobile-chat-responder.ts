@@ -3,6 +3,7 @@ import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import type { PromptContext } from "@/lib/mobile/chat/chat-repository";
 import { resolveAssistantResponse } from "@/lib/mobile/chat/responders/response-pipeline";
 import {
+  buildLocalWorkflowFallbackReply,
   buildMemorySystemBlock,
   buildWorkflowAssistantMessage,
   pickLatestEmotionTone,
@@ -29,6 +30,8 @@ export function createMobileChatResponder<TSchift, TRun extends WorkflowRunLike>
       lastScenario: string | null;
       lastCharacterTone: string | null;
       lastEmotionTone: string | null;
+      personaHint: string | null;
+      personaConfidence: string | null;
       tonePreference: string | null;
     };
   }) => Promise<{
@@ -66,6 +69,9 @@ export function createMobileChatResponder<TSchift, TRun extends WorkflowRunLike>
         sessionMemory: input.promptContext?.sessionMemory ?? null,
         profileMemory: input.promptContext?.profileMemory ?? null,
       }),
+      personaHint: input.promptContext?.profileMemory?.personaHint ?? null,
+      personaConfidence:
+        input.promptContext?.profileMemory?.personaConfidence ?? null,
       tonePreference: input.promptContext?.tonePreference ?? null,
     };
     const memorySystemBlock = buildMemorySystemBlock(memoryContext);
@@ -90,6 +96,8 @@ export function createMobileChatResponder<TSchift, TRun extends WorkflowRunLike>
             lastScenario: memoryContext.lastScenario,
             lastCharacterTone: memoryContext.lastCharacterTone,
             lastEmotionTone: memoryContext.lastEmotionTone,
+            personaHint: memoryContext.personaHint,
+            personaConfidence: memoryContext.personaConfidence,
             tonePreference: memoryContext.tonePreference,
           },
         });
@@ -112,36 +120,40 @@ export function createMobileChatResponder<TSchift, TRun extends WorkflowRunLike>
           workflowText === "답변: {}" ||
           workflowText === "답변: workflow 출력이 없어요.";
 
-        if (isEmptyWorkflowOutput) {
-          throw new Error("Schift workflow returned empty output");
+        if (isEmptyWorkflowOutput || !structuredWorkflowMessage) {
+          throw new Error(
+            isEmptyWorkflowOutput
+              ? "Schift workflow returned empty output"
+              : "Schift workflow returned unstructured output",
+          );
         }
 
         return {
-          assistantMessage:
-            structuredWorkflowMessage ?? {
-              id: `assistant-${Date.now()}`,
-              role: "assistant",
-              createdAtLabel: "방금 전",
-              parts: [
-                {
-                  type: "text",
-                  id: `workflow-text-${Date.now()}`,
-                  text: workflowText,
-                },
-              ],
-            },
+          assistantMessage: structuredWorkflowMessage,
           workflowMemoryPayload: workflowPayload,
         };
       },
-      runFallback: async () =>
-        deps.runFallbackModel({
-          text: input.text,
-          currentWeek: input.currentWeek,
-          normalizedSessionId: input.normalizedSessionId,
-          imageDataUris: input.imageDataUris,
-          memorySystemBlock,
-          workflowEnabled: Boolean(schift),
-        }),
+      runFallback: async () => {
+        try {
+          return await deps.runFallbackModel({
+            text: input.text,
+            currentWeek: input.currentWeek,
+            normalizedSessionId: input.normalizedSessionId,
+            imageDataUris: input.imageDataUris,
+            memorySystemBlock,
+            workflowEnabled: Boolean(schift),
+          });
+        } catch (error) {
+          console.warn(
+            "mobile chat fallback model failed; using local workflow fallback",
+            error instanceof Error ? error.message : error,
+          );
+          return buildLocalWorkflowFallbackReply({
+            currentWeek: input.currentWeek,
+            text: input.text,
+          });
+        }
+      },
     });
   };
 }

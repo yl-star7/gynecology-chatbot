@@ -571,6 +571,7 @@ export function clearCachedRecordDayView(
   }
 
   clearCacheKey(recordDayCache, createRecordDayCacheKey(userId, isoDate));
+  schedulePersistedPatientViewCache(userId);
 }
 
 export function clearPatientViewCaches(userId?: string | null) {

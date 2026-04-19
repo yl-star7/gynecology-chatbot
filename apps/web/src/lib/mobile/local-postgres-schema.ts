@@ -280,6 +280,87 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           CONSTRAINT week_questions_day_number_range CHECK (day_number IS NULL OR day_number BETWEEN 1 AND 7)
         );
 
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "content_paraphrase_runs")} (
+          id text PRIMARY KEY DEFAULT md5(random()::text || clock_timestamp()::text),
+          model text NOT NULL,
+          prompt_version text NOT NULL,
+          scope text NOT NULL CHECK (scope IN ('week', 'full', 'single_item')),
+          target_week_number integer CHECK (target_week_number IS NULL OR target_week_number BETWEEN 1 AND 40),
+          status text NOT NULL DEFAULT 'processing' CHECK (status IN ('processing', 'completed', 'failed')),
+          input_token_count integer,
+          output_token_count integer,
+          total_token_count integer,
+          cost_usd numeric(10, 6),
+          error_message text,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          completed_at timestamptz
+        );
+
+        CREATE INDEX IF NOT EXISTS ${assertIdentifier(schema)}."idx_content_paraphrase_runs_target_week"
+          ON ${getQualifiedTable(schema, "content_paraphrase_runs")} (target_week_number, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS ${assertIdentifier(schema)}."idx_content_paraphrase_runs_status"
+          ON ${getQualifiedTable(schema, "content_paraphrase_runs")} (status);
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "content_paraphrased_items")} (
+          id text PRIMARY KEY DEFAULT md5(random()::text || clock_timestamp()::text),
+          source_table text NOT NULL,
+          source_id text,
+          source_week_number integer NOT NULL CHECK (source_week_number BETWEEN 1 AND 40),
+          source_day_number integer CHECK (source_day_number IS NULL OR source_day_number BETWEEN 1 AND 7),
+          source_code text,
+          source_hash text NOT NULL,
+          run_id text REFERENCES ${getQualifiedTable(schema, "content_paraphrase_runs")}(id) ON DELETE SET NULL,
+          content_scope text NOT NULL CHECK (content_scope IN ('week_summary', 'section', 'day_content', 'checklist', 'question')),
+          category text NOT NULL CHECK (category IN ('overview', 'baby_development', 'mother_body', 'life_guide', 'caution', 'faq', 'reflection_question')),
+          title text,
+          summary text,
+          body text,
+          items jsonb NOT NULL DEFAULT '[]'::jsonb,
+          status text NOT NULL DEFAULT 'needs_review' CHECK (status IN ('needs_review', 'ready', 'archived', 'failed')),
+          review_note text,
+          reviewed_by text REFERENCES ${getQualifiedTable(schema, "users")}(id) ON DELETE SET NULL,
+          reviewed_at timestamptz,
+          is_active boolean NOT NULL DEFAULT false,
+          model text NOT NULL,
+          prompt_version text NOT NULL,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
+        );
+
+        CREATE INDEX IF NOT EXISTS ${assertIdentifier(schema)}."idx_content_paraphrased_items_week_category"
+          ON ${getQualifiedTable(schema, "content_paraphrased_items")} (source_week_number, category, status);
+
+        CREATE INDEX IF NOT EXISTS ${assertIdentifier(schema)}."idx_content_paraphrased_items_source_hash"
+          ON ${getQualifiedTable(schema, "content_paraphrased_items")} (source_hash);
+
+        CREATE UNIQUE INDEX IF NOT EXISTS ${assertIdentifier(schema)}."idx_content_paraphrased_items_active_source"
+          ON ${getQualifiedTable(schema, "content_paraphrased_items")} (
+            source_table,
+            source_week_number,
+            content_scope,
+            category,
+            COALESCE(source_day_number, 0),
+            COALESCE(source_code, '')
+          )
+          WHERE is_active = true;
+
+        CREATE OR REPLACE VIEW ${getQualifiedTable(schema, "v_weekly_encyclopedia")} AS
+        SELECT
+          source_week_number AS week_number,
+          source_day_number AS day_number,
+          source_code,
+          content_scope,
+          category,
+          title,
+          summary,
+          body,
+          items,
+          updated_at
+        FROM ${getQualifiedTable(schema, "content_paraphrased_items")}
+        WHERE status = 'ready'
+          AND is_active = true;
+
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "pregnancy_week_sections")} (
           id text PRIMARY KEY,
           week_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "pregnancy_weeks")}(id) ON DELETE CASCADE,
@@ -323,6 +404,65 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           payload jsonb NOT NULL DEFAULT '{}'::jsonb,
           occurred_at timestamptz NOT NULL DEFAULT now()
         );
+
+        CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "user_persona_signals")} (
+          id text PRIMARY KEY DEFAULT md5(random()::text || clock_timestamp()::text),
+          user_id text NOT NULL REFERENCES ${getQualifiedTable(schema, "users")}(id) ON DELETE CASCADE,
+          session_id text REFERENCES ${getQualifiedTable(schema, "chat_sessions")}(id) ON DELETE SET NULL,
+          source_message_id text REFERENCES ${getQualifiedTable(schema, "chat_messages")}(id) ON DELETE SET NULL,
+          persona_hint text NOT NULL CHECK (persona_hint IN ('anxious', 'positive', 'introverted', 'practical', 'unknown')),
+          confidence text NOT NULL DEFAULT 'low' CHECK (confidence IN ('low', 'medium', 'high')),
+          evidence text,
+          weight numeric(6, 2) NOT NULL DEFAULT 1 CHECK (weight > 0),
+          observed_at timestamptz NOT NULL DEFAULT now(),
+          created_at timestamptz NOT NULL DEFAULT now()
+        );
+
+        CREATE OR REPLACE VIEW ${getQualifiedTable(schema, "v_user_persona_profiles")} AS
+        WITH scored_signals AS (
+          SELECT
+            ups.user_id,
+            ups.persona_hint,
+            ups.evidence,
+            ups.observed_at,
+            ups.weight *
+              CASE
+                WHEN ups.observed_at >= now() - interval '7 days' THEN 1.0
+                WHEN ups.observed_at >= now() - interval '30 days' THEN 0.7
+                WHEN ups.observed_at >= now() - interval '90 days' THEN 0.4
+                ELSE 0.2
+              END AS recency_weighted_score
+          FROM ${getQualifiedTable(schema, "user_persona_signals")} ups
+          WHERE ups.persona_hint <> 'unknown'
+        ),
+        ranked_personas AS (
+          SELECT
+            ss.user_id,
+            ss.persona_hint,
+            SUM(ss.recency_weighted_score)::numeric(8, 2) AS weighted_score,
+            MAX(ss.observed_at) AS last_observed_at,
+            STRING_AGG(ss.evidence, ' / ' ORDER BY ss.observed_at DESC)
+              FILTER (WHERE ss.evidence IS NOT NULL AND btrim(ss.evidence) <> '') AS evidence_summary,
+            ROW_NUMBER() OVER (
+              PARTITION BY ss.user_id
+              ORDER BY SUM(ss.recency_weighted_score) DESC, MAX(ss.observed_at) DESC
+            ) AS rank
+          FROM scored_signals ss
+          GROUP BY ss.user_id, ss.persona_hint
+        )
+        SELECT
+          rp.user_id,
+          rp.persona_hint,
+          CASE
+            WHEN rp.weighted_score >= 6 THEN 'high'
+            WHEN rp.weighted_score >= 2 THEN 'medium'
+            ELSE 'low'
+          END AS confidence,
+          rp.evidence_summary,
+          rp.weighted_score,
+          rp.last_observed_at
+        FROM ranked_personas rp
+        WHERE rp.rank = 1;
 
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "user_checklist_events")} (
           id text PRIMARY KEY,

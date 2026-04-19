@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
-import { ChatPartRenderer, TypingIndicator } from "../../chat";
-import { NurseCharacter } from "../NurseCharacter";
+import { ChatPartRenderer } from "../../chat";
+import { NurseAvatar, NurseCharacter } from "../NurseCharacter";
 import { Pressable } from "../../ui";
 import {
   palette,
@@ -58,11 +59,19 @@ export function PatientConversationMessageList({
   surveySaveErrorText: string;
   onDeepLinkPress: (target: string, entityId?: string) => void;
 }) {
+  const [didChooseEmptyReply, setDidChooseEmptyReply] = useState(false);
   const listState = resolveConversationMessageListState({
     messagesLength: messages.length,
     isLoadingSessionDetail,
     sessionLoadErrorMessage,
   });
+  const latestQuickRepliesMessageId = [...messages]
+    .reverse()
+    .find(
+      (message) =>
+        message.role === "assistant" &&
+        message.parts.some((part) => part.type === "quickReplies"),
+    )?.id;
 
   return (
     <ScrollView
@@ -102,26 +111,39 @@ export function PatientConversationMessageList({
 
       {listState === "empty" ? (
         <View style={styles.emptyStateContent}>
-          <View style={styles.heroSection}>
-            <NurseCharacter size="md" />
-            <Text style={styles.subtitle}>
-              오늘 마음이나 몸 상태를 편하게 적어보세요.
-            </Text>
-          </View>
-          <View style={styles.quickRepliesWrapper}>
-            <Text style={styles.quickRepliesTitle}>이렇게 시작해보세요</Text>
-            <View style={styles.quickRepliesRow}>
-              {EMPTY_STATE_QUICK_REPLIES.map((choice) => (
-                <Pressable
-                  key={choice.id}
-                  style={styles.quickReplyPill}
-                  onPress={() => onQuickReplySelect(choice.message)}
-                  accessibilityRole="button"
-                  accessibilityLabel={choice.label}
-                >
-                  <Text style={styles.quickReplyLabel}>{choice.label}</Text>
-                </Pressable>
-              ))}
+          <View style={styles.assistantRow}>
+            <NurseAvatar />
+            <View style={styles.emptyAssistantStack}>
+              <Text style={styles.assistantName}>아가야</Text>
+              <View style={styles.assistantBubbleRow}>
+                <View style={styles.emptyAssistantBubble}>
+                  <Text style={styles.messageText}>
+                    오늘 마음이나 몸 상태를 편하게 적어보세요.
+                  </Text>
+                </View>
+              </View>
+              {!didChooseEmptyReply ? (
+                <View style={styles.quickRepliesWrapper}>
+                  <View style={styles.quickRepliesRow}>
+                    {EMPTY_STATE_QUICK_REPLIES.map((choice) => (
+                      <Pressable
+                        key={choice.id}
+                        style={styles.quickReplyPill}
+                        onPress={() => {
+                          setDidChooseEmptyReply(true);
+                          onQuickReplySelect(choice.message);
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={choice.label}
+                      >
+                        <Text style={styles.quickReplyLabel}>
+                          {choice.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
             </View>
           </View>
         </View>
@@ -143,23 +165,25 @@ export function PatientConversationMessageList({
                 return (
                   <View
                     key={message.id}
-                    style={[styles.messageBubble, styles.userBubble]}
+                    style={styles.userMessageRow}
                   >
-                    {imagePart?.type === "image" ? (
-                      <Image
-                        source={{ uri: imagePart.imageUrl }}
-                        style={styles.userBubbleImage}
-                        resizeMode="cover"
-                        accessibilityLabel={imagePart.alt}
-                      />
-                    ) : null}
-                    {bodyText ? (
-                      <Text
-                        style={[styles.messageText, styles.userMessageText]}
-                      >
-                        {bodyText}
-                      </Text>
-                    ) : null}
+                    <View style={[styles.messageBubble, styles.userBubble]}>
+                      {imagePart?.type === "image" ? (
+                        <Image
+                          source={{ uri: imagePart.imageUrl }}
+                          style={styles.userBubbleImage}
+                          resizeMode="cover"
+                          accessibilityLabel={imagePart.alt}
+                        />
+                      ) : null}
+                      {bodyText ? (
+                        <Text
+                          style={[styles.messageText, styles.userMessageText]}
+                        >
+                          {bodyText}
+                        </Text>
+                      ) : null}
+                    </View>
                   </View>
                 );
               }
@@ -174,45 +198,52 @@ export function PatientConversationMessageList({
               }
 
               return (
-                <View key={message.id} style={styles.assistantStack}>
-                  {message.parts.map((part) => {
-                    if (
-                      part.type === "text" &&
-                      (part.text.trim() === "" || part.text.trim() === "...")
-                    ) {
-                      return null;
-                    }
-                    const isImage = part.type === "image";
-                    return (
-                      <View
-                        key={part.id}
-                        style={[
-                          styles.assistantColumn,
-                          isImage
-                            ? styles.assistantImageWrapper
-                            : styles.assistantMessageWrapper,
-                        ]}
-                      >
-                        <ChatPartRenderer
-                          message={{ ...message, parts: [part] }}
-                          onQuickReplySelect={onQuickReplySelect}
-                          onSurveyAnswer={onSurveyAnswer}
-                          surveySaveErrorText={surveySaveErrorText}
-                          onDeepLinkPress={onDeepLinkPress}
-                        />
-                      </View>
-                    );
-                  })}
+                <View key={message.id} style={styles.assistantRow}>
+                  <NurseAvatar emotionTone={message.characterTone ?? null} />
+                  <View style={styles.assistantStack}>
+                    <Text style={styles.assistantName}>아가야</Text>
+                    {message.parts.map((part) => {
+                      if (
+                        part.type === "text" &&
+                        (part.text.trim() === "" || part.text.trim() === "...")
+                      ) {
+                        return null;
+                      }
+                      const isImage = part.type === "image";
+                      const isQuickReplies = part.type === "quickReplies";
+                      if (
+                        isQuickReplies &&
+                        message.id !== latestQuickRepliesMessageId
+                      ) {
+                        return null;
+                      }
+                      return (
+                        <View key={part.id} style={styles.assistantBubbleRow}>
+                          <View
+                            style={[
+                              styles.assistantColumn,
+                              isImage
+                                ? styles.assistantImageWrapper
+                                : isQuickReplies
+                                  ? styles.assistantQuickRepliesWrapper
+                                  : styles.assistantMessageWrapper,
+                            ]}
+                          >
+                            <ChatPartRenderer
+                              message={{ ...message, parts: [part] }}
+                              onQuickReplySelect={onQuickReplySelect}
+                              onSurveyAnswer={onSurveyAnswer}
+                              surveySaveErrorText={surveySaveErrorText}
+                              onDeepLinkPress={onDeepLinkPress}
+                            />
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
                 </View>
               );
             })}
-            {isSending ? (
-              <View style={styles.assistantColumn}>
-                <View style={styles.assistantMessageWrapper}>
-                  <TypingIndicator />
-                </View>
-              </View>
-            ) : null}
           </View>
         </View>
       ) : null}
@@ -223,21 +254,16 @@ export function PatientConversationMessageList({
 const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: space.lg,
+    paddingHorizontal: space.md,
     paddingTop: 0,
+    backgroundColor: surface.surfaceSecondary,
   },
   emptyStateContent: {
     flexGrow: 1,
     justifyContent: "flex-start",
-    alignItems: "center",
-    gap: space.md,
-    paddingTop: space.sm,
+    alignItems: "stretch",
+    paddingTop: space.lg,
     paddingBottom: space.xl,
-  },
-  heroSection: {
-    alignItems: "center",
-    gap: space.sm,
-    paddingHorizontal: space.lg,
   },
   subtitle: {
     ...typo.body,
@@ -272,23 +298,16 @@ const styles = StyleSheet.create({
   quickRepliesWrapper: {
     width: "100%",
     gap: space.sm,
-    paddingHorizontal: space.lg,
-  },
-  quickRepliesTitle: {
-    ...typo.caption,
-    color: surface.textSecondary,
-    textAlign: "center",
+    paddingTop: space.xs,
   },
   quickRepliesRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     gap: space.sm,
   },
   quickReplyPill: {
     borderRadius: radii.full,
-    borderWidth: 1,
-    borderColor: palette.accent,
     backgroundColor: surface.surfacePrimary,
     paddingVertical: space.sm,
     paddingHorizontal: space.lg,
@@ -303,21 +322,30 @@ const styles = StyleSheet.create({
   threadedContent: {
     flexGrow: 1,
     justifyContent: "flex-end",
-    paddingTop: space.md,
+    paddingTop: space.lg,
   },
   messageList: {
-    gap: space.sm,
+    gap: space.md,
   },
   messageBubble: {
-    borderRadius: radii.xl,
-    paddingHorizontal: space.md,
+    borderRadius: radii.lg,
+    paddingHorizontal: space.lg,
     paddingVertical: space.sm,
+  },
+  userMessageRow: {
+    alignSelf: "flex-end",
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "flex-end",
+    gap: space.xs,
+    maxWidth: "92%",
   },
   userBubble: {
     alignSelf: "flex-end",
-    backgroundColor: palette.accent,
-    maxWidth: "84%",
+    backgroundColor: surface.surfaceAccent,
+    maxWidth: "86%",
     gap: space.sm,
+    borderTopRightRadius: radii.sm,
   },
   userBubbleImage: {
     width: CHAT_IMAGE_WIDTH,
@@ -327,14 +355,37 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
   },
   assistantStack: {
+    flex: 1,
     alignSelf: "flex-start",
+    maxWidth: "86%",
+    gap: space.xs,
+  },
+  emptyAssistantStack: {
+    flex: 1,
+    alignSelf: "flex-start",
+    maxWidth: "86%",
+    gap: space.xs,
+  },
+  assistantRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: space.xs,
     maxWidth: "100%",
-    gap: space.sm,
+  },
+  assistantName: {
+    ...typo.caption,
+    color: surface.textSecondary,
+    marginLeft: space.xs,
+  },
+  assistantBubbleRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: space.xs,
   },
   assistantColumn: {
     alignItems: "flex-start",
     alignSelf: "flex-start",
-    maxWidth: "100%",
+    maxWidth: "84%",
   },
   assistantImageWrapper: {
     borderRadius: radii.xl,
@@ -344,23 +395,35 @@ const styles = StyleSheet.create({
   },
   assistantMessageWrapper: {
     backgroundColor: surface.surfacePrimary,
-    borderRadius: radii.xl,
-    borderWidth: 1,
-    borderColor: surface.strokeSubtle,
-    paddingHorizontal: space.md,
+    borderRadius: radii.lg,
+    borderTopLeftRadius: radii.sm,
+    paddingHorizontal: space.lg,
     paddingVertical: space.sm,
     maxWidth: "100%",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+  },
+  assistantQuickRepliesWrapper: {
+    alignSelf: "flex-start",
+    maxWidth: "100%",
+  },
+  emptyAssistantBubble: {
+    backgroundColor: surface.surfacePrimary,
+    borderRadius: radii.lg,
+    borderTopLeftRadius: radii.sm,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    maxWidth: "100%",
   },
   messageText: {
     ...typo.body,
     color: surface.textPrimary,
   },
   userMessageText: {
-    color: surface.surfacePrimary,
+    color: surface.textPrimary,
+  },
+  messageTimeText: {
+    ...typo.caption,
+    color: surface.textSecondary,
+    marginBottom: space.xs,
+    flexShrink: 0,
   },
 });

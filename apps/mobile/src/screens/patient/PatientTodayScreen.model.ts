@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import type {
-  ChatMessage,
   RecentChatSummary,
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
@@ -12,6 +11,7 @@ import {
   cacheRecordDayView,
   cacheTodayView,
   clearCachedHomeView,
+  clearCachedRecordDayView,
   hasFreshCachedChatSession,
   hasFreshCachedRecentChats,
   hasFreshCachedRecordDayView,
@@ -21,6 +21,7 @@ import {
   readCachedTodayView,
 } from "../../core/patientViewCache";
 import { warmConversationSessions } from "./patientConversationNavigation.model";
+import { updateRecordDayChecklistItems } from "./PatientTodayScreen.helpers";
 import { buildPatientTodayViewModel } from "./view-models";
 
 const EMPTY_BABY_BODY = "오늘 아기의 변화를 준비 중이에요.";
@@ -31,13 +32,6 @@ function createTodayIsoDate() {
   const month = `${now.getMonth() + 1}`.padStart(2, "0");
   const day = `${now.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-export function appendAssistantMessages(
-  currentMessages: ChatMessage[],
-  assistantMessages: ChatMessage[],
-) {
-  return [...currentMessages, ...assistantMessages];
 }
 
 export function usePatientTodayScreenModel() {
@@ -220,12 +214,17 @@ export function usePatientTodayScreenModel() {
         todayIsoDate,
       );
       if (cachedRecordDay) {
-        cacheRecordDayView(currentUser.id, todayIsoDate, {
-          ...cachedRecordDay,
-          checklistItems: cachedRecordDay.checklistItems.map((item) =>
-            item.id === checklistId ? { ...item, completed } : item,
-          ),
-        });
+        const nextRecordDay = updateRecordDayChecklistItems(
+          cachedRecordDay,
+          checklistId,
+          completed,
+        );
+
+        if (nextRecordDay) {
+          cacheRecordDayView(currentUser.id, todayIsoDate, nextRecordDay);
+        } else {
+          clearCachedRecordDayView(currentUser.id, todayIsoDate);
+        }
       }
       clearCachedHomeView(currentUser.id);
     }
@@ -259,14 +258,17 @@ export function usePatientTodayScreenModel() {
             todayIsoDate,
           );
           if (cachedRecordDay) {
-            cacheRecordDayView(currentUser.id, todayIsoDate, {
-              ...cachedRecordDay,
-              checklistItems: cachedRecordDay.checklistItems.map((item) =>
-                item.id === checklistId
-                  ? { ...item, completed: !completed }
-                  : item,
-              ),
-            });
+            const nextRecordDay = updateRecordDayChecklistItems(
+              cachedRecordDay,
+              checklistId,
+              !completed,
+            );
+
+            if (nextRecordDay) {
+              cacheRecordDayView(currentUser.id, todayIsoDate, nextRecordDay);
+            } else {
+              clearCachedRecordDayView(currentUser.id, todayIsoDate);
+            }
           }
         }
       })

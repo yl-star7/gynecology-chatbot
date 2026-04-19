@@ -7,6 +7,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   pgSchema,
   text,
@@ -740,6 +741,121 @@ export const contentRagFiles = pgTable(
   }),
 );
 
+export const contentParaphraseRuns = pgTable(
+  "content_paraphrase_runs",
+  {
+    id: uuid("id").primaryKey().default(genRandomUuid),
+    model: varchar("model", { length: 120 }).notNull(),
+    promptVersion: varchar("prompt_version", { length: 80 }).notNull(),
+    scope: varchar("scope", { length: 40 }).notNull(),
+    targetWeekNumber: integer("target_week_number"),
+    status: varchar("status", { length: 40 }).notNull().default("processing"),
+    inputTokenCount: integer("input_token_count"),
+    outputTokenCount: integer("output_token_count"),
+    totalTokenCount: integer("total_token_count"),
+    costUsd: numeric("cost_usd", { precision: 10, scale: 6 }),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => ({
+    targetWeekIdx: index("idx_content_paraphrase_runs_target_week").on(
+      table.targetWeekNumber,
+      table.createdAt,
+    ),
+    statusIdx: index("idx_content_paraphrase_runs_status").on(table.status),
+    statusCheck: check(
+      "content_paraphrase_runs_status_check",
+      sql`${table.status} IN ('processing', 'completed', 'failed')`,
+    ),
+    scopeCheck: check(
+      "content_paraphrase_runs_scope_check",
+      sql`${table.scope} IN ('week', 'full', 'single_item')`,
+    ),
+  }),
+);
+
+export const contentParaphrasedItems = pgTable(
+  "content_paraphrased_items",
+  {
+    id: uuid("id").primaryKey().default(genRandomUuid),
+    sourceTable: varchar("source_table", { length: 120 }).notNull(),
+    sourceId: uuid("source_id"),
+    sourceWeekNumber: integer("source_week_number").notNull(),
+    sourceDayNumber: integer("source_day_number"),
+    sourceCode: varchar("source_code", { length: 160 }),
+    sourceHash: varchar("source_hash", { length: 128 }).notNull(),
+    runId: uuid("run_id").references(() => contentParaphraseRuns.id, {
+      onDelete: "set null",
+    }),
+    contentScope: varchar("content_scope", { length: 60 }).notNull(),
+    category: varchar("category", { length: 80 }).notNull(),
+    title: text("title"),
+    summary: text("summary"),
+    body: text("body"),
+    items: jsonb("items").notNull().default(sql`'[]'::jsonb`),
+    status: varchar("status", { length: 40 }).notNull().default("needs_review"),
+    reviewNote: text("review_note"),
+    reviewedBy: uuid("reviewed_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    isActive: boolean("is_active").notNull().default(false),
+    model: varchar("model", { length: 120 }).notNull(),
+    promptVersion: varchar("prompt_version", { length: 80 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+  },
+  (table) => ({
+    weekCategoryIdx: index("idx_content_paraphrased_items_week_category").on(
+      table.sourceWeekNumber,
+      table.category,
+      table.status,
+    ),
+    sourceHashIdx: index("idx_content_paraphrased_items_source_hash").on(
+      table.sourceHash,
+    ),
+    activeSourceIdx: uniqueIndex(
+      "idx_content_paraphrased_items_active_source",
+    )
+      .on(
+        table.sourceTable,
+        table.sourceWeekNumber,
+        table.contentScope,
+        table.category,
+        table.sourceDayNumber,
+        table.sourceCode,
+      )
+      .where(sql`${table.isActive} = true`),
+    statusCheck: check(
+      "content_paraphrased_items_status_check",
+      sql`${table.status} IN ('needs_review', 'ready', 'archived', 'failed')`,
+    ),
+    contentScopeCheck: check(
+      "content_paraphrased_items_scope_check",
+      sql`${table.contentScope} IN ('week_summary', 'section', 'day_content', 'checklist', 'question')`,
+    ),
+    categoryCheck: check(
+      "content_paraphrased_items_category_check",
+      sql`${table.category} IN ('overview', 'baby_development', 'mother_body', 'life_guide', 'caution', 'faq', 'reflection_question')`,
+    ),
+    weekRange: check(
+      "content_paraphrased_items_week_number_range",
+      sql`${table.sourceWeekNumber} BETWEEN 1 AND 40`,
+    ),
+    dayRange: check(
+      "content_paraphrased_items_day_number_range",
+      sql`${table.sourceDayNumber} IS NULL OR ${table.sourceDayNumber} BETWEEN 1 AND 7`,
+    ),
+  }),
+);
+
 export const systemConfig = pgTable("system_config", {
   key: varchar("key", { length: 100 }).primaryKey(),
   value: jsonb("value").notNull(),
@@ -825,6 +941,55 @@ export const userActionLogs = pgTable(
     actionTypeCheck: check(
       "user_action_logs_action_type_check",
       sql`${table.actionType} IN ('login_succeeded', 'phone_verification_started', 'phone_verified', 'onboarding_completed', 'profile_updated', 'chat_message_sent')`,
+    ),
+  }),
+);
+
+export const userPersonaSignals = pgTable(
+  "user_persona_signals",
+  {
+    id: uuid("id").primaryKey().default(genRandomUuid),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id").references(() => chatSessions.id, {
+      onDelete: "set null",
+    }),
+    sourceMessageId: uuid("source_message_id").references(
+      () => chatMessages.id,
+      { onDelete: "set null" },
+    ),
+    personaHint: text("persona_hint").notNull(),
+    confidence: text("confidence").notNull().default("low"),
+    evidence: text("evidence"),
+    weight: numeric("weight", { precision: 6, scale: 2 }).notNull().default("1"),
+    observedAt: timestamp("observed_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(utcNow),
+  },
+  (table) => ({
+    userObservedIdx: index("idx_user_persona_signals_user_observed_at").on(
+      table.userId,
+      table.observedAt,
+    ),
+    userHintIdx: index("idx_user_persona_signals_user_hint").on(
+      table.userId,
+      table.personaHint,
+    ),
+    personaHintCheck: check(
+      "user_persona_signals_persona_hint_check",
+      sql`${table.personaHint} IN ('anxious', 'positive', 'introverted', 'practical', 'unknown')`,
+    ),
+    confidenceCheck: check(
+      "user_persona_signals_confidence_check",
+      sql`${table.confidence} IN ('low', 'medium', 'high')`,
+    ),
+    weightCheck: check(
+      "user_persona_signals_weight_check",
+      sql`${table.weight}::numeric > 0`,
     ),
   }),
 );

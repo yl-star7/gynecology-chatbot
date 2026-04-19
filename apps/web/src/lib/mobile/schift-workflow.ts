@@ -64,10 +64,11 @@ export async function runSchiftWorkflow(input: {
   }
 
   try {
-    const run = await input.schift.workflows.run(
-      resolvedWorkflowId,
-      input.inputs,
-    );
+    const workflow = await input.schift.workflows.get(resolvedWorkflowId);
+    const outputBlockId = resolveWorkflowOutputBlockId(workflow);
+    const run = outputBlockId
+      ? await runSchiftWorkflowWithOutput(resolvedWorkflowId, input.inputs, outputBlockId)
+      : await input.schift.workflows.run(resolvedWorkflowId, input.inputs);
 
     return {
       workflowId: resolvedWorkflowId,
@@ -85,9 +86,57 @@ export async function runSchiftWorkflow(input: {
       throw error;
     }
 
-    const run = await input.schift.workflows.run(fallbackId, input.inputs);
+    const workflow = await input.schift.workflows.get(fallbackId);
+    const outputBlockId = resolveWorkflowOutputBlockId(workflow);
+    const run = outputBlockId
+      ? await runSchiftWorkflowWithOutput(fallbackId, input.inputs, outputBlockId)
+      : await input.schift.workflows.run(fallbackId, input.inputs);
     return { workflowId: fallbackId, run };
   }
+}
+
+function resolveWorkflowOutputBlockId(workflow: Workflow) {
+  const graph = workflow.graph as Workflow["graph"] & {
+    nodes?: Workflow["graph"]["blocks"];
+  };
+  const blocks = graph.nodes ?? graph.blocks ?? [];
+  const explicitAnswer = blocks.find(
+    (block) =>
+      block.type === "answer" &&
+      ((block.title ?? "").includes("JSON 응답") ||
+        (block.config as Record<string, unknown> | undefined)?.include_sources),
+  );
+  return explicitAnswer?.id ?? blocks.find((block) => block.type === "answer")?.id;
+}
+
+async function runSchiftWorkflowWithOutput(
+  workflowId: string,
+  inputs: Record<string, unknown>,
+  output: string,
+) {
+  const apiKey = process.env.SCHIFT_API_KEY;
+  if (!apiKey) {
+    throw new Error("SCHIFT_API_KEY not configured");
+  }
+
+  const response = await fetch(
+    `https://api.schift.io/v1/workflows/${workflowId}/run`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ inputs, output }),
+    },
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Schift workflow run failed: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 type WorkflowRunLike = {
@@ -114,6 +163,59 @@ function readObjectAnswerText(value: Record<string, unknown>) {
   return typeof answer === "string" ? answer : null;
 }
 
+function isEmptySchiftTextPayload(value: unknown): boolean {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return true;
+    try {
+      return isEmptySchiftTextPayload(JSON.parse(trimmed));
+    } catch {
+      return false;
+    }
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  const text = record.text;
+  const sources = record.sources;
+  if (
+    typeof text === "string" &&
+    text.trim() === "" &&
+    Array.isArray(sources) &&
+    sources.length === 0
+  ) {
+    return true;
+  }
+
+  if ("answer" in record && isEmptySchiftTextPayload(record.answer)) {
+    return true;
+  }
+
+  if ("result" in record && isEmptySchiftTextPayload(record.result)) {
+    return true;
+  }
+
+  return false;
+}
+
+function hasMeaningfulOutput(output: Record<string, unknown>) {
+  if (Object.keys(output).length === 0) return false;
+  if (isEmptySchiftTextPayload(output)) return false;
+
+  const answer = readObjectAnswerText(output);
+  if (answer && isEmptySchiftTextPayload(answer)) return false;
+
+  return true;
+}
+
+function hasAnswerLikeOutput(output: Record<string, unknown>) {
+  const answer = readObjectAnswerText(output);
+  return Boolean(answer && !isEmptySchiftTextPayload(answer));
+}
+
 function readBlockStateOutputs(blockState: unknown) {
   if (!blockState || typeof blockState !== "object") {
     return null;
@@ -135,7 +237,7 @@ function readBlockStateOutputs(blockState: unknown) {
     }
 
     const outputRecord = candidate as Record<string, unknown>;
-    if (Object.keys(outputRecord).length > 0) {
+    if (hasMeaningfulOutput(outputRecord) && hasAnswerLikeOutput(outputRecord)) {
       return outputRecord;
     }
   }
@@ -144,7 +246,7 @@ function readBlockStateOutputs(blockState: unknown) {
 }
 
 export function extractSchiftWorkflowOutputs(run: WorkflowRunLike) {
-  if (run.outputs && Object.keys(run.outputs).length > 0) {
+  if (run.outputs && hasMeaningfulOutput(run.outputs)) {
     return run.outputs;
   }
 

@@ -15,6 +15,7 @@ import type {
   ChatMessage,
   HomeViewData,
   MobileContentListItem,
+  MobilePregnancyWeekSummary,
   LinkTargetContent,
   MobileProfileViewData,
   OnboardingProfileInput,
@@ -67,6 +68,7 @@ export interface KnowledgePort {
   listContentItems(
     section: "knowledge" | "notebook",
   ): Promise<MobileContentListItem[]>;
+  listPregnancyWeeks(): Promise<MobilePregnancyWeekSummary[]>;
   getLinkTarget(target: string, entityId?: string): Promise<LinkTargetContent>;
 }
 

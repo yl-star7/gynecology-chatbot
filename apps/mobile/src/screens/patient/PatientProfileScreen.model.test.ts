@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildProfileChecklistItemState,
+  buildProfileEncyclopediaEntry,
   buildProfileInfoCards,
   buildProfileDayState,
 } from "./PatientProfileScreen.model.ts";
@@ -136,4 +137,38 @@ test("profile day state does not pretend success when record day failed to load"
   assert.deepEqual(state.conversationStatus, { label: "불러오는 중", tone: "idle" });
   assert.equal(state.conversationSummary, "이 날짜 기록을 다시 불러오는 중이에요.");
   assert.deepEqual(state.heartShareItems, []);
+});
+
+test("profile encyclopedia entry uses the current pregnancy week when available", () => {
+  assert.deepEqual(
+    buildProfileEncyclopediaEntry({
+      pregnancyWeekLabel: "18주 2일",
+    }),
+    {
+      sectionTitle: "임신백과",
+      currentWeekLabel: "18주차",
+      currentActionLabel: "이번 주 백과 보기",
+      currentDescription:
+        "18주차 태아 발달, 엄마 몸 변화, 생활 가이드를 차분히 읽어봐요.",
+      browseActionLabel: "다른 주차 찾아보기",
+      browseDescription: "이전 주차와 다음 주차 정보도 사전처럼 확인해요.",
+    },
+  );
+});
+
+test("profile encyclopedia entry falls back when pregnancy week is unknown", () => {
+  assert.deepEqual(
+    buildProfileEncyclopediaEntry({
+      pregnancyWeekLabel: null,
+    }),
+    {
+      sectionTitle: "임신백과",
+      currentWeekLabel: "주",
+      currentActionLabel: "이번 주 백과 보기",
+      currentDescription:
+        "임신 주차를 알려주시면 이번 주 정보를 먼저 보여드릴게요.",
+      browseActionLabel: "다른 주차 찾아보기",
+      browseDescription: "이전 주차와 다음 주차 정보도 사전처럼 확인해요.",
+    },
+  );
 });

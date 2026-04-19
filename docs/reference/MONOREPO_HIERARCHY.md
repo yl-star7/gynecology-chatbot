@@ -22,7 +22,8 @@
 - in-memory adapter
 
 ### `supabase`
-- 마이그레이션
+- `migrations/`: linked Supabase remote history와 맞는 active migration chain
+- `migrations_legacy/`: remote baseline 이전 historical SQL 보관
 - 함수
 - 데이터 기준
 
@@ -59,6 +60,6 @@ apps/mobile --> apps/web API 또는 별도 backend endpoint
 ## 현재 기준
 - 웹은 관리자 전용
 - 모바일은 사용자 전용
-- Supabase 기준
+- Supabase 기준. migration은 `YYYYMMDDHHMMSS_description.sql` 형식으로 생성하고 `db push --dry-run` clean 상태를 유지
 - 모노레포 유지
 - 오프라인 모드 제외

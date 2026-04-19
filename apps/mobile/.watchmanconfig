@@ -1,0 +1,13 @@
+{
+  "ignore_dirs": [
+    "ios",
+    "android",
+    "builds",
+    "dist",
+    "node_modules",
+    ".expo",
+    ".turbo",
+    ".vercel",
+    "test-results"
+  ]
+}

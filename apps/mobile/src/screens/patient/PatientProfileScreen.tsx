@@ -18,6 +18,7 @@ import { PatientExternalSurveyCard } from "../../components/patient/profile/Pati
 import { PatientProfileAccountCard } from "../../components/patient/profile/PatientProfileAccountCard";
 import { PatientProfileCalendarCard } from "../../components/patient/profile/PatientProfileCalendarCard";
 import { PatientProfileDayModal } from "../../components/patient/profile/PatientProfileDayModal";
+import { PatientProfileEncyclopediaCard } from "../../components/patient/profile/PatientProfileEncyclopediaCard";
 import { PatientProfileHeroCard } from "../../components/patient/profile/PatientProfileHeroCard";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
@@ -41,6 +42,7 @@ import { buildProfileCalendarModel } from "./patientProfileCalendar";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { normalizeSurveyFormUrl } from "./patientSurveyFormUrl.model";
 import {
+  buildProfileEncyclopediaEntry,
   buildProfileDayState,
   buildProfileInfoCards,
 } from "./PatientProfileScreen.model";
@@ -234,6 +236,10 @@ export function PatientProfileScreen() {
     router.navigate("/(tabs)/today");
   }
 
+  function openWeeklyEncyclopedia() {
+    router.push("/encyclopedia" as never);
+  }
+
   function openConversationSession(sessionId: string) {
     setRecordDayError(null);
     closeCalendarDayModal();
@@ -282,6 +288,14 @@ export function PatientProfileScreen() {
       }),
     [selectedRecordDay, today],
   );
+  const encyclopediaEntry = useMemo(
+    () =>
+      buildProfileEncyclopediaEntry({
+        pregnancyWeekLabel:
+          home?.pregnancyWeekLabel ?? profile?.pregnancyWeekLabel ?? null,
+      }),
+    [home?.pregnancyWeekLabel, profile?.pregnancyWeekLabel],
+  );
   const contentInsets = buildPatientTabContentInsets({
     bottomInset: insets.bottom,
     extraBottomSpacing: 0,
@@ -321,6 +335,12 @@ export function PatientProfileScreen() {
             description={heroDescription}
             dueDateText={dueDateText}
             onPressSettings={() => router.push("/profile-settings")}
+          />
+
+          <PatientProfileEncyclopediaCard
+            entry={encyclopediaEntry}
+            onOpenCurrentWeek={openWeeklyEncyclopedia}
+            onBrowseWeeks={openWeeklyEncyclopedia}
           />
 
           <PatientProfileCalendarCard

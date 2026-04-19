@@ -6,6 +6,8 @@ expo-env.d.ts
 # @end expo-cli
 
 # iOS build artifacts
+ios/DerivedData/
+ios/Pods/
 ios/build-clients/
 ios/build/
 ios/build-*/
@@ -15,5 +17,9 @@ android/
 
 # Build artifacts
 *.apk
+*.aab
+*.ipa
 .vercel
 builds/
+dist/
+test-results/

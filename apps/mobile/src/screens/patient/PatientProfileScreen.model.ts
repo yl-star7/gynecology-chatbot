@@ -24,6 +24,42 @@ export type ProfileHeartShareItem = {
   summary: string;
 };
 
+export type ProfileEncyclopediaEntry = {
+  sectionTitle: string;
+  currentWeekLabel: string;
+  currentActionLabel: string;
+  currentDescription: string;
+  browseActionLabel: string;
+  browseDescription: string;
+};
+
+function parsePregnancyWeekNumber(label?: string | null) {
+  if (!label) return null;
+  const match = label.match(/(\d{1,2})\s*주/);
+  if (!match) return null;
+  const week = Number(match[1]);
+  if (!Number.isInteger(week) || week < 1 || week > 42) return null;
+  return week;
+}
+
+export function buildProfileEncyclopediaEntry(input: {
+  pregnancyWeekLabel?: string | null;
+}): ProfileEncyclopediaEntry {
+  const week = parsePregnancyWeekNumber(input.pregnancyWeekLabel);
+  const currentWeekLabel = week ? `${week}주차` : "주";
+
+  return {
+    sectionTitle: "임신백과",
+    currentWeekLabel,
+    currentActionLabel: "이번 주 백과 보기",
+    currentDescription: week
+      ? `${currentWeekLabel} 태아 발달, 엄마 몸 변화, 생활 가이드를 차분히 읽어봐요.`
+      : "임신 주차를 알려주시면 이번 주 정보를 먼저 보여드릴게요.",
+    browseActionLabel: "다른 주차 찾아보기",
+    browseDescription: "이전 주차와 다음 주차 정보도 사전처럼 확인해요.",
+  };
+}
+
 export function buildProfileChecklistItemState(item: {
   label: string;
   completed: boolean;

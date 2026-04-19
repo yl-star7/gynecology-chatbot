@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { ChatMessage } from "@gynecology-chatbot/app-core";
-import { appendAssistantMessages } from "./PatientTodayScreen.model.ts";
+import type { ChatMessage, RecordDayView } from "@gynecology-chatbot/app-core";
+import {
+  appendAssistantMessages,
+  updateRecordDayChecklistItems,
+} from "./PatientTodayScreen.helpers.ts";
 
 test("appendAssistantMessages appends every assistant follow-up in order", () => {
   const initialMessages: ChatMessage[] = [
@@ -34,4 +37,31 @@ test("appendAssistantMessages appends every assistant follow-up in order", () =>
     result.map((message) => message.id),
     ["user-1", "assistant-1", "assistant-2"],
   );
+});
+
+const recordDay: RecordDayView = {
+  isoDate: "2026-04-18",
+  dateLabel: "2026년 4월 18일 토요일",
+  infoViewed: true,
+  emotionTone: null,
+  checklistItems: [
+    { id: "check-1", label: "물 마시기", completed: false },
+    { id: "check-2", label: "산책하기", completed: false },
+  ],
+  dailyQuestion: null,
+  records: [],
+  relatedSessions: [],
+};
+
+test("updateRecordDayChecklistItems updates a matching cached record day item", () => {
+  const result = updateRecordDayChecklistItems(recordDay, "check-1", true);
+
+  assert.equal(result?.checklistItems[0]?.completed, true);
+  assert.equal(result?.checklistItems[1]?.completed, false);
+});
+
+test("updateRecordDayChecklistItems returns null when cached record day uses stale checklist ids", () => {
+  const result = updateRecordDayChecklistItems(recordDay, "today-check", true);
+
+  assert.equal(result, null);
 });

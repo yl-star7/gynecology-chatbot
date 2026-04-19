@@ -10,6 +10,15 @@ jest.mock("ai", () => ({
 
 jest.mock("@/lib/mobile/session-auth", () => ({
   requireMobileSession: jest.fn(),
+  mobileNoStoreJson: jest.fn((payload: unknown, init?: ResponseInit) =>
+    Response.json(payload, {
+      ...init,
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+        ...(init?.headers as Record<string, string> | undefined),
+      },
+    }),
+  ),
   isMobileSessionError: jest.fn((error) => {
     return (
       error instanceof Error &&
@@ -1061,7 +1070,7 @@ describe("POST /api/mobile/chat", () => {
     expect(payload.assistantMessage.parts[0].text).toBe("안정을 취해 보세요");
   });
 
-  it("renders workflow guardrail notice and character expression when the workflow returns structured JSON", async () => {
+  it("renders workflow guardrail notice when the workflow returns structured JSON", async () => {
     process.env.GEMINI_API_KEY = "test-key";
     mockedRequireMobileSession.mockResolvedValue({
       userId: "user-1",
@@ -1135,16 +1144,19 @@ describe("POST /api/mobile/chat", () => {
     expect(payload.assistantMessage.parts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "image",
-          alt: expect.stringContaining("안내"),
-        }),
-        expect.objectContaining({
           type: "text",
           text: expect.stringContaining("응급 신호 가능성"),
         }),
         expect.objectContaining({
           type: "text",
           text: expect.stringContaining("지금은 무리하지 말고"),
+        }),
+      ]),
+    );
+    expect(payload.assistantMessage.parts).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "image",
         }),
       ]),
     );
@@ -1839,6 +1851,104 @@ describe("POST /api/mobile/chat", () => {
         }),
       }),
     );
+  });
+
+  it("dispatches workflow persona memory through the internal webhook", async () => {
+    const originalFetch = global.fetch;
+    process.env.CRON_SECRET = "test-cron-secret";
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => "",
+    });
+    global.fetch = fetchMock as never;
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockPromptContext({
+      tonePreference: "차분하게",
+    });
+    mockedSupabaseInsert.mockImplementation(
+      (table: string, payload: object | object[]) => {
+        if (table === "chat_sessions") {
+          return Promise.resolve([]);
+        }
+
+        if (table === "chat_messages" && !Array.isArray(payload)) {
+          const role = (payload as { role?: string }).role;
+          return Promise.resolve([
+            {
+              id:
+                role === "assistant"
+                  ? "assistant-message-persona"
+                  : "user-message-persona",
+            },
+          ]);
+        }
+
+        return Promise.resolve([]);
+      },
+    );
+    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedGetSchiftClient.mockReturnValue({
+      workflows: { run: jest.fn() },
+    } as never);
+    mockedRunSchiftWorkflow.mockResolvedValue({
+      workflowId: "wf-persona",
+      run: {
+        id: "run-persona",
+        workflow_id: "wf-persona",
+        status: "completed",
+        outputs: {
+          answer: JSON.stringify({
+            answer: "기준을 차분히 같이 볼게요.",
+            nextProfileMemory: {
+              personaHint: "practical",
+              personaConfidence: "medium",
+              personaEvidence: "태동 기준을 구체적으로 질문함",
+            },
+          }),
+        },
+        block_states: [],
+      },
+    } as never);
+
+    try {
+      await POST(
+        new Request("http://localhost:3000/api/mobile/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: "user-1",
+            sessionId: "session-1",
+            text: "태동 기준 알려줘",
+            pregnancyWeek: 13,
+          }),
+        }) as never,
+      );
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "http://localhost:3000/api/internal/persona-signals",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            Authorization: "Bearer test-cron-secret",
+            "Content-Type": "application/json",
+          }),
+          body: expect.stringContaining('"personaHint":"practical"'),
+        }),
+      );
+      expect(mockedSupabaseInsert).not.toHaveBeenCalledWith(
+        "user_persona_signals",
+        expect.anything(),
+      );
+    } finally {
+      global.fetch = originalFetch;
+      delete process.env.CRON_SECRET;
+      delete process.env.NEXT_PUBLIC_APP_URL;
+    }
   });
 
   it("does not use direct admin client for prompt context queries", async () => {

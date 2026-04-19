@@ -1,4 +1,6 @@
 import type {
+  PersonaConfidence,
+  PersonaHint,
   ProfileMemoryPayload,
   SessionMemoryPayload,
 } from "@/lib/mobile/chat/workflow-payload";
@@ -88,6 +90,15 @@ type UserQuestionEventRow = {
   status: "sent" | "opened" | "answered" | "skipped";
 };
 
+type UserPersonaProfileRow = {
+  user_id: string;
+  persona_hint: PersonaHint;
+  confidence: PersonaConfidence;
+  evidence_summary: string | null;
+  weighted_score: number;
+  last_observed_at: string | null;
+};
+
 export type PromptContext = {
   pregnancyWeek: number;
   dayNumber: number;
@@ -107,7 +118,7 @@ export async function getPromptContext(
   hintedPregnancyWeek: number | null,
   sessionId: string | null,
 ): Promise<PromptContext | null> {
-  const [profiles, sessions] = await Promise.all([
+  const [profiles, sessions, personaProfiles] = await Promise.all([
     supabaseSelect<PregnancyProfilePromptRow[]>(
       `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week,baby_nickname,display_name,due_date,onboarding_payload&user_id=eq.${userId}&limit=1`,
     ),
@@ -122,6 +133,9 @@ export async function getPromptContext(
           `chat_sessions?select=id,title,memory_payload&id=eq.${sessionId}&user_id=eq.${userId}&limit=1`,
         )
       : Promise.resolve([]),
+    supabaseSelect<UserPersonaProfileRow[]>(
+      `v_user_persona_profiles?select=user_id,persona_hint,confidence,evidence_summary,weighted_score,last_observed_at&user_id=eq.${userId}&limit=1`,
+    ),
   ]);
 
   const pregnancyWeek =
@@ -153,6 +167,17 @@ export async function getPromptContext(
   ]);
 
   const profile = profiles[0];
+  const personaProfile = personaProfiles[0] ?? null;
+  const profileMemory = {
+    ...(profile?.onboarding_payload?.profileMemory ?? {}),
+    ...(personaProfile
+      ? {
+          personaHint: personaProfile.persona_hint,
+          personaConfidence: personaProfile.confidence,
+          personaEvidence: personaProfile.evidence_summary,
+        }
+      : {}),
+  };
   const missingFields: string[] = [];
   if (!profile?.baby_nickname) missingFields.push("태명");
   if (!profile?.due_date) missingFields.push("출산 예정일");
@@ -168,7 +193,8 @@ export async function getPromptContext(
     checklists,
     questions,
     tonePreference: profile?.onboarding_payload?.tonePreference ?? null,
-    profileMemory: profile?.onboarding_payload?.profileMemory ?? null,
+    profileMemory:
+      Object.keys(profileMemory).length > 0 ? profileMemory : null,
     sessionMemory: sessions[0]?.memory_payload ?? null,
     onboardingPayload: profile?.onboarding_payload ?? null,
     missingFields,
@@ -395,7 +421,7 @@ export async function saveAssistantChatMessages(input: {
             : [],
         )
         .join("\n"),
-      model_name: "gemini-2.5-flash-lite",
+      model_name: "gemini-3.1-flash-lite-preview",
     })),
   );
 }
@@ -430,14 +456,26 @@ export async function updateProfileMemory(input: {
     return;
   }
 
-  await supabaseUpdate(`pregnancy_profiles?user_id=eq.${input.userId}`, {
-    onboarding_payload: {
-      ...(input.onboardingPayload ?? {}),
-      profileMemory: {
-        ...(input.currentProfileMemory ?? {}),
-        ...input.nextProfileMemory,
-        updatedAt: input.timestamp,
+  const {
+    personaHint: _personaHint,
+    personaConfidence: _personaConfidence,
+    personaEvidence: _personaEvidence,
+    ...profileMemory
+  } = input.nextProfileMemory;
+  const hasProfileMemoryUpdate = Object.values(profileMemory).some(
+    (value) => value !== undefined,
+  );
+
+  if (hasProfileMemoryUpdate) {
+    await supabaseUpdate(`pregnancy_profiles?user_id=eq.${input.userId}`, {
+      onboarding_payload: {
+        ...(input.onboardingPayload ?? {}),
+        profileMemory: {
+          ...(input.currentProfileMemory ?? {}),
+          ...profileMemory,
+          updatedAt: input.timestamp,
+        },
       },
-    },
-  });
+    });
+  }
 }

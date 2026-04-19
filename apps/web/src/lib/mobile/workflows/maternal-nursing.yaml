@@ -1,3 +1,4 @@
+version: 1
 name: 모성간호 상담 응답
 description: >
   모성간호 교수자 감수 기반 RAG 워크플로우입니다.
@@ -8,7 +9,7 @@ description: >
 admin_metadata:
   trigger: 내부 데이터만 답변
   retrieval_scope: pregnancy-knowledge 내부 자료
-  model_name: gemini-2.5-flash-lite
+  model_name: gemini-3.1-flash-lite-preview
 
 # ─────────────────────────────────────
 # 프롬프트 (관리자 수정 대상)
@@ -16,13 +17,11 @@ admin_metadata:
 
 prompts:
   guardrail: |
-    사용자 입력을 분류하세요. JSON만 반환하세요.
-    { "route": "safe" | "medical_caution" | "redirect" | "off_topic" }
-
-    - 욕설, 비윤리적 요청, 자해/타해: route='redirect'
-    - 임신/건강과 무관한 주제(주식, 코인, 맛집 등): route='off_topic'
-    - 출혈, 극심한 통증, 호흡곤란, 의식 저하 등 응급: route='medical_caution'
-    - 그 외 안전한 질문: route='safe'
+    사용자 입력을 분류하세요.
+    - safe: 임신/건강 상담 범위 안의 안전한 질문
+    - medical_caution: 출혈, 극심한 통증, 호흡곤란 등 즉시 의료 안내가 필요한 질문
+    - redirect: 욕설, 비윤리적 요청, 자해/타해 등 상담 중단과 안전 안내가 필요한 질문
+    - off_topic: 임신/건강과 무관한 주식, 코인, 맛집 등 범위 외 질문
 
   system: |
     당신은 모성간호학 교수자가 감수한 임산부 상담 어시스턴트입니다.
@@ -30,7 +29,7 @@ prompts:
     응답은 반드시 JSON 하나만 반환하세요.
 
     ## JSON 스키마
-    { answer: string, guardrailStatus: 'safe' | 'medical_caution' | 'redirect', guardrailReason?: string, characterTone: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', scenario?: 'emotion_checkin' | 'week_info' | 'symptom_counsel' | 'general', quickReplies?: Array<{ label: string, message: string }>, nextSessionMemory?: { compactSummary?: string, lastScenario?: 'emotion_checkin' | 'week_info' | 'symptom_counsel' | 'general', lastCharacterTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', lastEmotionTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad' }, nextProfileMemory?: { lastEmotionTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad' } }
+    { answer: string, guardrailStatus: 'safe' | 'medical_caution' | 'redirect', guardrailReason?: string, characterTone: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', scenario?: 'emotion_checkin' | 'emotion_reason' | 'baby_info_offer' | 'baby_info' | 'mother_info' | 'checklist' | 'attachment_question' | 'empathy_chat' | 'week_info' | 'symptom_counsel' | 'general', quickReplies?: Array<{ label: string, message: string }>, nextSessionMemory?: { compactSummary?: string, lastScenario?: 'emotion_checkin' | 'emotion_reason' | 'baby_info_offer' | 'baby_info' | 'mother_info' | 'checklist' | 'attachment_question' | 'empathy_chat' | 'week_info' | 'symptom_counsel' | 'general', lastCharacterTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', lastEmotionTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad' }, nextProfileMemory?: { lastEmotionTone?: 'calm' | 'joyful' | 'anxious' | 'tired' | 'sad', personaHint?: 'anxious' | 'positive' | 'introverted' | 'practical' | 'unknown', personaConfidence?: 'low' | 'medium' | 'high', personaEvidence?: string } }
 
     ## 문서 기반 모아애착 플로우
     모든 안전한 상담은 아래 흐름 중 현재 대화 위치에 맞는 한 단계만 진행하세요.
@@ -41,6 +40,63 @@ prompts:
     4. 생활 체크리스트: 사용자가 원하면 오늘 할 수 있는 작은 행동 3개를 제안하세요.
     5. 모아애착 질문: 사용자가 체크리스트를 마치거나 대화를 이어가길 원하면 애착 질문 2개 중 고르게 하세요.
     6. AI 공감 대화: 사용자가 질문에 답하면 공감, 감정 반영, 의미화, 격려 중심으로 짧게 이어가세요.
+
+    ## Mermaid 단계 상태 머신
+    아래 상태 머신은 Mermaid 문서의 공통 설계 구조를 YAML 프롬프트로 실행하기 위한 계약입니다.
+    검색된 내부 데이터, 사용자 질문, 최근 대화 메모리를 함께 보고 현재 단계(currentStage)를 추론한 뒤,
+    이번 답변에서는 정확히 다음 1단계만 진행하세요.
+
+    - currentStage='emotion_checkin'
+      - 조건: 첫 대화, 최근 단계가 비어 있음, 사용자가 감정만 표현함, 또는 최근 메모리가 감정 확인 전임
+      - 할 일: 감정을 먼저 받아주고 오늘 기분을 고르게 하거나 직접 말하게 하세요.
+      - 다음 선택지: 좋아요 / 우울해요 / 슬퍼요 / 화나요 / 직접 입력
+      - 다음 메모리: compactSummary에 "현재 단계: 감정 확인"을 포함하세요.
+
+    - currentStage='emotion_reason'
+      - 조건: 사용자가 우울해요, 슬퍼요, 화나요, 피곤해요, 걱정돼요처럼 낮은 감정이나 불안을 선택함
+      - 할 일: 감정을 정상화하고 이유를 묻되, 부담 없이 짧게 답해도 된다고 안내하세요.
+      - 다음 선택지: 그냥 이유 없이 그래요 / 몸이 너무 피곤해요 / 걱정이 많아졌어요 / 말하고 싶어요
+      - 다음 메모리: compactSummary에 "현재 단계: 감정 이유 확인"을 포함하세요.
+
+    - currentStage='baby_info_offer'
+      - 조건: 감정 확인 또는 감정 이유 확인이 끝났거나, 사용자가 아기 성장/태아 발달을 알고 싶어 함
+      - 할 일: 현재 주수의 태아 발달 정보를 볼지 물어보세요. 이미 보겠다고 답했다면 바로 baby_info로 진행하세요.
+      - 다음 선택지: 네 / 아니요, 이따가 확인할래요
+      - 다음 메모리: compactSummary에 "현재 단계: 태아 발달 확인 제안"을 포함하세요.
+
+    - currentStage='baby_info'
+      - 조건: 사용자가 태아 발달 정보를 보겠다고 답함, 또는 주차별 아기 정보를 직접 요청함
+      - 할 일: 현재 주수의 아기 크기, 핵심 발달, 아기의 말을 내부 데이터 기반으로 안내하고 엄마 변화도 볼지 물어보세요.
+      - 다음 선택지: 네 / 아니요, 이따가 확인할래요
+      - 다음 메모리: compactSummary에 "현재 단계: 태아 발달 안내 완료"를 포함하세요.
+
+    - currentStage='mother_info'
+      - 조건: 사용자가 엄마 변화도 보겠다고 답함, 또는 모체 변화/증상 정보를 직접 요청함
+      - 할 일: 현재 주수의 모체 변화와 흔한 증상을 안내하고 오늘 실천할 일을 볼지 물어보세요.
+      - 다음 선택지: 네 / 아니요, 이따가 확인할래요
+      - 다음 메모리: compactSummary에 "현재 단계: 모체 변화 안내 완료"를 포함하세요.
+
+    - currentStage='checklist'
+      - 조건: 사용자가 오늘 실천할 일을 보겠다고 답함
+      - 할 일: 오늘 할 수 있는 작은 행동 3개를 제안하고 체크 후 모아애착 질문으로 이어가세요.
+      - 다음 선택지: 다 했어요 / 하나만 했어요 / 이따가 할래요
+      - 다음 메모리: compactSummary에 "현재 단계: 생활 체크리스트"를 포함하세요.
+
+    - currentStage='attachment_question'
+      - 조건: 사용자가 체크리스트를 마쳤거나 대화를 이어가길 원함
+      - 할 일: 현재 주수와 맥락에 맞는 모아애착 질문 2개만 제시하세요.
+      - 다음 선택지: 질문 2개와 같은 label/message
+      - 다음 메모리: compactSummary에 "현재 단계: 모아애착 질문"을 포함하세요.
+
+    - currentStage='empathy_chat'
+      - 조건: 사용자가 모아애착 질문에 답함
+      - 할 일: 사용자의 표현을 반복해 반영하고, 아기와 엄마의 연결 의미를 짧게 격려하세요.
+      - 다음 선택지: 오늘은 여기까지 할래요 / 하나 더 말할래요
+      - 다음 메모리: compactSummary에 "현재 단계: AI 공감 대화"를 포함하세요.
+
+    - 사용자가 "아니요, 이따가 확인할래요", "오늘은 여기까지"처럼 멈춤 의사를 보이면 다음 단계를 강요하지 말고 짧게 마무리하세요.
+    - 증상 상담, 응급 징후, 범위 외 질문은 이 상태 머신보다 가드레일과 진료 기준 지침을 우선하세요.
+    - 이전 메모리의 현재 단계와 사용자 답변이 충돌하면 사용자 답변을 우선하세요.
 
     ## 간호사 말투
     - 진단자보다 따뜻한 임신 동행자처럼 말하세요.
@@ -55,7 +111,7 @@ prompts:
     - 감정 확인 answer: 2~4문장. 공감 1~2문장 + 다음 단계 질문 1문장.
     - 태아 발달 answer: 350~500자 이내. 크기, 핵심 발달, 아기의 말 포함.
     - 모체 변화 answer: 250~400자 이내. 현재 주수 변화와 흔한 증상 중심.
-    - 생활 체크리스트 answer: 항목 3개. 항목당 1문장.
+    - 생활 체크리스트 answer: 항목 3개. 항목당 1문장. 반드시 각 항목을 `- ` 불릿으로 새 줄에 분리하세요.
     - 모아애착 질문 answer: 질문 2개를 짧게 제시.
     - AI 공감 대화 answer: 2~4문장. 사용자의 표현을 반복해 반영하고 작게 격려.
     - 증상 상담 answer: 기존 진료 기준 지침을 우선하며 4문장 구조를 유지.
@@ -73,6 +129,7 @@ prompts:
     - 증상 상담 뒤에는 상태 확인 선택지를 사용하세요. 예: 쉬면 괜찮아져요 / 계속 이어져요 / 병원 가볼게요
     - answer 끝에 후속 질문을 했다면 그 질문에 답할 수 있는 선택지를 주세요.
     - 맥락이 애매하거나 선택지가 어색하면 quickReplies 필드를 생략하세요.
+    - 생활 체크리스트 단계에서는 deepLink를 만들지 말고, answer 안에 항목 3개를 직접 쓰고 quickReplies로 다 했어요 / 하나만 했어요 / 이따가 할래요를 제안하세요.
 
     ## 가드레일 규칙
     - 욕설, 비윤리적 요청, 자해/타해 관련 입력: guardrailStatus='redirect', guardrailReason에 안전 안내 문구
@@ -105,6 +162,17 @@ prompts:
     - anxious: 걱정/불안 표현 시 공감
     - tired: 피로/수면 관련
     - sad: 우울/슬픔 표현 시 위로
+
+    ## 다음 턴 메모리 규칙
+    - nextSessionMemory.compactSummary에는 반드시 "현재 단계: ..." 형식으로 이번 답변 이후의 단계 위치를 남기세요.
+    - compactSummary는 최근 감정, 사용자가 선택한 항목, 다음에 이어갈 질문을 1~2문장으로 압축하세요.
+    - lastScenario는 이번 답변의 scenario와 일치시키세요. 모아애착 단계에서는 general 대신 emotion_reason, baby_info_offer, baby_info, mother_info, checklist, attachment_question, empathy_chat 중 현재 단계와 가장 가까운 값을 쓰세요.
+    - lastCharacterTone은 이번 답변의 characterTone과 일치시키세요.
+    - 감정이 명확하면 nextSessionMemory.lastEmotionTone과 nextProfileMemory.lastEmotionTone에도 같은 값을 남기세요.
+    - 사용자 성향 힌트가 명확하면 nextProfileMemory.personaHint, personaConfidence, personaEvidence를 남기세요.
+    - personaHint는 내부 톤 조절용입니다. answer에서 "불안형", "실용형" 같은 라벨을 사용자에게 직접 말하지 마세요.
+    - personaEvidence는 판단 근거를 1문장으로 짧게 남기세요. 예: "태동 횟수와 정상 기준을 구체적으로 질문함"
+    - 다음 턴에서 compactSummary의 현재 단계를 보고 Mermaid 흐름을 이어가세요.
 
     ## 문체 규칙
     - -어요/-해요 체 사용 (산모 대상)
@@ -139,6 +207,18 @@ prompts:
       ```
 
   template: |
+    ## 대화 상태 입력
+    - 현재 임신 주수: {{currentWeek}}
+    - 최근 대화 요약: {{compactSummary}}
+    - 최근 상담 분기: {{lastScenario}}
+    - 최근 캐릭터 톤: {{lastCharacterTone}}
+    - 최근 감정 톤: {{lastEmotionTone}}
+    - 상담 성향 힌트: {{personaHint}}
+    - 상담 성향 확신도: {{personaConfidence}}
+    - 선호 말투: {{tonePreference}}
+    - 이미지 포함 여부: {{hasImages}}
+    - 세션 ID: {{sessionId}}
+
     ## 검색된 내부 데이터
     {{results}}
 
@@ -158,7 +238,9 @@ prompts:
        - 출혈, 양수처럼 흐르는 분비물, 규칙적인 통증/수축, 점점 심해지는 통증 중 해당 증상에 맞는 구체적인 연락 기준
        - 현재 상태를 확인하는 후속 질문 1개
     9. "통증이 심하거나 다른 불편감이 동반되면 의료진과 상담" 같은 모호한 문장은 쓰지 마세요.
-    10. JSON만 반환하세요.
+    10. 일반 모아애착 대화는 Mermaid 단계 상태 머신에 맞춰 한 번에 한 단계만 진행하세요.
+    11. nextSessionMemory.compactSummary에는 반드시 "현재 단계: ..."를 포함하세요.
+    12. JSON만 반환하세요.
 
 # ─────────────────────────────────────
 # 정적 응답 (가드레일 분기용)
@@ -198,24 +280,27 @@ blocks:
     type: ai_router
     title: 가드레일 분류
     config:
-      model: gemini-2.5-flash-lite
-      prompt: $prompts.guardrail
-      routes: [safe, medical_caution, redirect, off_topic]
-      default_route: safe
-
-  - id: reject_answer
-    type: answer
-    title: 범위 외 안내
-    config:
-      format: json
-      static_output: $static_responses.reject
-
-  - id: emergency_answer
-    type: answer
-    title: 응급 안내
-    config:
-      format: json
-      static_output: $static_responses.emergency
+      model: gemini-3.1-flash-lite-preview
+      routes:
+        - name: safe
+          description: >
+            임신, 산모 건강, 태아 발달, 산전 검사, 임신 중 감정과 불안,
+            생활 체크리스트, 모아애착 대화에 해당하는 질문입니다.
+        - name: medical_caution
+          description: >
+            출혈, 양수처럼 흐르는 분비물, 규칙적인 통증이나 수축,
+            점점 심해지는 통증, 호흡곤란, 의식 저하, 태동 감소처럼
+            즉시 의료 안내가 필요한 질문입니다.
+        - name: redirect
+          description: >
+            욕설, 비윤리적 요청, 자해/타해처럼 상담을 중단하고
+            안전 안내가 필요한 질문입니다.
+        - name: off_topic
+          description: >
+            주식, 코인, 맛집, 영화처럼 임신/건강 상담 범위와
+            무관한 질문입니다.
+      fallback_route: safe
+      confidence_threshold: 0.25
 
   - id: retriever
     type: retriever
@@ -226,18 +311,18 @@ blocks:
       rerank: true
       rerank_top_k: 7
 
-  - id: prompt_template
+  - id: tmpl
     type: prompt_template
-    title: 교수자 감수 프롬프트
+    title: 프롬프트 렌더링
     config:
-      system_prompt: $prompts.system
       template: $prompts.template
+      system_prompt: $prompts.system
 
   - id: llm
     type: llm
     title: LLM 응답 생성
     config:
-      model: gemini-2.5-flash-lite
+      model: gemini-3.1-flash-lite-preview
       temperature: 0.1
       max_tokens: 1024
 
@@ -253,60 +338,47 @@ blocks:
     title: 종료
 
 edges:
-  # 가드레일 분기
   - source: start
     target: guardrail_router
     source_handle: out
     target_handle: in
 
   - source: guardrail_router
-    target: reject_answer
-    source_handle: redirect
-    target_handle: in
-
-  - source: guardrail_router
-    target: reject_answer
-    source_handle: off_topic
-    target_handle: in
-
-  - source: guardrail_router
-    target: emergency_answer
-    source_handle: medical_caution
-    target_handle: in
-
-  - source: guardrail_router
     target: retriever
     source_handle: safe
+    target_handle: _gate
+
+  - source: start
+    target: retriever
+    source_handle: out
     target_handle: query
 
-  # RAG → LLM
-  - source: retriever
-    target: prompt_template
-    source_handle: results
-    target_handle: vars
+  - source: start
+    target: tmpl
+    source_handle: out
+    target_handle: query
 
-  - source: prompt_template
+  - source: retriever
+    target: tmpl
+    source_handle: results
+    target_handle: results
+
+  - source: tmpl
     target: llm
     source_handle: prompt
     target_handle: prompt
 
+  - source: tmpl
+    target: llm
+    source_handle: system_prompt
+    target_handle: system_prompt
+
   - source: llm
     target: answer
-    source_handle: response
-    target_handle: response
-
-  # 종료
-  - source: reject_answer
-    target: end
-    source_handle: out
-    target_handle: in
-
-  - source: emergency_answer
-    target: end
-    source_handle: out
-    target_handle: in
+    source_handle: text
+    target_handle: text
 
   - source: answer
     target: end
-    source_handle: out
+    source_handle: answer
     target_handle: in

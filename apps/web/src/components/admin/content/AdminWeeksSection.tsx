@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type {
   AdminWeekAsset,
@@ -21,6 +21,94 @@ import {
   getWeekPublishDayStatus,
   getWeekPublishReview,
 } from "./week-publish-review";
+
+type AdminParaphraseItem = {
+  id: string;
+  weekNumber: number;
+  dayNumber: number | null;
+  sourceCode: string | null;
+  contentScope: string;
+  category: string;
+  title: string | null;
+  summary: string | null;
+  body: string | null;
+  status: "needs_review" | "ready" | "archived" | "failed";
+  isActive: boolean;
+};
+
+function getParaphraseCategoryLabel(category: string) {
+  if (category === "overview") return "주차 요약";
+  if (category === "baby_development") return "태아 발달";
+  if (category === "mother_body") return "엄마 몸 변화";
+  if (category === "life_guide") return "생활 가이드";
+  if (category === "caution") return "주의할 점";
+  if (category === "faq") return "자주 궁금한 점";
+  if (category === "reflection_question") return "성찰 질문";
+  return category;
+}
+
+function getParaphraseScopeLabel(scope: string) {
+  if (scope === "week_summary") return "요약";
+  if (scope === "section") return "섹션";
+  if (scope === "checklist") return "체크";
+  if (scope === "question") return "질문";
+  return scope;
+}
+
+function buildParaphrasePreview(item: AdminParaphraseItem) {
+  return item.summary || item.body || item.title || "내용 없음";
+}
+
+function ParaphraseCard({
+  item,
+  activatingParaphraseId,
+  onActivate,
+}: {
+  item: AdminParaphraseItem;
+  activatingParaphraseId: string | null;
+  onActivate: (id: string) => void;
+}) {
+  return (
+    <article className={styles.weekDayRow}>
+      <div className={styles.weekDayLead}>
+        <div>
+          <h4>{getParaphraseCategoryLabel(item.category)}</h4>
+          <p className={styles.panelDescription}>
+            {getParaphraseScopeLabel(item.contentScope)}
+            {item.dayNumber ? ` · Day ${item.dayNumber}` : ""}
+            {item.sourceCode ? ` · ${item.sourceCode}` : ""}
+          </p>
+        </div>
+        <div className={styles.badgeRow}>
+          <span
+            className={`${styles.statusBadge} ${
+              item.status === "ready" ? styles.statusSuccess : styles.statusWarning
+            }`}
+          >
+            {item.isActive
+              ? "노출 중"
+              : item.status === "ready"
+                ? "승인됨"
+                : "검수 필요"}
+          </span>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            disabled={activatingParaphraseId === item.id || item.isActive}
+            onClick={() => onActivate(item.id)}
+          >
+            {item.isActive
+              ? "노출 중"
+              : activatingParaphraseId === item.id
+                ? "승인 중"
+                : "노출본 승인"}
+          </button>
+        </div>
+      </div>
+      <p className={styles.weekDayMessage}>{buildParaphrasePreview(item)}</p>
+    </article>
+  );
+}
 
 export interface AdminWeeksSectionProps {
   weekSummaries: AdminWeekSummary[];
@@ -121,6 +209,118 @@ export function AdminWeeksSection({
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const [weekQuery, setWeekQuery] = useState("");
   const [weekStatusFilter, setWeekStatusFilter] = useState("all");
+  const [paraphrases, setParaphrases] = useState<AdminParaphraseItem[]>([]);
+  const [isLoadingParaphrases, setIsLoadingParaphrases] = useState(false);
+  const [paraphraseMessage, setParaphraseMessage] = useState<string | null>(
+    null,
+  );
+  const [activatingParaphraseId, setActivatingParaphraseId] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadParaphrases() {
+      if (!selectedWeekNumber) {
+        setParaphrases([]);
+        return;
+      }
+
+      setIsLoadingParaphrases(true);
+      setParaphraseMessage(null);
+
+      try {
+        const response = await fetch(
+          `/api/admin/content/paraphrases?weekNumber=${selectedWeekNumber}`,
+        );
+        const payload = (await response.json()) as {
+          error?: string;
+          paraphrases?: AdminParaphraseItem[];
+        };
+
+        if (!response.ok) {
+          throw new Error(
+            payload.error ?? "Paraphrase 목록을 불러오지 못했습니다.",
+          );
+        }
+
+        if (!cancelled) {
+          setParaphrases(payload.paraphrases ?? []);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setParaphraseMessage(
+            error instanceof Error
+              ? error.message
+              : "Paraphrase 목록을 불러오지 못했습니다.",
+          );
+          setParaphrases([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingParaphrases(false);
+        }
+      }
+    }
+
+    void loadParaphrases();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedWeekNumber]);
+
+  async function activateParaphrase(itemId: string) {
+    setActivatingParaphraseId(itemId);
+    setParaphraseMessage(null);
+
+    try {
+      const response = await fetch("/api/admin/content/paraphrases", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemId,
+          action: "activate",
+        }),
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        paraphrase?: AdminParaphraseItem;
+      };
+
+      if (!response.ok || !payload.paraphrase) {
+        throw new Error(
+          payload.error ?? "사용자 노출본으로 승인하지 못했습니다.",
+        );
+      }
+
+      setParaphrases((current) =>
+        current.map((item) => {
+          const sameSource =
+            item.contentScope === payload.paraphrase?.contentScope &&
+            item.category === payload.paraphrase?.category &&
+            item.dayNumber === payload.paraphrase?.dayNumber &&
+            item.sourceCode === payload.paraphrase?.sourceCode;
+
+          if (item.id === payload.paraphrase?.id) {
+            return payload.paraphrase;
+          }
+
+          return sameSource ? { ...item, isActive: false } : item;
+        }),
+      );
+      setParaphraseMessage("사용자 노출본으로 승인했습니다.");
+    } catch (error) {
+      setParaphraseMessage(
+        error instanceof Error
+          ? error.message
+          : "사용자 노출본으로 승인하지 못했습니다.",
+      );
+    } finally {
+      setActivatingParaphraseId(null);
+    }
+  }
 
   const filteredWeekSummaries = weekSummaries.filter((week) => {
     const query = weekQuery.trim().toLowerCase();
@@ -370,6 +570,90 @@ export function AdminWeeksSection({
                     </div>
                   </div>
                 </div>
+              </section>
+
+              <section className={styles.panel}>
+                <div className={styles.panelHeader}>
+                  <div>
+                    <h3 className={styles.panelTitle}>사용자 노출본 검수</h3>
+                    <p className={styles.panelDescription}>
+                      Gemini paraphrase 결과를 확인하고 항목별로 앱 노출본을
+                      승인합니다.
+                    </p>
+                  </div>
+                </div>
+
+                {paraphraseMessage ? (
+                  <p className={styles.formHint}>{paraphraseMessage}</p>
+                ) : null}
+
+                {isLoadingParaphrases ? (
+                  <div className={styles.listEmpty}>
+                    Paraphrase 목록을 불러오는 중입니다.
+                  </div>
+                ) : paraphrases.length === 0 ? (
+                  <div className={styles.listEmpty}>
+                    아직 생성된 사용자 노출본이 없습니다.
+                  </div>
+                ) : (
+                  <div className={styles.weekDayList}>
+                    <details open>
+                      <summary className={styles.panelTitle}>
+                        주차 요약과 섹션
+                      </summary>
+                      <div className={styles.weekDayList}>
+                        {paraphrases
+                          .filter(
+                            (item) =>
+                              item.contentScope === "week_summary" ||
+                              item.contentScope === "section",
+                          )
+                          .map((item) => (
+                            <ParaphraseCard
+                              key={item.id}
+                              item={item}
+                              activatingParaphraseId={activatingParaphraseId}
+                              onActivate={(id) => void activateParaphrase(id)}
+                            />
+                          ))}
+                      </div>
+                    </details>
+
+                    <details>
+                      <summary className={styles.panelTitle}>
+                        체크리스트
+                      </summary>
+                      <div className={styles.weekDayList}>
+                        {paraphrases
+                          .filter((item) => item.contentScope === "checklist")
+                          .map((item) => (
+                            <ParaphraseCard
+                              key={item.id}
+                              item={item}
+                              activatingParaphraseId={activatingParaphraseId}
+                              onActivate={(id) => void activateParaphrase(id)}
+                            />
+                          ))}
+                      </div>
+                    </details>
+
+                    <details>
+                      <summary className={styles.panelTitle}>질문</summary>
+                      <div className={styles.weekDayList}>
+                        {paraphrases
+                          .filter((item) => item.contentScope === "question")
+                          .map((item) => (
+                            <ParaphraseCard
+                              key={item.id}
+                              item={item}
+                              activatingParaphraseId={activatingParaphraseId}
+                              onActivate={(id) => void activateParaphrase(id)}
+                            />
+                          ))}
+                      </div>
+                    </details>
+                  </div>
+                )}
               </section>
 
               <section className={styles.panel}>

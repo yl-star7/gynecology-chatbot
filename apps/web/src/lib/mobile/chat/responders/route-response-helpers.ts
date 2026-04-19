@@ -60,6 +60,8 @@ export function buildMemorySystemBlock(input: {
   lastScenario: WorkflowScenario | null;
   lastCharacterTone: CharacterTone | null;
   lastEmotionTone: CharacterTone | null;
+  personaHint?: string | null;
+  personaConfidence?: string | null;
   tonePreference: string | null;
 }) {
   return [
@@ -69,6 +71,11 @@ export function buildMemorySystemBlock(input: {
       ? `직전 캐릭터 톤: ${input.lastCharacterTone}`
       : null,
     input.lastEmotionTone ? `최근 감정 톤: ${input.lastEmotionTone}` : null,
+    input.personaHint
+      ? `상담 성향 힌트: ${input.personaHint}${
+          input.personaConfidence ? ` (${input.personaConfidence})` : ""
+        }`
+      : null,
     input.tonePreference
       ? `사용자 선호 상담 분위기: ${input.tonePreference}`
       : null,
@@ -274,6 +281,10 @@ function normalizeAssistantMessage(input: unknown): ChatMessage | null {
       typeof candidate.createdAtLabel === "string"
         ? candidate.createdAtLabel
         : "방금 전",
+    characterTone:
+      typeof candidate.characterTone === "string"
+        ? (candidate.characterTone as ChatMessage["characterTone"])
+        : null,
     parts,
   };
 }
@@ -327,6 +338,120 @@ export function buildFallbackReply(input: {
         text: `${weekLabel} 증상이 언제부터 있었는지, 얼마나 자주 느껴지는지, 쉬면 달라지는지를 함께 적어주시면 더 정확히 도와드릴 수 있어요. 출혈이나 물처럼 흐르는 분비물, 참기 어려운 통증이 있으면 바로 진료를 받아야 해요.`,
       },
     ],
+  };
+}
+
+function inferFallbackCharacterTone(text: string): CharacterTone {
+  const normalized = text.toLowerCase();
+  if (/불안|걱정|무서|초조|긴장/.test(normalized)) return "anxious";
+  if (/우울|슬프|눈물|속상/.test(normalized)) return "sad";
+  if (/피곤|졸리|잠|지쳐|힘들/.test(normalized)) return "tired";
+  if (/좋아|기뻐|행복|설레/.test(normalized)) return "joyful";
+  return "calm";
+}
+
+function buildQuickReplies(
+  idPrefix: string,
+  choices: Array<{ label: string; message: string }>,
+): ChatMessage["parts"][number] {
+  return {
+    type: "quickReplies",
+    id: `${idPrefix}-quick`,
+    choices: choices.map((choice, index) => ({
+      id: `${idPrefix}-choice-${index + 1}`,
+      label: choice.label,
+      message: choice.message,
+    })),
+  };
+}
+
+export function buildLocalWorkflowFallbackReply(input: {
+  currentWeek: number | null;
+  text: string;
+}): ChatMessage {
+  const now = Date.now();
+  const idPrefix = `local-workflow-${now}`;
+  const tone = inferFallbackCharacterTone(input.text);
+  const weekLabel = input.currentWeek
+    ? `${input.currentWeek}주차`
+    : "현재 주차";
+  const text = input.text.trim();
+  const parts: ChatMessage["parts"] = [];
+
+  if (/체크|실천|할 일|해야/.test(text)) {
+    parts.push({
+      type: "text",
+      id: `${idPrefix}-text`,
+      text: [
+        `${weekLabel} 기준으로 오늘은 아주 작게 해도 괜찮아요.`,
+        "",
+        "- 물을 천천히 한 컵 마셔요",
+        "- 편한 자세로 5분 쉬어요",
+        "- 몸이 보내는 신호를 한 가지 적어봐요",
+        "",
+        "해본 만큼만 알려주세요.",
+      ].join("\n"),
+    });
+    parts.push(
+      buildQuickReplies(idPrefix, [
+        { label: "다 했어요", message: "다 했어요." },
+        { label: "하나만 했어요", message: "하나만 했어요." },
+        { label: "이따가 할래요", message: "이따가 할래요." },
+      ]),
+    );
+  } else if (/아기|태아|발달|크기|성장/.test(text)) {
+    parts.push({
+      type: "text",
+      id: `${idPrefix}-text`,
+      text: `${weekLabel} 아기 소식이 궁금하셨군요.\n\n지금은 내부 workflow 응답을 안정화하는 중이라 자세한 자료를 길게 단정하진 않을게요. 대신 아기 변화와 엄마 몸 변화를 한 단계씩 나눠서 볼 수 있어요.`,
+    });
+    parts.push(
+      buildQuickReplies(idPrefix, [
+        { label: "아기 소식", message: "아기 소식을 볼래요." },
+        { label: "엄마 변화", message: "엄마 몸 변화도 볼래요." },
+        { label: "오늘 할 일", message: "오늘 실천할 일을 볼래요." },
+      ]),
+    );
+  } else if (tone === "anxious" || tone === "sad" || tone === "tired") {
+    parts.push({
+      type: "text",
+      id: `${idPrefix}-text`,
+      text: [
+        "그렇게 느낄 수 있어요. 말해줘서 고마워요.",
+        "",
+        "오늘은 마음을 급하게 바꾸려고 하지 않아도 괜찮아요. 부담스럽지 않게, 지금 마음이 어디에서 온 건지 조금만 같이 살펴볼게요.",
+      ].join("\n"),
+    });
+    parts.push(
+      buildQuickReplies(idPrefix, [
+        { label: "이유 없어요", message: "그냥 이유 없이 그래요." },
+        { label: "피곤해요", message: "몸이 너무 피곤해요." },
+        { label: "걱정돼요", message: "걱정이 많아졌어요." },
+        { label: "말할래요", message: "조금 더 말하고 싶어요." },
+      ]),
+    );
+  } else {
+    parts.push({
+      type: "text",
+      id: `${idPrefix}-text`,
+      text: `${weekLabel} 기준으로 같이 천천히 볼게요.\n\n오늘 기분을 먼저 확인하고, 원하시면 아기 소식이나 엄마 몸 변화로 이어갈 수 있어요.`,
+    });
+    parts.push(
+      buildQuickReplies(idPrefix, [
+        { label: "좋아요", message: "오늘은 좋아요." },
+        { label: "우울해요", message: "오늘은 우울해요." },
+        { label: "슬퍼요", message: "오늘은 슬퍼요." },
+        { label: "화나요", message: "오늘은 화나요." },
+      ]),
+    );
+  }
+
+  return {
+    id: `assistant-${now}`,
+    role: "assistant",
+    createdAtLabel: "방금 전",
+    characterTone: tone,
+    parts,
   };
 }
 
@@ -404,6 +529,7 @@ export async function buildWorkflowAssistantMessage<
     id: `assistant-${Date.now()}`,
     role: "assistant",
     createdAtLabel: "방금 전",
+    characterTone: payload.characterTone ?? null,
     parts,
   };
 }

@@ -33,6 +33,10 @@ test("schema exports the runtime tables required by the web app", async () => {
     "user_question_events",
   );
   assert.equal(
+    getTableName(schema.userPersonaSignals),
+    "user_persona_signals",
+  );
+  assert.equal(
     getTableName(schema.pregnancyDayContents),
     "pregnancy_day_contents",
   );
@@ -41,4 +45,12 @@ test("schema exports the runtime tables required by the web app", async () => {
   assert.equal(getTableName(schema.knowledgeItems), "knowledge_items");
   assert.equal(getTableName(schema.messageLinks), "message_links");
   assert.equal(getTableName(schema.pregnancyDocuments), "pregnancy_documents");
+  assert.equal(
+    getTableName(schema.contentParaphraseRuns),
+    "content_paraphrase_runs",
+  );
+  assert.equal(
+    getTableName(schema.contentParaphrasedItems),
+    "content_paraphrased_items",
+  );
 });

@@ -33,7 +33,8 @@ gynecology-chatbot/
 │   └── tools/                 # 문서 생성 스크립트
 ├── supabase/
 │   ├── functions/
-│   └── migrations/
+│   ├── migrations/             # linked Supabase history와 1:1로 맞는 active chain
+│   └── migrations_legacy/      # 원격 baseline 이전 historical SQL 보관용
 ├── pnpm-workspace.yaml
 └── turbo.json
 ```
@@ -84,6 +85,26 @@ pnpm --filter @gynecology-chatbot/app-core type-check
 pnpm --filter @gynecology-chatbot/web type-check
 pnpm --filter @gynecology-chatbot/mobile exec tsc --noEmit
 ```
+
+## Supabase Migration Baseline
+
+현재 `supabase/migrations/`는 linked Supabase 프로젝트의 migration history와 1:1로 맞는 active chain만 둡니다.
+
+```text
+20251223_create_calendar_logs.sql
+20260331172420_move_content_to_public_and_drop_allowlist.sql
+20260417120200_add_user_persona_signals.sql
+```
+
+과거 date-only migration들은 `supabase/migrations_legacy/pre-remote-baseline-20260417/`에 보관합니다. 이 파일들은 운영 DB에 다시 push하지 않습니다.
+
+새 migration은 반드시 `YYYYMMDDHHMMSS_description.sql` 형식으로 만들고, 적용 전후에 아래를 확인합니다.
+
+```bash
+direnv exec /Users/jskang/Projects/si supabase db push --dry-run
+```
+
+정상 기준은 `Remote database is up to date.` 또는 새 forward migration만 pending으로 보이는 상태입니다.
 
 핵심 문서:
 - [PRD.md](/Users/jskang/si/gynecology-chatbot/docs/reference/PRD.md)

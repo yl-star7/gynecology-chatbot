@@ -1,7 +1,23 @@
 export type CharacterTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
 
+export type PersonaHint =
+  | "anxious"
+  | "positive"
+  | "introverted"
+  | "practical"
+  | "unknown";
+
+export type PersonaConfidence = "low" | "medium" | "high";
+
 export type WorkflowScenario =
   | "emotion_checkin"
+  | "emotion_reason"
+  | "baby_info_offer"
+  | "baby_info"
+  | "mother_info"
+  | "checklist"
+  | "attachment_question"
+  | "empathy_chat"
   | "week_info"
   | "symptom_counsel"
   | "general";
@@ -16,6 +32,9 @@ export type SessionMemoryPayload = {
 
 export type ProfileMemoryPayload = {
   lastEmotionTone?: CharacterTone | null;
+  personaHint?: PersonaHint | null;
+  personaConfidence?: PersonaConfidence | null;
+  personaEvidence?: string | null;
   updatedAt?: string | null;
 };
 
@@ -64,12 +83,16 @@ export function parseWorkflowAssistantPayload(
   }
 
   // Schift workflow는 { result: { text: "...", usage: {...} } } 형태로 반환한다
-  const nestedText =
-    outputs.result &&
-    typeof outputs.result === "object" &&
-    typeof (outputs.result as Record<string, unknown>).text === "string"
-      ? ((outputs.result as Record<string, unknown>).text as string)
+  const nestedResult =
+    outputs.result && typeof outputs.result === "object"
+      ? (outputs.result as Record<string, unknown>)
       : null;
+  const nestedText =
+    typeof nestedResult?.text === "string"
+      ? nestedResult.text
+      : typeof nestedResult?.answer === "string"
+        ? nestedResult.answer
+        : null;
 
   const directAnswer =
     typeof outputs.answer === "string"
@@ -145,8 +168,22 @@ export function parseWorkflowAssistantPayload(
 
   try {
     const parsed = JSON.parse(stripped) as WorkflowAssistantPayload & {
+      text?: unknown;
+      answer?: unknown;
       quickReplies?: unknown;
     };
+    if (
+      typeof parsed.text === "string" &&
+      !("characterTone" in parsed) &&
+      !("guardrailStatus" in parsed) &&
+      !("nextSessionMemory" in parsed)
+    ) {
+      return (
+        parseWorkflowAssistantPayload({ answer: parsed.text }) ??
+        (parsed.text.trim() ? { answer: parsed.text.trim() } : null)
+      );
+    }
+
     if (
       (typeof parsed.answer === "string" && parsed.answer.trim()) ||
       typeof parsed.characterTone === "string" ||
@@ -160,7 +197,11 @@ export function parseWorkflowAssistantPayload(
       };
     }
   } catch {
-    return null;
+    const isPlainAnswerOutput =
+      typeof outputs.answer === "string" ||
+      typeof outputs.reply === "string" ||
+      typeof outputs.result === "string";
+    return isPlainAnswerOutput ? { answer: stripped } : null;
   }
 
   return null;

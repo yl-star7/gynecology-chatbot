@@ -1,0 +1,33 @@
+node_modules
+.git
+.turbo
+.vercel
+.expo
+apps/**/.expo
+
+# build outputs
+.next
+apps/**/.next
+dist
+build
+out
+apps/mobile/ios/build
+apps/mobile/ios/build-*
+apps/mobile/ios/Pods
+apps/mobile/android
+apps/mobile/builds
+apps/mobile/dist
+
+# generated reports/artifacts
+coverage
+test-results
+apps/**/test-results
+playwright-report
+apps/**/playwright-report
+screenshots
+output
+
+# local/runtime state
+supabase/.temp
+supabase/migrations/drizzle
+*.log

@@ -348,7 +348,7 @@ let mockWorkflowRules: AdminWorkflowRule[] = [
     name: "모성간호 상담 응답",
     trigger: "내부 데이터만 답변",
     retrievalScope: "pregnancy-knowledge 내부 자료",
-    modelName: "gemini-2.5-flash-lite",
+    modelName: "gemini-3.1-flash-lite-preview",
     status: "active",
     blocks: [
       { id: "start", type: "start", config: {} },
@@ -358,7 +358,7 @@ let mockWorkflowRules: AdminWorkflowRule[] = [
         config: { collection: "pregnancy-knowledge", top_k: 8 },
       },
       { id: "prompt_template", type: "prompt_template", config: {} },
-      { id: "llm", type: "llm", config: { model: "gemini-2.5-flash-lite" } },
+      { id: "llm", type: "llm", config: { model: "gemini-3.1-flash-lite-preview" } },
       { id: "answer", type: "answer", config: { format: "json" } },
       { id: "end", type: "end", config: {} },
     ],
@@ -368,7 +368,7 @@ let mockWorkflowRules: AdminWorkflowRule[] = [
     name: "내부 데이터 응답",
     trigger: "일반 채팅",
     retrievalScope: "pregnancy-knowledge 내부 자료",
-    modelName: "gemini-2.5-flash-lite",
+    modelName: "gemini-3.1-flash-lite-preview",
     status: "active",
     blocks: [
       {
@@ -376,7 +376,7 @@ let mockWorkflowRules: AdminWorkflowRule[] = [
         type: "retriever",
         config: { collection: "pregnancy-knowledge", top_k: 8 },
       },
-      { id: "b2", type: "llm", config: { model: "gemini-2.5-flash-lite" } },
+      { id: "b2", type: "llm", config: { model: "gemini-3.1-flash-lite-preview" } },
     ],
   },
 ];
@@ -751,6 +751,25 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
 export class MockKnowledgeAdapter implements KnowledgePort {
   async listContentItems(section: "knowledge" | "notebook") {
     return contentItemMap[section] ?? [];
+  }
+
+  async listPregnancyWeeks() {
+    return [
+      {
+        weekNumber: 18,
+        title: "18주차",
+        babySizeLabel: "고구마만 해요",
+        babySummary: "아기가 소리를 들을 수 있어요.",
+        motherSummary: "배가 조금씩 더 도드라질 수 있어요.",
+      },
+      {
+        weekNumber: 20,
+        title: "20주차",
+        babySizeLabel: "바나나만 해요",
+        babySummary: "태동을 더 분명하게 느낄 수 있어요.",
+        motherSummary: "허리와 골반에 부담이 생길 수 있어요.",
+      },
+    ];
   }
 
   async getLinkTarget(

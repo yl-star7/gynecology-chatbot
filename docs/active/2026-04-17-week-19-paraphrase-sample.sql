@@ -1,0 +1,916 @@
+WITH inserted_run AS (
+  INSERT INTO public.content_paraphrase_runs (
+  model,
+  prompt_version,
+  scope,
+  target_week_number,
+  status,
+  input_token_count,
+  output_token_count,
+  total_token_count,
+  cost_usd,
+  completed_at
+) VALUES (
+  'gemini-2.5-flash-lite',
+  'weekly-encyclopedia-v1',
+  'week',
+  19,
+  'completed',
+  4671,
+  9224,
+  13895,
+  0.004157,
+  timezone('utc', now())
+) RETURNING id
+)
+INSERT INTO public.content_paraphrased_items (
+  source_table,
+  source_id,
+  source_week_number,
+  source_day_number,
+  source_code,
+  source_hash,
+  run_id,
+  content_scope,
+  category,
+  title,
+  summary,
+  body,
+  items,
+  status,
+  is_active,
+  model,
+  prompt_version
+) VALUES
+(
+    'content.pregnancy_week_data',
+    NULL,
+    19,
+    NULL,
+    'w19-overview',
+    '53a0fe3474d9a79bb69d388e213466cc9018d98000b60b500e636a15e645f723',
+    (SELECT id FROM inserted_run),
+    'week_summary',
+    'overview',
+    '19주차: 아기의 특별한 무늬와 엄마의 변화',
+    '아기의 지문과 발자국 무늬가 완성되고, 엄마의 배가 눈에 띄게 불러오는 시기예요. 아기의 오감 발달과 엄마의 몸 변화에 대해 알아볼까요?',
+    '아기의 지문과 발자국 무늬가 완성되고, 엄마의 배가 눈에 띄게 불러오는 시기예요. 아기의 오감 발달과 엄마의 몸 변화에 대해 알아볼까요?',
+    '[]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.pregnancy_week_data',
+    NULL,
+    19,
+    NULL,
+    'w19-baby_development',
+    'b71279f68dd8d828f978e0a283c34e427abe0ddd03574237661297162233b288',
+    (SELECT id FROM inserted_run),
+    'section',
+    'baby_development',
+    '아기 성장 이야기',
+    '아기의 키는 약 24~25cm, 몸무게는 약 270~300g으로 석류 한 알 정도의 크기가 되었어요. 손가락과 발가락에는 세상에 단 하나뿐인 지문과 발자국 무늬가 완성되었답니다. 뇌에서는 후각, 미각, 청각, 시각, 촉각을 담당하는 영역이 활발하게 연결되며 오감이 발달하고 있어요. 폐의 작은 기관지들이 뻗어나가고 갈색 지방이 형성되어 태어난 후 체온 유지와 에너지 조절에 도움을 줄 거예요. 피부는 얇고 투명하지만, 태지라는 보호막이 아기의 피부를 보호하고 수분을 지켜주며 해로운 박테리아로부터도 지켜줄 거예요. 아기는 활발하게 움직이며 근육과 신경을 단련하고, 귀 구조가 발달해 엄마 뱃속의 소리를 듣기 시작했어요. 자주 듣는 엄마, 아빠의 목소리를 기억할 수 있는 기반도 마련되고 있답니다.',
+    '아기의 키는 약 24~25cm, 몸무게는 약 270~300g으로 석류 한 알 정도의 크기가 되었어요.
+
+손가락과 발가락에는 세상에 단 하나뿐인 지문과 발자국 무늬가 완성되었어요. 일란성 쌍둥이도 서로 다른, 오직 자기만의 무늬랍니다.
+
+아기 뇌에서는 후각, 미각, 청각, 시각, 촉각을 담당하는 영역이 활발하게 연결되며 오감이 발달하고 있어요. 오감의 회로가 하나씩 켜지는 시기예요.
+
+아기는 양수 속에서 삼키고, 빨고, 움직이며 세상을 느끼는 연습을 하고 있어요. 자주 듣는 엄마, 아빠의 목소리를 뇌가 기억해 두기 시작해요.
+
+아기 폐의 작은 기관지들이 더 멀리 뻗어나가고, 말단에 작은 호흡 주머니들이 더 촘촘하게 자라며 아기의 폐가 산소를 받아들일 준비를 하고 있어요.
+
+갈색 지방이라는 것이 형성되기 시작해요. 이 지방은 태어난 뒤 몸을 따뜻하게 지키고 에너지와 혈당, 인슐린을 조절하는 데 중요한 역할을 할 거예요.
+
+아기의 피부는 아직 얇고 투명해서 혈관이 비쳐 붉게 보이지만, 그 위를 감싸는 태지라는 크림 같은 보호막이 완성되어가고 있어요. 이 태지는 아기의 피부를 보호하고 수분을 지켜주며, 해로운 박테리아로부터도 지켜주고 폐와 소화관이 발달하는 데도 도움을 준다고 알려져 있어요.
+
+아기는 자주 몸을 뒤집고, 발로 차고, 비틀면서 근육과 신경을 단련하고 있어요.
+
+아기의 귀 구조가 정교하게 발달해, 자궁 속에서 들리는 심장 박동, 혈류 소리, 장 운동 소리 등을 듣기 시작했어요.
+
+기억력을 담당하는 뇌가 발달해, 자주 듣는 엄마, 아빠의 목소리를 기억할 수 있는 단계라고 해요.
+
+이번 주 동안 아기는 후각, 미각, 청각, 시각, 촉각을 담당하는 뇌 영역이 뚜렷하게 발달하며, 오감을 위한 회로를 하나씩 켜 가고 있어요.
+
+자주 듣는 엄마, 아빠의 목소리를 기억할 수 있는 기반이 만들어지고, 손가락과 발가락에는 단 하나뿐인 지문과 발바닥 무늬가 자리 잡았어요.',
+    '[]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.pregnancy_week_data',
+    NULL,
+    19,
+    NULL,
+    'w19-mother_body',
+    '1ab034d34190099c43f0de857669995942c1ea0d16d853d95cb490aade857881',
+    (SELECT id FROM inserted_run),
+    'section',
+    'mother_body',
+    '엄마의 변화 이야기',
+    '자궁의 끝부분이 배꼽 근처까지 올라와 배가 더 둥글게 보이기 시작해요. 체형에 따라 배의 모양과 크기가 다를 수 있지만, 아기 성장과 체중 증가가 괜찮다면 모두 정상 범위랍니다. 자궁이 커지면서 골반의 인대가 늘어나 사타구니나 엉덩이 위쪽으로 찌릿한 통증을 느낄 수 있어요. 임신 중에는 더 많은 산소가 필요해 숨이 차거나 답답함을 느낄 수 있고, 혈압이 살짝 낮아져 어지러움을 느낄 수도 있어요. 임신 호르몬과 색소 변화로 기미나 유두, 겨드랑이 등이 어두워지거나 임신선이 뚜렷해질 수 있어요. 다리 경련, 부종, 코막힘, 코피 등도 흔하게 나타날 수 있는 변화예요.',
+    '자궁의 끝부분이 배꼽 근처까지 올라와 배가 더 ‘임산부 배’처럼 둥글게 보이기 시작해요.
+
+체형에 따라 어떤 사람은 배가 많이 나온 것 같고, 어떤 사람은 덜 나온 것처럼 보여서 걱정되기도 하지만, 의사가 아기 성장과 체중 증가를 괜찮다고 한다면 배 모양과 크기 차이는 전부 정상 범위예요.
+
+자궁이 자라며 골반과 연결된 인대가 늘어나면서, 사타구니에서 시작해 엉덩이 위쪽까지 찌릿한 둥근 인대 통증이 느껴질 수 있어요. 이 통증은 보통 짧고 금세 지나가며, 갑자기 움직이거나 자세를 바꿀 때 더 잘 느껴질 수 있어요.
+
+임신 중에는 평소보다 더 많은 산소가 필요해져, 계단을 조금만 올라가도 숨이 찬 느낌이 들 수 있어요.
+
+시간이 갈수록 커지는 자궁이 가슴을 누르며, 가만히 앉아있을 때도 답답하거나 숨이 짧게 느껴질 수 있어요.
+
+혈압이 예전보다 살짝 낮아질 수 있어 갑자기 일어날 때 어지럽거나 눈앞이 흐려지는 경험을 할 수도 있어요.
+
+임신 호르몬과 색소 변화 때문에, 윗입술, 뺨, 이마에 기미(‘산모의 가면’)가 생기거나 유두, 겨드랑이, 허벅지 안쪽 피부가 더 어두워질 수 있어요.
+
+배꼽에서 치골까지 이어지는 임신선이 점점 뚜렷해지고 있어요.
+
+얼굴, 어깨, 팔에는 작은 붉은 실핏줄 얼룩(거미 모반)이 보일 수 있는데, 대부분은 혈관, 호르몬 변화로 생기는 자연스러운 변화예요.
+
+임신 중기에는 다리 경련이 자주 생길 수 있는데, 체중 증가, 부종, 근육에 가해지는 부담과 관련된 것으로 여겨져요. 밤중이나 새벽에 종아리가 갑자기 ‘꽉’ 뭉치거나, 한동안 발을 딛기 힘들 정도로 당기는 느낌이 들 수 있어요.
+
+발목, 발, 손가락이 약간 붓는 것도 흔한 변화라, 오래 서 있거나 앉아 있으면 더 심해질 수 있어요.
+
+혈액량이 늘어나고 점막이 붓기 쉬워져, 코막힘이나 코피를 경험하는 임신부가 적지 않아요. 임산부의 약 5명 중 1명 정도가 코피를 경험한다고도 해요.
+
+코피가 날 때는 앉아서 몸을 살짝 앞으로 숙이고, 코 아래 부분을 10–15분간 꼬집어 압박한 뒤, 콧대에 찬 찜질을 해주는 방법이 권장돼요.
+
+피로와 수면 문제, 자주 깨는 밤이 이어지면서 “몸은 지치고, 머리는 예민한” 상태가 계속될 수 있어요.
+
+배는 더 임산부답게 둥글어졌고, 사람들 눈에도 ‘이제 임신한 게 보이는’ 시기가 되어가고 있어요. 하지만 배의 크기와 모양은 키, 몸통 길이, 근육, 이전 임신 경험에 따라 모두 다르게 나타나는 게 정상이에요.
+
+피로, 수면 문제, 둥근 인대 통증, 다리 경련, 코피, 피부 변화 등 여러 증상이 겹치면서 “몸도 마음도 바쁘고 지치는 시기”가 될 수 있어요.',
+    '[]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.pregnancy_week_data',
+    NULL,
+    19,
+    NULL,
+    'w19-life_guide',
+    'ce64a98f4e17c33abf2853a88112cb811ef94a33dd1d1918c3db86d6389fa68e',
+    (SELECT id FROM inserted_run),
+    'section',
+    'life_guide',
+    '생활 가이드',
+    '몸의 변화를 편안하게 받아들이고, 통증이 있을 때는 잠시 멈춰 숨을 고르며 배와 골반에 힘을 빼는 연습을 해보세요. 갑자기 일어나기보다 천천히 몸을 일으키는 습관을 들이고, 숨이 찰 때는 잠시 하던 일을 멈추고 쉬어가는 것이 좋아요. 피부 변화에 대해 긍정적인 마음을 갖고, 햇볕이 강한 시간대에는 외출을 피하는 것이 좋습니다. 충분한 수분 섭취와 함께 종아리와 발목 스트레칭으로 근육의 긴장을 풀어주고, 휴식 시에는 다리를 심장보다 높게 올려주세요. 아기에게 자주 목소리를 들려주고, 실내가 건조하지 않도록 물을 자주 마시는 것이 도움이 됩니다.',
+    '아기는 이제 세상 어디에도 없는 나만의 무늬가 생겼어요. 엄마 품에 안길 날을 기다리며 조용히 준비하고 있어요.
+
+아기는 이제 엄마 목소리가 점점 더 익숙해지고 있어요. 목소리를 자주 들려주세요. 나중에 태어났을 때, ‘아, 이 목소리 알아!’ 하고 미소 지을 수 있게요.
+
+아기는 아직 엄마처럼 폐로 숨을 쉬진 않지만 언젠가 엄마 품에서 처음 숨을 들이쉴 그날을 상상하고 있어요.
+
+아기 피부 위에 하얀 외투가 입혀지고 있어요. 엄마 품으로 나갈 때까지 아기를 따뜻하게 지켜줄 거예요.
+
+엄마가 느끼는 “금붕어가 살랑거리는 느낌”은 점점 더 뚜렷해져, 나중엔 분명한 발차기와 회전으로 느껴지게 될 거예요.
+
+아기는 물속에서 열심히 몸을 움직이고 있어요. 하루하루 더 힘있게 신호를 보내고 있어요.
+
+엄마의 목소리와 종종 들려주는 노래가 이제 익숙하게 느껴져요.',
+    '[]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.pregnancy_week_data',
+    NULL,
+    19,
+    NULL,
+    'w19-caution',
+    '7eaa5c3ccebc29c0927d8a8acebd722168dadd8788e7580c59d1050df8f31287',
+    (SELECT id FROM inserted_run),
+    'section',
+    'caution',
+    '주의사항',
+    '둥근 인대 통증이 휴식을 취해도 사라지지 않고 강한 경련성 통증이 계속되거나, 발열, 어지럼증, 상복부 압통이 동반된다면 의료진과 꼭 상의해야 해요. 어지러움 증상이 평소와 다르거나 갑자기 숨이 가쁘고 불규칙하게 심장이 뛰는 것 같다면 구체적인 증상과 지속 시간을 기록하여 의료진과 상담하는 것이 좋습니다.',
+    '자궁이 자라며 골반과 연결된 인대가 늘어나면서, 사타구니에서 시작해 엉덩이 위쪽까지 찌릿한 둥근 인대 통증이 느껴질 수 있어요. 이 통증은 보통 짧고 금세 지나가며, 갑자기 움직이거나 자세를 바꿀 때 더 잘 느껴질 수 있어요.
+
+하지만 휴식을 취해도 사라지지 않는 강한 경련성 통증이 계속되거나, 발열·어지럼증·상복부 압통이 함께 있다면 의료진과 꼭 상의해야 해요.
+
+혈압이 예전보다 살짝 낮아질 수 있어 갑자기 일어날 때 어지럽거나 눈앞이 흐려지는 경험을 할 수도 있어요.
+
+임신 중에는 평소보다 더 많은 산소가 필요해져, 계단을 조금만 올라가도 숨이 찬 느낌이 들 수 있어요.
+
+시간이 갈수록 커지는 자궁이 가슴을 누르며, 가만히 앉아있을 때도 답답하거나 숨이 짧게 느껴질 수 있어요.
+
+임신 호르몬과 색소 변화 때문에, 윗입술·뺨·이마에 기미(‘산모의 가면’)가 생기거나 유두·겨드랑이·허벅지 안쪽 피부가 더 어두워질 수 있어요.
+
+얼굴·어깨·팔에는 작은 붉은 실핏줄 얼룩(거미 모반)이 보일 수 있는데, 대부분은 혈관·호르몬 변화로 생기는 자연스러운 변화예요.
+
+임신 중기에는 다리 경련이 자주 생길 수 있는데, 체중 증가, 부종, 근육에 가해지는 부담과 관련된 것으로 여겨져요. 밤중이나 새벽에 종아리가 갑자기 ‘꽉’ 뭉치거나, 한동안 발을 딛기 힘들 정도로 당기는 느낌이 들 수 있어요.
+
+발목·발, 손가락이 약간 붓는 것도 흔한 변화라, 오래 서 있거나 앉아 있으면 더 심해질 수 있어요.
+
+혈액량이 늘어나고 점막이 붓기 쉬워져, 코막힘이나 코피를 경험하는 임신부가 적지 않아요. 임산부의 약 5명 중 1명 정도가 코피를 경험한다고도 해요.
+
+코피가 날 때는 앉아서 몸을 살짝 앞으로 숙이고, 코 아래 부분을 10–15분간 꼬집어 압박한 뒤, 콧대에 찬 찜질을 해주는 방법이 권장돼요.
+
+피로와 수면 문제, 자주 깨는 밤이 이어지면서 “몸은 지치고, 머리는 예민한” 상태가 계속될 수 있어요.
+
+배는 더 임산부답게 둥글어졌고, 사람들 눈에도 ‘이제 임신한 게 보이는’ 시기가 되어가고 있어요. 하지만 배의 크기와 모양은 키, 몸통 길이, 근육, 이전 임신 경험에 따라 모두 다르게 나타나는 게 정상이에요.
+
+피로, 수면 문제, 둥근 인대 통증, 다리 경련, 코피, 피부 변화 등 여러 증상이 겹치면서 “몸도 마음도 바쁘고 지치는 시기”가 될 수 있어요.',
+    '["휴식을 취해도 사라지지 않는 강한 경련성 통증이 계속되거나, 발열, 어지럼증, 상복부 압통이 함께 있다면 의료진과 꼭 상의하세요.","어지러움 증상이 평소와 다르다면(갑자기 숨이 가쁘거나 불규칙하게 심장이 뛰는 것 같다면) 구체적으로 때와 지속시간을 기록하여 의료진과 상담하세요."]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.pregnancy_week_data',
+    NULL,
+    19,
+    NULL,
+    'w19-faq',
+    'bc8f057e8e9838fac023a44b91eccdb73d03a7db5d7af6d4489e7278716bcf18',
+    (SELECT id FROM inserted_run),
+    'section',
+    'faq',
+    '궁금해요',
+    '배 모양과 크기 차이는 정상인가요? 네, 체형, 키, 몸통 길이, 근육, 이전 임신 경험 등에 따라 배의 모양과 크기가 다르게 나타나는 것은 모두 정상 범위예요. 다만, 아기 성장과 체중 증가가 괜찮은지 의사의 진료를 통해 확인하는 것이 중요해요.',
+    '자궁의 끝부분이 배꼽 근처까지 올라와 배가 더 ‘임산부 배’처럼 둥글게 보이기 시작해요.
+
+체형에 따라 어떤 사람은 배가 많이 나온 것 같고, 어떤 사람은 덜 나온 것처럼 보여서 걱정되기도 하지만, 의사가 아기 성장과 체중 증가를 괜찮다고 한다면 배 모양과 크기 차이는 전부 정상 범위예요.',
+    '[]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    1,
+    'w19-d1-cl-1',
+    '656e30c82d1a57a3a841e49bc6afa9da4b98863e3b863ae0aa808e09d30669a5',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '샤워 후 배를 부드럽게 닦으며 자궁의 위치를 느껴보세요. (지금은 배꼽 근처까지 올라왔지만, 임신 말기에는 명치까지 올라갈 거예요.)',
+    '[{"dayNumber":1,"sourceText":"샤워 후 수건으로 배를 톡톡 닦으며, 자궁이 어디까지 올라왔는지 손으로 천천히 느껴보기. (잘 느껴지지 않을 수 있지만 지금은 배꼽까지 올라온 자궁의 끝 부분이 임신 말기에는 명치까지 올라갈 거예요.)","paraphrasedText":"샤워 후 배를 부드럽게 닦으며 자궁의 위치를 느껴보세요. (지금은 배꼽 근처까지 올라왔지만, 임신 말기에는 명치까지 올라갈 거예요.)"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    1,
+    'w19-d1-cl-2',
+    '411893d3d7f9955550d4993ac72a7420f8aeac894bb5f94b76a180fb74bb1ce2',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '진료 때 들었던 안심되는 말을 떠올리며 마음을 다독여 보세요.',
+    '[{"dayNumber":1,"sourceText":"진료 때 들었던 말 중 안심되었던 따뜻한 말 한 가지를 떠올리며 다시 마음속으로 되새겨 보기.","paraphrasedText":"진료 때 들었던 안심되는 말을 떠올리며 마음을 다독여 보세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    1,
+    'w19-d1-cl-3',
+    'fe1074ae88a4c0a35d9bec698796a6c8c345c68f5cec32c1f0202455e3445f0d',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '몸을 편안하게 감싸주는 옷을 입고, 내 몸을 있는 그대로 받아들이는 연습을 해보세요.',
+    '[{"dayNumber":1,"sourceText":"체형을 숨기기보다 편하고 숨 쉬기 좋은 옷을 골라 입어보기. (내 몸을 있는 그대로 받아들이는 연습이기도 해요.)","paraphrasedText":"몸을 편안하게 감싸주는 옷을 입고, 내 몸을 있는 그대로 받아들이는 연습을 해보세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    2,
+    'w19-d2-cl-4',
+    '81e2f56abd0e53e7530588597ce1197e59ab49cb3dcfec5558c00f6982e53bb7',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '통증이 느껴질 때는 잠시 멈춰 숨을 고르고, 배와 골반의 긴장을 풀어주는 연습을 해보세요.',
+    '[{"dayNumber":2,"sourceText":"통증이 올 때는 그 자리에서 잠시 멈추고 숨을 고르며, 배와 골반에 힘을 빼는 연습을 해보세요.","paraphrasedText":"통증이 느껴질 때는 잠시 멈춰 숨을 고르고, 배와 골반의 긴장을 풀어주는 연습을 해보세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    2,
+    'w19-d2-cl-5',
+    '500391ed49cabe22ee604809a97a03327c06bf123bf3771d85ecf96d2da0081d',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '갑자기 일어나기보다, 일어나기 전에 다리를 쭉 뻗고 천천히 몸을 일으키는 습관을 들여보세요.',
+    '[{"dayNumber":2,"sourceText":"갑작스럽게 일어나는 것보다는, 일어나기 전에 다리를 한 번 쭉 뻗고 몸을 천천히 세우는 습관을 들여보세요.","paraphrasedText":"갑자기 일어나기보다, 일어나기 전에 다리를 쭉 뻗고 천천히 몸을 일으키는 습관을 들여보세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    2,
+    'w19-d2-cl-6',
+    'a65fa5dcd69774433845340e438b277330aa7bc3dc4c2fd442a758f6af97b4bb',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '오늘 아랫배가 당기거나 묵직했던 순간을 짧게 메모해두면, 다음 진료 시 의료진과 상담할 때 도움이 될 수 있어요.',
+    '[{"dayNumber":2,"sourceText":"오늘 저녁, 아랫배가 당기거나 묵직했던 순간을 짧게 메모해두면, 다음 진료 때 의료진과 이야기할 때 도움이 돼요.","paraphrasedText":"오늘 아랫배가 당기거나 묵직했던 순간을 짧게 메모해두면, 다음 진료 시 의료진과 상담할 때 도움이 될 수 있어요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    3,
+    'w19-d3-cl-7',
+    '9ed19d44e21342852fe7ffc5b00c53a9dd6e3a108b5ec874218a89fd07fb0e7b',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '숨이 찰 때는 ''조금만 더 버텨야지''라고 생각하기보다, 하던 일을 잠시 멈추고 편안한 자세로 깊게 숨을 쉬어보세요.',
+    '[{"dayNumber":3,"sourceText":"숨이 차다고 느껴질 땐, “조금만 더 버텨야지”보다 지금 하던 일을 잠시 멈추고 의자나 침대에 앉아 깊게 숨 들이마시고 내쉬기를 선택해보세요.","paraphrasedText":"숨이 찰 때는 ''조금만 더 버텨야지''라고 생각하기보다, 하던 일을 잠시 멈추고 편안한 자세로 깊게 숨을 쉬어보세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    3,
+    'w19-d3-cl-8',
+    'f7bee03e471108e81dd63d4ea88b0fcc973003867f34ec5949525d08933fbb5b',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '누워 있다가 일어날 때는 옆으로 돌아누운 후, 손으로 몸을 지지하며 천천히 일어나세요.',
+    '[{"dayNumber":3,"sourceText":"누워 있다가 일어날 때는 옆으로 몸을 돌린 뒤, 손으로 지지하며 천천히 몸을 세우는 동작을 연습해보세요.","paraphrasedText":"누워 있다가 일어날 때는 옆으로 돌아누운 후, 손으로 몸을 지지하며 천천히 일어나세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    3,
+    'w19-d3-cl-9',
+    '2ab1e95d7a0664db144e94681de14820d010d80cebf9899452dfc10493bdf7ad',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '어지러움 증상이 평소와 다르다면(갑자기 숨이 차거나 심장이 불규칙하게 뛴다면) 증상이 나타난 시간과 지속 시간을 기록해두세요.',
+    '[{"dayNumber":3,"sourceText":"어지러운 양상이 평소와 다르다면(갑자기 숨이 가쁘거나 불규칙하게 심장이 뛰는 것 같다면) 구체적으로 때와 지속시간을 기록하기","paraphrasedText":"어지러움 증상이 평소와 다르다면(갑자기 숨이 차거나 심장이 불규칙하게 뛴다면) 증상이 나타난 시간과 지속 시간을 기록해두세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    4,
+    'w19-d4-cl-10',
+    'a47f0777b69617acc6a0aa8c13a361bad04a06944efec90ecf58d266e7b0c4e4',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '거울 속 몸의 변화(선, 얼룩 등)에 집중하기보다, 그 안에 자라고 있는 아기를 떠올려 보세요.',
+    '[{"dayNumber":4,"sourceText":"거울을 볼 때, 몸 곳곳에 생긴 짙은 선과 얼룩에 집중하기 보단 이 모든 변화 아래 품고 있는 작은 생명을 생각하기.","paraphrasedText":"거울 속 몸의 변화(선, 얼룩 등)에 집중하기보다, 그 안에 자라고 있는 아기를 떠올려 보세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    4,
+    'w19-d4-cl-11',
+    '1e3fb368b21446ecb15ee628c0bf149f9c1df0398c850e7f819e796ca4d0965a',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '햇볕이 강한 시간대에는 장시간 외출을 피하고, 그늘이나 실내에서 자외선 노출을 최소화하세요.',
+    '[{"dayNumber":4,"sourceText":"햇볕이 강한 시간대의 장시간 외출은 피하고, 가능한 그늘과 실내를 다니려고 하며 자외선 노출을 피하기.","paraphrasedText":"햇볕이 강한 시간대에는 장시간 외출을 피하고, 그늘이나 실내에서 자외선 노출을 최소화하세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    4,
+    'w19-d4-cl-12',
+    '0340340d425427f480edbe8745e725d35220d5de39c94397f791d86291be1fc2',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '오늘 생긴 몸의 변화에 대한 생각과 감정을 일기나 메모에 솔직하게 적어보세요. (어떤 감정이든 괜찮아요.)',
+    '[{"dayNumber":4,"sourceText":"오늘 일기나 메모에 내 몸에 생기는 얼룩에 대한 생각과 감정을 솔직하게 담아보기, (어떤 것도 괜찮아요.)","paraphrasedText":"오늘 생긴 몸의 변화에 대한 생각과 감정을 일기나 메모에 솔직하게 적어보세요. (어떤 감정이든 괜찮아요.)"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    5,
+    'w19-d5-cl-13',
+    'd0752b6c68d90ff70b7f053b7b7be5fa4755ed55639888d309f17b3da965c89c',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '오늘 하루 물을 더 자주 마셔보세요. ''나와 아기 모두에게 수분을 채워준다''고 생각하며 마시면 좋아요.',
+    '[{"dayNumber":5,"sourceText":"오늘 하루 물을 의식적으로 더 자주 마셔보세요. 컵을 비울 때마다 “나와 아기 모두에게 물 한잔 더 준다”고 떠올려보기.","paraphrasedText":"오늘 하루 물을 더 자주 마셔보세요. ''나와 아기 모두에게 수분을 채워준다''고 생각하며 마시면 좋아요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    5,
+    'w19-d5-cl-14',
+    '8a9d41932b1e12e5833dfcf451bce3470c5f0d6cd49606feb32c8dd226c19329',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '잠들기 전, 침대 옆에서 종아리와 발목을 부드럽게 스트레칭하고 발가락을 움직여 근육의 긴장을 풀어주세요.',
+    '[{"dayNumber":5,"sourceText":"자기 전, 침대 옆에서 종아리와 발목을 부드럽게 스트레칭하고, 발가락을 까딱이며 근육이 긴장을 풀도록 도와주기.","paraphrasedText":"잠들기 전, 침대 옆에서 종아리와 발목을 부드럽게 스트레칭하고 발가락을 움직여 근육의 긴장을 풀어주세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    5,
+    'w19-d5-cl-15',
+    'dbf76cde718930549e8f6d1893400c2236da2e16a77e3aa175ae1d5f9cf3d31d',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '휴식할 때는 다리를 심장보다 약간 높게 올리고, ''오늘도 수고했어''라고 다리에게 말해주며 격려해주세요.',
+    '[{"dayNumber":5,"sourceText":"휴식할 수 있을 때는 다리를 심장보다 조금 높게 올려놓고, 내 다리가 오늘 견뎌준 무게를 떠올리며 “수고했어”라고 속으로 말해보기.","paraphrasedText":"휴식할 때는 다리를 심장보다 약간 높게 올리고, ''오늘도 수고했어''라고 다리에게 말해주며 격려해주세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    6,
+    'w19-d6-cl-16',
+    'c1b2da01c8b7178e15389270ff87bc1d80979bab2cf79a3f60a577888f345f76',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '오늘은 짧은 동화나 일기라도 아기에게 읽어주는 시간을 가져보세요. 엄마의 목소리가 아기에게 익숙한 소리로 쌓여갈 거예요.',
+    '[{"dayNumber":6,"sourceText":"오늘은 아주 짧은 동화 한 편이든, 하루를 정리한 일기 한 부분이든, 아기에게 읽어주는 시간을 가져보기 (목소리가 아기의 뇌에 “익숙한 소리”로 쌓이고 있어요.)","paraphrasedText":"오늘은 짧은 동화나 일기라도 아기에게 읽어주는 시간을 가져보세요. 엄마의 목소리가 아기에게 익숙한 소리로 쌓여갈 거예요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    6,
+    'w19-d6-cl-17',
+    'c457fbeb02e465ed079e2de89f1d3859e4669263a7c7eac935cfba381b0a4c28',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '실내가 건조하지 않도록 물 한 컵을 옆에 두고 조금씩 자주 마시며 점막이 마르지 않게 관리해주세요.',
+    '[{"dayNumber":6,"sourceText":"실내가 너무 건조하지 않도록 물 한 컵을 옆에 두고, 조금씩 자주 마시며 점막이 마르지 않게 하기","paraphrasedText":"실내가 건조하지 않도록 물 한 컵을 옆에 두고 조금씩 자주 마시며 점막이 마르지 않게 관리해주세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    6,
+    'w19-d6-cl-18',
+    'ecac30a8a07d5b16089e71ead38cdcdf2bab2ad422d65ffe5a6b111ef167b506',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '오늘은 평소보다 카페인 섭취를 줄여보는 것이 좋아요.',
+    '[{"dayNumber":6,"sourceText":"오늘 카페인은 평소보다 더 줄여보기","paraphrasedText":"오늘은 평소보다 카페인 섭취를 줄여보는 것이 좋아요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    7,
+    'w19-d7-cl-19',
+    '7a69bf54fa93f088f4aff27fe03234554f474dae1460d4666eb062a9aa75d6d4',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '오늘, 편안하고 기분 좋은 옷을 입고 꾸밈없는 배와 얼굴 모습을 사진으로 남겨보세요. 나중에 소중한 추억이 될 거예요.',
+    '[{"dayNumber":7,"sourceText":"오늘은 내 체형과 기분에 잘 맞는 옷을 골라 입고, 내 배와 얼굴이 꾸밈없이 드러나는 모습을 사진으로 한 장 남겨보세요. (나와 아기가 함께한 이 시기를 나중에 돌아볼 수 있을 거예요.)","paraphrasedText":"오늘, 편안하고 기분 좋은 옷을 입고 꾸밈없는 배와 얼굴 모습을 사진으로 남겨보세요. 나중에 소중한 추억이 될 거예요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    7,
+    'w19-d7-cl-20',
+    'a15b46157ba538d2b5b2e4b45b0fb9f5ed72aea4ecb0ed96eabd852379c9f40d',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '파트너나 믿을 수 있는 사람과 아기 출산 후 서로 도울 수 있는 부분(육아, 집안일, 정서적 지지 등)에 대해 이야기 나눠보세요.',
+    '[{"dayNumber":7,"sourceText":"파트너나 믿고 의지하는 사람과, 아기가 태어난 뒤 서로 도와줄 수 있는 부분들(돌봄, 집안일, 정서적 지지)에 대해 가볍게 대화를 나눠보기.","paraphrasedText":"파트너나 믿을 수 있는 사람과 아기 출산 후 서로 도울 수 있는 부분(육아, 집안일, 정서적 지지 등)에 대해 이야기 나눠보세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_checklists',
+    NULL,
+    19,
+    7,
+    'w19-d7-cl-21',
+    'a741e92ad463738d6d4f42b5d578b7f8e99e1a661c2d2ded15c183c781969e43',
+    (SELECT id FROM inserted_run),
+    'checklist',
+    'life_guide',
+    NULL,
+    NULL,
+    '오늘 하루를 마무리하며, ''이 많은 변화 속에서도 여기까지 잘 온 나''에게 짧은 편지나 메시지를 써보세요. 아기와 함께 다시 읽어도 좋을 엄마 자신의 마음을 담아보는 거예요.',
+    '[{"dayNumber":7,"sourceText":"오늘 하루의 끝에서, “이 많은 변화 속에서도 여기까지 잘 온 나”에게 짧은 편지나 메시지를 써보기. (언젠가 아기와 함께 다시 읽어도 좋을, 엄마 자신의 마음을 담아보는 거예요.)","paraphrasedText":"오늘 하루를 마무리하며, ''이 많은 변화 속에서도 여기까지 잘 온 나''에게 짧은 편지나 메시지를 써보세요. 아기와 함께 다시 읽어도 좋을 엄마 자신의 마음을 담아보는 거예요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    1,
+    'w19-d1-q-1',
+    '3701537a7a35a1f59715f221fa1afdb98440adfdd333470ea5b5a11fea5337bf',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '세상에 단 하나뿐인 지문처럼, 나만이 가진 ''나다운 점''은 무엇인가요?',
+    '[{"dayNumber":1,"sourceText":"“세상 어디에도 없는 지문처럼, 나만이 갖고 있는 ‘나다운 점’은 무엇인가요?”","paraphrasedText":"세상에 단 하나뿐인 지문처럼, 나만이 가진 ''나다운 점''은 무엇인가요?"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    1,
+    'w19-d1-q-2',
+    '5ef894810c1f5b4748a73215dbafbe7750aefd1f740bc5c7b5b80bad596ae11f',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '나다움이라는 고유한 가치가 왜 중요하다고 생각하시나요?',
+    '[{"dayNumber":1,"sourceText":"“나다움이라는 고유한 가치는 왜 중요한가요?”","paraphrasedText":"나다움이라는 고유한 가치가 왜 중요하다고 생각하시나요?"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    2,
+    'w19-d2-q-3',
+    '7c62a8a1cb06e8d948ccccf3323e9676486ab78a4873ada20efdcadec2103fa4',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '오늘 아기에게 들려주고 싶은 목소리는 어떤 목소리인가요?',
+    '[{"dayNumber":2,"sourceText":"“오늘 아기에게 들려주고 싶은 목소리는 어떤 목소리인가요?”","paraphrasedText":"오늘 아기에게 들려주고 싶은 목소리는 어떤 목소리인가요?"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    2,
+    'w19-d2-q-4',
+    '82008cf9d4d13ffb883d877f8e4f9e7c872df478d4c96cd84d2228d3e6f29550',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '아기에게 익숙한 목소리로 엄마의 따뜻한 마음을 어떻게 전하고 싶으신가요?',
+    '[{"dayNumber":2,"sourceText":"“아기에게 익숙한 목소리로 엄마의 따뜻한 마음을 전해주세요.”","paraphrasedText":"아기에게 익숙한 목소리로 엄마의 따뜻한 마음을 어떻게 전하고 싶으신가요?"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    3,
+    'w19-d3-q-5',
+    'b799385f6cfdc7a8b63f714187d4fc664c525e3ddf5b6326d008e6bb8be31db0',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '요즘 나를 숨차게 만드는 상황이 있나요? 그런 상황에서 내 몸의 신호를 잘 듣고 있나요?',
+    '[{"dayNumber":3,"sourceText":"“요즘 나를 가장 숨차게 만드는 상황(계단오르기, 단거리 달리기 등)이 있나요? 나는 그 상황에서도 내 몸의 신호를 잘 들어주고 있나요?”","paraphrasedText":"요즘 나를 숨차게 만드는 상황이 있나요? 그런 상황에서 내 몸의 신호를 잘 듣고 있나요?"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    3,
+    'w19-d3-q-6',
+    '0d669414f7739d1ca30d291439f52a507500e0adce1b468e8fc77989563301e8',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '버스 문 닫히기 직전에 뛰어갈 때처럼, 요즘 마음이 따라잡지 못하는 순간이 있었나요?',
+    '[{"dayNumber":3,"sourceText":"\"버스 문 닫히기 직전에 뛰어갈 때처럼, 요즘 마음이 따라잡지 못하는 순간이 있었나요?\"","paraphrasedText":"버스 문 닫히기 직전에 뛰어갈 때처럼, 요즘 마음이 따라잡지 못하는 순간이 있었나요?"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    4,
+    'w19-d4-q-7',
+    '8c3e0a115f37ea34153a2b642d1b8b43b6445df67716a560935eaf42aded503d',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '더 중요한 것을 얻기 위해 무언가를 내려놓았던 경험이 있나요? 당시 기억을 떠올려 보세요.',
+    '[{"dayNumber":4,"sourceText":"“살면서 더 중요한 것을 쥐기 위해 손에 쥔 것을 내려놓았던 경험이 있나요? 당시 기억에 대해 알려주세요.”","paraphrasedText":"더 중요한 것을 얻기 위해 무언가를 내려놓았던 경험이 있나요? 당시 기억을 떠올려 보세요."}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    4,
+    'w19-d4-q-8',
+    '090e6499bdfaac251d299a0ba751ae5a3d2b746003830f552f3e6d116b4b76c2',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '희생이라는 가치는 언제 아름다워질 수 있다고 생각하시나요?',
+    '[{"dayNumber":4,"sourceText":"“희생이라는 가치는 언제 아름다워질 수 있다고 생각하나요?”","paraphrasedText":"희생이라는 가치는 언제 아름다워질 수 있다고 생각하시나요?"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    5,
+    'w19-d5-q-9',
+    'e394e778cba6b339d5cade376961ffd355ad2871cd2d5e67a71aec847967f820',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '요즘 다리가 가장 힘들다고 느껴지는 순간은 언제인가요? 그때 나는 나에게 얼마나 따뜻하게 말해주고 있나요?',
+    '[{"dayNumber":5,"sourceText":"“요즘 내 다리가 가장 힘들어하는 순간은 언제인가요? 그때 나는 나에게 얼마나 따뜻하게 말해주고 있나요?","paraphrasedText":"요즘 다리가 가장 힘들다고 느껴지는 순간은 언제인가요? 그때 나는 나에게 얼마나 따뜻하게 말해주고 있나요?"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    5,
+    'w19-d5-q-10',
+    '24a7c4d969dacec1d27297c020b0dcc7597d59203eabc1190cae99b3bdfa1439',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '아기가 자라면서 내 몸이 버티고 있는 무게를 생각할 때, 나 자신에게 어떤 감사 인사를 해주고 싶나요?',
+    '[{"dayNumber":5,"sourceText":"“아기가 자라며 내 몸이 버티고 있는 무게를 생각할 때, 나는 나 자신에게 어떤 감사 인사를 해주고 싶나요?”","paraphrasedText":"아기가 자라면서 내 몸이 버티고 있는 무게를 생각할 때, 나 자신에게 어떤 감사 인사를 해주고 싶나요?"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    6,
+    'w19-d6-q-11',
+    'd9fc3af5cca8cd26560ec70c640578dd886954f6af7f10dbf4c7eaeeeb8e8912',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '아기가 가장 많이 듣게 되기를 바라는 내 목소리는 어떤 내용인가요? 피곤한 날이라도 더 많이 들려주고 싶은 말이 있나요?',
+    '[{"dayNumber":6,"sourceText":"“아기가 가장 많이 듣게 될 내 목소리는 어떤 내용이길 바라나요? 비록 피곤함이 많은 날일 지라도 조금 더 많이 들려주고 싶은말이 있진 않은가요?”","paraphrasedText":"아기가 가장 많이 듣게 되기를 바라는 내 목소리는 어떤 내용인가요? 피곤한 날이라도 더 많이 들려주고 싶은 말이 있나요?"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    6,
+    'w19-d6-q-12',
+    '408c6c80013abe85611e4c9abc1fe36e02b18508b9152784a4d5d1b6cbb7706a',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '오늘 하루, 아기에게 꼭 들려주고 싶은 소리는 무엇이었나요? (웃음소리, 빗소리, 음악 등) 그 이유는 무엇인가요?',
+    '[{"dayNumber":6,"sourceText":"“오늘 하루 중, 아기에게 꼭 들려주고 싶은 소리는 무엇이었나요? (웃음소리, 빗소리, 음악… 무엇이든) 그 이유는 무엇인가요?”","paraphrasedText":"오늘 하루, 아기에게 꼭 들려주고 싶은 소리는 무엇이었나요? (웃음소리, 빗소리, 음악 등) 그 이유는 무엇인가요?"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    7,
+    'w19-d7-q-13',
+    'eeb57e008ed5e90e23fc2cc83adb978856c046eff19ae49a6e0529397705d05d',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '이번 주, 내 몸과 마음에서 가장 크게 느껴졌던 변화는 무엇인가요?',
+    '[{"dayNumber":7,"sourceText":"“이번 주, 내 몸과 마음에서 가장 크게 느껴졌던 변화는 무엇이었나요?”","paraphrasedText":"이번 주, 내 몸과 마음에서 가장 크게 느껴졌던 변화는 무엇인가요?"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  ),
+(
+    'content.week_questions',
+    NULL,
+    19,
+    7,
+    'w19-d7-q-14',
+    '7ac3846444677ff90473b6ffef88e3b6692a9d23e7fe4be8f471cbf952c17a5d',
+    (SELECT id FROM inserted_run),
+    'question',
+    'reflection_question',
+    NULL,
+    NULL,
+    '이번 주, 내 변화를 ''두려움'' 대신 ''성장''으로 바라본다면, 어떤 문장으로 표현할 수 있을까요?',
+    '[{"dayNumber":7,"sourceText":"“이번 주, 내 변화를 ‘두려움’ 대신 ‘성장’으로 바라본다면, 어떤 문장으로 바꿔볼 수 있을까요?”","paraphrasedText":"이번 주, 내 변화를 ''두려움'' 대신 ''성장''으로 바라본다면, 어떤 문장으로 표현할 수 있을까요?"}]'::jsonb,
+    'needs_review',
+    false,
+    'gemini-2.5-flash-lite',
+    'weekly-encyclopedia-v1'
+  )
+ON CONFLICT DO NOTHING;
