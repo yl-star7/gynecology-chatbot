@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@gynecology-chatbot/db/prisma";
 import {
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 
 export async function POST(request: NextRequest) {
   try {
-    const client = getSupabaseAdminClient();
     const body = await request.json().catch(() => ({}));
     if (!body?.pushToken) {
       return NextResponse.json(
@@ -18,16 +17,13 @@ export async function POST(request: NextRequest) {
 
     const { userId } = await requireMobileSession(request);
 
-    const { error } = await client
-      .from("pregnancy_profiles")
-      .update({
+    await prisma.pregnancy_profiles.updateMany({
+      where: { user_id: userId },
+      data: {
         push_token: body.pushToken,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", userId);
-    if (error) {
-      throw error;
-    }
+        updated_at: new Date(),
+      },
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {

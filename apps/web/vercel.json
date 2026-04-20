@@ -25,15 +25,5 @@
                 }
             ]
         }
-    ],
-    "crons": [
-        {
-            "path": "/api/cron/daily-push",
-            "schedule": "0 0 * * *"
-        },
-        {
-            "path": "/api/cron/proactive-chat",
-            "schedule": "0 0 * * *"
-        }
     ]
 }
