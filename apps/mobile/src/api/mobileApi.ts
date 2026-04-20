@@ -12,6 +12,10 @@ import type {
   RecordDayView,
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
+import {
+  readNativeSessionToken,
+  readNativeUserId,
+} from "../core/nativeSessionStorage";
 
 export class SessionExpiredError extends Error {
   constructor(message: string) {
@@ -138,6 +142,22 @@ function buildMobileSessionHeaders() {
     : ({} as Record<string, string>);
 }
 
+async function ensureMobileSessionState() {
+  if (!currentMobileSessionToken) {
+    const nativeToken = await readNativeSessionToken();
+    if (nativeToken) {
+      currentMobileSessionToken = nativeToken;
+    }
+  }
+
+  if (!currentMobileUserId) {
+    const nativeUserId = await readNativeUserId();
+    if (nativeUserId) {
+      currentMobileUserId = nativeUserId;
+    }
+  }
+}
+
 export function readCurrentMobileSessionToken() {
   return currentMobileSessionToken;
 }
@@ -196,6 +216,7 @@ export function createMobileApiClient(
     },
 
     async fetchCurrentMobileSession() {
+      await ensureMobileSessionState();
       const response = await fetchImpl(
         `${getApiBaseUrl()}/api/mobile/auth/session`,
         {
@@ -398,6 +419,7 @@ export function createMobileApiClient(
     },
 
     async sendChatMessage(input) {
+      await ensureMobileSessionState();
       const sessionHeaders = buildMobileSessionHeaders();
       if (!sessionHeaders.Authorization) {
         throw new SessionExpiredError(

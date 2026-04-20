@@ -7,11 +7,19 @@ import type {
   RecordDayView,
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
+import * as nativeSessionStorage from "../core/nativeSessionStorage";
 import {
   createMobileApiClient,
   SessionExpiredError,
   RateLimitError,
+  storeCurrentMobileSessionToken,
+  storeCurrentMobileUserId,
 } from "./mobileApi.ts";
+
+test.beforeEach(() => {
+  storeCurrentMobileSessionToken(null);
+  storeCurrentMobileUserId(null);
+});
 
 const profilePayload: MobileProfileViewData = {
   userId: "user-1",
@@ -309,4 +317,55 @@ test("markTodayInfoViewed sends PATCH action to the mobile today endpoint", asyn
     action: "view_info",
   });
   assert.equal(response.ok, true);
+});
+
+test("sendChatMessage restores token and user id from native storage before sending", async () => {
+  const readTokenMock = test.mock.method(
+    nativeSessionStorage,
+    "readNativeSessionToken",
+    async () => "native-token",
+  );
+  const readUserIdMock = test.mock.method(
+    nativeSessionStorage,
+    "readNativeUserId",
+    async () => "native-user",
+  );
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  const client = createMobileApiClient({
+    getApiBaseUrl: () => "http://example.com",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, init });
+      return Response.json({
+        assistantMessage: {
+          id: "assistant-1",
+          role: "assistant",
+          createdAtLabel: "방금 전",
+          parts: [{ type: "text", id: "part-1", text: "안녕하세요" }],
+        },
+      });
+    },
+  });
+
+  const response = await client.sendChatMessage({
+    sessionId: "session-1",
+    text: "안녕",
+    imageDataUris: [],
+  });
+
+  assert.equal(calls[0]?.input, "http://example.com/api/mobile/chat");
+  assert.equal(
+    (calls[0]?.init?.headers as Record<string, string>).Authorization,
+    "Bearer native-token",
+  );
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    userId: "native-user",
+    sessionId: "session-1",
+    text: "안녕",
+    pregnancyWeek: undefined,
+    imageDataUris: [],
+  });
+  assert.equal(response.assistantMessage.role, "assistant");
+
+  readTokenMock.mock.restore();
+  readUserIdMock.mock.restore();
 });
