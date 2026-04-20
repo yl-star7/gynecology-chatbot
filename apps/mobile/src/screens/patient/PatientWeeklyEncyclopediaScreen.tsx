@@ -68,7 +68,10 @@ export function PatientWeeklyEncyclopediaScreen() {
   }, [fetchContent]);
 
   useEffect(() => {
-    if (Number.isInteger(selectedWeekFromParams) && selectedWeekFromParams > 0) {
+    if (
+      Number.isInteger(selectedWeekFromParams) &&
+      selectedWeekFromParams > 0
+    ) {
       setSelectedWeekNumber(selectedWeekFromParams);
       return;
     }
@@ -231,14 +234,12 @@ export function PatientWeeklyEncyclopediaScreen() {
             <Text style={styles.emptyTitle}>{model.emptyTitle}</Text>
             <Text style={styles.bodyText}>{model.emptyDescription}</Text>
           </Card>
-        )}
+        ) : null}
 
         {shouldShowWeekPicker ? (
           <Card>
             <Text style={styles.sectionTitle}>주차 선택</Text>
-            <Text style={styles.bodyText}>
-              보고 싶은 주차를 골라 주세요.
-            </Text>
+            <Text style={styles.bodyText}>보고 싶은 주차를 골라 주세요.</Text>
             <View style={styles.weekGrid}>
               {model.weekCells.map((cell) => (
                 <Pressable
