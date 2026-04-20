@@ -5,7 +5,7 @@
     "outputDirectory": ".next",
     "installCommand": "cd ../.. && pnpm install && mkdir -p apps/web/node_modules && ln -sfn ../../../node_modules/@next apps/web/node_modules/@next",
     "regions": [
-        "hnd1"
+        "sin1"
     ],
     "headers": [
         {
