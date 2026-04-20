@@ -670,3 +670,102 @@ model workflow_definitions {
 
   @@schema("public")
 }
+
+view pg_stat_statements_info {
+  dealloc     BigInt?
+  stats_reset DateTime? @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+view pg_stat_statements {
+  userid                 Int?     @db.Oid
+  dbid                   Int?     @db.Oid
+  toplevel               Boolean?
+  queryid                BigInt?
+  query                  String?
+  plans                  BigInt?
+  total_plan_time        Float?
+  min_plan_time          Float?
+  max_plan_time          Float?
+  mean_plan_time         Float?
+  stddev_plan_time       Float?
+  calls                  BigInt?
+  total_exec_time        Float?
+  min_exec_time          Float?
+  max_exec_time          Float?
+  mean_exec_time         Float?
+  stddev_exec_time       Float?
+  rows                   BigInt?
+  shared_blks_hit        BigInt?
+  shared_blks_read       BigInt?
+  shared_blks_dirtied    BigInt?
+  shared_blks_written    BigInt?
+  local_blks_hit         BigInt?
+  local_blks_read        BigInt?
+  local_blks_dirtied     BigInt?
+  local_blks_written     BigInt?
+  temp_blks_read         BigInt?
+  temp_blks_written      BigInt?
+  blk_read_time          Float?
+  blk_write_time         Float?
+  temp_blk_read_time     Float?
+  temp_blk_write_time    Float?
+  wal_records            BigInt?
+  wal_fpi                BigInt?
+  wal_bytes              Decimal? @db.Decimal
+  jit_functions          BigInt?
+  jit_generation_time    Float?
+  jit_inlining_count     BigInt?
+  jit_inlining_time      Float?
+  jit_optimization_count BigInt?
+  jit_optimization_time  Float?
+  jit_emission_count     BigInt?
+  jit_emission_time      Float?
+
+  @@schema("public")
+}
+
+view v_chat_session_activity_dates {
+  user_id         String?   @db.Uuid
+  session_id      String?   @db.Uuid
+  activity_date   DateTime? @db.Date
+  last_message_at DateTime? @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+view v_user_calendar_activity {
+  user_id    String?   @db.Uuid
+  date       DateTime? @db.Date
+  entry_type String?
+  summary    String?   @db.VarChar
+
+  @@schema("public")
+}
+
+view v_user_persona_profiles {
+  user_id          String?   @db.Uuid
+  persona_hint     String?
+  confidence       String?
+  evidence_summary String?
+  weighted_score   Decimal?  @db.Decimal(8, 2)
+  last_observed_at DateTime? @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+view v_weekly_encyclopedia {
+  week_number   Int?
+  day_number    Int?
+  source_code   String?   @db.VarChar(160)
+  content_scope String?   @db.VarChar(60)
+  category      String?   @db.VarChar(80)
+  title         String?
+  summary       String?
+  body          String?
+  items         Json?
+  updated_at    DateTime? @db.Timestamptz(6)
+
+  @@schema("public")
+}
