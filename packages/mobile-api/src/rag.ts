@@ -118,33 +118,38 @@ async function searchViaSchift(
   ]);
 
   const results = normalizeSchiftSearchResults(response);
+  const enabledResults = results.filter(
+    (result) => !isResultFromDisabledFile(result, disabledIds),
+  );
+  const weekFilteredResults = enabledResults.filter((result) =>
+    isWeekInRange(readPregnancyWeekFromMetadata(result.metadata), currentWeek),
+  );
+  const selectedResults =
+    weekFilteredResults.length > 0 ? weekFilteredResults : enabledResults;
 
-  return results
-    .filter((result) => !isResultFromDisabledFile(result, disabledIds))
-    .slice(0, matchCount)
-    .map((result) => ({
-      id: result.id,
-      title:
-        typeof result.metadata?.title === "string"
-          ? result.metadata.title
-          : result.id,
-      content:
-        typeof result.metadata?.content === "string"
-          ? result.metadata.content
-          : typeof result.metadata?.text === "string"
-            ? result.metadata.text
-            : "",
-      pregnancy_week:
-        typeof result.metadata?.pregnancy_week === "number"
-          ? result.metadata.pregnancy_week
-          : null,
-      category:
-        typeof result.metadata?.category === "string"
-          ? result.metadata.category
-          : "schift",
-      metadata: result.metadata ?? null,
-      similarity: result.score,
-    }));
+  return selectedResults.slice(0, matchCount).map((result) => ({
+    id: result.id,
+    title:
+      typeof result.metadata?.title === "string"
+        ? result.metadata.title
+        : result.id,
+    content:
+      typeof result.metadata?.content === "string"
+        ? result.metadata.content
+        : typeof result.metadata?.text === "string"
+          ? result.metadata.text
+          : "",
+    pregnancy_week:
+      typeof result.metadata?.pregnancy_week === "number"
+        ? result.metadata.pregnancy_week
+        : null,
+    category:
+      typeof result.metadata?.category === "string"
+        ? result.metadata.category
+        : "schift",
+    metadata: result.metadata ?? null,
+    similarity: result.score,
+  }));
 }
 
 function getEmbeddingApiKey() {
@@ -189,7 +194,7 @@ export async function retrievePregnancyContext(input: {
   const count = input.matchCount ?? 7;
 
   if (provider === "schift") {
-    return await searchViaSchift(input.query, count);
+    return await searchViaSchift(input.query, input.currentWeek, count);
   }
 
   if (provider === "supabase") {
@@ -200,7 +205,7 @@ export async function retrievePregnancyContext(input: {
   const schift = getSchiftClient();
   if (schift) {
     try {
-      return await searchViaSchift(input.query, count);
+      return await searchViaSchift(input.query, input.currentWeek, count);
     } catch (error) {
       console.warn(
         "Schift RAG failed in auto mode, falling back to Supabase:",
