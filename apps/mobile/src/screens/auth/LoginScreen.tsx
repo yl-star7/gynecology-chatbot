@@ -147,6 +147,35 @@ export function LoginScreen() {
             onPress={handleRequestCode}
           />
           <Button label="시작하기" onPress={handleLogin} />
+          {allowDevelopmentBypass ? (
+            <Button
+              label="개발자 자동 로그인 (01012345678)"
+              variant="secondary"
+              onPress={async () => {
+                setError(null);
+                setStatusMessage("테스트 계정으로 로그인하는 중이에요.");
+                setPhoneNumber("01012345678");
+                setVerificationCode("000000");
+                setHasRequestedCode(true);
+                try {
+                  const user = await signIn({
+                    phoneNumber: "01012345678",
+                    verificationCode: "000000",
+                  });
+                  router.replace(
+                    resolvePostLoginHref(user.hasCompletedOnboarding),
+                  );
+                } catch (nextError) {
+                  setStatusMessage(null);
+                  setError(
+                    nextError instanceof Error
+                      ? nextError.message
+                      : "자동 로그인에 실패했어요.",
+                  );
+                }
+              }}
+            />
+          ) : null}
         </View>
       </Card>
     </KeyboardScreen>

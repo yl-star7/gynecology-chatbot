@@ -29,7 +29,7 @@ test("getDevelopmentAutoVerifiedLogin returns the local dev credentials", () => 
   });
 });
 
-test("shouldAllowDevelopmentLoginBypass only allows local api hosts in development", () => {
+test("shouldAllowDevelopmentLoginBypass is enabled in any development build", () => {
   assert.equal(
     shouldAllowDevelopmentLoginBypass(true, "http://localhost:3005"),
     true,
@@ -43,7 +43,7 @@ test("shouldAllowDevelopmentLoginBypass only allows local api hosts in developme
       true,
       "https://gynecology-chatbot.vercel.app",
     ),
-    false,
+    true,
   );
   assert.equal(
     shouldAllowDevelopmentLoginBypass(false, "http://localhost:3005"),

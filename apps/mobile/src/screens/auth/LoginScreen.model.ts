@@ -20,21 +20,10 @@ export function getDevelopmentAutoVerifiedLogin() {
 
 export function shouldAllowDevelopmentLoginBypass(
   isDevelopment: boolean,
-  apiBaseUrl?: string,
+  // kept for signature compatibility; bypass is now allowed in any dev build
+  _apiBaseUrl?: string,
 ) {
-  if (!isDevelopment) {
-    return false;
-  }
-
-  if (!apiBaseUrl) {
-    return true;
-  }
-
-  try {
-    return LOCAL_API_HOSTS.has(new URL(apiBaseUrl).hostname);
-  } catch {
-    return apiBaseUrl.includes("localhost");
-  }
+  return isDevelopment;
 }
 
 export function buildInitialLoginFormState(allowDevelopmentBypass: boolean) {
