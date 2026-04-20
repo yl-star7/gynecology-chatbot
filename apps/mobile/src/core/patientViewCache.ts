@@ -32,6 +32,7 @@ type PersistedPatientViewCache = {
   home: CacheEntry<HomeViewData> | null;
   today: CacheEntry<TodayViewData> | null;
   recentChats: CacheEntry<RecentChatSummary[]> | null;
+  pregnancyWeeks: CacheEntry<MobilePregnancyWeekSummary[]> | null;
   recordDays: Array<[string, CacheEntry<RecordDayView>]>;
 };
 
@@ -40,6 +41,10 @@ const homeCache = new Map<string, CacheEntry<HomeViewData>>();
 const todayCache = new Map<string, CacheEntry<TodayViewData>>();
 const recordDayCache = new Map<string, CacheEntry<RecordDayView>>();
 const recentChatsCache = new Map<string, CacheEntry<RecentChatSummary[]>>();
+const pregnancyWeeksCache = new Map<
+  string,
+  CacheEntry<MobilePregnancyWeekSummary[]>
+>();
 const chatSessionCache = new Map<string, CacheEntry<ChatSession>>();
 
 let persistedPatientViewCacheQueue: Promise<void> = Promise.resolve();
