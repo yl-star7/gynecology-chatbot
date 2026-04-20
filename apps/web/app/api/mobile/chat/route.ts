@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
           currentWeek: input.currentWeek,
           generate: async () =>
             generateText({
-              model: google("gemini-3.1-flash-lite-preview"),
+              model: google("gemini-2.5-flash-lite"),
               tools: ragTools,
               stopWhen: stepCountIs(3),
               system: [
@@ -362,7 +362,7 @@ export async function POST(request: NextRequest) {
                 ? `설명: ${description.trim()}`
                 : "";
               const { text: rawText } = await generateText({
-                model: google("gemini-3.1-flash-lite-preview"),
+                model: google("gemini-2.5-flash-lite"),
                 system: [
                   "당신은 임산부 상담 앱의 체크리스트 응답 버튼 라벨을 만드는 도우미입니다.",
                   "체크리스트 항목 하나가 주어지면 산모가 탭으로 바로 답할 수 있는 3개의 짧은 선택지를 JSON 배열로만 출력하세요.",

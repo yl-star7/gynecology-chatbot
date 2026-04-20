@@ -399,12 +399,12 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
             is_active: false,
             config: {
               trigger: "내부 데이터만 답변",
-              modelName: "gemini-3.1-flash-lite-preview",
+              modelName: "gemini-2.5-flash-lite",
             },
             metadata: {
               trigger: "내부 데이터만 답변",
               retrievalScope: "pregnancy-knowledge 내부 자료",
-              modelName: "gemini-3.1-flash-lite-preview",
+              modelName: "gemini-2.5-flash-lite",
             },
             updated_at: "2026-04-07T00:00:00.000Z",
           },
@@ -421,7 +421,7 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
         id: "schift-wf-2",
         name: "모성간호 상담 응답",
         description:
-          '<!-- si-admin-workflow:{"trigger":"내부 데이터만 답변","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-3.1-flash-lite-preview"}-->\n기본 설명',
+          '<!-- si-admin-workflow:{"trigger":"내부 데이터만 답변","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-2.5-flash-lite"}-->\n기본 설명',
         status: "active",
         graph: { blocks: [], edges: [] },
         created_at: "2026-03-23T10:00:00.000Z",
@@ -437,7 +437,7 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
       id: "schift-wf-2",
       name: "모성간호 상담 응답",
       trigger: "내부 데이터만 답변",
-      modelName: "gemini-3.1-flash-lite-preview",
+      modelName: "gemini-2.5-flash-lite",
     });
   });
 
@@ -453,13 +453,13 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
             status: "published",
             is_active: true,
             config: {
-              modelName: "gemini-3.1-flash-lite-preview",
+              modelName: "gemini-2.5-flash-lite",
               retrievalScope: "현재 주차 ±1주 + 공통 문서",
             },
             metadata: {
               trigger: "일반 채팅",
               retrievalScope: "현재 주차 ±1주 + 공통 문서",
-              modelName: "gemini-3.1-flash-lite-preview",
+              modelName: "gemini-2.5-flash-lite",
             },
             updated_at: "2026-04-07T00:00:00.000Z",
           },
@@ -472,12 +472,12 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
             is_active: true,
             config: {
               trigger: "내부 데이터만 답변",
-              modelName: "gemini-3.1-flash-lite-preview",
+              modelName: "gemini-2.5-flash-lite",
             },
             metadata: {
               trigger: "내부 데이터만 답변",
               retrievalScope: "pregnancy-knowledge 내부 자료",
-              modelName: "gemini-3.1-flash-lite-preview",
+              modelName: "gemini-2.5-flash-lite",
             },
             updated_at: "2026-04-07T00:00:00.000Z",
           },
@@ -494,7 +494,7 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
         id: "schift-wf-2",
         name: "모성간호 상담 응답",
         description:
-          '<!-- si-admin-workflow:{"trigger":"내부 데이터만 답변","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-3.1-flash-lite-preview"}-->\n기본 설명',
+          '<!-- si-admin-workflow:{"trigger":"내부 데이터만 답변","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-2.5-flash-lite"}-->\n기본 설명',
         status: "active",
         graph: { blocks: [{ id: "start" }], edges: [] },
         created_at: "2026-03-23T10:00:00.000Z",
@@ -504,7 +504,7 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
         id: "schift-wf-3",
         name: "내부 데이터 응답",
         description:
-          '<!-- si-admin-workflow:{"trigger":"일반 채팅","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-3.1-flash-lite-preview"}-->\n기본 설명',
+          '<!-- si-admin-workflow:{"trigger":"일반 채팅","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-2.5-flash-lite"}-->\n기본 설명',
         status: "active",
         graph: { blocks: [{ id: "start" }], edges: [] },
         created_at: "2026-03-23T10:00:00.000Z",

@@ -31,7 +31,7 @@ describe("resolveSchiftWorkflowId", () => {
         name: "모성간호 상담 응답",
         status: "published",
         description:
-          '<!-- si-admin-workflow:{"trigger":"내부 데이터만 답변","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-3.1-flash-lite-preview"}-->\n기본 설명',
+          '<!-- si-admin-workflow:{"trigger":"내부 데이터만 답변","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-2.5-flash-lite"}-->\n기본 설명',
         graph: { blocks: [{ id: "start" }], edges: [] },
       },
       {
@@ -39,7 +39,7 @@ describe("resolveSchiftWorkflowId", () => {
         name: "모성간호 상담 응답",
         status: "archived",
         description:
-          '<!-- si-admin-workflow:{"trigger":"내부 데이터만 답변","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-3.1-flash-lite-preview"}-->\n기본 설명',
+          '<!-- si-admin-workflow:{"trigger":"내부 데이터만 답변","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-2.5-flash-lite"}-->\n기본 설명',
         graph: { blocks: [{ id: "start" }], edges: [] },
       },
     ] as never);

@@ -9,7 +9,7 @@ description: >
 admin_metadata:
   trigger: 내부 데이터만 답변
   retrieval_scope: pregnancy-knowledge 내부 자료
-  model_name: gemini-3.1-flash-lite-preview
+  model_name: gemini-2.5-flash-lite
 
 # ─────────────────────────────────────
 # 프롬프트 (관리자 수정 대상)
@@ -314,7 +314,7 @@ blocks:
     type: ai_router
     title: 가드레일 분류
     config:
-      model: gemini-3.1-flash-lite-preview
+      model: gemini-2.5-flash-lite
       routes:
         - name: safe
           description: >
@@ -356,7 +356,7 @@ blocks:
     type: llm
     title: LLM 응답 생성
     config:
-      model: gemini-3.1-flash-lite-preview
+      model: gemini-2.5-flash-lite
       temperature: 0.1
       max_tokens: 1024
 

@@ -41,7 +41,7 @@ describe("AdminPoliciesSection", () => {
             name: "내부 응답",
             trigger: "복통",
             retrievalScope: "내부 문서",
-            modelName: "gemini-3.1-flash-lite-preview",
+            modelName: "gemini-2.5-flash-lite",
             status: "active",
           },
         ]}
@@ -50,7 +50,7 @@ describe("AdminPoliciesSection", () => {
         workflowName="내부 응답"
         workflowTrigger="복통"
         workflowRetrievalScope="내부 문서"
-        workflowModelName="gemini-3.1-flash-lite-preview"
+        workflowModelName="gemini-2.5-flash-lite"
         workflowStatus="active"
         isWorkflowSaving={false}
         isWorkflowBootstrapping={false}

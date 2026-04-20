@@ -77,7 +77,7 @@ const dashboard: AdminDashboardData = {
       name: "응급 증상 우선 라우팅",
       trigger: "복통, 출혈, 시야 흐림",
       retrievalScope: "응급 문서 우선",
-      modelName: "gemini-3.1-flash-lite-preview",
+      modelName: "gemini-2.5-flash-lite",
       status: "active",
     },
   ],
