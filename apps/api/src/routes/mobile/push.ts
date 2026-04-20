@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { supabaseUpdate } from "@gynecology-chatbot/mobile-api/supabase/admin-client";
+import { prisma } from "@gynecology-chatbot/db/prisma";
 import { requireMobileSession } from "../../lib/session-auth.js";
 
 const app = new Hono();
@@ -16,9 +16,12 @@ app.post("/register", async (c) => {
 
     const { userId } = await requireMobileSession(c, "");
 
-    await supabaseUpdate(`pregnancy_profiles?user_id=eq.${userId}`, {
-      push_token: pushToken,
-      updated_at: new Date().toISOString(),
+    await prisma.pregnancy_profiles.updateMany({
+      where: { user_id: userId },
+      data: {
+        push_token: pushToken,
+        updated_at: new Date(),
+      },
     });
 
     return c.json({ ok: true });

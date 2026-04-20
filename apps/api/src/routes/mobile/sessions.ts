@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { supabaseSelect } from "@gynecology-chatbot/mobile-api/supabase/admin-client";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import {
   resolveRecentChatPreview,
   toChatSession,
@@ -29,22 +29,44 @@ type MessagePreviewRow = {
   }> | null;
 };
 
+function toIsoString(value: Date | null | undefined) {
+  return value?.toISOString() ?? null;
+}
+
+function asMessageParts(value: Prisma.JsonValue): MessagePreviewRow["parts"] {
+  return Array.isArray(value) ? (value as MessagePreviewRow["parts"]) : null;
+}
+
 // GET /api/mobile/sessions
 app.get("/", async (c) => {
   try {
     const hintedUserId = c.req.query("userId") ?? null;
     const { userId } = await requireMobileSession(c, hintedUserId);
 
-    const sessions = await supabaseSelect<SessionRow[]>(
-      `chat_sessions?select=id,title,last_message_at&user_id=eq.${userId}&order=last_message_at.desc.nullslast`,
-    );
+    const sessions = await prisma.chat_sessions.findMany({
+      where: { user_id: userId },
+      orderBy: [{ last_message_at: "desc" }],
+      select: {
+        id: true,
+        title: true,
+        last_message_at: true,
+      },
+    });
 
     const sessionIds = sessions.map((session) => session.id);
     const latestMessages =
       sessionIds.length > 0
-        ? await supabaseSelect<MessagePreviewRow[]>(
-            `chat_messages?select=session_id,plain_text,parts&session_id=in.(${sessionIds.join(",")})&order=created_at.desc`,
-          )
+        ? await prisma.chat_messages.findMany({
+            where: {
+              session_id: { in: sessionIds },
+            },
+            orderBy: [{ created_at: "desc" }],
+            select: {
+              session_id: true,
+              plain_text: true,
+              parts: true,
+            },
+          })
         : [];
 
     const previewBySessionId = new Map<string, string>();
@@ -55,7 +77,7 @@ app.get("/", async (c) => {
 
       const preview = resolveRecentChatPreview({
         plainText: message.plain_text,
-        parts: message.parts,
+        parts: asMessageParts(message.parts),
       });
       if (preview) {
         previewBySessionId.set(message.session_id, preview);
@@ -66,6 +88,7 @@ app.get("/", async (c) => {
       sessions: toRecentChats(
         sessions.map((session) => ({
           ...session,
+          last_message_at: toIsoString(session.last_message_at),
           last_message_preview: previewBySessionId.get(session.id) ?? null,
         })),
       ),
@@ -83,30 +106,49 @@ app.get("/:sessionId", async (c) => {
     const sessionId = c.req.param("sessionId");
     const { userId } = await requireMobileSession(c, hintedUserId);
 
-    const [sessions, messages] = await Promise.all([
-      supabaseSelect<
-        Array<{ id: string; title: string; last_message_at: string | null }>
-      >(
-        `chat_sessions?select=id,title,last_message_at&id=eq.${sessionId}&user_id=eq.${userId}&limit=1`,
-      ),
-      supabaseSelect<
-        Array<{
-          id: string;
-          role: "user" | "assistant" | "system";
-          parts: never[];
-          created_at: string;
-        }>
-      >(
-        `chat_messages?select=id,role,parts,created_at&session_id=eq.${sessionId}&order=created_at.asc`,
-      ),
+    const [session, messages] = await Promise.all([
+      prisma.chat_sessions.findFirst({
+        where: {
+          id: sessionId,
+          user_id: userId,
+        },
+        select: {
+          id: true,
+          title: true,
+          last_message_at: true,
+        },
+      }),
+      prisma.chat_messages.findMany({
+        where: {
+          session_id: sessionId,
+        },
+        orderBy: [{ created_at: "asc" }],
+        select: {
+          id: true,
+          role: true,
+          parts: true,
+          created_at: true,
+        },
+      }),
     ]);
 
-    if (!sessions[0]) {
+    if (!session) {
       return c.json({ error: "session not found" }, 404);
     }
 
     return noStoreJson(c, {
-      session: toChatSession(sessions[0], messages),
+      session: toChatSession(
+        {
+          ...session,
+          last_message_at: toIsoString(session.last_message_at),
+        },
+        messages.map((message) => ({
+          id: message.id,
+          role: message.role as "user" | "assistant" | "system",
+          parts: (Array.isArray(message.parts) ? message.parts : []) as never[],
+          created_at: message.created_at.toISOString(),
+        })),
+      ),
     });
   } catch (error) {
     console.error("mobile session detail route error", error);
