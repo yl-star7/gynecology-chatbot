@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import {
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
 
 type ParaphraseRow = {
   id: string;
@@ -56,15 +53,17 @@ function encodeFilter(value: string | number) {
   return encodeURIComponent(String(value));
 }
 
-function buildPeerFilterPath(item: Pick<
-  ParaphraseRow,
-  | "source_table"
-  | "source_week_number"
-  | "source_day_number"
-  | "source_code"
-  | "content_scope"
-  | "category"
->) {
+function buildPeerFilterPath(
+  item: Pick<
+    ParaphraseRow,
+    | "source_table"
+    | "source_week_number"
+    | "source_day_number"
+    | "source_code"
+    | "content_scope"
+    | "category"
+  >,
+) {
   const params = new URLSearchParams({
     source_table: `eq.${item.source_table}`,
     source_week_number: `eq.${item.source_week_number}`,
@@ -97,19 +96,48 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const weekNumber = parseWeekNumber(url.searchParams.get("weekNumber"));
     if (!weekNumber) {
-      return NextResponse.json({ error: "invalid weekNumber" }, { status: 400 });
+      return NextResponse.json(
+        { error: "invalid weekNumber" },
+        { status: 400 },
+      );
     }
 
-    const rows = await supabaseSelect<ParaphraseRow[]>(
-      [
-        "content_paraphrased_items?select=id,source_week_number,source_day_number,source_code,source_table,source_id,content_scope,category,title,summary,body,items,status,is_active,updated_at",
-        `source_week_number=eq.${weekNumber}`,
-        "order=content_scope.asc,category.asc,source_day_number.asc.nullslast,source_code.asc",
-      ].join("&"),
-    );
+    const rows = await prisma.content_paraphrased_items.findMany({
+      where: { source_week_number: weekNumber },
+      orderBy: [
+        { content_scope: "asc" },
+        { category: "asc" },
+        { source_day_number: "asc" },
+        { source_code: "asc" },
+      ],
+      select: {
+        id: true,
+        source_week_number: true,
+        source_day_number: true,
+        source_code: true,
+        source_table: true,
+        source_id: true,
+        content_scope: true,
+        category: true,
+        title: true,
+        summary: true,
+        body: true,
+        items: true,
+        status: true,
+        is_active: true,
+        updated_at: true,
+      },
+    });
 
     return NextResponse.json({
-      paraphrases: rows.map(mapParaphrase),
+      paraphrases: rows.map((row) =>
+        mapParaphrase({
+          ...row,
+          items: Array.isArray(row.items) ? row.items : [],
+          updated_at: row.updated_at.toISOString(),
+          status: row.status as ParaphraseRow["status"],
+        }),
+      ),
     });
   } catch (error) {
     console.error("admin content paraphrases get route error", error);
@@ -141,10 +169,34 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "invalid payload" }, { status: 400 });
     }
 
-    const currentRows = await supabaseSelect<ParaphraseRow[]>(
-      `content_paraphrased_items?select=id,source_week_number,source_day_number,source_code,source_table,source_id,content_scope,category,title,summary,body,items,status,is_active,updated_at&id=eq.${encodeFilter(itemId)}&limit=1`,
-    );
-    const current = currentRows[0];
+    const currentRecord = await prisma.content_paraphrased_items.findUnique({
+      where: { id: itemId },
+      select: {
+        id: true,
+        source_week_number: true,
+        source_day_number: true,
+        source_code: true,
+        source_table: true,
+        source_id: true,
+        content_scope: true,
+        category: true,
+        title: true,
+        summary: true,
+        body: true,
+        items: true,
+        status: true,
+        is_active: true,
+        updated_at: true,
+      },
+    });
+    const current = currentRecord
+      ? ({
+          ...currentRecord,
+          items: Array.isArray(currentRecord.items) ? currentRecord.items : [],
+          updated_at: currentRecord.updated_at.toISOString(),
+          status: currentRecord.status as ParaphraseRow["status"],
+        } satisfies ParaphraseRow)
+      : null;
     if (!current) {
       return NextResponse.json(
         { error: "paraphrase not found" },
@@ -152,21 +204,53 @@ export async function PATCH(request: Request) {
       );
     }
 
-    await supabaseUpdate(buildPeerFilterPath(current), { is_active: false });
+    await prisma.content_paraphrased_items.updateMany({
+      where: {
+        source_table: current.source_table,
+        source_week_number: current.source_week_number,
+        source_day_number: current.source_day_number,
+        source_code: current.source_code,
+        content_scope: current.content_scope,
+        category: current.category,
+      },
+      data: { is_active: false },
+    });
 
-    const updatedRows = await supabaseUpdate<ParaphraseRow[]>(
-      `content_paraphrased_items?id=eq.${encodeFilter(itemId)}`,
-      {
+    const updated = await prisma.content_paraphrased_items.update({
+      where: { id: itemId },
+      data: {
         status: "ready",
         is_active: true,
         reviewed_by: admin.id,
-        reviewed_at: new Date().toISOString(),
+        reviewed_at: new Date(),
         ...(reviewNote ? { review_note: reviewNote } : {}),
       },
-    );
+      select: {
+        id: true,
+        source_week_number: true,
+        source_day_number: true,
+        source_code: true,
+        source_table: true,
+        source_id: true,
+        content_scope: true,
+        category: true,
+        title: true,
+        summary: true,
+        body: true,
+        items: true,
+        status: true,
+        is_active: true,
+        updated_at: true,
+      },
+    });
 
     return NextResponse.json({
-      paraphrase: mapParaphrase(updatedRows[0] ?? current),
+      paraphrase: mapParaphrase({
+        ...updated,
+        items: Array.isArray(updated.items) ? updated.items : [],
+        updated_at: updated.updated_at.toISOString(),
+        status: updated.status as ParaphraseRow["status"],
+      }),
     });
   } catch (error) {
     console.error("admin content paraphrases patch route error", error);

@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { deleteStorageObject } from "@/lib/admin/gcs-storage";
-import {
-  supabaseDelete,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+import { prisma } from "@gynecology-chatbot/db/prisma";
 
 const RAG_FILES_BUCKET = "rag-files";
 
@@ -38,10 +34,23 @@ export async function DELETE(
 
     const { fileId } = await params;
 
-    const rows = await supabaseSelect<RagFileRow[]>(
-      `content_rag_files?select=id,filename,storage_path,schift_bucket,file_size,mime_type,status,enabled,error_message,uploaded_by,created_at,updated_at&id=eq.${fileId}`,
-    );
-    const file = rows[0];
+    const file = await prisma.content_rag_files.findUnique({
+      where: { id: fileId },
+      select: {
+        id: true,
+        filename: true,
+        storage_path: true,
+        schift_bucket: true,
+        file_size: true,
+        mime_type: true,
+        status: true,
+        enabled: true,
+        error_message: true,
+        uploaded_by: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
     if (!file) {
       return NextResponse.json(
         { error: "파일을 찾을 수 없습니다." },
@@ -60,7 +69,7 @@ export async function DELETE(
     }
 
     // DB 메타데이터 삭제
-    await supabaseDelete(`content_rag_files?id=eq.${fileId}`);
+    await prisma.content_rag_files.delete({ where: { id: fileId } });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -96,9 +105,12 @@ export async function PATCH(
       );
     }
 
-    await supabaseUpdate(`content_rag_files?id=eq.${fileId}`, {
-      enabled: body.enabled,
-      updated_at: new Date().toISOString(),
+    await prisma.content_rag_files.update({
+      where: { id: fileId },
+      data: {
+        enabled: body.enabled,
+        updated_at: new Date(),
+      },
     });
 
     return NextResponse.json({ ok: true });

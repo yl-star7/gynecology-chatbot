@@ -5,11 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { uploadBufferToStorage } from "@/lib/admin/gcs-storage";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
-import {
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+import { prisma } from "@gynecology-chatbot/db/prisma";
 
 const RAG_FILES_BUCKET = "rag-files";
 const SCHIFT_BUCKET = "pregnancy-knowledge";
@@ -44,11 +40,31 @@ export async function GET() {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const rows = await supabaseSelect<RagFileRow[]>(
-      "content_rag_files?select=id,filename,storage_path,schift_bucket,file_size,mime_type,status,enabled,error_message,uploaded_by,created_at,updated_at&order=created_at.desc",
-    );
+    const rows = await prisma.content_rag_files.findMany({
+      orderBy: { created_at: "desc" },
+      select: {
+        id: true,
+        filename: true,
+        storage_path: true,
+        schift_bucket: true,
+        file_size: true,
+        mime_type: true,
+        status: true,
+        enabled: true,
+        error_message: true,
+        uploaded_by: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
 
-    return NextResponse.json({ files: rows });
+    return NextResponse.json({
+      files: rows.map((row) => ({
+        ...row,
+        created_at: row.created_at.toISOString(),
+        updated_at: row.updated_at.toISOString(),
+      })),
+    });
   } catch (error) {
     console.error("admin rag files list error", error);
     return NextResponse.json(
@@ -103,16 +119,18 @@ export async function POST(request: NextRequest) {
     });
 
     // 2. DB에 메타데이터 행 삽입 (processing 상태)
-    await supabaseInsert("content_rag_files", {
-      id: fileId,
-      filename: file.name,
-      storage_path: storagePath,
-      schift_bucket: SCHIFT_BUCKET,
-      file_size: file.size,
-      mime_type: file.type,
-      status: "processing",
-      enabled: true,
-      uploaded_by: admin.id,
+    await prisma.content_rag_files.create({
+      data: {
+        id: fileId,
+        filename: file.name,
+        storage_path: storagePath,
+        schift_bucket: SCHIFT_BUCKET,
+        file_size: file.size,
+        mime_type: file.type,
+        status: "processing",
+        enabled: true,
+        uploaded_by: admin.id,
+      },
     });
 
     // 3. Schift ingest (비동기적으로 처리 — 실패해도 메타 행은 유지)
@@ -128,9 +146,12 @@ export async function POST(request: NextRequest) {
       });
       await schift.db.upload(SCHIFT_BUCKET, { files: [schiftFile] });
 
-      await supabaseUpdate(`content_rag_files?id=eq.${fileId}`, {
-        status: "ready",
-        updated_at: new Date().toISOString(),
+      await prisma.content_rag_files.update({
+        where: { id: fileId },
+        data: {
+          status: "ready",
+          updated_at: new Date(),
+        },
       });
     } catch (schiftError) {
       const message =
@@ -139,19 +160,45 @@ export async function POST(request: NextRequest) {
           : "Schift ingest 실패";
       console.error("Schift ingest failed for", fileId, schiftError);
 
-      await supabaseUpdate(`content_rag_files?id=eq.${fileId}`, {
-        status: "failed",
-        error_message: message,
-        updated_at: new Date().toISOString(),
+      await prisma.content_rag_files.update({
+        where: { id: fileId },
+        data: {
+          status: "failed",
+          error_message: message,
+          updated_at: new Date(),
+        },
       });
     }
 
     // 최종 상태 조회
-    const rows = await supabaseSelect<RagFileRow[]>(
-      `content_rag_files?select=id,filename,storage_path,schift_bucket,file_size,mime_type,status,enabled,error_message,uploaded_by,created_at,updated_at&id=eq.${fileId}`,
-    );
+    const row = await prisma.content_rag_files.findUnique({
+      where: { id: fileId },
+      select: {
+        id: true,
+        filename: true,
+        storage_path: true,
+        schift_bucket: true,
+        file_size: true,
+        mime_type: true,
+        status: true,
+        enabled: true,
+        error_message: true,
+        uploaded_by: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
 
-    return NextResponse.json({ file: rows[0] ?? null, ok: true });
+    return NextResponse.json({
+      file: row
+        ? {
+            ...row,
+            created_at: row.created_at.toISOString(),
+            updated_at: row.updated_at.toISOString(),
+          }
+        : null,
+      ok: true,
+    });
   } catch (error) {
     console.error("admin rag file upload error", error);
     return NextResponse.json(

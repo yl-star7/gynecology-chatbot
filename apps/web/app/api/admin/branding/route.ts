@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import {
-  supabaseSelect,
-  supabaseUpdate,
-  supabaseInsert,
-} from "@/lib/supabase/admin-client";
 
 const BRANDING_KEY = "ui_branding";
 
@@ -25,6 +21,12 @@ const DEFAULT_BRANDING: BrandingConfig = {
 };
 
 type ConfigRow = { key: string; value: BrandingConfig };
+
+function asBrandingConfig(value: Prisma.JsonValue | null | undefined) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as BrandingConfig)
+    : null;
+}
 
 function normalizeSurveyFormUrl(input: unknown) {
   if (typeof input !== "string" || !input.trim()) {
@@ -57,11 +59,12 @@ export async function GET() {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const rows = await supabaseSelect<ConfigRow[]>(
-      `system_config?select=key,value&key=eq.${BRANDING_KEY}&limit=1`,
-    );
+    const row = await prisma.system_config.findUnique({
+      where: { key: BRANDING_KEY },
+      select: { value: true },
+    });
 
-    return NextResponse.json(rows[0]?.value ?? DEFAULT_BRANDING);
+    return NextResponse.json(asBrandingConfig(row?.value) ?? DEFAULT_BRANDING);
   } catch (error) {
     console.error("admin branding GET error", error);
     return NextResponse.json(
@@ -92,20 +95,26 @@ export async function PUT(request: NextRequest) {
       surveyFormUrl: normalizedSurveyFormUrl,
     };
 
-    const existing = await supabaseSelect<{ key: string }[]>(
-      `system_config?select=key&key=eq.${BRANDING_KEY}&limit=1`,
-    );
+    const existing = await prisma.system_config.findUnique({
+      where: { key: BRANDING_KEY },
+      select: { key: true },
+    });
 
-    if (existing.length > 0) {
-      await supabaseUpdate(`system_config?key=eq.${BRANDING_KEY}`, {
-        value: branding,
-        updated_at: new Date().toISOString(),
+    if (existing?.key) {
+      await prisma.system_config.update({
+        where: { key: BRANDING_KEY },
+        data: {
+          value: branding as Prisma.InputJsonValue,
+          updated_at: new Date(),
+        },
       });
     } else {
-      await supabaseInsert("system_config", {
-        key: BRANDING_KEY,
-        value: branding,
-        updated_at: new Date().toISOString(),
+      await prisma.system_config.create({
+        data: {
+          key: BRANDING_KEY,
+          value: branding as Prisma.InputJsonValue,
+          updated_at: new Date(),
+        },
       });
     }
 

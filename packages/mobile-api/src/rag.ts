@@ -1,6 +1,5 @@
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
-import { supabaseRpc } from "./supabase/admin-client";
 import { getSchiftClient } from "./schift-client";
 
 type DisabledFileRow = { id: string };
@@ -21,7 +20,7 @@ type SchiftSearchResult = {
   metadata?: Record<string, unknown>;
 };
 
-type RagProvider = "schift" | "supabase" | "auto";
+type RagProvider = "schift";
 
 type ConfigRow = { key: string; value: { ragProvider?: RagProvider } };
 const PGVECTOR_DIMENSION = 1536;
@@ -49,10 +48,11 @@ async function getRagProvider(): Promise<RagProvider> {
           value: asObject<ConfigRow["value"]>(row.value) ?? {},
         } satisfies ConfigRow)
       : null;
-    const provider = config?.value?.ragProvider;
-    if (provider === "schift" || provider === "supabase") return provider;
+    if (config?.value?.ragProvider === "schift") {
+      return "schift";
+    }
   } catch {}
-  return "auto";
+  return "schift";
 }
 
 async function getDisabledFileIds(): Promise<Set<string>> {
@@ -177,27 +177,6 @@ function getEmbeddingApiKey() {
   return apiKey;
 }
 
-async function searchViaSupabase(
-  query: string,
-  currentWeek: number | null,
-  matchCount: number,
-): Promise<RagDocumentRow[]> {
-  const apiKey = getEmbeddingApiKey();
-
-  const embeddings = new GoogleGenerativeAIEmbeddings({
-    apiKey,
-    modelName: "gemini-embedding-001",
-  });
-  const queryEmbedding = normalizeEmbeddingLength(
-    await embeddings.embedQuery(query),
-  );
-  return await supabaseRpc<RagDocumentRow[]>("match_pregnancy_documents", {
-    query_embedding: queryEmbedding,
-    current_week: currentWeek,
-    match_count: matchCount,
-  });
-}
-
 export async function retrievePregnancyContext(input: {
   query: string;
   currentWeek: number | null;
@@ -209,32 +188,15 @@ export async function retrievePregnancyContext(input: {
   const count = input.matchCount ?? 7;
 
   if (provider === "schift") {
-    return await searchViaSchift(input.query, input.currentWeek, count);
-  }
-
-  if (provider === "supabase") {
-    return await searchViaSupabase(input.query, input.currentWeek, count);
-  }
-
-  // auto: Schift 먼저 시도, 실패하면 Supabase로 폴백, 그것도 실패하면 빈 배열
-  const schift = getSchiftClient();
-  if (schift) {
     try {
       return await searchViaSchift(input.query, input.currentWeek, count);
     } catch (error) {
-      console.warn(
-        "Schift RAG failed in auto mode, falling back to Supabase:",
-        error,
-      );
+      console.warn("Schift RAG search failed:", error);
+      return [];
     }
   }
 
-  try {
-    return await searchViaSupabase(input.query, input.currentWeek, count);
-  } catch (error) {
-    console.warn("Supabase RAG fallback also failed:", error);
-    return [];
-  }
+  return [];
 }
 
 export async function embedPregnancyDocument(
