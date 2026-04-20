@@ -19,7 +19,6 @@ import { PatientShell } from "../../components/patient/PatientShell";
 import { Card, Pressable } from "../../components/ui";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import {
-  hasFreshCachedPregnancyWeeks,
   readCachedPregnancyWeeks,
   readCachedProfileView,
 } from "../../core/patientViewCache";
@@ -62,8 +61,16 @@ export function PatientWeeklyEncyclopediaScreen() {
         knowledgePort.listPregnancyWeeks(),
         profilePort.getProfile(),
       ]);
-      setWeeks(nextWeeks);
-      setProfile(nextProfile);
+      setWeeks((current) => {
+        const currentSerialized = JSON.stringify(current);
+        const nextSerialized = JSON.stringify(nextWeeks);
+        return currentSerialized === nextSerialized ? current : nextWeeks;
+      });
+      setProfile((current) => {
+        const currentSerialized = JSON.stringify(current);
+        const nextSerialized = JSON.stringify(nextProfile);
+        return currentSerialized === nextSerialized ? current : nextProfile;
+      });
       setError(null);
     } catch (nextError) {
       setError(resolvePatientContentLoadError(nextError));
@@ -87,11 +94,7 @@ export function PatientWeeklyEncyclopediaScreen() {
       setProfile(cachedProfile);
     }
 
-    if (hasFreshCachedPregnancyWeeks(currentUser.id) && cachedProfile) {
-      return;
-    }
-
-    fetchContent().catch(() => undefined);
+    void fetchContent();
   }, [currentUser, fetchContent]);
 
   useEffect(() => {

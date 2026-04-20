@@ -23,8 +23,6 @@ import {
   clearCachedHomeView,
   clearCachedRecentChats,
   clearCachedRecordDayView,
-  hasFreshCachedPregnancyWeeks,
-  readCachedPregnancyWeeks,
 } from "../patientViewCache";
 
 function createTodayIsoDate() {
@@ -211,12 +209,6 @@ export class ApiKnowledgeAdapter implements KnowledgePort {
 
   async listPregnancyWeeks(): Promise<MobilePregnancyWeekSummary[]> {
     const userId = this.getUserId();
-    const cachedWeeks = readCachedPregnancyWeeks(userId);
-
-    if (hasFreshCachedPregnancyWeeks(userId) && cachedWeeks) {
-      return cachedWeeks;
-    }
-
     const payload = await this.client.fetchPregnancyWeeks();
     cachePregnancyWeeks(userId, payload.weeks);
     return payload.weeks;
