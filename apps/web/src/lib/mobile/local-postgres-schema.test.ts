@@ -24,7 +24,7 @@ describe("buildLocalPostgresBootstrapSql", () => {
   test("includes memory_payload column on chat_sessions", () => {
     const sql = buildLocalPostgresBootstrapSql("gynecology_local");
 
-    expect(sql).toContain('memory_payload jsonb NOT NULL DEFAULT \'{}\'::jsonb');
+    expect(sql).toContain("memory_payload jsonb NOT NULL DEFAULT '{}'::jsonb");
   });
 
   test("includes paraphrase tables and active encyclopedia view", () => {
@@ -38,6 +38,14 @@ describe("buildLocalPostgresBootstrapSql", () => {
     );
     expect(sql).toContain(
       'CREATE OR REPLACE VIEW "gynecology_local"."v_weekly_encyclopedia"',
+    );
+  });
+
+  test("includes chat session activity view", () => {
+    const sql = buildLocalPostgresBootstrapSql("gynecology_local");
+
+    expect(sql).toContain(
+      'CREATE OR REPLACE VIEW "gynecology_local"."v_chat_session_activity_dates"',
     );
   });
 });

@@ -418,6 +418,20 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           created_at timestamptz NOT NULL DEFAULT now()
         );
 
+        CREATE OR REPLACE VIEW ${getQualifiedTable(schema, "v_chat_session_activity_dates")} AS
+        SELECT
+          cs.user_id,
+          cm.session_id,
+          ((cm.created_at AT TIME ZONE 'Asia/Seoul')::date) AS activity_date,
+          MAX(cm.created_at) AS last_message_at
+        FROM ${getQualifiedTable(schema, "chat_messages")} cm
+        JOIN ${getQualifiedTable(schema, "chat_sessions")} cs
+          ON cs.id = cm.session_id
+        GROUP BY
+          cs.user_id,
+          cm.session_id,
+          ((cm.created_at AT TIME ZONE 'Asia/Seoul')::date);
+
         CREATE OR REPLACE VIEW ${getQualifiedTable(schema, "v_user_persona_profiles")} AS
         WITH scored_signals AS (
           SELECT

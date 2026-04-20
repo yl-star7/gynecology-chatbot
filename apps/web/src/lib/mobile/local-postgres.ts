@@ -110,6 +110,9 @@ const LOCAL_TABLES = new Set([
   "workflow_definitions",
   "system_config",
   "content_rag_files",
+  "v_chat_session_activity_dates",
+  "v_user_persona_profiles",
+  "v_weekly_encyclopedia",
 ]);
 
 let pool: Pool | null = null;
