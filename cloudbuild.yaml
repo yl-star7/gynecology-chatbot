@@ -9,7 +9,7 @@
 # Required substitutions:
 #   _IMAGE_TAG  Short git SHA (e.g. $(git rev-parse --short HEAD))
 #   _IMAGE      Fully qualified image URI
-#               (e.g. asia-southeast1-docker.pkg.dev/agaya-2026/agaya-api/api)
+#               (e.g. asia-northeast3-docker.pkg.dev/agaya-2026/agaya-api/api)
 
 options:
   logging: CLOUD_LOGGING_ONLY

@@ -13,7 +13,7 @@
 set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-agaya-2026}"
-REGION="${REGION:-asia-southeast1}"
+REGION="${REGION:-asia-northeast3}"
 SERVICE="${SERVICE:-agaya-api}"
 ENV_FILE="${ENV_FILE:-.env.production.local}"
 

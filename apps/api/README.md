@@ -17,4 +17,4 @@ pnpm --filter @gynecology-chatbot/api start
 
 ## Deploy to Cloud Run
 
-Region: `asia-southeast1`. See repo root `scripts/deploy-api.sh`.
+Region: `asia-northeast3`. See repo root `scripts/deploy-api.sh`.

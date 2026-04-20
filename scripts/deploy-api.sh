@@ -4,11 +4,11 @@
 # - Uses Cloud Build (`gcloud builds submit`) so nothing is pushed from the
 #   local machine.
 # - Tags the image with the current short git SHA and `latest`.
-# - Deploys to Cloud Run service `agaya-api` in asia-southeast1.
+# - Deploys to Cloud Run service `agaya-api` in asia-northeast3.
 #
 # Requirements:
 #   - gcloud configured for project agaya-2026 (`agaya` configuration active).
-#   - Artifact Registry repo `agaya-api` exists in asia-southeast1.
+#   - Artifact Registry repo `agaya-api` exists in asia-northeast3.
 #   - APIs enabled: run, cloudbuild, artifactregistry, secretmanager.
 #
 # Usage:
@@ -20,7 +20,7 @@
 #
 # Environment overrides:
 #   PROJECT_ID    default: agaya-2026
-#   REGION        default: asia-southeast1
+#   REGION        default: asia-northeast3
 #   REPO          default: agaya-api
 #   IMAGE_NAME    default: api
 #   SERVICE       default: agaya-api
@@ -31,7 +31,7 @@
 set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-agaya-2026}"
-REGION="${REGION:-asia-southeast1}"
+REGION="${REGION:-asia-northeast3}"
 REPO="${REPO:-agaya-api}"
 IMAGE_NAME="${IMAGE_NAME:-api}"
 SERVICE="${SERVICE:-agaya-api}"
