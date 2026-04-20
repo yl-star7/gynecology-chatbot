@@ -67,7 +67,11 @@ export async function runSchiftWorkflow(input: {
     const workflow = await input.schift.workflows.get(resolvedWorkflowId);
     const outputBlockId = resolveWorkflowOutputBlockId(workflow);
     const run = outputBlockId
-      ? await runSchiftWorkflowWithOutput(resolvedWorkflowId, input.inputs, outputBlockId)
+      ? await runSchiftWorkflowWithOutput(
+          resolvedWorkflowId,
+          input.inputs,
+          outputBlockId,
+        )
       : await input.schift.workflows.run(resolvedWorkflowId, input.inputs);
 
     return {
@@ -89,7 +93,11 @@ export async function runSchiftWorkflow(input: {
     const workflow = await input.schift.workflows.get(fallbackId);
     const outputBlockId = resolveWorkflowOutputBlockId(workflow);
     const run = outputBlockId
-      ? await runSchiftWorkflowWithOutput(fallbackId, input.inputs, outputBlockId)
+      ? await runSchiftWorkflowWithOutput(
+          fallbackId,
+          input.inputs,
+          outputBlockId,
+        )
       : await input.schift.workflows.run(fallbackId, input.inputs);
     return { workflowId: fallbackId, run };
   }
@@ -106,7 +114,9 @@ function resolveWorkflowOutputBlockId(workflow: Workflow) {
       ((block.title ?? "").includes("JSON 응답") ||
         (block.config as Record<string, unknown> | undefined)?.include_sources),
   );
-  return explicitAnswer?.id ?? blocks.find((block) => block.type === "answer")?.id;
+  return (
+    explicitAnswer?.id ?? blocks.find((block) => block.type === "answer")?.id
+  );
 }
 
 async function runSchiftWorkflowWithOutput(
@@ -136,7 +146,7 @@ async function runSchiftWorkflowWithOutput(
     throw new Error(text || `Schift workflow run failed: ${response.status}`);
   }
 
-  return response.json();
+  return (await response.json()) as WorkflowRun;
 }
 
 type WorkflowRunLike = {
@@ -237,7 +247,10 @@ function readBlockStateOutputs(blockState: unknown) {
     }
 
     const outputRecord = candidate as Record<string, unknown>;
-    if (hasMeaningfulOutput(outputRecord) && hasAnswerLikeOutput(outputRecord)) {
+    if (
+      hasMeaningfulOutput(outputRecord) &&
+      hasAnswerLikeOutput(outputRecord)
+    ) {
       return outputRecord;
     }
   }
