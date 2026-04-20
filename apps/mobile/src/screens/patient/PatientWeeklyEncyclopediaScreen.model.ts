@@ -74,14 +74,19 @@ export function buildWeeklyEncyclopediaViewModel(input: {
 
   const weekCells: WeeklyEncyclopediaWeekCell[] = [];
   for (let weekNumber = MIN_WEEK; weekNumber <= MAX_WEEK; weekNumber += 1) {
-    let state: WeeklyEncyclopediaWeekCellState = readyWeekNumbers.has(weekNumber)
+    let state: WeeklyEncyclopediaWeekCellState = readyWeekNumbers.has(
+      weekNumber,
+    )
       ? "ready"
       : "preparing";
 
     if (weekNumber === profileWeekNumber && state === "ready") {
       state = "current";
     }
-    if (weekNumber === selectedWeek?.weekNumber && weekNumber !== profileWeekNumber) {
+    if (
+      weekNumber === selectedWeek?.weekNumber &&
+      weekNumber !== profileWeekNumber
+    ) {
       state = "selected";
     }
 
@@ -106,7 +111,10 @@ export function buildWeeklyEncyclopediaViewModel(input: {
       ?.map((item) => {
         if (!item || typeof item !== "object") return null;
         const record = item as { question?: unknown; answer?: unknown };
-        if (typeof record.question !== "string" || typeof record.answer !== "string") {
+        if (
+          typeof record.question !== "string" ||
+          typeof record.answer !== "string"
+        ) {
           return null;
         }
         return {
@@ -114,8 +122,8 @@ export function buildWeeklyEncyclopediaViewModel(input: {
           answer: record.answer,
         };
       })
-      .filter(
-        (item): item is { question: string; answer: string } => Boolean(item),
+      .filter((item): item is { question: string; answer: string } =>
+        Boolean(item),
       ) ?? [];
 
   return {

@@ -166,6 +166,10 @@ export function PatientRecordDayScreen({
       return;
     }
 
+    pendingChecklistIdsRef.current = [
+      ...pendingChecklistIdsRef.current,
+      checklistId,
+    ];
     setPendingChecklistIds((current) => [...current, checklistId]);
     void actions
       .setChecklistItemCompleted(request)
@@ -175,14 +179,6 @@ export function PatientRecordDayScreen({
           checklistId,
           request.completed,
         );
-
-        const nextRequest = resolveChecklistRequest(
-          checklistSyncRef.current,
-          checklistId,
-        );
-        if (nextRequest) {
-          handleToggleChecklistItem(checklistId);
-        }
       })
       .catch(() => {
         const rollbackCompleted = rollbackChecklistRequest(
@@ -203,9 +199,20 @@ export function PatientRecordDayScreen({
         });
       })
       .finally(() => {
+        pendingChecklistIdsRef.current = pendingChecklistIdsRef.current.filter(
+          (id) => id !== checklistId,
+        );
         setPendingChecklistIds((current) =>
           current.filter((id) => id !== checklistId),
         );
+
+        const nextRequest = resolveChecklistRequest(
+          checklistSyncRef.current,
+          checklistId,
+        );
+        if (nextRequest) {
+          handleToggleChecklistItem(checklistId);
+        }
       });
   }
 

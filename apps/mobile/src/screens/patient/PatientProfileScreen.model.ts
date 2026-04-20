@@ -26,6 +26,7 @@ export type ProfileHeartShareItem = {
 
 export type ProfileEncyclopediaEntry = {
   sectionTitle: string;
+  showCurrentWeekEntry: boolean;
   currentWeekLabel: string;
   currentActionLabel: string;
   currentDescription: string;
@@ -41,11 +42,7 @@ function parsePregnancyWeekNumber(label?: string | null) {
   const match = label.match(/(\d{1,2})\s*주/);
   if (!match) return null;
   const week = Number(match[1]);
-  if (
-    !Number.isInteger(week) ||
-    week < MIN_VISIBLE_WEEK ||
-    week > MAX_PREGNANCY_WEEK
-  ) {
+  if (!Number.isInteger(week) || week < 1 || week > MAX_PREGNANCY_WEEK) {
     return null;
   }
   return week;

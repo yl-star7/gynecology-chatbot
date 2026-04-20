@@ -51,7 +51,6 @@ export function PatientTodayChecklistSection({
                 key={item.id}
                 style={styles.checklistRow}
                 onPress={() => onToggleChecklistItem(item.id, !item.completed)}
-                disabled={pendingChecklistIds.includes(item.id)}
                 accessibilityLabel={`${item.label} ${item.completed ? "완료됨" : "미완료"}`}
               >
                 <View

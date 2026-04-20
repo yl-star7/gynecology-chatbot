@@ -283,6 +283,10 @@ export function usePatientTodayScreenModel() {
       return;
     }
 
+    pendingChecklistIdsRef.current = [
+      ...pendingChecklistIdsRef.current,
+      checklistId,
+    ];
     setPendingChecklistIds((current) => [...current, checklistId]);
     services.todayPort
       .setChecklistItemCompleted(request)
@@ -292,14 +296,6 @@ export function usePatientTodayScreenModel() {
           checklistId,
           request.completed,
         );
-
-        const nextRequest = resolveChecklistRequest(
-          checklistSyncRef.current,
-          checklistId,
-        );
-        if (nextRequest) {
-          handleToggleChecklistItem(checklistId, nextRequest.completed);
-        }
       })
       .catch(() => {
         const rollbackCompleted = rollbackChecklistRequest(
@@ -344,9 +340,20 @@ export function usePatientTodayScreenModel() {
         }
       })
       .finally(() => {
+        pendingChecklistIdsRef.current = pendingChecklistIdsRef.current.filter(
+          (id) => id !== checklistId,
+        );
         setPendingChecklistIds((current) =>
           current.filter((id) => id !== checklistId),
         );
+
+        const nextRequest = resolveChecklistRequest(
+          checklistSyncRef.current,
+          checklistId,
+        );
+        if (nextRequest) {
+          handleToggleChecklistItem(checklistId, nextRequest.completed);
+        }
       });
   }
 
