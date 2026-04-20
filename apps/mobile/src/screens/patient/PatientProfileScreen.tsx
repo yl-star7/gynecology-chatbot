@@ -86,11 +86,10 @@ export function PatientProfileScreen() {
     }
 
     const cachedProfile = readCachedProfileView(currentUser.id);
-    const cachedHome = readCachedHomeView(currentUser.id);
     const cachedToday = readCachedTodayView(currentUser.id);
 
     setProfile(cachedProfile);
-    setHome(cachedHome);
+    setHome(null);
     setToday(cachedToday);
   }, [currentUser]);
 
@@ -105,15 +104,10 @@ export function PatientProfileScreen() {
         return;
       }
 
-      if (
-        hasFreshCachedProfileView(currentUser.id) &&
-        hasFreshCachedHomeView(currentUser.id)
-      ) {
+      if (hasFreshCachedProfileView(currentUser.id)) {
         setProfile(readCachedProfileView(currentUser.id));
-        setHome(readCachedHomeView(currentUser.id));
         setToday(readCachedTodayView(currentUser.id));
         setError(null);
-        return;
       }
 
       Promise.all([profilePort.getProfile(), homePort.getHomeView()])
