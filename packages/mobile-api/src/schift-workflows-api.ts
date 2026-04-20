@@ -270,7 +270,7 @@ export async function createDefaultInternalAnswerWorkflow(
     status: "published",
     name: wfDef.name,
     description: `<!-- si-admin-workflow:${JSON.stringify(adminMetadata)}-->\n${wfDef.description}`,
-  })) as { id: string; name: string };
+  })) as Workflow;
 
   const currentRowsById = await supabaseSelect<WorkflowDefinitionRow[]>(
     `workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata&id=eq.${updated.id}&limit=1`,
