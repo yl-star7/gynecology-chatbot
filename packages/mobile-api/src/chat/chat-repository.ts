@@ -1,14 +1,10 @@
+import { prisma } from "@gynecology-chatbot/db/prisma";
 import type {
   PersonaConfidence,
   PersonaHint,
   ProfileMemoryPayload,
   SessionMemoryPayload,
 } from "./workflow-payload";
-import {
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "../supabase/admin-client";
 
 type PregnancyProfilePromptRow = {
   pregnancy_day_count: number | null;
@@ -138,6 +134,185 @@ function getKstDateKey() {
   return `${year}-${month}-${day}`;
 }
 
+function parseDateOnly(isoDate: string) {
+  return new Date(`${isoDate}T00:00:00.000Z`);
+}
+
+function formatDateOnly(value: Date | null | undefined) {
+  return value ? value.toISOString().slice(0, 10) : null;
+}
+
+function toIsoStringOrNull(value: Date | null | undefined) {
+  return value ? value.toISOString() : null;
+}
+
+function asObject<T>(value: unknown): T | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as T)
+    : null;
+}
+
+function mapPregnancyProfileRow(
+  row:
+    | {
+        pregnancy_day_count: number;
+        pregnancy_week: number | null;
+        pregnancy_day_in_week: number | null;
+        baby_nickname: string | null;
+        display_name: string | null;
+        due_date: Date | null;
+        onboarding_payload: unknown;
+      }
+    | null,
+): PregnancyProfilePromptRow | null {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    pregnancy_day_count: row.pregnancy_day_count,
+    pregnancy_week: row.pregnancy_week,
+    pregnancy_day_in_week: row.pregnancy_day_in_week,
+    baby_nickname: row.baby_nickname,
+    display_name: row.display_name,
+    due_date: formatDateOnly(row.due_date),
+    onboarding_payload: asObject<PregnancyProfilePromptRow["onboarding_payload"]>(
+      row.onboarding_payload,
+    ),
+  };
+}
+
+function mapWeekDataRow(
+  row:
+    | {
+        id: string;
+        week_number: number;
+        title: string | null;
+        baby_summary: string | null;
+        mother_summary: string | null;
+        warning_signs: string | null;
+        recommended_actions: string | null;
+        checklist_intro: string | null;
+        question_intro: string | null;
+        status: string;
+      }
+    | null,
+): WeekDataRow | null {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    ...row,
+    status: row.status as WeekDataRow["status"],
+  };
+}
+
+function mapDayContentRow(
+  row:
+    | {
+        id: string;
+        day_number: number;
+        title: string | null;
+        baby_development_payload: unknown;
+        baby_message: string | null;
+        mother_changes_payload: unknown;
+      }
+    | null,
+): DayContentRow | null {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    day_number: row.day_number,
+    title: row.title,
+    baby_development_payload: asObject<DayContentRow["baby_development_payload"]>(
+      row.baby_development_payload,
+    ),
+    baby_message: row.baby_message,
+    mother_changes_payload: asObject<DayContentRow["mother_changes_payload"]>(
+      row.mother_changes_payload,
+    ),
+  };
+}
+
+function mapChecklistRow(row: {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  checklist_payload: unknown;
+  display_order: number;
+  is_required: boolean;
+}): ChecklistRow {
+  return {
+    id: row.id,
+    code: row.code,
+    title: row.title,
+    description: row.description,
+    checklist_payload: asObject<ChecklistRow["checklist_payload"]>(
+      row.checklist_payload,
+    ),
+    display_order: row.display_order,
+    is_required: row.is_required,
+  };
+}
+
+function mapQuestionRow(row: {
+  id: string;
+  code: string;
+  question_text: string;
+  question_type: string;
+  help_text: string | null;
+  question_payload: unknown;
+  display_order: number;
+  is_required: boolean;
+}): QuestionRow {
+  return {
+    id: row.id,
+    code: row.code,
+    question_text: row.question_text,
+    question_type: row.question_type as QuestionRow["question_type"],
+    help_text: row.help_text,
+    question_payload: asObject<QuestionRow["question_payload"]>(
+      row.question_payload,
+    ),
+    display_order: row.display_order,
+    is_required: row.is_required,
+  };
+}
+
+function mapPersonaProfileRow(
+  row:
+    | {
+        user_id: string | null;
+        persona_hint: string | null;
+        confidence: string | null;
+        evidence_summary: string | null;
+        weighted_score: { toNumber(): number } | number | null;
+        last_observed_at: Date | null;
+      }
+    | null,
+): UserPersonaProfileRow | null {
+  if (!row?.user_id || !row.persona_hint || !row.confidence) {
+    return null;
+  }
+
+  return {
+    user_id: row.user_id,
+    persona_hint: row.persona_hint as PersonaHint,
+    confidence: row.confidence as PersonaConfidence,
+    evidence_summary: row.evidence_summary,
+    weighted_score:
+      typeof row.weighted_score === "number"
+        ? row.weighted_score
+        : row.weighted_score?.toNumber() ?? 0,
+    last_observed_at: toIsoStringOrNull(row.last_observed_at),
+  };
+}
+
 async function syncAnsweredQuestionToCalendar(input: {
   userId: string;
   sessionId: string;
@@ -150,12 +325,25 @@ async function syncAnsweredQuestionToCalendar(input: {
   const todayDate = getKstDateKey();
   const answerText = input.userMessageText.trim();
   const summary = answerText || "답변을 남겼어요.";
-  const existingRows = await supabaseSelect<CalendarQuestionResponseRow[]>(
-    `calendar_logs?select=id,payload&user_id=eq.${input.userId}&date=eq.${todayDate}&entry_type=eq.survey_response`,
-  );
-  const existingRow = existingRows.find(
-    (row) => row.payload?.questionId === input.questionId,
-  );
+  const existingRows = await prisma.calendar_logs.findMany({
+    where: {
+      user_id: input.userId,
+      date: parseDateOnly(todayDate),
+      entry_type: "survey_response",
+    },
+    select: {
+      id: true,
+      payload: true,
+    },
+  });
+  const existingRow = existingRows
+    .map(
+      (row): CalendarQuestionResponseRow => ({
+        id: row.id,
+        payload: asObject<CalendarQuestionResponseRow["payload"]>(row.payload),
+      }),
+    )
+    .find((row) => row.payload?.questionId === input.questionId);
   const payload = {
     source: "chat_question_answer",
     questionId: input.questionId,
@@ -166,23 +354,28 @@ async function syncAnsweredQuestionToCalendar(input: {
   };
 
   if (existingRow) {
-    await supabaseUpdate(`calendar_logs?id=eq.${existingRow.id}`, {
-      session_id: input.sessionId,
-      title: "하루 질문 답변",
-      summary,
-      payload,
+    await prisma.calendar_logs.update({
+      where: { id: existingRow.id },
+      data: {
+        session_id: input.sessionId,
+        title: "하루 질문 답변",
+        summary,
+        payload,
+      },
     });
     return;
   }
 
-  await supabaseInsert("calendar_logs", {
-    user_id: input.userId,
-    session_id: input.sessionId,
-    date: todayDate,
-    entry_type: "survey_response",
-    title: "하루 질문 답변",
-    summary,
-    payload,
+  await prisma.calendar_logs.create({
+    data: {
+      user_id: input.userId,
+      session_id: input.sessionId,
+      date: parseDateOnly(todayDate),
+      entry_type: "survey_response",
+      title: "하루 질문 답변",
+      summary,
+      payload,
+    },
   });
 }
 
@@ -266,27 +459,46 @@ export async function getPromptContext(
   hintedPregnancyWeek: number | null,
   sessionId: string | null,
 ): Promise<PromptContext | null> {
-  const [profiles, sessions, personaProfiles] = await Promise.all([
-    supabaseSelect<PregnancyProfilePromptRow[]>(
-      `pregnancy_profiles?select=pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,baby_nickname,display_name,due_date,onboarding_payload&user_id=eq.${userId}&limit=1`,
-    ),
+  const [profileRow, sessionRow, personaProfileRow] = await Promise.all([
+    prisma.pregnancy_profiles.findUnique({
+      where: { user_id: userId },
+      select: {
+        pregnancy_day_count: true,
+        pregnancy_week: true,
+        pregnancy_day_in_week: true,
+        baby_nickname: true,
+        display_name: true,
+        due_date: true,
+        onboarding_payload: true,
+      },
+    }),
     sessionId
-      ? supabaseSelect<
-          Array<{
-            id: string;
-            title: string;
-            memory_payload?: SessionMemoryPayload | null;
-          }>
-        >(
-          `chat_sessions?select=id,title,memory_payload&id=eq.${sessionId}&user_id=eq.${userId}&limit=1`,
-        )
-      : Promise.resolve([]),
-    supabaseSelect<UserPersonaProfileRow[]>(
-      `v_user_persona_profiles?select=user_id,persona_hint,confidence,evidence_summary,weighted_score,last_observed_at&user_id=eq.${userId}&limit=1`,
-    ),
+      ? prisma.chat_sessions.findFirst({
+          where: {
+            id: sessionId,
+            user_id: userId,
+          },
+          select: {
+            id: true,
+            title: true,
+            memory_payload: true,
+          },
+        })
+      : Promise.resolve(null),
+    prisma.v_user_persona_profiles.findFirst({
+      where: { user_id: userId },
+      select: {
+        user_id: true,
+        persona_hint: true,
+        confidence: true,
+        evidence_summary: true,
+        weighted_score: true,
+        last_observed_at: true,
+      },
+    }),
   ]);
 
-  const profile = profiles[0];
+  const profile = mapPregnancyProfileRow(profileRow);
   const todayIsoDate = getKstDateKey();
   const position = profile
     ? resolveSelectedPregnancyPosition(profile, todayIsoDate)
@@ -297,46 +509,141 @@ export async function getPromptContext(
     return null;
   }
 
-  const weekRows = await supabaseSelect<WeekDataRow[]>(
-    `content_pregnancy_week_data?select=id,week_number,title,baby_summary,mother_summary,warning_signs,recommended_actions,checklist_intro,question_intro,status&week_number=eq.${pregnancyWeek}&status=eq.published&limit=1`,
+  const week = mapWeekDataRow(
+    await prisma.content_pregnancy_week_data.findFirst({
+      where: {
+        week_number: pregnancyWeek,
+        status: "published",
+      },
+      select: {
+        id: true,
+        week_number: true,
+        title: true,
+        baby_summary: true,
+        mother_summary: true,
+        warning_signs: true,
+        recommended_actions: true,
+        checklist_intro: true,
+        question_intro: true,
+        status: true,
+      },
+    }),
   );
-  const week = weekRows[0];
   if (!week) {
     return null;
   }
 
   const [
-    dayContentRows,
-    datedChecklists,
-    genericChecklists,
-    datedQuestions,
-    genericQuestions,
+    dayContentRow,
+    datedChecklistRows,
+    genericChecklistRows,
+    datedQuestionRow,
+    genericQuestionRow,
   ] = await Promise.all([
-    supabaseSelect<DayContentRow[]>(
-      `content_pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
-    ),
-    supabaseSelect<ChecklistRow[]>(
-      `content_week_checklists?select=id,code,title,description,checklist_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
-    ),
-    supabaseSelect<ChecklistRow[]>(
-      `content_week_checklists?select=id,code,title,description,checklist_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
-    ),
-    supabaseSelect<QuestionRow[]>(
-      `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
-    ),
-    supabaseSelect<QuestionRow[]>(
-      `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,
-    ),
+    prisma.content_pregnancy_day_contents.findFirst({
+      where: {
+        week_data_id: week.id,
+        day_number: dayNumber,
+      },
+      select: {
+        id: true,
+        day_number: true,
+        title: true,
+        baby_development_payload: true,
+        baby_message: true,
+        mother_changes_payload: true,
+      },
+    }),
+    prisma.content_week_checklists.findMany({
+      where: {
+        week_data_id: week.id,
+        day_number: dayNumber,
+        is_active: true,
+      },
+      orderBy: {
+        display_order: "asc",
+      },
+      select: {
+        id: true,
+        code: true,
+        title: true,
+        description: true,
+        checklist_payload: true,
+        display_order: true,
+        is_required: true,
+      },
+    }),
+    prisma.content_week_checklists.findMany({
+      where: {
+        week_data_id: week.id,
+        day_number: null,
+        is_active: true,
+      },
+      orderBy: {
+        display_order: "asc",
+      },
+      select: {
+        id: true,
+        code: true,
+        title: true,
+        description: true,
+        checklist_payload: true,
+        display_order: true,
+        is_required: true,
+      },
+    }),
+    prisma.content_week_questions.findFirst({
+      where: {
+        week_data_id: week.id,
+        day_number: dayNumber,
+        is_active: true,
+      },
+      orderBy: {
+        display_order: "asc",
+      },
+      select: {
+        id: true,
+        code: true,
+        question_text: true,
+        question_type: true,
+        help_text: true,
+        question_payload: true,
+        display_order: true,
+        is_required: true,
+      },
+    }),
+    prisma.content_week_questions.findFirst({
+      where: {
+        week_data_id: week.id,
+        day_number: null,
+        is_active: true,
+      },
+      orderBy: {
+        display_order: "asc",
+      },
+      select: {
+        id: true,
+        code: true,
+        question_text: true,
+        question_type: true,
+        help_text: true,
+        question_payload: true,
+        display_order: true,
+        is_required: true,
+      },
+    }),
   ]);
 
-  const checklists = [...datedChecklists, ...genericChecklists];
-  const questions = datedQuestions[0]
-    ? [datedQuestions[0]]
-    : genericQuestions[0]
-      ? [genericQuestions[0]]
+  const checklists = [...datedChecklistRows, ...genericChecklistRows].map(
+    mapChecklistRow,
+  );
+  const questions = datedQuestionRow
+    ? [mapQuestionRow(datedQuestionRow)]
+    : genericQuestionRow
+      ? [mapQuestionRow(genericQuestionRow)]
       : [];
 
-  const personaProfile = personaProfiles[0] ?? null;
+  const personaProfile = mapPersonaProfileRow(personaProfileRow);
   const profileMemory = {
     ...(profile?.onboarding_payload?.profileMemory ?? {}),
     ...(personaProfile
@@ -358,12 +665,12 @@ export async function getPromptContext(
     pregnancyWeek,
     dayNumber,
     week,
-    dayContent: dayContentRows[0] ?? null,
+    dayContent: mapDayContentRow(dayContentRow),
     checklists,
     questions,
     tonePreference: profile?.onboarding_payload?.tonePreference ?? null,
     profileMemory: Object.keys(profileMemory).length > 0 ? profileMemory : null,
-    sessionMemory: sessions[0]?.memory_payload ?? null,
+    sessionMemory: asObject<SessionMemoryPayload>(sessionRow?.memory_payload),
     onboardingPayload: profile?.onboarding_payload ?? null,
     missingFields,
   };
@@ -376,33 +683,57 @@ export async function markOutstandingPromptEventsAnswered(input: {
   userMessageText: string;
 }): Promise<{ answeredCount: number }> {
   const [checklistEvents, questionEvents] = await Promise.all([
-    supabaseSelect<UserChecklistEventRow[]>(
-      `user_checklist_events?select=id,checklist_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}&status=eq.sent`,
-    ),
-    supabaseSelect<UserQuestionEventRow[]>(
-      `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}&status=eq.sent`,
-    ),
+    prisma.user_checklist_events.findMany({
+      where: {
+        user_id: input.userId,
+        session_id: input.sessionId,
+        status: "sent",
+      },
+      select: {
+        id: true,
+        checklist_id: true,
+        status: true,
+      },
+    }),
+    prisma.user_question_events.findMany({
+      where: {
+        user_id: input.userId,
+        session_id: input.sessionId,
+        status: "sent",
+      },
+      select: {
+        id: true,
+        question_id: true,
+        status: true,
+      },
+    }),
   ]);
 
   const now = new Date().toISOString();
 
-  for (const event of checklistEvents) {
-    await supabaseUpdate(`user_checklist_events?id=eq.${event.id}`, {
-      status: "completed",
-      completion_message_id: input.userMessageId,
-      answer_text: input.userMessageText,
-      completed_at: now,
-      updated_at: now,
+  for (const event of checklistEvents as UserChecklistEventRow[]) {
+    await prisma.user_checklist_events.update({
+      where: { id: event.id },
+      data: {
+        status: "completed",
+        completion_message_id: input.userMessageId,
+        answer_text: input.userMessageText,
+        completed_at: now,
+        updated_at: now,
+      },
     });
   }
 
-  for (const event of questionEvents) {
-    await supabaseUpdate(`user_question_events?id=eq.${event.id}`, {
-      status: "answered",
-      answer_message_id: input.userMessageId,
-      answer_text: input.userMessageText,
-      answered_at: now,
-      updated_at: now,
+  for (const event of questionEvents as UserQuestionEventRow[]) {
+    await prisma.user_question_events.update({
+      where: { id: event.id },
+      data: {
+        status: "answered",
+        answer_message_id: input.userMessageId,
+        answer_text: input.userMessageText,
+        answered_at: now,
+        updated_at: now,
+      },
     });
     await syncAnsweredQuestionToCalendar({
       userId: input.userId,
@@ -428,26 +759,30 @@ export async function createPromptEvents(input: {
   const now = new Date().toISOString();
 
   for (const checklist of input.checklists) {
-    await supabaseInsert("user_checklist_events", {
-      user_id: input.userId,
-      checklist_id: checklist.id,
-      session_id: input.sessionId,
-      prompt_message_id: input.assistantMessageId,
-      status: "sent",
-      sent_at: now,
-      updated_at: now,
+    await prisma.user_checklist_events.create({
+      data: {
+        user_id: input.userId,
+        checklist_id: checklist.id,
+        session_id: input.sessionId,
+        prompt_message_id: input.assistantMessageId,
+        status: "sent",
+        sent_at: now,
+        updated_at: now,
+      },
     });
   }
 
   for (const question of input.questions) {
-    await supabaseInsert("user_question_events", {
-      user_id: input.userId,
-      question_id: question.id,
-      session_id: input.sessionId,
-      prompt_message_id: input.assistantMessageId,
-      status: "sent",
-      sent_at: now,
-      updated_at: now,
+    await prisma.user_question_events.create({
+      data: {
+        user_id: input.userId,
+        question_id: question.id,
+        session_id: input.sessionId,
+        prompt_message_id: input.assistantMessageId,
+        status: "sent",
+        sent_at: now,
+        updated_at: now,
+      },
     });
   }
 }
@@ -456,12 +791,22 @@ export async function getAlreadyPromptedIds(input: {
   userId: string;
 }): Promise<{ checklistIds: Set<string>; questionIds: Set<string> }> {
   const [checklistEvents, questionEvents] = await Promise.all([
-    supabaseSelect<UserChecklistEventRow[]>(
-      `user_checklist_events?select=id,checklist_id,status&user_id=eq.${input.userId}`,
-    ),
-    supabaseSelect<UserQuestionEventRow[]>(
-      `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}`,
-    ),
+    prisma.user_checklist_events.findMany({
+      where: { user_id: input.userId },
+      select: {
+        id: true,
+        checklist_id: true,
+        status: true,
+      },
+    }),
+    prisma.user_question_events.findMany({
+      where: { user_id: input.userId },
+      select: {
+        id: true,
+        question_id: true,
+        status: true,
+      },
+    }),
   ]);
 
   return {
@@ -498,24 +843,30 @@ export async function ensureChatSession(input: {
   sessionId: string;
   title: string;
 }) {
-  const existingSessions = await supabaseSelect<
-    Array<{ id: string; title: string; last_message_at: string | null }>
-  >(
-    `chat_sessions?select=id,title,last_message_at&id=eq.${input.sessionId}&user_id=eq.${input.userId}&limit=1`,
-  );
-
-  const existingSession = existingSessions[0];
+  const existingSession = await prisma.chat_sessions.findFirst({
+    where: {
+      id: input.sessionId,
+      user_id: input.userId,
+    },
+    select: {
+      id: true,
+      title: true,
+      last_message_at: true,
+    },
+  });
 
   if (existingSession) {
-    if (!isLocalDateToday(existingSession.last_message_at)) {
+    if (!isLocalDateToday(toIsoStringOrNull(existingSession.last_message_at))) {
       throw new PastSessionWriteError();
     }
   } else {
-    await supabaseInsert("chat_sessions", {
-      id: input.sessionId,
-      user_id: input.userId,
-      title: input.title,
-      status: "active",
+    await prisma.chat_sessions.create({
+      data: {
+        id: input.sessionId,
+        user_id: input.userId,
+        title: input.title,
+        status: "active",
+      },
     });
   }
 
@@ -547,9 +898,8 @@ export async function saveUserChatMessage(input: {
     })),
   ];
 
-  const insertedUserMessages = await supabaseInsert<Array<{ id: string }>>(
-    "chat_messages",
-    {
+  const insertedUserMessage = await prisma.chat_messages.create({
+    data: {
       session_id: input.sessionId,
       user_id: input.userId,
       role: "user",
@@ -557,10 +907,11 @@ export async function saveUserChatMessage(input: {
       plain_text: input.text,
       image_attachments: input.imageDataUris.map((uri: string) => ({ uri })),
     },
-  );
+    select: { id: true },
+  });
 
   return {
-    id: insertedUserMessages[0]?.id ?? null,
+    id: insertedUserMessage.id,
     parts: userMessageParts,
   };
 }
@@ -569,9 +920,12 @@ export async function touchChatSessionActivity(
   sessionId: string,
   timestamp: string,
 ) {
-  await supabaseUpdate(`chat_sessions?id=eq.${sessionId}`, {
-    last_message_at: timestamp,
-    updated_at: timestamp,
+  await prisma.chat_sessions.updateMany({
+    where: { id: sessionId },
+    data: {
+      last_message_at: timestamp,
+      updated_at: timestamp,
+    },
   });
 }
 
@@ -584,22 +938,26 @@ export async function saveAssistantChatMessages(input: {
     >;
   }>;
 }) {
-  return supabaseInsert<Array<{ id: string }>>(
-    "chat_messages",
-    input.messages.map((message) => ({
-      session_id: input.sessionId,
-      user_id: input.userId,
-      role: "assistant",
-      parts: message.parts,
-      plain_text: message.parts
-        .flatMap((part) =>
-          part.type === "text" && typeof part.text === "string"
-            ? [part.text]
-            : [],
-        )
-        .join("\n"),
-      model_name: "gemini-2.5-flash-lite",
-    })),
+  return prisma.$transaction(
+    input.messages.map((message) =>
+      prisma.chat_messages.create({
+        data: {
+          session_id: input.sessionId,
+          user_id: input.userId,
+          role: "assistant",
+          parts: message.parts,
+          plain_text: message.parts
+            .flatMap((part) =>
+              part.type === "text" && typeof part.text === "string"
+                ? [part.text]
+                : [],
+            )
+            .join("\n"),
+          model_name: "gemini-2.5-flash-lite",
+        },
+        select: { id: true },
+      }),
+    ),
   );
 }
 
@@ -608,17 +966,20 @@ export async function updateSessionMemory(
   nextSessionMemory: SessionMemoryPayload | null | undefined,
   timestamp: string,
 ) {
-  await supabaseUpdate(`chat_sessions?id=eq.${sessionId}`, {
-    last_message_at: timestamp,
-    updated_at: timestamp,
-    ...(nextSessionMemory
-      ? {
-          memory_payload: {
-            ...nextSessionMemory,
-            updatedAt: timestamp,
-          },
-        }
-      : {}),
+  await prisma.chat_sessions.updateMany({
+    where: { id: sessionId },
+    data: {
+      last_message_at: timestamp,
+      updated_at: timestamp,
+      ...(nextSessionMemory
+        ? {
+            memory_payload: {
+              ...nextSessionMemory,
+              updatedAt: timestamp,
+            },
+          }
+        : {}),
+    },
   });
 }
 
@@ -644,13 +1005,16 @@ export async function updateProfileMemory(input: {
   );
 
   if (hasProfileMemoryUpdate) {
-    await supabaseUpdate(`pregnancy_profiles?user_id=eq.${input.userId}`, {
-      onboarding_payload: {
-        ...(input.onboardingPayload ?? {}),
-        profileMemory: {
-          ...(input.currentProfileMemory ?? {}),
-          ...profileMemory,
-          updatedAt: input.timestamp,
+    await prisma.pregnancy_profiles.updateMany({
+      where: { user_id: input.userId },
+      data: {
+        onboarding_payload: {
+          ...(input.onboardingPayload ?? {}),
+          profileMemory: {
+            ...(input.currentProfileMemory ?? {}),
+            ...profileMemory,
+            updatedAt: input.timestamp,
+          },
         },
       },
     });

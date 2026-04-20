@@ -155,26 +155,23 @@ export class WeekContentRepository {
   async getWeek(weekNumber: number): Promise<SupabaseWeekRow | null> {
     let weekRows: Array<SupabaseWeekRow>;
     if (this.hasDirectContentDatabase()) {
-      weekRows = await this.queryRows<SupabaseWeekRow>(
-        `
-          SELECT
-            id,
-            week_number,
-            title,
-            baby_size_label,
-            baby_size_compare_object,
-            baby_summary,
-            mother_summary,
-            warning_signs,
-            recommended_actions,
-            status,
-            updated_at
-          FROM content.pregnancy_week_data
-          WHERE week_number = $1
-          LIMIT 1
-        `,
-        [weekNumber],
-      );
+      const week = await this.prisma.pregnancy_week_data.findUnique({
+        where: { week_number: weekNumber },
+        select: {
+          id: true,
+          week_number: true,
+          title: true,
+          baby_size_label: true,
+          baby_size_compare_object: true,
+          baby_summary: true,
+          mother_summary: true,
+          warning_signs: true,
+          recommended_actions: true,
+          status: true,
+          updated_at: true,
+        },
+      });
+      weekRows = week ? [week] : [];
     } else {
       try {
         weekRows = await this.select<Array<SupabaseWeekRow>>(
@@ -202,42 +199,72 @@ export class WeekContentRepository {
   }> {
     if (this.hasDirectContentDatabase()) {
       const [sections, assets, days, media] = await Promise.all([
-        this.queryRows<SupabaseWeekSectionRow>(
-          `
-            SELECT id, day_number, code, title, description, display_order, is_required, is_active
-            FROM content.week_checklists
-            WHERE week_data_id = $1::uuid
-            ORDER BY day_number ASC NULLS LAST, display_order ASC NULLS LAST
-          `,
-          [weekId],
-        ),
-        this.queryRows<SupabaseWeekAssetRow>(
-          `
-            SELECT id, day_number, code, question_type, question_text, help_text, display_order, is_required, is_active
-            FROM content.week_questions
-            WHERE week_data_id = $1::uuid
-            ORDER BY day_number ASC NULLS LAST, display_order ASC NULLS LAST
-          `,
-          [weekId],
-        ),
-        this.queryRows<SupabaseWeekDayRow>(
-          `
-            SELECT id, day_number, title, baby_development_payload, baby_message, mother_changes_payload, display_order
-            FROM content.pregnancy_day_contents
-            WHERE week_data_id = $1::uuid
-            ORDER BY day_number ASC
-          `,
-          [weekId],
-        ),
-        this.queryRows<SupabaseWeekMediaRow>(
-          `
-            SELECT id, day_number, media_scope, bucket_id, object_path, media_role, alt_text, source_file_name, display_order
-            FROM content.pregnancy_week_media
-            WHERE week_data_id = $1::uuid
-            ORDER BY day_number ASC NULLS LAST, display_order ASC NULLS LAST
-          `,
-          [weekId],
-        ),
+        this.prisma.week_checklists.findMany({
+          where: { week_data_id: weekId },
+          select: {
+            id: true,
+            day_number: true,
+            code: true,
+            title: true,
+            description: true,
+            display_order: true,
+            is_required: true,
+            is_active: true,
+          },
+          orderBy: [
+            { day_number: { sort: "asc", nulls: "last" } },
+            { display_order: { sort: "asc", nulls: "last" } },
+          ],
+        }),
+        this.prisma.week_questions.findMany({
+          where: { week_data_id: weekId },
+          select: {
+            id: true,
+            day_number: true,
+            code: true,
+            question_type: true,
+            question_text: true,
+            help_text: true,
+            display_order: true,
+            is_required: true,
+            is_active: true,
+          },
+          orderBy: [
+            { day_number: { sort: "asc", nulls: "last" } },
+            { display_order: { sort: "asc", nulls: "last" } },
+          ],
+        }),
+        this.prisma.pregnancy_day_contents.findMany({
+          where: { week_data_id: weekId },
+          select: {
+            id: true,
+            day_number: true,
+            title: true,
+            baby_development_payload: true,
+            baby_message: true,
+            mother_changes_payload: true,
+            display_order: true,
+          },
+          orderBy: { day_number: "asc" },
+        }),
+        this.prisma.pregnancy_week_media.findMany({
+          where: { week_data_id: weekId },
+          select: {
+            id: true,
+            day_number: true,
+            media_scope: true,
+            bucket_id: true,
+            object_path: true,
+            media_role: true,
+            alt_text: true,
+            source_file_name: true,
+            display_order: true,
+          },
+          orderBy: [
+            { day_number: { sort: "asc", nulls: "last" } },
+            { display_order: { sort: "asc", nulls: "last" } },
+          ],
+        }),
       ]);
 
       return { sections, assets, days, media };
@@ -307,32 +334,20 @@ export class WeekContentRepository {
     },
   ): Promise<void> {
     if (this.hasDirectContentDatabase()) {
-      await this.queryRows(
-        `
-          UPDATE content.pregnancy_week_data
-             SET title = $2,
-                 baby_size_label = $3,
-                 baby_size_compare_object = $4,
-                 baby_summary = $5,
-                 mother_summary = $6,
-                 warning_signs = $7,
-                 recommended_actions = $8,
-                 status = $9,
-                 updated_at = NOW()
-           WHERE id = $1::uuid
-        `,
-        [
-          weekId,
-          input.title,
-          input.babySizeLabel,
-          input.babySizeCompareObject,
-          input.babySummary,
-          input.motherSummary,
-          input.heroImagePath,
-          input.compareImagePath,
-          input.status,
-        ],
-      );
+      await this.prisma.pregnancy_week_data.update({
+        where: { id: weekId },
+        data: {
+          title: input.title,
+          baby_size_label: input.babySizeLabel,
+          baby_size_compare_object: input.babySizeCompareObject,
+          baby_summary: input.babySummary,
+          mother_summary: input.motherSummary,
+          warning_signs: input.heroImagePath,
+          recommended_actions: input.compareImagePath,
+          status: input.status,
+          updated_at: new Date(),
+        },
+      });
       return;
     }
 
