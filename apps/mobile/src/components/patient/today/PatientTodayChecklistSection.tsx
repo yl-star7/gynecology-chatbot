@@ -32,7 +32,7 @@ export function PatientTodayChecklistSection({
 }) {
   return (
     <Card style={styles.segmentCard}>
-      <View style={styles.sectionHeaderRow}>
+      <View style={styles.segmentSection}>
         <View style={styles.iconTitleRow}>
           <View style={[styles.sectionIconWrap, styles.checklistIconWrap]}>
             <ChecklistIcon
@@ -43,40 +43,44 @@ export function PatientTodayChecklistSection({
           </View>
           <Text style={styles.sectionTitle}>{title}</Text>
         </View>
-      </View>
 
-      <View style={styles.checklist}>
-        {items.map((item) => (
-          <Pressable
-            key={item.id}
-            style={styles.checklistRow}
-            onPress={() => onToggleChecklistItem(item.id, !item.completed)}
-            disabled={pendingChecklistIds.includes(item.id)}
-            accessibilityLabel={`${item.label} ${item.completed ? "완료됨" : "미완료"}`}
-          >
+        <View style={styles.innerPanel}>
+          <View style={styles.checklist}>
+            {items.map((item) => (
+              <Pressable
+                key={item.id}
+                style={styles.checklistRow}
+                onPress={() => onToggleChecklistItem(item.id, !item.completed)}
+                disabled={pendingChecklistIds.includes(item.id)}
+                accessibilityLabel={`${item.label} ${item.completed ? "완료됨" : "미완료"}`}
+              >
+                <View
+                  style={
+                    item.completed
+                      ? [styles.checkbox, styles.checkboxCompleted]
+                      : styles.checkbox
+                  }
+                />
+                <Text style={styles.checklistLabel}>{item.label}</Text>
+              </Pressable>
+            ))}
+            {items.length === 0 ? (
+              <Text style={styles.emptyChecklistText}>
+                오늘 체크리스트를 준비 중이에요.
+              </Text>
+            ) : null}
+          </View>
+
+          <View style={styles.progressMetaRow}>
+            <Text style={styles.progressMetaLabel}>완료율</Text>
+            <Text style={styles.progressPercent}>{`${progressPercent}%`}</Text>
+          </View>
+          <View style={styles.progressTrack}>
             <View
-              style={
-                item.completed
-                  ? [styles.checkbox, styles.checkboxCompleted]
-                  : styles.checkbox
-              }
+              style={[styles.progressFill, { width: `${progressPercent}%` }]}
             />
-            <Text style={styles.checklistLabel}>{item.label}</Text>
-          </Pressable>
-        ))}
-        {items.length === 0 ? (
-          <Text style={styles.emptyChecklistText}>
-            오늘 체크리스트를 준비 중이에요.
-          </Text>
-        ) : null}
-      </View>
-
-      <View style={styles.progressMetaRow}>
-        <Text style={styles.progressMetaLabel}>완료율</Text>
-        <Text style={styles.progressPercent}>{`${progressPercent}%`}</Text>
-      </View>
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+          </View>
+        </View>
       </View>
     </Card>
   );
@@ -87,11 +91,8 @@ const styles = StyleSheet.create({
     gap: space.sm,
     padding: space.md,
   },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: space.sm,
+  segmentSection: {
+    gap: space.md,
   },
   iconTitleRow: {
     flexDirection: "row",
@@ -112,9 +113,13 @@ const styles = StyleSheet.create({
     ...typo.titleSm,
     color: surface.textPrimary,
   },
+  innerPanel: {
+    borderRadius: radii.xl,
+    padding: space.lg,
+    backgroundColor: surface.surfaceAccent,
+  },
   checklist: {
-    marginTop: space.lg,
-    gap: space.lg,
+    gap: space.md,
   },
   checklistRow: {
     flexDirection: "row",
@@ -124,7 +129,7 @@ const styles = StyleSheet.create({
   checkbox: {
     width: space.xl + space.xs,
     height: space.xl + space.xs,
-    borderRadius: 6,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: surface.strokeSubtle,
     backgroundColor: surface.fieldSurface,
@@ -134,8 +139,8 @@ const styles = StyleSheet.create({
     borderColor: palette.successText,
   },
   checklistLabel: {
-    ...typo.titleSm,
-    color: surface.textPrimary,
+    ...typo.body,
+    color: surface.textSecondary,
     flex: 1,
   },
   emptyChecklistText: {
@@ -143,7 +148,7 @@ const styles = StyleSheet.create({
     color: surface.textSecondary,
   },
   progressMetaRow: {
-    marginTop: space.md,
+    marginTop: space.lg,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

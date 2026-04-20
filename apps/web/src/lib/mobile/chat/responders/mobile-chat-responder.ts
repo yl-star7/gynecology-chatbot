@@ -8,6 +8,10 @@ import {
   buildWorkflowAssistantMessage,
   pickLatestEmotionTone,
 } from "@/lib/mobile/chat/responders/route-response-helpers";
+import {
+  parseWorkflowAssistantPayload,
+  type WorkflowAssistantPayload,
+} from "@/lib/mobile/chat/workflow-payload";
 
 function normalizeLetterFollowUpFlow(input: {
   assistantMessage: ChatMessage;
@@ -54,10 +58,6 @@ function normalizeLetterFollowUpFlow(input: {
 
   return input;
 }
-import {
-  parseWorkflowAssistantPayload,
-  type WorkflowAssistantPayload,
-} from "@/lib/mobile/chat/workflow-payload";
 
 type WorkflowRunLike = {
   status: string;
@@ -185,9 +185,14 @@ export function createMobileChatResponder<
           );
         }
 
-        return {
+        const normalized = normalizeLetterFollowUpFlow({
           assistantMessage: structuredWorkflowMessage,
           workflowMemoryPayload: workflowPayload,
+        });
+
+        return {
+          assistantMessage: normalized.assistantMessage,
+          workflowMemoryPayload: normalized.workflowMemoryPayload,
         };
       },
       runFallback: async () => {
