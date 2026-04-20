@@ -123,53 +123,51 @@ export function usePatientTodayScreenModel() {
         return;
       }
 
-      if (
-        hasFreshCachedTodayView(currentUser.id) &&
-        (hasFreshCachedRecordDayView(currentUser.id, todayIsoDate) ||
-          hasFreshCachedRecentChats(currentUser.id))
-      ) {
+      if (hasFreshCachedTodayView(currentUser.id)) {
         const cachedToday = readCachedTodayView(currentUser.id);
         setToday(cachedToday);
         hydrateChecklistSyncTracker(
           checklistSyncRef.current,
           cachedToday?.checklistItems ?? [],
         );
-        setRecentSessions(
-          (readCachedRecordDayView(currentUser.id, todayIsoDate)
-            ?.relatedSessions?.length ?? 0) > 0
-            ? (readCachedRecordDayView(currentUser.id, todayIsoDate)
-                ?.relatedSessions ?? [])
-            : (readCachedRecentChats(currentUser.id) ?? []),
-        );
-        warmRecentSessionDetails(
-          (readCachedRecordDayView(currentUser.id, todayIsoDate)
-            ?.relatedSessions?.length ?? 0) > 0
-            ? (readCachedRecordDayView(currentUser.id, todayIsoDate)
-                ?.relatedSessions ?? [])
-            : (readCachedRecentChats(currentUser.id) ?? []),
-        );
-        setHasAttemptedInfoViewed(false);
-        return;
       }
 
-      Promise.all([
-        services.todayPort.getTodayView(),
-        services.homePort.getRecordDay(todayIsoDate),
-        services.chatPort.listRecentChats(),
-      ])
-        .then(([nextToday, nextRecordDay, nextRecentChats]) => {
+      if (hasFreshCachedRecentChats(currentUser.id)) {
+        const cachedRecentChats = readCachedRecentChats(currentUser.id) ?? [];
+        setRecentSessions(cachedRecentChats);
+        warmRecentSessionDetails(cachedRecentChats);
+      }
+
+      setHasAttemptedInfoViewed(false);
+
+      void services.todayPort
+        .getTodayView()
+        .then((nextToday) => {
           setToday(nextToday);
           hydrateChecklistSyncTracker(
             checklistSyncRef.current,
             nextToday.checklistItems,
           );
-          const nextRecentSessions =
-            nextRecordDay.relatedSessions.length > 0
-              ? nextRecordDay.relatedSessions
-              : nextRecentChats;
-          setRecentSessions(nextRecentSessions);
-          warmRecentSessionDetails(nextRecentSessions);
-          setHasAttemptedInfoViewed(false);
+        })
+        .catch(() => undefined);
+
+      void services.homePort
+        .getRecordDay(todayIsoDate)
+        .then((nextRecordDay) => {
+          if (nextRecordDay.relatedSessions.length > 0) {
+            setRecentSessions(nextRecordDay.relatedSessions);
+            warmRecentSessionDetails(nextRecordDay.relatedSessions);
+          }
+        })
+        .catch(() => undefined);
+
+      void services.chatPort
+        .listRecentChats()
+        .then((nextRecentChats) => {
+          setRecentSessions((current) =>
+            current.length > 0 ? current : nextRecentChats,
+          );
+          warmRecentSessionDetails(nextRecentChats);
         })
         .catch(() => undefined);
     }, [

@@ -1,8 +1,14 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
+import {
+  AppState,
+  Keyboard,
+  Platform,
+  type LayoutChangeEvent,
+  ScrollView,
+} from "react-native";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
-import { hasFreshCachedChatSession } from "../../core/patientViewCache";
 import {
   AppState,
   Keyboard,
