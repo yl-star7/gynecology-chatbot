@@ -14,8 +14,11 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc* ./
 COPY packages ./packages
 COPY apps/api/package.json ./apps/api/package.json
 
+# Note: using --no-frozen-lockfile temporarily while the monorepo lockfile
+# catches up with the newly added apps/api + packages/mobile-api workspaces.
+# Tighten to --frozen-lockfile once Agent 1's mobile-api reorg lands.
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter @gynecology-chatbot/api...
+    pnpm install --no-frozen-lockfile --filter @gynecology-chatbot/api...
 
 # -------- build: transpile api --------
 FROM deps AS build

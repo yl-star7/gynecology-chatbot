@@ -8,12 +8,12 @@ import {
   computePhoneNumberBlindIndex,
   createPhoneNumberStorage,
   decryptPhoneNumber,
-} from "@/lib/privacy/phone-crypto";
+} from "./privacy/phone-crypto";
 import {
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+} from "./supabase/admin-client";
 import {
   checkSmsVerification,
   normalizePhoneNumberToE164,
