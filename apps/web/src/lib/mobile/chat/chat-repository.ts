@@ -236,7 +236,7 @@ export async function getPromptContext(
   const position = profile
     ? resolveSelectedPregnancyPosition(profile, todayIsoDate)
     : null;
-  const pregnancyWeek = hintedPregnancyWeek ?? position?.weekNumber ?? null;
+  const pregnancyWeek = position?.weekNumber ?? hintedPregnancyWeek ?? null;
   const dayNumber = position?.dayNumber ?? null;
   if (!pregnancyWeek || !dayNumber) {
     return null;

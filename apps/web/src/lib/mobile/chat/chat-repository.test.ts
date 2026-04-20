@@ -44,7 +44,7 @@ describe("chat repository", () => {
       if (path.startsWith("pregnancy_profiles?")) {
         return Promise.resolve([
           {
-            pregnancy_day_count: 84,
+            pregnancy_day_count: 85,
             pregnancy_week: 13,
             pregnancy_day_in_week: 0,
             baby_nickname: null,
