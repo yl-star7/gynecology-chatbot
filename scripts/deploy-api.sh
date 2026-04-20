@@ -21,6 +21,7 @@
 # Environment overrides:
 #   PROJECT_ID    default: agaya-2026
 #   REGION        default: asia-northeast3
+#   ARTIFACT_REGION default: asia-southeast1
 #   REPO          default: agaya-api
 #   IMAGE_NAME    default: api
 #   SERVICE       default: agaya-api
@@ -33,6 +34,7 @@ set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-agaya-2026}"
 REGION="${REGION:-asia-northeast3}"
+ARTIFACT_REGION="${ARTIFACT_REGION:-asia-southeast1}"
 REPO="${REPO:-agaya-api}"
 IMAGE_NAME="${IMAGE_NAME:-api}"
 SERVICE="${SERVICE:-agaya-api}"
@@ -46,7 +48,7 @@ if [[ -z "${IMAGE_TAG:-}" ]]; then
   fi
 fi
 
-IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE_NAME}"
+IMAGE="${ARTIFACT_REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE_NAME}"
 
 BUILD=1
 DEPLOY=1
@@ -72,7 +74,7 @@ cd "$REPO_ROOT"
 
 if [[ "$TRIAL" == "1" ]]; then
   IMAGE_NAME="api-trial"
-  IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE_NAME}"
+  IMAGE="${ARTIFACT_REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE_NAME}"
   BUILD_CONTEXT="scripts/trial-stub"
   BUILD_CONFIG="scripts/trial-stub/cloudbuild.yaml"
 else
@@ -82,6 +84,7 @@ fi
 
 echo "==> project: ${PROJECT_ID}"
 echo "==> region:  ${REGION}"
+echo "==> artifact:${ARTIFACT_REGION}"
 echo "==> service: ${SERVICE}"
 echo "==> image:   ${IMAGE}:${IMAGE_TAG}"
 echo "==> cloudsql:${CLOUDSQL_INSTANCE}"

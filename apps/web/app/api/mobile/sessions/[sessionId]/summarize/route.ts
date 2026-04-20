@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText } from "ai";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
+
 import {
   mobileNoStoreJson,
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { supabaseInsert, supabaseSelect } from "@/lib/supabase/admin-client";
 
 export const maxDuration = 30;
 
@@ -21,10 +22,6 @@ type MessageRow = {
 type SessionRow = {
   id: string;
   title: string;
-};
-
-type CalendarLogRow = {
-  id: string;
 };
 
 function getGoogleApiKey() {
@@ -49,6 +46,16 @@ function getKstDateKey() {
   return `${year}-${month}-${day}`;
 }
 
+function parseDateOnly(isoDate: string) {
+  return new Date(`${isoDate}T00:00:00.000Z`);
+}
+
+function asMessageParts(value: Prisma.JsonValue | null | undefined) {
+  return Array.isArray(value)
+    ? (value as Array<{ type?: string; text?: string }>)
+    : null;
+}
+
 function extractMessageText(message: MessageRow): string {
   if (message.plain_text && message.plain_text.trim()) {
     return message.plain_text.trim();
@@ -71,25 +78,54 @@ export async function POST(
     const hintedUserId = request.nextUrl.searchParams.get("userId");
     const { userId } = await requireMobileSession(request, hintedUserId);
 
-    const sessions = await supabaseSelect<SessionRow[]>(
-      `chat_sessions?select=id,title&id=eq.${sessionId}&user_id=eq.${userId}&limit=1`,
-    );
-    if (!sessions[0]) {
+    const session = await prisma.chat_sessions.findFirst({
+      where: {
+        id: sessionId,
+        user_id: userId,
+      },
+      select: {
+        id: true,
+        title: true,
+      },
+    });
+    if (!session) {
       return NextResponse.json({ error: "session not found" }, { status: 404 });
     }
 
-    const existingSummaries = await supabaseSelect<CalendarLogRow[]>(
-      `calendar_logs?select=id&session_id=eq.${sessionId}&entry_type=eq.ai_summary&limit=1`,
-    );
-    if (existingSummaries[0]) {
+    const existingSummary = await prisma.calendar_logs.findFirst({
+      where: {
+        session_id: sessionId,
+        entry_type: "ai_summary",
+      },
+      select: { id: true },
+    });
+    if (existingSummary?.id) {
       return mobileNoStoreJson({
         summarized: false,
         reason: "already_summarized",
       });
     }
 
-    const messages = await supabaseSelect<MessageRow[]>(
-      `chat_messages?select=id,role,plain_text,parts,created_at&session_id=eq.${sessionId}&order=created_at.asc`,
+    const messages = (
+      await prisma.chat_messages.findMany({
+        where: { session_id: sessionId },
+        orderBy: { created_at: "asc" },
+        select: {
+          id: true,
+          role: true,
+          plain_text: true,
+          parts: true,
+          created_at: true,
+        },
+      })
+    ).map(
+      (message): MessageRow => ({
+        id: message.id,
+        role: message.role as MessageRow["role"],
+        plain_text: message.plain_text,
+        parts: asMessageParts(message.parts),
+        created_at: message.created_at.toISOString(),
+      }),
     );
 
     const dialogueLines: string[] = [];
@@ -138,16 +174,18 @@ export async function POST(
       return mobileNoStoreJson({ summarized: false, reason: "empty_summary" });
     }
 
-    await supabaseInsert("calendar_logs", {
-      user_id: userId,
-      session_id: sessionId,
-      date: getKstDateKey(),
-      entry_type: "ai_summary",
-      title: sessions[0].title || "대화 요약",
-      summary: summaryText,
-      payload: {
-        source: "session_close",
-        messageCount: messages.length,
+    await prisma.calendar_logs.create({
+      data: {
+        user_id: userId,
+        session_id: sessionId,
+        date: parseDateOnly(getKstDateKey()),
+        entry_type: "ai_summary",
+        title: session.title || "대화 요약",
+        summary: summaryText,
+        payload: {
+          source: "session_close",
+          messageCount: messages.length,
+        } as Prisma.InputJsonValue,
       },
     });
 

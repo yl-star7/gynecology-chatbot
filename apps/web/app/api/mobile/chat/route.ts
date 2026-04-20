@@ -43,11 +43,7 @@ import {
   isMobileSessionError,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import {
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import { checkRateLimit } from "@/lib/mobile/rate-limit";
 import { recordUserAction } from "@/lib/mobile/user-action-log";
 import { createPersonaSignalInputFromProfileMemory } from "@/lib/mobile/persona/persona-signals";
@@ -96,6 +92,25 @@ function getInternalWebhookBaseUrl(request: NextRequest) {
   ).replace(/\/$/, "");
 }
 
+function parseDateOnly(isoDate: string) {
+  return new Date(`${isoDate}T00:00:00.000Z`);
+}
+
+function asStringRecord(
+  value: Prisma.JsonValue,
+): Record<string, string | null> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      typeof item === "string" || item === null ? item : null,
+    ]),
+  );
+}
+
 async function postPersonaSignalWebhook(input: {
   request: NextRequest;
   userId: string;
@@ -139,10 +154,11 @@ async function postPersonaSignalWebhook(input: {
 
 async function loadCharacterImages(): Promise<Record<string, string | null>> {
   try {
-    const rows = await supabaseSelect<
-      Array<{ value?: Record<string, string | null> }>
-    >("system_config?select=key,value&key=eq.character_images&limit=1");
-    return rows[0]?.value ?? {};
+    const row = await prisma.system_config.findUnique({
+      where: { key: "character_images" },
+      select: { value: true },
+    });
+    return row ? asStringRecord(row.value) : {};
   } catch {
     return {};
   }
@@ -194,7 +210,6 @@ export async function POST(request: NextRequest) {
     const normalizedSessionId = normalizeSessionId(sessionId);
     const hardGuardrailReason = detectHardGuardrailReason(text);
 
-    // 파일 RAG 검색 (채팅 시작 시 1회 — 워크플로우/fallback 양쪽에서 사용)
     let fileRagSources: RagSource[] = [];
     let fileRagContext = "";
     if (!hardGuardrailReason && text.trim()) {
@@ -237,8 +252,12 @@ export async function POST(request: NextRequest) {
               nickname: z.string().describe("새로 설정할 아기 태명"),
             }),
             execute: async ({ nickname }) => {
-              await supabaseUpdate(`pregnancy_profiles?user_id=eq.${userId}`, {
-                baby_nickname: nickname.trim(),
+              await prisma.pregnancy_profiles.updateMany({
+                where: { user_id: userId },
+                data: {
+                  baby_nickname: nickname.trim(),
+                  updated_at: new Date(),
+                },
               });
               return `태명을 '${nickname.trim()}'(으)로 변경했어요.`;
             },
@@ -445,11 +464,15 @@ export async function POST(request: NextRequest) {
     });
 
     const todayDate = getKstDateKey();
-    const existingChatCalendarLogs = await supabaseSelect<
-      Array<{ id: string }>
-    >(
-      `calendar_logs?select=id&user_id=eq.${userId}&date=eq.${todayDate}&session_id=eq.${result.sessionId}&entry_type=eq.chat_saved&limit=1`,
-    );
+    const existingChatCalendarLog = await prisma.calendar_logs.findFirst({
+      where: {
+        user_id: userId,
+        date: parseDateOnly(todayDate),
+        session_id: result.sessionId,
+        entry_type: "chat_saved",
+      },
+      select: { id: true },
+    });
     const assistantSummary = result.assistantMessages
       .flatMap((message) =>
         message.parts.flatMap((part) =>
@@ -475,24 +498,26 @@ export async function POST(request: NextRequest) {
         result.workflowMemoryPayload?.nextSessionMemory?.compactSummary ?? null,
       assistantSummary: assistantSummary || null,
     };
-    if (existingChatCalendarLogs[0]?.id) {
-      await supabaseUpdate(
-        `calendar_logs?id=eq.${existingChatCalendarLogs[0].id}`,
-        {
+    if (existingChatCalendarLog?.id) {
+      await prisma.calendar_logs.update({
+        where: { id: existingChatCalendarLog.id },
+        data: {
           title: text.slice(0, 40) || "아기와 대화",
           summary: calendarSummary,
-          payload: chatCalendarPayload,
+          payload: chatCalendarPayload as Prisma.InputJsonValue,
         },
-      );
+      });
     } else {
-      await supabaseInsert("calendar_logs", {
-        user_id: userId,
-        session_id: result.sessionId,
-        date: todayDate,
-        entry_type: "chat_saved",
-        title: text.slice(0, 40) || "아기와 대화",
-        summary: calendarSummary,
-        payload: chatCalendarPayload,
+      await prisma.calendar_logs.create({
+        data: {
+          user_id: userId,
+          session_id: result.sessionId,
+          date: parseDateOnly(todayDate),
+          entry_type: "chat_saved",
+          title: text.slice(0, 40) || "아기와 대화",
+          summary: calendarSummary,
+          payload: chatCalendarPayload as Prisma.InputJsonValue,
+        },
       });
     }
 
