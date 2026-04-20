@@ -17,20 +17,7 @@ config.resolver.nodeModulesPaths = [
 ];
 
 config.resolver.disableHierarchicalLookup = true;
-
-const PIN_PREFIXES = ["react/", "react-dom/", "scheduler/"];
-const PIN_EXACT = new Set(["react", "react-dom", "scheduler"]);
-
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (
-    PIN_EXACT.has(moduleName) ||
-    PIN_PREFIXES.some((p) => moduleName.startsWith(p))
-  ) {
-    const resolved = resolveMobileReactRequest(moduleName);
-    if (resolved) {
-      return { type: "sourceFile", filePath: resolved };
-    }
-  }
   return context.resolveRequest(context, moduleName, platform);
 };
 
