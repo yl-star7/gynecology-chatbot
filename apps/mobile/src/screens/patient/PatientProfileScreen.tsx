@@ -107,8 +107,7 @@ export function PatientProfileScreen() {
 
       if (
         hasFreshCachedProfileView(currentUser.id) &&
-        hasFreshCachedHomeView(currentUser.id) &&
-        hasFreshCachedTodayView(currentUser.id)
+        hasFreshCachedHomeView(currentUser.id)
       ) {
         setProfile(readCachedProfileView(currentUser.id));
         setHome(readCachedHomeView(currentUser.id));
@@ -117,20 +116,24 @@ export function PatientProfileScreen() {
         return;
       }
 
-      Promise.all([
-        profilePort.getProfile(),
-        homePort.getHomeView(),
-        todayPort.getTodayView(),
-      ])
-        .then(([nextProfile, nextHome, nextToday]) => {
+      Promise.all([profilePort.getProfile(), homePort.getHomeView()])
+        .then(([nextProfile, nextHome]) => {
           setProfile(nextProfile);
           setHome(nextHome);
-          setToday(nextToday);
           setError(null);
         })
         .catch((nextError) => {
           setError(resolvePatientProfileLoadError(nextError));
         });
+
+      if (!hasFreshCachedTodayView(currentUser.id)) {
+        todayPort
+          .getTodayView()
+          .then((nextToday) => {
+            setToday(nextToday);
+          })
+          .catch(() => undefined);
+      }
     }, [
       currentUser,
       homePort,

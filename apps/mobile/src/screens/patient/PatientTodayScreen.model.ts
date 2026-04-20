@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import type {
   RecentChatSummary,
@@ -21,7 +21,17 @@ import {
   readCachedTodayView,
 } from "../../core/patientViewCache";
 import { warmConversationSessions } from "./patientConversationNavigation.model";
-import { updateRecordDayChecklistItems } from "./PatientTodayScreen.helpers";
+import {
+  confirmChecklistRequest,
+  createChecklistSyncTracker,
+  hydrateChecklistSyncTracker,
+  rememberChecklistDesiredState,
+  resolveChecklistRequest,
+  rollbackChecklistRequest,
+  updateRecordDayChecklistItems,
+  updateTodayChecklistItems,
+  type ChecklistSyncTracker,
+} from "./PatientTodayScreen.helpers";
 import { buildPatientTodayViewModel } from "./view-models";
 
 const EMPTY_BABY_BODY = "오늘 아기의 변화를 준비 중이에요.";
@@ -47,6 +57,9 @@ export function usePatientTodayScreenModel() {
     string | null
   >(null);
   const [hasAttemptedInfoViewed, setHasAttemptedInfoViewed] = useState(false);
+  const checklistSyncRef = useRef<ChecklistSyncTracker>(
+    createChecklistSyncTracker([]),
+  );
   const todayIsoDate = createTodayIsoDate();
 
   const warmRecentSessionDetails = useCallback(
@@ -81,6 +94,10 @@ export function usePatientTodayScreenModel() {
     const cachedRecentChats = readCachedRecentChats(currentUser.id);
 
     setToday(cachedToday);
+    hydrateChecklistSyncTracker(
+      checklistSyncRef.current,
+      cachedToday?.checklistItems ?? [],
+    );
     const nextRecentSessions =
       cachedRecordDay?.relatedSessions &&
       cachedRecordDay.relatedSessions.length > 0
@@ -106,7 +123,12 @@ export function usePatientTodayScreenModel() {
         (hasFreshCachedRecordDayView(currentUser.id, todayIsoDate) ||
           hasFreshCachedRecentChats(currentUser.id))
       ) {
-        setToday(readCachedTodayView(currentUser.id));
+        const cachedToday = readCachedTodayView(currentUser.id);
+        setToday(cachedToday);
+        hydrateChecklistSyncTracker(
+          checklistSyncRef.current,
+          cachedToday?.checklistItems ?? [],
+        );
         setRecentSessions(
           (readCachedRecordDayView(currentUser.id, todayIsoDate)
             ?.relatedSessions?.length ?? 0) > 0
@@ -132,6 +154,10 @@ export function usePatientTodayScreenModel() {
       ])
         .then(([nextToday, nextRecordDay, nextRecentChats]) => {
           setToday(nextToday);
+          hydrateChecklistSyncTracker(
+            checklistSyncRef.current,
+            nextToday.checklistItems,
+          );
           const nextRecentSessions =
             nextRecordDay.relatedSessions.length > 0
               ? nextRecordDay.relatedSessions
@@ -193,22 +219,28 @@ export function usePatientTodayScreenModel() {
   ]);
 
   function handleToggleChecklistItem(checklistId: string, completed: boolean) {
-    if (!today || pendingChecklistIds.includes(checklistId)) {
+    if (!today) {
       return;
     }
 
-    setPendingChecklistIds((current) => [...current, checklistId]);
+    rememberChecklistDesiredState(
+      checklistSyncRef.current,
+      checklistId,
+      completed,
+    );
     setToday((current) => {
       if (!currentUser || !current) {
         return current;
       }
 
-      const nextToday = {
-        ...current,
-        checklistItems: current.checklistItems.map((item) =>
-          item.id === checklistId ? { ...item, completed } : item,
-        ),
-      };
+      const nextToday = updateTodayChecklistItems(
+        current,
+        checklistId,
+        completed,
+      );
+      if (!nextToday) {
+        return current;
+      }
       cacheTodayView(currentUser.id, nextToday);
       return nextToday;
     });
@@ -234,25 +266,54 @@ export function usePatientTodayScreenModel() {
       clearCachedHomeView(currentUser.id);
     }
 
+    if (pendingChecklistIds.includes(checklistId)) {
+      return;
+    }
+
+    const request = resolveChecklistRequest(
+      checklistSyncRef.current,
+      checklistId,
+    );
+    if (!request) {
+      return;
+    }
+
+    setPendingChecklistIds((current) => [...current, checklistId]);
     services.todayPort
-      .setChecklistItemCompleted({
-        checklistId,
-        completed,
+      .setChecklistItemCompleted(request)
+      .then(() => {
+        confirmChecklistRequest(
+          checklistSyncRef.current,
+          checklistId,
+          request.completed,
+        );
+
+        const nextRequest = resolveChecklistRequest(
+          checklistSyncRef.current,
+          checklistId,
+        );
+        if (nextRequest) {
+          handleToggleChecklistItem(checklistId, nextRequest.completed);
+        }
       })
       .catch(() => {
+        const rollbackCompleted = rollbackChecklistRequest(
+          checklistSyncRef.current,
+          checklistId,
+        );
         setToday((current) => {
           if (!currentUser || !current) {
             return current;
           }
 
-          const nextToday = {
-            ...current,
-            checklistItems: current.checklistItems.map((item) =>
-              item.id === checklistId
-                ? { ...item, completed: !completed }
-                : item,
-            ),
-          };
+          const nextToday = updateTodayChecklistItems(
+            current,
+            checklistId,
+            rollbackCompleted,
+          );
+          if (!nextToday) {
+            return current;
+          }
           cacheTodayView(currentUser.id, nextToday);
           return nextToday;
         });
@@ -266,7 +327,7 @@ export function usePatientTodayScreenModel() {
             const nextRecordDay = updateRecordDayChecklistItems(
               cachedRecordDay,
               checklistId,
-              !completed,
+              rollbackCompleted,
             );
 
             if (nextRecordDay) {
