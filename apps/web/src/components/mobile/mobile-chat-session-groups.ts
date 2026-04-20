@@ -56,6 +56,14 @@ export function groupChatSessionsByDate(
     .map(([dateKey, groupedSessions]) => ({
       dateKey,
       label: formatGroupLabel(dateKey, now),
-      sessions: groupedSessions,
+      sessions: [...groupedSessions].sort((left, right) => {
+        const leftTime = left.updatedAtIso
+          ? new Date(left.updatedAtIso).getTime()
+          : 0;
+        const rightTime = right.updatedAtIso
+          ? new Date(right.updatedAtIso).getTime()
+          : 0;
+        return rightTime - leftTime;
+      }),
     })) satisfies ChatSessionGroup[];
 }

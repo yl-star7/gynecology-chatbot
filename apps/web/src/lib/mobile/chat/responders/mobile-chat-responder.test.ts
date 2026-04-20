@@ -144,14 +144,68 @@ describe("mobile chat responder", () => {
     expect(result.workflowMemoryPayload).toBeNull();
   });
 
+  it("removes early closing quick replies during letter reflection flow", async () => {
+    const responder = createMobileChatResponder({
+      getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
+      runSchiftWorkflow: jest.fn().mockResolvedValue({
+        run: {
+          status: "completed",
+          outputs: {
+            answer: JSON.stringify({
+              answer: "아기에게 따뜻한 마음을 잘 전하셨어요.",
+              scenario: "letter_reflection",
+              quickReplies: [
+                { label: "오늘은 여기까지", message: "오늘은 여기까지" },
+                { label: "더 이야기하기", message: "더 이야기하기" },
+              ],
+              nextSessionMemory: {
+                compactSummary: "현재 단계: 편지 후속 질문",
+                lastScenario: "letter_reflection",
+              },
+            }),
+          },
+        },
+      }),
+      extractSchiftWorkflowOutputs: (run) => run.outputs ?? {},
+      formatSchiftWorkflowRun: () => "답변: ok",
+      loadCharacterImages: async () => ({}),
+      runFallbackModel: jest.fn(),
+    });
+
+    const result = await responder({
+      promptContext: null,
+      currentWeek: 28,
+      normalizedSessionId: "session-1",
+      text: "아기에게 편지를 썼어요",
+      imageDataUris: [],
+      hardGuardrailReason: null,
+    });
+
+    const quickReplies = result.assistantMessage.parts.find(
+      (part) => part.type === "quickReplies",
+    );
+    expect(quickReplies).toBeUndefined();
+    const textPart = result.assistantMessage.parts.find(
+      (part) => part.type === "text",
+    );
+    expect(textPart?.type).toBe("text");
+    if (textPart?.type === "text") {
+      expect(textPart.text).toContain("가장 크게 남은 마음은 무엇이었나요?");
+    }
+  });
+
   it("returns a local workflow fallback when the fallback model also fails", async () => {
     const responder = createMobileChatResponder({
       getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
-      runSchiftWorkflow: jest.fn().mockRejectedValue(new Error("No output specified.")),
+      runSchiftWorkflow: jest
+        .fn()
+        .mockRejectedValue(new Error("No output specified.")),
       extractSchiftWorkflowOutputs: (run) => run.outputs ?? {},
       formatSchiftWorkflowRun: () => "답변: workflow 출력이 없어요.",
       loadCharacterImages: async () => ({}),
-      runFallbackModel: jest.fn().mockRejectedValue(new Error("No output specified.")),
+      runFallbackModel: jest
+        .fn()
+        .mockRejectedValue(new Error("No output specified.")),
     });
 
     const result = await responder({

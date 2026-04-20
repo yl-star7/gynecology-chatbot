@@ -220,16 +220,26 @@ export function resolveRecentChatPreview(input: {
 }
 
 export function toRecentChats(sessions: SessionRow[]): RecentChatSummary[] {
-  return sessions.map((session) => ({
-    id: session.id,
-    title: session.title,
-    preview:
-      resolveRecentChatPreview({
-        plainText: session.last_message_preview,
-      }) || "",
-    updatedAtLabel: formatRecentChatLabel(session.last_message_at),
-    updatedAtIso: session.last_message_at,
-  }));
+  return [...sessions]
+    .sort((left, right) => {
+      const leftTime = left.last_message_at
+        ? new Date(left.last_message_at).getTime()
+        : 0;
+      const rightTime = right.last_message_at
+        ? new Date(right.last_message_at).getTime()
+        : 0;
+      return rightTime - leftTime;
+    })
+    .map((session) => ({
+      id: session.id,
+      title: session.title,
+      preview:
+        resolveRecentChatPreview({
+          plainText: session.last_message_preview,
+        }) || "",
+      updatedAtLabel: formatRecentChatLabel(session.last_message_at),
+      updatedAtIso: session.last_message_at,
+    }));
 }
 
 export function toChatSession(

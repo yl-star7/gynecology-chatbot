@@ -8,7 +8,56 @@ import {
   buildWorkflowAssistantMessage,
   pickLatestEmotionTone,
 } from "@/lib/mobile/chat/responders/route-response-helpers";
-import { parseWorkflowAssistantPayload, type WorkflowAssistantPayload } from "@/lib/mobile/chat/workflow-payload";
+
+function normalizeLetterFollowUpFlow(input: {
+  assistantMessage: ChatMessage;
+  workflowMemoryPayload: WorkflowAssistantPayload | null;
+}) {
+  const scenario =
+    input.workflowMemoryPayload?.nextSessionMemory?.lastScenario ??
+    input.workflowMemoryPayload?.scenario ??
+    null;
+  const compactSummary =
+    input.workflowMemoryPayload?.nextSessionMemory?.compactSummary ?? "";
+  const isLetterFlow =
+    scenario === "letter_reflection" ||
+    compactSummary.includes("편지 후속 질문");
+  const isDailyFollowup =
+    scenario === "daily_followup" ||
+    compactSummary.includes("태동/데일리 후속 질문");
+
+  if (!isLetterFlow && !isDailyFollowup) {
+    return input;
+  }
+
+  input.assistantMessage.parts = input.assistantMessage.parts.filter((part) => {
+    if (part.type !== "quickReplies") return true;
+    return !part.choices.some((choice) =>
+      /오늘은 여기까지|더 이야기|하나 더 말할래요/.test(choice.label),
+    );
+  });
+
+  const textPart = input.assistantMessage.parts.find(
+    (part) => part.type === "text",
+  );
+  if (textPart?.type === "text") {
+    if (isLetterFlow && !/[?？]$/.test(textPart.text.trim())) {
+      textPart.text = `${textPart.text.trim()}\n\n지금 편지를 쓰면서 가장 크게 남은 마음은 무엇이었나요?`;
+    }
+    if (
+      isDailyFollowup &&
+      !/(태동|몸|하루).*[?？]$/.test(textPart.text.trim())
+    ) {
+      textPart.text = `${textPart.text.trim()}\n\n오늘은 태동이나 몸 상태가 평소와 비교해 어땠나요?`;
+    }
+  }
+
+  return input;
+}
+import {
+  parseWorkflowAssistantPayload,
+  type WorkflowAssistantPayload,
+} from "@/lib/mobile/chat/workflow-payload";
 
 type WorkflowRunLike = {
   status: string;
@@ -17,7 +66,10 @@ type WorkflowRunLike = {
   block_states?: unknown;
 };
 
-export function createMobileChatResponder<TSchift, TRun extends WorkflowRunLike>(deps: {
+export function createMobileChatResponder<
+  TSchift,
+  TRun extends WorkflowRunLike,
+>(deps: {
   getSchiftClient: () => TSchift | null;
   runSchiftWorkflow: (input: {
     schift: TSchift;
@@ -37,7 +89,9 @@ export function createMobileChatResponder<TSchift, TRun extends WorkflowRunLike>
   }) => Promise<{
     run: TRun;
   }>;
-  extractSchiftWorkflowOutputs: (run: TRun) => Record<string, unknown> | undefined;
+  extractSchiftWorkflowOutputs: (
+    run: TRun,
+  ) => Record<string, unknown> | undefined;
   formatSchiftWorkflowRun: (run: TRun) => string;
   loadCharacterImages: () => Promise<Record<string, string | null>>;
   runFallbackModel: (input: {
@@ -61,7 +115,8 @@ export function createMobileChatResponder<TSchift, TRun extends WorkflowRunLike>
     workflowMemoryPayload: WorkflowAssistantPayload | null;
   }> {
     const memoryContext = {
-      compactSummary: input.promptContext?.sessionMemory?.compactSummary ?? null,
+      compactSummary:
+        input.promptContext?.sessionMemory?.compactSummary ?? null,
       lastScenario: input.promptContext?.sessionMemory?.lastScenario ?? null,
       lastCharacterTone:
         input.promptContext?.sessionMemory?.lastCharacterTone ?? null,
@@ -103,7 +158,9 @@ export function createMobileChatResponder<TSchift, TRun extends WorkflowRunLike>
         });
 
         if (run.status !== "completed" || run.error) {
-          throw new Error(`Schift workflow run failed: ${run.error ?? run.status}`);
+          throw new Error(
+            `Schift workflow run failed: ${run.error ?? run.status}`,
+          );
         }
 
         const workflowOutputs = deps.extractSchiftWorkflowOutputs(run);
