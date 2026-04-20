@@ -444,7 +444,7 @@ export async function POST(request: NextRequest) {
     const existingChatCalendarLogs = await supabaseSelect<
       Array<{ id: string }>
     >(
-      `calendar_logs?select=id&user_id=eq.${userId}&date=eq.${todayDate}&session_id=eq.${result.sessionId}&entry_type=eq.chat&limit=1`,
+      `calendar_logs?select=id&user_id=eq.${userId}&date=eq.${todayDate}&session_id=eq.${result.sessionId}&entry_type=eq.chat_saved&limit=1`,
     );
     const chatCalendarPayload = {
       lastMessageAt: new Date().toISOString(),
@@ -464,7 +464,7 @@ export async function POST(request: NextRequest) {
         user_id: userId,
         session_id: result.sessionId,
         date: todayDate,
-        entry_type: "chat",
+        entry_type: "chat_saved",
         title: text.slice(0, 40) || "아기와 대화",
         summary: text.slice(0, 140) || null,
         payload: chatCalendarPayload,

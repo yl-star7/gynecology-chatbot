@@ -755,7 +755,7 @@ describe("POST /api/mobile/chat", () => {
         "calendar_logs",
         expect.objectContaining({
           user_id: "user-1",
-          entry_type: "chat",
+          entry_type: "chat_saved",
         }),
       );
     } finally {
