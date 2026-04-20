@@ -363,6 +363,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@prisma/client':
+        specifier: ^6.1.0
+        version: 6.19.1(prisma@6.19.1(typescript@5.3.3))(typescript@5.3.3)
       drizzle-orm:
         specifier: ^0.44.5
         version: 0.44.7(@opentelemetry/api@1.9.0)(@prisma/client@6.19.1(prisma@6.19.1(typescript@5.3.3))(typescript@5.3.3))(@types/pg@8.18.0)(pg@8.20.0)(prisma@6.19.1(typescript@5.3.3))
@@ -370,9 +373,15 @@ importers:
         specifier: ^8.16.3
         version: 8.20.0
     devDependencies:
+      '@types/node':
+        specifier: ^20.19.13
+        version: 20.19.27
       drizzle-kit:
         specifier: ^0.31.4
         version: 0.31.10
+      prisma:
+        specifier: ^6.1.0
+        version: 6.19.1(typescript@5.3.3)
       typescript:
         specifier: ^5
         version: 5.3.3
