@@ -89,6 +89,7 @@ export function usePatientConversationScreenModel({
   const [composerHeight, setComposerHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const didSeedInitialMessageRef = useRef(false);
+  const didUserSendMessageRef = useRef(false);
 
   useEffect(() => {
     const showEvent =
@@ -175,6 +176,19 @@ export function usePatientConversationScreenModel({
     return () => clearTimeout(timer);
   }, [isSending, session.messages.length]);
 
+  useEffect(() => {
+    return () => {
+      if (!didUserSendMessageRef.current) {
+        return;
+      }
+      const summarize = services.chatPort.summarizeSession;
+      if (!summarize) {
+        return;
+      }
+      void summarize.call(services.chatPort, resolvedSessionId).catch(() => {});
+    };
+  }, [resolvedSessionId, services.chatPort]);
+
   const isReadOnly =
     !isNewConversationSession(sessionId) &&
     isPastConversationSession(session.lastMessageAtIso);
@@ -191,6 +205,7 @@ export function usePatientConversationScreenModel({
       "아기와 대화",
       createUserMessage(nextText, capturedImage),
     );
+    didUserSendMessageRef.current = true;
     setText("");
     setImageDataUri(null);
     setErrorMessage(null);
