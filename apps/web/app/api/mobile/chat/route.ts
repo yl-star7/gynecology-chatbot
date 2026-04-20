@@ -198,7 +198,11 @@ export async function POST(request: NextRequest) {
     let fileRagSources: RagSource[] = [];
     let fileRagContext = "";
     if (!hardGuardrailReason && text.trim()) {
-      const fileRag = await searchFileRag({ query: text, matchCount: 5 });
+      const fileRag = await searchFileRag({
+        query: text,
+        currentWeek: pregnancyWeek,
+        matchCount: 5,
+      });
       fileRagSources = fileRag.sources;
       fileRagContext = fileRag.context;
     }

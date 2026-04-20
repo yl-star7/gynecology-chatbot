@@ -295,6 +295,7 @@ function withTimeout<T>(
 /** 파일 RAG 검색 — Schift collection에서 top-K 검색 + 출처 반환 */
 export async function searchFileRag(input: {
   query: string;
+  currentWeek?: number | null;
   matchCount?: number;
 }): Promise<RagSearchResult> {
   if (!input.query.trim()) return { context: "", sources: [] };
@@ -320,9 +321,18 @@ export async function searchFileRag(input: {
 
     const results = normalizeSchiftSearchResults(response);
 
-    const filtered = results
-      .filter((r) => !isResultFromDisabledFile(r, disabledIds))
-      .slice(0, count);
+    const enabledResults = results.filter(
+      (r) => !isResultFromDisabledFile(r, disabledIds),
+    );
+    const weekFilteredResults = enabledResults.filter((r) =>
+      isWeekInRange(
+        readPregnancyWeekFromMetadata(r.metadata),
+        input.currentWeek ?? null,
+      ),
+    );
+    const filtered = (
+      weekFilteredResults.length > 0 ? weekFilteredResults : enabledResults
+    ).slice(0, count);
 
     if (filtered.length === 0) return { context: "", sources: [] };
 
