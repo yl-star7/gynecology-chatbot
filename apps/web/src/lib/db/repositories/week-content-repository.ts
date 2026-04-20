@@ -387,29 +387,18 @@ export class WeekContentRepository {
 
       if (day.id) {
         if (this.hasDirectContentDatabase()) {
-          await this.queryRows(
-            `
-              UPDATE content.pregnancy_day_contents
-                 SET week_data_id = $2::uuid,
-                     day_number = $3,
-                     title = $4,
-                     baby_development_payload = $5::jsonb,
-                     baby_message = $6,
-                     mother_changes_payload = $7::jsonb,
-                     display_order = $8
-               WHERE id = $1::uuid
-            `,
-            [
-              day.id,
-              weekId,
-              day.dayNumber,
-              day.title,
-              JSON.stringify(payload.baby_development_payload),
-              day.babyMessage,
-              JSON.stringify(payload.mother_changes_payload),
-              day.displayOrder,
-            ],
-          );
+          await this.prisma.pregnancy_day_contents.update({
+            where: { id: day.id },
+            data: {
+              week_data_id: weekId,
+              day_number: day.dayNumber,
+              title: day.title,
+              baby_development_payload: payload.baby_development_payload,
+              baby_message: day.babyMessage,
+              mother_changes_payload: payload.mother_changes_payload,
+              display_order: day.displayOrder,
+            },
+          });
         } else {
           await this.update(
             `content.pregnancy_day_contents?id=eq.${day.id}`,
@@ -424,27 +413,20 @@ export class WeekContentRepository {
       const newId = this.createId();
       const insertedDayId = this.hasDirectContentDatabase()
         ? (
-            await this.queryRows<{ id: string }>(
-              `
-                INSERT INTO content.pregnancy_day_contents (
-                  id, week_data_id, day_number, title, baby_development_payload,
-                  baby_message, mother_changes_payload, display_order
-                )
-                VALUES ($1::uuid, $2::uuid, $3, $4, $5::jsonb, $6, $7::jsonb, $8)
-                RETURNING id
-              `,
-              [
-                newId,
-                weekId,
-                day.dayNumber,
-                day.title,
-                JSON.stringify(payload.baby_development_payload),
-                day.babyMessage,
-                JSON.stringify(payload.mother_changes_payload),
-                day.displayOrder,
-              ],
-            )
-          )[0]?.id
+            await this.prisma.pregnancy_day_contents.create({
+              data: {
+                id: newId,
+                week_data_id: weekId,
+                day_number: day.dayNumber,
+                title: day.title,
+                baby_development_payload: payload.baby_development_payload,
+                baby_message: day.babyMessage,
+                mother_changes_payload: payload.mother_changes_payload,
+                display_order: day.displayOrder,
+              },
+              select: { id: true },
+            })
+          ).id
         : (
             await this.insert<Array<{ id: string }>>(
               "content.pregnancy_day_contents",
@@ -486,33 +468,20 @@ export class WeekContentRepository {
 
       if (section.id) {
         if (this.hasDirectContentDatabase()) {
-          await this.queryRows(
-            `
-              UPDATE content.week_checklists
-                 SET week_data_id = $2::uuid,
-                     day_content_id = $3::uuid,
-                     day_number = $4,
-                     code = $5,
-                     title = $6,
-                     description = $7,
-                     display_order = $8,
-                     is_required = $9,
-                     is_active = $10
-               WHERE id = $1::uuid
-            `,
-            [
-              section.id,
-              weekId,
-              payload.day_content_id,
-              section.dayNumber,
-              section.sectionKey,
-              section.title,
-              section.body,
-              section.displayOrder,
-              section.isRequired,
-              section.isActive,
-            ],
-          );
+          await this.prisma.week_checklists.update({
+            where: { id: section.id },
+            data: {
+              week_data_id: weekId,
+              day_content_id: payload.day_content_id,
+              day_number: section.dayNumber,
+              code: section.sectionKey,
+              title: section.title,
+              description: section.body,
+              display_order: section.displayOrder,
+              is_required: section.isRequired,
+              is_active: section.isActive,
+            },
+          });
         } else {
           await this.update(
             `content.week_checklists?id=eq.${section.id}`,
@@ -525,27 +494,20 @@ export class WeekContentRepository {
 
       const newId = this.createId();
       if (this.hasDirectContentDatabase()) {
-        await this.queryRows(
-          `
-            INSERT INTO content.week_checklists (
-              id, week_data_id, day_content_id, day_number, code, title,
-              description, display_order, is_required, is_active
-            )
-            VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10)
-          `,
-          [
-            newId,
-            weekId,
-            payload.day_content_id,
-            section.dayNumber,
-            section.sectionKey,
-            section.title,
-            section.body,
-            section.displayOrder,
-            section.isRequired,
-            section.isActive,
-          ],
-        );
+        await this.prisma.week_checklists.create({
+          data: {
+            id: newId,
+            week_data_id: weekId,
+            day_content_id: payload.day_content_id,
+            day_number: section.dayNumber,
+            code: section.sectionKey,
+            title: section.title,
+            description: section.body,
+            display_order: section.displayOrder,
+            is_required: section.isRequired,
+            is_active: section.isActive,
+          },
+        });
       } else {
         await this.insert("content.week_checklists", {
           id: newId,
@@ -579,35 +541,21 @@ export class WeekContentRepository {
 
       if (asset.id) {
         if (this.hasDirectContentDatabase()) {
-          await this.queryRows(
-            `
-              UPDATE content.week_questions
-                 SET week_data_id = $2::uuid,
-                     day_content_id = $3::uuid,
-                     day_number = $4,
-                     code = $5,
-                     question_type = $6,
-                     question_text = $7,
-                     help_text = $8,
-                     display_order = $9,
-                     is_required = $10,
-                     is_active = $11
-               WHERE id = $1::uuid
-            `,
-            [
-              asset.id,
-              weekId,
-              payload.day_content_id,
-              asset.dayNumber,
-              asset.styleKey,
-              asset.assetType,
-              asset.storagePath,
-              asset.altText,
-              asset.displayOrder,
-              asset.isRequired,
-              asset.isActive,
-            ],
-          );
+          await this.prisma.week_questions.update({
+            where: { id: asset.id },
+            data: {
+              week_data_id: weekId,
+              day_content_id: payload.day_content_id,
+              day_number: asset.dayNumber,
+              code: asset.styleKey,
+              question_type: asset.assetType,
+              question_text: asset.storagePath,
+              help_text: asset.altText,
+              display_order: asset.displayOrder,
+              is_required: asset.isRequired,
+              is_active: asset.isActive,
+            },
+          });
         } else {
           await this.update(
             `content.week_questions?id=eq.${asset.id}`,
@@ -620,28 +568,21 @@ export class WeekContentRepository {
 
       const newId = this.createId();
       if (this.hasDirectContentDatabase()) {
-        await this.queryRows(
-          `
-            INSERT INTO content.week_questions (
-              id, week_data_id, day_content_id, day_number, code, question_type,
-              question_text, help_text, display_order, is_required, is_active
-            )
-            VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10, $11)
-          `,
-          [
-            newId,
-            weekId,
-            payload.day_content_id,
-            asset.dayNumber,
-            asset.styleKey,
-            asset.assetType,
-            asset.storagePath,
-            asset.altText,
-            asset.displayOrder,
-            asset.isRequired,
-            asset.isActive,
-          ],
-        );
+        await this.prisma.week_questions.create({
+          data: {
+            id: newId,
+            week_data_id: weekId,
+            day_content_id: payload.day_content_id,
+            day_number: asset.dayNumber,
+            code: asset.styleKey,
+            question_type: asset.assetType,
+            question_text: asset.storagePath,
+            help_text: asset.altText,
+            display_order: asset.displayOrder,
+            is_required: asset.isRequired,
+            is_active: asset.isActive,
+          },
+        });
       } else {
         await this.insert("content.week_questions", {
           id: newId,
@@ -675,35 +616,21 @@ export class WeekContentRepository {
 
       if (item.id) {
         if (this.hasDirectContentDatabase()) {
-          await this.queryRows(
-            `
-              UPDATE content.pregnancy_week_media
-                 SET week_data_id = $2::uuid,
-                     day_content_id = $3::uuid,
-                     day_number = $4,
-                     media_scope = $5,
-                     bucket_id = $6,
-                     object_path = $7,
-                     media_role = $8,
-                     alt_text = $9,
-                     source_file_name = $10,
-                     display_order = $11
-               WHERE id = $1::uuid
-            `,
-            [
-              item.id,
-              weekId,
-              payload.day_content_id,
-              item.dayNumber,
-              item.mediaScope,
-              item.bucketId,
-              item.objectPath,
-              item.mediaRole,
-              item.altText,
-              item.sourceFileName,
-              item.displayOrder,
-            ],
-          );
+          await this.prisma.pregnancy_week_media.update({
+            where: { id: item.id },
+            data: {
+              week_data_id: weekId,
+              day_content_id: payload.day_content_id,
+              day_number: item.dayNumber,
+              media_scope: item.mediaScope,
+              bucket_id: item.bucketId,
+              object_path: item.objectPath,
+              media_role: item.mediaRole,
+              alt_text: item.altText,
+              source_file_name: item.sourceFileName,
+              display_order: item.displayOrder,
+            },
+          });
         } else {
           await this.update(
             `content.pregnancy_week_media?id=eq.${item.id}`,
@@ -716,28 +643,21 @@ export class WeekContentRepository {
 
       const newId = this.createId();
       if (this.hasDirectContentDatabase()) {
-        await this.queryRows(
-          `
-            INSERT INTO content.pregnancy_week_media (
-              id, week_data_id, day_content_id, day_number, media_scope, bucket_id,
-              object_path, media_role, alt_text, source_file_name, display_order
-            )
-            VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10, $11)
-          `,
-          [
-            newId,
-            weekId,
-            payload.day_content_id,
-            item.dayNumber,
-            item.mediaScope,
-            item.bucketId,
-            item.objectPath,
-            item.mediaRole,
-            item.altText,
-            item.sourceFileName,
-            item.displayOrder,
-          ],
-        );
+        await this.prisma.pregnancy_week_media.create({
+          data: {
+            id: newId,
+            week_data_id: weekId,
+            day_content_id: payload.day_content_id,
+            day_number: item.dayNumber,
+            media_scope: item.mediaScope,
+            bucket_id: item.bucketId,
+            object_path: item.objectPath,
+            media_role: item.mediaRole,
+            alt_text: item.altText,
+            source_file_name: item.sourceFileName,
+            display_order: item.displayOrder,
+          },
+        });
       } else {
         await this.insert("content.pregnancy_week_media", {
           id: newId,
@@ -749,10 +669,7 @@ export class WeekContentRepository {
 
   async deleteDay(id: string): Promise<void> {
     if (this.hasDirectContentDatabase()) {
-      await this.queryRows(
-        `DELETE FROM content.pregnancy_day_contents WHERE id = $1::uuid`,
-        [id],
-      );
+      await this.prisma.pregnancy_day_contents.delete({ where: { id } });
       return;
     }
 
@@ -761,10 +678,7 @@ export class WeekContentRepository {
 
   async deleteChecklist(id: string): Promise<void> {
     if (this.hasDirectContentDatabase()) {
-      await this.queryRows(
-        `DELETE FROM content.week_checklists WHERE id = $1::uuid`,
-        [id],
-      );
+      await this.prisma.week_checklists.delete({ where: { id } });
       return;
     }
 
@@ -773,10 +687,7 @@ export class WeekContentRepository {
 
   async deleteQuestion(id: string): Promise<void> {
     if (this.hasDirectContentDatabase()) {
-      await this.queryRows(
-        `DELETE FROM content.week_questions WHERE id = $1::uuid`,
-        [id],
-      );
+      await this.prisma.week_questions.delete({ where: { id } });
       return;
     }
 
@@ -785,10 +696,7 @@ export class WeekContentRepository {
 
   async deleteMedia(id: string): Promise<void> {
     if (this.hasDirectContentDatabase()) {
-      await this.queryRows(
-        `DELETE FROM content.pregnancy_week_media WHERE id = $1::uuid`,
-        [id],
-      );
+      await this.prisma.pregnancy_week_media.delete({ where: { id } });
       return;
     }
 

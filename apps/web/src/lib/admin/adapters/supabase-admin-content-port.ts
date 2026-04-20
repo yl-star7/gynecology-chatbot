@@ -15,8 +15,8 @@ import type {
   AdminWeekUpdateInput,
 } from "@gynecology-chatbot/app-core";
 import { MockAdminContentAdapter } from "@gynecology-chatbot/app-core";
+import { prisma } from "@gynecology-chatbot/db/prisma";
 import { randomUUID } from "crypto";
-import { Pool } from "pg";
 
 import { embedPregnancyDocument } from "@/lib/mobile/rag";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
@@ -63,11 +63,8 @@ type SupabaseKnowledgeItemRow = {
 
 type PublicKnowledgeItemRow = SupabaseKnowledgeItemRow;
 
-let contentWritePool: Pool | null = null;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const CONTENT_SCHEMA = "content";
-const KNOWLEDGE_ITEMS_TABLE = `public.content_knowledge_items`;
 
 function hasDirectContentDatabase() {
   return Boolean(process.env.DATABASE_URL);
@@ -75,36 +72,6 @@ function hasDirectContentDatabase() {
 
 function isUuid(value: string) {
   return UUID_PATTERN.test(value);
-}
-
-function getContentWritePool() {
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL is required for admin content writes");
-  }
-
-  if (!contentWritePool) {
-    const databaseUrl = new URL(process.env.DATABASE_URL);
-    const usesSsl =
-      databaseUrl.searchParams.get("sslmode") === "require" ||
-      databaseUrl.searchParams.get("sslmode") === "verify-full";
-    databaseUrl.searchParams.delete("sslmode");
-    databaseUrl.searchParams.delete("gssencmode");
-
-    contentWritePool = new Pool({
-      connectionString: databaseUrl.toString(),
-      ssl: usesSsl ? { rejectUnauthorized: false } : undefined,
-    });
-  }
-
-  return contentWritePool;
-}
-
-async function queryContentRows<T>(
-  sql: string,
-  params: unknown[] = [],
-): Promise<T[]> {
-  const result = await getContentWritePool().query(sql, params);
-  return result.rows as T[];
 }
 
 function toVectorLiteral(values: number[]) {
@@ -139,6 +106,22 @@ async function insertAdminAuditLog(input: {
   beforePayload: Record<string, unknown>;
   afterPayload: Record<string, unknown>;
 }) {
+  if (hasDirectContentDatabase()) {
+    await prisma.admin_audit_logs.create({
+      data: {
+        admin_user_id: getAdminActorId(input.actorId),
+        target_user_id: null,
+        action_type: input.actionType,
+        entity_type: input.entityType,
+        entity_id: input.entityId,
+        reason: input.reason,
+        before_payload: input.beforePayload,
+        after_payload: input.afterPayload,
+      },
+    });
+    return;
+  }
+
   await supabaseInsert("admin_audit_logs", {
     admin_user_id: getAdminActorId(input.actorId),
     target_user_id: null,
@@ -357,13 +340,22 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
 
   private async selectKnowledgeItemRows() {
     if (hasDirectContentDatabase()) {
-      return queryContentRows<SupabaseKnowledgeItemRow>(
-        `
-          SELECT id, slug, section, title, body, image_url, status, updated_at
-          FROM ${KNOWLEDGE_ITEMS_TABLE}
-          ORDER BY updated_at DESC NULLS LAST, title ASC
-        `,
-      );
+      return prisma.content_knowledge_items.findMany({
+        select: {
+          id: true,
+          slug: true,
+          section: true,
+          title: true,
+          body: true,
+          image_url: true,
+          status: true,
+          updated_at: true,
+        },
+        orderBy: [
+          { updated_at: { sort: "desc", nulls: "last" } },
+          { title: "asc" },
+        ],
+      });
     }
 
     try {
@@ -399,33 +391,31 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       source: "admin_upload",
     };
     const inserted = hasDirectContentDatabase()
-      ? await queryContentRows<SupabaseRagDocumentRow>(
-          `
-            INSERT INTO public.content_pregnancy_documents (
-              id,
-              title,
-              content,
-              pregnancy_week,
-              category,
-              image_url,
-              embedding,
-              metadata,
-              created_at
-            )
-            VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::vector, $8::jsonb, NOW())
-            RETURNING id, title, content, pregnancy_week, category, image_url, metadata, created_at, NULL::timestamptz AS updated_at
-          `,
-          [
-            documentId,
-            input.title,
-            input.content,
-            input.pregnancyWeek,
-            input.category,
-            imageUrl,
-            toVectorLiteral(embedding),
-            JSON.stringify(metadata),
-          ],
-        )
+      ? await prisma.$queryRaw<Array<SupabaseRagDocumentRow>>`
+          INSERT INTO public.content_pregnancy_documents (
+            id,
+            title,
+            content,
+            pregnancy_week,
+            category,
+            image_url,
+            embedding,
+            metadata,
+            created_at
+          )
+          VALUES (
+            ${documentId}::uuid,
+            ${input.title},
+            ${input.content},
+            ${input.pregnancyWeek},
+            ${input.category},
+            ${imageUrl},
+            ${toVectorLiteral(embedding)}::vector,
+            ${JSON.stringify(metadata)}::jsonb,
+            NOW()
+          )
+          RETURNING id, title, content, pregnancy_week, category, image_url, metadata, created_at, NULL::timestamptz AS updated_at
+        `
       : await supabaseInsert<Array<SupabaseRagDocumentRow>>(
           "content_pregnancy_documents",
           {
@@ -473,15 +463,21 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const rows = hasDirectContentDatabase()
-      ? await queryContentRows<SupabaseRagDocumentRow>(
-          `
-            SELECT id, title, content, pregnancy_week, category, image_url, metadata, created_at, NULL::timestamptz AS updated_at
-            FROM public.content_pregnancy_documents
-            WHERE id = $1::uuid
-            LIMIT 1
-          `,
-          [documentId],
-        )
+      ? ((await prisma.content_pregnancy_documents.findMany({
+          where: { id: documentId },
+          select: {
+            id: true,
+            title: true,
+            content: true,
+            pregnancy_week: true,
+            category: true,
+            image_url: true,
+            metadata: true,
+            created_at: true,
+            updated_at: true,
+          },
+          take: 1,
+        })) as SupabaseRagDocumentRow[])
       : ((await supabaseSelect<Array<SupabaseRagDocumentRow>>(
           `content_pregnancy_documents?select=id,title,content,pregnancy_week,category,image_url,metadata,created_at&id=eq.${documentId}&limit=1`,
         )) ?? []);
@@ -508,28 +504,18 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       ? await this.getDocument(documentId)
       : null;
     const updated = hasDirectContentDatabase()
-      ? await queryContentRows<SupabaseRagDocumentRow>(
-          `
-            UPDATE public.content_pregnancy_documents
-               SET title = $2,
-                   content = $3,
-                   pregnancy_week = $4,
-                   category = $5,
-                   image_url = $6,
-                   embedding = $7::vector
-             WHERE id = $1::uuid
-         RETURNING id, title, content, pregnancy_week, category, image_url, metadata, created_at, NULL::timestamptz AS updated_at
-          `,
-          [
-            documentId,
-            input.title,
-            input.content,
-            input.pregnancyWeek,
-            input.category,
-            imageUrl,
-            toVectorLiteral(embedding),
-          ],
-        )
+      ? await prisma.$queryRaw<Array<SupabaseRagDocumentRow>>`
+          UPDATE public.content_pregnancy_documents
+             SET title = ${input.title},
+                 content = ${input.content},
+                 pregnancy_week = ${input.pregnancyWeek},
+                 category = ${input.category},
+                 image_url = ${imageUrl},
+                 embedding = ${toVectorLiteral(embedding)}::vector,
+                 updated_at = NOW()
+           WHERE id = ${documentId}::uuid
+       RETURNING id, title, content, pregnancy_week, category, image_url, metadata, created_at, updated_at
+        `
       : await supabaseUpdate<Array<SupabaseRagDocumentRow>>(
           `content_pregnancy_documents?id=eq.${documentId}`,
           {
@@ -583,10 +569,9 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     if (hasDirectContentDatabase()) {
-      await queryContentRows(
-        `DELETE FROM public.content_pregnancy_documents WHERE id = $1::uuid RETURNING id`,
-        [documentId],
-      );
+      await prisma.content_pregnancy_documents.delete({
+        where: { id: documentId },
+      });
       if (shouldWriteAdminAuditLog(actorId)) {
         await insertAdminAuditLog({
           actorId,
