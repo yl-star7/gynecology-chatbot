@@ -1,6 +1,7 @@
 import type {
   ChatSession,
   HomeViewData,
+  MobilePregnancyWeekSummary,
   MobileProfileViewData,
   RecentChatSummary,
   RecordDayView,
