@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { RecordDayView } from "@gynecology-chatbot/app-core";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,6 +12,16 @@ import { createRecordDayActions } from "./PatientRecordDayScreen.model";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { resolvePatientRecordDayLoadError } from "./patientErrorCopy.model";
 import { prefetchConversationSession } from "./patientConversationNavigation.model";
+import {
+  confirmChecklistRequest,
+  createChecklistSyncTracker,
+  hydrateChecklistSyncTracker,
+  rememberChecklistDesiredState,
+  resolveChecklistRequest,
+  rollbackChecklistRequest,
+  updateRecordDayChecklistItems,
+  type ChecklistSyncTracker,
+} from "./PatientTodayScreen.helpers";
 import {
   palette,
   patientSurfacePalette as surface,
@@ -59,12 +69,20 @@ export function PatientRecordDayScreen({
   const [recordDay, setRecordDay] = useState<RecordDayView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingChecklistIds, setPendingChecklistIds] = useState<string[]>([]);
+  const checklistSyncRef = useRef<ChecklistSyncTracker>(
+    createChecklistSyncTracker([]),
+  );
+  const pendingChecklistIdsRef = useRef<string[]>([]);
   const backHref = useMemo(() => resolveBackHref(returnTo), [returnTo]);
   const activeTab = useMemo(() => resolveActiveTab(returnTo), [returnTo]);
   const contentInsets = buildPatientTabContentInsets({
     bottomInset: insets.bottom,
     topSpacing: space.md,
   });
+
+  useEffect(() => {
+    pendingChecklistIdsRef.current = pendingChecklistIds;
+  }, [pendingChecklistIds]);
 
   function openConversationSession(sessionId: string) {
     setError(null);

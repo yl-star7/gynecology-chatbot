@@ -56,8 +56,10 @@ export function MobileAppSessionProvider({
 
     async function restoreSession() {
       const inMemoryToken = readCurrentMobileSessionToken();
-      const nativeToken = await readNativeSessionToken();
-      const nativeUserId = await readNativeUserId();
+      const [nativeToken, nativeUserId] = await Promise.all([
+        readNativeSessionToken(),
+        readNativeUserId(),
+      ]);
 
       if (currentUser) {
         storeCurrentMobileUserId(currentUser.id);
@@ -71,9 +73,9 @@ export function MobileAppSessionProvider({
         return;
       }
 
-      if (nativeUserId) {
-        await hydratePatientViewCaches(nativeUserId);
-      }
+      const nativeCacheHydration = nativeUserId
+        ? hydratePatientViewCaches(nativeUserId)
+        : Promise.resolve();
 
       const persistedToken = inMemoryToken ?? nativeToken ?? null;
       const shouldPersistRestoredToken =
@@ -90,7 +92,14 @@ export function MobileAppSessionProvider({
 
       try {
         const payload = await fetchCurrentMobileSession();
-        await hydratePatientViewCaches(payload.user.id);
+        if (payload.user.id === nativeUserId) {
+          await nativeCacheHydration;
+        } else {
+          await Promise.all([
+            nativeCacheHydration,
+            hydratePatientViewCaches(payload.user.id),
+          ]);
+        }
         if (!cancelled) {
           storeCurrentMobileUserId(payload.user.id);
           setCurrentUser(payload.user);

@@ -28,14 +28,11 @@ export async function preloadPatientAppData({
   }
 
   void Promise.allSettled([
-    services.homePort.getRecordDay(todayIsoDate),
-    services.chatPort.listRecentChats(),
-    services.knowledgePort.listPregnancyWeeks(),
-  ]);
-
-  await Promise.allSettled([
     services.profilePort.getProfile(),
     services.homePort.getHomeView(),
     services.todayPort.getTodayView(),
+    services.homePort.getRecordDay(todayIsoDate),
+    services.chatPort.listRecentChats(),
+    services.knowledgePort.listPregnancyWeeks(),
   ]);
 }

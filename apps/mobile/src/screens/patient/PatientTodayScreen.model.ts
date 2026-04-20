@@ -60,7 +60,12 @@ export function usePatientTodayScreenModel() {
   const checklistSyncRef = useRef<ChecklistSyncTracker>(
     createChecklistSyncTracker([]),
   );
+  const pendingChecklistIdsRef = useRef<string[]>([]);
   const todayIsoDate = createTodayIsoDate();
+
+  useEffect(() => {
+    pendingChecklistIdsRef.current = pendingChecklistIds;
+  }, [pendingChecklistIds]);
 
   const warmRecentSessionDetails = useCallback(
     (sessions: RecentChatSummary[]) => {
@@ -266,7 +271,7 @@ export function usePatientTodayScreenModel() {
       clearCachedHomeView(currentUser.id);
     }
 
-    if (pendingChecklistIds.includes(checklistId)) {
+    if (pendingChecklistIdsRef.current.includes(checklistId)) {
       return;
     }
 

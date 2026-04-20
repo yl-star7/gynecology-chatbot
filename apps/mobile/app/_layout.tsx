@@ -4,10 +4,11 @@ import {
   HIDDEN_HEADER_SCREEN_OPTIONS,
   ROOT_STACK_ROUTE_NAMES,
 } from "./routeOptions.model";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { StyleSheet, Text, View } from "react-native";
 import { ChatSessionsProvider } from "../src/chat/store";
 import {
   MobileAppSessionProvider,
@@ -20,6 +21,8 @@ import {
 import { DailyLocalNotificationRegistrar } from "../src/components/DailyLocalNotificationRegistrar";
 import { PushTokenRegistrar } from "../src/components/PushTokenRegistrar";
 import { preloadPatientAppData } from "../src/core/mobileBootstrap.model";
+import { BrandMark } from "../src/components/ui";
+import { patientSurfacePalette as surface, space, typo } from "../src/theme";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -45,40 +48,32 @@ function SessionScopedStack() {
   );
 }
 
+function BootstrapFallback() {
+  return (
+    <View style={styles.bootstrapFallback}>
+      <BrandMark subtitle="앱을 준비하고 있어요" centered size={60} />
+      <Text style={styles.bootstrapDescription}>
+        저장된 내용을 먼저 보여드릴게요.
+      </Text>
+    </View>
+  );
+}
+
 function BootstrapGate({ children }: { children: React.ReactNode }) {
   const { currentUser, isRestoringSession } = useMobileAppSession();
   const services = useMobileServices();
-  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function prepareApp() {
-      if (isRestoringSession) {
-        setIsReady(false);
-        return;
-      }
-
-      setIsReady(false);
-      await preloadPatientAppData({ currentUser, services });
-
-      if (cancelled) {
-        return;
-      }
-
-      setIsReady(true);
-      await SplashScreen.hideAsync().catch(() => undefined);
+    if (isRestoringSession) {
+      return;
     }
 
-    void prepareApp();
-
-    return () => {
-      cancelled = true;
-    };
+    void SplashScreen.hideAsync().catch(() => undefined);
+    void preloadPatientAppData({ currentUser, services });
   }, [currentUser, isRestoringSession, services]);
 
-  if (!isReady) {
-    return null;
+  if (isRestoringSession) {
+    return <BootstrapFallback />;
   }
 
   return children;
@@ -99,3 +94,19 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  bootstrapFallback: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: surface.pageBackground,
+    paddingHorizontal: space.xl,
+    gap: space.md,
+  },
+  bootstrapDescription: {
+    ...typo.body,
+    color: surface.textSecondary,
+    textAlign: "center",
+  },
+});
