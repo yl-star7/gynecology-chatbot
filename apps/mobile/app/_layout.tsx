@@ -51,9 +51,9 @@ function SessionScopedStack() {
 function BootstrapFallback() {
   return (
     <View style={styles.bootstrapFallback}>
-      <BrandMark subtitle="앱을 준비하고 있어요" centered size={60} />
+      <BrandMark subtitle="잠깐만 기다려 주세요" centered size={60} />
       <Text style={styles.bootstrapDescription}>
-        저장된 내용을 먼저 보여드릴게요.
+        오늘의 기록을 정리하고 있어요.
       </Text>
     </View>
   );

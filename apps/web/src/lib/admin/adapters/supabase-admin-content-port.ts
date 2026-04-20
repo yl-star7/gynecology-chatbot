@@ -58,7 +58,7 @@ type SupabaseKnowledgeItemRow = {
   body: string;
   image_url: string | null;
   status: "draft" | "published" | "archived";
-  updated_at: string;
+  updated_at: string | Date;
 };
 
 type PublicKnowledgeItemRow = SupabaseKnowledgeItemRow;
@@ -625,10 +625,25 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return this.fallback.updateWorkflowRule(id, input);
     }
 
-    const currentRows =
-      (await supabaseSelect<Array<SupabaseWorkflowDefinitionRow>>(
-        `workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata,updated_at&id=eq.${id}&limit=1`,
-      )) ?? [];
+    const currentRows = hasDirectContentDatabase()
+      ? ((await prisma.workflow_definitions.findMany({
+          where: { id },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            provider: true,
+            status: true,
+            is_active: true,
+            config: true,
+            metadata: true,
+            updated_at: true,
+          },
+          take: 1,
+        })) as SupabaseWorkflowDefinitionRow[])
+      : ((await supabaseSelect<Array<SupabaseWorkflowDefinitionRow>>(
+          `workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata,updated_at&id=eq.${id}&limit=1`,
+        )) ?? []);
     const current = currentRows[0];
     if (!current || current.provider === "schift") {
       const schift = getSchiftClient();
@@ -648,26 +663,35 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
         });
 
         if (current) {
-          await supabaseUpdate<Array<SupabaseWorkflowDefinitionRow>>(
-            `workflow_definitions?id=eq.${id}`,
-            {
-              name: input.name,
-              status: input.status === "active" ? "published" : "draft",
-              is_active: input.status === "active",
-              config: {
-                ...(current.config ?? {}),
-                modelName: input.modelName,
-                retrievalScope: input.retrievalScope,
-              },
-              metadata: {
-                ...(current.metadata ?? {}),
-                trigger: input.trigger,
-                retrievalScope: input.retrievalScope,
-                modelName: input.modelName,
-              },
-              updated_at: new Date().toISOString(),
+          const workflowData = {
+            name: input.name,
+            status: input.status === "active" ? "published" : "draft",
+            is_active: input.status === "active",
+            config: {
+              ...(current.config ?? {}),
+              modelName: input.modelName,
+              retrievalScope: input.retrievalScope,
             },
-          );
+            metadata: {
+              ...(current.metadata ?? {}),
+              trigger: input.trigger,
+              retrievalScope: input.retrievalScope,
+              modelName: input.modelName,
+            },
+            updated_at: new Date().toISOString(),
+          };
+
+          if (hasDirectContentDatabase()) {
+            await prisma.workflow_definitions.update({
+              where: { id },
+              data: workflowData,
+            });
+          } else {
+            await supabaseUpdate<Array<SupabaseWorkflowDefinitionRow>>(
+              `workflow_definitions?id=eq.${id}`,
+              workflowData,
+            );
+          }
         }
 
         const workflowRule = mapSchiftWorkflowRule(updatedWorkflow);
@@ -700,26 +724,46 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       }
     }
 
-    const updated = await supabaseUpdate<Array<SupabaseWorkflowDefinitionRow>>(
-      `workflow_definitions?id=eq.${id}`,
-      {
-        name: input.name,
-        status: input.status === "active" ? "published" : "draft",
-        is_active: input.status === "active",
-        config: {
-          ...(current.config ?? {}),
-          modelName: input.modelName,
-          retrievalScope: input.retrievalScope,
-        },
-        metadata: {
-          ...(current.metadata ?? {}),
-          trigger: input.trigger,
-          retrievalScope: input.retrievalScope,
-          modelName: input.modelName,
-        },
-        updated_at: new Date().toISOString(),
+    const workflowData = {
+      name: input.name,
+      status: input.status === "active" ? "published" : "draft",
+      is_active: input.status === "active",
+      config: {
+        ...(current.config ?? {}),
+        modelName: input.modelName,
+        retrievalScope: input.retrievalScope,
       },
-    );
+      metadata: {
+        ...(current.metadata ?? {}),
+        trigger: input.trigger,
+        retrievalScope: input.retrievalScope,
+        modelName: input.modelName,
+      },
+      updated_at: new Date().toISOString(),
+    };
+
+    const updated = hasDirectContentDatabase()
+      ? (([
+          await prisma.workflow_definitions.update({
+            where: { id },
+            data: workflowData,
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              provider: true,
+              status: true,
+              is_active: true,
+              config: true,
+              metadata: true,
+              updated_at: true,
+            },
+          }),
+        ] as unknown) as Array<SupabaseWorkflowDefinitionRow>)
+      : await supabaseUpdate<Array<SupabaseWorkflowDefinitionRow>>(
+          `workflow_definitions?id=eq.${id}`,
+          workflowData,
+        );
 
     const workflowRule = updated[0] ? mapWorkflowRule(updated[0]) : null;
     if (workflowRule && shouldWriteAdminAuditLog(actorId)) {
@@ -771,32 +815,31 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     const publishedAt =
       input.status === "published" ? new Date().toISOString() : null;
     const inserted = hasDirectContentDatabase()
-      ? await queryContentRows<SupabaseKnowledgeItemRow>(
-          `
-            INSERT INTO ${KNOWLEDGE_ITEMS_TABLE} (
-              id,
-              slug,
-              section,
-              title,
-              body,
-              image_url,
-              status,
-              published_at,
-              updated_at
-            )
-            VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, CASE WHEN $7 = 'published' THEN NOW() ELSE NULL END, NOW())
-            RETURNING id, slug, section, title, body, image_url, status, updated_at
-          `,
-          [
-            randomUUID(),
-            input.slug,
-            input.section,
-            input.title,
-            input.body,
-            imageUrl,
-            input.status,
-          ],
-        )
+      ? (([
+          await prisma.content_knowledge_items.create({
+            data: {
+              id: randomUUID(),
+              slug: input.slug,
+              section: input.section,
+              title: input.title,
+              body: input.body,
+              image_url: imageUrl,
+              status: input.status,
+              published_at: input.status === "published" ? new Date() : null,
+              updated_at: new Date(),
+            },
+            select: {
+              id: true,
+              slug: true,
+              section: true,
+              title: true,
+              body: true,
+              image_url: true,
+              status: true,
+              updated_at: true,
+            },
+          }),
+        ] as unknown) as Array<SupabaseKnowledgeItemRow>)
       : await supabaseInsert<Array<SupabaseKnowledgeItemRow>>(
           "knowledge_items",
           {
@@ -852,33 +895,36 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       ? (await this.selectKnowledgeItemRows()).find((item) => item.id === id)
       : null;
     const updated = hasDirectContentDatabase()
-      ? await queryContentRows<SupabaseKnowledgeItemRow>(
-          `
-            UPDATE ${KNOWLEDGE_ITEMS_TABLE}
-               SET slug = $2,
-                   section = $3,
-                   title = $4,
-                   body = $5,
-                   image_url = $6,
-                   status = $7,
-                   published_at = CASE
-                     WHEN $7 = 'published' THEN COALESCE(published_at, NOW())
-                     ELSE NULL
-                   END,
-                   updated_at = NOW()
-             WHERE id = $1::uuid
-         RETURNING id, slug, section, title, body, image_url, status, updated_at
-          `,
-          [
-            id,
-            input.slug,
-            input.section,
-            input.title,
-            input.body,
-            imageUrl,
-            input.status,
-          ],
-        )
+      ? (([
+          await prisma.content_knowledge_items.update({
+            where: { id },
+            data: {
+              slug: input.slug,
+              section: input.section,
+              title: input.title,
+              body: input.body,
+              image_url: imageUrl,
+              status: input.status,
+              published_at:
+                input.status === "published"
+                  ? beforeItem?.status === "published"
+                    ? undefined
+                    : new Date()
+                  : null,
+              updated_at: new Date(),
+            },
+            select: {
+              id: true,
+              slug: true,
+              section: true,
+              title: true,
+              body: true,
+              image_url: true,
+              status: true,
+              updated_at: true,
+            },
+          }),
+        ] as unknown) as Array<SupabaseKnowledgeItemRow>)
       : await supabaseUpdate<Array<SupabaseKnowledgeItemRow>>(
           `knowledge_items?id=eq.${id}`,
           {
@@ -931,10 +977,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       : null;
 
     if (hasDirectContentDatabase()) {
-      await queryContentRows(
-        `DELETE FROM ${KNOWLEDGE_ITEMS_TABLE} WHERE id = $1::uuid RETURNING id`,
-        [id],
-      );
+      await prisma.content_knowledge_items.delete({ where: { id } });
       if (shouldWriteAdminAuditLog(actorId)) {
         await insertAdminAuditLog({
           actorId,

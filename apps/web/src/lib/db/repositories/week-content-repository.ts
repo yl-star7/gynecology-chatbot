@@ -29,7 +29,7 @@ export type SupabaseWeekRow = {
   warning_signs: string | null;
   recommended_actions: string | null;
   status: "draft" | "published" | "archived";
-  updated_at: string;
+  updated_at: string | Date;
 };
 
 export type SupabaseWeekSectionRow = {
