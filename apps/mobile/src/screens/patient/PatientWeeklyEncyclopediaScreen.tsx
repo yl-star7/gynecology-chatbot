@@ -75,14 +75,17 @@ export function PatientWeeklyEncyclopediaScreen() {
     [profile?.pregnancyWeekLabel, selectedWeekNumber, weeks],
   );
   const selectedWeek = model.selectedWeek;
-  const shouldShowWeekPicker = entryMode === "browse";
+  const shouldShowWeekPicker =
+    entryMode === "browse" && selectedWeekNumber == null;
+  const shouldShowWeekContent =
+    entryMode === "current" || selectedWeekNumber != null;
   const isBrowsingSpecificWeek =
-    shouldShowWeekPicker && selectedWeekNumber != null;
+    entryMode === "browse" && selectedWeekNumber != null;
 
   return (
     <PatientShell
       activeTab="profile"
-      title="임신백과"
+      title={shouldShowWeekPicker ? "주차 선택" : "임신백과"}
       backHref="/(tabs)/profile"
       showProfileButton={false}
       pageTone="plain"
@@ -110,7 +113,7 @@ export function PatientWeeklyEncyclopediaScreen() {
           </Card>
         ) : null}
 
-        {selectedWeek ? (
+        {shouldShowWeekContent && selectedWeek ? (
           <>
             <Card style={styles.heroCard}>
               <View style={styles.heroRow}>
@@ -213,7 +216,7 @@ export function PatientWeeklyEncyclopediaScreen() {
               </Card>
             ) : null}
           </>
-        ) : (
+        ) : shouldShowWeekContent ? (
           <Card>
             <Text style={styles.emptyTitle}>{model.emptyTitle}</Text>
             <Text style={styles.bodyText}>{model.emptyDescription}</Text>
