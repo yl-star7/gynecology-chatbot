@@ -44,6 +44,7 @@ describe("chat repository", () => {
       if (path.startsWith("pregnancy_profiles?")) {
         return Promise.resolve([
           {
+            pregnancy_day_count: 84,
             pregnancy_week: 13,
             pregnancy_day_in_week: 0,
             baby_nickname: null,
@@ -113,7 +114,10 @@ describe("chat repository", () => {
         ]);
       }
 
-      if (path.startsWith("content_week_checklists?")) {
+      if (
+        path.startsWith("content_week_checklists?") &&
+        path.includes("day_number=eq.1")
+      ) {
         return Promise.resolve([
           {
             id: "check-1",
@@ -127,7 +131,27 @@ describe("chat repository", () => {
         ]);
       }
 
-      if (path.startsWith("content_week_questions?")) {
+      if (
+        path.startsWith("content_week_checklists?") &&
+        path.includes("day_number=is.null")
+      ) {
+        return Promise.resolve([
+          {
+            id: "check-generic",
+            code: "rest-well",
+            title: "오늘은 충분히 쉬어요",
+            description: null,
+            checklist_payload: null,
+            display_order: 2,
+            is_required: false,
+          },
+        ]);
+      }
+
+      if (
+        path.startsWith("content_week_questions?") &&
+        path.includes("day_number=eq.1")
+      ) {
         return Promise.resolve([
           {
             id: "question-1",
@@ -142,6 +166,24 @@ describe("chat repository", () => {
         ]);
       }
 
+      if (
+        path.startsWith("content_week_questions?") &&
+        path.includes("day_number=is.null")
+      ) {
+        return Promise.resolve([
+          {
+            id: "question-generic",
+            code: "generic-concern",
+            question_text: "오늘 아기에게 전하고 싶은 마음이 있나요?",
+            question_type: "text",
+            help_text: null,
+            question_payload: {},
+            display_order: 2,
+            is_required: false,
+          },
+        ]);
+      }
+
       return Promise.resolve([]);
     });
 
@@ -151,6 +193,11 @@ describe("chat repository", () => {
       expect.objectContaining({
         pregnancyWeek: 13,
         dayNumber: 1,
+        questions: [expect.objectContaining({ id: "question-1" })],
+        checklists: [
+          expect.objectContaining({ id: "check-1" }),
+          expect.objectContaining({ id: "check-generic" }),
+        ],
         tonePreference: "차분하게",
         profileMemory: expect.objectContaining({
           lastEmotionTone: "anxious",
