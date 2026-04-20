@@ -17,6 +17,7 @@
   "dependencies": {
     "@ai-sdk/google": "^2.0.13",
     "@gynecology-chatbot/app-core": "workspace:*",
+    "@gynecology-chatbot/mobile-api": "workspace:*",
     "@gynecology-chatbot/types": "workspace:*",
     "@hono/node-server": "^1.13.7",
     "@supabase/supabase-js": "^2.57.2",
