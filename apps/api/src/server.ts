@@ -17,7 +17,9 @@ app.use(
   }),
 );
 
-app.get("/healthz", (c) => c.json({ ok: true }));
+app.get("/_health", (c) => c.json({ ok: true }));
+app.get("/livez", (c) => c.json({ ok: true }));
+app.get("/readyz", (c) => c.json({ ok: true }));
 
 mountMobileRoutes(app);
 

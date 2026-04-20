@@ -59,11 +59,6 @@ builds-aos-*.log
 apps/mobile
 apps/web
 
-# Temporary: packages/mobile-api is in flux (Agent 1). Our API stub
-# does not import from it, so exclude it from the Cloud Build context.
-# Remove once the monorepo lockfile stabilizes.
-packages/mobile-api
-
 # Python / research / data / scripts outputs
 .playwright-cli
 .playwright-mcp

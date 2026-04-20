@@ -13,13 +13,17 @@ import type {
 } from "@gynecology-chatbot/app-core";
 import type { MobileApiClient } from "../../api/mobileApi.ts";
 import {
+  cacheChatSession,
   cacheHomeView,
   cachePregnancyWeeks,
   cacheProfileView,
   cacheTodayView,
+  clearCachedChatSession,
   clearCachedHomeView,
   clearCachedRecentChats,
   clearCachedRecordDayView,
+  hasFreshCachedChatSession,
+  readCachedChatSession,
 } from "../patientViewCache";
 
 function createTodayIsoDate() {
@@ -154,7 +158,20 @@ export class ApiMobileChatAdapter implements MobileChatPort {
 
   async getSession(sessionId?: string) {
     const resolvedSessionId = sessionId ?? "new";
+    const userId = this.getUserId();
+    if (
+      resolvedSessionId !== "new" &&
+      hasFreshCachedChatSession(userId, resolvedSessionId)
+    ) {
+      const cached = readCachedChatSession(userId, resolvedSessionId);
+      if (cached) {
+        return cached;
+      }
+    }
     const payload = await this.client.fetchSession(resolvedSessionId);
+    if (resolvedSessionId !== "new") {
+      cacheChatSession(userId, resolvedSessionId, payload.session);
+    }
     return payload.session;
   }
 
@@ -175,6 +192,7 @@ export class ApiMobileChatAdapter implements MobileChatPort {
     clearCachedRecentChats(userId);
     clearCachedRecordDayView(userId, createTodayIsoDate());
     clearCachedHomeView(userId);
+    clearCachedChatSession(userId, input.sessionId);
 
     return payload.assistantMessages ?? [payload.assistantMessage];
   }

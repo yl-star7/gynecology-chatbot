@@ -8,11 +8,15 @@ import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
 import {
+  cacheRecentChats,
   cacheTodayView,
   clearCachedHomeView,
   clearCachedRecentChats,
   clearCachedRecordDayView,
+  hasFreshCachedChatSession,
+  hasFreshCachedRecentChats,
   hasFreshCachedTodayView,
+  readCachedRecentChats,
   readCachedTodayView,
 } from "../../core/patientViewCache";
 import { warmConversationSessions } from "./patientConversationNavigation.model";
@@ -72,7 +76,8 @@ export function usePatientTodayScreenModel() {
         sessionIds: sessions.map((session) => session.id),
         getSession: services.chatPort.getSession.bind(services.chatPort),
         replaceSession,
-        hasFreshSession: () => false,
+        hasFreshSession: (sessionId) =>
+          hasFreshCachedChatSession(currentUser.id, sessionId),
       });
     },
     [currentUser, replaceSession, services.chatPort],
@@ -92,7 +97,7 @@ export function usePatientTodayScreenModel() {
       checklistSyncRef.current,
       cachedToday?.checklistItems ?? [],
     );
-    setRecentSessions([]);
+    setRecentSessions(readCachedRecentChats(currentUser.id) ?? []);
   }, [currentUser]);
 
   useFocusEffect(
@@ -115,19 +120,24 @@ export function usePatientTodayScreenModel() {
         );
       }
 
-      setRecentSessions([]);
+      const cachedRecentChats = readCachedRecentChats(currentUser.id);
+      if (cachedRecentChats) {
+        setRecentSessions(cachedRecentChats);
+      }
       setHasAttemptedInfoViewed(false);
 
-      void services.todayPort
-        .getTodayView()
-        .then((nextToday) => {
-          setToday(nextToday);
-          hydrateChecklistSyncTracker(
-            checklistSyncRef.current,
-            nextToday.checklistItems,
-          );
-        })
-        .catch(() => undefined);
+      if (!hasFreshCachedTodayView(currentUser.id)) {
+        void services.todayPort
+          .getTodayView()
+          .then((nextToday) => {
+            setToday(nextToday);
+            hydrateChecklistSyncTracker(
+              checklistSyncRef.current,
+              nextToday.checklistItems,
+            );
+          })
+          .catch(() => undefined);
+      }
 
       void services.homePort
         .getRecordDay(todayIsoDate)
@@ -139,13 +149,18 @@ export function usePatientTodayScreenModel() {
         })
         .catch(() => undefined);
 
-      void services.chatPort
-        .listRecentChats()
-        .then((nextRecentChats) => {
-          setRecentSessions(nextRecentChats);
-          warmRecentSessionDetails(nextRecentChats);
-        })
-        .catch(() => undefined);
+      if (!hasFreshCachedRecentChats(currentUser.id)) {
+        void services.chatPort
+          .listRecentChats()
+          .then((nextRecentChats) => {
+            setRecentSessions(nextRecentChats);
+            cacheRecentChats(currentUser.id, nextRecentChats);
+            warmRecentSessionDetails(nextRecentChats);
+          })
+          .catch(() => undefined);
+      } else if (cachedRecentChats && cachedRecentChats.length > 0) {
+        warmRecentSessionDetails(cachedRecentChats);
+      }
     }, [
       currentUser,
       isRestoringSession,
