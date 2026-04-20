@@ -12,8 +12,9 @@
 #   - APIs enabled: run, cloudbuild, artifactregistry, secretmanager.
 #
 # Usage:
-#   scripts/deploy-api.sh                  # full: cloud build + deploy
-#   scripts/deploy-api.sh --build-only     # build image, skip deploy
+#   scripts/deploy-api.sh                  # full: cloud build + deploy from apps/api
+#   scripts/deploy-api.sh --trial          # deploy minimal zero-dep trial stub (pipeline smoke test)
+#   scripts/deploy-api.sh --build-only     # build image only, skip deploy
 #   scripts/deploy-api.sh --deploy-only    # redeploy `latest` without build
 #   IMAGE_TAG=abcd1234 scripts/deploy-api.sh --deploy-only
 #
@@ -47,12 +48,14 @@ IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE_NAME}"
 
 BUILD=1
 DEPLOY=1
+TRIAL=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --build-only) DEPLOY=0; shift ;;
     --deploy-only) BUILD=0; shift ;;
+    --trial) TRIAL=1; shift ;;
     -h|--help)
-      sed -n '2,28p' "$0"
+      sed -n '2,30p' "$0"
       exit 0
       ;;
     *)
@@ -65,10 +68,23 @@ done
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
+if [[ "$TRIAL" == "1" ]]; then
+  IMAGE_NAME="api-trial"
+  IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE_NAME}"
+  BUILD_CONTEXT="scripts/trial-stub"
+  BUILD_CONFIG="scripts/trial-stub/cloudbuild.yaml"
+else
+  BUILD_CONTEXT="."
+  BUILD_CONFIG="cloudbuild.yaml"
+fi
+
 echo "==> project: ${PROJECT_ID}"
 echo "==> region:  ${REGION}"
 echo "==> service: ${SERVICE}"
 echo "==> image:   ${IMAGE}:${IMAGE_TAG}"
+if [[ "$TRIAL" == "1" ]]; then
+  echo "==> mode:    trial stub (pipeline smoke test)"
+fi
 echo
 
 if [[ "$BUILD" == "1" ]]; then
@@ -76,9 +92,9 @@ if [[ "$BUILD" == "1" ]]; then
   gcloud builds submit \
     --project "${PROJECT_ID}" \
     --region "${REGION}" \
-    --config cloudbuild.yaml \
+    --config "${BUILD_CONFIG}" \
     --substitutions="_IMAGE=${IMAGE},_IMAGE_TAG=${IMAGE_TAG}" \
-    .
+    "${BUILD_CONTEXT}"
   echo "==> built ${IMAGE}:${IMAGE_TAG}"
 fi
 

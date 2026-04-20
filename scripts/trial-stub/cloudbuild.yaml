@@ -1,0 +1,28 @@
+# Cloud Build config for the trial stub (pipeline smoke test).
+# Build context = scripts/trial-stub/.
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 600s
+
+steps:
+  - id: docker-build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --tag=${_IMAGE}:${_IMAGE_TAG}
+      - --tag=${_IMAGE}:latest
+      - .
+
+  - id: docker-push-sha
+    name: gcr.io/cloud-builders/docker
+    args: [push, "${_IMAGE}:${_IMAGE_TAG}"]
+
+  - id: docker-push-latest
+    name: gcr.io/cloud-builders/docker
+    args: [push, "${_IMAGE}:latest"]
+
+images:
+  - ${_IMAGE}:${_IMAGE_TAG}
+  - ${_IMAGE}:latest

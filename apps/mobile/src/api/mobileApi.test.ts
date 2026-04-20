@@ -7,7 +7,7 @@ import type {
   RecordDayView,
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
-import * as nativeSessionStorage from "../core/nativeSessionStorage";
+import * as nativeSessionStorage from "../core/nativeSessionStorage.ts";
 import {
   createMobileApiClient,
   SessionExpiredError,
