@@ -1,0 +1,65 @@
+{
+  "name": "@gynecology-chatbot/mobile-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth": "./src/auth.ts",
+    "./rag": "./src/rag.ts",
+    "./rate-limit": "./src/rate-limit.ts",
+    "./schift-client": "./src/schift-client.ts",
+    "./schift-workflow": "./src/schift-workflow.ts",
+    "./schift-workflows-api": "./src/schift-workflows-api.ts",
+    "./solapi-sms": "./src/solapi-sms.ts",
+    "./push-sender": "./src/push-sender.ts",
+    "./proactive-chat": "./src/proactive-chat.ts",
+    "./themes": "./src/themes.ts",
+    "./serializers": "./src/serializers.ts",
+    "./user-action-log": "./src/user-action-log.ts",
+    "./local-postgres": "./src/local-postgres.ts",
+    "./local-postgres-schema": "./src/local-postgres-schema.ts",
+    "./chat/guardrails": "./src/chat/guardrails.ts",
+    "./chat/chat-repository": "./src/chat/chat-repository.ts",
+    "./chat/chat-orchestrator": "./src/chat/chat-orchestrator.ts",
+    "./chat/follow-ups": "./src/chat/follow-ups.ts",
+    "./chat/sanitizers": "./src/chat/sanitizers.ts",
+    "./chat/workflow-payload": "./src/chat/workflow-payload.ts",
+    "./chat/responders/mobile-chat-responder": "./src/chat/responders/mobile-chat-responder.ts",
+    "./chat/responders/response-pipeline": "./src/chat/responders/response-pipeline.ts",
+    "./chat/responders/route-response-helpers": "./src/chat/responders/route-response-helpers.ts",
+    "./persona/persona-signals": "./src/persona/persona-signals.ts",
+    "./workflows/load-workflow-yaml": "./src/workflows/load-workflow-yaml.ts",
+    "./supabase/admin-client": "./src/supabase/admin-client.ts",
+    "./privacy/phone-crypto": "./src/privacy/phone-crypto.ts",
+    "./server-data-provider": "./src/server-data-provider.ts",
+    "./session/session-verification": "./src/session/session-verification.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^2.0.13",
+    "@gynecology-chatbot/app-core": "workspace:*",
+    "@gynecology-chatbot/types": "workspace:*",
+    "@langchain/google-genai": "^0.2.20",
+    "@schift-io/sdk": "*",
+    "@supabase/supabase-js": "^2.57.2",
+    "ai": "^5.0.47",
+    "expo-server-sdk": "^3.11.0",
+    "pg": "^8.13.0",
+    "yaml": "^2.8.3",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.19.13",
+    "@types/pg": "^8.11.10",
+    "jest": "^30.1.3",
+    "typescript": "^5"
+  }
+}
