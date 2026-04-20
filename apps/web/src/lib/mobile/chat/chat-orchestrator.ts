@@ -13,6 +13,28 @@ import type {
 import { sanitizeChatParts } from "@/lib/mobile/chat/sanitizers";
 import type { WorkflowAssistantPayload } from "@/lib/mobile/chat/workflow-payload";
 
+function shouldSkipDocumentFollowUps(
+  workflowMemoryPayload: WorkflowAssistantPayload | null,
+) {
+  const lastScenario =
+    workflowMemoryPayload?.nextSessionMemory?.lastScenario ??
+    workflowMemoryPayload?.scenario ??
+    null;
+  const compactSummary =
+    workflowMemoryPayload?.nextSessionMemory?.compactSummary ?? "";
+
+  if (
+    lastScenario === "attachment_question" ||
+    lastScenario === "empathy_chat"
+  ) {
+    return true;
+  }
+
+  return ["편지 후속 질문", "태동/데일리 후속 질문"].some((keyword) =>
+    compactSummary.includes(keyword),
+  );
+}
+
 export function buildChatOrchestrator(deps: {
   ensureSession: (input: {
     userId: string;
@@ -166,7 +188,11 @@ export function buildChatOrchestrator(deps: {
     let followUpChecklists: ChecklistRow[] = [];
     let followUpQuestions: QuestionRow[] = [];
 
-    if (promptContext && answeredCount === 0) {
+    if (
+      promptContext &&
+      answeredCount === 0 &&
+      !shouldSkipDocumentFollowUps(workflowMemoryPayload)
+    ) {
       const alreadyPrompted = await deps.getAlreadyPromptedIds({
         userId: input.userId,
       });
