@@ -236,8 +236,8 @@ export function PatientProfileScreen() {
     router.navigate("/(tabs)/today");
   }
 
-  function openWeeklyEncyclopedia() {
-    router.push("/encyclopedia" as never);
+  function openWeeklyEncyclopedia(mode: "current" | "browse") {
+    router.push(`/encyclopedia?mode=${mode}` as never);
   }
 
   function openConversationSession(sessionId: string) {
@@ -339,8 +339,8 @@ export function PatientProfileScreen() {
 
           <PatientProfileEncyclopediaCard
             entry={encyclopediaEntry}
-            onOpenCurrentWeek={openWeeklyEncyclopedia}
-            onBrowseWeeks={openWeeklyEncyclopedia}
+            onOpenCurrentWeek={() => openWeeklyEncyclopedia("current")}
+            onBrowseWeeks={() => openWeeklyEncyclopedia("browse")}
           />
 
           <PatientProfileCalendarCard

@@ -11,7 +11,11 @@ import {
   space,
   typo,
 } from "../../../theme";
-import { resolveConversationMessageListState } from "./PatientConversationMessageList.model";
+import {
+  resolveAssistantMessageIdsWithLaterUserMessage,
+  resolveConversationMessageListState,
+  resolveLatestVisibleQuickRepliesMessageId,
+} from "./PatientConversationMessageList.model";
 
 const EMPTY_STATE_QUICK_REPLIES = [
   {
@@ -65,13 +69,14 @@ export function PatientConversationMessageList({
     isLoadingSessionDetail,
     sessionLoadErrorMessage,
   });
-  const latestQuickRepliesMessageId = [...messages]
-    .reverse()
-    .find(
-      (message) =>
-        message.role === "assistant" &&
-        message.parts.some((part) => part.type === "quickReplies"),
-    )?.id;
+  const assistantMessageIdsWithLaterUserMessage =
+    resolveAssistantMessageIdsWithLaterUserMessage(messages);
+  const latestQuickRepliesMessageId = resolveLatestVisibleQuickRepliesMessageId(
+    {
+      messages,
+      assistantMessageIdsWithLaterUserMessage,
+    },
+  );
 
   return (
     <ScrollView
@@ -163,10 +168,7 @@ export function PatientConversationMessageList({
                 const bodyText = textPart?.type === "text" ? textPart.text : "";
 
                 return (
-                  <View
-                    key={message.id}
-                    style={styles.userMessageRow}
-                  >
+                  <View key={message.id} style={styles.userMessageRow}>
                     <View style={[styles.messageBubble, styles.userBubble]}>
                       {imagePart?.type === "image" ? (
                         <Image
@@ -211,6 +213,14 @@ export function PatientConversationMessageList({
                       }
                       const isImage = part.type === "image";
                       const isQuickReplies = part.type === "quickReplies";
+                      const isSurvey = part.type === "survey";
+                      const isInteractivePart = isQuickReplies || isSurvey;
+                      if (
+                        isInteractivePart &&
+                        assistantMessageIdsWithLaterUserMessage.has(message.id)
+                      ) {
+                        return null;
+                      }
                       if (
                         isQuickReplies &&
                         message.id !== latestQuickRepliesMessageId

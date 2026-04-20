@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
@@ -14,7 +15,7 @@ import type {
 } from "@gynecology-chatbot/app-core";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientShell } from "../../components/patient/PatientShell";
-import { Button, Card, Pressable } from "../../components/ui";
+import { Card, Pressable } from "../../components/ui";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import {
   palette,
@@ -115,7 +116,9 @@ export function PatientWeeklyEncyclopediaScreen() {
                 </View>
                 <View style={styles.babyImageFrame}>
                   <Image
-                    source={getWeekBabyImageSource(`${selectedWeek.weekNumber}주`)}
+                    source={getWeekBabyImageSource(
+                      `${selectedWeek.weekNumber}주`,
+                    )}
                     style={styles.babyImage}
                     resizeMode="contain"
                   />
@@ -198,7 +201,10 @@ export function PatientWeeklyEncyclopediaScreen() {
                 <Text style={styles.sectionTitle}>{model.faqTitle}</Text>
                 <View style={styles.faqList}>
                   {model.faqItems.map((item, index) => (
-                    <View key={`${item.question}-${index}`} style={styles.faqItem}>
+                    <View
+                      key={`${item.question}-${index}`}
+                      style={styles.faqItem}
+                    >
                       <Text style={styles.faqQuestion}>{item.question}</Text>
                       <Text style={styles.bodyText}>{item.answer}</Text>
                     </View>
