@@ -81,8 +81,24 @@ function normalizeSchiftSearchResults(response: unknown): SchiftSearchResult[] {
   return [];
 }
 
+function readPregnancyWeekFromMetadata(
+  metadata: Record<string, unknown> | undefined,
+) {
+  const rawWeek = metadata?.pregnancy_week ?? metadata?.pregnancyWeek;
+  return typeof rawWeek === "number" ? rawWeek : null;
+}
+
+function isWeekInRange(week: number | null, currentWeek: number | null) {
+  if (!currentWeek || week === null) {
+    return true;
+  }
+
+  return Math.abs(week - currentWeek) <= 1;
+}
+
 async function searchViaSchift(
   query: string,
+  currentWeek: number | null,
   matchCount: number,
 ): Promise<RagDocumentRow[]> {
   const schift = getSchiftClient();

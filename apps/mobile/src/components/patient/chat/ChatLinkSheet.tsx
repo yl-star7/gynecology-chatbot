@@ -1,9 +1,10 @@
 // @ts-nocheck
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,7 +21,15 @@ import {
   typo,
 } from "../../../theme";
 
-const SHEET_HEIGHT = Math.round(Dimensions.get("window").height * 0.55);
+const SCREEN_HEIGHT = Dimensions.get("window").height;
+const EXPANDED_HEIGHT = Math.round(SCREEN_HEIGHT * 0.9);
+const COLLAPSED_HEIGHT = Math.round(SCREEN_HEIGHT * 0.55);
+const COLLAPSED_OFFSET = EXPANDED_HEIGHT - COLLAPSED_HEIGHT;
+const CLOSE_OFFSET = EXPANDED_HEIGHT;
+const DISMISS_VELOCITY = 0.6;
+const SNAP_ANIMATION_MS = 220;
+
+type SnapState = "expanded" | "collapsed";
 
 export function ChatLinkSheet({
   visible,
@@ -43,7 +52,9 @@ export function ChatLinkSheet({
   const [content, setContent] = useState<LinkTargetContent | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const translateY = useState(new Animated.Value(SHEET_HEIGHT))[0];
+  const translateY = useRef(new Animated.Value(CLOSE_OFFSET)).current;
+  const snapRef = useRef<SnapState>("collapsed");
+  const dragStartRef = useRef(COLLAPSED_OFFSET);
 
   useEffect(() => {
     if (!visible || !target) {
@@ -75,12 +86,81 @@ export function ChatLinkSheet({
   }, [visible, target, entityId, getLinkTarget]);
 
   useEffect(() => {
+    if (visible) {
+      snapRef.current = "collapsed";
+      Animated.timing(translateY, {
+        toValue: COLLAPSED_OFFSET,
+        duration: SNAP_ANIMATION_MS,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(translateY, {
+        toValue: CLOSE_OFFSET,
+        duration: SNAP_ANIMATION_MS,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible, translateY]);
+
+  const snapTo = (next: SnapState | "closed") => {
+    if (next === "closed") {
+      Animated.timing(translateY, {
+        toValue: CLOSE_OFFSET,
+        duration: SNAP_ANIMATION_MS,
+        useNativeDriver: true,
+      }).start(() => {
+        onClose();
+      });
+      return;
+    }
+    const toValue = next === "expanded" ? 0 : COLLAPSED_OFFSET;
+    snapRef.current = next;
     Animated.timing(translateY, {
-      toValue: visible ? 0 : SHEET_HEIGHT,
-      duration: 220,
+      toValue,
+      duration: SNAP_ANIMATION_MS,
       useNativeDriver: true,
     }).start();
-  }, [visible, translateY]);
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_evt, gestureState) =>
+        Math.abs(gestureState.dy) > 6,
+      onPanResponderGrant: () => {
+        dragStartRef.current =
+          snapRef.current === "expanded" ? 0 : COLLAPSED_OFFSET;
+        translateY.stopAnimation();
+      },
+      onPanResponderMove: (_evt, gestureState) => {
+        const next = dragStartRef.current + gestureState.dy;
+        const clamped = Math.max(0, Math.min(CLOSE_OFFSET, next));
+        translateY.setValue(clamped);
+      },
+      onPanResponderRelease: (_evt, gestureState) => {
+        const current = dragStartRef.current + gestureState.dy;
+        if (
+          gestureState.vy > DISMISS_VELOCITY ||
+          current > COLLAPSED_OFFSET + COLLAPSED_HEIGHT / 3
+        ) {
+          snapTo("closed");
+          return;
+        }
+        if (gestureState.vy < -DISMISS_VELOCITY) {
+          snapTo("expanded");
+          return;
+        }
+        if (gestureState.vy > DISMISS_VELOCITY / 2) {
+          snapTo("collapsed");
+          return;
+        }
+        const midpoint = COLLAPSED_OFFSET / 2;
+        snapTo(current < midpoint ? "expanded" : "collapsed");
+      },
+      onPanResponderTerminate: () => {
+        snapTo(snapRef.current);
+      },
+    }),
+  ).current;
 
   return (
     <Modal
@@ -99,27 +179,34 @@ export function ChatLinkSheet({
         <Animated.View
           style={[styles.sheet, { transform: [{ translateY }] }]}
         >
-          <View style={styles.handle} />
-          <View style={styles.header}>
-            <Text style={styles.eyebrow} numberOfLines={1}>
-              {content?.section ?? "연결된 정보"}
+          <View style={styles.dragZone} {...panResponder.panHandlers}>
+            <View style={styles.handle} />
+            <View style={styles.header}>
+              <Text style={styles.eyebrow} numberOfLines={1}>
+                {content?.section ?? "연결된 정보"}
+              </Text>
+              <Pressable
+                onPress={onClose}
+                hitSlop={12}
+                accessibilityLabel="닫기"
+              >
+                <Ionicons
+                  name="close"
+                  size={22}
+                  color={surface.textSecondary}
+                />
+              </Pressable>
+            </View>
+            <Text style={styles.title} numberOfLines={2}>
+              {content?.title ??
+                (isLoading ? "불러오는 중이에요" : "연결된 내용")}
             </Text>
-            <Pressable
-              onPress={onClose}
-              hitSlop={12}
-              accessibilityLabel="닫기"
-            >
-              <Ionicons name="close" size={22} color={surface.textSecondary} />
-            </Pressable>
           </View>
-          <Text style={styles.title} numberOfLines={2}>
-            {content?.title ??
-              (isLoading ? "불러오는 중이에요" : "연결된 내용")}
-          </Text>
           <ScrollView
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
           >
             <Text style={styles.body}>
               {errorText ??
@@ -160,7 +247,11 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   sheet: {
-    height: SHEET_HEIGHT,
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: EXPANDED_HEIGHT,
     backgroundColor: surface.surfacePrimary,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
@@ -168,6 +259,10 @@ const styles = StyleSheet.create({
     paddingTop: space.sm,
     paddingBottom: space.lg,
     gap: space.sm,
+  },
+  dragZone: {
+    gap: space.sm,
+    paddingBottom: space.xs,
   },
   handle: {
     alignSelf: "center",
