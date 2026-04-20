@@ -1,0 +1,60 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+timeout: 1800s
+
+substitutions:
+  _SUPA_URL: ''
+  _CSQL_HOST: ''
+  _CSQL_PW: ''
+  _DUMP_BUCKET: 'agaya-2026_cloudbuild'
+  _DUMP_PATH: 'dumps/supabase-pooler.sql'
+
+steps:
+  - id: pg-dump
+    name: postgres:16
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        echo "==> testing pooler connectivity..."
+        psql "${_SUPA_URL}" -c "SELECT current_database(), now();" || exit 1
+        echo "==> dumping public + content schemas..."
+        pg_dump "${_SUPA_URL}" \
+          --schema=public --schema=content \
+          --data-only \
+          --no-owner --no-privileges --no-tablespaces \
+          --format=plain \
+          --column-inserts \
+          --on-conflict-do-nothing \
+          --file=/workspace/supabase-data.sql 2>&1 | tail -30 || true
+        ls -la /workspace/supabase-data.sql
+        wc -l /workspace/supabase-data.sql
+  - id: restore
+    name: postgres:16
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        # Defer FK constraints during load
+        echo "SET session_replication_role = 'replica';" > /workspace/prelude.sql
+        echo "==> applying data to Cloud SQL..."
+        PGPASSWORD="${_CSQL_PW}" psql \
+          -h ${_CSQL_HOST} -U postgres -d agaya \
+          -v ON_ERROR_STOP=0 \
+          -f /workspace/prelude.sql \
+          -f /workspace/supabase-data.sql 2>&1 | tail -50
+        echo "==> verification:"
+        PGPASSWORD="${_CSQL_PW}" psql \
+          -h ${_CSQL_HOST} -U postgres -d agaya \
+          -c "SELECT schemaname, relname, n_live_tup FROM pg_stat_user_tables WHERE schemaname IN ('public','content') ORDER BY n_live_tup DESC LIMIT 35;"
+  - id: upload
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    args:
+      - gsutil
+      - cp
+      - /workspace/supabase-data.sql
+      - gs://${_DUMP_BUCKET}/${_DUMP_PATH}
