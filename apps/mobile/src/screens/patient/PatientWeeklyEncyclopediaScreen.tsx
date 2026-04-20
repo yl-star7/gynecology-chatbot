@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
@@ -31,8 +31,10 @@ import { buildWeeklyEncyclopediaViewModel } from "./PatientWeeklyEncyclopediaScr
 
 export function PatientWeeklyEncyclopediaScreen() {
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ mode?: string }>();
+  const router = useRouter();
+  const params = useLocalSearchParams<{ mode?: string; week?: string }>();
   const entryMode = params.mode === "browse" ? "browse" : "current";
+  const selectedWeekFromParams = Number(params.week);
   const { knowledgePort, profilePort } = useMobileServices();
   const [weeks, setWeeks] = useState<MobilePregnancyWeekSummary[]>([]);
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
@@ -65,6 +67,14 @@ export function PatientWeeklyEncyclopediaScreen() {
     fetchContent().catch(() => undefined);
   }, [fetchContent]);
 
+  useEffect(() => {
+    if (Number.isInteger(selectedWeekFromParams) && selectedWeekFromParams > 0) {
+      setSelectedWeekNumber(selectedWeekFromParams);
+      return;
+    }
+    setSelectedWeekNumber(null);
+  }, [selectedWeekFromParams]);
+
   const model = useMemo(
     () =>
       buildWeeklyEncyclopediaViewModel({
@@ -76,11 +86,11 @@ export function PatientWeeklyEncyclopediaScreen() {
   );
   const selectedWeek = model.selectedWeek;
   const shouldShowWeekPicker =
-    entryMode === "browse" && selectedWeekNumber == null;
+    entryMode === "browse" && !Number.isInteger(selectedWeekFromParams);
   const shouldShowWeekContent =
-    entryMode === "current" || selectedWeekNumber != null;
+    entryMode === "current" || Number.isInteger(selectedWeekFromParams);
   const isBrowsingSpecificWeek =
-    entryMode === "browse" && selectedWeekNumber != null;
+    entryMode === "browse" && Number.isInteger(selectedWeekFromParams);
 
   return (
     <PatientShell
@@ -227,7 +237,7 @@ export function PatientWeeklyEncyclopediaScreen() {
           <Card>
             <Text style={styles.sectionTitle}>주차 선택</Text>
             <Text style={styles.bodyText}>
-              다른 주차도 사전처럼 확인할 수 있어요.
+              보고 싶은 주차를 골라 주세요.
             </Text>
             <View style={styles.weekGrid}>
               {model.weekCells.map((cell) => (
@@ -241,7 +251,11 @@ export function PatientWeeklyEncyclopediaScreen() {
                       ? styles.weekCellPreparing
                       : null,
                   ]}
-                  onPress={() => setSelectedWeekNumber(cell.weekNumber)}
+                  onPress={() => {
+                    router.push(
+                      `/encyclopedia?mode=browse&week=${cell.weekNumber}` as never,
+                    );
+                  }}
                   accessibilityLabel={`${cell.label} ${
                     cell.state === "preparing" ? "준비 중" : "보기"
                   }`}
