@@ -59,8 +59,8 @@ test("mobile app config keeps Expo updates metadata consistent when using EAS pr
 
   assert.deepEqual(
     appJson.expo?.runtimeVersion,
-    { policy: "appVersion" },
-    "apps/mobile app.json should define runtimeVersion for Expo updates compatibility",
+    "1.0.0",
+    "apps/mobile app.json should pin runtimeVersion to the current release version for Expo updates compatibility",
   );
 
   assert.equal(
