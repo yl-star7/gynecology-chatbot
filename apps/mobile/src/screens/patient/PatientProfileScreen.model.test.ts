@@ -177,6 +177,24 @@ test("profile encyclopedia entry uses the current pregnancy week when available"
   );
 });
 
+test("profile encyclopedia entry hides the current-week row before 5주차", () => {
+  assert.deepEqual(
+    buildProfileEncyclopediaEntry({
+      pregnancyWeekLabel: "4주 2일",
+    }),
+    {
+      sectionTitle: "임신백과",
+      showCurrentWeekEntry: false,
+      currentWeekLabel: "주",
+      currentActionLabel: "이번 주 백과 보기",
+      currentDescription: "5주차부터 주차별 정보를 차분히 찾아볼 수 있어요.",
+      browseActionLabel: "다른 주차 찾아보기",
+      browseDescription:
+        "5주차부터 이전 주차와 다음 주차 정보도 사전처럼 확인해요.",
+    },
+  );
+});
+
 test("profile encyclopedia entry falls back when pregnancy week is unknown", () => {
   assert.deepEqual(
     buildProfileEncyclopediaEntry({
