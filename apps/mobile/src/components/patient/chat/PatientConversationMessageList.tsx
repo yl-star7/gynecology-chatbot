@@ -190,12 +190,31 @@ export function PatientConversationMessageList({
                 );
               }
 
-              const hasContent = message.parts.some((part) =>
-                part.type === "text"
-                  ? part.text.trim() !== "" && part.text.trim() !== "..."
-                  : true,
-              );
-              if (!hasContent) {
+              const isRenderablePart = (part: ChatMessage["parts"][number]) => {
+                if (part.type === "text") {
+                  const trimmed = part.text.trim();
+                  return trimmed !== "" && trimmed !== "...";
+                }
+                const isQuickReplies = part.type === "quickReplies";
+                const isSurvey = part.type === "survey";
+                const isInteractivePart = isQuickReplies || isSurvey;
+                if (
+                  isInteractivePart &&
+                  assistantMessageIdsWithLaterUserMessage.has(message.id)
+                ) {
+                  return false;
+                }
+                if (
+                  isQuickReplies &&
+                  message.id !== latestQuickRepliesMessageId
+                ) {
+                  return false;
+                }
+                return true;
+              };
+
+              const visibleParts = message.parts.filter(isRenderablePart);
+              if (visibleParts.length === 0) {
                 return null;
               }
 
@@ -204,29 +223,9 @@ export function PatientConversationMessageList({
                   <NurseAvatar emotionTone={message.characterTone ?? null} />
                   <View style={styles.assistantStack}>
                     <Text style={styles.assistantName}>아가야</Text>
-                    {message.parts.map((part) => {
-                      if (
-                        part.type === "text" &&
-                        (part.text.trim() === "" || part.text.trim() === "...")
-                      ) {
-                        return null;
-                      }
+                    {visibleParts.map((part) => {
                       const isImage = part.type === "image";
                       const isQuickReplies = part.type === "quickReplies";
-                      const isSurvey = part.type === "survey";
-                      const isInteractivePart = isQuickReplies || isSurvey;
-                      if (
-                        isInteractivePart &&
-                        assistantMessageIdsWithLaterUserMessage.has(message.id)
-                      ) {
-                        return null;
-                      }
-                      if (
-                        isQuickReplies &&
-                        message.id !== latestQuickRepliesMessageId
-                      ) {
-                        return null;
-                      }
                       return (
                         <View key={part.id} style={styles.assistantBubbleRow}>
                           <View
