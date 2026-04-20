@@ -73,6 +73,7 @@ test("preloadPatientAppData warms patient screen data before the app opens", asy
 
   assert.deepEqual(calls.sort(), [
     "home",
+    "pregnancy-weeks",
     "profile",
     "recent-chats",
     "record:2026-04-18",
@@ -94,6 +95,7 @@ test("preloadPatientAppData waits for every preload attempt even if one fails", 
 
   assert.deepEqual(calls.sort(), [
     "home",
+    "pregnancy-weeks",
     "profile",
     "recent-chats",
     "record:2026-04-18",
