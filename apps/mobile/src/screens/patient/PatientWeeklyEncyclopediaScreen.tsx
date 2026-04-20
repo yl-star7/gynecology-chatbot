@@ -42,6 +42,7 @@ export function PatientWeeklyEncyclopediaScreen() {
   const entryMode = params.mode === "browse" ? "browse" : "current";
   const selectedWeekFromParams = Number(params.week);
   const { knowledgePort, profilePort } = useMobileServices();
+  const { currentUser } = useMobileAppSession();
   const [weeks, setWeeks] = useState<MobilePregnancyWeekSummary[]>([]);
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [selectedWeekNumber, setSelectedWeekNumber] = useState<number | null>(
@@ -70,8 +71,28 @@ export function PatientWeeklyEncyclopediaScreen() {
   }, [knowledgePort, profilePort]);
 
   useEffect(() => {
+    if (!currentUser) {
+      setWeeks([]);
+      setProfile(null);
+      return;
+    }
+
+    const cachedWeeks = readCachedPregnancyWeeks(currentUser.id);
+    const cachedProfile = readCachedProfileView(currentUser.id);
+
+    if (cachedWeeks) {
+      setWeeks(cachedWeeks);
+    }
+    if (cachedProfile) {
+      setProfile(cachedProfile);
+    }
+
+    if (hasFreshCachedPregnancyWeeks(currentUser.id) && cachedProfile) {
+      return;
+    }
+
     fetchContent().catch(() => undefined);
-  }, [fetchContent]);
+  }, [currentUser, fetchContent]);
 
   useEffect(() => {
     if (
