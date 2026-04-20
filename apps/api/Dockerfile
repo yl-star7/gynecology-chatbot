@@ -8,13 +8,13 @@ ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
 
-# -------- deps: install workspace deps once --------
+# -------- deps: install workspace deps + copy source --------
 FROM base AS deps
 WORKDIR /repo
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc* ./
 COPY packages ./packages
-COPY apps/api/package.json ./apps/api/package.json
+COPY apps/api ./apps/api
 
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --filter @gynecology-chatbot/api...
@@ -25,11 +25,8 @@ ENV NODE_ENV=production
 ENV PORT=8080
 WORKDIR /app
 
-COPY --from=deps /repo/node_modules ./node_modules
-COPY --from=deps /repo/packages ./packages
-COPY pnpm-workspace.yaml package.json ./
-COPY apps/api ./apps/api
+COPY --from=deps /repo /app
 
 EXPOSE 8080
 WORKDIR /app/apps/api
-CMD ["pnpm", "start"]
+CMD ["node", "/app/node_modules/tsx/dist/cli.mjs", "src/server.ts"]
