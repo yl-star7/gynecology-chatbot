@@ -38,9 +38,6 @@ const excludedRoots = [
   path.join(monorepoRoot, "apps", "web", "playwright-report"),
   path.join(monorepoRoot, "test-results"),
   path.join(monorepoRoot, "output"),
-  path.join(monorepoRoot, "node_modules", "react"),
-  path.join(monorepoRoot, "node_modules", "react-dom"),
-  path.join(monorepoRoot, "node_modules", "scheduler"),
 ];
 
 config.resolver.blockList = exclusionList([
