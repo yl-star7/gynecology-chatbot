@@ -259,6 +259,9 @@ prompts:
     ## 검색된 내부 데이터
     {{results}}
 
+    ## 검색 질의
+    {{retrievalQuery}}
+
     ## 사용자 질문
     {{query}}
 
@@ -388,7 +391,7 @@ edges:
 
   - source: start
     target: retriever
-    source_handle: out
+    source_handle: retrievalQuery
     target_handle: query
 
   - source: start

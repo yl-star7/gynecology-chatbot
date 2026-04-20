@@ -83,6 +83,7 @@ export function createMobileChatResponder<
     schift: TSchift;
     inputs: {
       query: string;
+      retrievalQuery: string;
       currentWeek: number | null;
       sessionId: string;
       hasImages: boolean;
@@ -137,6 +138,18 @@ export function createMobileChatResponder<
         input.promptContext?.profileMemory?.personaConfidence ?? null,
       tonePreference: input.promptContext?.tonePreference ?? null,
     };
+    const retrievalQuery = [
+      input.currentWeek ? `현재 임신 주수 ${input.currentWeek}주` : null,
+      input.text,
+      memoryContext.lastScenario
+        ? `최근 상담 분기 ${memoryContext.lastScenario}`
+        : null,
+      memoryContext.compactSummary
+        ? `최근 대화 맥락 ${memoryContext.compactSummary}`
+        : null,
+    ]
+      .filter((value): value is string => Boolean(value && value.trim()))
+      .join("\n");
     const memorySystemBlock = buildMemorySystemBlock(memoryContext);
     const schift = deps.getSchiftClient();
 
@@ -152,6 +165,7 @@ export function createMobileChatResponder<
           schift,
           inputs: {
             query: input.text,
+            retrievalQuery,
             currentWeek: input.currentWeek,
             sessionId: input.normalizedSessionId,
             hasImages: input.imageDataUris.length > 0,
