@@ -39,7 +39,10 @@ test("shouldAllowDevelopmentLoginBypass only allows local api hosts in developme
     true,
   );
   assert.equal(
-    shouldAllowDevelopmentLoginBypass(true, "https://gynecology-chatbot.vercel.app"),
+    shouldAllowDevelopmentLoginBypass(
+      true,
+      "https://gynecology-chatbot.vercel.app",
+    ),
     false,
   );
   assert.equal(

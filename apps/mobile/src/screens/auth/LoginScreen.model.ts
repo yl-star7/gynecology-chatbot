@@ -4,7 +4,7 @@ const DEVELOPMENT_AUTO_VERIFIED_PHONE_NUMBERS = new Set([
 ]);
 
 const DEVELOPMENT_AUTO_VERIFIED_LOGIN = {
-  phoneNumber: "01026784241",
+  phoneNumber: "01012345678",
   verificationCode: "000000",
 } as const;
 
