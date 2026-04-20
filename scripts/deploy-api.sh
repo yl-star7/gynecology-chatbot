@@ -25,6 +25,7 @@
 #   IMAGE_NAME    default: api
 #   SERVICE       default: agaya-api
 #   IMAGE_TAG     default: $(git rev-parse --short HEAD)
+#   CLOUDSQL_INSTANCE default: agaya-2026:asia-northeast3:agaya-db
 #
 # Secret injection (future): pass SET_SECRETS="--set-secrets=..." to append.
 
@@ -35,6 +36,7 @@ REGION="${REGION:-asia-northeast3}"
 REPO="${REPO:-agaya-api}"
 IMAGE_NAME="${IMAGE_NAME:-api}"
 SERVICE="${SERVICE:-agaya-api}"
+CLOUDSQL_INSTANCE="${CLOUDSQL_INSTANCE:-agaya-2026:asia-northeast3:agaya-db}"
 
 # Resolve IMAGE_TAG — allow override, otherwise use short git SHA.
 if [[ -z "${IMAGE_TAG:-}" ]]; then
@@ -82,6 +84,7 @@ echo "==> project: ${PROJECT_ID}"
 echo "==> region:  ${REGION}"
 echo "==> service: ${SERVICE}"
 echo "==> image:   ${IMAGE}:${IMAGE_TAG}"
+echo "==> cloudsql:${CLOUDSQL_INSTANCE}"
 if [[ "$TRIAL" == "1" ]]; then
   echo "==> mode:    trial stub (pipeline smoke test)"
 fi
@@ -120,6 +123,7 @@ if [[ "$DEPLOY" == "1" ]]; then
     --memory 512Mi \
     --port 8080 \
     --timeout 60s \
+    --add-cloudsql-instances "${CLOUDSQL_INSTANCE}" \
     --allow-unauthenticated \
     "${SET_SECRETS_ARG[@]}"
 

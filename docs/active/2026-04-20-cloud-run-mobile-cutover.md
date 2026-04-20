@@ -1,16 +1,16 @@
 # Cloud Run Mobile Cutover Checklist
 
-**Target**: Migrate mobile app API base from `https://gynecology-chatbot.vercel.app` to `https://agaya-api-xxxxxxxxxx-as.a.run.app` (Cloud Run).
-**Scope**: `apps/mobile` only. Admin/web stays on Vercel.
+**Target**: Migrate mobile app API base from `https://gynecology-chatbot.vercel.app` to `https://agaya-api-yvdnhntt7a-as.a.run.app` (Cloud Run).
+**Scope**: `apps/mobile` uses Cloud Run and Cloud SQL.
 
 ## 1. Files holding API/web base URLs
 
-Update `EXPO_PUBLIC_API_BASE_URL` only. Leave `EXPO_PUBLIC_WEB_URL` on Vercel (admin-hosted web pages).
+Update both `EXPO_PUBLIC_API_BASE_URL` and `EXPO_PUBLIC_WEB_URL` to Cloud Run.
 
-- [ ] `apps/mobile/eas.json:20` — preview `EXPO_PUBLIC_API_BASE_URL`
-- [ ] `apps/mobile/eas.json:21` — preview `EXPO_PUBLIC_WEB_URL` (KEEP Vercel)
-- [ ] `apps/mobile/eas.json:31` — production `EXPO_PUBLIC_API_BASE_URL`
-- [ ] `apps/mobile/eas.json:32` — production `EXPO_PUBLIC_WEB_URL` (KEEP Vercel)
+- [x] `apps/mobile/eas.json:20` — preview `EXPO_PUBLIC_API_BASE_URL`
+- [x] `apps/mobile/eas.json:21` — preview `EXPO_PUBLIC_WEB_URL`
+- [x] `apps/mobile/eas.json:31` — production `EXPO_PUBLIC_API_BASE_URL`
+- [x] `apps/mobile/eas.json:32` — production `EXPO_PUBLIC_WEB_URL`
 
 Consumers (no code change needed, env-driven):
 - `apps/mobile/src/api/mobileApi.ts:104` (`getEnvApiBaseUrl`)
@@ -28,11 +28,11 @@ Non-API URLs (do NOT touch):
 
 Both `preview` and `production` profiles in `eas.json` point to Vercel and must be updated independently. Update both in the same PR.
 
-## 3. WebViews (must remain on Vercel)
+## 3. WebViews and hosted pages
 
-- `apps/mobile/src/screens/patient/PatientSurveyFormScreen.tsx` uses `EmbeddedWebContent` with a URL from admin branding (`profilePort.getBranding().surveyFormUrl`) — not hardcoded, served by admin/web on Vercel.
+- `apps/mobile/src/screens/patient/PatientSurveyFormScreen.tsx` uses `EmbeddedWebContent` with a URL from admin branding (`profilePort.getBranding().surveyFormUrl`).
 - `apps/mobile/src/web/EmbeddedWebContent.native.tsx` renders whatever URL is passed; no hardcoded host.
-- Policy/survey pages are admin-hosted. Keeping `EXPO_PUBLIC_WEB_URL` on Vercel preserves this.
+- Hosted pages and supporting routes should now be served from Cloud Run / Cloud SQL backed stack.
 
 ## 4. Native rebuild required
 
@@ -42,9 +42,9 @@ Both `preview` and `production` profiles in `eas.json` point to Vercel and must 
 
 ## 5. Rollback plan
 
-- Keep `/api/mobile/*` endpoints alive on Vercel for at least 2 full release cycles after cutover. Older TestFlight/Play builds with the Vercel URL baked in must keep working.
-- Cloud Run and Vercel must share the same Supabase backend so both read/write consistent data.
-- If Cloud Run breaks: flip `EXPO_PUBLIC_API_BASE_URL` back to Vercel, rebuild, submit, or ship OTA with old URL.
+- Keep fallback path available only if explicitly needed during rollout.
+- Cloud Run must connect to Cloud SQL `agaya-2026:asia-northeast3:agaya-db`.
+- If Cloud Run breaks: flip both public URLs back to the previous stable host, rebuild, submit, or ship OTA with old URL.
 - Monitor Cloud Run 5xx + push registration failures (`/api/mobile/push/register`) for first 48h.
 
 ## 6. Submission timeline
