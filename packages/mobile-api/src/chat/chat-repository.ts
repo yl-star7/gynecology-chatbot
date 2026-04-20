@@ -91,6 +91,13 @@ type UserQuestionEventRow = {
   status: "sent" | "opened" | "answered" | "skipped";
 };
 
+type CalendarQuestionResponseRow = {
+  id: string;
+  payload: {
+    questionId?: string | null;
+  } | null;
+};
+
 type UserPersonaProfileRow = {
   user_id: string;
   persona_hint: PersonaHint;
@@ -129,6 +136,54 @@ function getKstDateKey() {
   const month = parts.find((part) => part.type === "month")?.value ?? "01";
   const day = parts.find((part) => part.type === "day")?.value ?? "01";
   return `${year}-${month}-${day}`;
+}
+
+async function syncAnsweredQuestionToCalendar(input: {
+  userId: string;
+  sessionId: string;
+  questionEventId: string;
+  questionId: string;
+  userMessageId: string | null;
+  userMessageText: string;
+  answeredAt: string;
+}) {
+  const todayDate = getKstDateKey();
+  const answerText = input.userMessageText.trim();
+  const summary = answerText || "답변을 남겼어요.";
+  const existingRows = await supabaseSelect<CalendarQuestionResponseRow[]>(
+    `calendar_logs?select=id,payload&user_id=eq.${input.userId}&date=eq.${todayDate}&entry_type=eq.survey_response`,
+  );
+  const existingRow = existingRows.find(
+    (row) => row.payload?.questionId === input.questionId,
+  );
+  const payload = {
+    source: "chat_question_answer",
+    questionId: input.questionId,
+    answer: answerText,
+    answerMessageId: input.userMessageId,
+    eventId: input.questionEventId,
+    answeredAt: input.answeredAt,
+  };
+
+  if (existingRow) {
+    await supabaseUpdate(`calendar_logs?id=eq.${existingRow.id}`, {
+      session_id: input.sessionId,
+      title: "하루 질문 답변",
+      summary,
+      payload,
+    });
+    return;
+  }
+
+  await supabaseInsert("calendar_logs", {
+    user_id: input.userId,
+    session_id: input.sessionId,
+    date: todayDate,
+    entry_type: "survey_response",
+    title: "하루 질문 답변",
+    summary,
+    payload,
+  });
 }
 
 function diffCalendarDays(targetIsoDate: string, baseIsoDate: string) {
@@ -348,6 +403,15 @@ export async function markOutstandingPromptEventsAnswered(input: {
       answer_text: input.userMessageText,
       answered_at: now,
       updated_at: now,
+    });
+    await syncAnsweredQuestionToCalendar({
+      userId: input.userId,
+      sessionId: input.sessionId,
+      questionEventId: event.id,
+      questionId: event.question_id,
+      userMessageId: input.userMessageId,
+      userMessageText: input.userMessageText,
+      answeredAt: now,
     });
   }
 

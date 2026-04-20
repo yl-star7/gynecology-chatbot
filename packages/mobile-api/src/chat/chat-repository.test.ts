@@ -46,7 +46,7 @@ describe("chat repository", () => {
           {
             pregnancy_day_count: 85,
             pregnancy_week: 13,
-            pregnancy_day_in_week: 0,
+            pregnancy_day_in_week: 1,
             baby_nickname: null,
             display_name: "사용자",
             due_date: null,

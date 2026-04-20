@@ -555,7 +555,7 @@ describe("POST /api/mobile/chat", () => {
         return Promise.resolve([
           {
             pregnancy_week: 13,
-            pregnancy_day_in_week: 0,
+            pregnancy_day_in_week: 1,
             onboarding_payload: {
               tonePreference,
               ...(profileMemory ? { profileMemory } : {}),
@@ -1399,7 +1399,7 @@ describe("POST /api/mobile/chat", () => {
     expect(mockedGenerateText).toHaveBeenCalledTimes(2);
     expect(payload.assistantMessage.parts[0]).toMatchObject({
       type: "text",
-      text: expect.stringContaining("29주차 기준"),
+      text: expect.stringContaining("13주차 기준"),
     });
     expect(payload.assistantMessage.parts).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ type: "deepLink" })]),
