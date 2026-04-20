@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 
 const CONFIG_KEY = "rag_provider";
 
@@ -12,23 +12,26 @@ const DEFAULT_CONFIG = {
 
 type ConfigRow = { key: string; value: typeof DEFAULT_CONFIG };
 
+function asConfig(
+  value: Prisma.JsonValue | null | undefined,
+): ConfigRow["value"] | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as ConfigRow["value"])
+    : null;
+}
+
 export async function GET() {
   try {
-    const client = getSupabaseAdminClient();
     const admin = await readAdminSessionUser();
     if (!admin)
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-    const { data: rows, error } = await client
-      .from("system_config")
-      .select("key,value")
-      .eq("key", CONFIG_KEY)
-      .limit(1);
-    if (error) {
-      throw error;
-    }
+    const row = await prisma.system_config.findUnique({
+      where: { key: CONFIG_KEY },
+      select: { key: true, value: true },
+    });
 
-    return NextResponse.json(rows[0]?.value ?? DEFAULT_CONFIG);
+    return NextResponse.json(asConfig(row?.value) ?? DEFAULT_CONFIG);
   } catch (error) {
     console.error("admin rag-provider GET error", error);
     return NextResponse.json(
@@ -40,7 +43,6 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const client = getSupabaseAdminClient();
     const admin = await readAdminSessionUser();
     if (!admin)
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -61,35 +63,27 @@ export async function PUT(request: NextRequest) {
 
     const config = { ragProvider };
 
-    const { data: existing, error: existingError } = await client
-      .from("system_config")
-      .select("key")
-      .eq("key", CONFIG_KEY)
-      .limit(1);
-    if (existingError) {
-      throw existingError;
-    }
+    const existing = await prisma.system_config.findUnique({
+      where: { key: CONFIG_KEY },
+      select: { key: true },
+    });
 
-    if (existing.length > 0) {
-      const { error } = await client
-        .from("system_config")
-        .update({
-          value: config,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("key", CONFIG_KEY);
-      if (error) {
-        throw error;
-      }
-    } else {
-      const { error } = await client.from("system_config").insert({
-        key: CONFIG_KEY,
-        value: config,
-        updated_at: new Date().toISOString(),
+    if (existing?.key) {
+      await prisma.system_config.update({
+        where: { key: CONFIG_KEY },
+        data: {
+          value: config as Prisma.InputJsonValue,
+          updated_at: new Date(),
+        },
       });
-      if (error) {
-        throw error;
-      }
+    } else {
+      await prisma.system_config.create({
+        data: {
+          key: CONFIG_KEY,
+          value: config as Prisma.InputJsonValue,
+          updated_at: new Date(),
+        },
+      });
     }
 
     return NextResponse.json({ ok: true, ragProvider });

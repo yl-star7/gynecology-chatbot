@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { ensureStorageBucketWithOptions } from "@/lib/admin/supabase-storage";
+import { uploadBufferToStorage } from "@/lib/admin/gcs-storage";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import {
   supabaseInsert,
@@ -94,21 +94,13 @@ export async function POST(request: NextRequest) {
     const storagePath = `rag/${fileId}.${ext}`;
 
     // 1. Supabase Storage에 원본 저장
-    const storageClient = await ensureStorageBucketWithOptions(
-      RAG_FILES_BUCKET,
-      { isPublic: false },
-    );
     const buffer = Buffer.from(await file.arrayBuffer());
-    const { error: uploadError } = await storageClient.storage
-      .from(RAG_FILES_BUCKET)
-      .upload(storagePath, buffer, {
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      throw new Error(`Storage 업로드 실패: ${uploadError.message}`);
-    }
+    await uploadBufferToStorage({
+      bucketId: RAG_FILES_BUCKET,
+      objectPath: storagePath,
+      buffer,
+      contentType: file.type,
+    });
 
     // 2. DB에 메타데이터 행 삽입 (processing 상태)
     await supabaseInsert("content_rag_files", {

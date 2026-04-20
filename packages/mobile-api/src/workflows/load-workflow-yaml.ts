@@ -99,33 +99,20 @@ function buildResult(yaml: WorkflowYaml) {
   };
 }
 
-// ── Supabase Storage에서 로드 ──
+// ── GCS에서 로드 ──
 
 let remoteCache: {
   result: ReturnType<typeof buildResult>;
   fetchedAt: number;
 } | null = null;
 
-async function fetchFromSupabaseStorage(): Promise<string | null> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.SUPABASE_SERVICE_ROLE ??
-    process.env.SERVICEROLE;
-
-  if (!supabaseUrl || !serviceKey) {
-    return null;
-  }
-
-  const url = `${supabaseUrl}/storage/v1/object/${STORAGE_BUCKET}/${STORAGE_PATH}`;
+async function fetchFromGcs(): Promise<string | null> {
+  const bucket = process.env.GCS_WORKFLOW_BUCKET ?? STORAGE_BUCKET;
+  const objectUrl = `https://storage.googleapis.com/${bucket}/${STORAGE_PATH}`;
 
   try {
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${serviceKey}` },
-    });
-
+    const res = await fetch(objectUrl);
     if (!res.ok) return null;
-
     return await res.text();
   } catch {
     return null;
@@ -165,8 +152,8 @@ export function loadMaternalNursingWorkflow() {
   const yaml = loadLocalYaml();
   const result = buildResult(yaml);
 
-  // 백그라운드에서 Supabase Storage 확인 → 있으면 캐시 갱신
-  fetchFromSupabaseStorage()
+  // 백그라운드에서 GCS 확인 → 있으면 캐시 갱신
+  fetchFromGcs()
     .then((text) => {
       if (text) {
         const remoteYaml = parseYaml(text) as WorkflowYaml;
@@ -180,16 +167,16 @@ export function loadMaternalNursingWorkflow() {
       // Supabase 접근 실패 시 로컬 파일 유지
     });
 
-  // 캐시가 있으면 Supabase 버전 반환, 없으면 로컬
+  // 캐시가 있으면 원격 버전 반환, 없으면 로컬
   return remoteCache?.result ?? result;
 }
 
 /**
- * Supabase Storage에서 최신 YAML을 강제로 가져온다.
+ * GCS에서 최신 YAML을 강제로 가져온다.
  * 관리자가 YAML을 업로드한 직후 호출용.
  */
 export async function refreshWorkflowFromStorage() {
-  const text = await fetchFromSupabaseStorage();
+  const text = await fetchFromGcs();
   if (!text) {
     return null;
   }

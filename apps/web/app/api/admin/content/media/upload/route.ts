@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { ensureStorageBucketWithOptions } from "@/lib/admin/supabase-storage";
+import { createSignedUploadUrl } from "@/lib/admin/gcs-storage";
 
 function sanitizeFileName(fileName: string) {
   return fileName
@@ -56,24 +56,19 @@ export async function POST(request: Request) {
         ? `weeks/${String(weekNumber).padStart(2, "0")}/day-${String(dayNumber).padStart(2, "0")}`
         : `weeks/${String(weekNumber).padStart(2, "0")}`;
     const objectPath = `${folder}/${Date.now()}-${sourceFileName}`;
-    const client = await ensureStorageBucketWithOptions(bucketId, {
-      isPublic: bucketId === "pregnancy-content",
+    const { signedUrl } = await createSignedUploadUrl({
+      bucketId,
+      objectPath,
+      contentType: guessContentType(sourceFileName, file.type),
     });
-    const { data, error } = await client.storage
-      .from(bucketId)
-      .createSignedUploadUrl(objectPath, { upsert: true });
-
-    if (error || !data?.signedUrl) {
-      throw error;
-    }
 
     return NextResponse.json({
       ok: true,
       bucketId,
       objectPath,
       sourceFileName,
-      signedUrl: data.signedUrl,
-      token: data.token,
+      signedUrl,
+      token: null,
       contentType: guessContentType(sourceFileName, file.type),
     });
   } catch (error) {

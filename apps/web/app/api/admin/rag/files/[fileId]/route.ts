@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { ensureStorageBucketWithOptions } from "@/lib/admin/supabase-storage";
+import { deleteStorageObject } from "@/lib/admin/gcs-storage";
 import {
   supabaseDelete,
   supabaseSelect,
@@ -51,13 +51,10 @@ export async function DELETE(
 
     // Supabase Storage에서 원본 삭제
     try {
-      const storageClient = await ensureStorageBucketWithOptions(
-        RAG_FILES_BUCKET,
-        { isPublic: false },
-      );
-      await storageClient.storage
-        .from(RAG_FILES_BUCKET)
-        .remove([file.storage_path]);
+      await deleteStorageObject({
+        bucketId: RAG_FILES_BUCKET,
+        objectPath: file.storage_path,
+      });
     } catch (storageError) {
       console.warn("Storage 파일 삭제 실패 (무시):", storageError);
     }

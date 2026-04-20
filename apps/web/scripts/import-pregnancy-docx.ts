@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import mammoth from "mammoth";
-import { createClient } from "@supabase/supabase-js";
+import { Storage } from "@google-cloud/storage";
 import {
   extractImagePlacements,
   getStorageObjectPath,
@@ -231,42 +231,22 @@ function buildDryRunSummary(
   };
 }
 
-function getSupabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.SUPABASE_SERVICE_ROLE ??
-    process.env.SERVICEROLE;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error(
-      "Supabase Storage upload requires NEXT_PUBLIC_SUPABASE_URL and a service-role key",
-    );
-  }
-
-  return { url, serviceRoleKey };
+function getStorageClient() {
+  return new Storage({
+    projectId:
+      process.env.GCS_PROJECT_ID ||
+      process.env.GOOGLE_CLOUD_PROJECT ||
+      undefined,
+  });
 }
 
 async function ensureBucket(bucketId: string) {
-  const { url, serviceRoleKey } = getSupabaseConfig();
-  const client = createClient(url, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data: buckets, error: listError } =
-    await client.storage.listBuckets();
-  if (listError) {
-    throw listError;
+  const bucket = getStorageClient().bucket(bucketId);
+  const [exists] = await bucket.exists();
+  if (!exists) {
+    await bucket.create();
   }
-  if (!buckets?.some((bucket) => bucket.name === bucketId)) {
-    const { error } = await client.storage.createBucket(bucketId, {
-      public: false,
-      fileSizeLimit: "10MB",
-    });
-    if (error) {
-      throw error;
-    }
-  }
-  return client;
+  return bucket;
 }
 
 async function upsertWeek(week: ParsedPregnancyWeek) {
@@ -286,10 +266,13 @@ async function upsertWeek(week: ParsedPregnancyWeek) {
     return existing[0].id;
   }
 
-  const inserted = await supabaseInsert<WeekRow[]>("content_pregnancy_week_data", {
-    id: randomUUID(),
-    ...payload,
-  });
+  const inserted = await supabaseInsert<WeekRow[]>(
+    "content_pregnancy_week_data",
+    {
+      id: randomUUID(),
+      ...payload,
+    },
+  );
   return inserted[0].id;
 }
 
@@ -315,10 +298,13 @@ async function upsertDay(
     return existing[0].id;
   }
 
-  const inserted = await supabaseInsert<DayRow[]>("content_pregnancy_day_contents", {
-    id: randomUUID(),
-    ...payload,
-  });
+  const inserted = await supabaseInsert<DayRow[]>(
+    "content_pregnancy_day_contents",
+    {
+      id: randomUUID(),
+      ...payload,
+    },
+  );
   return inserted[0].id;
 }
 
@@ -333,7 +319,9 @@ async function replaceChecklistRows(
     return;
   }
 
-  await supabaseDelete(`content_week_checklists?day_content_id=eq.${dayContentId}`);
+  await supabaseDelete(
+    `content_week_checklists?day_content_id=eq.${dayContentId}`,
+  );
   if (day.checklistItems.length === 0) {
     return;
   }
@@ -374,7 +362,9 @@ async function replaceQuestionRows(
     return;
   }
 
-  await supabaseDelete(`content_week_questions?day_content_id=eq.${dayContentId}`);
+  await supabaseDelete(
+    `content_week_questions?day_content_id=eq.${dayContentId}`,
+  );
   if (day.questions.length === 0) {
     return;
   }
@@ -401,14 +391,16 @@ async function replaceQuestionRows(
 }
 
 async function replaceWeekMediaRows(
-  client: Awaited<ReturnType<typeof ensureBucket>>,
+  bucket: Awaited<ReturnType<typeof ensureBucket>>,
   bucketId: string,
   weekDataId: string,
   dayContentIds: Map<number, string>,
   docxPath: string,
   placements: ImagePlacementRecord[],
 ) {
-  await supabaseDelete(`content_pregnancy_week_media?week_data_id=eq.${weekDataId}`);
+  await supabaseDelete(
+    `content_pregnancy_week_media?week_data_id=eq.${weekDataId}`,
+  );
 
   if (placements.length === 0) {
     return;
@@ -432,15 +424,11 @@ async function replaceWeekMediaRows(
         sourceName,
       });
       const buffer = readZipEntry(docxPath, `word/${placement.target}`);
-      const { error } = await client.storage
-        .from(bucketId)
-        .upload(objectPath, buffer, {
-          contentType: guessContentType(sourceName),
-          upsert: true,
-        });
-      if (error) {
-        throw error;
-      }
+      await bucket.file(objectPath).save(buffer, {
+        resumable: false,
+        contentType: guessContentType(sourceName),
+        validation: false,
+      });
 
       rows.push({
         id: randomUUID(),

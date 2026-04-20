@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { ensureStorageBucket } from "@/lib/admin/supabase-storage";
+import { createSignedReadUrl } from "@/lib/admin/gcs-storage";
 
 function parseStoragePath(value: string) {
   if (!value.startsWith("storage://")) {
@@ -40,16 +40,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const client = await ensureStorageBucket(parsed.bucketId);
-    const { data, error } = await client.storage
-      .from(parsed.bucketId)
-      .createSignedUrl(parsed.objectPath, 60 * 60);
+    const { signedUrl } = await createSignedReadUrl({
+      bucketId: parsed.bucketId,
+      objectPath: parsed.objectPath,
+      expiresMs: 60 * 60 * 1000,
+    });
 
-    if (error || !data?.signedUrl) {
-      throw error ?? new Error("signed URL generation failed");
-    }
-
-    return NextResponse.redirect(data.signedUrl);
+    return NextResponse.redirect(signedUrl);
   } catch (error) {
     console.error("admin content media preview error", error);
     return NextResponse.json(

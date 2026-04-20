@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { createClient } from "@supabase/supabase-js";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
+import { Storage } from "@google-cloud/storage";
 
 const app = new Hono();
 
@@ -15,18 +15,11 @@ type BrandingConfig = {
 };
 
 function getStorageClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.SUPABASE_SERVICE_ROLE ??
-    process.env.SERVICEROLE;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error("Supabase storage configuration missing");
-  }
-
-  return createClient(url, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
+  return new Storage({
+    projectId:
+      process.env.GCS_PROJECT_ID ||
+      process.env.GOOGLE_CLOUD_PROJECT ||
+      undefined,
   });
 }
 
@@ -55,16 +48,17 @@ app.get("/", async (c) => {
     }
 
     const client = getStorageClient();
-    const { data, error } = await client.storage
-      .from(branding.mascotBucketId)
-      .createSignedUrl(branding.mascotObjectPath, 60 * 60 * 24 * 7);
-
-    if (error) {
-      throw error;
-    }
+    const [signedUrl] = await client
+      .bucket(branding.mascotBucketId)
+      .file(branding.mascotObjectPath)
+      .getSignedUrl({
+        version: "v4",
+        action: "read",
+        expires: Date.now() + 60 * 60 * 24 * 7 * 1000,
+      });
 
     return c.json({
-      mascotImageUrl: data.signedUrl,
+      mascotImageUrl: signedUrl,
       mascotAltText: branding.mascotAltText ?? "마스코트",
       surveyFormUrl: branding.surveyFormUrl ?? null,
     });

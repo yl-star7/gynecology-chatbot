@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin-client";
 
 const SCHEDULE_KEY = "notification_schedule";
 
@@ -16,6 +16,12 @@ const DEFAULT_SCHEDULE = {
 
 type ScheduleConfig = typeof DEFAULT_SCHEDULE;
 type ConfigRow = { key: string; value: ScheduleConfig };
+
+function asScheduleConfig(value: Prisma.JsonValue | null | undefined) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as ScheduleConfig)
+    : null;
+}
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -51,22 +57,17 @@ function validateSchedule(body: Partial<ScheduleConfig>): string | null {
 
 export async function GET() {
   try {
-    const client = getSupabaseAdminClient();
     const admin = await readAdminSessionUser();
     if (!admin) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const { data: rows, error } = await client
-      .from("system_config")
-      .select("key,value")
-      .eq("key", SCHEDULE_KEY)
-      .limit(1);
-    if (error) {
-      throw error;
-    }
+    const row = await prisma.system_config.findUnique({
+      where: { key: SCHEDULE_KEY },
+      select: { value: true },
+    });
 
-    return NextResponse.json(rows[0]?.value ?? DEFAULT_SCHEDULE);
+    return NextResponse.json(asScheduleConfig(row?.value) ?? DEFAULT_SCHEDULE);
   } catch (error) {
     console.error("admin schedule GET error", error);
     return NextResponse.json(
@@ -78,7 +79,6 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const client = getSupabaseAdminClient();
     const admin = await readAdminSessionUser();
     if (!admin) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -93,32 +93,27 @@ export async function PUT(request: NextRequest) {
 
     const schedule: ScheduleConfig = { ...DEFAULT_SCHEDULE, ...body };
 
-    const { data: existing, error: existingError } = await client
-      .from("system_config")
-      .select("key")
-      .eq("key", SCHEDULE_KEY)
-      .limit(1);
-    if (existingError) {
-      throw existingError;
-    }
+    const existing = await prisma.system_config.findUnique({
+      where: { key: SCHEDULE_KEY },
+      select: { key: true },
+    });
 
-    if (existing.length > 0) {
-      const { error } = await client
-        .from("system_config")
-        .update({ value: schedule, updated_at: new Date().toISOString() })
-        .eq("key", SCHEDULE_KEY);
-      if (error) {
-        throw error;
-      }
-    } else {
-      const { error } = await client.from("system_config").insert({
-        key: SCHEDULE_KEY,
-        value: schedule,
-        updated_at: new Date().toISOString(),
+    if (existing?.key) {
+      await prisma.system_config.update({
+        where: { key: SCHEDULE_KEY },
+        data: {
+          value: schedule as Prisma.InputJsonValue,
+          updated_at: new Date(),
+        },
       });
-      if (error) {
-        throw error;
-      }
+    } else {
+      await prisma.system_config.create({
+        data: {
+          key: SCHEDULE_KEY,
+          value: schedule as Prisma.InputJsonValue,
+          updated_at: new Date(),
+        },
+      });
     }
 
     return NextResponse.json({ ok: true, schedule });

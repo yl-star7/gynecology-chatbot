@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 
-import { ensureStorageBucket } from "@/lib/admin/supabase-storage";
+import { createSignedReadUrl } from "@/lib/admin/gcs-storage";
 
 const BRANDING_KEY = "ui_branding";
 
@@ -37,17 +37,14 @@ export async function GET() {
       });
     }
 
-    const client = await ensureStorageBucket(branding.mascotBucketId);
-    const { data, error } = await client.storage
-      .from(branding.mascotBucketId)
-      .createSignedUrl(branding.mascotObjectPath, 60 * 60 * 24 * 7);
-
-    if (error) {
-      throw error;
-    }
+    const { signedUrl } = await createSignedReadUrl({
+      bucketId: branding.mascotBucketId,
+      objectPath: branding.mascotObjectPath,
+      expiresMs: 60 * 60 * 24 * 7 * 1000,
+    });
 
     return NextResponse.json({
-      mascotImageUrl: data.signedUrl,
+      mascotImageUrl: signedUrl,
       mascotAltText: branding.mascotAltText ?? "마스코트",
       surveyFormUrl: branding.surveyFormUrl ?? null,
     });

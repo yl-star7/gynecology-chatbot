@@ -2,26 +2,24 @@ jest.mock("@/lib/admin/auth", () => ({
   readAdminSessionUser: jest.fn(),
 }));
 
-jest.mock("@/lib/admin/supabase-storage", () => ({
-  ensureStorageBucketWithOptions: jest.fn(),
+jest.mock("@/lib/admin/gcs-storage", () => ({
+  createSignedUploadUrl: jest.fn(),
 }));
 
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { ensureStorageBucketWithOptions } from "@/lib/admin/supabase-storage";
+import { createSignedUploadUrl } from "@/lib/admin/gcs-storage";
 import { POST } from "./route";
 
 const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<
   typeof readAdminSessionUser
 >;
-const mockedEnsureStorageBucketWithOptions =
-  ensureStorageBucketWithOptions as jest.MockedFunction<
-    typeof ensureStorageBucketWithOptions
-  >;
+const mockedCreateSignedUploadUrl =
+  createSignedUploadUrl as jest.MockedFunction<typeof createSignedUploadUrl>;
 
 describe("POST /api/admin/content/media/upload", () => {
   beforeEach(() => {
     mockedReadAdminSessionUser.mockReset();
-    mockedEnsureStorageBucketWithOptions.mockReset();
+    mockedCreateSignedUploadUrl.mockReset();
   });
 
   test("rejects requests without an admin session", async () => {
@@ -48,46 +46,31 @@ describe("POST /api/admin/content/media/upload", () => {
       phoneNumber: "010",
       role: "admin",
     });
-    const createSignedUploadUrl = jest.fn().mockResolvedValue({
-      data: {
-        signedUrl:
-          "https://example.supabase.co/storage/v1/object/upload/sign/pregnancy-content/weeks/02/123-cover.png?token=abc",
-        path: "weeks/02/123-cover.png",
-        token: "abc",
-      },
-      error: null,
-    });
-    mockedEnsureStorageBucketWithOptions.mockResolvedValue({
-      storage: {
-        from: jest.fn().mockReturnValue({
-          createSignedUploadUrl,
-        }),
-      },
+    mockedCreateSignedUploadUrl.mockResolvedValue({
+      signedUrl:
+        "https://storage.googleapis.com/upload/pregnancy-content/weeks/02/123-cover.png?signature=abc",
     } as never);
 
-    const response = await POST(
-      {
-        formData: async () => {
-          const formData = new FormData();
-          formData.set(
-            "file",
-            new File(["cover"], "cover.png", { type: "image/png" }),
-          );
-          formData.set("bucketId", "pregnancy-content");
-          formData.set("mediaScope", "week");
-          formData.set("weekNumber", "2");
-          return formData;
-        },
-      } as Request,
-    );
+    const response = await POST({
+      formData: async () => {
+        const formData = new FormData();
+        formData.set(
+          "file",
+          new File(["cover"], "cover.png", { type: "image/png" }),
+        );
+        formData.set("bucketId", "pregnancy-content");
+        formData.set("mediaScope", "week");
+        formData.set("weekNumber", "2");
+        return formData;
+      },
+    } as Request);
 
-    expect(mockedEnsureStorageBucketWithOptions).toHaveBeenCalledWith(
-      "pregnancy-content",
-      { isPublic: true },
-    );
-    expect(createSignedUploadUrl).toHaveBeenCalledWith(
-      expect.stringMatching(/^weeks\/02\/\d+-cover\.png$/),
-      { upsert: true },
+    expect(mockedCreateSignedUploadUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bucketId: "pregnancy-content",
+        objectPath: expect.stringMatching(/^weeks\/02\/\d+-cover\.png$/),
+        contentType: "image/png",
+      }),
     );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(
@@ -95,8 +78,10 @@ describe("POST /api/admin/content/media/upload", () => {
         ok: true,
         bucketId: "pregnancy-content",
         objectPath: expect.stringMatching(/^weeks\/02\/\d+-cover\.png$/),
-        signedUrl: expect.stringContaining("/storage/v1/object/upload/sign/"),
-        token: "abc",
+        signedUrl: expect.stringContaining(
+          "https://storage.googleapis.com/upload/",
+        ),
+        token: null,
         contentType: "image/png",
       }),
     );
