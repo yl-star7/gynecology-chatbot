@@ -1,5 +1,5 @@
 import type { UserActionType } from "@gynecology-chatbot/app-core";
-import { supabaseInsert } from "@/lib/supabase/admin-client";
+import { supabaseInsert } from "./supabase/admin-client";
 
 export interface RecordUserActionInput {
   userId: string;

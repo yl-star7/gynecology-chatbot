@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { Pool, types } from "pg";
-import { createPhoneNumberStorage } from "@/lib/privacy/phone-crypto";
+import { createPhoneNumberStorage } from "./privacy/phone-crypto";
 import { buildLocalPostgresBootstrapSql } from "./local-postgres-schema";
 
 function requireEnv(name: keyof NodeJS.ProcessEnv, message?: string) {

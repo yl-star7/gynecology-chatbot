@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomBytes, randomInt } from "crypto";
 
-import { supabaseSelect } from "@/lib/supabase/admin-client";
-import { computePhoneNumberBlindIndex } from "@/lib/privacy/phone-crypto";
+import { supabaseSelect } from "./supabase/admin-client";
+import { computePhoneNumberBlindIndex } from "./privacy/phone-crypto";
 
 const SOLAPI_BASE_URL = "https://api.solapi.com";
 

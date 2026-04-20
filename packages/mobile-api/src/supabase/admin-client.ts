@@ -5,12 +5,12 @@ import {
   localSupabaseRpc,
   localSupabaseSelect,
   localSupabaseUpdate,
-} from "@/lib/mobile/local-postgres";
+} from "../local-postgres";
 import {
   hasDockerConfig,
   hasSupabaseConfig,
   resolveServerDataProvider,
-} from "@/lib/server-data-provider";
+} from "../server-data-provider";
 
 type SchemaScopedTarget = {
   schema: "public" | "content";

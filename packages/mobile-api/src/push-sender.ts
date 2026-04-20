@@ -1,6 +1,6 @@
 import Expo from "expo-server-sdk";
-import { supabaseSelect } from "@/lib/supabase/admin-client";
-import { decryptPhoneNumber } from "@/lib/privacy/phone-crypto";
+import { supabaseSelect } from "./supabase/admin-client";
+import { decryptPhoneNumber } from "./privacy/phone-crypto";
 import { sendSmsMessage } from "./solapi-sms";
 
 const expo = new Expo();
