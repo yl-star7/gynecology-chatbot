@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { createClient } from "@supabase/supabase-js";
-import { supabaseSelect } from "@gynecology-chatbot/mobile-api/supabase/admin-client";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 
 const app = new Hono();
 
@@ -13,8 +13,6 @@ type BrandingConfig = {
   mascotAltText: string | null;
   surveyFormUrl: string | null;
 };
-
-type ConfigRow = { key: string; value: BrandingConfig };
 
 function getStorageClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -32,12 +30,21 @@ function getStorageClient() {
   });
 }
 
+function asBrandingConfig(value: Prisma.JsonValue): BrandingConfig | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as BrandingConfig;
+}
+
 app.get("/", async (c) => {
   try {
-    const rows = await supabaseSelect<ConfigRow[]>(
-      `system_config?select=key,value&key=eq.${BRANDING_KEY}&limit=1`,
-    );
-    const branding = rows[0]?.value;
+    const row = await prisma.system_config.findUnique({
+      where: { key: BRANDING_KEY },
+      select: { value: true },
+    });
+    const branding = row ? asBrandingConfig(row.value) : null;
 
     if (!branding?.mascotBucketId || !branding?.mascotObjectPath) {
       return c.json({

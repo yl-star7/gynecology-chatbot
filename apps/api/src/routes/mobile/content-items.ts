@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { supabaseSelect } from "@gynecology-chatbot/mobile-api/supabase/admin-client";
+import { prisma } from "@gynecology-chatbot/db/prisma";
 import {
   mobileRouteErrorResponse,
   requireMobileSession,
@@ -37,9 +37,19 @@ app.get("/", async (c) => {
       return c.json({ error: "valid section is required" }, 400);
     }
 
-    const rows = await supabaseSelect<KnowledgeRow[]>(
-      `content_knowledge_items?select=id,slug,section,title,body&section=eq.${section}&status=eq.published`,
-    );
+    const rows = (await prisma.content_knowledge_items.findMany({
+      where: {
+        section,
+        status: "published",
+      },
+      select: {
+        id: true,
+        slug: true,
+        section: true,
+        title: true,
+        body: true,
+      },
+    })) as KnowledgeRow[];
 
     return c.json({
       items: rows.map((row) => ({

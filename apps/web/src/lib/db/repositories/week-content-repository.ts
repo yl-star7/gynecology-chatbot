@@ -8,7 +8,11 @@ import type {
   AdminWeekSection,
   AdminWeekSectionInput,
 } from "@gynecology-chatbot/app-core";
-import { prisma, type PrismaClient } from "@gynecology-chatbot/db/prisma";
+import {
+  prisma,
+  type PrismaClient,
+  type Prisma,
+} from "@gynecology-chatbot/db/prisma";
 import { randomUUID } from "crypto";
 
 import {
@@ -77,6 +81,12 @@ export type SupabaseWeekMediaRow = {
   display_order: number | null;
 };
 
+function asItemsPayload(value: Prisma.JsonValue) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as { items?: string[] })
+    : null;
+}
+
 type WeekContentPrisma = Pick<
   PrismaClient,
   | "pregnancy_week_data"
@@ -119,7 +129,7 @@ export class WeekContentRepository {
 
   async listWeeks(): Promise<SupabaseWeekRow[]> {
     if (this.hasDirectContentDatabase()) {
-      return this.prisma.pregnancy_week_data.findMany({
+      const rows = await this.prisma.pregnancy_week_data.findMany({
         select: {
           id: true,
           week_number: true,
@@ -135,6 +145,10 @@ export class WeekContentRepository {
         },
         orderBy: { week_number: "asc" },
       });
+      return rows.map((row) => ({
+        ...row,
+        status: row.status as SupabaseWeekRow["status"],
+      }));
     }
 
     try {
@@ -171,7 +185,14 @@ export class WeekContentRepository {
           updated_at: true,
         },
       });
-      weekRows = week ? [week] : [];
+      weekRows = week
+        ? [
+            {
+              ...week,
+              status: week.status as SupabaseWeekRow["status"],
+            },
+          ]
+        : [];
     } else {
       try {
         weekRows = await this.select<Array<SupabaseWeekRow>>(
@@ -211,10 +232,7 @@ export class WeekContentRepository {
             is_required: true,
             is_active: true,
           },
-          orderBy: [
-            { day_number: { sort: "asc", nulls: "last" } },
-            { display_order: { sort: "asc", nulls: "last" } },
-          ],
+          orderBy: [{ day_number: "asc" }, { display_order: "asc" }],
         }),
         this.prisma.week_questions.findMany({
           where: { week_data_id: weekId },
@@ -229,10 +247,7 @@ export class WeekContentRepository {
             is_required: true,
             is_active: true,
           },
-          orderBy: [
-            { day_number: { sort: "asc", nulls: "last" } },
-            { display_order: { sort: "asc", nulls: "last" } },
-          ],
+          orderBy: [{ day_number: "asc" }, { display_order: "asc" }],
         }),
         this.prisma.pregnancy_day_contents.findMany({
           where: { week_data_id: weekId },
@@ -260,14 +275,37 @@ export class WeekContentRepository {
             source_file_name: true,
             display_order: true,
           },
-          orderBy: [
-            { day_number: { sort: "asc", nulls: "last" } },
-            { display_order: { sort: "asc", nulls: "last" } },
-          ],
+          orderBy: [{ day_number: "asc" }, { display_order: "asc" }],
         }),
       ]);
 
-      return { sections, assets, days, media };
+      return {
+        sections: sections.map((row) => ({
+          ...row,
+          title: row.title,
+          description: row.description,
+          is_required: row.is_required,
+          is_active: row.is_active,
+        })),
+        assets: assets.map((row) => ({
+          ...row,
+          question_type: row.question_type,
+          help_text: row.help_text,
+          is_required: row.is_required,
+          is_active: row.is_active,
+        })),
+        days: days.map((row) => ({
+          ...row,
+          baby_development_payload: asItemsPayload(
+            row.baby_development_payload,
+          ),
+          mother_changes_payload: asItemsPayload(row.mother_changes_payload),
+        })),
+        media: media.map((row) => ({
+          ...row,
+          media_scope: row.media_scope as "week" | "day",
+        })),
+      };
     }
 
     let sections: Array<SupabaseWeekSectionRow>;
@@ -547,10 +585,10 @@ export class WeekContentRepository {
               week_data_id: weekId,
               day_content_id: payload.day_content_id,
               day_number: asset.dayNumber,
-              code: asset.styleKey,
+              code: asset.styleKey ?? "",
               question_type: asset.assetType,
               question_text: asset.storagePath,
-              help_text: asset.altText,
+              help_text: asset.altText ?? undefined,
               display_order: asset.displayOrder,
               is_required: asset.isRequired,
               is_active: asset.isActive,
@@ -574,7 +612,7 @@ export class WeekContentRepository {
             week_data_id: weekId,
             day_content_id: payload.day_content_id,
             day_number: asset.dayNumber,
-            code: asset.styleKey,
+            code: asset.styleKey ?? "",
             question_type: asset.assetType,
             question_text: asset.storagePath,
             help_text: asset.altText,

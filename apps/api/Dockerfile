@@ -17,7 +17,8 @@ COPY packages ./packages
 COPY apps/api ./apps/api
 
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --filter @gynecology-chatbot/api...
+    pnpm install --frozen-lockfile --filter @gynecology-chatbot/api... && \
+    pnpm --filter @gynecology-chatbot/db db:generate
 
 # -------- runtime: minimal image --------
 FROM base AS runtime

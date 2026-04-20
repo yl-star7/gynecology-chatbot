@@ -19,7 +19,6 @@ describe("WeekContentRepository", () => {
   const mockedUpdate = jest.fn();
   const mockedInsert = jest.fn();
   const mockedDelete = jest.fn();
-  const mockedQueryRows = jest.fn();
   const mockedCreateId = jest
     .fn()
     .mockReturnValueOnce("11111111-1111-4111-8111-111111111111")
@@ -32,7 +31,6 @@ describe("WeekContentRepository", () => {
     update: mockedUpdate,
     insert: mockedInsert,
     remove: mockedDelete,
-    queryRows: mockedQueryRows,
     hasDirectContentDatabase: () => false,
     createId: mockedCreateId,
   });
@@ -42,7 +40,6 @@ describe("WeekContentRepository", () => {
     mockedUpdate.mockReset();
     mockedInsert.mockReset();
     mockedDelete.mockReset();
-    mockedQueryRows.mockReset();
     mockedCreateId.mockReset();
     mockedCreateId
       .mockReturnValueOnce("11111111-1111-4111-8111-111111111111")

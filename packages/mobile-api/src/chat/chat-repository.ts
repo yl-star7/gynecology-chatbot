@@ -1,4 +1,4 @@
-import { prisma } from "@gynecology-chatbot/db/prisma";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import type {
   PersonaConfidence,
   PersonaHint,
@@ -153,17 +153,15 @@ function asObject<T>(value: unknown): T | null {
 }
 
 function mapPregnancyProfileRow(
-  row:
-    | {
-        pregnancy_day_count: number;
-        pregnancy_week: number | null;
-        pregnancy_day_in_week: number | null;
-        baby_nickname: string | null;
-        display_name: string | null;
-        due_date: Date | null;
-        onboarding_payload: unknown;
-      }
-    | null,
+  row: {
+    pregnancy_day_count: number;
+    pregnancy_week: number | null;
+    pregnancy_day_in_week: number | null;
+    baby_nickname: string | null;
+    display_name: string | null;
+    due_date: Date | null;
+    onboarding_payload: unknown;
+  } | null,
 ): PregnancyProfilePromptRow | null {
   if (!row) {
     return null;
@@ -176,27 +174,25 @@ function mapPregnancyProfileRow(
     baby_nickname: row.baby_nickname,
     display_name: row.display_name,
     due_date: formatDateOnly(row.due_date),
-    onboarding_payload: asObject<PregnancyProfilePromptRow["onboarding_payload"]>(
-      row.onboarding_payload,
-    ),
+    onboarding_payload: asObject<
+      PregnancyProfilePromptRow["onboarding_payload"]
+    >(row.onboarding_payload),
   };
 }
 
 function mapWeekDataRow(
-  row:
-    | {
-        id: string;
-        week_number: number;
-        title: string | null;
-        baby_summary: string | null;
-        mother_summary: string | null;
-        warning_signs: string | null;
-        recommended_actions: string | null;
-        checklist_intro: string | null;
-        question_intro: string | null;
-        status: string;
-      }
-    | null,
+  row: {
+    id: string;
+    week_number: number;
+    title: string | null;
+    baby_summary: string | null;
+    mother_summary: string | null;
+    warning_signs: string | null;
+    recommended_actions: string | null;
+    checklist_intro: string | null;
+    question_intro: string | null;
+    status: string;
+  } | null,
 ): WeekDataRow | null {
   if (!row) {
     return null;
@@ -209,16 +205,14 @@ function mapWeekDataRow(
 }
 
 function mapDayContentRow(
-  row:
-    | {
-        id: string;
-        day_number: number;
-        title: string | null;
-        baby_development_payload: unknown;
-        baby_message: string | null;
-        mother_changes_payload: unknown;
-      }
-    | null,
+  row: {
+    id: string;
+    day_number: number;
+    title: string | null;
+    baby_development_payload: unknown;
+    baby_message: string | null;
+    mother_changes_payload: unknown;
+  } | null,
 ): DayContentRow | null {
   if (!row) {
     return null;
@@ -228,9 +222,9 @@ function mapDayContentRow(
     id: row.id,
     day_number: row.day_number,
     title: row.title,
-    baby_development_payload: asObject<DayContentRow["baby_development_payload"]>(
-      row.baby_development_payload,
-    ),
+    baby_development_payload: asObject<
+      DayContentRow["baby_development_payload"]
+    >(row.baby_development_payload),
     baby_message: row.baby_message,
     mother_changes_payload: asObject<DayContentRow["mother_changes_payload"]>(
       row.mother_changes_payload,
@@ -285,16 +279,14 @@ function mapQuestionRow(row: {
 }
 
 function mapPersonaProfileRow(
-  row:
-    | {
-        user_id: string | null;
-        persona_hint: string | null;
-        confidence: string | null;
-        evidence_summary: string | null;
-        weighted_score: { toNumber(): number } | number | null;
-        last_observed_at: Date | null;
-      }
-    | null,
+  row: {
+    user_id: string | null;
+    persona_hint: string | null;
+    confidence: string | null;
+    evidence_summary: string | null;
+    weighted_score: { toNumber(): number } | number | null;
+    last_observed_at: Date | null;
+  } | null,
 ): UserPersonaProfileRow | null {
   if (!row?.user_id || !row.persona_hint || !row.confidence) {
     return null;
@@ -308,7 +300,7 @@ function mapPersonaProfileRow(
     weighted_score:
       typeof row.weighted_score === "number"
         ? row.weighted_score
-        : row.weighted_score?.toNumber() ?? 0,
+        : (row.weighted_score?.toNumber() ?? 0),
     last_observed_at: toIsoStringOrNull(row.last_observed_at),
   };
 }
@@ -945,7 +937,7 @@ export async function saveAssistantChatMessages(input: {
           session_id: input.sessionId,
           user_id: input.userId,
           role: "assistant",
-          parts: message.parts,
+          parts: message.parts as Prisma.InputJsonValue,
           plain_text: message.parts
             .flatMap((part) =>
               part.type === "text" && typeof part.text === "string"

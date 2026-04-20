@@ -5,71 +5,99 @@ import type {
   AdminUserPort,
   UserActionType,
 } from "@gynecology-chatbot/app-core";
-import { Pool } from "pg";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 
 import {
   hasDockerConfig,
   hasSupabaseConfig,
   resolveServerDataProvider,
 } from "@/lib/server-data-provider";
-import {
-  supabaseDelete,
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
+import { listSchiftWorkflows } from "@/lib/mobile/schift-workflows-api";
+import { normalizePhoneNumberToE164 } from "@/lib/mobile/solapi-sms";
 import {
   createPhoneNumberStorage,
   decryptPhoneNumber,
   redactPhoneNumber,
 } from "@/lib/privacy/phone-crypto";
-import { normalizePhoneNumberToE164 } from "@/lib/mobile/solapi-sms";
 
 import { MockAdminDashboardPortAdapter } from "./mock-admin-dashboard-port";
 import { mapSchiftWorkflowRule } from "./schift-workflow";
-import { listSchiftWorkflows } from "@/lib/mobile/schift-workflows-api";
 
 function hasBackendAdminConfig() {
   const provider = resolveServerDataProvider();
   return provider === "docker" ? hasDockerConfig() : hasSupabaseConfig();
 }
 
-let contentReadPool: Pool | null = null;
-
-function hasDirectContentDatabase() {
-  return Boolean(process.env.DATABASE_URL);
-}
-
-function getContentReadPool() {
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL is required for admin content reads");
-  }
-
-  if (!contentReadPool) {
-    const databaseUrl = new URL(process.env.DATABASE_URL);
-    const usesSsl =
-      databaseUrl.searchParams.get("sslmode") === "require" ||
-      databaseUrl.searchParams.get("sslmode") === "verify-full";
-    databaseUrl.searchParams.delete("sslmode");
-    databaseUrl.searchParams.delete("gssencmode");
-
-    contentReadPool = new Pool({
-      connectionString: databaseUrl.toString(),
-      ssl: usesSsl ? { rejectUnauthorized: false } : undefined,
-    });
-  }
-
-  return contentReadPool;
-}
-
-async function queryContentRows<T>(
-  sql: string,
-  params: unknown[] = [],
-): Promise<T[]> {
-  const result = await getContentReadPool().query(sql, params);
-  return result.rows as T[];
-}
+type JsonValue = Prisma.JsonValue;
+type RagSource = {
+  fileId: string;
+  filename: string;
+  similarity: number;
+};
+type MessagePart = {
+  type: string;
+  sources?: RagSource[];
+};
+type WorkflowPayload = Record<string, unknown> | null;
+type DashboardUserRow = {
+  id: string;
+  phone_number_encrypted: string;
+  account_status: string;
+  last_login_at: string | null;
+};
+type DashboardProfileRow = {
+  user_id: string;
+  display_name: string | null;
+  pregnancy_week: number | null;
+  pregnancy_day_in_week: number | null;
+};
+type DashboardSessionRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  last_message_at: string | null;
+};
+type DashboardMessageRow = {
+  id: string;
+  session_id: string;
+  role: "user" | "assistant" | "system";
+  plain_text: string;
+  parts: MessagePart[] | null;
+  created_at: string;
+};
+type DashboardAuditLogRow = {
+  id: string;
+  target_user_id: string | null;
+  action_type: string;
+  created_at: string;
+};
+type DashboardRagDocumentRow = {
+  id: string;
+  title: string;
+  pregnancy_week: number | null;
+  category: string;
+  metadata: { chunk_count?: number } | null;
+  created_at: string;
+};
+type DashboardWorkflowDefinitionRow = {
+  id: string;
+  name: string;
+  provider: string;
+  is_active: boolean;
+  config: WorkflowPayload;
+  metadata: WorkflowPayload;
+};
+type DashboardUserActionRow = {
+  id: string;
+  user_id: string;
+  session_id: string | null;
+  message_id: string | null;
+  action_type: UserActionType;
+  payload: Record<string, unknown> | null;
+  occurred_at: string;
+};
+type AuditLogPayload = Prisma.InputJsonValue;
 
 function getAdminActorId() {
   const actorId = process.env.ADMIN_ACTOR_USER_ID;
@@ -216,6 +244,62 @@ function formatAdminEventLabel(value: string | null | undefined) {
   return labels[value] ?? value;
 }
 
+function toIsoStringOrNull(value: Date | string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  return value instanceof Date ? value.toISOString() : value;
+}
+
+function toJsonRecord(value: JsonValue): Record<string, unknown> | null {
+  if (!value || Array.isArray(value) || typeof value !== "object") {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function toWorkflowPayload(value: JsonValue): WorkflowPayload {
+  return toJsonRecord(value);
+}
+
+function toMessageParts(value: JsonValue): MessagePart[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  return value as unknown as MessagePart[];
+}
+
+function toAuditPayload(value: Record<string, unknown>): AuditLogPayload {
+  return value as AuditLogPayload;
+}
+
+async function createAdminAuditLog(input: {
+  adminUserId: string;
+  targetUserId: string | null;
+  actionType: string;
+  entityType: string;
+  entityId: string | null;
+  reason: string;
+  beforePayload: Record<string, unknown>;
+  afterPayload: Record<string, unknown>;
+}) {
+  await prisma.admin_audit_logs.create({
+    data: {
+      admin_user_id: input.adminUserId,
+      target_user_id: input.targetUserId,
+      action_type: input.actionType,
+      entity_type: input.entityType,
+      entity_id: input.entityId,
+      reason: input.reason,
+      before_payload: toAuditPayload(input.beforePayload),
+      after_payload: toAuditPayload(input.afterPayload),
+    },
+  });
+}
+
 function mapWorkflowRule(row: {
   id: string;
   name: string;
@@ -295,94 +379,142 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       userActions,
       schiftWorkflowRules,
     ] = await Promise.all([
-      supabaseSelect<
-        Array<{
-          id: string;
-          phone_number_encrypted: string;
-          account_status: string;
-          last_login_at: string | null;
-        }>
-      >("users?select=id,phone_number_encrypted,account_status,last_login_at"),
-      supabaseSelect<
-        Array<{
-          user_id: string;
-          display_name: string | null;
-          pregnancy_week: number | null;
-          pregnancy_day_in_week: number | null;
-        }>
-      >(
-        "pregnancy_profiles?select=user_id,display_name,pregnancy_week,pregnancy_day_in_week",
-      ),
-      supabaseSelect<
-        Array<{
-          id: string;
-          user_id: string;
-          title: string;
-          last_message_at: string | null;
-        }>
-      >(
-        "chat_sessions?select=id,user_id,title,last_message_at&order=last_message_at.desc.nullslast&limit=10000",
-      ),
-      supabaseSelect<
-        Array<{
-          id: string;
-          session_id: string;
-          role: "user" | "assistant" | "system";
-          plain_text: string;
-          parts: Array<{
-            type: string;
-            sources?: Array<{
-              fileId: string;
-              filename: string;
-              similarity: number;
-            }>;
-          }> | null;
-          created_at: string;
-        }>
-      >(
-        "chat_messages?select=id,session_id,role,plain_text,parts,created_at&order=created_at.desc&limit=50000",
-      ),
-      supabaseSelect<
-        Array<{
-          id: string;
-          target_user_id: string | null;
-          action_type: string;
-          created_at: string;
-        }>
-      >(
-        "admin_audit_logs?select=id,target_user_id,action_type,created_at&order=created_at.desc",
-      ),
+      prisma.users
+        .findMany({
+          select: {
+            id: true,
+            phone_number_encrypted: true,
+            account_status: true,
+            last_login_at: true,
+          },
+        })
+        .then((rows) =>
+          rows
+            .filter(
+              (row): row is typeof row & { phone_number_encrypted: string } =>
+                typeof row.phone_number_encrypted === "string",
+            )
+            .map<DashboardUserRow>((row) => ({
+              id: row.id,
+              phone_number_encrypted: row.phone_number_encrypted,
+              account_status: row.account_status,
+              last_login_at: toIsoStringOrNull(row.last_login_at),
+            })),
+        ),
+      prisma.pregnancy_profiles
+        .findMany({
+          select: {
+            user_id: true,
+            display_name: true,
+            pregnancy_week: true,
+            pregnancy_day_in_week: true,
+          },
+        })
+        .then((rows) =>
+          rows.map<DashboardProfileRow>((row) => ({
+            user_id: row.user_id,
+            display_name: row.display_name,
+            pregnancy_week: row.pregnancy_week,
+            pregnancy_day_in_week: row.pregnancy_day_in_week,
+          })),
+        ),
+      prisma.chat_sessions
+        .findMany({
+          select: {
+            id: true,
+            user_id: true,
+            title: true,
+            last_message_at: true,
+          },
+          orderBy: { last_message_at: { sort: "desc", nulls: "last" } },
+          take: 10000,
+        })
+        .then((rows) =>
+          rows.map<DashboardSessionRow>((row) => ({
+            id: row.id,
+            user_id: row.user_id,
+            title: row.title,
+            last_message_at: toIsoStringOrNull(row.last_message_at),
+          })),
+        ),
+      prisma.chat_messages
+        .findMany({
+          select: {
+            id: true,
+            session_id: true,
+            role: true,
+            plain_text: true,
+            parts: true,
+            created_at: true,
+          },
+          orderBy: { created_at: "desc" },
+          take: 50000,
+        })
+        .then((rows) =>
+          rows
+            .filter(
+              (
+                row,
+              ): row is typeof row & {
+                role: "user" | "assistant" | "system";
+              } =>
+                row.role === "user" ||
+                row.role === "assistant" ||
+                row.role === "system",
+            )
+            .map<DashboardMessageRow>((row) => ({
+              id: row.id,
+              session_id: row.session_id,
+              role: row.role,
+              plain_text: row.plain_text,
+              parts: toMessageParts(row.parts),
+              created_at: row.created_at.toISOString(),
+            })),
+        ),
+      prisma.admin_audit_logs
+        .findMany({
+          select: {
+            id: true,
+            target_user_id: true,
+            action_type: true,
+            created_at: true,
+          },
+          orderBy: { created_at: "desc" },
+        })
+        .then((rows) =>
+          rows.map<DashboardAuditLogRow>((row) => ({
+            id: row.id,
+            target_user_id: row.target_user_id,
+            action_type: row.action_type,
+            created_at: row.created_at.toISOString(),
+          })),
+        ),
       (async () => {
         try {
-          if (hasDirectContentDatabase()) {
-            return await queryContentRows<{
-              id: string;
-              title: string;
-              pregnancy_week: number | null;
-              category: string;
-              metadata: { chunk_count?: number } | null;
-              created_at: string;
-            }>(
-              `
-                SELECT id, title, pregnancy_week, category, metadata, created_at
-            FROM public.content_pregnancy_documents
-              ORDER BY created_at DESC
-              `,
+          return await prisma.content_pregnancy_documents
+            .findMany({
+              select: {
+                id: true,
+                title: true,
+                pregnancy_week: true,
+                category: true,
+                metadata: true,
+                created_at: true,
+              },
+              orderBy: { created_at: "desc" },
+            })
+            .then((rows) =>
+              rows.map<DashboardRagDocumentRow>((row) => ({
+                id: row.id,
+                title: row.title ?? "제목 없음",
+                pregnancy_week: row.pregnancy_week,
+                category: row.category,
+                metadata: toJsonRecord(row.metadata) as {
+                  chunk_count?: number;
+                } | null,
+                created_at: row.created_at.toISOString(),
+              })),
             );
-          }
-
-          return await supabaseSelect<
-            Array<{
-              id: string;
-              title: string;
-              pregnancy_week: number | null;
-              category: string;
-              metadata: { chunk_count?: number } | null;
-              created_at: string;
-            }>
-          >(
-            "content_pregnancy_documents?select=id,title,pregnancy_week,category,metadata,created_at&order=created_at.desc",
-          );
         } catch (error) {
           console.error("admin dashboard rag documents unavailable", error);
           return null;
@@ -390,18 +522,28 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
       })(),
       (async () => {
         try {
-          return await supabaseSelect<
-            Array<{
-              id: string;
-              name: string;
-              provider: string;
-              is_active: boolean;
-              config: Record<string, unknown> | null;
-              metadata: Record<string, unknown> | null;
-            }>
-          >(
-            "workflow_definitions?select=id,name,provider,is_active,config,metadata&order=updated_at.desc",
-          );
+          return await prisma.workflow_definitions
+            .findMany({
+              select: {
+                id: true,
+                name: true,
+                provider: true,
+                is_active: true,
+                config: true,
+                metadata: true,
+              },
+              orderBy: { updated_at: "desc" },
+            })
+            .then((rows) =>
+              rows.map<DashboardWorkflowDefinitionRow>((row) => ({
+                id: row.id,
+                name: row.name,
+                provider: row.provider,
+                is_active: row.is_active,
+                config: toWorkflowPayload(row.config),
+                metadata: toWorkflowPayload(row.metadata),
+              })),
+            );
         } catch (error) {
           console.error(
             "admin dashboard workflow definitions unavailable",
@@ -410,19 +552,31 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           return null;
         }
       })(),
-      supabaseSelect<
-        Array<{
-          id: string;
-          user_id: string;
-          session_id: string | null;
-          message_id: string | null;
-          action_type: UserActionType;
-          payload: Record<string, unknown> | null;
-          occurred_at: string;
-        }>
-      >(
-        "user_action_logs?select=id,user_id,session_id,message_id,action_type,payload,occurred_at&order=occurred_at.desc&limit=60",
-      ),
+      prisma.user_action_logs
+        .findMany({
+          select: {
+            id: true,
+            user_id: true,
+            session_id: true,
+            message_id: true,
+            action_type: true,
+            payload: true,
+            occurred_at: true,
+          },
+          orderBy: { occurred_at: "desc" },
+          take: 60,
+        })
+        .then((rows) =>
+          rows.map<DashboardUserActionRow>((row) => ({
+            id: row.id,
+            user_id: row.user_id,
+            session_id: row.session_id,
+            message_id: row.message_id,
+            action_type: row.action_type as UserActionType,
+            payload: toJsonRecord(row.payload),
+            occurred_at: row.occurred_at.toISOString(),
+          })),
+        ),
       (async () => {
         const schift = getSchiftClient();
         if (!schift) {
@@ -627,9 +781,7 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           ? mappedUserActions
           : dashboard.userActions,
       workflowRules: (() => {
-        // Schift API에 실제 존재하는 워크플로우 ID 집합
         const schiftIdSet = new Set(schiftWorkflowRules.map((wf) => wf.id));
-        // Schift 워크플로우를 identity로 빠르게 검색할 수 있도록 맵 구성
         const schiftByIdentity = new Map(
           schiftWorkflowRules.map((wf) => [
             buildWorkflowIdentity({
@@ -641,7 +793,6 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           ]),
         );
 
-        // DB 엔트리의 ID가 Schift에 없으면 같은 identity의 Schift ID로 교체
         const mappedDefinitions = workflowDefinitions
           .map(mapWorkflowRule)
           .map((def) => {
@@ -710,16 +861,23 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
     }
 
     const [users, profiles] = await Promise.all([
-      supabaseSelect<
-        Array<{
-          id: string;
-          phone_number_encrypted: string;
-          account_status: string;
-        }>
-      >("users?select=id,phone_number_encrypted,account_status"),
-      supabaseSelect<Array<{ user_id: string; display_name: string | null }>>(
-        "pregnancy_profiles?select=user_id,display_name",
-      ),
+      prisma.users
+        .findMany({
+          select: {
+            id: true,
+            phone_number_encrypted: true,
+            account_status: true,
+          },
+        })
+        .then((rows) =>
+          rows.filter(
+            (row): row is typeof row & { phone_number_encrypted: string } =>
+              typeof row.phone_number_encrypted === "string",
+          ),
+        ),
+      prisma.pregnancy_profiles.findMany({
+        select: { user_id: true, display_name: true },
+      }),
     ]);
     const profilesByUser = new Map(
       profiles.map((profile) => [profile.user_id, profile.display_name]),
@@ -739,26 +897,25 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       return [];
     }
 
-    const rows = await supabaseSelect<
-      Array<{
-        id: string;
-        phone_number_encrypted: string;
-        display_name: string | null;
-        note: string | null;
-        created_at: string;
-        updated_at: string;
-      }>
-    >(
-      "blocked_phone_numbers?select=id,phone_number_encrypted,display_name,note,created_at,updated_at&order=updated_at.desc",
-    );
+    const rows = await prisma.blocked_phone_numbers.findMany({
+      select: {
+        id: true,
+        phone_number_encrypted: true,
+        display_name: true,
+        note: true,
+        created_at: true,
+        updated_at: true,
+      },
+      orderBy: { updated_at: "desc" },
+    });
 
     return rows.map((row) => ({
       id: row.id,
       phoneNumber: decryptPhoneNumber(row.phone_number_encrypted),
       displayName: row.display_name,
       note: row.note,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
     }));
   }
 
@@ -776,67 +933,65 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       input.phoneNumber,
     );
     const storage = createPhoneNumberStorage(normalizedPhoneNumber);
-    const existingRows = await supabaseSelect<
-      Array<{
-        id: string;
-        phone_number_encrypted: string;
-        display_name: string | null;
-        note: string | null;
-        created_at: string;
-        updated_at: string;
-      }>
-    >(
-      `blocked_phone_numbers?select=id,phone_number_encrypted,display_name,note,created_at,updated_at&phone_number_blind_index=eq.${storage.phoneNumberBlindIndex}&limit=1`,
-    );
+    const existingRow = await prisma.blocked_phone_numbers.findUnique({
+      where: { phone_number_blind_index: storage.phoneNumberBlindIndex },
+      select: {
+        id: true,
+        phone_number_encrypted: true,
+        display_name: true,
+        note: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
 
-    if (existingRows[0]) {
+    if (existingRow) {
       return this.updateAllowedPhoneNumber({
         actorId: input.actorId,
-        id: existingRows[0].id,
+        id: existingRow.id,
         phoneNumber: normalizedPhoneNumber,
-        displayName: input.displayName ?? existingRows[0].display_name,
-        note: input.note ?? existingRows[0].note,
+        displayName: input.displayName ?? existingRow.display_name,
+        note: input.note ?? existingRow.note,
       });
     }
 
-    const inserted = await supabaseInsert<
-      Array<{
-        id: string;
-        phone_number_encrypted: string;
-        display_name: string | null;
-        note: string | null;
-        created_at: string;
-        updated_at: string;
-      }>
-    >("blocked_phone_numbers", {
-      phone_number_encrypted: storage.phoneNumberEncrypted,
-      phone_number_blind_index: storage.phoneNumberBlindIndex,
-      phone_number_last4: storage.phoneNumberLast4,
-      display_name: input.displayName ?? null,
-      note: input.note ?? null,
-      updated_at: new Date().toISOString(),
+    const inserted = await prisma.blocked_phone_numbers.create({
+      data: {
+        phone_number_encrypted: storage.phoneNumberEncrypted,
+        phone_number_blind_index: storage.phoneNumberBlindIndex,
+        phone_number_last4: storage.phoneNumberLast4,
+        display_name: input.displayName ?? null,
+        note: input.note ?? null,
+        updated_at: new Date(),
+      },
+      select: {
+        id: true,
+        phone_number_encrypted: true,
+        display_name: true,
+        note: true,
+        created_at: true,
+        updated_at: true,
+      },
     });
 
     const createdEntry = {
-      id: inserted[0]?.id ?? "",
-      phoneNumber: inserted[0]?.phone_number_encrypted
-        ? decryptPhoneNumber(inserted[0].phone_number_encrypted)
-        : normalizedPhoneNumber,
-      displayName: inserted[0]?.display_name ?? input.displayName ?? null,
-      note: inserted[0]?.note ?? input.note ?? null,
-      createdAt: inserted[0]?.created_at ?? new Date().toISOString(),
-      updatedAt: inserted[0]?.updated_at ?? new Date().toISOString(),
+      id: inserted.id,
+      phoneNumber: decryptPhoneNumber(inserted.phone_number_encrypted),
+      displayName: inserted.display_name ?? input.displayName ?? null,
+      note: inserted.note ?? input.note ?? null,
+      createdAt: inserted.created_at.toISOString(),
+      updatedAt: inserted.updated_at.toISOString(),
     };
 
-    await supabaseInsert("admin_audit_logs", {
-      admin_user_id: input.actorId ?? getAdminActorId(),
-      target_user_id: null,
-      action_type: "content_update",
-      entity_type: "blocked_phone_number",
-      entity_id: createdEntry.id || null,
+    await createAdminAuditLog({
+      adminUserId: input.actorId ?? getAdminActorId(),
+      targetUserId: null,
+      actionType: "content_update",
+      entityType: "blocked_phone_number",
+      entityId: createdEntry.id || null,
       reason: "blocked_phone_number_create",
-      before_payload: {},
-      after_payload: {
+      beforePayload: {},
+      afterPayload: {
         phone_number: redactPhoneNumber(createdEntry.phoneNumber),
         display_name: createdEntry.displayName,
         note: createdEntry.note,
@@ -861,62 +1016,61 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       input.phoneNumber,
     );
     const storage = createPhoneNumberStorage(normalizedPhoneNumber);
-    const beforeRows = await supabaseSelect<
-      Array<{
-        id: string;
-        phone_number_encrypted: string;
-        display_name: string | null;
-        note: string | null;
-      }>
-    >(
-      `blocked_phone_numbers?select=id,phone_number_encrypted,display_name,note&id=eq.${input.id}&limit=1`,
-    );
+    const beforeRow = await prisma.blocked_phone_numbers.findUnique({
+      where: { id: input.id },
+      select: {
+        id: true,
+        phone_number_encrypted: true,
+        display_name: true,
+        note: true,
+      },
+    });
 
-    const updated = await supabaseUpdate<
-      Array<{
-        id: string;
-        phone_number_encrypted: string;
-        display_name: string | null;
-        note: string | null;
-        created_at: string;
-        updated_at: string;
-      }>
-    >(`blocked_phone_numbers?id=eq.${input.id}`, {
-      phone_number_encrypted: storage.phoneNumberEncrypted,
-      phone_number_blind_index: storage.phoneNumberBlindIndex,
-      phone_number_last4: storage.phoneNumberLast4,
-      display_name: input.displayName ?? null,
-      note: input.note ?? null,
-      updated_at: new Date().toISOString(),
+    const updated = await prisma.blocked_phone_numbers.update({
+      where: { id: input.id },
+      data: {
+        phone_number_encrypted: storage.phoneNumberEncrypted,
+        phone_number_blind_index: storage.phoneNumberBlindIndex,
+        phone_number_last4: storage.phoneNumberLast4,
+        display_name: input.displayName ?? null,
+        note: input.note ?? null,
+        updated_at: new Date(),
+      },
+      select: {
+        id: true,
+        phone_number_encrypted: true,
+        display_name: true,
+        note: true,
+        created_at: true,
+        updated_at: true,
+      },
     });
 
     const updatedEntry = {
-      id: updated[0]?.id ?? input.id,
-      phoneNumber: updated[0]?.phone_number_encrypted
-        ? decryptPhoneNumber(updated[0].phone_number_encrypted)
-        : normalizedPhoneNumber,
-      displayName: updated[0]?.display_name ?? input.displayName ?? null,
-      note: updated[0]?.note ?? input.note ?? null,
-      createdAt: updated[0]?.created_at ?? new Date().toISOString(),
-      updatedAt: updated[0]?.updated_at ?? new Date().toISOString(),
+      id: updated.id,
+      phoneNumber: decryptPhoneNumber(updated.phone_number_encrypted),
+      displayName: updated.display_name ?? input.displayName ?? null,
+      note: updated.note ?? input.note ?? null,
+      createdAt: updated.created_at.toISOString(),
+      updatedAt: updated.updated_at.toISOString(),
     };
 
-    await supabaseInsert("admin_audit_logs", {
-      admin_user_id: input.actorId ?? getAdminActorId(),
-      target_user_id: null,
-      action_type: "content_update",
-      entity_type: "blocked_phone_number",
-      entity_id: updatedEntry.id,
+    await createAdminAuditLog({
+      adminUserId: input.actorId ?? getAdminActorId(),
+      targetUserId: null,
+      actionType: "content_update",
+      entityType: "blocked_phone_number",
+      entityId: updatedEntry.id,
       reason: "blocked_phone_number_update",
-      before_payload: beforeRows[0]
+      beforePayload: beforeRow
         ? {
-            ...beforeRows[0],
+            ...beforeRow,
             phone_number: redactPhoneNumber(
-              decryptPhoneNumber(beforeRows[0].phone_number_encrypted),
+              decryptPhoneNumber(beforeRow.phone_number_encrypted),
             ),
           }
         : {},
-      after_payload: {
+      afterPayload: {
         phone_number: redactPhoneNumber(updatedEntry.phoneNumber),
         display_name: updatedEntry.displayName,
         note: updatedEntry.note,
@@ -931,35 +1085,34 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       return;
     }
 
-    const beforeRows = await supabaseSelect<
-      Array<{
-        id: string;
-        phone_number_encrypted: string;
-        display_name: string | null;
-        note: string | null;
-      }>
-    >(
-      `blocked_phone_numbers?select=id,phone_number_encrypted,display_name,note&id=eq.${input.id}&limit=1`,
-    );
+    const beforeRow = await prisma.blocked_phone_numbers.findUnique({
+      where: { id: input.id },
+      select: {
+        id: true,
+        phone_number_encrypted: true,
+        display_name: true,
+        note: true,
+      },
+    });
 
-    await supabaseDelete(`blocked_phone_numbers?id=eq.${input.id}`);
+    await prisma.blocked_phone_numbers.delete({ where: { id: input.id } });
 
-    await supabaseInsert("admin_audit_logs", {
-      admin_user_id: input.actorId ?? getAdminActorId(),
-      target_user_id: null,
-      action_type: "content_update",
-      entity_type: "blocked_phone_number",
-      entity_id: input.id,
+    await createAdminAuditLog({
+      adminUserId: input.actorId ?? getAdminActorId(),
+      targetUserId: null,
+      actionType: "content_update",
+      entityType: "blocked_phone_number",
+      entityId: input.id,
       reason: "blocked_phone_number_delete",
-      before_payload: beforeRows[0]
+      beforePayload: beforeRow
         ? {
-            ...beforeRows[0],
+            ...beforeRow,
             phone_number: redactPhoneNumber(
-              decryptPhoneNumber(beforeRows[0].phone_number_encrypted),
+              decryptPhoneNumber(beforeRow.phone_number_encrypted),
             ),
           }
         : {},
-      after_payload: {},
+      afterPayload: {},
     });
   }
 
@@ -973,37 +1126,41 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       return;
     }
 
-    const existingUsers = await supabaseSelect<
-      Array<{ phone_number_encrypted: string }>
-    >(`users?select=phone_number_encrypted&id=eq.${input.userId}&limit=1`);
-    const beforePhoneNumber = existingUsers[0]?.phone_number_encrypted
-      ? decryptPhoneNumber(existingUsers[0].phone_number_encrypted)
+    const existingUser = await prisma.users.findUnique({
+      where: { id: input.userId },
+      select: { phone_number_encrypted: true },
+    });
+    const beforePhoneNumber = existingUser?.phone_number_encrypted
+      ? decryptPhoneNumber(existingUser.phone_number_encrypted)
       : null;
     const normalizedPhoneNumber = normalizeManagedPhoneNumber(
       input.phoneNumber,
     );
     const storage = createPhoneNumberStorage(normalizedPhoneNumber);
 
-    await supabaseUpdate(`users?id=eq.${input.userId}`, {
-      phone_number_encrypted: storage.phoneNumberEncrypted,
-      phone_number_blind_index: storage.phoneNumberBlindIndex,
-      phone_number_last4: storage.phoneNumberLast4,
-      updated_at: new Date().toISOString(),
+    await prisma.users.update({
+      where: { id: input.userId },
+      data: {
+        phone_number_encrypted: storage.phoneNumberEncrypted,
+        phone_number_blind_index: storage.phoneNumberBlindIndex,
+        phone_number_last4: storage.phoneNumberLast4,
+        updated_at: new Date(),
+      },
     });
 
-    await supabaseInsert("admin_audit_logs", {
-      admin_user_id: input.actorId ?? getAdminActorId(),
-      target_user_id: input.userId,
-      action_type: "phone_change",
-      entity_type: "user",
-      entity_id: input.userId,
+    await createAdminAuditLog({
+      adminUserId: input.actorId ?? getAdminActorId(),
+      targetUserId: input.userId,
+      actionType: "phone_change",
+      entityType: "user",
+      entityId: input.userId,
       reason: input.reason,
-      before_payload: {
+      beforePayload: {
         phone_number: beforePhoneNumber
           ? redactPhoneNumber(beforePhoneNumber)
           : null,
       },
-      after_payload: {
+      afterPayload: {
         phone_number: redactPhoneNumber(normalizedPhoneNumber),
       },
     });
@@ -1018,20 +1175,23 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       return;
     }
 
-    await supabaseUpdate(`users?id=eq.${input.userId}`, {
-      account_status: "pending_recovery",
-      updated_at: new Date().toISOString(),
+    await prisma.users.update({
+      where: { id: input.userId },
+      data: {
+        account_status: "pending_recovery",
+        updated_at: new Date(),
+      },
     });
 
-    await supabaseInsert("admin_audit_logs", {
-      admin_user_id: input.actorId ?? getAdminActorId(),
-      target_user_id: input.userId,
-      action_type: "session_reset",
-      entity_type: "user",
-      entity_id: input.userId,
+    await createAdminAuditLog({
+      adminUserId: input.actorId ?? getAdminActorId(),
+      targetUserId: input.userId,
+      actionType: "session_reset",
+      entityType: "user",
+      entityId: input.userId,
       reason: input.reason,
-      before_payload: {},
-      after_payload: { account_status: "pending_recovery" },
+      beforePayload: {},
+      afterPayload: { account_status: "pending_recovery" },
     });
   }
 
@@ -1045,21 +1205,24 @@ export class SupabaseAdminUserPortAdapter implements AdminUserPort {
       return;
     }
 
-    await supabaseUpdate(`users?id=eq.${input.userId}`, {
-      account_status: input.status,
-      updated_at: new Date().toISOString(),
+    await prisma.users.update({
+      where: { id: input.userId },
+      data: {
+        account_status: input.status,
+        updated_at: new Date(),
+      },
     });
 
-    await supabaseInsert("admin_audit_logs", {
-      admin_user_id: input.actorId ?? getAdminActorId(),
-      target_user_id: input.userId,
-      action_type:
+    await createAdminAuditLog({
+      adminUserId: input.actorId ?? getAdminActorId(),
+      targetUserId: input.userId,
+      actionType:
         input.status === "paused" ? "account_pause" : "account_resume",
-      entity_type: "user",
-      entity_id: input.userId,
+      entityType: "user",
+      entityId: input.userId,
       reason: input.reason,
-      before_payload: {},
-      after_payload: { account_status: input.status },
+      beforePayload: {},
+      afterPayload: { account_status: input.status },
     });
   }
 }

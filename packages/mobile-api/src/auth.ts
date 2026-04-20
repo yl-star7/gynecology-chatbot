@@ -3,17 +3,13 @@ import {
   DEFAULT_MOBILE_THEME_KEY,
   resolveMobileThemeKey,
 } from "@gynecology-chatbot/app-core";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import { createHash, randomBytes, randomUUID } from "crypto";
 import {
   computePhoneNumberBlindIndex,
   createPhoneNumberStorage,
   decryptPhoneNumber,
 } from "./privacy/phone-crypto";
-import {
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "./supabase/admin-client";
 import {
   checkSmsVerification,
   normalizePhoneNumberToE164,
@@ -46,6 +42,35 @@ type BlockedPhoneNumberRow = {
   phone_number_encrypted: string;
   phone_number_last4: string;
   phone_number_blind_index: string;
+  display_name: string | null;
+  note: string | null;
+};
+
+type UserSelectRow = {
+  id: string;
+  phone_number_encrypted: string | null;
+  phone_number_last4: string | null;
+  account_status: string;
+  phone_verified_at: Date | null;
+  last_login_at: Date | null;
+};
+
+type PregnancyProfileSelectRow = {
+  id: string;
+  user_id: string;
+  display_name: string | null;
+  onboarding_payload: Prisma.JsonValue;
+  due_date: Date | null;
+  baby_nickname: string | null;
+  notification_time: Date | null;
+  theme_key: string | null;
+};
+
+type BlockedPhoneNumberSelectRow = {
+  id: string;
+  phone_number_encrypted: string | null;
+  phone_number_last4: string | null;
+  phone_number_blind_index: string | null;
   display_name: string | null;
   note: string | null;
 };
@@ -177,16 +202,93 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function oneYearFromNowIso() {
+function oneYearFromNow() {
   const date = new Date();
   date.setFullYear(date.getFullYear() + 1);
-  return date.toISOString();
+  return date;
 }
 
-function tenMinutesFromNowIso() {
+function tenMinutesFromNow() {
   const date = new Date();
   date.setMinutes(date.getMinutes() + 10);
-  return date.toISOString();
+  return date;
+}
+
+function toIsoString(value: Date | null) {
+  return value?.toISOString() ?? null;
+}
+
+function parseOnboardingPayload(
+  value: Prisma.JsonValue,
+): PregnancyProfileOnboardingPayload | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as PregnancyProfileOnboardingPayload;
+}
+
+function mapUserRow(
+  row: UserSelectRow,
+): UserRow & { phone_number_encrypted: string } {
+  if (!row.phone_number_encrypted || !row.phone_number_last4) {
+    throw new Error("전화번호 데이터가 올바르지 않습니다.");
+  }
+
+  return {
+    id: row.id,
+    phone_number_encrypted: row.phone_number_encrypted,
+    phone_number_last4: row.phone_number_last4,
+    account_status: row.account_status as UserRow["account_status"],
+    phone_verified_at: toIsoString(row.phone_verified_at),
+    last_login_at: toIsoString(row.last_login_at),
+  };
+}
+
+function mapPregnancyProfileRow(
+  row: PregnancyProfileSelectRow,
+): PregnancyProfileRow {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    display_name: row.display_name,
+    onboarding_payload: parseOnboardingPayload(row.onboarding_payload),
+    due_date: row.due_date ? row.due_date.toISOString().slice(0, 10) : null,
+    baby_nickname: row.baby_nickname,
+    notification_time: row.notification_time
+      ? row.notification_time.toISOString().slice(11, 19)
+      : null,
+    theme_key: row.theme_key,
+  };
+}
+
+function mapBlockedPhoneNumberRow(
+  row: BlockedPhoneNumberSelectRow,
+): BlockedPhoneNumberRow & { phone_number_encrypted: string } {
+  if (
+    !row.phone_number_encrypted ||
+    !row.phone_number_last4 ||
+    !row.phone_number_blind_index
+  ) {
+    throw new Error("차단 번호 데이터가 올바르지 않습니다.");
+  }
+
+  return {
+    id: row.id,
+    phone_number_encrypted: row.phone_number_encrypted,
+    phone_number_last4: row.phone_number_last4,
+    phone_number_blind_index: row.phone_number_blind_index,
+    display_name: row.display_name,
+    note: row.note,
+  };
+}
+
+function normalizeNotificationTimeForPrisma(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  return new Date(`1970-01-01T${value}`);
 }
 
 function buildSessionToken() {
@@ -244,11 +346,21 @@ function ensureUserCanSignIn(
 }
 
 async function findPregnancyProfile(userId: string) {
-  const profiles = await supabaseSelect<PregnancyProfileRow[]>(
-    `pregnancy_profiles?select=id,user_id,display_name,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${userId}&limit=1`,
-  );
+  const profile = await prisma.pregnancy_profiles.findUnique({
+    where: { user_id: userId },
+    select: {
+      id: true,
+      user_id: true,
+      display_name: true,
+      onboarding_payload: true,
+      due_date: true,
+      baby_nickname: true,
+      notification_time: true,
+      theme_key: true,
+    },
+  });
 
-  return profiles[0] ?? null;
+  return profile ? mapPregnancyProfileRow(profile) : null;
 }
 
 function toDecryptedPhoneRow<T extends { phone_number_encrypted: string }>(
@@ -265,14 +377,20 @@ export async function findBlockedPhoneNumber(phoneNumber: string) {
 
   for (const candidate of candidates) {
     const blindIndex = computePhoneNumberBlindIndex(candidate);
-    const rows = await supabaseSelect<
-      Array<BlockedPhoneNumberRow & { phone_number_encrypted: string }>
-    >(
-      `blocked_phone_numbers?select=id,phone_number_encrypted,phone_number_last4,phone_number_blind_index,display_name,note&phone_number_blind_index=eq.${blindIndex}&limit=1`,
-    );
+    const row = await prisma.blocked_phone_numbers.findUnique({
+      where: { phone_number_blind_index: blindIndex },
+      select: {
+        id: true,
+        phone_number_encrypted: true,
+        phone_number_last4: true,
+        phone_number_blind_index: true,
+        display_name: true,
+        note: true,
+      },
+    });
 
-    if (rows[0]) {
-      return toDecryptedPhoneRow(rows[0]);
+    if (row) {
+      return toDecryptedPhoneRow(mapBlockedPhoneNumberRow(row));
     }
   }
 
@@ -319,14 +437,20 @@ export async function findUserByPhoneNumber(phoneNumber: string) {
 
   for (const candidate of candidates) {
     const blindIndex = computePhoneNumberBlindIndex(candidate);
-    const users = await supabaseSelect<
-      Array<UserRow & { phone_number_encrypted: string }>
-    >(
-      `users?select=id,phone_number_encrypted,phone_number_last4,account_status,phone_verified_at,last_login_at&phone_number_blind_index=eq.${blindIndex}&limit=1`,
-    );
+    const user = await prisma.users.findUnique({
+      where: { phone_number_blind_index: blindIndex },
+      select: {
+        id: true,
+        phone_number_encrypted: true,
+        phone_number_last4: true,
+        account_status: true,
+        phone_verified_at: true,
+        last_login_at: true,
+      },
+    });
 
-    if (users[0]) {
-      return toDecryptedPhoneRow(users[0]);
+    if (user) {
+      return toDecryptedPhoneRow(mapUserRow(user));
     }
   }
 
@@ -334,34 +458,47 @@ export async function findUserByPhoneNumber(phoneNumber: string) {
 }
 
 export async function getAuthenticatedUser(userId: string) {
-  const [users, profile] = await Promise.all([
-    supabaseSelect<Array<UserRow & { phone_number_encrypted: string }>>(
-      `users?select=id,phone_number_encrypted,phone_number_last4,account_status,phone_verified_at,last_login_at&id=eq.${userId}&limit=1`,
-    ),
+  const [user, profile] = await Promise.all([
+    prisma.users.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        phone_number_encrypted: true,
+        phone_number_last4: true,
+        account_status: true,
+        phone_verified_at: true,
+        last_login_at: true,
+      },
+    }),
     findPregnancyProfile(userId),
   ]);
 
-  if (!users[0]) {
+  if (!user) {
     return null;
   }
 
-  return toAuthenticatedUser(toDecryptedPhoneRow(users[0]), profile);
+  return toAuthenticatedUser(toDecryptedPhoneRow(mapUserRow(user)), profile);
 }
 
 async function createOrUpdateSession(userId: string) {
   const sessionToken = buildSessionToken();
-  const currentTimestamp = nowIso();
+  const currentTimestamp = new Date();
 
-  await supabaseUpdate(`auth_sessions?user_id=eq.${userId}`, {
-    revoked_at: currentTimestamp,
+  await prisma.auth_sessions.updateMany({
+    where: { user_id: userId },
+    data: {
+      revoked_at: currentTimestamp,
+    },
   });
 
-  await supabaseInsert("auth_sessions", {
-    user_id: userId,
-    refresh_token_hash: hashSessionToken(sessionToken),
-    expires_at: oneYearFromNowIso(),
-    last_used_at: currentTimestamp,
-    created_at: currentTimestamp,
+  await prisma.auth_sessions.create({
+    data: {
+      user_id: userId,
+      refresh_token_hash: hashSessionToken(sessionToken),
+      expires_at: oneYearFromNow(),
+      last_used_at: currentTimestamp,
+      created_at: currentTimestamp,
+    },
   });
 
   return sessionToken;
@@ -375,15 +512,17 @@ async function recordPhoneVerificationRequest(input: {
   verifiedAt?: string | null;
 }) {
   const storage = createPhoneNumberStorage(input.phoneNumber);
-  await supabaseInsert("phone_verification_requests", {
-    phone_number_encrypted: storage.phoneNumberEncrypted,
-    phone_number_blind_index: storage.phoneNumberBlindIndex,
-    phone_number_last4: storage.phoneNumberLast4,
-    verification_sid: input.verificationSid ?? null,
-    channel: input.channel ?? "sms",
-    status: input.status,
-    verified_at: input.verifiedAt ?? null,
-    expires_at: tenMinutesFromNowIso(),
+  await prisma.phone_verification_requests.create({
+    data: {
+      phone_number_encrypted: storage.phoneNumberEncrypted,
+      phone_number_blind_index: storage.phoneNumberBlindIndex,
+      phone_number_last4: storage.phoneNumberLast4,
+      verification_sid: input.verificationSid ?? null,
+      channel: input.channel ?? "sms",
+      status: input.status,
+      verified_at: input.verifiedAt ? new Date(input.verifiedAt) : null,
+      expires_at: tenMinutesFromNow(),
+    },
   });
 }
 
@@ -392,20 +531,23 @@ async function upsertPhoneUser(
   legacyDisplayName?: string | null,
 ) {
   const existingUser = await findUserByPhoneNumber(phoneNumber);
-  const nextTimestamp = nowIso();
+  const nextTimestamp = new Date();
 
   if (existingUser) {
     ensureUserCanSignIn(existingUser.account_status, "sign_in");
     const storage = createPhoneNumberStorage(phoneNumber);
 
-    await supabaseUpdate(`users?id=eq.${existingUser.id}`, {
-      account_status: "active",
-      phone_number_encrypted: storage.phoneNumberEncrypted,
-      phone_number_blind_index: storage.phoneNumberBlindIndex,
-      phone_number_last4: storage.phoneNumberLast4,
-      phone_verified_at: nextTimestamp,
-      last_login_at: nextTimestamp,
-      updated_at: nextTimestamp,
+    await prisma.users.update({
+      where: { id: existingUser.id },
+      data: {
+        account_status: "active",
+        phone_number_encrypted: storage.phoneNumberEncrypted,
+        phone_number_blind_index: storage.phoneNumberBlindIndex,
+        phone_number_last4: storage.phoneNumberLast4,
+        phone_verified_at: nextTimestamp,
+        last_login_at: nextTimestamp,
+        updated_at: nextTimestamp,
+      },
     });
 
     return existingUser.id;
@@ -426,7 +568,9 @@ async function upsertPhoneUser(
     updated_at: nextTimestamp,
   };
 
-  await supabaseInsert("users", payload);
+  await prisma.users.create({
+    data: payload,
+  });
 
   return userId;
 }
@@ -536,9 +680,10 @@ export async function completeUserOnboarding(input: {
     dueDate: input.dueDate,
   });
 
-  const existingProfiles = await supabaseSelect<Array<{ id: string }>>(
-    `pregnancy_profiles?select=id&user_id=eq.${input.userId}&limit=1`,
-  );
+  const existingProfile = await prisma.pregnancy_profiles.findUnique({
+    where: { user_id: input.userId },
+    select: { id: true },
+  });
 
   const payload = buildPregnancyProfilePayload({
     pregnancyMetrics: metrics,
@@ -551,15 +696,36 @@ export async function completeUserOnboarding(input: {
     inputThemeKey: input.themeKey ?? DEFAULT_MOBILE_THEME_KEY,
   });
 
-  if (existingProfiles[0]) {
-    await supabaseUpdate(`pregnancy_profiles?user_id=eq.${input.userId}`, {
-      ...payload,
-      updated_at: nowIso(),
+  const prismaPayload = {
+    pregnancy_status: payload.pregnancy_status,
+    pregnancy_day_count: payload.pregnancy_day_count,
+    pregnancy_week: payload.pregnancy_week,
+    pregnancy_day_in_week: payload.pregnancy_day_in_week,
+    due_date: payload.due_date
+      ? new Date(`${payload.due_date}T00:00:00`)
+      : null,
+    baby_nickname: payload.baby_nickname,
+    theme_key: payload.theme_key,
+    notification_time: normalizeNotificationTimeForPrisma(
+      payload.notification_time,
+    ),
+    onboarding_payload: payload.onboarding_payload as Prisma.InputJsonValue,
+  };
+
+  if (existingProfile) {
+    await prisma.pregnancy_profiles.update({
+      where: { user_id: input.userId },
+      data: {
+        ...prismaPayload,
+        updated_at: new Date(),
+      },
     });
   } else {
-    await supabaseInsert("pregnancy_profiles", {
-      user_id: input.userId,
-      ...payload,
+    await prisma.pregnancy_profiles.create({
+      data: {
+        user_id: input.userId,
+        ...prismaPayload,
+      },
     });
   }
 
@@ -601,11 +767,23 @@ export async function updateMobileProfile(input: {
     pregnancyWeekOrDueDate: input.dueDate ?? undefined,
   });
 
-  const existingProfiles = await supabaseSelect<PregnancyProfileRow[]>(
-    `pregnancy_profiles?select=id,user_id,display_name,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${input.userId}&limit=1`,
-  );
+  const existingProfileRecord = await prisma.pregnancy_profiles.findUnique({
+    where: { user_id: input.userId },
+    select: {
+      id: true,
+      user_id: true,
+      display_name: true,
+      onboarding_payload: true,
+      due_date: true,
+      baby_nickname: true,
+      notification_time: true,
+      theme_key: true,
+    },
+  });
 
-  const existingProfile = existingProfiles[0];
+  const existingProfile = existingProfileRecord
+    ? mapPregnancyProfileRow(existingProfileRecord)
+    : null;
   const existingPayload = existingProfile?.onboarding_payload ?? {};
   const profilePayload = buildPregnancyProfilePayload({
     pregnancyMetrics: metrics,
@@ -629,17 +807,38 @@ export async function updateMobileProfile(input: {
 
   const nextDisplayName = input.displayName.trim() || null;
 
+  const prismaProfilePayload = {
+    pregnancy_status: profilePayload.pregnancy_status,
+    pregnancy_day_count: profilePayload.pregnancy_day_count,
+    pregnancy_week: profilePayload.pregnancy_week,
+    pregnancy_day_in_week: profilePayload.pregnancy_day_in_week,
+    due_date: profilePayload.due_date
+      ? new Date(`${profilePayload.due_date}T00:00:00`)
+      : null,
+    baby_nickname: profilePayload.baby_nickname,
+    theme_key: profilePayload.theme_key,
+    notification_time: normalizeNotificationTimeForPrisma(
+      profilePayload.notification_time,
+    ),
+    onboarding_payload:
+      profilePayload.onboarding_payload as Prisma.InputJsonValue,
+    display_name: nextDisplayName,
+  };
+
   if (existingProfile) {
-    await supabaseUpdate(`pregnancy_profiles?user_id=eq.${input.userId}`, {
-      ...profilePayload,
-      display_name: nextDisplayName,
-      updated_at: nowIso(),
+    await prisma.pregnancy_profiles.update({
+      where: { user_id: input.userId },
+      data: {
+        ...prismaProfilePayload,
+        updated_at: new Date(),
+      },
     });
   } else {
-    await supabaseInsert("pregnancy_profiles", {
-      user_id: input.userId,
-      display_name: nextDisplayName,
-      ...profilePayload,
+    await prisma.pregnancy_profiles.create({
+      data: {
+        user_id: input.userId,
+        ...prismaProfilePayload,
+      },
     });
   }
 

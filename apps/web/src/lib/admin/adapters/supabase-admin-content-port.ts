@@ -15,7 +15,7 @@ import type {
   AdminWeekUpdateInput,
 } from "@gynecology-chatbot/app-core";
 import { MockAdminContentAdapter } from "@gynecology-chatbot/app-core";
-import { prisma } from "@gynecology-chatbot/db/prisma";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import { randomUUID } from "crypto";
 
 import { embedPregnancyDocument } from "@/lib/mobile/rag";
@@ -97,6 +97,10 @@ function shouldWriteAdminAuditLog(actorId?: string) {
   return Boolean(actorId || process.env.ADMIN_ACTOR_USER_ID);
 }
 
+function toInputJsonValue(value: Record<string, unknown>) {
+  return value as Prisma.InputJsonValue;
+}
+
 async function insertAdminAuditLog(input: {
   actorId?: string;
   actionType: string;
@@ -115,8 +119,8 @@ async function insertAdminAuditLog(input: {
         entity_type: input.entityType,
         entity_id: input.entityId,
         reason: input.reason,
-        before_payload: input.beforePayload,
-        after_payload: input.afterPayload,
+        before_payload: toInputJsonValue(input.beforePayload),
+        after_payload: toInputJsonValue(input.afterPayload),
       },
     });
     return;
@@ -273,15 +277,24 @@ function mapWeekDetail(
   };
 }
 
-function mapKnowledgeItem(row: SupabaseKnowledgeItemRow): AdminKnowledgeItem {
+function mapKnowledgeItem(row: {
+  id: string;
+  slug: string;
+  section: string;
+  title: string;
+  body: string;
+  image_url: string | null;
+  status: string;
+  updated_at: string | Date;
+}): AdminKnowledgeItem {
   return {
     id: row.id,
     slug: row.slug,
-    section: row.section,
+    section: row.section as AdminKnowledgeItem["section"],
     title: row.title,
     body: row.body,
     imageUrl: row.image_url ?? null,
-    status: row.status,
+    status: row.status as AdminKnowledgeItem["status"],
     updatedAt: toIsoString(row.updated_at),
   };
 }
@@ -359,10 +372,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
           status: true,
           updated_at: true,
         },
-        orderBy: [
-          { updated_at: { sort: "desc", nulls: "last" } },
-          { title: "asc" },
-        ],
+        orderBy: [{ updated_at: "desc" }, { title: "asc" }],
       });
     }
 
@@ -751,7 +761,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     };
 
     const updated = hasDirectContentDatabase()
-      ? (([
+      ? ([
           await prisma.workflow_definitions.update({
             where: { id },
             data: workflowData,
@@ -767,7 +777,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
               updated_at: true,
             },
           }),
-        ] as unknown) as Array<SupabaseWorkflowDefinitionRow>)
+        ] as unknown as Array<SupabaseWorkflowDefinitionRow>)
       : await supabaseUpdate<Array<SupabaseWorkflowDefinitionRow>>(
           `workflow_definitions?id=eq.${id}`,
           workflowData,
@@ -823,7 +833,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     const publishedAt =
       input.status === "published" ? new Date().toISOString() : null;
     const inserted = hasDirectContentDatabase()
-      ? (([
+      ? ([
           await prisma.content_knowledge_items.create({
             data: {
               id: randomUUID(),
@@ -847,7 +857,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
               updated_at: true,
             },
           }),
-        ] as unknown) as Array<SupabaseKnowledgeItemRow>)
+        ] as unknown as Array<SupabaseKnowledgeItemRow>)
       : await supabaseInsert<Array<SupabaseKnowledgeItemRow>>(
           "knowledge_items",
           {
@@ -903,7 +913,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       ? (await this.selectKnowledgeItemRows()).find((item) => item.id === id)
       : null;
     const updated = hasDirectContentDatabase()
-      ? (([
+      ? ([
           await prisma.content_knowledge_items.update({
             where: { id },
             data: {
@@ -932,7 +942,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
               updated_at: true,
             },
           }),
-        ] as unknown) as Array<SupabaseKnowledgeItemRow>)
+        ] as unknown as Array<SupabaseKnowledgeItemRow>)
       : await supabaseUpdate<Array<SupabaseKnowledgeItemRow>>(
           `knowledge_items?id=eq.${id}`,
           {

@@ -4,46 +4,46 @@ jest.mock("@/lib/server-data-provider", () => ({
   resolveServerDataProvider: jest.fn(() => "backend"),
 }));
 
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseDelete: jest.fn(),
-  supabaseInsert: jest.fn(),
-  supabaseSelect: jest.fn(),
-  supabaseUpdate: jest.fn(),
-  getSupabaseAdminClient: jest.fn(() => {
-    const mockResult = { data: [], error: null };
-    const createMockBuilder = (): Record<string, unknown> => ({
-      select: createMockBuilder,
-      insert: jest.fn(() => {
-        const builder = createMockBuilder();
-        return { ...builder, ...mockResult };
-      }),
-      update: jest.fn(() => {
-        const builder = createMockBuilder();
-        return { ...builder, ...mockResult };
-      }),
-      delete: jest.fn(() => mockResult),
-      eq: createMockBuilder,
-      neq: createMockBuilder,
-      gt: createMockBuilder,
-      gte: createMockBuilder,
-      lt: createMockBuilder,
-      lte: createMockBuilder,
-      in: createMockBuilder,
-      is: createMockBuilder,
-      not: createMockBuilder,
-      like: createMockBuilder,
-      ilike: createMockBuilder,
-      order: createMockBuilder,
-      limit: createMockBuilder,
-      range: createMockBuilder,
-      single: () => mockResult,
-      maybeSingle: () => mockResult,
-    });
-    return {
-      from: () => createMockBuilder(),
-    };
-  }),
-}));
+jest.mock("@gynecology-chatbot/db/prisma", () => {
+  const mockPrisma = {
+    users: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    pregnancy_profiles: {
+      findMany: jest.fn(),
+    },
+    chat_sessions: {
+      findMany: jest.fn(),
+    },
+    chat_messages: {
+      findMany: jest.fn(),
+    },
+    admin_audit_logs: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+    },
+    content_pregnancy_documents: {
+      findMany: jest.fn(),
+    },
+    workflow_definitions: {
+      findMany: jest.fn(),
+    },
+    user_action_logs: {
+      findMany: jest.fn(),
+    },
+    blocked_phone_numbers: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+  };
+
+  return { prisma: mockPrisma };
+});
 
 jest.mock("@/lib/mobile/schift-client", () => ({
   getSchiftClient: jest.fn(),
@@ -65,13 +65,7 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
   ),
 }));
 
-import {
-  getSupabaseAdminClient,
-  supabaseDelete,
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+import { prisma } from "@gynecology-chatbot/db/prisma";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import { listSchiftWorkflows } from "@/lib/mobile/schift-workflows-api";
 
@@ -80,21 +74,7 @@ import {
   SupabaseAdminUserPortAdapter,
 } from "./supabase-admin-dashboard-port";
 
-const mockedGetSupabaseAdminClient = getSupabaseAdminClient as jest.MockedFunction<
-  typeof getSupabaseAdminClient
->;
-const mockedSelect = supabaseSelect as jest.MockedFunction<
-  typeof supabaseSelect
->;
-const mockedDelete = supabaseDelete as jest.MockedFunction<
-  typeof supabaseDelete
->;
-const mockedInsert = supabaseInsert as jest.MockedFunction<
-  typeof supabaseInsert
->;
-const mockedUpdate = supabaseUpdate as jest.MockedFunction<
-  typeof supabaseUpdate
->;
+const mockedPrisma = prisma as any;
 const mockedGetSchiftClient = getSchiftClient as jest.MockedFunction<
   typeof getSchiftClient
 >;
@@ -102,109 +82,108 @@ const mockedListSchiftWorkflows = listSchiftWorkflows as jest.MockedFunction<
   typeof listSchiftWorkflows
 >;
 
+function resetPrismaMocks() {
+  mockedPrisma.users.findMany.mockReset();
+  mockedPrisma.users.findUnique.mockReset();
+  mockedPrisma.users.update.mockReset();
+  mockedPrisma.pregnancy_profiles.findMany.mockReset();
+  mockedPrisma.chat_sessions.findMany.mockReset();
+  mockedPrisma.chat_messages.findMany.mockReset();
+  mockedPrisma.admin_audit_logs.findMany.mockReset();
+  mockedPrisma.admin_audit_logs.create.mockReset();
+  mockedPrisma.content_pregnancy_documents.findMany.mockReset();
+  mockedPrisma.workflow_definitions.findMany.mockReset();
+  mockedPrisma.user_action_logs.findMany.mockReset();
+  mockedPrisma.blocked_phone_numbers.findMany.mockReset();
+  mockedPrisma.blocked_phone_numbers.findUnique.mockReset();
+  mockedPrisma.blocked_phone_numbers.create.mockReset();
+  mockedPrisma.blocked_phone_numbers.update.mockReset();
+  mockedPrisma.blocked_phone_numbers.delete.mockReset();
+}
+
+function seedEmptyDashboardQueries() {
+  mockedPrisma.users.findMany.mockResolvedValue([] as never);
+  mockedPrisma.pregnancy_profiles.findMany.mockResolvedValue([] as never);
+  mockedPrisma.chat_sessions.findMany.mockResolvedValue([] as never);
+  mockedPrisma.chat_messages.findMany.mockResolvedValue([] as never);
+  mockedPrisma.admin_audit_logs.findMany.mockResolvedValue([] as never);
+  mockedPrisma.content_pregnancy_documents.findMany.mockResolvedValue(
+    [] as never,
+  );
+  mockedPrisma.workflow_definitions.findMany.mockResolvedValue([] as never);
+  mockedPrisma.user_action_logs.findMany.mockResolvedValue([] as never);
+}
+
 describe("SupabaseAdminDashboardPortAdapter", () => {
   const adapter = new SupabaseAdminDashboardPortAdapter();
-  const originalDatabaseUrl = process.env.DATABASE_URL;
-
-  beforeEach(() => {
-    delete process.env.DATABASE_URL;
-  });
 
   afterEach(() => {
-    mockedGetSupabaseAdminClient.mockReset();
-    mockedSelect.mockReset();
-    mockedDelete.mockReset();
-    mockedInsert.mockReset();
-    mockedUpdate.mockReset();
+    resetPrismaMocks();
     mockedGetSchiftClient.mockReset();
     mockedListSchiftWorkflows.mockReset();
-    process.env.DATABASE_URL = originalDatabaseUrl;
   });
 
   it("includes mapped user action feed data in the dashboard", async () => {
-    mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("users?")) {
-        return Promise.resolve([
-          {
-            id: "user-1",
-            phone_number_encrypted: "enc:01012345678",
-            phone_number_last4: "5678",
-            account_status: "active",
-            last_login_at: "2026-03-17T10:00:00.000Z",
-          },
-        ]);
-      }
-
-      if (path.startsWith("pregnancy_profiles?")) {
-        return Promise.resolve([
-          {
-            user_id: "user-1",
-            display_name: "김수연",
-            pregnancy_week: 18,
-            pregnancy_day_in_week: 2,
-          },
-        ]);
-      }
-
-      if (path.startsWith("chat_sessions?")) {
-        return Promise.resolve([
-          {
-            id: "session-1",
-            user_id: "user-1",
-            title: "두통 채팅",
-            last_message_at: "2026-03-17T10:10:00.000Z",
-          },
-        ]);
-      }
-
-      if (path.startsWith("chat_messages?")) {
-        return Promise.resolve([
-          {
-            id: "message-1",
-            session_id: "session-1",
-            role: "user",
-            plain_text: "두통이 있어요",
-            created_at: "2026-03-17T10:09:00.000Z",
-          },
-        ]);
-      }
-
-      if (path.startsWith("admin_audit_logs?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("content.pregnancy_documents?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("user_action_logs?")) {
-        return Promise.resolve([
-          {
-            id: "action-1",
-            user_id: "user-1",
-            session_id: "session-1",
-            message_id: "message-1",
-            action_type: "chat_message_sent",
-            payload: {
-              textPreview: "두통이 있어요",
-              imageCount: 0,
-            },
-            occurred_at: "2026-03-17T10:09:00.000Z",
-          },
-          {
-            id: "action-2",
-            user_id: "user-1",
-            session_id: null,
-            message_id: null,
-            action_type: "phone_verified",
-            payload: {},
-            occurred_at: "2026-03-17T09:00:00.000Z",
-          },
-        ]);
-      }
-
-      return Promise.resolve([]);
-    });
+    mockedPrisma.users.findMany.mockResolvedValue([
+      {
+        id: "user-1",
+        phone_number_encrypted: "enc:01012345678",
+        account_status: "active",
+        last_login_at: new Date("2026-03-17T10:00:00.000Z"),
+      },
+    ] as never);
+    mockedPrisma.pregnancy_profiles.findMany.mockResolvedValue([
+      {
+        user_id: "user-1",
+        display_name: "김수연",
+        pregnancy_week: 18,
+        pregnancy_day_in_week: 2,
+      },
+    ] as never);
+    mockedPrisma.chat_sessions.findMany.mockResolvedValue([
+      {
+        id: "session-1",
+        user_id: "user-1",
+        title: "두통 채팅",
+        last_message_at: new Date("2026-03-17T10:10:00.000Z"),
+      },
+    ] as never);
+    mockedPrisma.chat_messages.findMany.mockResolvedValue([
+      {
+        id: "message-1",
+        session_id: "session-1",
+        role: "user",
+        plain_text: "두통이 있어요",
+        parts: [],
+        created_at: new Date("2026-03-17T10:09:00.000Z"),
+      },
+    ] as never);
+    mockedPrisma.admin_audit_logs.findMany.mockResolvedValue([] as never);
+    mockedPrisma.content_pregnancy_documents.findMany.mockResolvedValue(
+      [] as never,
+    );
+    mockedPrisma.workflow_definitions.findMany.mockResolvedValue([] as never);
+    mockedPrisma.user_action_logs.findMany.mockResolvedValue([
+      {
+        id: "action-1",
+        user_id: "user-1",
+        session_id: "session-1",
+        message_id: "message-1",
+        action_type: "chat_message_sent",
+        payload: { textPreview: "두통이 있어요", imageCount: 0 },
+        occurred_at: new Date("2026-03-17T10:09:00.000Z"),
+      },
+      {
+        id: "action-2",
+        user_id: "user-1",
+        session_id: null,
+        message_id: null,
+        action_type: "phone_verified",
+        payload: {},
+        occurred_at: new Date("2026-03-17T09:00:00.000Z"),
+      },
+    ] as never);
+    mockedGetSchiftClient.mockReturnValue(null);
 
     const dashboard = await adapter.getDashboard();
 
@@ -227,66 +206,43 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
   });
 
   it("relabels initial account setup actions without signup wording", async () => {
-    mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("users?")) {
-        return Promise.resolve([
-          {
-            id: "user-1",
-            phone_number_encrypted: "enc:01012345678",
-            phone_number_last4: "5678",
-            account_status: "active",
-            last_login_at: "2026-03-17T10:00:00.000Z",
-          },
-        ]);
-      }
-
-      if (path.startsWith("pregnancy_profiles?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("chat_sessions?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("chat_messages?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("admin_audit_logs?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("content.pregnancy_documents?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("user_action_logs?")) {
-        return Promise.resolve([
-          {
-            id: "action-1",
-            user_id: "user-1",
-            session_id: null,
-            message_id: null,
-            action_type: "phone_verification_started",
-            payload: {
-              flow: "signup",
-            },
-            occurred_at: "2026-03-17T08:50:00.000Z",
-          },
-          {
-            id: "action-2",
-            user_id: "user-1",
-            session_id: null,
-            message_id: null,
-            action_type: "phone_verified",
-            payload: {},
-            occurred_at: "2026-03-17T09:00:00.000Z",
-          },
-        ]);
-      }
-
-      return Promise.resolve([]);
-    });
+    mockedPrisma.users.findMany.mockResolvedValue([
+      {
+        id: "user-1",
+        phone_number_encrypted: "enc:01012345678",
+        account_status: "active",
+        last_login_at: new Date("2026-03-17T10:00:00.000Z"),
+      },
+    ] as never);
+    mockedPrisma.pregnancy_profiles.findMany.mockResolvedValue([] as never);
+    mockedPrisma.chat_sessions.findMany.mockResolvedValue([] as never);
+    mockedPrisma.chat_messages.findMany.mockResolvedValue([] as never);
+    mockedPrisma.admin_audit_logs.findMany.mockResolvedValue([] as never);
+    mockedPrisma.content_pregnancy_documents.findMany.mockResolvedValue(
+      [] as never,
+    );
+    mockedPrisma.workflow_definitions.findMany.mockResolvedValue([] as never);
+    mockedPrisma.user_action_logs.findMany.mockResolvedValue([
+      {
+        id: "action-1",
+        user_id: "user-1",
+        session_id: null,
+        message_id: null,
+        action_type: "phone_verification_started",
+        payload: { flow: "signup" },
+        occurred_at: new Date("2026-03-17T08:50:00.000Z"),
+      },
+      {
+        id: "action-2",
+        user_id: "user-1",
+        session_id: null,
+        message_id: null,
+        action_type: "phone_verified",
+        payload: {},
+        occurred_at: new Date("2026-03-17T09:00:00.000Z"),
+      },
+    ] as never);
+    mockedGetSchiftClient.mockReturnValue(null);
 
     const dashboard = await adapter.getDashboard();
 
@@ -302,7 +258,7 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
   });
 
   it("does not fall back to mock document and workflow ids when backend queries are empty", async () => {
-    mockedSelect.mockResolvedValue([]);
+    seedEmptyDashboardQueries();
     mockedGetSchiftClient.mockReturnValue(null);
 
     const dashboard = await adapter.getDashboard();
@@ -311,54 +267,9 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
     expect(dashboard.workflowRules).toEqual([]);
   });
 
-  it("keeps rag documents empty when backend returns no documents", async () => {
-    mockedGetSchiftClient.mockReturnValue(null);
-    mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("users?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("pregnancy_profiles?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("chat_sessions?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("chat_messages?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("admin_audit_logs?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("content.pregnancy_documents?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("workflow_definitions?")) {
-        return Promise.resolve([]);
-      }
-
-      if (path.startsWith("user_action_logs?")) {
-        return Promise.resolve([]);
-      }
-
-      return Promise.resolve([]);
-    });
-
-    const dashboard = await adapter.getDashboard();
-
-    expect(dashboard.ragDocuments).toEqual([]);
-  });
-
   it("includes Schift workflows in the dashboard when configured", async () => {
-    mockedSelect.mockResolvedValue([]);
-    mockedGetSchiftClient.mockReturnValue({
-      workflows: {},
-    } as never);
+    seedEmptyDashboardQueries();
+    mockedGetSchiftClient.mockReturnValue({ workflows: {} } as never);
     mockedListSchiftWorkflows.mockResolvedValue([
       {
         id: "schift-wf-1",
@@ -387,35 +298,25 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
   });
 
   it("dedupes Schift workflows when definition and workflow identity match", async () => {
-    mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("workflow_definitions?")) {
-        return Promise.resolve([
-          {
-            id: "definition-1",
-            name: "모성간호 상담 응답",
-            slug: "internal-data-answer",
-            provider: "schift",
-            status: "published",
-            is_active: false,
-            config: {
-              trigger: "내부 데이터만 답변",
-              modelName: "gemini-2.5-flash-lite",
-            },
-            metadata: {
-              trigger: "내부 데이터만 답변",
-              retrievalScope: "pregnancy-knowledge 내부 자료",
-              modelName: "gemini-2.5-flash-lite",
-            },
-            updated_at: "2026-04-07T00:00:00.000Z",
-          },
-        ]);
-      }
-
-      return Promise.resolve([]);
-    });
-    mockedGetSchiftClient.mockReturnValue({
-      workflows: {},
-    } as never);
+    seedEmptyDashboardQueries();
+    mockedPrisma.workflow_definitions.findMany.mockResolvedValue([
+      {
+        id: "definition-1",
+        name: "모성간호 상담 응답",
+        provider: "schift",
+        is_active: false,
+        config: {
+          trigger: "내부 데이터만 답변",
+          modelName: "gemini-2.5-flash-lite",
+        },
+        metadata: {
+          trigger: "내부 데이터만 답변",
+          retrievalScope: "pregnancy-knowledge 내부 자료",
+          modelName: "gemini-2.5-flash-lite",
+        },
+      },
+    ] as never);
+    mockedGetSchiftClient.mockReturnValue({ workflows: {} } as never);
     mockedListSchiftWorkflows.mockResolvedValue([
       {
         id: "schift-wf-2",
@@ -432,7 +333,6 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
     const dashboard = await adapter.getDashboard();
 
     expect(dashboard.workflowRules).toHaveLength(1);
-    // DB의 stale ID가 Schift에 없으면 같은 identity의 Schift ID로 교체
     expect(dashboard.workflowRules[0]).toMatchObject({
       id: "schift-wf-2",
       name: "모성간호 상담 응답",
@@ -442,53 +342,40 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
   });
 
   it("shows only the canonical mobile chat workflow in the dashboard", async () => {
-    mockedSelect.mockImplementation((path: string) => {
-      if (path.startsWith("workflow_definitions?")) {
-        return Promise.resolve([
-          {
-            id: "workflow-chat-default",
-            name: "기본 채팅 응답",
-            slug: "default-chat",
-            provider: "flowise",
-            status: "published",
-            is_active: true,
-            config: {
-              modelName: "gemini-2.5-flash-lite",
-              retrievalScope: "현재 주차 ±1주 + 공통 문서",
-            },
-            metadata: {
-              trigger: "일반 채팅",
-              retrievalScope: "현재 주차 ±1주 + 공통 문서",
-              modelName: "gemini-2.5-flash-lite",
-            },
-            updated_at: "2026-04-07T00:00:00.000Z",
-          },
-          {
-            id: "definition-1",
-            name: "모성간호 상담 응답",
-            slug: "internal-data-answer",
-            provider: "schift",
-            status: "published",
-            is_active: true,
-            config: {
-              trigger: "내부 데이터만 답변",
-              modelName: "gemini-2.5-flash-lite",
-            },
-            metadata: {
-              trigger: "내부 데이터만 답변",
-              retrievalScope: "pregnancy-knowledge 내부 자료",
-              modelName: "gemini-2.5-flash-lite",
-            },
-            updated_at: "2026-04-07T00:00:00.000Z",
-          },
-        ]);
-      }
-
-      return Promise.resolve([]);
-    });
-    mockedGetSchiftClient.mockReturnValue({
-      workflows: {},
-    } as never);
+    seedEmptyDashboardQueries();
+    mockedPrisma.workflow_definitions.findMany.mockResolvedValue([
+      {
+        id: "workflow-chat-default",
+        name: "기본 채팅 응답",
+        provider: "flowise",
+        is_active: true,
+        config: {
+          modelName: "gemini-2.5-flash-lite",
+          retrievalScope: "현재 주차 ±1주 + 공통 문서",
+        },
+        metadata: {
+          trigger: "일반 채팅",
+          retrievalScope: "현재 주차 ±1주 + 공통 문서",
+          modelName: "gemini-2.5-flash-lite",
+        },
+      },
+      {
+        id: "definition-1",
+        name: "모성간호 상담 응답",
+        provider: "schift",
+        is_active: true,
+        config: {
+          trigger: "내부 데이터만 답변",
+          modelName: "gemini-2.5-flash-lite",
+        },
+        metadata: {
+          trigger: "내부 데이터만 답변",
+          retrievalScope: "pregnancy-knowledge 내부 자료",
+          modelName: "gemini-2.5-flash-lite",
+        },
+      },
+    ] as never);
+    mockedGetSchiftClient.mockReturnValue({ workflows: {} } as never);
     mockedListSchiftWorkflows.mockResolvedValue([
       {
         id: "schift-wf-2",
@@ -515,7 +402,6 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
     const dashboard = await adapter.getDashboard();
 
     expect(dashboard.workflowRules).toHaveLength(1);
-    // DB의 stale ID(definition-1)가 Schift에 없으면 같은 identity의 Schift ID로 교체
     expect(dashboard.workflowRules[0]).toMatchObject({
       id: "schift-wf-2",
       name: "모성간호 상담 응답",
@@ -523,35 +409,31 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
     });
   });
 
-  it("uses provider-aware wrappers instead of the direct admin client", async () => {
-    mockedGetSupabaseAdminClient.mockImplementation(() => {
-      throw new Error("direct admin client should not be used");
-    });
+  it("uses prisma-backed queries for dashboard data", async () => {
+    seedEmptyDashboardQueries();
     mockedGetSchiftClient.mockReturnValue(null);
-    mockedSelect.mockResolvedValue([]);
 
     const dashboard = await adapter.getDashboard();
 
     expect(dashboard.ragDocuments).toEqual([]);
-    expect(mockedSelect).toHaveBeenCalled();
+    expect(mockedPrisma.users.findMany).toHaveBeenCalled();
   });
 
   it("stores allowed phone numbers as encrypted payloads and redacts audit values", async () => {
     const userAdapter = new SupabaseAdminUserPortAdapter();
-    mockedSelect.mockResolvedValueOnce([]);
-    mockedInsert
-      .mockResolvedValueOnce([
-        {
-          id: "allow-1",
-          phone_number_encrypted: "enc:+821012345678",
-          phone_number_last4: "5678",
-          display_name: "김수연",
-          note: "seed",
-          created_at: "2026-03-20T00:00:00.000Z",
-          updated_at: "2026-03-20T00:00:00.000Z",
-        },
-      ])
-      .mockResolvedValueOnce([]);
+    mockedPrisma.blocked_phone_numbers.findUnique.mockResolvedValue(
+      null as never,
+    );
+    mockedPrisma.blocked_phone_numbers.create.mockResolvedValue({
+      id: "allow-1",
+      phone_number_encrypted: "enc:+821012345678",
+      phone_number_last4: "5678",
+      display_name: "김수연",
+      note: "seed",
+      created_at: new Date("2026-03-20T00:00:00.000Z"),
+      updated_at: new Date("2026-03-20T00:00:00.000Z"),
+    } as never);
+    mockedPrisma.admin_audit_logs.create.mockResolvedValue({} as never);
 
     const created = await userAdapter.createAllowedPhoneNumber({
       actorId: "admin-1",
@@ -560,21 +442,21 @@ describe("SupabaseAdminDashboardPortAdapter", () => {
       note: "seed",
     });
 
-    expect(mockedInsert).toHaveBeenNthCalledWith(
-      1,
-      "blocked_phone_numbers",
+    expect(mockedPrisma.blocked_phone_numbers.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        phone_number_encrypted: "enc:+821012345678",
-        phone_number_blind_index: "idx:+821012345678",
-        phone_number_last4: "5678",
+        data: expect.objectContaining({
+          phone_number_encrypted: "enc:+821012345678",
+          phone_number_blind_index: "idx:+821012345678",
+          phone_number_last4: "5678",
+        }),
       }),
     );
-    expect(mockedInsert).toHaveBeenNthCalledWith(
-      2,
-      "admin_audit_logs",
+    expect(mockedPrisma.admin_audit_logs.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        after_payload: expect.objectContaining({
-          phone_number: "redacted:+821012345678",
+        data: expect.objectContaining({
+          after_payload: expect.objectContaining({
+            phone_number: "redacted:+821012345678",
+          }),
         }),
       }),
     );
