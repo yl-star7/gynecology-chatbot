@@ -266,11 +266,11 @@ export async function createDefaultInternalAnswerWorkflow(
     modelName: wfDef.adminMetadata.model_name,
   };
 
-  const updated = await patchSchiftWorkflow(baseWorkflow.id, {
+  const updated = (await patchSchiftWorkflow(baseWorkflow.id, {
     status: "published",
     name: wfDef.name,
     description: `<!-- si-admin-workflow:${JSON.stringify(adminMetadata)}-->\n${wfDef.description}`,
-  });
+  })) as { id: string; name: string };
 
   const currentRowsById = await supabaseSelect<WorkflowDefinitionRow[]>(
     `workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata&id=eq.${updated.id}&limit=1`,

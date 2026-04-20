@@ -171,7 +171,6 @@ async function sendViaSolapi(
         text,
       },
     }),
-    cache: "no-store",
   });
 
   return parseSolapiResponse(response);

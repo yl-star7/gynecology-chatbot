@@ -36,6 +36,9 @@ importers:
       '@gynecology-chatbot/app-core':
         specifier: workspace:*
         version: link:../../packages/app-core
+      '@gynecology-chatbot/mobile-api':
+        specifier: workspace:*
+        version: link:../../packages/mobile-api
       '@gynecology-chatbot/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -197,6 +200,9 @@ importers:
       '@gynecology-chatbot/app-core':
         specifier: workspace:*
         version: link:../../packages/app-core
+      '@gynecology-chatbot/mobile-api':
+        specifier: workspace:*
+        version: link:../../packages/mobile-api
       '@gynecology-chatbot/types':
         specifier: workspace:*
         version: link:../../packages/types
