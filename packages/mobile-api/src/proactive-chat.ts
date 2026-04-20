@@ -1,10 +1,7 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText } from "ai";
 import Expo from "expo-server-sdk";
-import {
-  supabaseInsert,
-  supabaseSelect,
-} from "@/lib/supabase/admin-client";
+import { supabaseInsert, supabaseSelect } from "./supabase/admin-client";
 
 const expo = new Expo();
 

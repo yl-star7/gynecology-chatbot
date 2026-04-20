@@ -4,8 +4,8 @@ import type {
   DayContentRow,
   QuestionRow,
   WeekDataRow,
-} from "@/lib/mobile/chat/chat-repository";
-import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
+} from "./chat-repository";
+import { sanitizeInlineCitationMarkers } from "./sanitizers";
 
 type AssistantFollowUpMessage = {
   role: "assistant";

@@ -1,17 +1,17 @@
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
 
-import type { PromptContext } from "@/lib/mobile/chat/chat-repository";
-import { resolveAssistantResponse } from "@/lib/mobile/chat/responders/response-pipeline";
+import type { PromptContext } from "../chat-repository";
+import { resolveAssistantResponse } from "./response-pipeline";
 import {
   buildLocalWorkflowFallbackReply,
   buildMemorySystemBlock,
   buildWorkflowAssistantMessage,
   pickLatestEmotionTone,
-} from "@/lib/mobile/chat/responders/route-response-helpers";
+} from "./route-response-helpers";
 import {
   parseWorkflowAssistantPayload,
   type WorkflowAssistantPayload,
-} from "@/lib/mobile/chat/workflow-payload";
+} from "../workflow-payload";
 
 function normalizeLetterFollowUpFlow(input: {
   assistantMessage: ChatMessage;

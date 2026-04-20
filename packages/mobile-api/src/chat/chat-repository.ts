@@ -3,12 +3,12 @@ import type {
   PersonaHint,
   ProfileMemoryPayload,
   SessionMemoryPayload,
-} from "@/lib/mobile/chat/workflow-payload";
+} from "./workflow-payload";
 import {
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+} from "../supabase/admin-client";
 
 type PregnancyProfilePromptRow = {
   pregnancy_day_count: number | null;

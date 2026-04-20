@@ -6,8 +6,8 @@ import {
   type ProfileMemoryPayload,
   type SessionMemoryPayload,
   type WorkflowScenario,
-} from "@/lib/mobile/chat/workflow-payload";
-import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
+} from "../workflow-payload";
+import { sanitizeInlineCitationMarkers } from "../sanitizers";
 
 const CHARACTER_TONE_CONFIG = {
   calm: {

@@ -1,6 +1,6 @@
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
 
-import type { WorkflowAssistantPayload } from "@/lib/mobile/chat/workflow-payload";
+import type { WorkflowAssistantPayload } from "../workflow-payload";
 
 export async function resolveAssistantResponse(input: {
   hardGuardrailReason: string | null;

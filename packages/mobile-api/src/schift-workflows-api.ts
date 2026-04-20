@@ -5,8 +5,8 @@ import {
   supabaseInsert,
   supabaseSelect,
   supabaseUpdate,
-} from "@/lib/supabase/admin-client";
-import { loadMaternalNursingWorkflow } from "@/lib/mobile/workflows/load-workflow-yaml";
+} from "./supabase/admin-client";
+import { loadMaternalNursingWorkflow } from "./workflows/load-workflow-yaml";
 
 function hasRunnableGraph(workflow: Workflow) {
   const graph = workflow.graph as Workflow["graph"] & {

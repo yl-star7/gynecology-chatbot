@@ -9,9 +9,9 @@ import type { PromptFollowUpResult } from "./follow-ups";
 import type {
   ProfileMemoryPayload,
   SessionMemoryPayload,
-} from "@/lib/mobile/chat/workflow-payload";
-import { sanitizeChatParts } from "@/lib/mobile/chat/sanitizers";
-import type { WorkflowAssistantPayload } from "@/lib/mobile/chat/workflow-payload";
+} from "./workflow-payload";
+import { sanitizeChatParts } from "./sanitizers";
+import type { WorkflowAssistantPayload } from "./workflow-payload";
 
 function shouldSkipDocumentFollowUps(
   workflowMemoryPayload: WorkflowAssistantPayload | null,

@@ -4,7 +4,7 @@ import type {
   PersonaConfidence,
   PersonaHint,
   ProfileMemoryPayload,
-} from "@/lib/mobile/chat/workflow-payload";
+} from "../chat/workflow-payload";
 
 export type PersonaSignalInput = {
   userId: string;
@@ -90,9 +90,7 @@ export function parsePersonaSignalInput(
       : null;
   const personaConfidence =
     typeof record.personaConfidence === "string" &&
-    PERSONA_CONFIDENCE_VALUES.has(
-      record.personaConfidence as PersonaConfidence,
-    )
+    PERSONA_CONFIDENCE_VALUES.has(record.personaConfidence as PersonaConfidence)
       ? (record.personaConfidence as PersonaConfidence)
       : null;
 
