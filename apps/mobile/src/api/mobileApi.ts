@@ -102,6 +102,9 @@ export interface MobileApiClient {
     assistantMessage: ChatMessage;
     assistantMessages?: ChatMessage[];
   }>;
+  summarizeChatSession(
+    sessionId: string,
+  ): Promise<{ summarized: boolean; summary?: string; reason?: string }>;
 }
 
 function getEnvApiBaseUrl() {
@@ -461,6 +464,31 @@ export function createMobileApiClient(
       } finally {
         clearTimeout(timeoutId);
       }
+    },
+
+    async summarizeChatSession(sessionId: string) {
+      const sessionHeaders = buildMobileSessionHeaders();
+      if (!sessionHeaders.Authorization) {
+        throw new SessionExpiredError(
+          "세션이 만료되었어요. 다시 로그인해 주세요.",
+        );
+      }
+      const response = await fetchImpl(
+        `${getApiBaseUrl()}/api/mobile/sessions/${sessionId}/summarize`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...sessionHeaders,
+          },
+          body: "{}",
+        },
+      );
+      return parseJson<{
+        summarized: boolean;
+        summary?: string;
+        reason?: string;
+      }>(response);
     },
   };
 }

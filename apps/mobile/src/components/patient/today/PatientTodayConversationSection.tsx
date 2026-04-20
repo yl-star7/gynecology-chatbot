@@ -47,7 +47,16 @@ export function PatientTodayConversationSection({
               style={styles.recentSessionCard}
               onPress={() => onOpenRecentSession(item.id)}
             >
-              <Text style={styles.recentSessionTitle}>{item.title}</Text>
+              <View style={styles.recentSessionHeader}>
+                <Text style={styles.recentSessionTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                {item.updatedAtLabel ? (
+                  <Text style={styles.recentSessionTime}>
+                    {item.updatedAtLabel}
+                  </Text>
+                ) : null}
+              </View>
               {item.preview ? (
                 <Text style={styles.recentSessionPreview}>{item.preview}</Text>
               ) : null}
@@ -112,9 +121,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.sm,
     paddingVertical: space.xs,
   },
+  recentSessionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: space.sm,
+  },
   recentSessionTitle: {
     ...typo.label,
     color: surface.textPrimary,
+    flex: 1,
+  },
+  recentSessionTime: {
+    ...typo.caption,
+    color: surface.textSecondary,
+    flexShrink: 0,
   },
   recentSessionPreview: {
     ...typo.caption,
