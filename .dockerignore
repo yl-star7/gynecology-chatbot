@@ -52,12 +52,6 @@ apps/web/.next
 apps/web/playwright-report
 apps/web/test-results
 
-# Temporary: exclude packages/mobile-api from the API build context while
-# Agent 1 reorganizes it and the monorepo lockfile stabilizes. The API stub
-# does not import from this package; remove this line once the lockfile
-# resolves cleanly again.
-packages/mobile-api
-
 # Misc
 .playwright-cli
 .playwright-mcp
