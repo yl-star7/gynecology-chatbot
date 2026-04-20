@@ -173,17 +173,10 @@ export function PatientProfileScreen() {
       return;
     }
 
-    const cachedRecordDay = currentUser
-      ? readCachedRecordDayView(currentUser.id, selectedIsoDate)
-      : null;
-    setSelectedRecordDay(cachedRecordDay);
+    setSelectedRecordDay(null);
     setRecordDayError(null);
 
     if (!currentUser) {
-      return;
-    }
-
-    if (hasFreshCachedRecordDayView(currentUser.id, selectedIsoDate)) {
       return;
     }
 
@@ -198,7 +191,7 @@ export function PatientProfileScreen() {
       })
       .catch((nextError) => {
         if (!cancelled) {
-          setSelectedRecordDay(cachedRecordDay);
+          setSelectedRecordDay(null);
           setRecordDayError(resolvePatientRecordDayLoadError(nextError));
         }
       });

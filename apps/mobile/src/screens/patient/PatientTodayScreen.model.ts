@@ -8,16 +8,11 @@ import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
 import {
-  cacheRecordDayView,
   cacheTodayView,
   clearCachedHomeView,
+  clearCachedRecentChats,
   clearCachedRecordDayView,
-  hasFreshCachedChatSession,
-  hasFreshCachedRecentChats,
-  hasFreshCachedRecordDayView,
   hasFreshCachedTodayView,
-  readCachedRecentChats,
-  readCachedRecordDayView,
   readCachedTodayView,
 } from "../../core/patientViewCache";
 import { warmConversationSessions } from "./patientConversationNavigation.model";
@@ -77,8 +72,7 @@ export function usePatientTodayScreenModel() {
         sessionIds: sessions.map((session) => session.id),
         getSession: services.chatPort.getSession.bind(services.chatPort),
         replaceSession,
-        hasFreshSession: (sessionId) =>
-          hasFreshCachedChatSession(currentUser.id, sessionId),
+        hasFreshSession: () => false,
       });
     },
     [currentUser, replaceSession, services.chatPort],
@@ -92,25 +86,14 @@ export function usePatientTodayScreenModel() {
     }
 
     const cachedToday = readCachedTodayView(currentUser.id);
-    const cachedRecordDay = readCachedRecordDayView(
-      currentUser.id,
-      todayIsoDate,
-    );
-    const cachedRecentChats = readCachedRecentChats(currentUser.id);
 
     setToday(cachedToday);
     hydrateChecklistSyncTracker(
       checklistSyncRef.current,
       cachedToday?.checklistItems ?? [],
     );
-    const nextRecentSessions =
-      cachedRecordDay?.relatedSessions &&
-      cachedRecordDay.relatedSessions.length > 0
-        ? cachedRecordDay.relatedSessions
-        : (cachedRecentChats ?? []);
-    setRecentSessions(nextRecentSessions);
-    warmRecentSessionDetails(nextRecentSessions);
-  }, [currentUser, todayIsoDate, warmRecentSessionDetails]);
+    setRecentSessions([]);
+  }, [currentUser]);
 
   useFocusEffect(
     useCallback(() => {
@@ -132,12 +115,7 @@ export function usePatientTodayScreenModel() {
         );
       }
 
-      if (hasFreshCachedRecentChats(currentUser.id)) {
-        const cachedRecentChats = readCachedRecentChats(currentUser.id) ?? [];
-        setRecentSessions(cachedRecentChats);
-        warmRecentSessionDetails(cachedRecentChats);
-      }
-
+      setRecentSessions([]);
       setHasAttemptedInfoViewed(false);
 
       void services.todayPort
@@ -164,9 +142,7 @@ export function usePatientTodayScreenModel() {
       void services.chatPort
         .listRecentChats()
         .then((nextRecentChats) => {
-          setRecentSessions((current) =>
-            current.length > 0 ? current : nextRecentChats,
-          );
+          setRecentSessions(nextRecentChats);
           warmRecentSessionDetails(nextRecentChats);
         })
         .catch(() => undefined);
@@ -249,23 +225,8 @@ export function usePatientTodayScreenModel() {
     });
 
     if (currentUser) {
-      const cachedRecordDay = readCachedRecordDayView(
-        currentUser.id,
-        todayIsoDate,
-      );
-      if (cachedRecordDay) {
-        const nextRecordDay = updateRecordDayChecklistItems(
-          cachedRecordDay,
-          checklistId,
-          completed,
-        );
-
-        if (nextRecordDay) {
-          cacheRecordDayView(currentUser.id, todayIsoDate, nextRecordDay);
-        } else {
-          clearCachedRecordDayView(currentUser.id, todayIsoDate);
-        }
-      }
+      clearCachedRecordDayView(currentUser.id, todayIsoDate);
+      clearCachedRecentChats(currentUser.id);
       clearCachedHomeView(currentUser.id);
     }
 
@@ -318,23 +279,8 @@ export function usePatientTodayScreenModel() {
         });
 
         if (currentUser) {
-          const cachedRecordDay = readCachedRecordDayView(
-            currentUser.id,
-            todayIsoDate,
-          );
-          if (cachedRecordDay) {
-            const nextRecordDay = updateRecordDayChecklistItems(
-              cachedRecordDay,
-              checklistId,
-              rollbackCompleted,
-            );
-
-            if (nextRecordDay) {
-              cacheRecordDayView(currentUser.id, todayIsoDate, nextRecordDay);
-            } else {
-              clearCachedRecordDayView(currentUser.id, todayIsoDate);
-            }
-          }
+          clearCachedRecordDayView(currentUser.id, todayIsoDate);
+          clearCachedRecentChats(currentUser.id);
         }
       })
       .finally(() => {

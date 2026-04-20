@@ -94,7 +94,9 @@ export function PatientWeeklyEncyclopediaScreen() {
       setProfile(cachedProfile);
     }
 
-    void fetchContent();
+    if (!cachedWeeks || !cachedProfile) {
+      void fetchContent();
+    }
   }, [currentUser, fetchContent]);
 
   useEffect(() => {
