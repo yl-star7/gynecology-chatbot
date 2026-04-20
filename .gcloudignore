@@ -1,0 +1,96 @@
+# gcloud source upload ignore — keep Cloud Build context small.
+# Includes: apps/api, packages/ (except mobile-api, excluded temporarily),
+# pnpm-workspace.yaml, package.json, pnpm-lock.yaml, Dockerfile, cloudbuild.yaml.
+
+# VCS
+.git
+.gitignore
+.github
+
+# GCP creds + local secrets
+.gcp
+.gcp/**
+.env
+.env.*
+!.env.example
+apps/**/.env
+apps/**/.env.*
+!apps/**/.env.example
+secrets
+*.sa-key.json
+play-submit-key.json
+
+# node_modules (re-installed inside container)
+node_modules
+apps/**/node_modules
+packages/**/node_modules
+
+# Build outputs
+.next
+apps/**/.next
+.turbo
+apps/**/.turbo
+packages/**/.turbo
+out
+build
+dist
+apps/**/dist
+packages/**/dist
+apps/web/.next
+apps/web/playwright-report
+apps/web/test-results
+
+# Mobile native build outputs & binaries (very large)
+apps/mobile/ios/build
+apps/mobile/ios/build-*
+apps/mobile/ios/Pods
+apps/mobile/ios/DerivedData
+apps/mobile/android/build
+apps/mobile/android/.gradle
+apps/mobile/android/.cxx
+apps/mobile/builds
+apps/mobile/dist
+apps/mobile/.expo
+builds
+builds-aos-*.log
+
+# Everything from apps we don't need for API container.
+# Keep apps/api; exclude mobile and web to shrink upload.
+apps/mobile
+apps/web
+
+# Temporary: packages/mobile-api is in flux (Agent 1). Our API stub
+# does not import from it, so exclude it from the Cloud Build context.
+# Remove once the monorepo lockfile stabilizes.
+packages/mobile-api
+
+# Python / research / data / scripts outputs
+.playwright-cli
+.playwright-mcp
+.superpowers
+screenshots
+output
+test-results
+supabase/.temp
+supabase/migrations/drizzle
+data
+data
+autoresearch-results.tsv
+
+# Misc
+*.log
+.DS_Store
+.vscode
+.idea
+.expo
+.omx
+.ccs
+.claude
+.vercel
+
+# Cloud build artifacts and Docker layer cache from prior builds
+*.tar
+*.tar.gz
+
+# IDE / editor
+.cursor

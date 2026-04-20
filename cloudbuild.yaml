@@ -1,0 +1,55 @@
+# Cloud Build config for apps/api -> Artifact Registry.
+# Build context is the repo root so that packages/ and pnpm-workspace.yaml
+# are available to the Dockerfile in apps/api.
+#
+# Invoked by scripts/deploy-api.sh via:
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions=_IMAGE_TAG=<sha>,_IMAGE=<full_image>
+#
+# Required substitutions:
+#   _IMAGE_TAG  Short git SHA (e.g. $(git rev-parse --short HEAD))
+#   _IMAGE      Fully qualified image URI
+#               (e.g. asia-southeast1-docker.pkg.dev/agaya-2026/agaya-api/api)
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+  env:
+    - DOCKER_BUILDKIT=1
+
+timeout: 1800s
+
+steps:
+  # Build with BuildKit enabled so Dockerfile `RUN --mount=type=cache,...`
+  # directives are honored. We shell out to `docker buildx build` via the
+  # cloud-builders/docker image which ships with buildx.
+  - id: docker-build
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        docker buildx create --use --name agaya-builder >/dev/null
+        docker buildx build \
+          --file apps/api/Dockerfile \
+          --tag "${_IMAGE}:${_IMAGE_TAG}" \
+          --tag "${_IMAGE}:latest" \
+          --load \
+          .
+
+  - id: docker-push-sha
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_IMAGE}:${_IMAGE_TAG}
+
+  - id: docker-push-latest
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_IMAGE}:latest
+
+images:
+  - ${_IMAGE}:${_IMAGE_TAG}
+  - ${_IMAGE}:latest
