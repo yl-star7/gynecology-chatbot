@@ -105,6 +105,10 @@ export function PatientRecordDayScreen({
       .then((nextRecordDay) => {
         if (!cancelled) {
           setRecordDay(nextRecordDay);
+          hydrateChecklistSyncTracker(
+            checklistSyncRef.current,
+            nextRecordDay.checklistItems,
+          );
           setError(null);
         }
       })
@@ -119,8 +123,8 @@ export function PatientRecordDayScreen({
     };
   }, [actions, isoDate]);
 
-  async function handleToggleChecklistItem(checklistId: string) {
-    if (!recordDay || pendingChecklistIds.includes(checklistId)) {
+  function handleToggleChecklistItem(checklistId: string) {
+    if (!recordDay) {
       return;
     }
 
@@ -132,43 +136,77 @@ export function PatientRecordDayScreen({
     }
 
     const nextCompleted = !target.completed;
-    setPendingChecklistIds((current) => [...current, checklistId]);
-    setRecordDay((current) =>
-      current
-        ? {
-            ...current,
-            checklistItems: current.checklistItems.map((item) =>
-              item.id === checklistId
-                ? { ...item, completed: nextCompleted }
-                : item,
-            ),
-          }
-        : current,
+    rememberChecklistDesiredState(
+      checklistSyncRef.current,
+      checklistId,
+      nextCompleted,
     );
+    setRecordDay((current) => {
+      if (!current) {
+        return current;
+      }
 
-    try {
-      await actions.setChecklistItemCompleted({
+      const nextRecordDay = updateRecordDayChecklistItems(
+        current,
         checklistId,
-        completed: nextCompleted,
-      });
-    } catch {
-      setRecordDay((current) =>
-        current
-          ? {
-              ...current,
-              checklistItems: current.checklistItems.map((item) =>
-                item.id === checklistId
-                  ? { ...item, completed: target.completed }
-                  : item,
-              ),
-            }
-          : current,
+        nextCompleted,
       );
-    } finally {
-      setPendingChecklistIds((current) =>
-        current.filter((id) => id !== checklistId),
-      );
+      return nextRecordDay ?? current;
+    });
+
+    if (pendingChecklistIdsRef.current.includes(checklistId)) {
+      return;
     }
+
+    const request = resolveChecklistRequest(
+      checklistSyncRef.current,
+      checklistId,
+    );
+    if (!request) {
+      return;
+    }
+
+    setPendingChecklistIds((current) => [...current, checklistId]);
+    void actions
+      .setChecklistItemCompleted(request)
+      .then(() => {
+        confirmChecklistRequest(
+          checklistSyncRef.current,
+          checklistId,
+          request.completed,
+        );
+
+        const nextRequest = resolveChecklistRequest(
+          checklistSyncRef.current,
+          checklistId,
+        );
+        if (nextRequest) {
+          handleToggleChecklistItem(checklistId);
+        }
+      })
+      .catch(() => {
+        const rollbackCompleted = rollbackChecklistRequest(
+          checklistSyncRef.current,
+          checklistId,
+        );
+        setRecordDay((current) => {
+          if (!current) {
+            return current;
+          }
+
+          const nextRecordDay = updateRecordDayChecklistItems(
+            current,
+            checklistId,
+            rollbackCompleted,
+          );
+          return nextRecordDay ?? current;
+        });
+      })
+      .finally(() => {
+        setPendingChecklistIds((current) =>
+          current.filter((id) => id !== checklistId),
+        );
+      });
   }
 
   return (

@@ -3,6 +3,11 @@ import test from "node:test";
 import type { ChatMessage, RecordDayView } from "@gynecology-chatbot/app-core";
 import {
   appendAssistantMessages,
+  confirmChecklistRequest,
+  createChecklistSyncTracker,
+  resolveChecklistRequest,
+  rememberChecklistDesiredState,
+  rollbackChecklistRequest,
   updateRecordDayChecklistItems,
 } from "./PatientTodayScreen.helpers.ts";
 
@@ -64,4 +69,34 @@ test("updateRecordDayChecklistItems returns null when cached record day uses sta
   const result = updateRecordDayChecklistItems(recordDay, "today-check", true);
 
   assert.equal(result, null);
+});
+
+test("checklist sync tracker keeps the latest desired state while a request is in flight", () => {
+  const tracker = createChecklistSyncTracker(recordDay.checklistItems);
+
+  rememberChecklistDesiredState(tracker, "check-1", true);
+  assert.deepEqual(resolveChecklistRequest(tracker, "check-1"), {
+    checklistId: "check-1",
+    completed: true,
+  });
+
+  rememberChecklistDesiredState(tracker, "check-1", false);
+  assert.deepEqual(resolveChecklistRequest(tracker, "check-1"), {
+    checklistId: "check-1",
+    completed: false,
+  });
+
+  confirmChecklistRequest(tracker, "check-1", true);
+  assert.deepEqual(resolveChecklistRequest(tracker, "check-1"), {
+    checklistId: "check-1",
+    completed: false,
+  });
+});
+
+test("rollbackChecklistRequest restores the last confirmed checklist state", () => {
+  const tracker = createChecklistSyncTracker(recordDay.checklistItems);
+
+  rememberChecklistDesiredState(tracker, "check-1", true);
+  assert.equal(rollbackChecklistRequest(tracker, "check-1"), false);
+  assert.equal(resolveChecklistRequest(tracker, "check-1"), null);
 });

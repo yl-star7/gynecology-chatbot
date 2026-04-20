@@ -33,12 +33,21 @@ export type ProfileEncyclopediaEntry = {
   browseDescription: string;
 };
 
+const MIN_VISIBLE_WEEK = 5;
+const MAX_PREGNANCY_WEEK = 42;
+
 function parsePregnancyWeekNumber(label?: string | null) {
   if (!label) return null;
   const match = label.match(/(\d{1,2})\s*주/);
   if (!match) return null;
   const week = Number(match[1]);
-  if (!Number.isInteger(week) || week < 1 || week > 42) return null;
+  if (
+    !Number.isInteger(week) ||
+    week < MIN_VISIBLE_WEEK ||
+    week > MAX_PREGNANCY_WEEK
+  ) {
+    return null;
+  }
   return week;
 }
 
@@ -192,7 +201,10 @@ export function buildProfileDayState(input: {
   if (input.hasRecordDayError) {
     return {
       selectedIsToday,
-      checklistStatus: { label: "불러오는 중", tone: "idle" } as ProfileStatusBadge,
+      checklistStatus: {
+        label: "불러오는 중",
+        tone: "idle",
+      } as ProfileStatusBadge,
       infoStatus: { label: "불러오는 중", tone: "idle" } as ProfileStatusBadge,
       conversationStatus: {
         label: "불러오는 중",
@@ -222,9 +234,13 @@ export function buildProfileDayState(input: {
     infoStatus: resolveInfoStatus(mergedSelectedDay, selectedIsToday),
     conversationStatus: {
       label: hasConversation(input.selectedRecordDay ?? null) ? "했음" : "안함",
-      tone: hasConversation(input.selectedRecordDay ?? null) ? "active" : "idle",
+      tone: hasConversation(input.selectedRecordDay ?? null)
+        ? "active"
+        : "idle",
     } as ProfileStatusBadge,
-    conversationSummary: buildConversationSummary(input.selectedRecordDay ?? null),
+    conversationSummary: buildConversationSummary(
+      input.selectedRecordDay ?? null,
+    ),
     heartShareItems: buildHeartShareItems(input.selectedRecordDay ?? null),
   };
 }
@@ -261,12 +277,14 @@ export function buildProfileInfoCards(input: {
     {
       id: "baby",
       title: "오늘 아기는요",
-      body: input.today?.babyBody ?? "오늘 아기의 변화를 아직 준비하지 못했어요.",
+      body:
+        input.today?.babyBody ?? "오늘 아기의 변화를 아직 준비하지 못했어요.",
     },
     {
       id: "mom",
       title: "오늘 엄마는요",
-      body: input.today?.momBody ?? "오늘 엄마의 변화를 아직 준비하지 못했어요.",
+      body:
+        input.today?.momBody ?? "오늘 엄마의 변화를 아직 준비하지 못했어요.",
     },
   ];
 }

@@ -1,6 +1,6 @@
 import type { MobilePregnancyWeekSummary } from "@gynecology-chatbot/app-core";
 
-const MIN_WEEK = 1;
+const MIN_WEEK = 5;
 const MAX_WEEK = 40;
 
 export type WeeklyEncyclopediaWeekCellState =
