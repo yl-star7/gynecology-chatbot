@@ -61,18 +61,6 @@ export function MobileAppSessionProvider({
         readNativeUserId(),
       ]);
 
-      if (currentUser) {
-        storeCurrentMobileUserId(currentUser.id);
-        if (!inMemoryToken && nativeToken) {
-          storeCurrentMobileSessionToken(nativeToken);
-        }
-        await hydratePatientViewCaches(currentUser.id);
-        if (!cancelled) {
-          setIsRestoringSession(false);
-        }
-        return;
-      }
-
       const nativeCacheHydration = nativeUserId
         ? hydratePatientViewCaches(nativeUserId)
         : Promise.resolve();
@@ -131,7 +119,7 @@ export function MobileAppSessionProvider({
     return () => {
       cancelled = true;
     };
-  }, [currentUser]);
+  }, []);
 
   const value = useMemo<MobileAppSessionValue>(
     () => ({
@@ -141,18 +129,20 @@ export function MobileAppSessionProvider({
         await services.authPort.requestPhoneVerification(input);
       },
       async signIn(input) {
-        setIsRestoringSession(true);
         const nextUser =
           await services.authPort.signInWithPhoneVerification(input);
         const sessionToken = readCurrentMobileSessionToken();
-        if (sessionToken) {
-          await persistNativeSessionToken(sessionToken);
-        }
-        await persistNativeUserId(nextUser.id);
-        await hydratePatientViewCaches(nextUser.id);
+
         storeCurrentMobileUserId(nextUser.id);
         setCurrentUser(nextUser);
         setIsRestoringSession(false);
+
+        if (sessionToken) {
+          void persistNativeSessionToken(sessionToken);
+        }
+        void persistNativeUserId(nextUser.id);
+        void hydratePatientViewCaches(nextUser.id);
+
         return nextUser;
       },
       async completeOnboarding(input) {

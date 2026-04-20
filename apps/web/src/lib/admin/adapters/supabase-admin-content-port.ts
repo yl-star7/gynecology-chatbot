@@ -142,8 +142,8 @@ type SupabaseRagDocumentRow = {
   category: string;
   image_url?: string | null;
   metadata: { chunk_count?: number; draft?: boolean } | null;
-  created_at?: string;
-  updated_at?: string | null;
+  created_at?: string | Date;
+  updated_at?: string | Date | null;
 };
 
 type SupabaseWorkflowDefinitionRow = {
@@ -155,7 +155,7 @@ type SupabaseWorkflowDefinitionRow = {
   is_active: boolean;
   config: Record<string, unknown> | null;
   metadata: Record<string, unknown> | null;
-  updated_at: string;
+  updated_at: string | Date;
 };
 
 const sectionComparator = (a: AdminWeekSection, b: AdminWeekSection) =>
@@ -170,6 +170,14 @@ const dayComparator = (a: AdminWeekDay, b: AdminWeekDay) =>
 const mediaComparator = (a: AdminWeekMedia, b: AdminWeekMedia) =>
   (a.dayNumber ?? 0) - (b.dayNumber ?? 0) || a.displayOrder - b.displayOrder;
 
+function toIsoString(value: string | Date | null | undefined) {
+  if (!value) {
+    return new Date().toISOString();
+  }
+
+  return value instanceof Date ? value.toISOString() : value;
+}
+
 function mapWeekSummary(row: SupabaseWeekRow): AdminWeekSummary {
   return {
     id: row.id,
@@ -182,7 +190,7 @@ function mapWeekSummary(row: SupabaseWeekRow): AdminWeekSummary {
     heroImagePath: row.warning_signs,
     compareImagePath: row.recommended_actions,
     status: row.status,
-    updatedAt: row.updated_at,
+    updatedAt: toIsoString(row.updated_at),
   };
 }
 
@@ -274,12 +282,12 @@ function mapKnowledgeItem(row: SupabaseKnowledgeItemRow): AdminKnowledgeItem {
     body: row.body,
     imageUrl: row.image_url ?? null,
     status: row.status,
-    updatedAt: row.updated_at,
+    updatedAt: toIsoString(row.updated_at),
   };
 }
 
 function getDocumentUpdatedAt(row: SupabaseRagDocumentRow) {
-  return row.updated_at ?? row.created_at ?? new Date().toISOString();
+  return toIsoString(row.updated_at ?? row.created_at ?? null);
 }
 
 function mapRagDocument(row: SupabaseRagDocumentRow): AdminRagDocumentDetail {
@@ -678,7 +686,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
               retrievalScope: input.retrievalScope,
               modelName: input.modelName,
             },
-            updated_at: new Date().toISOString(),
+            updated_at: new Date(),
           };
 
           if (hasDirectContentDatabase()) {
@@ -739,7 +747,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
         retrievalScope: input.retrievalScope,
         modelName: input.modelName,
       },
-      updated_at: new Date().toISOString(),
+      updated_at: new Date(),
     };
 
     const updated = hasDirectContentDatabase()
