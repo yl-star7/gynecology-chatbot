@@ -16,6 +16,7 @@ import {
   space,
   typo,
 } from "../../theme";
+import { normalizeChatMarkdownLines } from "./ChatPartRenderer.model";
 
 // ─── Domain types ─────────────────────────────────────────
 
@@ -121,7 +122,7 @@ function renderInline(text: string, keyPrefix: string) {
 }
 
 function TextPartView({ part }: { part: TextPart }) {
-  const lines = part.text.replace(/\r\n/g, "\n").split("\n");
+  const lines = normalizeChatMarkdownLines(part.text);
   const blocks: React.ReactNode[] = [];
   let paragraph: string[] = [];
   let bullets: string[] = [];
