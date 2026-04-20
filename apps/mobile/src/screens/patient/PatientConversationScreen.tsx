@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientConversationMessageList } from "../../components/patient/chat/PatientConversationMessageList";
 import { PatientConversationComposer } from "../../components/patient/chat/PatientConversationComposer";
+import { ChatLinkSheet } from "../../components/patient/chat/ChatLinkSheet";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { patientSurfacePalette as surface, space } from "../../theme";
 import { usePatientConversationScreenModel } from "./PatientConversationScreen.model";
@@ -65,6 +66,14 @@ export function PatientConversationScreen({
           />
         </View>
       </KeyboardAvoidingView>
+      <ChatLinkSheet
+        visible={Boolean(model.linkSheet)}
+        target={model.linkSheet?.target ?? null}
+        entityId={model.linkSheet?.entityId ?? null}
+        getLinkTarget={model.getLinkTarget}
+        onClose={model.handleDismissLinkSheet}
+        onOpenFullView={model.handleOpenLinkFullView}
+      />
     </PatientShell>
   );
 }

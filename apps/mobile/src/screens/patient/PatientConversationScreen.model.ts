@@ -88,6 +88,10 @@ export function usePatientConversationScreenModel({
   >(null);
   const [composerHeight, setComposerHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [linkSheet, setLinkSheet] = useState<{
+    target: string;
+    entityId?: string;
+  } | null>(null);
   const didSeedInitialMessageRef = useRef(false);
   const didUserSendMessageRef = useRef(false);
 
@@ -252,6 +256,14 @@ export function usePatientConversationScreenModel({
   }
 
   function handleDeepLink(target: string, entityId?: string) {
+    setLinkSheet({ target, entityId });
+  }
+
+  function handleDismissLinkSheet() {
+    setLinkSheet(null);
+  }
+
+  function handleOpenLinkFullView(target: string, entityId?: string) {
     const params = entityId ? `?entityId=${entityId}` : "";
     router.push(`/chat/link/${target}${params}`);
   }
@@ -286,5 +298,11 @@ export function usePatientConversationScreenModel({
     handleSurveyAnswer,
     handleDeepLink,
     handleComposerLayout,
+    linkSheet,
+    handleDismissLinkSheet,
+    handleOpenLinkFullView,
+    getLinkTarget: services.knowledgePort.getLinkTarget.bind(
+      services.knowledgePort,
+    ),
   };
 }
