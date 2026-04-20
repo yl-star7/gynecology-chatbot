@@ -109,7 +109,7 @@ describe("GET /api/mobile/profile", () => {
     });
   });
 
-  it("includes unanswered profile surveys for the current pregnancy day", async () => {
+  it("includes only one unanswered profile survey for the current pregnancy day", async () => {
     mockedRequireMobileSession.mockResolvedValue({
       sessionId: "session-1",
       userId: "user-1",
@@ -173,6 +173,24 @@ describe("GET /api/mobile/profile", () => {
       if (
         path.includes("content_week_questions?") &&
         path.includes("day_number=is.null")
+      ) {
+        return Promise.resolve([
+          {
+            id: "question-generic",
+            code: "daily-generic",
+            question_text: "오늘 아기에게 해주고 싶은 말이 있나요?",
+            question_type: "text",
+            help_text: "하루에 하나만 보여줘야 해요.",
+            question_payload: null,
+            display_order: 1,
+            is_required: true,
+          },
+        ] as never);
+      }
+
+      if (
+        path ===
+        "user_question_events?select=id,question_id,status&user_id=eq.user-1&question_id=eq.question-1"
       ) {
         return Promise.resolve([] as never);
       }

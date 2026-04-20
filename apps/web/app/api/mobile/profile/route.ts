@@ -174,38 +174,37 @@ export async function GET(request: NextRequest) {
         if (week) {
           const [datedQuestions, genericQuestions] = await Promise.all([
             supabaseSelect<QuestionRow[]>(
-              `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+              `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
             ),
             supabaseSelect<QuestionRow[]>(
-              `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
+              `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,
             ),
           ]);
 
-          const questions = [...datedQuestions, ...genericQuestions];
-          const questionIds = questions.map((question) => question.id);
-          const questionEvents =
-            questionIds.length > 0
-              ? await supabaseSelect<QuestionEventRow[]>(
-                  `user_question_events?select=id,question_id,status&user_id=eq.${userId}&question_id=in.(${questionIds.join(",")})`,
-                )
-              : [];
-          const answeredSet = new Set(
-            questionEvents
-              .filter((event) => event.status === "answered")
-              .map((event) => event.question_id),
+          const question = datedQuestions[0] ?? genericQuestions[0] ?? null;
+          const questionEvents = question
+            ? await supabaseSelect<QuestionEventRow[]>(
+                `user_question_events?select=id,question_id,status&user_id=eq.${userId}&question_id=eq.${question.id}`,
+              )
+            : [];
+          const answered = questionEvents.some(
+            (event) => event.status === "answered",
           );
 
-          pendingSurveys = questions
-            .filter((question) => !answeredSet.has(question.id))
-            .map((question) => ({
-              id: question.id,
-              code: question.code,
-              questionText: question.question_text,
-              questionType: question.question_type,
-              helpText: question.help_text,
-              choices: resolveQuestionChoices(question),
-              answered: false,
-            }));
+          pendingSurveys =
+            question && !answered
+              ? [
+                  {
+                    id: question.id,
+                    code: question.code,
+                    questionText: question.question_text,
+                    questionType: question.question_type,
+                    helpText: question.help_text,
+                    choices: resolveQuestionChoices(question),
+                    answered: false,
+                  },
+                ]
+              : [];
         }
       } catch (error) {
         console.error("mobile profile pending survey error", error);

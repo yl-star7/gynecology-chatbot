@@ -12,7 +12,7 @@ import {
 } from "../../../theme";
 
 const ChecklistIcon = Ionicons as unknown as ComponentType<{
-  name: "checkmark-circle-outline";
+  name: "checkmark-circle-outline" | "checkmark";
   size: number;
   color: string;
 }>;
@@ -60,7 +60,15 @@ export function PatientTodayChecklistSection({
                       ? [styles.checkbox, styles.checkboxCompleted]
                       : styles.checkbox
                   }
-                />
+                >
+                  {item.completed ? (
+                    <ChecklistIcon
+                      name="checkmark"
+                      size={space.md + space.xs}
+                      color={palette.successText}
+                    />
+                  ) : null}
+                </View>
                 <Text style={styles.checklistLabel}>{item.label}</Text>
               </Pressable>
             ))}
@@ -133,9 +141,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: surface.strokeSubtle,
     backgroundColor: surface.fieldSurface,
+    alignItems: "center",
+    justifyContent: "center",
   },
   checkboxCompleted: {
-    backgroundColor: palette.successBackground,
     borderColor: palette.successText,
   },
   checklistLabel: {
