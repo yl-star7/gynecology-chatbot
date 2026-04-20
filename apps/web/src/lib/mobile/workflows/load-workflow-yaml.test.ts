@@ -16,15 +16,13 @@ describe("maternal nursing workflow YAML", () => {
 
   it("loads the Mermaid-guided state machine into the prompt template", () => {
     const workflow = loadMaternalNursingWorkflow();
-    const tmpl = workflow.graph.blocks.find(
-      (block) => block.id === "tmpl",
-    );
+    const tmpl = workflow.graph.blocks.find((block) => block.id === "tmpl");
 
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining("Mermaid 단계 상태 머신"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("currentStage='attachment_question'"),
+      expect.stringContaining("currentStage='letter_reflection'"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining("nextSessionMemory.compactSummary"),
@@ -99,15 +97,19 @@ describe("maternal nursing workflow YAML", () => {
 
   it("stores stage contracts inside the main prompt", () => {
     const workflow = loadMaternalNursingWorkflow();
-    const tmpl = workflow.graph.blocks.find(
-      (block) => block.id === "tmpl",
-    );
+    const tmpl = workflow.graph.blocks.find((block) => block.id === "tmpl");
 
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining("currentStage='baby_info'"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining("다 했어요 / 하나만 했어요 / 이따가 할래요"),
+    );
+    expect(tmpl?.config?.system_prompt).toEqual(
+      expect.stringContaining("현재 단계: 편지 후속 질문"),
+    );
+    expect(tmpl?.config?.system_prompt).toEqual(
+      expect.stringContaining("태동/데일리 후속 질문"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining("deepLink를 만들지 말고"),

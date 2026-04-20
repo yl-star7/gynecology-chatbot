@@ -84,18 +84,16 @@ describe("workflow payload", () => {
     const payload = parseWorkflowAssistantPayload({
       answer: JSON.stringify({
         answer: "오늘 할 일을 해보셨어요.",
-        scenario: "attachment_question",
+        scenario: "letter_reflection",
         nextSessionMemory: {
-          compactSummary: "현재 단계: 모아애착 질문",
-          lastScenario: "attachment_question",
+          compactSummary: "현재 단계: 편지 후속 질문",
+          lastScenario: "letter_reflection",
           lastCharacterTone: "calm",
         },
       }),
     });
 
-    expect(payload?.scenario).toBe("attachment_question");
-    expect(payload?.nextSessionMemory?.lastScenario).toBe(
-      "attachment_question",
-    );
+    expect(payload?.scenario).toBe("letter_reflection");
+    expect(payload?.nextSessionMemory?.lastScenario).toBe("letter_reflection");
   });
 });

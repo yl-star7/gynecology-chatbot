@@ -59,9 +59,7 @@ describe("chat orchestrator", () => {
       ]);
     const updateSession = jest.fn().mockResolvedValue(undefined);
     const updateProfile = jest.fn().mockResolvedValue(undefined);
-    const dispatchPersonaSignalWebhook = jest
-      .fn()
-      .mockResolvedValue(undefined);
+    const dispatchPersonaSignalWebhook = jest.fn().mockResolvedValue(undefined);
 
     const orchestrator = buildChatOrchestrator({
       ensureSession: jest.fn().mockResolvedValue({ sessionId: "session-1" }),
@@ -125,6 +123,98 @@ describe("chat orchestrator", () => {
     expect(dispatchPersonaSignalWebhook).not.toHaveBeenCalled();
   });
 
+  it("skips document follow-ups while letter reflection flow is active", async () => {
+    const promptContext = {
+      pregnancyWeek: 13,
+      dayNumber: 1,
+      week: {
+        id: "week-13",
+        week_number: 13,
+        title: "13주차",
+        baby_summary: null,
+        mother_summary: null,
+        warning_signs: null,
+        recommended_actions: null,
+        checklist_intro: null,
+        question_intro: null,
+        status: "published",
+      },
+      dayContent: null,
+      checklists: [],
+      questions: [
+        {
+          id: "question-1",
+          code: "main-concern",
+          question_text: "오늘 가장 걱정되는 점은 무엇인가요?",
+          question_type: "text",
+          help_text: null,
+          question_payload: {},
+          display_order: 1,
+          is_required: true,
+        },
+      ],
+      tonePreference: null,
+      profileMemory: null,
+      sessionMemory: null,
+      onboardingPayload: null,
+      missingFields: [],
+    } satisfies PromptContext;
+    const buildFollowUps = jest.fn().mockReturnValue({
+      messages: [],
+      selectedChecklists: [],
+      selectedQuestions: [],
+    });
+
+    const orchestrator = buildChatOrchestrator({
+      ensureSession: jest.fn().mockResolvedValue({ sessionId: "session-1" }),
+      saveUserMessage: jest.fn().mockResolvedValue({ id: "user-message-1" }),
+      touchSessionActivity: jest.fn().mockResolvedValue(undefined),
+      recordUserAction: jest.fn().mockResolvedValue(undefined),
+      markOutstandingPromptEventsAnswered: jest
+        .fn()
+        .mockResolvedValue({ answeredCount: 0 }),
+      getPromptContext: jest.fn().mockResolvedValue(promptContext),
+      resolveAssistantResponse: jest.fn().mockResolvedValue({
+        assistantMessage: {
+          id: "assistant-1",
+          role: "assistant",
+          createdAtLabel: "방금 전",
+          parts: [{ type: "text", id: "text-1", text: "편지를 잘 썼어요." }],
+        } as ChatMessage,
+        workflowMemoryPayload: {
+          scenario: "letter_reflection",
+          nextSessionMemory: {
+            compactSummary: "현재 단계: 편지 후속 질문",
+            lastScenario: "letter_reflection",
+          },
+        },
+      }),
+      saveAssistantMessages: jest
+        .fn()
+        .mockResolvedValue([{ id: "assistant-main" }]),
+      updateSessionMemory: jest.fn().mockResolvedValue(undefined),
+      updateProfileMemory: jest.fn().mockResolvedValue(undefined),
+      dispatchPersonaSignalWebhook: jest.fn().mockResolvedValue(undefined),
+      buildFollowUps,
+      createPromptEvents: jest.fn().mockResolvedValue(undefined),
+      getAlreadyPromptedIds: jest.fn().mockResolvedValue({
+        checklistIds: new Set<string>(),
+        questionIds: new Set<string>(),
+      }),
+    });
+
+    await orchestrator({
+      userId: "user-1",
+      text: "아기에게 편지를 썼어요",
+      sessionId: "session-1",
+      pregnancyWeek: 13,
+      imageDataUris: [],
+      hardGuardrailReason: null,
+    });
+
+    expect(buildFollowUps).not.toHaveBeenCalled();
+  });
+
   it("dispatches persona memory through the webhook hook after assistant save", async () => {
     const promptContext = {
       pregnancyWeek: 13,
@@ -151,9 +241,7 @@ describe("chat orchestrator", () => {
       missingFields: [],
     } satisfies PromptContext;
     const updateProfile = jest.fn().mockResolvedValue(undefined);
-    const dispatchPersonaSignalWebhook = jest
-      .fn()
-      .mockResolvedValue(undefined);
+    const dispatchPersonaSignalWebhook = jest.fn().mockResolvedValue(undefined);
 
     const orchestrator = buildChatOrchestrator({
       ensureSession: jest.fn().mockResolvedValue({ sessionId: "session-1" }),
