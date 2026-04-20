@@ -66,12 +66,14 @@ export function PatientProfileEncyclopediaCard({
         주차별 태아 발달과 엄마 몸 변화를 사전처럼 읽어봐요.
       </Text>
       <View style={styles.entryList}>
-        <EntryRow
-          badge={entry.currentWeekLabel.replace("주차", "")}
-          title={entry.currentActionLabel}
-          description={entry.currentDescription}
-          onPress={onOpenCurrentWeek}
-        />
+        {entry.showCurrentWeekEntry ? (
+          <EntryRow
+            badge={entry.currentWeekLabel.replace("주차", "")}
+            title={entry.currentActionLabel}
+            description={entry.currentDescription}
+            onPress={onOpenCurrentWeek}
+          />
+        ) : null}
         <EntryRow
           badge="주"
           title={entry.browseActionLabel}

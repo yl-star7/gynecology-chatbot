@@ -245,7 +245,6 @@ export function PatientRecordDayScreen({
                   key={item.id}
                   style={[styles.recordCard, shadows.card]}
                   onPress={() => handleToggleChecklistItem(item.id)}
-                  disabled={pendingChecklistIds.includes(item.id)}
                   accessibilityLabel={`${item.label} ${item.completed ? "완료됨" : "미완료"}`}
                 >
                   <View style={styles.checklistRow}>

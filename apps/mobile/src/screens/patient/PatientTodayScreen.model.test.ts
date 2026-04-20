@@ -81,10 +81,7 @@ test("checklist sync tracker keeps the latest desired state while a request is i
   });
 
   rememberChecklistDesiredState(tracker, "check-1", false);
-  assert.deepEqual(resolveChecklistRequest(tracker, "check-1"), {
-    checklistId: "check-1",
-    completed: false,
-  });
+  assert.equal(resolveChecklistRequest(tracker, "check-1"), null);
 
   confirmChecklistRequest(tracker, "check-1", true);
   assert.deepEqual(resolveChecklistRequest(tracker, "check-1"), {

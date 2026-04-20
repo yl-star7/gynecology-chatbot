@@ -97,7 +97,14 @@ test("profile day state derives modal statuses from selected day and injected no
       conversationSummary: undefined,
       dailyQuestion: null,
       records: [],
-      relatedSessions: [{ id: "s1", title: "아기와 대화", preview: "안녕", updatedAtLabel: "방금" }],
+      relatedSessions: [
+        {
+          id: "s1",
+          title: "아기와 대화",
+          preview: "안녕",
+          updatedAtLabel: "방금",
+        },
+      ],
     },
     now: new Date("2026-04-06T09:00:00+09:00"),
   });
@@ -106,7 +113,10 @@ test("profile day state derives modal statuses from selected day and injected no
   assert.deepEqual(state.infoStatus, { label: "확인함", tone: "success" });
   assert.deepEqual(state.checklistStatus, { label: "미완", tone: "muted" });
   assert.deepEqual(state.conversationStatus, { label: "했음", tone: "active" });
-  assert.equal(state.conversationSummary, "1개의 대화가 있었어요. 다음 날 정리되는 하루 요약이 준비되면 여기에서 함께 보여드릴게요.");
+  assert.equal(
+    state.conversationSummary,
+    "1개의 대화가 있었어요. 다음 날 정리되는 하루 요약이 준비되면 여기에서 함께 보여드릴게요.",
+  );
   assert.deepEqual(state.heartShareItems, [
     {
       id: "question",
@@ -133,9 +143,18 @@ test("profile day state does not pretend success when record day failed to load"
   });
 
   assert.deepEqual(state.infoStatus, { label: "불러오는 중", tone: "idle" });
-  assert.deepEqual(state.checklistStatus, { label: "불러오는 중", tone: "idle" });
-  assert.deepEqual(state.conversationStatus, { label: "불러오는 중", tone: "idle" });
-  assert.equal(state.conversationSummary, "이 날짜 기록을 다시 불러오는 중이에요.");
+  assert.deepEqual(state.checklistStatus, {
+    label: "불러오는 중",
+    tone: "idle",
+  });
+  assert.deepEqual(state.conversationStatus, {
+    label: "불러오는 중",
+    tone: "idle",
+  });
+  assert.equal(
+    state.conversationSummary,
+    "이 날짜 기록을 다시 불러오는 중이에요.",
+  );
   assert.deepEqual(state.heartShareItems, []);
 });
 
@@ -146,12 +165,14 @@ test("profile encyclopedia entry uses the current pregnancy week when available"
     }),
     {
       sectionTitle: "임신백과",
+      showCurrentWeekEntry: true,
       currentWeekLabel: "18주차",
       currentActionLabel: "이번 주 백과 보기",
       currentDescription:
         "18주차 태아 발달, 엄마 몸 변화, 생활 가이드를 차분히 읽어봐요.",
       browseActionLabel: "다른 주차 찾아보기",
-      browseDescription: "이전 주차와 다음 주차 정보도 사전처럼 확인해요.",
+      browseDescription:
+        "5주차부터 이전 주차와 다음 주차 정보도 사전처럼 확인해요.",
     },
   );
 });
@@ -163,12 +184,13 @@ test("profile encyclopedia entry falls back when pregnancy week is unknown", () 
     }),
     {
       sectionTitle: "임신백과",
+      showCurrentWeekEntry: false,
       currentWeekLabel: "주",
       currentActionLabel: "이번 주 백과 보기",
-      currentDescription:
-        "임신 주차를 알려주시면 이번 주 정보를 먼저 보여드릴게요.",
+      currentDescription: "5주차부터 주차별 정보를 차분히 찾아볼 수 있어요.",
       browseActionLabel: "다른 주차 찾아보기",
-      browseDescription: "이전 주차와 다음 주차 정보도 사전처럼 확인해요.",
+      browseDescription:
+        "5주차부터 이전 주차와 다음 주차 정보도 사전처럼 확인해요.",
     },
   );
 });

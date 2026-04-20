@@ -52,17 +52,21 @@ export function buildProfileEncyclopediaEntry(input: {
   pregnancyWeekLabel?: string | null;
 }): ProfileEncyclopediaEntry {
   const week = parsePregnancyWeekNumber(input.pregnancyWeekLabel);
-  const currentWeekLabel = week ? `${week}주차` : "주";
+  const showCurrentWeekEntry =
+    typeof week === "number" && week >= MIN_VISIBLE_WEEK;
+  const currentWeekLabel = showCurrentWeekEntry ? `${week}주차` : "주";
 
   return {
     sectionTitle: "임신백과",
+    showCurrentWeekEntry,
     currentWeekLabel,
     currentActionLabel: "이번 주 백과 보기",
-    currentDescription: week
+    currentDescription: showCurrentWeekEntry
       ? `${currentWeekLabel} 태아 발달, 엄마 몸 변화, 생활 가이드를 차분히 읽어봐요.`
-      : "임신 주차를 알려주시면 이번 주 정보를 먼저 보여드릴게요.",
+      : "5주차부터 주차별 정보를 차분히 찾아볼 수 있어요.",
     browseActionLabel: "다른 주차 찾아보기",
-    browseDescription: "이전 주차와 다음 주차 정보도 사전처럼 확인해요.",
+    browseDescription:
+      "5주차부터 이전 주차와 다음 주차 정보도 사전처럼 확인해요.",
   };
 }
 
