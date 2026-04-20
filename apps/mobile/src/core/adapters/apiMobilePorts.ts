@@ -15,6 +15,7 @@ import type { MobileApiClient } from "../../api/mobileApi.ts";
 import {
   cacheChatSession,
   cacheHomeView,
+  cachePregnancyWeeks,
   cacheProfileView,
   cacheRecentChats,
   cacheRecordDayView,
@@ -22,6 +23,8 @@ import {
   clearCachedHomeView,
   clearCachedRecentChats,
   clearCachedRecordDayView,
+  hasFreshCachedPregnancyWeeks,
+  readCachedPregnancyWeeks,
 } from "../patientViewCache";
 
 function createTodayIsoDate() {
@@ -192,9 +195,11 @@ export class ApiMobileChatAdapter implements MobileChatPort {
 
 export class ApiKnowledgeAdapter implements KnowledgePort {
   private readonly client: MobileApiClient;
+  private readonly getUserId: () => string;
 
-  constructor(client: MobileApiClient) {
+  constructor(client: MobileApiClient, getUserId: () => string) {
     this.client = client;
+    this.getUserId = getUserId;
   }
 
   async listContentItems(
@@ -205,7 +210,15 @@ export class ApiKnowledgeAdapter implements KnowledgePort {
   }
 
   async listPregnancyWeeks(): Promise<MobilePregnancyWeekSummary[]> {
+    const userId = this.getUserId();
+    const cachedWeeks = readCachedPregnancyWeeks(userId);
+
+    if (hasFreshCachedPregnancyWeeks(userId) && cachedWeeks) {
+      return cachedWeeks;
+    }
+
     const payload = await this.client.fetchPregnancyWeeks();
+    cachePregnancyWeeks(userId, payload.weeks);
     return payload.weeks;
   }
 

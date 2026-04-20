@@ -160,6 +160,7 @@ function isPersistedPatientViewCache(
     isNullableCacheEntryShape(cache.home) &&
     isNullableCacheEntryShape(cache.today) &&
     isNullableCacheEntryShape(cache.recentChats) &&
+    isNullableCacheEntryShape(cache.pregnancyWeeks) &&
     Array.isArray(cache.recordDays) &&
     cache.recordDays.every(isPersistedRecordDayEntry)
   );
@@ -172,6 +173,7 @@ function clearMemoryPatientViewCaches(userId?: string | null) {
     todayCache.clear();
     recordDayCache.clear();
     recentChatsCache.clear();
+    pregnancyWeeksCache.clear();
     chatSessionCache.clear();
     return;
   }
@@ -180,6 +182,7 @@ function clearMemoryPatientViewCaches(userId?: string | null) {
   clearCachedHomeView(userId);
   clearCachedTodayView(userId);
   clearCachedRecentChats(userId);
+  clearCachedPregnancyWeeks(userId);
 
   Array.from(recordDayCache.keys()).forEach((key) => {
     if (key.startsWith(`${userId}:`)) {
@@ -218,6 +221,7 @@ function createPersistedPatientViewCacheSnapshot(
     home: homeCache.get(userId) ?? null,
     today: todayCache.get(userId) ?? null,
     recentChats: recentChatsCache.get(userId) ?? null,
+    pregnancyWeeks: pregnancyWeeksCache.get(userId) ?? null,
     recordDays: collectRecordDayEntries(userId),
   };
 }
@@ -230,6 +234,7 @@ function hasPersistedPatientViewCacheContent(
     snapshot.home ||
     snapshot.today ||
     snapshot.recentChats ||
+    snapshot.pregnancyWeeks ||
     snapshot.recordDays.length > 0,
   );
 }
@@ -348,6 +353,10 @@ export async function hydratePatientViewCaches(userId?: string | null) {
 
     if (parsedValue.recentChats) {
       recentChatsCache.set(userId, parsedValue.recentChats);
+    }
+
+    if (parsedValue.pregnancyWeeks) {
+      pregnancyWeeksCache.set(userId, parsedValue.pregnancyWeeks);
     }
 
     parsedValue.recordDays.forEach(([isoDate, entry]) => {
@@ -487,6 +496,33 @@ export function cacheRecentChats(
 
 export function clearCachedRecentChats(userId?: string | null) {
   clearCacheKey(recentChatsCache, userId);
+  if (userId) {
+    schedulePersistedPatientViewCache(userId);
+  }
+}
+
+export function readCachedPregnancyWeeks(userId?: string | null) {
+  return readCacheValue(pregnancyWeeksCache, userId);
+}
+
+export function hasFreshCachedPregnancyWeeks(userId?: string | null) {
+  if (!userId) {
+    return false;
+  }
+
+  return isFreshEntry(pregnancyWeeksCache.get(userId));
+}
+
+export function cachePregnancyWeeks(
+  userId: string,
+  weeks: MobilePregnancyWeekSummary[],
+) {
+  cacheValue(pregnancyWeeksCache, userId, weeks);
+  schedulePersistedPatientViewCache(userId);
+}
+
+export function clearCachedPregnancyWeeks(userId?: string | null) {
+  clearCacheKey(pregnancyWeeksCache, userId);
   if (userId) {
     schedulePersistedPatientViewCache(userId);
   }

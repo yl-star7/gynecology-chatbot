@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import {
   Image,
   RefreshControl,
@@ -17,6 +18,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { Card, Pressable } from "../../components/ui";
 import { useMobileServices } from "../../core/MobileServicesProvider";
+import {
+  hasFreshCachedPregnancyWeeks,
+  readCachedPregnancyWeeks,
+  readCachedProfileView,
+} from "../../core/patientViewCache";
 import {
   palette,
   patientSurfacePalette as surface,

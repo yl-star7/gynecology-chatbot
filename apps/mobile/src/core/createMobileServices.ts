@@ -67,7 +67,7 @@ export function createMobileServices(
     homePort: new ApiMobileHomeAdapter(client, resolveUserId),
     todayPort: new ApiTodayAdapter(client, resolveUserId),
     chatPort: new ApiMobileChatAdapter(client, resolveUserId),
-    knowledgePort: new ApiKnowledgeAdapter(client),
+    knowledgePort: new ApiKnowledgeAdapter(client, resolveUserId),
     profilePort: new ApiMobileProfileAdapter(client, resolveUserId),
     recordsPort: new ApiMobileRecordsAdapter(client, resolveUserId),
   };

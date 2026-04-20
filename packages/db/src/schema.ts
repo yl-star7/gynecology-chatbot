@@ -311,7 +311,7 @@ export const calendarLogs = pgTable(
     ),
     entryTypeCheck: check(
       "calendar_logs_entry_type_check",
-      sql`${table.entryType} IN ('chat_saved', 'symptom_note', 'ai_summary', 'emotion_checkin')`,
+      sql`${table.entryType} IN ('chat_saved', 'symptom_note', 'ai_summary', 'emotion_checkin', 'today_info_view', 'survey_response', 'question_summary')`,
     ),
   }),
 );
@@ -795,7 +795,9 @@ export const contentParaphrasedItems = pgTable(
     title: text("title"),
     summary: text("summary"),
     body: text("body"),
-    items: jsonb("items").notNull().default(sql`'[]'::jsonb`),
+    items: jsonb("items")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     status: varchar("status", { length: 40 }).notNull().default("needs_review"),
     reviewNote: text("review_note"),
     reviewedBy: uuid("reviewed_by").references(() => users.id, {
@@ -821,9 +823,7 @@ export const contentParaphrasedItems = pgTable(
     sourceHashIdx: index("idx_content_paraphrased_items_source_hash").on(
       table.sourceHash,
     ),
-    activeSourceIdx: uniqueIndex(
-      "idx_content_paraphrased_items_active_source",
-    )
+    activeSourceIdx: uniqueIndex("idx_content_paraphrased_items_active_source")
       .on(
         table.sourceTable,
         table.sourceWeekNumber,
@@ -962,7 +962,9 @@ export const userPersonaSignals = pgTable(
     personaHint: text("persona_hint").notNull(),
     confidence: text("confidence").notNull().default("low"),
     evidence: text("evidence"),
-    weight: numeric("weight", { precision: 6, scale: 2 }).notNull().default("1"),
+    weight: numeric("weight", { precision: 6, scale: 2 })
+      .notNull()
+      .default("1"),
     observedAt: timestamp("observed_at", { withTimezone: true })
       .notNull()
       .default(utcNow),
