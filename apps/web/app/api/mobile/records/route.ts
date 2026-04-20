@@ -26,6 +26,10 @@ type CalendarRecordRow = {
     questionId?: string;
     answer?: string;
     viewedAt?: string;
+    compactSummary?: string | null;
+    assistantSummary?: string | null;
+    lastMessageAt?: string;
+    source?: string;
   } | null;
 };
 

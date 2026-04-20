@@ -28,8 +28,7 @@ function normalizeLetterFollowUpFlow(input: {
     compactSummary.includes("편지 후속 질문") ||
     /편지|아기에게|마음을 전하|쓰셨군요/.test(
       input.assistantMessage.parts
-        .filter((part) => part.type === "text")
-        .map((part) => part.text)
+        .flatMap((part) => (part.type === "text" ? [part.text] : []))
         .join("\n"),
     );
   const isDailyFollowup =
