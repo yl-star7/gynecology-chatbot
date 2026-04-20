@@ -128,7 +128,7 @@ function TextPartView({ part }: { part: TextPart }) {
 
   const flushParagraph = (key: string) => {
     if (paragraph.length === 0) return;
-    const joined = paragraph.join(" ");
+    const joined = paragraph.join("\n");
     blocks.push(
       <Text key={key} style={styles.mdParagraph}>
         {renderInline(joined, key)}
