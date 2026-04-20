@@ -233,6 +233,26 @@ function buildConversationSummary(
     return aiSummary.summary;
   }
 
+  const chatSummary = records.find(
+    (record) =>
+      record.entry_type === "chat_saved" &&
+      (record.payload?.compactSummary ||
+        record.payload?.assistantSummary ||
+        record.summary),
+  );
+  if (chatSummary?.payload?.compactSummary) {
+    return String(chatSummary.payload.compactSummary).replace(
+      /^현재 단계:\s*/u,
+      "",
+    );
+  }
+  if (chatSummary?.summary) {
+    return chatSummary.summary;
+  }
+  if (chatSummary?.payload?.assistantSummary) {
+    return String(chatSummary.payload.assistantSummary);
+  }
+
   if (relatedSessions.length === 0) {
     return null;
   }

@@ -446,16 +446,37 @@ export async function POST(request: NextRequest) {
     >(
       `calendar_logs?select=id&user_id=eq.${userId}&date=eq.${todayDate}&session_id=eq.${result.sessionId}&entry_type=eq.chat_saved&limit=1`,
     );
+    const assistantSummary = result.assistantMessages
+      .flatMap((message) =>
+        message.parts.flatMap((part) =>
+          part.type === "text" && part.text.trim() ? [part.text.trim()] : [],
+        ),
+      )
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const compactSummary =
+      result.workflowMemoryPayload?.nextSessionMemory?.compactSummary
+        ?.replace(/^현재 단계:\s*/u, "")
+        .trim();
+    const calendarSummary =
+      compactSummary ||
+      assistantSummary.slice(0, 220) ||
+      text.slice(0, 140) ||
+      null;
     const chatCalendarPayload = {
       lastMessageAt: new Date().toISOString(),
       source: "chat_session_sync",
+      compactSummary:
+        result.workflowMemoryPayload?.nextSessionMemory?.compactSummary ?? null,
+      assistantSummary: assistantSummary || null,
     };
     if (existingChatCalendarLogs[0]?.id) {
       await supabaseUpdate(
         `calendar_logs?id=eq.${existingChatCalendarLogs[0].id}`,
         {
           title: text.slice(0, 40) || "아기와 대화",
-          summary: text.slice(0, 140) || null,
+          summary: calendarSummary,
           payload: chatCalendarPayload,
         },
       );
@@ -466,7 +487,7 @@ export async function POST(request: NextRequest) {
         date: todayDate,
         entry_type: "chat_saved",
         title: text.slice(0, 40) || "아기와 대화",
-        summary: text.slice(0, 140) || null,
+        summary: calendarSummary,
         payload: chatCalendarPayload,
       });
     }

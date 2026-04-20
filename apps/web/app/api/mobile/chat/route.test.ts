@@ -756,6 +756,10 @@ describe("POST /api/mobile/chat", () => {
         expect.objectContaining({
           user_id: "user-1",
           entry_type: "chat_saved",
+          summary: expect.any(String),
+          payload: expect.objectContaining({
+            assistantSummary: expect.any(String),
+          }),
         }),
       );
     } finally {

@@ -25,7 +25,13 @@ function normalizeLetterFollowUpFlow(input: {
     input.workflowMemoryPayload?.nextSessionMemory?.compactSummary ?? "";
   const isLetterFlow =
     scenario === "letter_reflection" ||
-    compactSummary.includes("편지 후속 질문");
+    compactSummary.includes("편지 후속 질문") ||
+    /편지|아기에게|마음을 전하|쓰셨군요/.test(
+      input.assistantMessage.parts
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("\n"),
+    );
   const isDailyFollowup =
     scenario === "daily_followup" ||
     compactSummary.includes("태동/데일리 후속 질문");
@@ -36,6 +42,9 @@ function normalizeLetterFollowUpFlow(input: {
 
   input.assistantMessage.parts = input.assistantMessage.parts.filter((part) => {
     if (part.type !== "quickReplies") return true;
+    if (isLetterFlow || isDailyFollowup) {
+      return false;
+    }
     return !part.choices.some((choice) =>
       /오늘은 여기까지|더 이야기|하나 더 말할래요/.test(choice.label),
     );
