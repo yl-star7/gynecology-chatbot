@@ -77,44 +77,21 @@ export type SupabaseWeekMediaRow = {
   display_order: number | null;
 };
 
-let contentWritePool: Pool | null = null;
-
-function getContentWritePool() {
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL is required for admin content writes");
-  }
-
-  if (!contentWritePool) {
-    const databaseUrl = new URL(process.env.DATABASE_URL);
-    const usesSsl =
-      databaseUrl.searchParams.get("sslmode") === "require" ||
-      databaseUrl.searchParams.get("sslmode") === "verify-full";
-    databaseUrl.searchParams.delete("sslmode");
-    databaseUrl.searchParams.delete("gssencmode");
-
-    contentWritePool = new Pool({
-      connectionString: databaseUrl.toString(),
-      ssl: usesSsl ? { rejectUnauthorized: false } : undefined,
-    });
-  }
-
-  return contentWritePool;
-}
-
-async function queryContentRows<T>(
-  sql: string,
-  params: unknown[] = [],
-): Promise<T[]> {
-  const result = await getContentWritePool().query(sql, params);
-  return result.rows as T[];
-}
+type WeekContentPrisma = Pick<
+  PrismaClient,
+  | "pregnancy_week_data"
+  | "pregnancy_day_contents"
+  | "week_checklists"
+  | "week_questions"
+  | "pregnancy_week_media"
+>;
 
 type WeekContentRepositoryDeps = {
   select?: typeof supabaseSelect;
   update?: typeof supabaseUpdate;
   insert?: typeof supabaseInsert;
   remove?: typeof supabaseDelete;
-  queryRows?: <T>(sql: string, params?: unknown[]) => Promise<T[]>;
+  prisma?: WeekContentPrisma;
   hasDirectContentDatabase?: () => boolean;
   createId?: () => string;
 };
@@ -124,10 +101,7 @@ export class WeekContentRepository {
   private readonly update: typeof supabaseUpdate;
   private readonly insert: typeof supabaseInsert;
   private readonly remove: typeof supabaseDelete;
-  private readonly queryRows: <T>(
-    sql: string,
-    params?: unknown[],
-  ) => Promise<T[]>;
+  private readonly prisma: WeekContentPrisma;
   private readonly hasDirectContentDatabase: () => boolean;
   private readonly createId: () => string;
 
@@ -136,7 +110,7 @@ export class WeekContentRepository {
     this.update = deps.update ?? supabaseUpdate;
     this.insert = deps.insert ?? supabaseInsert;
     this.remove = deps.remove ?? supabaseDelete;
-    this.queryRows = deps.queryRows ?? queryContentRows;
+    this.prisma = deps.prisma ?? prisma;
     this.hasDirectContentDatabase =
       deps.hasDirectContentDatabase ??
       (() => Boolean(process.env.DATABASE_URL));
@@ -145,24 +119,22 @@ export class WeekContentRepository {
 
   async listWeeks(): Promise<SupabaseWeekRow[]> {
     if (this.hasDirectContentDatabase()) {
-      return this.queryRows<SupabaseWeekRow>(
-        `
-          SELECT
-            id,
-            week_number,
-            title,
-            baby_size_label,
-            baby_size_compare_object,
-            baby_summary,
-            mother_summary,
-            warning_signs,
-            recommended_actions,
-            status,
-            updated_at
-          FROM content.pregnancy_week_data
-          ORDER BY week_number ASC
-        `,
-      );
+      return this.prisma.pregnancy_week_data.findMany({
+        select: {
+          id: true,
+          week_number: true,
+          title: true,
+          baby_size_label: true,
+          baby_size_compare_object: true,
+          baby_summary: true,
+          mother_summary: true,
+          warning_signs: true,
+          recommended_actions: true,
+          status: true,
+          updated_at: true,
+        },
+        orderBy: { week_number: "asc" },
+      });
     }
 
     try {
