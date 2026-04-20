@@ -81,7 +81,6 @@ app.get("/", async (c) => {
         user: { display_name: profile?.display_name ?? "사용자" },
         profile: profile
           ? {
-              display_name: profile.display_name,
               pregnancy_day_count: profile.pregnancy_day_count,
               pregnancy_week: profile.pregnancy_week,
               pregnancy_day_in_week: profile.pregnancy_day_in_week,
