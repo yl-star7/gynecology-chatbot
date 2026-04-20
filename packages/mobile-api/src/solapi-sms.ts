@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, randomInt } from "crypto";
 
-import { supabaseSelect } from "./supabase/admin-client";
+import { prisma } from "@gynecology-chatbot/db/prisma";
 import { computePhoneNumberBlindIndex } from "./privacy/phone-crypto";
 
 const SOLAPI_BASE_URL = "https://api.solapi.com";
@@ -281,11 +281,31 @@ export async function checkSmsVerification(
   }
 
   const blindIndex = computePhoneNumberBlindIndex(to);
-  const rows = await supabaseSelect<PhoneVerificationRow[]>(
-    `phone_verification_requests?phone_number_blind_index=eq.${blindIndex}&status=eq.pending&order=created_at.desc&limit=1`,
-  );
+  const rowRecord = await prisma.phone_verification_requests.findFirst({
+    where: {
+      phone_number_blind_index: blindIndex,
+      status: "pending",
+    },
+    orderBy: { created_at: "desc" },
+    select: {
+      id: true,
+      verification_sid: true,
+      status: true,
+      expires_at: true,
+      phone_number_blind_index: true,
+    },
+  });
 
-  const row = rows[0];
+  const row: PhoneVerificationRow | undefined =
+    rowRecord && rowRecord.phone_number_blind_index
+      ? {
+          id: rowRecord.id,
+          verification_sid: rowRecord.verification_sid,
+          status: rowRecord.status,
+          expires_at: rowRecord.expires_at.toISOString(),
+          phone_number_blind_index: rowRecord.phone_number_blind_index,
+        }
+      : undefined;
   if (!row || !row.verification_sid) {
     throw new Error("인증 코드를 확인해 주세요.");
   }

@@ -1,5 +1,5 @@
 import Expo from "expo-server-sdk";
-import { supabaseSelect } from "./supabase/admin-client";
+import { prisma } from "@gynecology-chatbot/db/prisma";
 import { decryptPhoneNumber } from "./privacy/phone-crypto";
 import { sendSmsMessage } from "./solapi-sms";
 
@@ -73,9 +73,26 @@ export async function sendDailyPushNotifications(
   options: SendDailyPushNotificationsOptions = {},
 ) {
   // 1. Query notification-enabled targets.
-  const allTargets = await supabaseSelect<PushTargetRow[]>(
-    `pregnancy_profiles?select=user_id,push_token,pregnancy_week,display_name,notification_time&notification_enabled=eq.true`,
-  );
+  const allTargets = (
+    await prisma.pregnancy_profiles.findMany({
+      where: { notification_enabled: true },
+      select: {
+        user_id: true,
+        push_token: true,
+        pregnancy_week: true,
+        display_name: true,
+        notification_time: true,
+      },
+    })
+  ).map((target) => ({
+    user_id: target.user_id,
+    push_token: target.push_token,
+    pregnancy_week: target.pregnancy_week,
+    display_name: target.display_name,
+    notification_time: target.notification_time
+      ? target.notification_time.toISOString().slice(11, 16)
+      : null,
+  }));
   const targets = filterTargetsForScheduledDelivery(allTargets, options);
 
   if (targets.length === 0) return { sent: 0 };
@@ -114,9 +131,20 @@ export async function sendDailyPushNotifications(
   let smsMocked = 0;
   if (smsTargets.length > 0) {
     const userIds = smsTargets.map((target) => target.user_id);
-    const userRows = await supabaseSelect<SmsUserRow[]>(
-      `users?select=id,phone_number_encrypted&id=in.(${userIds.join(",")})`,
-    );
+    const userRows = userIds.length
+      ? (
+          await prisma.users.findMany({
+            where: { id: { in: userIds } },
+            select: {
+              id: true,
+              phone_number_encrypted: true,
+            },
+          })
+        ).filter(
+          (row): row is SmsUserRow =>
+            typeof row.phone_number_encrypted === "string",
+        )
+      : [];
     const phoneNumberByUserId = new Map(
       userRows.map((row) => [
         row.id,

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
+
 import {
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { supabaseSelect } from "@/lib/supabase/admin-client";
 
 type WeekRow = {
   week_number: number;
@@ -151,30 +152,52 @@ function mergeWeeks(
     .sort((left, right) => left.weekNumber - right.weekNumber);
 }
 
-function isMissingWeeklyEncyclopediaViewError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  return (
-    error.message.includes("v_weekly_encyclopedia") &&
-    (error.message.includes("schema cache") ||
-      error.message.includes("does not exist"))
-  );
+function asUnknownArray(value: Prisma.JsonValue | null | undefined) {
+  return Array.isArray(value) ? value : [];
 }
 
 async function loadWeeklyEncyclopediaRows() {
-  try {
-    return await supabaseSelect<EncyclopediaRow[]>(
-      "v_weekly_encyclopedia?select=week_number,content_scope,category,title,summary,body,items&order=week_number.asc,content_scope.asc,category.asc",
-    );
-  } catch (error) {
-    if (isMissingWeeklyEncyclopediaViewError(error)) {
-      return [];
-    }
+  const rows = await prisma.v_weekly_encyclopedia.findMany({
+    select: {
+      week_number: true,
+      content_scope: true,
+      category: true,
+      title: true,
+      summary: true,
+      body: true,
+      items: true,
+    },
+    orderBy: [
+      { week_number: "asc" },
+      { content_scope: "asc" },
+      { category: "asc" },
+    ],
+  });
 
-    throw error;
-  }
+  return rows
+    .filter(
+      (
+        row,
+      ): row is typeof row & {
+        week_number: number;
+        content_scope: string;
+        category: string;
+      } =>
+        typeof row.week_number === "number" &&
+        typeof row.content_scope === "string" &&
+        typeof row.category === "string",
+    )
+    .map(
+      (row): EncyclopediaRow => ({
+        week_number: row.week_number,
+        content_scope: row.content_scope,
+        category: row.category,
+        title: row.title,
+        summary: row.summary,
+        body: row.body,
+        items: asUnknownArray(row.items),
+      }),
+    );
 }
 
 export async function GET(request: NextRequest) {
@@ -183,14 +206,32 @@ export async function GET(request: NextRequest) {
 
     const [encyclopediaRows, rows] = await Promise.all([
       loadWeeklyEncyclopediaRows(),
-      supabaseSelect<WeekRow[]>(
-        "content_pregnancy_week_data?select=week_number,title,baby_size_label,baby_summary,mother_summary&status=eq.published&order=week_number.asc",
-      ),
+      prisma.content_pregnancy_week_data.findMany({
+        where: { status: "published" },
+        orderBy: { week_number: "asc" },
+        select: {
+          week_number: true,
+          title: true,
+          baby_size_label: true,
+          baby_summary: true,
+          mother_summary: true,
+        },
+      }),
     ]);
 
     return NextResponse.json({
       weeks: mergeWeeks(
-        mapSourceWeeks(rows),
+        mapSourceWeeks(
+          rows.map(
+            (row): WeekRow => ({
+              week_number: row.week_number,
+              title: row.title ?? `${row.week_number}주차`,
+              baby_size_label: row.baby_size_label,
+              baby_summary: row.baby_summary,
+              mother_summary: row.mother_summary,
+            }),
+          ),
+        ),
         mapEncyclopediaWeeks(encyclopediaRows),
       ),
     });

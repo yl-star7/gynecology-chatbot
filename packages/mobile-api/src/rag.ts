@@ -1,5 +1,6 @@
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
-import { supabaseRpc, supabaseSelect } from "./supabase/admin-client";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
+import { supabaseRpc } from "./supabase/admin-client";
 import { getSchiftClient } from "./schift-client";
 
 type DisabledFileRow = { id: string };
@@ -30,12 +31,25 @@ function normalizeEmbeddingLength(values: number[]) {
   return values.slice(0, PGVECTOR_DIMENSION);
 }
 
+function asObject<T>(value: Prisma.JsonValue | null | undefined): T | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as T)
+    : null;
+}
+
 async function getRagProvider(): Promise<RagProvider> {
   try {
-    const rows = await supabaseSelect<ConfigRow[]>(
-      `system_config?select=key,value&key=eq.rag_provider&limit=1`,
-    );
-    const provider = rows[0]?.value?.ragProvider;
+    const row = await prisma.system_config.findUnique({
+      where: { key: "rag_provider" },
+      select: { key: true, value: true },
+    });
+    const config = row
+      ? ({
+          key: row.key,
+          value: asObject<ConfigRow["value"]>(row.value) ?? {},
+        } satisfies ConfigRow)
+      : null;
+    const provider = config?.value?.ragProvider;
     if (provider === "schift" || provider === "supabase") return provider;
   } catch {}
   return "auto";
@@ -43,9 +57,10 @@ async function getRagProvider(): Promise<RagProvider> {
 
 async function getDisabledFileIds(): Promise<Set<string>> {
   try {
-    const rows = await supabaseSelect<Array<{ id: string }>>(
-      "content_rag_files?select=id&enabled=eq.false",
-    );
+    const rows = await prisma.content_rag_files.findMany({
+      where: { enabled: false },
+      select: { id: true },
+    });
     return new Set(rows.map((r) => r.id));
   } catch {
     return new Set();

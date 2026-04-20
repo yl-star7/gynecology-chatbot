@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
+
 import { ensureStorageBucket } from "@/lib/admin/supabase-storage";
-import { supabaseSelect } from "@/lib/supabase/admin-client";
 
 const BRANDING_KEY = "ui_branding";
 
@@ -12,14 +13,21 @@ type BrandingConfig = {
   surveyFormUrl: string | null;
 };
 
-type ConfigRow = { key: string; value: BrandingConfig };
+function asBrandingConfig(value: Prisma.JsonValue | null | undefined) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as BrandingConfig;
+}
 
 export async function GET() {
   try {
-    const rows = await supabaseSelect<ConfigRow[]>(
-      `system_config?select=key,value&key=eq.${BRANDING_KEY}&limit=1`,
-    );
-    const branding = rows[0]?.value;
+    const row = await prisma.system_config.findUnique({
+      where: { key: BRANDING_KEY },
+      select: { value: true },
+    });
+    const branding = asBrandingConfig(row?.value);
 
     if (!branding?.mascotBucketId || !branding?.mascotObjectPath) {
       return NextResponse.json({

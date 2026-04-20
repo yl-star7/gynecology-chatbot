@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { prisma } from "@gynecology-chatbot/db/prisma";
+
 import {
   mobileNoStoreJson,
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { supabaseSelect } from "@/lib/supabase/admin-client";
 import { toHomeViewData } from "@/lib/mobile/serializers";
 
 type CalendarActivityRow = {
@@ -12,18 +13,6 @@ type CalendarActivityRow = {
   summary: string | null;
   entry_type: string | null;
 };
-
-function isMissingCalendarActivityViewError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  return (
-    error.message.includes("v_user_calendar_activity") &&
-    (error.message.includes("schema cache") ||
-      error.message.includes("does not exist"))
-  );
-}
 
 function getMonth(raw: string | null) {
   if (raw && /^\d{4}-\d{2}$/.test(raw)) {
@@ -41,6 +30,14 @@ function getLastDayOfMonth(month: string) {
   return new Date(year, monthIndex + 1, 0).getDate();
 }
 
+function parseDateOnly(isoDate: string) {
+  return new Date(`${isoDate}T00:00:00.000Z`);
+}
+
+function formatDateOnly(value: Date | null | undefined) {
+  return value ? value.toISOString().slice(0, 10) : "";
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
@@ -49,43 +46,57 @@ export async function GET(request: NextRequest) {
     const { userId } = await requireMobileSession(request, hintedUserId);
 
     const monthLastDay = getLastDayOfMonth(month);
-    const [profiles] = await Promise.all([
-      supabaseSelect<
-        Array<{
-          display_name: string | null;
-          pregnancy_day_count: number;
-          pregnancy_week: number | null;
-          pregnancy_day_in_week: number | null;
-          due_date: string | null;
-        }>
-      >(
-        `pregnancy_profiles?select=display_name,pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date&user_id=eq.${userId}&limit=1`,
-      ),
+    const monthStart = `${month}-01`;
+    const monthEnd = `${month}-${String(monthLastDay).padStart(2, "0")}`;
+
+    const [profile, calendarRows] = await Promise.all([
+      prisma.pregnancy_profiles.findUnique({
+        where: { user_id: userId },
+        select: {
+          display_name: true,
+          pregnancy_day_count: true,
+          pregnancy_week: true,
+          pregnancy_day_in_week: true,
+          due_date: true,
+        },
+      }),
+      prisma.v_user_calendar_activity.findMany({
+        where: {
+          user_id: userId,
+          date: {
+            gte: parseDateOnly(monthStart),
+            lte: parseDateOnly(monthEnd),
+          },
+        },
+        select: {
+          date: true,
+          summary: true,
+          entry_type: true,
+        },
+      }),
     ]);
-
-    let calendarRows: CalendarActivityRow[];
-    try {
-      calendarRows = await supabaseSelect<CalendarActivityRow[]>(
-        `v_user_calendar_activity?select=date,summary,entry_type&user_id=eq.${userId}&date=gte.${month}-01&date=lte.${month}-${String(monthLastDay).padStart(2, "0")}`,
-      );
-    } catch (error) {
-      if (!isMissingCalendarActivityViewError(error)) {
-        throw error;
-      }
-
-      console.error("mobile home calendar activity fallback", error);
-      calendarRows = await supabaseSelect<CalendarActivityRow[]>(
-        `calendar_logs?select=date,summary,entry_type&user_id=eq.${userId}&date=gte.${month}-01&date=lte.${month}-${String(monthLastDay).padStart(2, "0")}`,
-      );
-    }
-
-    const profile = profiles[0] ?? null;
 
     return mobileNoStoreJson({
       home: toHomeViewData({
         user: { display_name: profile?.display_name ?? "사용자" },
-        profile,
-        calendarRows,
+        profile: profile
+          ? {
+              display_name: profile.display_name,
+              pregnancy_day_count: profile.pregnancy_day_count,
+              pregnancy_week: profile.pregnancy_week,
+              pregnancy_day_in_week: profile.pregnancy_day_in_week,
+              due_date: profile.due_date
+                ? profile.due_date.toISOString().slice(0, 10)
+                : null,
+            }
+          : null,
+        calendarRows: calendarRows.map(
+          (row): CalendarActivityRow => ({
+            date: formatDateOnly(row.date),
+            summary: row.summary,
+            entry_type: row.entry_type,
+          }),
+        ),
         month,
       }),
     });

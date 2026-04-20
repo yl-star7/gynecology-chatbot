@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { supabaseSelect, supabaseUpdate } from "../supabase/admin-client.js";
+import { prisma } from "@gynecology-chatbot/db/prisma";
 
 type AuthSessionRow = {
   id: string;
@@ -10,7 +10,7 @@ type AuthSessionRow = {
 
 type SessionUserRow = {
   id: string;
-  account_status: "active" | "paused" | "deleted" | "pending_recovery";
+  account_status: string;
 };
 
 const MOBILE_SESSION_FAILURE_MESSAGES = new Set([
@@ -56,10 +56,23 @@ export async function verifyMobileSessionToken(
   }
 
   const sessionHash = hashSessionToken(sessionToken);
-  const sessions = await supabaseSelect<AuthSessionRow[]>(
-    `auth_sessions?select=id,user_id,expires_at,revoked_at&refresh_token_hash=eq.${sessionHash}&limit=1`,
-  );
-  const session = sessions[0];
+  const sessionRecord = await prisma.auth_sessions.findFirst({
+    where: { refresh_token_hash: sessionHash },
+    select: {
+      id: true,
+      user_id: true,
+      expires_at: true,
+      revoked_at: true,
+    },
+  });
+  const session: AuthSessionRow | undefined = sessionRecord
+    ? {
+        id: sessionRecord.id,
+        user_id: sessionRecord.user_id,
+        expires_at: sessionRecord.expires_at.toISOString(),
+        revoked_at: sessionRecord.revoked_at?.toISOString() ?? null,
+      }
+    : undefined;
 
   if (!session) {
     throw new Error("invalid mobile session");
@@ -77,10 +90,19 @@ export async function verifyMobileSessionToken(
     throw new Error("mobile session user mismatch");
   }
 
-  const users = await supabaseSelect<SessionUserRow[]>(
-    `users?select=id,account_status&id=eq.${session.user_id}&limit=1`,
-  );
-  const user = users[0];
+  const userRecord = await prisma.users.findUnique({
+    where: { id: session.user_id },
+    select: {
+      id: true,
+      account_status: true,
+    },
+  });
+  const user: SessionUserRow | undefined = userRecord
+    ? {
+        id: userRecord.id,
+        account_status: userRecord.account_status,
+      }
+    : undefined;
 
   if (
     !user ||
@@ -90,8 +112,11 @@ export async function verifyMobileSessionToken(
     throw new Error("mobile session user is not active");
   }
 
-  await supabaseUpdate(`auth_sessions?id=eq.${session.id}`, {
-    last_used_at: new Date().toISOString(),
+  await prisma.auth_sessions.update({
+    where: { id: session.id },
+    data: {
+      last_used_at: new Date(),
+    },
   });
 
   return {

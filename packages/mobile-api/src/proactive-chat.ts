@@ -1,7 +1,7 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText } from "ai";
 import Expo from "expo-server-sdk";
-import { supabaseInsert, supabaseSelect } from "./supabase/admin-client";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 
 const expo = new Expo();
 
@@ -27,16 +27,29 @@ type ChatSessionRow = {
   last_message_at: string | null;
 };
 
-type InsertedSessionRow = {
-  id: string;
-};
+function parseDateOnly(isoDate: string) {
+  return new Date(`${isoDate}T00:00:00.000Z`);
+}
 
 export async function runProactiveChatForEligibleUsers(): Promise<{
   scheduled: number;
   errors: string[];
 }> {
-  const targets = await supabaseSelect<PushTargetRow[]>(
-    "pregnancy_profiles?select=user_id,push_token,pregnancy_week,display_name&push_token=not.is.null&notification_enabled=eq.true",
+  const targets = (
+    await prisma.pregnancy_profiles.findMany({
+      where: {
+        push_token: { not: null },
+        notification_enabled: true,
+      },
+      select: {
+        user_id: true,
+        push_token: true,
+        pregnancy_week: true,
+        display_name: true,
+      },
+    })
+  ).filter(
+    (target): target is PushTargetRow => typeof target.push_token === "string",
   );
 
   if (targets.length === 0) {
@@ -50,9 +63,25 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
   const eligibleUserIds = targets.map((t) => t.user_id);
 
   // Fetch the most recent session per user to check last_message_at
-  const recentSessions = await supabaseSelect<ChatSessionRow[]>(
-    `chat_sessions?select=user_id,last_message_at&user_id=in.(${eligibleUserIds.join(",")})&last_message_at=gte.${twentyFourHoursAgo.toISOString()}`,
-  );
+  const recentSessions = eligibleUserIds.length
+    ? (
+        await prisma.chat_sessions.findMany({
+          where: {
+            user_id: { in: eligibleUserIds },
+            last_message_at: { gte: twentyFourHoursAgo },
+          },
+          select: {
+            user_id: true,
+            last_message_at: true,
+          },
+        })
+      ).map(
+        (session): ChatSessionRow => ({
+          user_id: session.user_id,
+          last_message_at: session.last_message_at?.toISOString() ?? null,
+        }),
+      )
+    : [];
 
   const activeUserIds = new Set(recentSessions.map((s) => s.user_id));
 
@@ -86,18 +115,18 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
       const messageContent = text.trim();
 
       // 4. Create a proactive session for this user (needed for calendar_logs FK)
-      const now = new Date().toISOString();
-      const insertedSessions = await supabaseInsert<InsertedSessionRow[]>(
-        "chat_sessions",
-        {
+      const now = new Date();
+      const insertedSession = await prisma.chat_sessions.create({
+        data: {
           user_id: target.user_id,
           title: "일일 안부",
           status: "active",
           last_message_at: now,
           updated_at: now,
         },
-      );
-      const sessionId = insertedSessions[0]?.id;
+        select: { id: true },
+      });
+      const sessionId = insertedSession.id;
 
       if (!sessionId) {
         throw new Error("Failed to create proactive session");
@@ -105,14 +134,19 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
 
       // 5. Store a calendar_logs record with entry_type "ai_summary"
       const today = new Date().toISOString().slice(0, 10);
-      await supabaseInsert("calendar_logs", {
-        user_id: target.user_id,
-        session_id: sessionId,
-        date: today,
-        entry_type: "ai_summary",
-        title: "일일 안부 메시지",
-        summary: messageContent,
-        payload: { source: "proactive_chat", pregnancyWeek },
+      await prisma.calendar_logs.create({
+        data: {
+          user_id: target.user_id,
+          session_id: sessionId,
+          date: parseDateOnly(today),
+          entry_type: "ai_summary",
+          title: "일일 안부 메시지",
+          summary: messageContent,
+          payload: {
+            source: "proactive_chat",
+            pregnancyWeek,
+          } as Prisma.InputJsonValue,
+        },
       });
 
       // 6. Send push notification via Expo SDK
