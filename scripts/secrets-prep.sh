@@ -5,8 +5,8 @@
 # Review and run one block at a time.
 #
 # Prereqs:
-#   1) `vercel env pull .env.production.local` in this repo so we have current
-#      production values (user runs this; do not commit the file).
+#   1) Cloud Run/Cloud SQL에서 사용할 현재 production 값을 `.env.production.local`
+#      에 준비한다 (user runs this; do not commit the file).
 #   2) Active gcloud config = `agaya` (project agaya-2026).
 #   3) secretmanager.googleapis.com enabled (already done).
 
@@ -53,11 +53,11 @@ create_all_secrets() {
 }
 
 ########################################################################
-# Step 2 — Upload values from .env.production.local (pulled via `vercel env pull`).
+# Step 2 — Upload values from .env.production.local.
 ########################################################################
 upload_values_from_env() {
   if [[ ! -f "$ENV_FILE" ]]; then
-    echo "error: $ENV_FILE not found. Run: vercel env pull $ENV_FILE" >&2
+    echo "error: $ENV_FILE not found. Prepare $ENV_FILE with current production values first." >&2
     exit 1
   fi
 
@@ -154,7 +154,7 @@ Steps (run in order):
   all        Runs create -> upload -> grant -> deploy (prints command).
 
 Prereq:
-  vercel env pull .env.production.local
+  prepare .env.production.local with current production values
 
 Notes:
   - Create the runtime SA first if not done:

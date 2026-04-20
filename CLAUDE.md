@@ -143,7 +143,7 @@ pnpm --filter @gynecology-chatbot/app-core type-check
 
 ### 배포
 
-- Vercel 배포 (웹)
+- Cloud Run 배포 (웹/API)
 - EAS Build (모바일)
 - 배포 전 `TODO.md`의 체크리스트 확인
 
