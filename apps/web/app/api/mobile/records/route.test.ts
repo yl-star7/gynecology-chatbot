@@ -146,6 +146,12 @@ describe("GET /api/mobile/records", () => {
       ] as never)
       .mockResolvedValueOnce([
         {
+          session_id: "session-1",
+          last_message_at: "2026-04-13T10:00:00.000Z",
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
           id: "session-1",
           title: "오늘 상담",
           last_message_at: "2026-04-13T10:00:00.000Z",
@@ -187,6 +193,72 @@ describe("GET /api/mobile/records", () => {
         expect.objectContaining({
           id: "session-1",
           preview: "event {actions(3)}",
+        }),
+      ]),
+    );
+  });
+
+  it("view 기반 오늘 대화 세션도 relatedSessions에 포함한다", async () => {
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockedSupabaseSelect
+      .mockResolvedValueOnce([
+        {
+          pregnancy_day_count: 165,
+          pregnancy_week: 24,
+          pregnancy_day_in_week: 4,
+        },
+      ] as never)
+      .mockResolvedValueOnce([{ id: "week-24" }] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        {
+          session_id: "session-2",
+          last_message_at: "2026-04-13T11:00:00.000Z",
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "session-2",
+          title: "오늘 이어진 상담",
+          last_message_at: "2026-04-13T11:00:00.000Z",
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          session_id: "session-2",
+          plain_text: "오늘도 불안해요",
+          parts: [],
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          pregnancy_day_count: 165,
+          pregnancy_week: 24,
+          pregnancy_day_in_week: 4,
+        },
+      ] as never)
+      .mockResolvedValueOnce([{ id: "week-24" }] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const request = new Request(
+      "http://localhost:3000/api/mobile/records?userId=user-1&date=2026-04-13",
+    ) as Request & { nextUrl: URL };
+    request.nextUrl = new URL(request.url);
+
+    const response = await GET(request as never);
+    const payload = await response.json();
+
+    expect(payload.recordDay.relatedSessions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "session-2",
+          preview: "오늘도 불안해요",
         }),
       ]),
     );

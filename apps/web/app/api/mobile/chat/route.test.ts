@@ -748,6 +748,16 @@ describe("POST /api/mobile/chat", () => {
           ([table]) => table === "user_checklist_events",
         ),
       ).toBe(false);
+      expect(mockedSupabaseSelect).toHaveBeenCalledWith(
+        expect.stringContaining("calendar_logs?select=id"),
+      );
+      expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+        "calendar_logs",
+        expect.objectContaining({
+          user_id: "user-1",
+          entry_type: "chat",
+        }),
+      );
     } finally {
       Math.random = originalMathRandom;
     }

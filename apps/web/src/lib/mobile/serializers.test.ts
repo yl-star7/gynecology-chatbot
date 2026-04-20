@@ -16,7 +16,11 @@ describe("toHomeViewData", () => {
       pregnancy_week: 18,
       pregnancy_day_in_week: 2,
     },
-    calendarRows: [] as Array<{ date: string; summary: string | null; entry_type?: string | null }>,
+    calendarRows: [] as Array<{
+      date: string;
+      summary: string | null;
+      entry_type?: string | null;
+    }>,
   };
 
   it("builds 30 days for April", () => {
@@ -44,7 +48,11 @@ describe("toHomeViewData", () => {
       ...baseInput,
       month: "2026-04",
       calendarRows: [
-        { date: "2026-04-03", summary: "정보 확인", entry_type: "today_info_view" },
+        {
+          date: "2026-04-03",
+          summary: "정보 확인",
+          entry_type: "today_info_view",
+        },
       ],
     });
 
@@ -52,6 +60,22 @@ describe("toHomeViewData", () => {
       isoDate: "2026-04-03",
       hasChat: true,
       hasInfo: true,
+    });
+  });
+
+  it("marks chat days when the row comes from chat entry type", () => {
+    const home = toHomeViewData({
+      ...baseInput,
+      month: "2026-04",
+      calendarRows: [
+        { date: "2026-04-04", summary: "대화가 있었어요", entry_type: "chat" },
+      ],
+    });
+
+    expect(home.calendarDays[3]).toMatchObject({
+      isoDate: "2026-04-04",
+      hasChat: true,
+      hasInfo: false,
     });
   });
 

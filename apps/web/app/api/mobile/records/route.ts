@@ -36,6 +36,11 @@ type SessionRow = {
   last_message_preview: string | null;
 };
 
+type SessionActivityRow = {
+  session_id: string;
+  last_message_at: string;
+};
+
 type MessagePreviewRow = {
   session_id: string;
   plain_text: string | null;
@@ -356,12 +361,17 @@ export async function GET(request: NextRequest) {
       `calendar_logs?select=id,title,summary,entry_type,session_id,payload&user_id=eq.${userId}&date=eq.${isoDate}&order=created_at.desc`,
     );
 
+    const explicitSessionIds = records
+      .map((record) => record.session_id)
+      .filter((value): value is string => Boolean(value));
+    const sessionActivityRows = await supabaseSelect<SessionActivityRow[]>(
+      `v_chat_session_activity_dates?select=session_id,last_message_at&user_id=eq.${userId}&activity_date=eq.${isoDate}&order=last_message_at.desc`,
+    );
     const sessionIds = [
-      ...new Set(
-        records
-          .map((record) => record.session_id)
-          .filter((value): value is string => Boolean(value)),
-      ),
+      ...new Set([
+        ...explicitSessionIds,
+        ...sessionActivityRows.map((row) => row.session_id),
+      ]),
     ];
     const relatedSessions =
       sessionIds.length > 0

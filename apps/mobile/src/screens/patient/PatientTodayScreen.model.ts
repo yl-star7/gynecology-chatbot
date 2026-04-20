@@ -82,7 +82,10 @@ export function usePatientTodayScreenModel() {
 
     setToday(cachedToday);
     const nextRecentSessions =
-      cachedRecordDay?.relatedSessions ?? cachedRecentChats ?? [];
+      cachedRecordDay?.relatedSessions &&
+      cachedRecordDay.relatedSessions.length > 0
+        ? cachedRecordDay.relatedSessions
+        : (cachedRecentChats ?? []);
     setRecentSessions(nextRecentSessions);
     warmRecentSessionDetails(nextRecentSessions);
   }, [currentUser, todayIsoDate, warmRecentSessionDetails]);
@@ -105,16 +108,18 @@ export function usePatientTodayScreenModel() {
       ) {
         setToday(readCachedTodayView(currentUser.id));
         setRecentSessions(
-          readCachedRecordDayView(currentUser.id, todayIsoDate)
-            ?.relatedSessions ??
-            readCachedRecentChats(currentUser.id) ??
-            [],
+          (readCachedRecordDayView(currentUser.id, todayIsoDate)
+            ?.relatedSessions?.length ?? 0) > 0
+            ? (readCachedRecordDayView(currentUser.id, todayIsoDate)
+                ?.relatedSessions ?? [])
+            : (readCachedRecentChats(currentUser.id) ?? []),
         );
         warmRecentSessionDetails(
-          readCachedRecordDayView(currentUser.id, todayIsoDate)
-            ?.relatedSessions ??
-            readCachedRecentChats(currentUser.id) ??
-            [],
+          (readCachedRecordDayView(currentUser.id, todayIsoDate)
+            ?.relatedSessions?.length ?? 0) > 0
+            ? (readCachedRecordDayView(currentUser.id, todayIsoDate)
+                ?.relatedSessions ?? [])
+            : (readCachedRecentChats(currentUser.id) ?? []),
         );
         setHasAttemptedInfoViewed(false);
         return;

@@ -43,7 +43,11 @@ import {
   isMobileSessionError,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { supabaseSelect, supabaseUpdate } from "@/lib/supabase/admin-client";
+import {
+  supabaseInsert,
+  supabaseSelect,
+  supabaseUpdate,
+} from "@/lib/supabase/admin-client";
 import { checkRateLimit } from "@/lib/mobile/rate-limit";
 import { recordUserAction } from "@/lib/mobile/user-action-log";
 import { createPersonaSignalInputFromProfileMemory } from "@/lib/mobile/persona/persona-signals";
@@ -70,6 +74,19 @@ function normalizeSessionId(value: string) {
   )
     ? value
     : crypto.randomUUID();
+}
+
+function getKstDateKey() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+  const day = parts.find((part) => part.type === "day")?.value ?? "01";
+  return `${year}-${month}-${day}`;
 }
 
 function getInternalWebhookBaseUrl(request: NextRequest) {
@@ -421,6 +438,37 @@ export async function POST(request: NextRequest) {
       imageDataUris,
       hardGuardrailReason,
     });
+
+    const todayDate = getKstDateKey();
+    const existingChatCalendarLogs = await supabaseSelect<
+      Array<{ id: string }>
+    >(
+      `calendar_logs?select=id&user_id=eq.${userId}&date=eq.${todayDate}&session_id=eq.${result.sessionId}&entry_type=eq.chat&limit=1`,
+    );
+    const chatCalendarPayload = {
+      lastMessageAt: new Date().toISOString(),
+      source: "chat_session_sync",
+    };
+    if (existingChatCalendarLogs[0]?.id) {
+      await supabaseUpdate(
+        `calendar_logs?id=eq.${existingChatCalendarLogs[0].id}`,
+        {
+          title: text.slice(0, 40) || "아기와 대화",
+          summary: text.slice(0, 140) || null,
+          payload: chatCalendarPayload,
+        },
+      );
+    } else {
+      await supabaseInsert("calendar_logs", {
+        user_id: userId,
+        session_id: result.sessionId,
+        date: todayDate,
+        entry_type: "chat",
+        title: text.slice(0, 40) || "아기와 대화",
+        summary: text.slice(0, 140) || null,
+        payload: chatCalendarPayload,
+      });
+    }
 
     return mobileNoStoreJson({
       assistantMessage: result.assistantMessage,
