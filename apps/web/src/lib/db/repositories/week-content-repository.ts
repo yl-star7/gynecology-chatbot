@@ -8,8 +8,8 @@ import type {
   AdminWeekSection,
   AdminWeekSectionInput,
 } from "@gynecology-chatbot/app-core";
+import { prisma, type PrismaClient } from "@gynecology-chatbot/db/prisma";
 import { randomUUID } from "crypto";
-import { Pool } from "pg";
 
 import {
   supabaseDelete,

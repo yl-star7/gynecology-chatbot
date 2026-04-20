@@ -10,14 +10,30 @@ const monorepoRoot = path.resolve(projectRoot, "../..");
 const config = getDefaultConfig(projectRoot);
 const escapePath = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-config.watchFolders = [path.resolve(monorepoRoot, "packages")];
+config.watchFolders = [
+  path.resolve(monorepoRoot, "packages"),
+  path.resolve(projectRoot, "node_modules"),
+];
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, "node_modules"),
   path.resolve(monorepoRoot, "node_modules"),
 ];
 
 config.resolver.disableHierarchicalLookup = true;
+
+const PINNED_REACT = {
+  react: resolveMobileReactRequest("react"),
+  "react/jsx-runtime": resolveMobileReactRequest("react/jsx-runtime"),
+  "react/jsx-dev-runtime": resolveMobileReactRequest("react/jsx-dev-runtime"),
+  "react-dom": resolveMobileReactRequest("react-dom"),
+  scheduler: resolveMobileReactRequest("scheduler"),
+};
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  const pinned = PINNED_REACT[moduleName];
+  if (pinned) {
+    return { type: "sourceFile", filePath: pinned };
+  }
   return context.resolveRequest(context, moduleName, platform);
 };
 
