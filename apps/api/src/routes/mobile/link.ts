@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { supabaseSelect } from "@gynecology-chatbot/mobile-api/supabase/admin-client";
+import { prisma } from "@gynecology-chatbot/db/prisma";
 import {
   mobileRouteErrorResponse,
   requireMobileSession,
@@ -26,23 +26,44 @@ app.get("/", async (c) => {
       return c.json({ error: "target is required" }, 400);
     }
 
-    const rows = entityId
-      ? await supabaseSelect<KnowledgeRow[]>(
-          `content_knowledge_items?select=id,slug,section,title,body,status&id=eq.${entityId}&limit=1`,
-        )
-      : await supabaseSelect<KnowledgeRow[]>(
-          `content_knowledge_items?select=id,slug,section,title,body,status&section=eq.${target}&status=eq.published&limit=1`,
-        );
+    const row = entityId
+      ? await prisma.content_knowledge_items.findUnique({
+          where: { id: entityId },
+          select: {
+            id: true,
+            slug: true,
+            section: true,
+            title: true,
+            body: true,
+            status: true,
+          },
+        })
+      : await prisma.content_knowledge_items.findFirst({
+          where: {
+            section: target,
+            status: "published",
+          },
+          select: {
+            id: true,
+            slug: true,
+            section: true,
+            title: true,
+            body: true,
+            status: true,
+          },
+        });
 
-    if (!rows[0]) {
+    const content = row as KnowledgeRow | null;
+
+    if (!content) {
       return c.json({ error: "link target not found" }, 404);
     }
 
     return c.json({
       content: {
-        title: rows[0].title,
-        section: rows[0].section,
-        body: rows[0].body,
+        title: content.title,
+        section: content.section,
+        body: content.body,
       },
     });
   } catch (error) {
