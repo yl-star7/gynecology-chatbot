@@ -285,6 +285,59 @@ describe("chat repository", () => {
     );
   });
 
+  it("records answered daily questions in today's calendar history", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-04-20T03:00:00.000Z"));
+    mockedSupabaseSelect.mockImplementation((path: string) => {
+      if (path.startsWith("user_checklist_events?")) {
+        return Promise.resolve([]);
+      }
+
+      if (path.startsWith("user_question_events?")) {
+        return Promise.resolve([
+          { id: "event-question-1", question_id: "question-1", status: "sent" },
+        ]);
+      }
+
+      if (path.startsWith("calendar_logs?")) {
+        return Promise.resolve([]);
+      }
+
+      return Promise.resolve([]);
+    });
+    mockedSupabaseUpdate.mockResolvedValue([] as never);
+    mockedSupabaseInsert.mockResolvedValue([] as never);
+
+    try {
+      await markOutstandingPromptEventsAnswered({
+        userId: "user-1",
+        sessionId: "session-1",
+        userMessageId: "user-message-1",
+        userMessageText: "아기에게 편지를 썼어요",
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+
+    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+      "calendar_logs",
+      expect.objectContaining({
+        user_id: "user-1",
+        session_id: "session-1",
+        date: "2026-04-20",
+        entry_type: "survey_response",
+        title: "하루 질문 답변",
+        summary: "아기에게 편지를 썼어요",
+        payload: expect.objectContaining({
+          source: "chat_question_answer",
+          questionId: "question-1",
+          answer: "아기에게 편지를 썼어요",
+          answerMessageId: "user-message-1",
+          eventId: "event-question-1",
+        }),
+      }),
+    );
+  });
+
   it("creates prompt events and returns already prompted ids", async () => {
     mockedSupabaseInsert.mockResolvedValue([] as never);
     mockedSupabaseSelect.mockImplementation((path: string) => {

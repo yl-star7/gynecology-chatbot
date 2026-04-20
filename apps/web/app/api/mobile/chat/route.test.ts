@@ -207,6 +207,24 @@ jest.mock("@/lib/supabase/admin-client", () => {
   };
 });
 
+jest.mock("@gynecology-chatbot/mobile-api/supabase/admin-client", () => {
+  if (!adminSupabaseSelectMock) {
+    adminSupabaseSelectMock = jest.fn();
+  }
+  if (!adminSupabaseInsertMock) {
+    adminSupabaseInsertMock = jest.fn();
+  }
+  if (!adminSupabaseUpdateMock) {
+    adminSupabaseUpdateMock = jest.fn();
+  }
+
+  return {
+    supabaseSelect: adminSupabaseSelectMock,
+    supabaseInsert: adminSupabaseInsertMock,
+    supabaseUpdate: adminSupabaseUpdateMock,
+  };
+});
+
 jest.mock("@/lib/mobile/user-action-log", () => ({
   recordUserAction: jest.fn(),
 }));
@@ -897,7 +915,7 @@ describe("POST /api/mobile/chat", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: "user-1",
-          sessionId: "session-1",
+          sessionId: "11111111-1111-4111-8111-111111111111",
           text: "오늘은 괜찮아요",
           pregnancyWeek: 13,
         }),
@@ -917,6 +935,23 @@ describe("POST /api/mobile/chat", () => {
       expect.objectContaining({
         status: "answered",
         answer_message_id: "user-message-2",
+      }),
+    );
+    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+      "calendar_logs",
+      expect.objectContaining({
+        user_id: "user-1",
+        session_id: "11111111-1111-4111-8111-111111111111",
+        entry_type: "survey_response",
+        title: "하루 질문 답변",
+        summary: "오늘은 괜찮아요",
+        payload: expect.objectContaining({
+          source: "chat_question_answer",
+          questionId: "question-1",
+          answer: "오늘은 괜찮아요",
+          answerMessageId: "user-message-2",
+          eventId: "event-question-1",
+        }),
       }),
     );
     expect(
