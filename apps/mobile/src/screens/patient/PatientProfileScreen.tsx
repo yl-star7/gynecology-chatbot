@@ -24,13 +24,9 @@ import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
 import {
-  hasFreshCachedHomeView,
   hasFreshCachedProfileView,
-  hasFreshCachedRecordDayView,
   hasFreshCachedTodayView,
-  readCachedHomeView,
   readCachedProfileView,
-  readCachedRecordDayView,
   readCachedTodayView,
 } from "../../core/patientViewCache";
 import {
@@ -91,6 +87,7 @@ export function PatientProfileScreen() {
     setProfile(cachedProfile);
     setHome(null);
     setToday(cachedToday);
+    setSelectedRecordDay(null);
   }, [currentUser]);
 
   useFocusEffect(

@@ -1,9 +1,5 @@
 import type { ChatMessage, ChatSession } from "@gynecology-chatbot/app-core";
 import { createContext, useContext, useMemo, useState } from "react";
-import {
-  cacheChatSession,
-  readCachedChatSession,
-} from "../core/patientViewCache";
 
 interface ChatSessionsContextValue {
   sessions: ChatSession[];
@@ -31,24 +27,16 @@ export function ChatSessionsProvider({
       getSession(sessionId) {
         const inMemorySession =
           sessions.find((session) => session.id === sessionId) ?? null;
-        const cachedSession = userId
-          ? readCachedChatSession(userId, sessionId)
-          : null;
 
         return (
-          inMemorySession ??
-          cachedSession ?? {
+          inMemorySession ?? {
             id: sessionId,
             title: "새 상담",
             messages: [],
           }
         );
       },
-      replaceSession(sessionId, session) {
-        if (userId) {
-          cacheChatSession(userId, sessionId, session);
-        }
-
+      replaceSession(_sessionId, session) {
         setSessions((current) => [
           session,
           ...current.filter((item) => item.id !== session.id),
@@ -56,16 +44,10 @@ export function ChatSessionsProvider({
       },
       appendMessage(sessionId, title, message) {
         setSessions((current) => {
-          const existing =
-            current.find((session) => session.id === sessionId) ??
-            (userId ? readCachedChatSession(userId, sessionId) : null);
+          const existing = current.find((session) => session.id === sessionId);
           const nextSession = existing
             ? { ...existing, title, messages: [...existing.messages, message] }
             : { id: sessionId, title, messages: [message] };
-
-          if (userId) {
-            cacheChatSession(userId, sessionId, nextSession);
-          }
 
           return [
             nextSession,

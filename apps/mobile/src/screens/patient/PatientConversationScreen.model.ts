@@ -9,13 +9,6 @@ import {
   ScrollView,
 } from "react-native";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
-import {
-  AppState,
-  Keyboard,
-  Platform,
-  type LayoutChangeEvent,
-  ScrollView,
-} from "react-native";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
 import { space } from "../../theme";
@@ -140,12 +133,7 @@ export function usePatientConversationScreenModel({
       return;
     }
 
-    if (!hasFreshCachedChatSession(currentUser.id, resolvedSessionId)) {
-      void loadSessionDetail();
-    } else {
-      setIsLoadingSessionDetail(false);
-      setSessionLoadErrorMessage(null);
-    }
+    void loadSessionDetail();
 
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (nextState !== "active" || isNewConversationSession(sessionId)) {

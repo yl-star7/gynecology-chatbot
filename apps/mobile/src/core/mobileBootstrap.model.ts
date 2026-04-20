@@ -31,8 +31,6 @@ export async function preloadPatientAppData({
     services.profilePort.getProfile(),
     services.homePort.getHomeView(),
     services.todayPort.getTodayView(),
-    services.homePort.getRecordDay(todayIsoDate),
-    services.chatPort.listRecentChats(),
     services.knowledgePort.listPregnancyWeeks(),
   ]);
 }
