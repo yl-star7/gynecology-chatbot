@@ -72,3 +72,7 @@ autoresearch-results.tsv
 
 # Google Play Service Account Key
 play-submit-key.json
+
+# GCP service account keys
+.gcp/
+*.sa-key.json
