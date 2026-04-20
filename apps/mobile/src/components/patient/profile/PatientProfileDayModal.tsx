@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { RecentChatSummary } from "@gynecology-chatbot/app-core";
 import type { ComponentType } from "react";
 import { Modal, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Card, Pressable } from "../../ui";
 import { PatientTodayTabs } from "../PatientTodayTabs";
 import {
@@ -111,6 +112,8 @@ export function PatientProfileDayModal({
   onOpenSession: (sessionId: string) => void;
   onOpenToday: () => void;
 }) {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       visible={visible}
@@ -119,7 +122,9 @@ export function PatientProfileDayModal({
       onRequestClose={onClose}
     >
       <View style={styles.modalSafeArea}>
-        <View style={styles.modalHeader}>
+        <View
+          style={[styles.modalHeader, { paddingTop: insets.top + space.sm }]}
+        >
           <Pressable
             style={styles.modalCloseButton}
             onPress={onClose}
@@ -175,7 +180,10 @@ export function PatientProfileDayModal({
             </Pressable>
 
             <Pressable
-              style={[styles.modalStatusTab, modalTabStyle(checklistStatus.tone)]}
+              style={[
+                styles.modalStatusTab,
+                modalTabStyle(checklistStatus.tone),
+              ]}
               onPress={onPressChecklist}
             >
               <View style={styles.modalStatusHeader}>
@@ -258,7 +266,10 @@ export function PatientProfileDayModal({
                       <View
                         style={
                           item.completed
-                            ? [styles.modalCheckbox, styles.modalCheckboxChecked]
+                            ? [
+                                styles.modalCheckbox,
+                                styles.modalCheckboxChecked,
+                              ]
                             : styles.modalCheckbox
                         }
                       >
@@ -270,7 +281,9 @@ export function PatientProfileDayModal({
                           />
                         ) : null}
                       </View>
-                      <Text style={styles.modalChecklistLabel}>{item.label}</Text>
+                      <Text style={styles.modalChecklistLabel}>
+                        {item.label}
+                      </Text>
                       <Text
                         style={
                           item.completed
@@ -309,7 +322,9 @@ export function PatientProfileDayModal({
 
               {conversationSection === "summary" ? (
                 <View style={styles.modalPanel}>
-                  <Text style={styles.modalSummaryText}>{conversationSummary}</Text>
+                  <Text style={styles.modalSummaryText}>
+                    {conversationSummary}
+                  </Text>
                   {relatedSessions.map((session) => (
                     <Pressable
                       key={session.id}
@@ -337,7 +352,9 @@ export function PatientProfileDayModal({
                 <View style={styles.modalPanel}>
                   {heartShareItems.map((item) => (
                     <View key={item.id} style={styles.modalQnaCard}>
-                      <Text style={styles.modalQuestion}>Q. {item.question}</Text>
+                      <Text style={styles.modalQuestion}>
+                        Q. {item.question}
+                      </Text>
                       <Text style={styles.modalAnswer}>A. {item.answer}</Text>
                       <View style={styles.modalAiResponse}>
                         <Text style={styles.modalAiTitle}>AI 응답</Text>
@@ -388,11 +405,9 @@ const styles = StyleSheet.create({
   modalSafeArea: {
     flex: 1,
     backgroundColor: surface.surfacePrimary,
-    paddingTop: space.xl,
   },
   modalHeader: {
     paddingHorizontal: space.lg,
-    paddingTop: space.sm,
     alignItems: "flex-start",
   },
   modalCloseButton: {
