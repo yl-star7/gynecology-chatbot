@@ -201,6 +201,15 @@ export class ApiMobileChatAdapter implements MobileChatPort {
     const payload = await this.client.fetchLinkTarget(target, entityId);
     return payload.content;
   }
+
+  async summarizeSession(sessionId: string) {
+    const result = await this.client.summarizeChatSession(sessionId);
+    if (result.summarized) {
+      const userId = this.getUserId();
+      clearCachedRecordDayView(userId, createTodayIsoDate());
+    }
+    return result;
+  }
 }
 
 export class ApiKnowledgeAdapter implements KnowledgePort {

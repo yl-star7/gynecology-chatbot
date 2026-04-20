@@ -77,6 +77,9 @@ export interface MobileChatPort {
   getSession(sessionId?: string): Promise<ChatSession>;
   sendMessage(input: ChatComposerInput): Promise<ChatMessage[]>;
   resolveLink(target: string, entityId?: string): Promise<LinkTargetContent>;
+  summarizeSession(
+    sessionId: string,
+  ): Promise<{ summarized: boolean; summary?: string; reason?: string }>;
 }
 
 export interface MobileProfilePort {
