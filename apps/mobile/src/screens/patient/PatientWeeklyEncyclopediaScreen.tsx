@@ -31,6 +31,8 @@ import { buildWeeklyEncyclopediaViewModel } from "./PatientWeeklyEncyclopediaScr
 
 export function PatientWeeklyEncyclopediaScreen() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const entryMode = params.mode === "browse" ? "browse" : "current";
   const { knowledgePort, profilePort } = useMobileServices();
   const [weeks, setWeeks] = useState<MobilePregnancyWeekSummary[]>([]);
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
@@ -73,6 +75,9 @@ export function PatientWeeklyEncyclopediaScreen() {
     [profile?.pregnancyWeekLabel, selectedWeekNumber, weeks],
   );
   const selectedWeek = model.selectedWeek;
+  const shouldShowWeekPicker = entryMode === "browse";
+  const isBrowsingSpecificWeek =
+    shouldShowWeekPicker && selectedWeekNumber != null;
 
   return (
     <PatientShell
@@ -110,7 +115,9 @@ export function PatientWeeklyEncyclopediaScreen() {
             <Card style={styles.heroCard}>
               <View style={styles.heroRow}>
                 <View style={styles.heroCopy}>
-                  <Text style={styles.eyebrow}>이번 주 백과</Text>
+                  <Text style={styles.eyebrow}>
+                    {isBrowsingSpecificWeek ? "선택한 주차" : "이번 주 백과"}
+                  </Text>
                   <Text style={styles.heroTitle}>{model.heroTitle}</Text>
                   <Text style={styles.bodyText}>{model.heroSubtitle}</Text>
                 </View>
@@ -134,13 +141,6 @@ export function PatientWeeklyEncyclopediaScreen() {
                 {selectedWeek.babySummary ??
                   "이 주차의 아기 정보를 정리 중이에요."}
               </Text>
-              <View style={styles.actionRow}>
-                <Button
-                  label="다른 주차 보기"
-                  onPress={() => setSelectedWeekNumber(null)}
-                  variant="secondary"
-                />
-              </View>
             </Card>
 
             <Card>
@@ -220,43 +220,47 @@ export function PatientWeeklyEncyclopediaScreen() {
           </Card>
         )}
 
-        <Card>
-          <Text style={styles.sectionTitle}>주차 선택</Text>
-          <Text style={styles.bodyText}>
-            다른 주차도 사전처럼 확인할 수 있어요.
-          </Text>
-          <View style={styles.weekGrid}>
-            {model.weekCells.map((cell) => (
-              <Pressable
-                key={cell.weekNumber}
-                style={[
-                  styles.weekCell,
-                  cell.state === "current" ? styles.weekCellCurrent : null,
-                  cell.state === "selected" ? styles.weekCellSelected : null,
-                  cell.state === "preparing" ? styles.weekCellPreparing : null,
-                ]}
-                onPress={() => setSelectedWeekNumber(cell.weekNumber)}
-                accessibilityLabel={`${cell.label} ${
-                  cell.state === "preparing" ? "준비 중" : "보기"
-                }`}
-              >
-                <Text
+        {shouldShowWeekPicker ? (
+          <Card>
+            <Text style={styles.sectionTitle}>주차 선택</Text>
+            <Text style={styles.bodyText}>
+              다른 주차도 사전처럼 확인할 수 있어요.
+            </Text>
+            <View style={styles.weekGrid}>
+              {model.weekCells.map((cell) => (
+                <Pressable
+                  key={cell.weekNumber}
                   style={[
-                    styles.weekCellLabel,
-                    cell.state === "current" || cell.state === "selected"
-                      ? styles.weekCellLabelActive
-                      : null,
-                    cell.state === "selected"
-                      ? styles.weekCellLabelSelected
+                    styles.weekCell,
+                    cell.state === "current" ? styles.weekCellCurrent : null,
+                    cell.state === "selected" ? styles.weekCellSelected : null,
+                    cell.state === "preparing"
+                      ? styles.weekCellPreparing
                       : null,
                   ]}
+                  onPress={() => setSelectedWeekNumber(cell.weekNumber)}
+                  accessibilityLabel={`${cell.label} ${
+                    cell.state === "preparing" ? "준비 중" : "보기"
+                  }`}
                 >
-                  {cell.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </Card>
+                  <Text
+                    style={[
+                      styles.weekCellLabel,
+                      cell.state === "current" || cell.state === "selected"
+                        ? styles.weekCellLabelActive
+                        : null,
+                      cell.state === "selected"
+                        ? styles.weekCellLabelSelected
+                        : null,
+                    ]}
+                  >
+                    {cell.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </Card>
+        ) : null}
       </ScrollView>
     </PatientShell>
   );
@@ -327,9 +331,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typo.titleSm,
     color: surface.textPrimary,
-  },
-  actionRow: {
-    marginTop: space.lg,
   },
   contentBlock: {
     marginTop: space.md,

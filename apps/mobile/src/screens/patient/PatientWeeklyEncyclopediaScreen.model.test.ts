@@ -27,7 +27,9 @@ const weeks: MobilePregnancyWeekSummary[] = [
     },
     faq: {
       title: "궁금해요",
-      items: [{ question: "배 모양이 달라도 괜찮나요?", answer: "개인차가 있어요." }],
+      items: [
+        { question: "배 모양이 달라도 괜찮나요?", answer: "개인차가 있어요." },
+      ],
     },
   },
   {
@@ -52,8 +54,14 @@ test("weekly encyclopedia selects the profile week when it is ready", () => {
   assert.deepEqual(model.lifeGuideItems, ["물 마시기", "가볍게 산책하기"]);
   assert.deepEqual(model.cautionItems, ["강한 통증"]);
   assert.equal(model.faqItems[0]?.question, "배 모양이 달라도 괜찮나요?");
-  assert.equal(model.weekCells.find((cell) => cell.weekNumber === 18)?.state, "current");
-  assert.equal(model.weekCells.find((cell) => cell.weekNumber === 19)?.state, "preparing");
+  assert.equal(
+    model.weekCells.find((cell) => cell.weekNumber === 18)?.state,
+    "current",
+  );
+  assert.equal(
+    model.weekCells.find((cell) => cell.weekNumber === 19)?.state,
+    "preparing",
+  );
 });
 
 test("weekly encyclopedia honors a selected ready week", () => {
@@ -64,6 +72,22 @@ test("weekly encyclopedia honors a selected ready week", () => {
       selectedWeekNumber: 20,
     })?.weekNumber,
     20,
+  );
+
+  const model = buildWeeklyEncyclopediaViewModel({
+    weeks,
+    profilePregnancyWeekLabel: "18주 2일",
+    selectedWeekNumber: 20,
+  });
+
+  assert.equal(model.selectedWeek?.weekNumber, 20);
+  assert.equal(
+    model.weekCells.find((cell) => cell.weekNumber === 20)?.state,
+    "selected",
+  );
+  assert.equal(
+    model.weekCells.find((cell) => cell.weekNumber === 18)?.state,
+    "current",
   );
 });
 
@@ -77,5 +101,8 @@ test("weekly encyclopedia exposes a preparing state for missing weeks", () => {
   assert.equal(model.selectedWeek, null);
   assert.equal(model.preparingWeekNumber, 36);
   assert.equal(model.emptyTitle, "36주차 정보는 정리 중이에요");
-  assert.equal(model.emptyDescription, "준비되는 대로 차분히 읽을 수 있게 보여드릴게요.");
+  assert.equal(
+    model.emptyDescription,
+    "준비되는 대로 차분히 읽을 수 있게 보여드릴게요.",
+  );
 });
