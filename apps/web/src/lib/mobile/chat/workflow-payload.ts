@@ -17,6 +17,8 @@ export type WorkflowScenario =
   | "mother_info"
   | "checklist"
   | "attachment_question"
+  | "letter_reflection"
+  | "daily_followup"
   | "empathy_chat"
   | "week_info"
   | "symptom_counsel"
