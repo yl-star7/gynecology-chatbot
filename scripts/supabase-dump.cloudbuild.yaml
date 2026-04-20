@@ -1,0 +1,42 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+timeout: 1200s
+
+substitutions:
+  _SUPA_PW: ''
+  _DUMP_BUCKET: 'agaya-2026_cloudbuild'
+  _DUMP_PATH: 'dumps/supabase-latest.sql'
+
+steps:
+  - id: pg-dump
+    name: postgres:16
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        export PGPASSWORD="${_SUPA_PW}"
+        echo "==> resolving host..."
+        getent hosts db.wmguogzglxktsxnqrqjd.supabase.co || true
+        echo "==> dumping public + content schemas..."
+        pg_dump \
+          --host=db.wmguogzglxktsxnqrqjd.supabase.co \
+          --port=5432 \
+          --username=postgres \
+          --dbname=postgres \
+          --schema=public --schema=content \
+          --no-owner --no-privileges --no-tablespaces \
+          --format=plain \
+          --file=/workspace/supabase.sql
+        echo "==> dump size:"
+        ls -la /workspace/supabase.sql
+        wc -l /workspace/supabase.sql
+  - id: upload
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    args:
+      - gsutil
+      - cp
+      - /workspace/supabase.sql
+      - gs://${_DUMP_BUCKET}/${_DUMP_PATH}
