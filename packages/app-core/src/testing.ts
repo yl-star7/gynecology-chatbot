@@ -358,7 +358,11 @@ let mockWorkflowRules: AdminWorkflowRule[] = [
         config: { collection: "pregnancy-knowledge", top_k: 8 },
       },
       { id: "prompt_template", type: "prompt_template", config: {} },
-      { id: "llm", type: "llm", config: { model: "gemini-3.1-flash-lite-preview" } },
+      {
+        id: "llm",
+        type: "llm",
+        config: { model: "gemini-3.1-flash-lite-preview" },
+      },
       { id: "answer", type: "answer", config: { format: "json" } },
       { id: "end", type: "end", config: {} },
     ],
@@ -376,7 +380,11 @@ let mockWorkflowRules: AdminWorkflowRule[] = [
         type: "retriever",
         config: { collection: "pregnancy-knowledge", top_k: 8 },
       },
-      { id: "b2", type: "llm", config: { model: "gemini-3.1-flash-lite-preview" } },
+      {
+        id: "b2",
+        type: "llm",
+        config: { model: "gemini-3.1-flash-lite-preview" },
+      },
     ],
   },
 ];
@@ -582,6 +590,10 @@ export class MockMobileChatAdapter implements MobileChatPort {
         body: "연결된 콘텐츠를 준비 중입니다.",
       }
     );
+  }
+
+  async summarizeSession() {
+    return { summarized: false as const, reason: "mock" };
   }
 }
 
