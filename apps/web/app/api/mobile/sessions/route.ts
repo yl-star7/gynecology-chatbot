@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import {
   mobileNoStoreJson,
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
-import { supabaseSelect } from "@/lib/supabase/admin-client";
 import {
   resolveRecentChatPreview,
   toRecentChats,
@@ -26,21 +26,43 @@ type MessagePreviewRow = {
   }> | null;
 };
 
+function toIsoString(value: Date | null | undefined) {
+  return value?.toISOString() ?? null;
+}
+
+function asMessageParts(value: Prisma.JsonValue): MessagePreviewRow["parts"] {
+  return Array.isArray(value) ? (value as MessagePreviewRow["parts"]) : null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const hintedUserId = request.nextUrl.searchParams.get("userId");
     const { userId } = await requireMobileSession(request, hintedUserId);
 
-    const sessions = await supabaseSelect<SessionRow[]>(
-      `chat_sessions?select=id,title,last_message_at&user_id=eq.${userId}&order=last_message_at.desc.nullslast`,
-    );
+    const sessions = await prisma.chat_sessions.findMany({
+      where: { user_id: userId },
+      orderBy: [{ last_message_at: "desc" }],
+      select: {
+        id: true,
+        title: true,
+        last_message_at: true,
+      },
+    });
 
     const sessionIds = sessions.map((session) => session.id);
     const latestMessages =
       sessionIds.length > 0
-        ? await supabaseSelect<MessagePreviewRow[]>(
-            `chat_messages?select=session_id,plain_text,parts&session_id=in.(${sessionIds.join(",")})&order=created_at.desc`,
-          )
+        ? await prisma.chat_messages.findMany({
+            where: {
+              session_id: { in: sessionIds },
+            },
+            orderBy: [{ created_at: "desc" }],
+            select: {
+              session_id: true,
+              plain_text: true,
+              parts: true,
+            },
+          })
         : [];
 
     const previewBySessionId = new Map<string, string>();
@@ -51,7 +73,7 @@ export async function GET(request: NextRequest) {
 
       const preview = resolveRecentChatPreview({
         plainText: message.plain_text,
-        parts: message.parts,
+        parts: asMessageParts(message.parts),
       });
       if (preview) {
         previewBySessionId.set(message.session_id, preview);
@@ -62,6 +84,7 @@ export async function GET(request: NextRequest) {
       sessions: toRecentChats(
         sessions.map((session) => ({
           ...session,
+          last_message_at: toIsoString(session.last_message_at),
           last_message_preview: previewBySessionId.get(session.id) ?? null,
         })),
       ),

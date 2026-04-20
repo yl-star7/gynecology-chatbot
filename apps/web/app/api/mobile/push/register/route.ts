@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@gynecology-chatbot/db/prisma";
 
 import { requireMobileSession } from "@/lib/mobile/session-auth";
-import { supabaseUpdate } from "@/lib/supabase/admin-client";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,9 +18,12 @@ export async function POST(request: NextRequest) {
 
     const { userId } = await requireMobileSession(request, "");
 
-    await supabaseUpdate(`pregnancy_profiles?user_id=eq.${userId}`, {
-      push_token: pushToken,
-      updated_at: new Date().toISOString(),
+    await prisma.pregnancy_profiles.updateMany({
+      where: { user_id: userId },
+      data: {
+        push_token: pushToken,
+        updated_at: new Date(),
+      },
     });
 
     return NextResponse.json({ ok: true });
