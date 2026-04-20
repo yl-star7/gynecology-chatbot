@@ -7,10 +7,7 @@ import {
   hasCompletedProfileOnboarding,
   updateMobileProfile,
 } from "@gynecology-chatbot/mobile-api/auth";
-import {
-  getSupabaseAdminClient,
-  supabaseSelect,
-} from "@gynecology-chatbot/mobile-api/supabase/admin-client";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import { decryptPhoneNumber } from "@gynecology-chatbot/mobile-api/privacy/phone-crypto";
 import {
   mobileRouteErrorResponse,
@@ -137,25 +134,92 @@ function resolveQuestionChoices(question: QuestionRow) {
     .filter((choice) => choice.label.length > 0);
 }
 
+function asObject<T>(value: Prisma.JsonValue | null | undefined): T | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as T)
+    : null;
+}
+
+function formatDateOnly(value: Date | null | undefined) {
+  return value ? value.toISOString().slice(0, 10) : null;
+}
+
+function formatTimeOnly(value: Date | null | undefined) {
+  return value ? value.toISOString().slice(11, 19) : null;
+}
+
+function getKstDateKey() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+  const day = parts.find((part) => part.type === "day")?.value ?? "01";
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateOnly(isoDate: string) {
+  return new Date(`${isoDate}T00:00:00.000Z`);
+}
+
 app.get("/", async (c) => {
   try {
     const hintedUserId = c.req.query("userId") ?? null;
     const { userId } = await requireMobileSession(c, hintedUserId);
 
-    const [users, profiles] = await Promise.all([
-      supabaseSelect<UserRow[]>(
-        `users?select=id,phone_number_encrypted,account_status&id=eq.${userId}&limit=1`,
-      ),
-      supabaseSelect<ProfileRow[]>(
-        `pregnancy_profiles?select=display_name,pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${userId}&limit=1`,
-      ),
+    const [userRecord, profileRecord] = await Promise.all([
+      prisma.users.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          phone_number_encrypted: true,
+          account_status: true,
+        },
+      }),
+      prisma.pregnancy_profiles.findUnique({
+        where: { user_id: userId },
+        select: {
+          display_name: true,
+          pregnancy_day_count: true,
+          pregnancy_week: true,
+          pregnancy_day_in_week: true,
+          due_date: true,
+          onboarding_payload: true,
+          baby_nickname: true,
+          notification_time: true,
+          theme_key: true,
+        },
+      }),
     ]);
 
-    if (!users[0]) {
+    if (!userRecord?.phone_number_encrypted) {
       return c.json({ error: "user not found" }, 404);
     }
 
-    const profile = profiles[0] ?? null;
+    const user: UserRow = {
+      id: userRecord.id,
+      phone_number_encrypted: userRecord.phone_number_encrypted,
+      account_status: userRecord.account_status,
+    };
+    const profile: ProfileRow | null = profileRecord
+      ? {
+          display_name: profileRecord.display_name,
+          pregnancy_day_count: profileRecord.pregnancy_day_count,
+          pregnancy_week: profileRecord.pregnancy_week,
+          pregnancy_day_in_week: profileRecord.pregnancy_day_in_week,
+          due_date: formatDateOnly(profileRecord.due_date),
+          onboarding_payload: asObject<ProfileRow["onboarding_payload"]>(
+            profileRecord.onboarding_payload,
+          ),
+          baby_nickname: profileRecord.baby_nickname,
+          notification_time: formatTimeOnly(profileRecord.notification_time),
+          theme_key: profileRecord.theme_key,
+        }
+      : null;
+
     let pendingSurveys: Array<{
       id: string;
       code: string;
@@ -169,28 +233,84 @@ app.get("/", async (c) => {
     if (profile?.pregnancy_week) {
       try {
         const dayNumber = ((profile.pregnancy_day_in_week ?? 0) % 7) + 1;
-        const weekRows = await supabaseSelect<WeekRow[]>(
-          `content_pregnancy_week_data?select=id&week_number=eq.${profile.pregnancy_week}&status=eq.published&limit=1`,
-        );
-        const week = weekRows[0];
+        const weekRecord = await prisma.content_pregnancy_week_data.findFirst({
+          where: {
+            week_number: profile.pregnancy_week,
+            status: "published",
+          },
+          select: { id: true },
+        });
+        const week: WeekRow | null = weekRecord;
 
         if (week) {
-          const [datedQuestions, genericQuestions] = await Promise.all([
-            supabaseSelect<QuestionRow[]>(
-              `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
-            ),
-            supabaseSelect<QuestionRow[]>(
-              `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,
-            ),
+          const [datedQuestion, genericQuestion] = await Promise.all([
+            prisma.content_week_questions.findFirst({
+              where: {
+                week_data_id: week.id,
+                day_number: dayNumber,
+                is_active: true,
+              },
+              orderBy: { display_order: "asc" },
+              select: {
+                id: true,
+                code: true,
+                question_text: true,
+                question_type: true,
+                help_text: true,
+                question_payload: true,
+                display_order: true,
+                is_required: true,
+              },
+            }),
+            prisma.content_week_questions.findFirst({
+              where: {
+                week_data_id: week.id,
+                day_number: null,
+                is_active: true,
+              },
+              orderBy: { display_order: "asc" },
+              select: {
+                id: true,
+                code: true,
+                question_text: true,
+                question_type: true,
+                help_text: true,
+                question_payload: true,
+                display_order: true,
+                is_required: true,
+              },
+            }),
           ]);
 
-          const question = datedQuestions[0] ?? genericQuestions[0] ?? null;
+          const questionRecord = datedQuestion ?? genericQuestion ?? null;
+          const question: QuestionRow | null = questionRecord
+            ? {
+                id: questionRecord.id,
+                code: questionRecord.code,
+                question_text: questionRecord.question_text,
+                question_type: questionRecord.question_type as QuestionRow["question_type"],
+                help_text: questionRecord.help_text,
+                question_payload: asObject<QuestionRow["question_payload"]>(
+                  questionRecord.question_payload,
+                ),
+                display_order: questionRecord.display_order,
+                is_required: questionRecord.is_required,
+              }
+            : null;
           const questionEvents = question
-            ? await supabaseSelect<QuestionEventRow[]>(
-                `user_question_events?select=id,question_id,status&user_id=eq.${userId}&question_id=eq.${question.id}`,
-              )
+            ? await prisma.user_question_events.findMany({
+                where: {
+                  user_id: userId,
+                  question_id: question.id,
+                },
+                select: {
+                  id: true,
+                  question_id: true,
+                  status: true,
+                },
+              })
             : [];
-          const answered = questionEvents.some(
+          const answered = (questionEvents as QuestionEventRow[]).some(
             (event) => event.status === "answered",
           );
 
@@ -216,14 +336,14 @@ app.get("/", async (c) => {
 
     return c.json({
       profile: {
-        userId: users[0].id,
+        userId: user.id,
         displayName: profile?.display_name ?? "사용자",
-        phoneNumber: decryptPhoneNumber(users[0].phone_number_encrypted),
+        phoneNumber: decryptPhoneNumber(user.phone_number_encrypted),
         pregnancyWeekLabel: profile?.pregnancy_week
           ? `${profile.pregnancy_week}주 ${profile.pregnancy_day_in_week ?? 0}일`
           : "정보 없음",
         pregnancyDayCount: profile?.pregnancy_day_count ?? 0,
-        accountStatus: users[0].account_status,
+        accountStatus: user.account_status,
         hasCompletedOnboarding: hasCompletedProfileOnboarding(profile),
         dueDate: profile?.due_date ?? null,
         tonePreference: profile?.onboarding_payload?.tonePreference ?? null,
@@ -307,7 +427,6 @@ app.patch("/", async (c) => {
 // POST /api/mobile/profile/surveys
 app.post("/surveys", async (c) => {
   try {
-    const client = getSupabaseAdminClient();
     const body = await c.req.json().catch(() => ({}));
     const hintedUserId = typeof body.userId === "string" ? body.userId : "";
     const questionId =
@@ -320,68 +439,71 @@ app.post("/surveys", async (c) => {
 
     const { userId } = await requireMobileSession(c, hintedUserId);
 
-    const { data: questions, error: questionError } = await client
-      .from("content_week_questions")
-      .select("id,question_text,question_type,help_text,question_payload")
-      .eq("id", questionId)
-      .limit(1);
-    if (questionError) {
-      throw questionError;
-    }
-    const question = questions[0];
+    const questionRecord = await prisma.content_week_questions.findUnique({
+      where: { id: questionId },
+      select: {
+        id: true,
+        question_text: true,
+        question_type: true,
+        help_text: true,
+        question_payload: true,
+      },
+    });
+    const question = questionRecord
+      ? {
+          id: questionRecord.id,
+          question_text: questionRecord.question_text,
+          question_type: questionRecord.question_type,
+          help_text: questionRecord.help_text,
+          question_payload: questionRecord.question_payload,
+        }
+      : null;
 
     if (!question) {
       return c.json({ error: "question not found" }, 404);
     }
 
-    const now = new Date().toISOString();
+    const now = new Date();
 
-    const { error: logError } = await client.from("calendar_logs").insert({
-      user_id: userId,
-      session_id: null,
-      date: getKstDateKey(),
-      entry_type: "survey_response",
-      title: question.question_text,
-      summary: answer,
-      payload: {
-        questionId: question.id,
-        questionType: question.question_type,
-        answer,
-        source: "profile_survey",
+    await prisma.calendar_logs.create({
+      data: {
+        user_id: userId,
+        session_id: null,
+        date: parseDateOnly(getKstDateKey()),
+        entry_type: "survey_response",
+        title: question.question_text,
+        summary: answer,
+        payload: {
+          questionId: question.id,
+          questionType: question.question_type,
+          answer,
+          source: "profile_survey",
+        },
       },
     });
-    if (logError) {
-      throw logError;
-    }
 
-    const { data: existingEvents, error: eventError } = await client
-      .from("user_question_events")
-      .select("id,question_id,status")
-      .eq("user_id", userId)
-      .eq("question_id", questionId)
-      .order("updated_at", { ascending: false })
-      .limit(1);
-    if (eventError) {
-      throw eventError;
-    }
+    const existingEvent = await prisma.user_question_events.findFirst({
+      where: {
+        user_id: userId,
+        question_id: questionId,
+      },
+      orderBy: { updated_at: "desc" },
+      select: { id: true },
+    });
 
-    if (existingEvents[0]) {
-      const { error: updateError } = await client
-        .from("user_question_events")
-        .update({
+    if (existingEvent?.id) {
+      await prisma.user_question_events.update({
+        where: { id: existingEvent.id },
+        data: {
           status: "answered",
           answer_message_id: null,
           answered_at: now,
           updated_at: now,
-        })
-        .eq("id", existingEvents[0].id);
-      if (updateError) {
-        throw updateError;
-      }
+        },
+      });
     } else {
-      const { error: insertError } = await client
-        .from("user_question_events")
-        .insert({
+      await prisma.user_question_events.create({
+        data: {
           user_id: userId,
           question_id: questionId,
           session_id: null,
@@ -391,10 +513,8 @@ app.post("/surveys", async (c) => {
           sent_at: now,
           answered_at: now,
           updated_at: now,
-        });
-      if (insertError) {
-        throw insertError;
-      }
+        },
+      });
     }
 
     return c.json({ ok: true });
@@ -408,18 +528,5 @@ app.post("/surveys", async (c) => {
     );
   }
 });
-
-function getKstDateKey() {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
-  const month = parts.find((part) => part.type === "month")?.value ?? "01";
-  const day = parts.find((part) => part.type === "day")?.value ?? "01";
-  return `${year}-${month}-${day}`;
-}
 
 export default app;
