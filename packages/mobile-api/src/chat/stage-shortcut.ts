@@ -23,6 +23,43 @@ export const DAILY_ATTACHMENT_QUESTION_QUOTA = 3;
 // 질문 하나당 2~3턴 공감 대화가 이어지도록.
 const CLOSING_SIGNAL =
   /다음 질문|오늘은 여기까지|이만 마칠|마칠게요|여기까지 할|여기까지만|그만할게요|그만 할게요/;
+
+/**
+ * 사용자 텍스트에서 mood 추출 — 정확한 message 매칭 실패 시 substring/tone 키워드로 폴백.
+ */
+export function detectMoodFromText(
+  text: string,
+  pool: Array<{ label: string; message: string; tone: CharacterTone }>,
+): { label: string; message: string; tone: CharacterTone } | null {
+  if (!text) return null;
+  // 1) exact message match
+  const exact = pool.find((m) => m.message === text);
+  if (exact) return exact;
+  // 2) message가 텍스트에 포함 (label 포함 prefix "오늘은 " 등 대응)
+  for (const m of pool) {
+    if (m.message && text.includes(m.message.replace(/[.!?]+$/, ""))) {
+      return m;
+    }
+    if (m.label && text.includes(m.label)) {
+      return m;
+    }
+  }
+  // 3) tone 키워드 regex 폴백 — 풀에서 해당 tone 첫 항목 반환
+  const toneKeywords: Array<{ tone: CharacterTone; re: RegExp }> = [
+    { tone: "tired", re: /피곤|졸려|무거|지쳐/ },
+    { tone: "anxious", re: /걱정|불안|떨려|답답|초조|예민|짜증/ },
+    { tone: "sad", re: /슬퍼|우울|울적|외로|눈물/ },
+    { tone: "joyful", re: /좋아|기뻐|설레|신나|행복|감사/ },
+    { tone: "calm", re: /괜찮|편안|차분|평온/ },
+  ];
+  for (const { tone, re } of toneKeywords) {
+    if (re.test(text)) {
+      const found = pool.find((m) => m.tone === tone);
+      if (found) return found;
+    }
+  }
+  return null;
+}
 const POSITIVE_ACK = /^(네|응|예|좋아|보여|볼래|알려|확인할래요)/;
 
 export type StageShortcutInput = {
