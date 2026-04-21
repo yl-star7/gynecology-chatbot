@@ -2,88 +2,90 @@ jest.mock("@/lib/admin/auth", () => ({
   readAdminSessionUser: jest.fn(),
 }));
 
-jest.mock("@/lib/admin/gcs-storage", () => ({
-  createSignedUploadUrl: jest.fn(),
-}));
-
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { createSignedUploadUrl } from "@/lib/admin/gcs-storage";
 import { POST } from "./route";
 
 const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<
   typeof readAdminSessionUser
 >;
-const mockedCreateSignedUploadUrl =
-  createSignedUploadUrl as jest.MockedFunction<typeof createSignedUploadUrl>;
 
-describe("POST /api/admin/content/media/upload", () => {
+describe("POST /api/admin/content/media/upload proxy", () => {
+  const originalFetch = global.fetch;
+  const originalAdminApiBaseUrl = process.env.ADMIN_API_BASE_URL;
+  const originalAdminApiProxySecret = process.env.ADMIN_API_PROXY_SECRET;
+
   beforeEach(() => {
     mockedReadAdminSessionUser.mockReset();
-    mockedCreateSignedUploadUrl.mockReset();
-  });
-
-  test("rejects requests without an admin session", async () => {
-    mockedReadAdminSessionUser.mockResolvedValue(null);
-
-    const formData = new FormData();
-    formData.set("file", new File(["hi"], "cover.png", { type: "image/png" }));
-    formData.set("weekNumber", "2");
-
-    const response = await POST(
-      new Request("http://localhost:3000/api/admin/content/media/upload", {
-        method: "POST",
-        body: formData,
-      }),
-    );
-
-    expect(response.status).toBe(401);
-  });
-
-  test("returns a signed upload URL for admin uploads", async () => {
     mockedReadAdminSessionUser.mockResolvedValue({
       id: "admin-1",
       displayName: "운영자",
       phoneNumber: "010",
       role: "admin",
-    });
-    mockedCreateSignedUploadUrl.mockResolvedValue({
-      signedUrl:
-        "https://storage.googleapis.com/upload/pregnancy-content/weeks/02/123-cover.png?signature=abc",
     } as never);
+    process.env.ADMIN_API_BASE_URL = "http://api.example.test";
+    process.env.ADMIN_API_PROXY_SECRET = "proxy-secret";
+    global.fetch = jest.fn(async () =>
+      new Response(
+        JSON.stringify({
+          ok: true,
+          bucketId: "pregnancy-content",
+          objectPath: "weeks/02/123-cover.png",
+          sourceFileName: "cover.png",
+          signedUrl: "https://storage.example.test/upload",
+          token: null,
+          contentType: "image/png",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    ) as typeof fetch;
+  });
 
-    const response = await POST({
-      formData: async () => {
-        const formData = new FormData();
-        formData.set(
-          "file",
-          new File(["cover"], "cover.png", { type: "image/png" }),
-        );
-        formData.set("bucketId", "pregnancy-content");
-        formData.set("mediaScope", "week");
-        formData.set("weekNumber", "2");
-        return formData;
-      },
-    } as Request);
+  afterEach(() => {
+    global.fetch = originalFetch;
+    process.env.ADMIN_API_BASE_URL = originalAdminApiBaseUrl;
+    process.env.ADMIN_API_PROXY_SECRET = originalAdminApiProxySecret;
+  });
 
-    expect(mockedCreateSignedUploadUrl).toHaveBeenCalledWith(
-      expect.objectContaining({
-        bucketId: "pregnancy-content",
-        objectPath: expect.stringMatching(/^weeks\/02\/\d+-cover\.png$/),
-        contentType: "image/png",
-      }),
+  test("rejects requests without an admin session", async () => {
+    mockedReadAdminSessionUser.mockResolvedValue(null);
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/admin/content/media/upload", {
+        method: "POST",
+        body: new FormData(),
+      }) as never,
     );
+
+    expect(response.status).toBe(401);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test("forwards media uploads to the API server", async () => {
+    const response = await POST(
+      new Request("http://localhost:3000/api/admin/content/media/upload", {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: "upload-request",
+      }) as never,
+    );
+
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual(
       expect.objectContaining({
         ok: true,
-        bucketId: "pregnancy-content",
-        objectPath: expect.stringMatching(/^weeks\/02\/\d+-cover\.png$/),
-        signedUrl: expect.stringContaining(
-          "https://storage.googleapis.com/upload/",
-        ),
-        token: null,
-        contentType: "image/png",
+        objectPath: "weeks/02/123-cover.png",
       }),
     );
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://api.example.test/api/admin/content/media/upload",
+      expect.objectContaining({ method: "POST", body: expect.any(Buffer) }),
+    );
+    const headers = (global.fetch as jest.Mock).mock.calls[0][1]
+      .headers as Headers;
+    expect(headers.get("x-admin-user-id")).toBe("admin-1");
+    expect(headers.get("x-admin-proxy-secret")).toBe("proxy-secret");
   });
 });

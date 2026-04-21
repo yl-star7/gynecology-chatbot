@@ -19,6 +19,10 @@ test("home view model uses only today's message card", () => {
   });
 
   assert.ok(viewModel.quote === null || viewModel.quote.length > 0);
+  assert.equal(
+    viewModel.babyMessage,
+    "우리 아기는 지금 1일차에요. 오늘도 엄마와 연결된 시간을 기다리고 있어요.",
+  );
   assert.equal(viewModel.noteTitle, "오늘의 한마디");
   assert.ok(viewModel.noteBody.length > 0);
 });
@@ -26,7 +30,7 @@ test("home view model uses only today's message card", () => {
 test("home view model clamps due-date based label to minimum 1주 for pregnancy day 1", () => {
   const now = new Date("2026-03-30T09:00:00+09:00");
   const dueDate = new Date(
-    now.getTime() + 293 * 24 * 60 * 60 * 1000,
+    now.getTime() + 279 * 24 * 60 * 60 * 1000,
   ).toISOString();
 
   const viewModel = buildPatientHomeViewModel({
@@ -82,5 +86,5 @@ test("home view model keeps image week label even when post due copy is shown", 
 
   assert.equal(viewModel.pregnancyWeekLabel, "출산 예정일이 지났어요");
   assert.equal(viewModel.imageWeekLabel, "40주 1일");
-  assert.equal(viewModel.pregnancyDayText, "임신 294일째");
+  assert.equal(viewModel.pregnancyDayText, "임신 280일째");
 });

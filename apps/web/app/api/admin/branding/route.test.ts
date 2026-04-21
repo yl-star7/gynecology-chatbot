@@ -2,79 +2,78 @@ jest.mock("@/lib/admin/auth", () => ({
   readAdminSessionUser: jest.fn(),
 }));
 
-jest.mock("@/lib/db/admin-client", () => ({
-  dbInsert: jest.fn(),
-  dbSelect: jest.fn(),
-  dbUpdate: jest.fn(),
-}));
-
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import {
-  dbInsert,
-  dbSelect,
-  dbUpdate,
-} from "@/lib/db/admin-client";
-import { PUT } from "./route";
+import { GET, PUT } from "./route";
 
 const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<
   typeof readAdminSessionUser
 >;
-const mockedSupabaseInsert = dbInsert as jest.MockedFunction<
-  typeof dbInsert
->;
-const mockedSupabaseSelect = dbSelect as jest.MockedFunction<
-  typeof dbSelect
->;
-const mockedSupabaseUpdate = dbUpdate as jest.MockedFunction<
-  typeof dbUpdate
->;
 
-describe("PUT /api/admin/branding", () => {
+describe("/api/admin/branding proxy", () => {
+  const originalFetch = global.fetch;
+  const originalAdminApiBaseUrl = process.env.ADMIN_API_BASE_URL;
+  const originalAdminApiProxySecret = process.env.ADMIN_API_PROXY_SECRET;
+
   beforeEach(() => {
     mockedReadAdminSessionUser.mockReset();
-    mockedSupabaseInsert.mockReset();
-    mockedSupabaseSelect.mockReset();
-    mockedSupabaseUpdate.mockReset();
-  });
-
-  test("accepts a valid Google Forms https URL", async () => {
     mockedReadAdminSessionUser.mockResolvedValue({
       id: "admin-1",
       displayName: "운영자",
       phoneNumber: "010",
       role: "admin",
     } as never);
-    mockedSupabaseSelect.mockResolvedValue([{ key: "ui_branding" }] as never);
-    mockedSupabaseUpdate.mockResolvedValue([] as never);
-
-    const response = await PUT(
-      new Request("http://localhost:3000/api/admin/branding", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          surveyFormUrl: "https://docs.google.com/forms/d/e/example/viewform",
+    process.env.ADMIN_API_BASE_URL = "http://api.example.test";
+    process.env.ADMIN_API_PROXY_SECRET = "proxy-secret";
+    global.fetch = jest.fn(async () =>
+      new Response(
+        JSON.stringify({
+          mascotBucketId: null,
+          mascotObjectPath: null,
+          surveyFormUrl: null,
         }),
-      }) as never,
-    );
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    ) as typeof fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    process.env.ADMIN_API_BASE_URL = originalAdminApiBaseUrl;
+    process.env.ADMIN_API_PROXY_SECRET = originalAdminApiProxySecret;
+  });
+
+  test("forwards GET requests to the API server", async () => {
+    const response = await GET();
 
     expect(response.status).toBe(200);
-    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
-      "system_config?key=eq.ui_branding",
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://api.example.test/api/admin/branding",
       expect.objectContaining({
-        value: expect.objectContaining({
-          surveyFormUrl: "https://docs.google.com/forms/d/e/example/viewform",
-        }),
+        method: "GET",
+        cache: "no-store",
       }),
     );
+    const headers = (global.fetch as jest.Mock).mock.calls[0][1]
+      .headers as Headers;
+    expect(headers.get("x-admin-user-id")).toBe("admin-1");
+    expect(headers.get("x-admin-proxy-secret")).toBe("proxy-secret");
   });
 
-  test("rejects non-Google or non-https survey URLs", async () => {
-    mockedReadAdminSessionUser.mockResolvedValue({
-      id: "admin-1",
-      displayName: "운영자",
-      phoneNumber: "010",
-      role: "admin",
-    } as never);
+  test("forwards PUT payload validation to the API server", async () => {
+    global.fetch = jest.fn(async () =>
+      new Response(
+        JSON.stringify({
+          error: "survey form url must be a valid Google Forms https URL",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    ) as typeof fetch;
 
     const response = await PUT(
       new Request("http://localhost:3000/api/admin/branding", {
@@ -90,7 +89,12 @@ describe("PUT /api/admin/branding", () => {
     await expect(response.json()).resolves.toEqual({
       error: "survey form url must be a valid Google Forms https URL",
     });
-    expect(mockedSupabaseInsert).not.toHaveBeenCalled();
-    expect(mockedSupabaseUpdate).not.toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://api.example.test/api/admin/branding",
+      expect.objectContaining({
+        method: "PUT",
+        body: expect.any(Buffer),
+      }),
+    );
   });
 });

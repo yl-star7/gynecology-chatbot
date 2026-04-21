@@ -1,5 +1,6 @@
 import {
   DEFAULT_MOBILE_THEME_KEY,
+  PREGNANCY_TERM_DAYS,
   createKoreanDateKey,
   diffCalendarDays,
   type AuthenticatedUser,
@@ -85,7 +86,10 @@ function calculatePregnancyMetrics(input: {
 }) {
   if (input.dueDate) {
     const diffDays = diffCalendarDays(input.dueDate, createKoreanDateKey());
-    const pregnancyDayCount = Math.max(0, Math.min(280, 280 - diffDays));
+    const pregnancyDayCount = Math.max(
+      0,
+      Math.min(PREGNANCY_TERM_DAYS, PREGNANCY_TERM_DAYS - diffDays),
+    );
 
     return {
       dueDate: input.dueDate,

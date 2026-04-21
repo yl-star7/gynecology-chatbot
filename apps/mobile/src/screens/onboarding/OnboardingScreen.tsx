@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from "react-native";
 import {
   addCalendarDays,
   createKoreanDateKey,
+  PREGNANCY_TERM_DAYS,
 } from "@gynecology-chatbot/app-core";
 import {
   BrandMark,
@@ -89,7 +90,10 @@ export function OnboardingScreen() {
             value={dueDate}
             onChange={setDueDate}
             minDate={createKoreanDateKey()}
-            maxDate={addCalendarDays(createKoreanDateKey(), 294)}
+            maxDate={addCalendarDays(
+              createKoreanDateKey(),
+              PREGNANCY_TERM_DAYS,
+            )}
           />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}

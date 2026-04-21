@@ -13,6 +13,7 @@ import sessionsRoutes from "./mobile/sessions.js";
 import chatRoutes from "./mobile/chat.js";
 import recordsRoutes from "./mobile/records.js";
 import dailySummaryRoutes from "./internal/daily-summary.js";
+import adminRoutes from "./admin/index.js";
 
 export function mountMobileRoutes(app: Hono) {
   app.route("/api/mobile/auth", authRoutes);
@@ -28,5 +29,6 @@ export function mountMobileRoutes(app: Hono) {
   app.route("/api/mobile/sessions", sessionsRoutes);
   app.route("/api/mobile/chat", chatRoutes);
   app.route("/api/mobile/records", recordsRoutes);
+  app.route("/api/admin", adminRoutes);
   app.route("/api/internal/daily-summary", dailySummaryRoutes);
 }

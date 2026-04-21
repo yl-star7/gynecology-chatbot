@@ -63,7 +63,15 @@ export function PatientConversationMessageList({
   onRetrySessionLoad: () => void;
   onSurveyAnswer: (surveyId: string, choiceId: string) => Promise<boolean>;
   surveySaveErrorText: string;
-  onDeepLinkPress: (target: string, entityId?: string) => void;
+  onDeepLinkPress: (
+    target: string,
+    entityId?: string,
+    meta?: {
+      title?: string;
+      description?: string;
+      weekNumber?: number | null;
+    },
+  ) => void;
 }) {
   const [didChooseEmptyReply, setDidChooseEmptyReply] = useState(false);
   const listState = resolveConversationMessageListState({
@@ -216,6 +224,7 @@ export function PatientConversationMessageList({
                     {visibleParts.map((part) => {
                       const isImage = part.type === "image";
                       const isQuickReplies = part.type === "quickReplies";
+                      const isDeepLink = part.type === "deepLink";
                       return (
                         <View key={part.id} style={styles.assistantBubbleRow}>
                           <View
@@ -225,7 +234,9 @@ export function PatientConversationMessageList({
                                 ? styles.assistantImageWrapper
                                 : isQuickReplies
                                   ? styles.assistantQuickRepliesWrapper
-                                  : styles.assistantMessageWrapper,
+                                  : isDeepLink
+                                    ? styles.assistantDeepLinkWrapper
+                                    : styles.assistantMessageWrapper,
                             ]}
                           >
                             <ChatPartRenderer
@@ -423,6 +434,10 @@ const styles = StyleSheet.create({
     minWidth: space.xxxl,
   },
   assistantQuickRepliesWrapper: {
+    alignSelf: "flex-start",
+    maxWidth: "100%",
+  },
+  assistantDeepLinkWrapper: {
     alignSelf: "flex-start",
     maxWidth: "100%",
   },

@@ -21,22 +21,6 @@ config.resolver.nodeModulesPaths = [
 
 config.resolver.disableHierarchicalLookup = true;
 
-const PINNED_REACT = {
-  react: resolveMobileReactRequest("react"),
-  "react/jsx-runtime": resolveMobileReactRequest("react/jsx-runtime"),
-  "react/jsx-dev-runtime": resolveMobileReactRequest("react/jsx-dev-runtime"),
-  "react-dom": resolveMobileReactRequest("react-dom"),
-  scheduler: resolveMobileReactRequest("scheduler"),
-};
-
-config.resolver.resolveRequest = (context, moduleName, platform) => {
-  const pinned = PINNED_REACT[moduleName];
-  if (pinned) {
-    return { type: "sourceFile", filePath: pinned };
-  }
-  return context.resolveRequest(context, moduleName, platform);
-};
-
 config.resolver.extraNodeModules = {
   ...(config.resolver.extraNodeModules ?? {}),
   react: path.dirname(resolveMobileReactRequest("react")),

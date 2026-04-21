@@ -18,7 +18,7 @@ test.describe("관리자 E2E", () => {
     const sidebar = page.locator("aside");
     await expect(sidebar.getByText("운영 상태")).toBeVisible();
     await expect(sidebar.getByText("계정")).toBeVisible();
-    await expect(sidebar.getByText("콘텐츠")).toBeVisible();
+    await expect(sidebar.getByText("콘텐츠", { exact: true })).toBeVisible();
     await expect(sidebar.getByText("모니터링")).toBeVisible();
   });
 

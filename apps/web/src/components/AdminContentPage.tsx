@@ -34,8 +34,16 @@ export default function AdminContentPage({
       title={title}
     >
       <AdminContentSection
+        homeCopyItems={state.homeCopyItems}
+        selectedHomeCopyItemId={state.selectedHomeCopyItemId}
         knowledgeItems={state.knowledgeItems}
         selectedKnowledgeItemId={state.selectedKnowledgeItemId}
+        homeCopySlot={state.homeCopySlot}
+        homeCopyVariant={state.homeCopyVariant}
+        homeCopyTitle={state.homeCopyTitle}
+        homeCopyBody={state.homeCopyBody}
+        homeCopyStatus={state.homeCopyStatus}
+        homeCopyDisplayOrder={state.homeCopyDisplayOrder}
         knowledgeSlug={state.knowledgeSlug}
         knowledgeSection={state.knowledgeSection}
         knowledgeTitle={state.knowledgeTitle}
@@ -64,12 +72,24 @@ export default function AdminContentPage({
         uploadingCoverField={state.uploadingCoverField}
         isRagSubmitting={state.isRagSubmitting}
         isFileUploading={state.isFileUploading}
+        isHomeCopySaving={state.isHomeCopySaving}
         isKnowledgeSaving={state.isKnowledgeSaving}
         isWorkflowSaving={state.isWorkflowSaving}
         isWorkflowBootstrapping={state.isWorkflowBootstrapping}
         isWorkflowRunning={state.isWorkflowRunning}
         isWorkflowDeleting={state.isWorkflowDeleting}
         isWeekSaving={state.isWeekSaving}
+        onSelectHomeCopyItem={state.syncSelectedHomeCopyItem}
+        onHomeCopySlotChange={state.setHomeCopySlot}
+        onHomeCopyVariantChange={state.setHomeCopyVariant}
+        onHomeCopyTitleChange={state.setHomeCopyTitle}
+        onHomeCopyBodyChange={state.setHomeCopyBody}
+        onHomeCopyStatusChange={state.setHomeCopyStatus}
+        onHomeCopyDisplayOrderChange={state.setHomeCopyDisplayOrder}
+        onCreateHomeCopyItem={state.handleCreateHomeCopyItem}
+        onUpdateHomeCopyItem={state.handleUpdateHomeCopyItem}
+        onDeleteHomeCopyItem={state.handleDeleteHomeCopyItem}
+        onResetHomeCopyItem={state.resetHomeCopyItemForm}
         onSelectKnowledgeItem={state.syncSelectedKnowledgeItem}
         onKnowledgeSlugChange={state.setKnowledgeSlug}
         onKnowledgeSectionChange={state.setKnowledgeSection}

@@ -5,6 +5,7 @@ import {
   parseWorkflowAssistantPayload,
   type ProfileMemoryPayload,
   type SessionMemoryPayload,
+  type WorkflowDeepLink,
   type WorkflowScenario,
 } from "../workflow-payload";
 import { sanitizeInlineCitationMarkers } from "../sanitizers";
@@ -207,6 +208,60 @@ function resolveQuickReplies(input: {
   return [];
 }
 
+const WEEK_DETAIL_SCENARIOS = new Set<WorkflowScenario>([
+  "baby_info",
+  "mother_info",
+  "week_info",
+]);
+const koreanWeekPattern = /(?:^|[^\d])(\d{1,2})\s*주(?:차)?/u;
+
+function normalizePregnancyWeek(value: unknown) {
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : Number.NaN;
+
+  if (
+    !Number.isInteger(numericValue) ||
+    numericValue < 1 ||
+    numericValue > 42
+  ) {
+    return null;
+  }
+
+  return numericValue;
+}
+
+function extractWeekFromLinkCopy(
+  link: Pick<WorkflowDeepLink, "title" | "description">,
+) {
+  for (const source of [link.title, link.description]) {
+    const match = source.match(koreanWeekPattern);
+    const weekNumber = normalizePregnancyWeek(match?.[1]);
+    if (weekNumber) {
+      return weekNumber;
+    }
+  }
+
+  return null;
+}
+
+function resolveDeepLinkWeekNumber(input: {
+  link: WorkflowDeepLink;
+  scenario?: WorkflowScenario;
+  currentWeek?: number | null;
+}) {
+  return (
+    normalizePregnancyWeek(input.link.weekNumber) ??
+    extractWeekFromLinkCopy(input.link) ??
+    (input.scenario && WEEK_DETAIL_SCENARIOS.has(input.scenario)
+      ? normalizePregnancyWeek(input.currentWeek)
+      : null)
+  );
+}
+
 export async function buildWorkflowAssistantMessage<
   TRun extends {
     outputs?: Record<string, unknown>;
@@ -216,6 +271,7 @@ export async function buildWorkflowAssistantMessage<
   run: TRun;
   loadCharacterImages: () => Promise<Record<string, string | null>>;
   extractOutputs: (run: TRun) => Record<string, unknown> | undefined;
+  currentWeek?: number | null;
 }): Promise<ChatMessage | null> {
   const payload = parseWorkflowAssistantPayload(
     input.extractOutputs(input.run),
@@ -260,14 +316,23 @@ export async function buildWorkflowAssistantMessage<
   if (payload.deepLinks && payload.deepLinks.length > 0) {
     const deepLinkId = `workflow-link-${Date.now()}`;
     for (const [index, link] of payload.deepLinks.entries()) {
-      parts.push({
+      const weekNumber = resolveDeepLinkWeekNumber({
+        link,
+        scenario: payload.scenario,
+        currentWeek: input.currentWeek,
+      });
+      const part: ChatMessage["parts"][number] = {
         type: "deepLink",
         id: `${deepLinkId}-${index + 1}`,
         title: link.title,
         description: link.description,
         target: link.target,
         entityId: link.entityId,
-      });
+      };
+      if (weekNumber) {
+        part.weekNumber = weekNumber;
+      }
+      parts.push(part);
     }
   }
 

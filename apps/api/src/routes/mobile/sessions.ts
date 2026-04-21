@@ -1,6 +1,10 @@
 import { Hono } from "hono";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import {
+  MobileChatSessionNotFoundError,
+  summarizeMobileChatSession,
+} from "@gynecology-chatbot/mobile-api/chat/session-summary";
+import {
   resolveRecentChatPreview,
   toChatSession,
   toRecentChats,
@@ -181,6 +185,24 @@ app.get("/:sessionId", async (c) => {
   } catch (error) {
     console.error("mobile session detail route error", error);
     return mobileRouteErrorResponse(c, error, "failed to load session");
+  }
+});
+
+// POST /api/mobile/sessions/:sessionId/summarize
+app.post("/:sessionId/summarize", async (c) => {
+  try {
+    const hintedUserId = c.req.query("userId") ?? null;
+    const sessionId = c.req.param("sessionId");
+    const { userId } = await requireMobileSession(c, hintedUserId);
+
+    const result = await summarizeMobileChatSession({ userId, sessionId });
+    return noStoreJson(c, result);
+  } catch (error) {
+    if (error instanceof MobileChatSessionNotFoundError) {
+      return c.json({ error: "session not found" }, 404);
+    }
+    console.error("mobile session summarize route error", error);
+    return mobileRouteErrorResponse(c, error, "failed to summarize session");
   }
 });
 

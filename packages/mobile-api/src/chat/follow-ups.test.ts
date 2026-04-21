@@ -57,4 +57,38 @@ describe("buildPromptFollowUpMessages", () => {
       "직접 입력",
     ]);
   });
+
+  it("does not create checklist follow-ups when no question is available", async () => {
+    const result = await buildPromptFollowUpMessages({
+      week: {
+        id: "week-20",
+        week_number: 20,
+        title: "20주차",
+        baby_summary: null,
+        mother_summary: null,
+        warning_signs: null,
+        recommended_actions: null,
+        checklist_intro: "오늘 할 일",
+        question_intro: null,
+        status: "published",
+      },
+      dayContent: null,
+      checklists: [
+        {
+          id: "check-1",
+          code: "water",
+          title: "수분 섭취 체크",
+          description: "물을 충분히 마셨는지 확인해 주세요.",
+          checklist_payload: null,
+          display_order: 1,
+          is_required: true,
+        },
+      ],
+      questions: [],
+    });
+
+    expect(result.messages).toEqual([]);
+    expect(result.selectedChecklists).toEqual([]);
+    expect(result.selectedQuestions).toEqual([]);
+  });
 });

@@ -32,6 +32,11 @@ export class RateLimitError extends Error {
 }
 
 type MobileFetch = typeof fetch;
+type NurseImageTone = "neutral" | "calm" | "joyful" | "anxious" | "tired" | "sad";
+type CharacterImagesManifest = {
+  version: string;
+  images: Record<NurseImageTone, string>;
+};
 
 let currentMobileSessionToken: string | null = null;
 let currentMobileUserId: string | null = null;
@@ -60,6 +65,7 @@ export interface MobileApiClient {
     mascotImageUrl: string | null;
     mascotAltText: string | null;
     surveyFormUrl: string | null;
+    characterImages?: CharacterImagesManifest;
   }>;
   fetchTodayView(): Promise<{ today: TodayViewData }>;
   updateTodayChecklistItem(input: {
@@ -282,6 +288,7 @@ export function createMobileApiClient(
         mascotImageUrl: string | null;
         mascotAltText: string | null;
         surveyFormUrl: string | null;
+        characterImages?: CharacterImagesManifest;
       }>(response);
     },
 

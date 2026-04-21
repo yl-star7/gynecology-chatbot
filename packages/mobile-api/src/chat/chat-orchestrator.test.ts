@@ -125,6 +125,114 @@ describe("chat orchestrator", () => {
     expect(dispatchPersonaSignalWebhook).not.toHaveBeenCalled();
   });
 
+  it("preserves v2 mood memory when later turns update only stage context", async () => {
+    const promptContext: PromptContext = {
+      pregnancyWeek: 13,
+      dayNumber: 1,
+      week: {
+        id: "week-13",
+        week_number: 13,
+        title: "13주차",
+        baby_summary: null,
+        mother_summary: null,
+        warning_signs: null,
+        recommended_actions: null,
+        checklist_intro: null,
+        question_intro: null,
+        status: "published",
+      },
+      dayContent: null,
+      checklists: [],
+      questions: [],
+      tonePreference: null,
+      profileMemory: null,
+      sessionMemory: {
+        workflowVersion: 2,
+        stage: 0,
+        stageName: "info_opt_in",
+        moodId: "tired",
+        moodLabel: "피곤해요",
+        lastEmotionTone: "tired",
+      },
+      onboardingPayload: null,
+      missingFields: [],
+    };
+    const updateSession = jest.fn().mockResolvedValue(undefined);
+    const dispatchSessionMemoryWebhook = jest.fn().mockResolvedValue(undefined);
+
+    const orchestrator = buildChatOrchestrator({
+      ensureSession: jest.fn().mockResolvedValue({ sessionId: "session-1" }),
+      saveUserMessage: jest.fn().mockResolvedValue({ id: "user-message-1" }),
+      touchSessionActivity: jest.fn().mockResolvedValue(undefined),
+      recordUserAction: jest.fn().mockResolvedValue(undefined),
+      markOutstandingPromptEventsAnswered: jest
+        .fn()
+        .mockResolvedValue({ answeredCount: 0 }),
+      getPromptContext: jest.fn().mockResolvedValue(promptContext),
+      resolveAssistantResponse: jest.fn().mockResolvedValue({
+        assistantMessage: {
+          id: "assistant-1",
+          role: "assistant",
+          createdAtLabel: "방금 전",
+          parts: [{ type: "text", id: "text-1", text: "이어서 볼게요." }],
+        } as ChatMessage,
+        workflowMemoryPayload: {
+          nextSessionMemory: {
+            workflowVersion: 2,
+            stage: 2,
+            stageName: "question_inference",
+            compactSummary: "현재 단계: 질문 대화. 선택한 질문으로 이어가요.",
+            lastScenario: "letter_reflection",
+          },
+        },
+      }),
+      saveAssistantMessages: jest.fn().mockResolvedValue([{ id: "assistant-1" }]),
+      updateSessionMemory: updateSession,
+      updateProfileMemory: jest.fn().mockResolvedValue(undefined),
+      dispatchSessionMemoryWebhook,
+      buildFollowUps: jest.fn().mockReturnValue({
+        messages: [],
+        selectedChecklists: [],
+        selectedQuestions: [],
+      }),
+      createPromptEvents: jest.fn().mockResolvedValue(undefined),
+      getAlreadyPromptedIds: jest.fn().mockResolvedValue({
+        checklistIds: new Set<string>(),
+        questionIds: new Set<string>(),
+      }),
+    });
+
+    await orchestrator({
+      userId: "user-1",
+      text: "첫 번째 질문으로 할게요",
+      sessionId: "session-1",
+      pregnancyWeek: 13,
+      imageDataUris: [],
+      hardGuardrailReason: null,
+    });
+
+    expect(updateSession).toHaveBeenCalledWith(
+      "session-1",
+      expect.objectContaining({
+        workflowVersion: 2,
+        stage: 2,
+        stageName: "question_inference",
+        moodId: "tired",
+        moodLabel: "피곤해요",
+        lastEmotionTone: "tired",
+      }),
+      expect.any(String),
+    );
+    expect(dispatchSessionMemoryWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nextSessionMemory: expect.objectContaining({
+          stageName: "question_inference",
+          moodLabel: "피곤해요",
+        }),
+      }),
+    );
+  });
+
   it("strips weekly prompt content from the main answer before saving separate follow-ups", async () => {
     const promptContext: PromptContext = {
       pregnancyWeek: 25,

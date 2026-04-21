@@ -23,6 +23,7 @@ import {
   readNativeSessionToken,
   readNativeUserId,
 } from "./nativeSessionStorage";
+import { syncNurseImageCache } from "./nurseImageCache";
 
 interface MobileAppSessionValue {
   currentUser: AuthenticatedUser | null;
@@ -80,6 +81,10 @@ export function MobileAppSessionProvider({
 
       try {
         const payload = await fetchCurrentMobileSession();
+        const brandingSync = services.profilePort
+          .getBranding()
+          .then((branding) => syncNurseImageCache(branding.characterImages))
+          .catch(() => undefined);
         if (payload.user.id === nativeUserId) {
           await nativeCacheHydration;
         } else {
@@ -96,6 +101,7 @@ export function MobileAppSessionProvider({
           await persistNativeSessionToken(persistedToken);
         }
         await persistNativeUserId(payload.user.id);
+        await brandingSync;
       } catch {
         if (cancelled) {
           return;
@@ -119,7 +125,7 @@ export function MobileAppSessionProvider({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [services.profilePort]);
 
   const value = useMemo<MobileAppSessionValue>(
     () => ({
@@ -142,6 +148,10 @@ export function MobileAppSessionProvider({
         }
         void persistNativeUserId(nextUser.id);
         void hydratePatientViewCaches(nextUser.id);
+        void services.profilePort
+          .getBranding()
+          .then((branding) => syncNurseImageCache(branding.characterImages))
+          .catch(() => undefined);
 
         return nextUser;
       },
@@ -149,6 +159,10 @@ export function MobileAppSessionProvider({
         const nextUser = await services.onboardingPort.completeProfile(input);
         await persistNativeUserId(nextUser.id);
         setCurrentUser(nextUser);
+        void services.profilePort
+          .getBranding()
+          .then((branding) => syncNurseImageCache(branding.characterImages))
+          .catch(() => undefined);
         return nextUser;
       },
       async signOut() {

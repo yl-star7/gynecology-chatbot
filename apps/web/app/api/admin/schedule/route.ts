@@ -1,59 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
+
 import { readAdminSessionUser } from "@/lib/admin/auth";
-
-const SCHEDULE_KEY = "notification_schedule";
-
-const DEFAULT_SCHEDULE = {
-  dailyCheckEnabled: true,
-  dailyCheckTime: "09:00",
-  weeklyMilestoneEnabled: true,
-  weeklyMilestoneDay: 1,
-  weeklyMilestoneTime: "10:00",
-  checkupReminderEnabled: true,
-  checkupReminderTime: "18:00",
-};
-
-type ScheduleConfig = typeof DEFAULT_SCHEDULE;
-type ConfigRow = { key: string; value: ScheduleConfig };
-
-function asScheduleConfig(value: Prisma.JsonValue | null | undefined) {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as ScheduleConfig)
-    : null;
-}
-
-const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-function validateSchedule(body: Partial<ScheduleConfig>): string | null {
-  if (
-    body.dailyCheckTime !== undefined &&
-    !TIME_PATTERN.test(body.dailyCheckTime)
-  ) {
-    return "invalid dailyCheckTime format (HH:MM)";
-  }
-  if (
-    body.weeklyMilestoneTime !== undefined &&
-    !TIME_PATTERN.test(body.weeklyMilestoneTime)
-  ) {
-    return "invalid weeklyMilestoneTime format (HH:MM)";
-  }
-  if (
-    body.checkupReminderTime !== undefined &&
-    !TIME_PATTERN.test(body.checkupReminderTime)
-  ) {
-    return "invalid checkupReminderTime format (HH:MM)";
-  }
-  if (
-    body.weeklyMilestoneDay !== undefined &&
-    (typeof body.weeklyMilestoneDay !== "number" ||
-      body.weeklyMilestoneDay < 0 ||
-      body.weeklyMilestoneDay > 6)
-  ) {
-    return "invalid weeklyMilestoneDay (must be 0-6)";
-  }
-  return null;
-}
+import { proxyAdminApiRequest } from "@/lib/admin/api-server";
 
 export async function GET() {
   try {
@@ -62,16 +10,14 @@ export async function GET() {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const row = await prisma.system_config.findUnique({
-      where: { key: SCHEDULE_KEY },
-      select: { value: true },
-    });
-
-    return NextResponse.json(asScheduleConfig(row?.value) ?? DEFAULT_SCHEDULE);
+    return proxyAdminApiRequest("schedule", { admin, method: "GET" });
   } catch (error) {
-    console.error("admin schedule GET error", error);
+    console.error("admin schedule GET proxy error", error);
     return NextResponse.json(
-      { error: "failed to load schedule" },
+      {
+        error:
+          error instanceof Error ? error.message : "failed to load schedule",
+      },
       { status: 500 },
     );
   }
@@ -84,43 +30,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const body = (await request.json()) as Partial<ScheduleConfig>;
-
-    const validationError = validateSchedule(body);
-    if (validationError) {
-      return NextResponse.json({ error: validationError }, { status: 400 });
-    }
-
-    const schedule: ScheduleConfig = { ...DEFAULT_SCHEDULE, ...body };
-
-    const existing = await prisma.system_config.findUnique({
-      where: { key: SCHEDULE_KEY },
-      select: { key: true },
-    });
-
-    if (existing?.key) {
-      await prisma.system_config.update({
-        where: { key: SCHEDULE_KEY },
-        data: {
-          value: schedule as Prisma.InputJsonValue,
-          updated_at: new Date(),
-        },
-      });
-    } else {
-      await prisma.system_config.create({
-        data: {
-          key: SCHEDULE_KEY,
-          value: schedule as Prisma.InputJsonValue,
-          updated_at: new Date(),
-        },
-      });
-    }
-
-    return NextResponse.json({ ok: true, schedule });
+    return proxyAdminApiRequest("schedule", { admin, request });
   } catch (error) {
-    console.error("admin schedule PUT error", error);
+    console.error("admin schedule PUT proxy error", error);
     return NextResponse.json(
-      { error: "failed to save schedule" },
+      {
+        error:
+          error instanceof Error ? error.message : "failed to save schedule",
+      },
       { status: 500 },
     );
   }

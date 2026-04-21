@@ -3,6 +3,7 @@ import {
   addCalendarDays,
   createKoreanDateKey,
   diffCalendarDays,
+  PREGNANCY_TERM_DAYS,
 } from "@gynecology-chatbot/app-core/time";
 import { Pool, types } from "pg";
 import { createPhoneNumberStorage } from "./privacy/phone-crypto";
@@ -199,7 +200,10 @@ function createSeedDates() {
 
 function calculatePregnancyMetricsFromDueDate(dueDateText: string) {
   const diffDays = diffCalendarDays(dueDateText, createKoreanDateKey());
-  const pregnancyDayCount = Math.max(0, Math.min(280, 280 - diffDays));
+  const pregnancyDayCount = Math.max(
+    0,
+    Math.min(PREGNANCY_TERM_DAYS, PREGNANCY_TERM_DAYS - diffDays),
+  );
 
   return {
     pregnancyDayCount,

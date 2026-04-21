@@ -150,4 +150,30 @@ describe("workflow payload", () => {
     expect(payload?.scenario).toBe("letter_reflection");
     expect(payload?.nextSessionMemory?.lastScenario).toBe("letter_reflection");
   });
+
+  it("parses workflow v2 stage and mood fields into session memory", () => {
+    const payload = parseWorkflowAssistantPayload({
+      answer: JSON.stringify({
+        answer: "오늘 주차의 산모나 태아 정보가 궁금하세요?",
+        scenario: "baby_info_offer",
+        nextSessionMemory: {
+          workflowVersion: 2,
+          stage: 0,
+          stageName: "info_opt_in",
+          moodId: "tired",
+          moodLabel: "피곤해요",
+          compactSummary:
+            "현재 단계: 정보 확인 제안. 사용자는 오늘 피곤하다고 선택했어요.",
+        },
+      }),
+    });
+
+    expect(payload?.nextSessionMemory).toMatchObject({
+      workflowVersion: 2,
+      stage: 0,
+      stageName: "info_opt_in",
+      moodId: "tired",
+      moodLabel: "피곤해요",
+    });
+  });
 });

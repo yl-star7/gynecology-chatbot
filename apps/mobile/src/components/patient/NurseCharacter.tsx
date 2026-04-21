@@ -1,6 +1,12 @@
 import { useEffect, useRef } from "react";
 import { Animated, Image, StyleSheet, View } from "react-native";
+import type { ImageSourcePropType } from "react-native";
+import { useState } from "react";
 import { patientSurfacePalette as surface, radii } from "../../theme";
+import {
+  getCachedNurseImageSource,
+  subscribeNurseImageCache,
+} from "../../core/nurseImageCache";
 
 export type EmotionTone = "calm" | "joyful" | "anxious" | "tired" | "sad";
 
@@ -13,8 +19,23 @@ const NURSE_IMAGES: Record<EmotionTone | "neutral", number> = {
   sad: require("../../../assets/branding/penguin-nurse/sad.png"),
 };
 
-function resolveNurseImage(tone?: EmotionTone | null): number {
+function resolveNurseImage(tone?: EmotionTone | null): ImageSourcePropType {
   return tone ? NURSE_IMAGES[tone] : NURSE_IMAGES.neutral;
+}
+
+function useNurseImageSource(emotionTone?: EmotionTone | null) {
+  const [remoteSource, setRemoteSource] = useState(() =>
+    getCachedNurseImageSource(emotionTone),
+  );
+
+  useEffect(() => {
+    setRemoteSource(getCachedNurseImageSource(emotionTone));
+    return subscribeNurseImageCache(() => {
+      setRemoteSource(getCachedNurseImageSource(emotionTone));
+    });
+  }, [emotionTone]);
+
+  return remoteSource ?? resolveNurseImage(emotionTone);
 }
 
 interface NurseCharacterProps {
@@ -34,6 +55,7 @@ export function NurseCharacter({
 }: NurseCharacterProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const { imageSize, wrapperSize } = SIZE_CONFIG[size];
+  const imageSource = useNurseImageSource(emotionTone);
 
   // 감정 변경 시 통통 튀는 애니메이션
   useEffect(() => {
@@ -70,7 +92,7 @@ export function NurseCharacter({
         ]}
       >
         <Image
-          source={resolveNurseImage(emotionTone)}
+          source={imageSource}
           style={{ width: imageSize, height: imageSize }}
           resizeMode="contain"
           accessibilityLabel="간호사 캐릭터"
@@ -90,11 +112,12 @@ export function NurseAvatar({
 }) {
   const avatarStyle = size === "sm" ? styles.avatarWrapSm : styles.avatarWrap;
   const imageStyle = size === "sm" ? styles.avatarImageSm : styles.avatarImage;
+  const imageSource = useNurseImageSource(emotionTone);
 
   return (
     <View style={avatarStyle}>
       <Image
-        source={resolveNurseImage(emotionTone)}
+        source={imageSource}
         style={imageStyle}
         resizeMode="contain"
         accessibilityLabel="간호사 캐릭터"

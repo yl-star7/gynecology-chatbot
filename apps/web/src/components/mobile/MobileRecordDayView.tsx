@@ -3,8 +3,16 @@
 import type { RecordDayView } from "@gynecology-chatbot/app-core";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { fetchRecordDay, resolveMobileUserId, appendUserIdToPath } from "@/lib/mobile/web-mobile-api";
-import { MobileCard, mobileInsetCardClassName, MobileSectionIntro } from "./MobilePrimitives";
+import {
+  fetchRecordDay,
+  resolveMobileUserId,
+  appendUserIdToPath,
+} from "@/lib/mobile/web-mobile-api";
+import {
+  MobileCard,
+  mobileInsetCardClassName,
+  MobileSectionIntro,
+} from "./MobilePrimitives";
 import { MobileShell } from "./MobileShell";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
@@ -15,7 +23,9 @@ export function MobileRecordDayView({
   isoDate: string;
   userId?: string | null;
 }) {
-  const resolvedUserId = useMobileSessionGuard(resolveMobileUserId(userId ?? null));
+  const resolvedUserId = useMobileSessionGuard(
+    resolveMobileUserId(userId ?? null),
+  );
   const [recordDay, setRecordDay] = useState<RecordDayView | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +45,11 @@ export function MobileRecordDayView({
       })
       .catch((nextError) => {
         if (!cancelled) {
-          setError(nextError instanceof Error ? nextError.message : "기록을 불러오지 못했어요.");
+          setError(
+            nextError instanceof Error
+              ? nextError.message
+              : "기록을 불러오지 못했어요.",
+          );
         }
       });
 
@@ -58,27 +72,34 @@ export function MobileRecordDayView({
           <MobileSectionIntro
             eyebrow="하루 기록"
             title={recordDay?.dateLabel ?? isoDate}
-            description={error ?? "이 날짜의 체크와 대화를 날짜 기준으로 모아봤어요."}
+            description={
+              error ?? "이 날짜의 체크와 대화를 날짜 기준으로 모아봤어요."
+            }
           />
         </MobileCard>
 
         <MobileCard className="p-5">
           <p className="text-sm font-semibold text-[var(--text)]">체크리스트</p>
           <div className="mt-4 grid gap-3">
-            {recordDay && recordDay.checklistItems.length > 0 ? (
-              recordDay.checklistItems.map((item) => (
-                <div key={item.id} className={`${mobileInsetCardClassName} flex items-center gap-4 p-4`}>
+            {recordDay && recordDay.checklistItems.length > 0
+              ? recordDay.checklistItems.map((item) => (
                   <div
-                    className={`h-6 w-6 rounded-[7px] border ${
-                      item.completed
-                        ? "border-[var(--success)] bg-[#dff3e4]"
-                        : "border-[#d6d8de] bg-[#f3f3f5]"
-                    }`}
-                  />
-                  <p className="font-medium text-[var(--text)]">{item.label}</p>
-                </div>
-              ))
-            ) : null}
+                    key={item.id}
+                    className={`${mobileInsetCardClassName} flex items-center gap-4 p-4`}
+                  >
+                    <div
+                      className={`h-6 w-6 rounded-[7px] border ${
+                        item.completed
+                          ? "border-[var(--success)] bg-[#dff3e4]"
+                          : "border-[#d6d8de] bg-[#f3f3f5]"
+                      }`}
+                    />
+                    <p className="font-medium text-[var(--text)]">
+                      {item.label}
+                    </p>
+                  </div>
+                ))
+              : null}
             {!recordDay || recordDay.checklistItems.length === 0 ? (
               <p className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--text-soft)]">
                 이 날짜에 예정된 체크 항목이 없어요.
@@ -88,25 +109,61 @@ export function MobileRecordDayView({
         </MobileCard>
 
         <MobileCard className="p-5">
-          <p className="text-sm font-semibold text-[var(--text)]">대화</p>
+          <p className="text-sm font-semibold text-[var(--text)]">날짜 질문</p>
           <div className="mt-4 grid gap-3">
-            {recordDay && recordDay.relatedSessions.length > 0 ? (
-              recordDay.relatedSessions.map((session) => (
-                <Link
-                  key={session.id}
-                  href={appendUserIdToPath(`/chat/${session.id}`, resolvedUserId)}
-                  className={`${mobileInsetCardClassName} p-4`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-[var(--text)]">{session.title}</p>
-                      <p className="mt-1 text-sm text-[var(--text-soft)]">{session.preview}</p>
-                    </div>
-                    <span className="text-xs text-[var(--text-soft)]">{session.updatedAtLabel}</span>
+            {recordDay && (recordDay.dailyQuestions?.length ?? 0) > 0
+              ? recordDay.dailyQuestions?.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`${mobileInsetCardClassName} p-4`}
+                  >
+                    <p className="font-medium text-[var(--text)]">
+                      {item.question}
+                    </p>
+                    <p className="mt-2 text-sm text-[var(--text-soft)]">
+                      {item.answerSummary ??
+                        "아직 답변 요약이 준비되지 않았어요."}
+                    </p>
                   </div>
-                </Link>
-              ))
+                ))
+              : null}
+            {!recordDay || (recordDay.dailyQuestions?.length ?? 0) === 0 ? (
+              <p className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--text-soft)]">
+                이 날짜에 보여드릴 질문이 아직 없어요.
+              </p>
             ) : null}
+          </div>
+        </MobileCard>
+
+        <MobileCard className="p-5">
+          <p className="text-sm font-semibold text-[var(--text)]">대화 기록</p>
+          <div className="mt-4 grid gap-3">
+            {recordDay && recordDay.relatedSessions.length > 0
+              ? recordDay.relatedSessions.map((session) => (
+                  <Link
+                    key={session.id}
+                    href={appendUserIdToPath(
+                      `/chat/${session.id}`,
+                      resolvedUserId,
+                    )}
+                    className={`${mobileInsetCardClassName} p-4`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-[var(--text)]">
+                          {session.title}
+                        </p>
+                        <p className="mt-1 text-sm text-[var(--text-soft)]">
+                          {session.preview}
+                        </p>
+                      </div>
+                      <span className="text-xs text-[var(--text-soft)]">
+                        {session.updatedAtLabel}
+                      </span>
+                    </div>
+                  </Link>
+                ))
+              : null}
             {!recordDay || recordDay.relatedSessions.length === 0 ? (
               <p className="rounded-[20px] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--text-soft)]">
                 이 날짜에 남겨진 대화가 없어요.

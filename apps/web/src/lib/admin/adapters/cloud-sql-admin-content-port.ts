@@ -147,6 +147,9 @@ const dayComparator = (a: AdminWeekDay, b: AdminWeekDay) =>
 const mediaComparator = (a: AdminWeekMedia, b: AdminWeekMedia) =>
   (a.dayNumber ?? 0) - (b.dayNumber ?? 0) || a.displayOrder - b.displayOrder;
 
+const HERO_MEDIA_ROLES = new Set(["hero", "reference", "weekly_summary"]);
+const COMPARE_MEDIA_ROLES = new Set(["compare"]);
+
 function toIsoString(value: string | Date | null | undefined) {
   if (!value) {
     return new Date().toISOString();
@@ -164,11 +167,34 @@ function mapWeekSummary(row: SupabaseWeekRow): AdminWeekSummary {
     babySizeCompareObject: row.baby_size_compare_object,
     babySummary: row.baby_summary,
     motherSummary: row.mother_summary,
-    heroImagePath: row.warning_signs,
-    compareImagePath: row.recommended_actions,
+    heroImagePath: null,
+    compareImagePath: null,
     status: row.status,
     updatedAt: toIsoString(row.updated_at),
   };
+}
+
+function buildStoragePath(row: SupabaseWeekMediaRow) {
+  return `storage://${row.bucket_id}/${row.object_path}`;
+}
+
+function findWeekMediaPath(
+  rows: SupabaseWeekMediaRow[],
+  allowedRoles: Set<string>,
+) {
+  const match = [...rows]
+    .filter(
+      (row) =>
+        row.media_scope === "week" &&
+        row.day_number === null &&
+        allowedRoles.has(row.media_role),
+    )
+    .sort(
+      (left, right) =>
+        (left.display_order ?? 0) - (right.display_order ?? 0),
+    )[0];
+
+  return match ? buildStoragePath(match) : null;
 }
 
 function mapSections(rows: SupabaseWeekSectionRow[]): AdminWeekSection[] {
@@ -239,14 +265,18 @@ function mapWeekDetail(
   assets: SupabaseWeekAssetRow[],
   media: SupabaseWeekMediaRow[],
 ): AdminWeekDetail {
+  const mappedMedia = mapMedia(media);
+
   return {
     ...mapWeekSummary(row),
+    heroImagePath: findWeekMediaPath(media, HERO_MEDIA_ROLES),
+    compareImagePath: findWeekMediaPath(media, COMPARE_MEDIA_ROLES),
     babySummary: row.baby_summary ?? "",
     motherSummary: row.mother_summary ?? "",
     days: mapDays(days),
     sections: mapSections(sections),
     assets: mapAssets(assets),
-    media: mapMedia(media),
+    media: mappedMedia,
   };
 }
 

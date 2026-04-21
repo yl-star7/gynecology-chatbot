@@ -9,6 +9,9 @@ import type {
   AdminWeekMedia,
   AdminWeekSection,
   AdminWeekSummary,
+  HomeCopyItem,
+  HomeCopySlot,
+  HomeCopyStatus,
 } from "@gynecology-chatbot/app-core";
 
 import {
@@ -20,8 +23,16 @@ import { AdminStaticSection } from "./content/AdminStaticSection";
 import { AdminWeeksSection } from "./content/AdminWeeksSection";
 
 export interface AdminContentSectionProps {
+  homeCopyItems: HomeCopyItem[];
+  selectedHomeCopyItemId: string;
   knowledgeItems: AdminKnowledgeItem[];
   selectedKnowledgeItemId: string;
+  homeCopySlot: HomeCopySlot;
+  homeCopyVariant: string;
+  homeCopyTitle: string;
+  homeCopyBody: string;
+  homeCopyStatus: HomeCopyStatus;
+  homeCopyDisplayOrder: string;
   knowledgeSlug: string;
   knowledgeSection: AdminKnowledgeItem["section"];
   knowledgeTitle: string;
@@ -51,12 +62,24 @@ export interface AdminContentSectionProps {
   uploadingMediaIndex: number | null;
   isRagSubmitting: boolean;
   isFileUploading: boolean;
+  isHomeCopySaving: boolean;
   isKnowledgeSaving: boolean;
   isWorkflowSaving: boolean;
   isWorkflowBootstrapping?: boolean;
   isWorkflowRunning?: boolean;
   isWorkflowDeleting?: boolean;
   isWeekSaving: boolean;
+  onSelectHomeCopyItem: (id: string) => void;
+  onHomeCopySlotChange: (value: HomeCopySlot) => void;
+  onHomeCopyVariantChange: (value: string) => void;
+  onHomeCopyTitleChange: (value: string) => void;
+  onHomeCopyBodyChange: (value: string) => void;
+  onHomeCopyStatusChange: (value: HomeCopyStatus) => void;
+  onHomeCopyDisplayOrderChange: (value: string) => void;
+  onCreateHomeCopyItem: () => Promise<void>;
+  onUpdateHomeCopyItem: () => Promise<void>;
+  onDeleteHomeCopyItem: () => Promise<void>;
+  onResetHomeCopyItem?: () => void;
   onSelectKnowledgeItem: (id: string) => void;
   onKnowledgeSlugChange: (value: string) => void;
   onKnowledgeSectionChange: (value: AdminKnowledgeItem["section"]) => void;
@@ -147,8 +170,16 @@ export interface AdminContentSectionProps {
 }
 
 export function AdminContentSection({
+  homeCopyItems,
+  selectedHomeCopyItemId,
   knowledgeItems,
   selectedKnowledgeItemId,
+  homeCopySlot,
+  homeCopyVariant,
+  homeCopyTitle,
+  homeCopyBody,
+  homeCopyStatus,
+  homeCopyDisplayOrder,
   knowledgeSlug,
   knowledgeSection,
   knowledgeTitle,
@@ -178,12 +209,24 @@ export function AdminContentSection({
   uploadingMediaIndex,
   isRagSubmitting,
   isFileUploading,
+  isHomeCopySaving,
   isKnowledgeSaving,
   isWorkflowSaving,
   isWorkflowBootstrapping = false,
   isWorkflowRunning = false,
   isWorkflowDeleting = false,
   isWeekSaving,
+  onSelectHomeCopyItem,
+  onHomeCopySlotChange,
+  onHomeCopyVariantChange,
+  onHomeCopyTitleChange,
+  onHomeCopyBodyChange,
+  onHomeCopyStatusChange,
+  onHomeCopyDisplayOrderChange,
+  onCreateHomeCopyItem,
+  onUpdateHomeCopyItem,
+  onDeleteHomeCopyItem,
+  onResetHomeCopyItem = () => {},
   onSelectKnowledgeItem,
   onKnowledgeSlugChange,
   onKnowledgeSectionChange,
@@ -272,16 +315,36 @@ export function AdminContentSection({
   if (view === "static") {
     return (
       <AdminStaticSection
+        homeCopyItems={homeCopyItems}
+        selectedHomeCopyItemId={selectedHomeCopyItemId}
         knowledgeItems={knowledgeItems}
         selectedKnowledgeItemId={selectedKnowledgeItemId}
         contentMessage={contentMessage}
+        homeCopySlot={homeCopySlot}
+        homeCopyVariant={homeCopyVariant}
+        homeCopyTitle={homeCopyTitle}
+        homeCopyBody={homeCopyBody}
+        homeCopyStatus={homeCopyStatus}
+        homeCopyDisplayOrder={homeCopyDisplayOrder}
         knowledgeSlug={knowledgeSlug}
         knowledgeSection={knowledgeSection}
         knowledgeTitle={knowledgeTitle}
         knowledgeBody={knowledgeBody}
         knowledgeImageUrl={knowledgeImageUrl}
         knowledgeStatus={knowledgeStatus}
+        isHomeCopySaving={isHomeCopySaving}
         isKnowledgeSaving={isKnowledgeSaving}
+        onSelectHomeCopyItem={onSelectHomeCopyItem}
+        onHomeCopySlotChange={onHomeCopySlotChange}
+        onHomeCopyVariantChange={onHomeCopyVariantChange}
+        onHomeCopyTitleChange={onHomeCopyTitleChange}
+        onHomeCopyBodyChange={onHomeCopyBodyChange}
+        onHomeCopyStatusChange={onHomeCopyStatusChange}
+        onHomeCopyDisplayOrderChange={onHomeCopyDisplayOrderChange}
+        onCreateHomeCopyItem={onCreateHomeCopyItem}
+        onUpdateHomeCopyItem={onUpdateHomeCopyItem}
+        onDeleteHomeCopyItem={onDeleteHomeCopyItem}
+        onResetHomeCopyItem={onResetHomeCopyItem}
         onSelectKnowledgeItem={onSelectKnowledgeItem}
         onKnowledgeSlugChange={onKnowledgeSlugChange}
         onKnowledgeSectionChange={onKnowledgeSectionChange}

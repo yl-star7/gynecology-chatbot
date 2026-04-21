@@ -495,6 +495,18 @@ export class MockMobileHomeAdapter implements MobileHomePort {
         answer: "아기가 움직이는 느낌이 또렷해서 반가웠어요.",
         aiSummary: "아기의 움직임을 느끼며 안심하고 기뻐한 하루였어요.",
       },
+      dailyQuestions: [
+        {
+          id: `${isoDate}-question-memory`,
+          question: "오늘 가장 기억에 남는 순간은 무엇이었나요?",
+          answerSummary: "아기의 움직임을 느끼며 안심하고 기뻐한 하루였어요.",
+        },
+        {
+          id: `${isoDate}-question-message`,
+          question: "아기에게 남기고 싶은 말이 있나요?",
+          answerSummary: null,
+        },
+      ],
       records: [],
       relatedSessions,
     };

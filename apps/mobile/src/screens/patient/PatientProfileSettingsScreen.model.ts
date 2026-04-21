@@ -8,6 +8,7 @@ import type {
 import {
   addCalendarDays,
   createKoreanDateKey,
+  PREGNANCY_TERM_DAYS,
 } from "@gynecology-chatbot/app-core";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import {
@@ -40,7 +41,7 @@ export const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", 
 export { DEFAULT_NOTIFICATION_TIME, normalizePatientNotificationTimeInput };
 
 function createDueDateMaxDate() {
-  return addCalendarDays(createKoreanDateKey(), 294);
+  return addCalendarDays(createKoreanDateKey(), PREGNANCY_TERM_DAYS);
 }
 
 export function usePatientProfileSettingsScreenModel() {

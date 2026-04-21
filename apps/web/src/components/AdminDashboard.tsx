@@ -75,8 +75,16 @@ export default function AdminDashboard({
       </section>
       <section id="content">
         <AdminContentSection
+          homeCopyItems={[]}
+          selectedHomeCopyItemId=""
           knowledgeItems={state.knowledgeItems}
           selectedKnowledgeItemId={state.selectedKnowledgeItemId}
+          homeCopySlot="hero_bubble"
+          homeCopyVariant=""
+          homeCopyTitle=""
+          homeCopyBody=""
+          homeCopyStatus="published"
+          homeCopyDisplayOrder=""
           knowledgeSlug={state.knowledgeSlug}
           knowledgeSection={state.knowledgeSection}
           knowledgeTitle={state.knowledgeTitle}
@@ -106,12 +114,24 @@ export default function AdminDashboard({
           uploadingMediaIndex={null}
           isRagSubmitting={state.isRagSubmitting}
           isFileUploading={false}
+          isHomeCopySaving={false}
           isKnowledgeSaving={state.isKnowledgeSaving}
           isWorkflowSaving={state.isWorkflowSaving}
           isWorkflowBootstrapping={state.isWorkflowSaving}
           isWorkflowRunning={false}
           isWorkflowDeleting={false}
           isWeekSaving={state.isWeekSaving}
+          onSelectHomeCopyItem={() => {}}
+          onHomeCopySlotChange={() => {}}
+          onHomeCopyVariantChange={() => {}}
+          onHomeCopyTitleChange={() => {}}
+          onHomeCopyBodyChange={() => {}}
+          onHomeCopyStatusChange={() => {}}
+          onHomeCopyDisplayOrderChange={() => {}}
+          onCreateHomeCopyItem={async () => {}}
+          onUpdateHomeCopyItem={async () => {}}
+          onDeleteHomeCopyItem={async () => {}}
+          onResetHomeCopyItem={() => {}}
           onSelectKnowledgeItem={state.syncSelectedKnowledgeItem}
           onKnowledgeSlugChange={state.setKnowledgeSlug}
           onKnowledgeSectionChange={state.setKnowledgeSection}

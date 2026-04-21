@@ -8,13 +8,12 @@ import type {
 } from "@gynecology-chatbot/app-core";
 import {
   addCalendarDays,
+  calculatePregnancyPositionFromDueDate,
   createKoreanDateKey,
   diffCalendarDays,
+  MAX_MANUAL_PREGNANCY_DAYS,
+  PREGNANCY_TERM_DAYS,
 } from "@gynecology-chatbot/app-core/time";
-
-const MAX_PREGNANCY_DAYS = 294;
-const MIN_PREGNANCY_WEEK = 1;
-const MAX_PREGNANCY_WEEK = 42;
 
 function getKstDateKey(now = new Date()) {
   return createKoreanDateKey(now);
@@ -29,12 +28,12 @@ function computePregnancyDayCountFromDueDate(
       const diffDays = diffCalendarDays(dueDate, getKstDateKey());
       return Math.max(
         0,
-        Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diffDays),
+        Math.min(PREGNANCY_TERM_DAYS, PREGNANCY_TERM_DAYS - diffDays),
       );
     }
   }
   const raw = fallback ?? 0;
-  return Math.max(0, Math.min(MAX_PREGNANCY_DAYS, raw));
+  return Math.max(0, Math.min(MAX_MANUAL_PREGNANCY_DAYS, raw));
 }
 
 type SessionRow = {
@@ -89,17 +88,12 @@ type RecordDayRow = {
 };
 
 function computePregnancyWeekLabelFromDueDate(dueDate?: string | null) {
-  const pregnancyDayCount = computePregnancyDayCountFromDueDate(dueDate, 0);
-  if (pregnancyDayCount <= 0) {
+  if (!dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
     return null;
   }
 
-  const week = Math.max(
-    MIN_PREGNANCY_WEEK,
-    Math.min(MAX_PREGNANCY_WEEK, Math.floor(pregnancyDayCount / 7)),
-  );
-  const dayInWeek = pregnancyDayCount % 7;
-  return `${week}주 ${dayInWeek}일`;
+  const position = calculatePregnancyPositionFromDueDate(dueDate);
+  return `${position.weekNumber}주 ${position.dayNumber - 1}일`;
 }
 
 function normalizeDateKey(value: string | Date) {
@@ -262,6 +256,7 @@ export function toHomeViewData(input: {
   calendarRows: CalendarRow[];
   emotionRows?: EmotionRow[];
   month: string;
+  homeCopyItems?: HomeViewData["homeCopyItems"];
 }): HomeViewData {
   const monthDate = getMonthStartDate(input.month);
   const daysInMonth = getDaysInMonth(input.month);
@@ -328,6 +323,7 @@ export function toHomeViewData(input: {
       description: "임신 주차별 지식 문서를 확인합니다.",
       href: "/(tabs)/knowledge",
     },
+    homeCopyItems: input.homeCopyItems ?? [],
   };
 }
 
@@ -342,9 +338,23 @@ export function toRecordDayView(input: {
     answer: string | null;
     aiSummary: string | null;
   } | null;
+  dailyQuestions?: RecordDayView["dailyQuestions"];
   records: RecordDayRow[];
   relatedSessions: SessionRow[];
 }): RecordDayView {
+  const dailyQuestions =
+    input.dailyQuestions ??
+    (input.dailyQuestion
+      ? [
+          {
+            id: "daily-question",
+            question: input.dailyQuestion.question,
+            answerSummary:
+              input.dailyQuestion.aiSummary ?? input.dailyQuestion.answer,
+          },
+        ]
+      : []);
+
   return {
     isoDate: input.isoDate,
     dateLabel: new Date(`${input.isoDate}T00:00:00.000Z`).toLocaleDateString(
@@ -361,7 +371,16 @@ export function toRecordDayView(input: {
     emotionTone: input.emotionTone,
     checklistItems: input.checklistItems,
     conversationSummary: input.conversationSummary ?? undefined,
-    dailyQuestion: input.dailyQuestion ?? null,
+    dailyQuestion:
+      input.dailyQuestion ??
+      (dailyQuestions[0]
+        ? {
+            question: dailyQuestions[0].question,
+            answer: dailyQuestions[0].answerSummary,
+            aiSummary: dailyQuestions[0].answerSummary,
+          }
+        : null),
+    dailyQuestions,
     records: input.records.map((record) => ({
       id: record.id,
       title: record.title,

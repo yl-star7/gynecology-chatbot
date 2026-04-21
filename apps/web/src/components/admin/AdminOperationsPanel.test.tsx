@@ -50,11 +50,35 @@ describe("AdminOperationsPanel", () => {
         );
       }
 
+      if (url === "/api/admin/branding/character-images" && !init?.method) {
+        return new Response(
+          JSON.stringify({
+            version: "v1",
+            images: {
+              neutral:
+                "https://storage.googleapis.com/pregnancy-content/assets/penguin-nurse/app/neutral.png",
+              calm: "https://storage.googleapis.com/pregnancy-content/assets/penguin-nurse/app/calm.png",
+              joyful:
+                "https://storage.googleapis.com/pregnancy-content/assets/penguin-nurse/app/joyful.png",
+              anxious:
+                "https://storage.googleapis.com/pregnancy-content/assets/penguin-nurse/app/anxious.png",
+              tired:
+                "https://storage.googleapis.com/pregnancy-content/assets/penguin-nurse/app/tired.png",
+              sad: "https://storage.googleapis.com/pregnancy-content/assets/penguin-nurse/app/sad.png",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
       if (url === "/api/admin/content/media/upload" && init?.method === "POST") {
         return new Response(
           JSON.stringify({
             ok: true,
-            bucketId: "branding-assets",
+            bucketId: "pregnancy-content",
             objectPath: "weeks/00/123-mascot.png",
             sourceFileName: "mascot.png",
             signedUrl: "https://upload.example.test/signed",
@@ -76,6 +100,26 @@ describe("AdminOperationsPanel", () => {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
+      }
+
+      if (
+        url === "/api/admin/branding/character-images" &&
+        init?.method === "PUT"
+      ) {
+        const body = JSON.parse(String(init.body));
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            config: {
+              version: "v2",
+              images: body.images,
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
 
       if (url === "/api/admin/schift" && !init?.method) {
@@ -125,7 +169,7 @@ describe("AdminOperationsPanel", () => {
       expect.objectContaining({
         method: "PUT",
         body: JSON.stringify({
-          mascotBucketId: "branding-assets",
+          mascotBucketId: "pregnancy-content",
           mascotObjectPath: "weeks/00/123-mascot.png",
           mascotSourceFileName: "mascot.png",
           mascotAltText: "마스코트",
@@ -160,5 +204,43 @@ describe("AdminOperationsPanel", () => {
         }),
       );
     });
+  });
+
+  it("uploads a nurse character tone into the shared image cache", async () => {
+    render(<AdminOperationsPanel />);
+
+    const input = await screen.findByLabelText("차분 이미지");
+    const file = new File(["image"], "calm.png", { type: "image/png" });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://upload.example.test/signed",
+        expect.objectContaining({
+          method: "PUT",
+          body: file,
+        }),
+      );
+    });
+
+    const uploadCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([url, init]) =>
+        url === "/api/admin/content/media/upload" && init?.method === "POST",
+    );
+    const formData = uploadCall?.[1]?.body as FormData;
+    expect(formData.get("mediaScope")).toBe("asset");
+    expect(formData.get("objectPath")).toBe(
+      "assets/penguin-nurse/app/calm.png",
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/admin/branding/character-images",
+      expect.objectContaining({
+        method: "PUT",
+        body: expect.stringContaining(
+          "https://storage.googleapis.com/pregnancy-content/weeks/00/123-mascot.png",
+        ),
+      }),
+    );
   });
 });

@@ -1,12 +1,9 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createKoreanDateKey } from "@gynecology-chatbot/app-core/time";
-import { generateText } from "ai";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import {
   searchFileRag,
-  type RagSource,
 } from "@gynecology-chatbot/mobile-api/rag";
 import { getSchiftClient } from "@gynecology-chatbot/mobile-api/schift-client";
 import {
@@ -31,7 +28,10 @@ import {
 import { buildPromptFollowUpMessages } from "@gynecology-chatbot/mobile-api/chat/follow-ups";
 import { buildChatOrchestrator } from "@gynecology-chatbot/mobile-api/chat/chat-orchestrator";
 import { createMobileChatResponder } from "@gynecology-chatbot/mobile-api/chat/responders/mobile-chat-responder";
-import type { ProfileMemoryPayload } from "@gynecology-chatbot/mobile-api/chat/workflow-payload";
+import type {
+  ProfileMemoryPayload,
+  SessionMemoryPayload,
+} from "@gynecology-chatbot/mobile-api/chat/workflow-payload";
 import { checkRateLimit } from "@gynecology-chatbot/mobile-api/rate-limit";
 import { recordUserAction } from "@gynecology-chatbot/mobile-api/user-action-log";
 import { createPersonaSignalInputFromProfileMemory } from "@gynecology-chatbot/mobile-api/persona/persona-signals";
@@ -42,22 +42,6 @@ import {
 import { noStoreJson } from "../../lib/responses.js";
 
 const app = new Hono();
-
-function getGoogleApiKey() {
-  const apiKey =
-    process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is required for mobile chat responses");
-  }
-
-  return apiKey;
-}
-
-function google(modelName: string) {
-  return createGoogleGenerativeAI({
-    apiKey: getGoogleApiKey(),
-  })(modelName);
-}
 
 function normalizeSessionId(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -144,6 +128,74 @@ async function postPersonaSignalWebhook(input: {
   }
 }
 
+async function postWorkflowSessionMemoryWebhook(input: {
+  c: Context;
+  userId: string;
+  sessionId: string;
+  sourceMessageId: string | null;
+  nextSessionMemory: SessionMemoryPayload;
+  idempotencyKey: string;
+}) {
+  const payload = {
+    userId: input.userId,
+    sessionId: input.sessionId,
+    sourceMessageId: input.sourceMessageId,
+    idempotencyKey: input.idempotencyKey,
+    sessionMemory: input.nextSessionMemory,
+  };
+  const calls: Array<Promise<Response>> = [];
+  const webhookUrl = process.env.WORKFLOW_SESSION_MEMORY_WEBHOOK_URL;
+
+  if (webhookUrl) {
+    calls.push(
+      fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(process.env.WORKFLOW_SESSION_MEMORY_WEBHOOK_SECRET
+            ? {
+                Authorization: `Bearer ${process.env.WORKFLOW_SESSION_MEMORY_WEBHOOK_SECRET}`,
+              }
+            : {}),
+        },
+        body: JSON.stringify(payload),
+      }),
+    );
+  }
+
+  const shouldTriggerSummary =
+    String(input.nextSessionMemory.stage) === "ended" ||
+    input.nextSessionMemory.stageName === "ended";
+  if (shouldTriggerSummary && process.env.CRON_SECRET) {
+    calls.push(
+      fetch(
+        `${getInternalWebhookBaseUrl(input.c)}/api/internal/daily-summary`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.CRON_SECRET}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ targetDate: getKstDateKey() }),
+        },
+      ),
+    );
+  }
+
+  const results = await Promise.allSettled(calls);
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.warn("workflow session memory webhook failed", result.reason);
+      continue;
+    }
+    if (!result.value.ok) {
+      console.warn(
+        `workflow session memory webhook failed (${result.value.status}): ${await result.value.text()}`,
+      );
+    }
+  }
+}
+
 async function loadCharacterImages(): Promise<Record<string, string | null>> {
   try {
     const row = await prisma.system_config.findUnique({
@@ -158,12 +210,16 @@ async function loadCharacterImages(): Promise<Record<string, string | null>> {
 
 async function findWeekKnowledgeEntityId(currentWeek: number | null) {
   if (!currentWeek) return null;
-  const document = await prisma.content_pregnancy_documents.findFirst({
-    where: { pregnancy_week: currentWeek },
-    select: { id: true },
-    orderBy: [{ updated_at: "desc" }],
-  });
-  return document?.id ?? null;
+  try {
+    const document = await prisma.content_pregnancy_documents?.findFirst({
+      where: { pregnancy_week: currentWeek },
+      select: { id: true },
+      orderBy: [{ updated_at: "desc" }],
+    });
+    return document?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 app.post("/", async (c) => {
@@ -171,6 +227,10 @@ app.post("/", async (c) => {
     const body = await c.req.json();
     const hintedUserId = typeof body.userId === "string" ? body.userId : "";
     const text = typeof body.text === "string" ? body.text : "";
+    const selectedQuestionId =
+      typeof body.selectedQuestionId === "string"
+        ? body.selectedQuestionId
+        : null;
     const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
     const pregnancyWeek =
       typeof body.pregnancyWeek === "number" ? body.pregnancyWeek : null;
@@ -209,19 +269,8 @@ app.post("/", async (c) => {
     const normalizedSessionId = normalizeSessionId(sessionId);
     const hardGuardrailReason = detectHardGuardrailReason(text);
 
-    let fileRagSources: RagSource[] = [];
-    let fileRagContext = "";
     const weekKnowledgeEntityId =
       await findWeekKnowledgeEntityId(pregnancyWeek);
-    if (!hardGuardrailReason && text.trim()) {
-      const fileRag = await searchFileRag({
-        query: text,
-        currentWeek: pregnancyWeek,
-        matchCount: 5,
-      });
-      fileRagSources = fileRag.sources;
-      fileRagContext = fileRag.context;
-    }
 
     const respondWithMobileChat = createMobileChatResponder({
       getSchiftClient,
@@ -229,7 +278,13 @@ app.post("/", async (c) => {
       extractSchiftWorkflowOutputs,
       formatSchiftWorkflowRun,
       loadCharacterImages,
-      ragContext: fileRagContext,
+      preferLocalFallback: true,
+      loadRagContext: ({ query, currentWeek }) =>
+        searchFileRag({
+          query,
+          currentWeek,
+          matchCount: 5,
+        }),
       weekKnowledgeEntityId,
     });
 
@@ -276,154 +331,88 @@ app.post("/", async (c) => {
           ...input,
         });
       },
-      buildFollowUps: (input) =>
-        buildPromptFollowUpMessages({
+      dispatchSessionMemoryWebhook: async (input) => {
+        await postWorkflowSessionMemoryWebhook({
+          c,
           ...input,
-          generateChecklistChoices: async ({
-            title,
-            description,
-            weekNumber,
-          }) => {
-            try {
-              const weekLine = weekNumber ? `${weekNumber}주차 ` : "";
-              const descLine = description?.trim()
-                ? `설명: ${description.trim()}`
-                : "";
-              const { text: rawText } = await generateText({
-                model: google("gemini-2.5-flash-lite"),
-                system: [
-                  "당신은 임산부 상담 앱의 체크리스트 응답 버튼 라벨을 만드는 도우미입니다.",
-                  "체크리스트 항목 하나가 주어지면 산모가 탭으로 바로 답할 수 있는 3개의 짧은 선택지를 JSON 배열로만 출력하세요.",
-                  "각 항목은 { label, message } 구조이고 label은 화면에 표시할 버튼 글자(최대 10자, 따뜻한 -어요체), message는 탭 시 전송될 한 문장입니다.",
-                  "첫 번째는 '완료' 의미, 두 번째는 '아직 못함' 의미, 세 번째는 '어떻게/왜 해야 하는지' 묻는 의미로 구성하세요.",
-                  "JSON 외 어떤 텍스트도 포함하지 마세요. 코드 블록 래핑 없이 순수 JSON만.",
-                ].join("\n"),
-                prompt: [
-                  `${weekLine}체크리스트 항목:`,
-                  `제목: ${title}`,
-                  descLine,
-                  "",
-                  '예시 형식: [{"label":"…","message":"…"},{"label":"…","message":"…"},{"label":"…","message":"…"}]',
-                ]
-                  .filter(Boolean)
-                  .join("\n"),
-              });
-              const cleaned = rawText
-                .trim()
-                .replace(/^```(?:json)?/i, "")
-                .replace(/```$/i, "")
-                .trim();
-              const parsed = JSON.parse(cleaned);
-              if (!Array.isArray(parsed)) return null;
-              return parsed
-                .map((item) => {
-                  if (!item || typeof item !== "object") return null;
-                  const record = item as Record<string, unknown>;
-                  const label =
-                    typeof record.label === "string" ? record.label.trim() : "";
-                  if (!label) return null;
-                  const message =
-                    typeof record.message === "string" && record.message.trim()
-                      ? record.message.trim()
-                      : label;
-                  return { label, message };
-                })
-                .filter(
-                  (v): v is { label: string; message: string } => v !== null,
-                )
-                .slice(0, 3);
-            } catch (error) {
-              console.warn("generateChecklistChoices failed", error);
-              return null;
-            }
-          },
-        }),
+        });
+      },
+      buildFollowUps: buildPromptFollowUpMessages,
       createPromptEvents,
       getAlreadyPromptedIds,
-      decorateAssistantMessage: (message) => {
-        if (fileRagSources.length === 0) {
-          return message;
-        }
-
-        return {
-          ...message,
-          parts: [
-            ...message.parts,
-            {
-              type: "_rag_sources",
-              id: `rag-sources-${Date.now()}`,
-              sources: fileRagSources,
-            } as unknown as (typeof message.parts)[number],
-          ],
-        };
-      },
     });
 
     const result = await orchestrateChat({
       userId,
       text,
+      selectedQuestionId,
       sessionId: normalizedSessionId,
       pregnancyWeek,
       imageDataUris,
       hardGuardrailReason,
     });
 
-    const todayDate = getKstDateKey();
-    const existingChatCalendarLog = await prisma.calendar_logs.findFirst({
-      where: {
-        user_id: userId,
-        date: parseDateOnly(todayDate),
-        session_id: result.sessionId,
-        entry_type: "chat_saved",
-      },
-      select: { id: true },
-    });
-    const assistantSummary = result.assistantMessages
-      .flatMap((message) =>
-        message.parts.flatMap((part) =>
-          part.type === "text" && part.text.trim() ? [part.text.trim()] : [],
-        ),
-      )
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-    const compactSummary =
-      result.workflowMemoryPayload?.nextSessionMemory?.compactSummary
-        ?.replace(/^현재 단계:\s*/u, "")
-        .trim();
-    const calendarSummary =
-      compactSummary ||
-      assistantSummary.slice(0, 220) ||
-      text.slice(0, 140) ||
-      null;
-    const chatCalendarPayload = {
-      lastMessageAt: new Date().toISOString(),
-      source: "chat_session_sync",
-      compactSummary:
-        result.workflowMemoryPayload?.nextSessionMemory?.compactSummary ?? null,
-      assistantSummary: assistantSummary || null,
-    };
-    if (existingChatCalendarLog?.id) {
-      await prisma.calendar_logs.update({
-        where: { id: existingChatCalendarLog.id },
-        data: {
-          title: text.slice(0, 40) || "아기와 대화",
-          summary: calendarSummary,
-          payload: chatCalendarPayload,
-        },
-      });
-    } else {
-      await prisma.calendar_logs.create({
-        data: {
+    try {
+      const todayDate = getKstDateKey();
+      const existingChatCalendarLog = await prisma.calendar_logs.findFirst({
+        where: {
           user_id: userId,
-          session_id: result.sessionId,
           date: parseDateOnly(todayDate),
+          session_id: result.sessionId,
           entry_type: "chat_saved",
-          title: text.slice(0, 40) || "아기와 대화",
-          summary: calendarSummary,
-          payload: chatCalendarPayload,
         },
+        select: { id: true },
       });
+      const assistantSummary = result.assistantMessages
+        .flatMap((message) =>
+          message.parts.flatMap((part) =>
+            part.type === "text" && part.text.trim() ? [part.text.trim()] : [],
+          ),
+        )
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const compactSummary =
+        result.workflowMemoryPayload?.nextSessionMemory?.compactSummary
+          ?.replace(/^현재 단계:\s*/u, "")
+          .trim();
+      const calendarSummary =
+        compactSummary ||
+        assistantSummary.slice(0, 220) ||
+        text.slice(0, 140) ||
+        null;
+      const chatCalendarPayload = {
+        lastMessageAt: new Date().toISOString(),
+        source: "chat_session_sync",
+        compactSummary:
+          result.workflowMemoryPayload?.nextSessionMemory?.compactSummary ??
+          null,
+        assistantSummary: assistantSummary || null,
+      };
+      if (existingChatCalendarLog?.id) {
+        await prisma.calendar_logs.update({
+          where: { id: existingChatCalendarLog.id },
+          data: {
+            title: text.slice(0, 40) || "아기와 대화",
+            summary: calendarSummary,
+            payload: chatCalendarPayload,
+          },
+        });
+      } else {
+        await prisma.calendar_logs.create({
+          data: {
+            user_id: userId,
+            session_id: result.sessionId,
+            date: parseDateOnly(todayDate),
+            entry_type: "chat_saved",
+            title: text.slice(0, 40) || "아기와 대화",
+            summary: calendarSummary,
+            payload: chatCalendarPayload,
+          },
+        });
+      }
+    } catch (error) {
+      console.warn("mobile chat calendar sync failed", error);
     }
 
     return noStoreJson(c, {

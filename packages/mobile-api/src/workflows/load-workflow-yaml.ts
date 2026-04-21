@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { Storage } from "@google-cloud/storage";
 import { parse as parseYaml } from "yaml";
@@ -12,6 +11,7 @@ const STORAGE_PATH = "maternal-nursing.yaml";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5분
 
 interface WorkflowYaml {
+  version?: number;
   name: string;
   description: string;
   admin_metadata: {
@@ -92,6 +92,7 @@ function buildResult(yaml: WorkflowYaml) {
   };
 
   return {
+    version: yaml.version,
     name: yaml.name,
     description: yaml.description,
     adminMetadata: yaml.admin_metadata,
@@ -142,9 +143,8 @@ async function fetchFromGcs(): Promise<string | null> {
 // ── 로컬 파일 fallback ──
 
 function loadLocalYaml(): WorkflowYaml {
-  const currentDir = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
-    path.join(currentDir, "maternal-nursing.yaml"),
+    path.join(process.cwd(), "src/workflows/maternal-nursing.yaml"),
     path.join(
       process.cwd(),
       "packages/mobile-api/src/workflows/maternal-nursing.yaml",

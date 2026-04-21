@@ -32,6 +32,7 @@ export function buildChatOrchestrator(deps: {
     sessionId: string;
     userId: string;
     text: string;
+    selectedQuestionId?: string | null;
     imageDataUris: string[];
   }) => Promise<{ id: string | null }>;
   touchSessionActivity: (sessionId: string, timestamp: string) => Promise<void>;
@@ -64,6 +65,7 @@ export function buildChatOrchestrator(deps: {
     currentWeek: number | null;
     normalizedSessionId: string;
     text: string;
+    selectedQuestionId?: string | null;
     imageDataUris: string[];
     hardGuardrailReason: string | null;
   }) => Promise<{
@@ -95,6 +97,13 @@ export function buildChatOrchestrator(deps: {
     nextProfileMemory: ProfileMemoryPayload | null | undefined;
     idempotencyKey: string;
   }) => Promise<void>;
+  dispatchSessionMemoryWebhook?: (input: {
+    userId: string;
+    sessionId: string;
+    sourceMessageId: string | null;
+    nextSessionMemory: SessionMemoryPayload;
+    idempotencyKey: string;
+  }) => Promise<void>;
   buildFollowUps: (input: {
     week: PromptContext["week"];
     dayContent: PromptContext["dayContent"];
@@ -117,6 +126,7 @@ export function buildChatOrchestrator(deps: {
   return async function orchestrate(input: {
     userId: string;
     text: string;
+    selectedQuestionId?: string | null;
     sessionId: string;
     pregnancyWeek: number | null;
     imageDataUris: string[];
@@ -172,6 +182,7 @@ export function buildChatOrchestrator(deps: {
         currentWeek,
         normalizedSessionId: sessionId,
         text: input.text,
+        selectedQuestionId: input.selectedQuestionId ?? null,
         imageDataUris: input.imageDataUris,
         hardGuardrailReason: input.hardGuardrailReason,
       });
@@ -244,13 +255,33 @@ export function buildChatOrchestrator(deps: {
     }
 
     const assistantMessageAt = new Date().toISOString();
+    const mergedSessionMemory = mergeSessionMemory(
+      promptContext?.sessionMemory ?? null,
+      workflowMemoryPayload?.nextSessionMemory,
+    );
     await deps.updateSessionMemory(
       sessionId,
-      workflowMemoryPayload?.nextSessionMemory,
+      mergedSessionMemory,
       assistantMessageAt,
     );
+    const sourceMessageId = savedIds[0]?.id ?? null;
+    if (mergedSessionMemory?.workflowVersion === 2) {
+      await deps.dispatchSessionMemoryWebhook?.({
+        userId: input.userId,
+        sessionId,
+        sourceMessageId,
+        nextSessionMemory: mergedSessionMemory,
+        idempotencyKey: [
+          sessionId,
+          sourceMessageId ?? "",
+          mergedSessionMemory.workflowVersion ?? "",
+          mergedSessionMemory.stage ?? "",
+          mergedSessionMemory.stageName ?? "",
+          mergedSessionMemory.moodId ?? "",
+        ].join(":"),
+      });
+    }
     if (workflowMemoryPayload?.nextProfileMemory) {
-      const sourceMessageId = savedIds[0]?.id ?? null;
       await deps.updateProfileMemory(
         input.userId,
         promptContext?.onboardingPayload ?? null,
@@ -279,5 +310,27 @@ export function buildChatOrchestrator(deps: {
       workflowMemoryPayload,
       promptContext,
     };
+  };
+}
+
+function mergeSessionMemory(
+  current: SessionMemoryPayload | null,
+  next: SessionMemoryPayload | null | undefined,
+): SessionMemoryPayload | null | undefined {
+  if (!next) {
+    return next;
+  }
+
+  if (next.workflowVersion !== 2 && current?.workflowVersion !== 2) {
+    return next;
+  }
+
+  return {
+    ...(current ?? {}),
+    ...next,
+    workflowVersion: next.workflowVersion ?? current?.workflowVersion ?? 2,
+    moodId: next.moodId ?? current?.moodId ?? null,
+    moodLabel: next.moodLabel ?? current?.moodLabel ?? null,
+    lastEmotionTone: next.lastEmotionTone ?? current?.lastEmotionTone ?? null,
   };
 }

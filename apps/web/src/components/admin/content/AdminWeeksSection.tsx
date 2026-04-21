@@ -380,12 +380,19 @@ export function AdminWeeksSection({
         })
     : [];
 
-  const selectedWeekReferenceMedia = selectedWeekDetail?.media.find(
+  const selectedWeekHeroMedia = selectedWeekDetail?.media.find(
     (media) =>
       media.mediaScope === "week" &&
+      media.dayNumber === null &&
       (media.mediaRole === "reference" ||
-        media.mediaRole === "compare" ||
+        media.mediaRole === "weekly_summary" ||
         media.mediaRole === "hero"),
+  );
+  const selectedWeekCompareMedia = selectedWeekDetail?.media.find(
+    (media) =>
+      media.mediaScope === "week" &&
+      media.dayNumber === null &&
+      media.mediaRole === "compare",
   );
 
   const publishReview = selectedWeekDetail
@@ -746,7 +753,8 @@ export function AdminWeeksSection({
         isLoadingWeeks={isLoadingWeeks}
         uploadingCoverField={uploadingCoverField}
         uploadingMediaIndex={uploadingMediaIndex}
-        selectedWeekReferenceMedia={selectedWeekReferenceMedia}
+        selectedWeekHeroMedia={selectedWeekHeroMedia}
+        selectedWeekCompareMedia={selectedWeekCompareMedia}
         onWeekFieldChange={onWeekFieldChange}
         onWeekStatusChange={onWeekStatusChange}
         onUploadWeekCoverImage={onUploadWeekCoverImage}

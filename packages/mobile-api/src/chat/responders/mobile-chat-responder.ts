@@ -8,7 +8,9 @@ import {
 } from "./route-response-helpers";
 import {
   parseWorkflowAssistantPayload,
+  type CharacterTone,
   type WorkflowAssistantPayload,
+  type WorkflowScenario,
 } from "../workflow-payload";
 
 function normalizeLetterFollowUpFlow(input: {
@@ -77,8 +79,13 @@ function normalizeStageContractFlow(input: {
     input.workflowMemoryPayload?.nextSessionMemory?.lastScenario ??
     null;
   const requestedBabyInfo =
-    /아기|태아|발달|성장/.test(input.userText) &&
-    /볼래|알려|궁금|네|확인/.test(input.userText);
+    (/아기|태아|발달|성장/.test(input.userText) &&
+      /볼래|알려|궁금|네|확인/.test(input.userText)) ||
+    (/네|응|좋아|볼래|알려|확인/.test(input.userText) &&
+      (input.promptContext?.sessionMemory?.lastScenario === "baby_info_offer" ||
+        input.promptContext?.sessionMemory?.compactSummary?.includes(
+          "태아 발달 확인 제안",
+        )));
 
   if (scenario === "baby_info_offer") {
     if (requestedBabyInfo) {
@@ -98,23 +105,43 @@ function normalizeStageContractFlow(input: {
         babySummary.length > 0
           ? babySummary.join("\n\n")
           : "아기 발달 정보를 준비 중이에요. 지금은 담당 의료진과 확인한 주수 정보를 기준으로 천천히 살펴볼게요.";
+      const motherItems =
+        input.promptContext?.dayContent?.mother_changes_payload?.items ?? [];
+      const motherSummary = [
+        ...motherItems,
+        input.promptContext?.week.mother_summary,
+      ]
+        .filter((value): value is string => Boolean(value?.trim()))
+        .slice(0, 2);
+      const motherBody =
+        motherSummary.length > 0
+          ? motherSummary.join("\n\n")
+          : "엄마 몸 변화는 주수와 개인 컨디션에 따라 다르게 느껴질 수 있어요.";
       input.assistantMessage.parts = [
         {
           type: "text",
           id: `workflow-baby-info-${Date.now()}`,
-          text: `${weekLabel} 아기 소식이에요.\n\n${body}\n\n엄마 몸 변화도 이어서 볼까요?`,
+          text: [
+            `${weekLabel} 주차 정보를 같이 볼게요.`,
+            "",
+            `아기: ${body}`,
+            "",
+            `엄마: ${motherBody}`,
+            "",
+            "이어서 오늘의 질문으로 넘어가볼까요?",
+          ].join("\n"),
         },
         {
           type: "quickReplies",
           id: `workflow-baby-info-quick-${Date.now()}`,
           choices: [
             {
-              id: "baby-info-mother-yes",
-              label: "네",
-              message: "네, 엄마 변화도 알려주세요.",
+              id: "weekly-info-question-yes",
+              label: "오늘의 질문",
+              message: "오늘의 질문으로 이어갈래요.",
             },
             {
-              id: "baby-info-mother-later",
+              id: "weekly-info-question-later",
               label: "이따가요",
               message: "아니요, 이따가 확인할래요.",
             },
@@ -124,7 +151,7 @@ function normalizeStageContractFlow(input: {
       input.workflowMemoryPayload!.scenario = "baby_info";
       input.workflowMemoryPayload!.nextSessionMemory = {
         ...(input.workflowMemoryPayload?.nextSessionMemory ?? {}),
-        compactSummary: "현재 단계: 태아 발달 안내 완료",
+        compactSummary: "현재 단계: 주차 정보 안내 완료",
         lastScenario: "baby_info",
       };
       return input;
@@ -227,29 +254,28 @@ type WorkflowRunLike = {
   block_states?: unknown;
 };
 
+type RagContextResult = {
+  context: string;
+  sources?: unknown[];
+};
+
 function formatPromptItemsForWorkflow(input: {
   promptContext: PromptContext | null;
   alreadyPromptedIds: {
     checklistIds: Set<string>;
     questionIds: Set<string>;
-  };
+  } | null;
 }) {
   if (!input.promptContext) {
     return "";
   }
 
-  const checklists = input.promptContext.checklists
-    .filter((item) => !input.alreadyPromptedIds.checklistIds.has(item.id))
-    .slice(0, 3)
-    .map((item, index) => {
-      const description = item.description?.trim()
-        ? ` - ${item.description.trim()}`
-        : "";
-      return `${index + 1}. [${item.id}] ${item.title.trim()}${description}`;
-    });
-
+  const alreadyPromptedIds = input.alreadyPromptedIds ?? {
+    checklistIds: new Set<string>(),
+    questionIds: new Set<string>(),
+  };
   const questions = input.promptContext.questions
-    .filter((item) => !input.alreadyPromptedIds.questionIds.has(item.id))
+    .filter((item) => !alreadyPromptedIds.questionIds.has(item.id))
     .slice(0, 2)
     .map(
       (item, index) =>
@@ -258,14 +284,315 @@ function formatPromptItemsForWorkflow(input: {
         }`,
     );
 
+  return questions.length > 0
+    ? `오늘 모아애착 질문 후보:\n${questions.join("\n")}`
+    : "오늘 모아애착 질문 후보: 없음";
+}
+
+function isQuestionChoiceTurn(input: {
+  promptContext: PromptContext | null;
+  lastScenario: WorkflowScenario | null;
+  userText: string;
+}) {
+  if (input.lastScenario !== "attachment_question") return false;
+  const normalizedUserText = input.userText.replace(/\s+/g, " ").trim();
+  if (!normalizedUserText) return false;
+  const matchesPromptQuestion =
+    input.promptContext?.questions.some(
+      (question) =>
+        question.question_text.replace(/\s+/g, " ").trim() ===
+        normalizedUserText,
+    ) ?? false;
+
+  return (
+    matchesPromptQuestion ||
+    normalizedUserText.endsWith("?") ||
+    normalizedUserText.endsWith("？")
+  );
+}
+
+function buildStageContext(input: {
+  compactSummary: string | null;
+  currentStage: WorkflowScenario | null;
+  currentTurnStage: string | null;
+  userText: string;
+}) {
+  const lines = [
+    input.currentStage ? `currentStage=${input.currentStage}` : null,
+    input.currentTurnStage ? `currentTurnStage=${input.currentTurnStage}` : null,
+    input.compactSummary ? `compactSummary=${input.compactSummary}` : null,
+    input.currentTurnStage === "stage=2/question-choice"
+      ? "stage=2/question-choice: 선택된 질문을 현재 입력으로 처리하고, stage 0/1 이전 workflow를 replay하지 말고 inference로 직접 라우팅하세요."
+      : null,
+    input.userText.trim() ? `currentUserInput=${input.userText.trim()}` : null,
+  ].filter((value): value is string => Boolean(value));
+
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
+function buildRequiredToneContext(input: {
+  lastEmotionTone: CharacterTone | null;
+  tonePreference: string | null;
+}) {
+  const lines = [
+    input.lastEmotionTone
+      ? `최근 선택된 감정 톤(${input.lastEmotionTone})을 필수 말투 맥락으로 유지하세요.`
+      : null,
+    input.tonePreference
+      ? `사용자 선호 상담 분위기: ${input.tonePreference}`
+      : null,
+  ].filter((value): value is string => Boolean(value));
+
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
+function shouldLoadRagContext(input: {
+  userText: string;
+  currentStage: WorkflowScenario | null;
+  currentTurnStage: string | null;
+  workflowStage: string | number | null;
+}) {
+  if (!input.userText.trim()) return false;
+  if (input.currentTurnStage === "stage=2/question-choice") return false;
+  if (
+    input.workflowStage === 2 ||
+    input.workflowStage === "free_chat" ||
+    input.workflowStage === "ended"
+  ) {
+    return false;
+  }
+  return ![
+    "emotion_checkin",
+    "emotion_reason",
+    "attachment_question",
+    "letter_reflection",
+    "daily_followup",
+    "empathy_chat",
+  ].includes(input.currentStage ?? "");
+}
+
+function normalizeWorkflowMemoryPayload(
+  payload: WorkflowAssistantPayload | null,
+) {
+  if (!payload) return payload;
+
+  const emotionTone =
+    payload.nextSessionMemory?.lastEmotionTone ??
+    payload.nextProfileMemory?.lastEmotionTone ??
+    (payload.scenario === "emotion_checkin" || payload.scenario === "emotion_reason"
+      ? payload.characterTone
+      : undefined);
+
+  if (!emotionTone) return payload;
+
+  return {
+    ...payload,
+    nextSessionMemory: {
+      ...(payload.nextSessionMemory ?? {}),
+      ...(payload.scenario ? { lastScenario: payload.scenario } : {}),
+      ...(payload.characterTone
+        ? { lastCharacterTone: payload.characterTone }
+        : {}),
+      lastEmotionTone: emotionTone,
+    },
+    nextProfileMemory: {
+      ...(payload.nextProfileMemory ?? {}),
+      lastEmotionTone: emotionTone,
+    },
+  };
+}
+
+function makeTextPart(text: string) {
+  return {
+    type: "text" as const,
+    id: `local-text-${Date.now()}`,
+    text,
+  };
+}
+
+function makeQuickReplies(
+  choices: Array<{ id: string; label: string; message: string }>,
+) {
+  return {
+    type: "quickReplies" as const,
+    id: `local-quick-${Date.now()}`,
+    choices,
+  };
+}
+
+function buildCombinedWeeklyInfo(input: {
+  currentWeek: number | null;
+  promptContext: PromptContext | null;
+}) {
+  const weekLabel = input.currentWeek ? `${input.currentWeek}주차` : "지금 주수";
+  const baby = [
+    ...(input.promptContext?.dayContent?.baby_development_payload?.items ?? []),
+    input.promptContext?.dayContent?.baby_message,
+    input.promptContext?.week.baby_summary,
+  ].find((value) => value?.trim());
+  const mother = [
+    ...(input.promptContext?.dayContent?.mother_changes_payload?.items ?? []),
+    input.promptContext?.week.mother_summary,
+  ].find((value) => value?.trim());
+
   return [
-    checklists.length > 0
-      ? `오늘 체크리스트 후보:\n${checklists.join("\n")}`
-      : "오늘 체크리스트 후보: 없음",
-    questions.length > 0
-      ? `오늘 모아애착 질문 후보:\n${questions.join("\n")}`
-      : "오늘 모아애착 질문 후보: 없음",
-  ].join("\n\n");
+    `${weekLabel} 주차 정보를 같이 볼게요.`,
+    "",
+    `아기: ${baby ?? "아기는 주수에 맞춰 조금씩 성장하고 있어요."}`,
+    "",
+    `엄마: ${mother ?? "엄마 몸도 주수와 컨디션에 따라 변화가 느껴질 수 있어요."}`,
+    "",
+    "이어서 오늘의 질문으로 넘어가볼까요?",
+  ].join("\n");
+}
+
+function buildLocalFallbackResponse(input: {
+  currentWeek: number | null;
+  promptContext: PromptContext | null;
+  text: string;
+}): {
+  assistantMessage: ChatMessage;
+  workflowMemoryPayload: WorkflowAssistantPayload;
+} {
+  const userText = input.text.trim();
+  const lastScenario = input.promptContext?.sessionMemory?.lastScenario ?? null;
+  const wantsInfo =
+    /알려|볼래|궁금|확인|주차|아기|태아|엄마|산모/.test(userText) ||
+    (/네|응|좋아/.test(userText) && lastScenario === "baby_info_offer");
+  const wantsQuestion = /질문|이어/.test(userText);
+  const isLowMood = /우울|피곤|불안|걱정|슬퍼|화나|답답/.test(userText);
+
+  if (wantsInfo) {
+    return {
+      assistantMessage: {
+        id: `assistant-local-${Date.now()}`,
+        role: "assistant" as const,
+        createdAtLabel: "방금 전",
+        parts: [
+          makeTextPart(
+            buildCombinedWeeklyInfo({
+              currentWeek: input.currentWeek,
+              promptContext: input.promptContext,
+            }),
+          ),
+          makeQuickReplies([
+            {
+              id: "local-question",
+              label: "오늘의 질문",
+              message: "오늘의 질문으로 이어갈래요.",
+            },
+            {
+              id: "local-later",
+              label: "이따가요",
+              message: "아니요, 이따가 확인할래요.",
+            },
+          ]),
+        ],
+      },
+      workflowMemoryPayload: {
+        scenario: "baby_info" as const,
+        nextSessionMemory: {
+          workflowVersion: 2,
+          stage: 1,
+          stageName: "today_question",
+          compactSummary: "현재 단계: 주차 정보 안내 완료",
+          lastScenario: "baby_info",
+          lastCharacterTone: "calm",
+        },
+      },
+    };
+  }
+
+  if (wantsQuestion || lastScenario === "baby_info") {
+    const questions =
+      input.promptContext?.questions.slice(0, 2).map((question) => ({
+        id: question.id,
+        label: question.question_text,
+        message: question.question_text,
+      })) ?? [];
+    const fallbackQuestions =
+      questions.length > 0
+        ? questions
+        : [
+            {
+              id: "local-question-1",
+              label: "오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?",
+              message: "오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?",
+            },
+            {
+              id: "local-question-2",
+              label: "요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?",
+              message: "요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?",
+            },
+          ];
+
+    return {
+      assistantMessage: {
+        id: `assistant-local-${Date.now()}`,
+        role: "assistant" as const,
+        createdAtLabel: "방금 전",
+        parts: [
+          makeTextPart("좋아요. 아래 질문 중 하나를 골라서 이어가볼게요."),
+          makeQuickReplies(fallbackQuestions),
+        ],
+      },
+      workflowMemoryPayload: {
+        scenario: "attachment_question" as const,
+        selectedQuestionIds: fallbackQuestions.map((question) => question.id),
+        nextSessionMemory: {
+          workflowVersion: 2,
+          stage: 2,
+          stageName: "question_inference",
+          compactSummary: "현재 단계: 모아애착 질문",
+          lastScenario: "attachment_question",
+          lastCharacterTone: "calm",
+        },
+      },
+    };
+  }
+
+  return {
+    assistantMessage: {
+      id: `assistant-local-${Date.now()}`,
+      role: "assistant" as const,
+      createdAtLabel: "방금 전",
+      parts: [
+        makeTextPart(
+          isLowMood
+            ? "그 마음 기억해둘게요.\n\n오늘 주차의 아기와 엄마 정보를 짧게 볼까요?"
+            : "좋아요, 기억해둘게요.\n\n오늘 주차의 아기와 엄마 정보를 짧게 볼까요?",
+        ),
+        makeQuickReplies([
+          {
+            id: "local-info",
+            label: "주차 정보",
+            message: "네, 알려주세요.",
+          },
+          {
+            id: "local-later",
+            label: "이따가요",
+            message: "아니요, 이따가 확인할래요.",
+          },
+        ]),
+      ],
+    },
+    workflowMemoryPayload: {
+      scenario: "baby_info_offer" as const,
+      nextSessionMemory: {
+        workflowVersion: 2,
+        stage: 0,
+        stageName: "info_opt_in",
+        compactSummary: `현재 단계: 정보 확인 제안. 사용자는 "${userText}"라고 답했어요.`,
+        lastScenario: "baby_info_offer",
+        lastCharacterTone: isLowMood ? "tired" : "calm",
+        lastEmotionTone: isLowMood ? "tired" : "calm",
+        moodLabel: userText || null,
+      },
+      nextProfileMemory: {
+        lastEmotionTone: isLowMood ? "tired" : "calm",
+      },
+    },
+  };
 }
 
 export function createMobileChatResponder<
@@ -282,9 +609,19 @@ export function createMobileChatResponder<
       sessionId: string;
       hasImages: boolean;
       compactSummary: string | null;
+      currentStage: string | null;
+      currentTurnStage: string | null;
+      stageContext: string | null;
       lastScenario: string | null;
       lastCharacterTone: string | null;
       lastEmotionTone: string | null;
+      workflowVersion: number | null;
+      workflowStage: string | number | null;
+      workflowStageName: string | null;
+      selectedQuestionId: string | null;
+      sessionMoodId: string | null;
+      sessionMoodLabel: string | null;
+      requiredToneContext: string | null;
       personaHint: string | null;
       personaConfidence: string | null;
       tonePreference: string | null;
@@ -300,19 +637,25 @@ export function createMobileChatResponder<
   ) => Record<string, unknown> | undefined;
   formatSchiftWorkflowRun: (run: TRun) => string;
   loadCharacterImages: () => Promise<Record<string, string | null>>;
+  loadRagContext?: (input: {
+    query: string;
+    currentWeek: number | null;
+  }) => Promise<RagContextResult>;
+  preferLocalFallback?: boolean;
   ragContext?: string;
   weekKnowledgeEntityId?: string | null;
 }) {
   return async function respond(input: {
     userId: string;
     promptContext: PromptContext | null;
-    alreadyPromptedIds: {
+    alreadyPromptedIds?: {
       checklistIds: Set<string>;
       questionIds: Set<string>;
     };
     currentWeek: number | null;
     normalizedSessionId: string;
     text: string;
+    selectedQuestionId?: string | null;
     imageDataUris: string[];
     hardGuardrailReason: string | null;
   }): Promise<{
@@ -321,7 +664,7 @@ export function createMobileChatResponder<
   }> {
     const promptItems = formatPromptItemsForWorkflow({
       promptContext: input.promptContext,
-      alreadyPromptedIds: input.alreadyPromptedIds,
+      alreadyPromptedIds: input.alreadyPromptedIds ?? null,
     });
     const memoryContext = {
       compactSummary:
@@ -337,7 +680,50 @@ export function createMobileChatResponder<
       personaConfidence:
         input.promptContext?.profileMemory?.personaConfidence ?? null,
       tonePreference: input.promptContext?.tonePreference ?? null,
+      workflowVersion:
+        input.promptContext?.sessionMemory?.workflowVersion ?? null,
+      workflowStage: input.promptContext?.sessionMemory?.stage ?? null,
+      workflowStageName: input.promptContext?.sessionMemory?.stageName ?? null,
+      sessionMoodId: input.promptContext?.sessionMemory?.moodId ?? null,
+      sessionMoodLabel: input.promptContext?.sessionMemory?.moodLabel ?? null,
+      ragContext: input.promptContext?.sessionMemory?.ragContext ?? null,
+      ragContextWeek: input.promptContext?.sessionMemory?.ragContextWeek ?? null,
     };
+    const currentStage = memoryContext.lastScenario;
+    const currentTurnStage = isQuestionChoiceTurn({
+      promptContext: input.promptContext,
+      lastScenario: currentStage,
+      userText: input.text,
+    })
+      ? "stage=2/question-choice"
+      : memoryContext.workflowStage !== null &&
+          memoryContext.workflowStage !== undefined
+        ? `stage=${memoryContext.workflowStage}/${memoryContext.workflowStageName ?? "active"}`
+        : null;
+    const baseToneContext = buildRequiredToneContext({
+      lastEmotionTone: memoryContext.lastEmotionTone,
+      tonePreference: memoryContext.tonePreference,
+    });
+    const requiredToneContext = [
+      baseToneContext,
+      memoryContext.sessionMoodLabel
+        ? `세션 기분: ${memoryContext.sessionMoodLabel}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const baseStageContext = buildStageContext({
+      compactSummary: memoryContext.compactSummary,
+      currentStage,
+      currentTurnStage,
+      userText: input.text,
+    });
+    const stageContext = [
+      memoryContext.workflowVersion === 2 ? "workflow_version=2" : null,
+      baseStageContext,
+    ]
+      .filter(Boolean)
+      .join("\n");
     const retrievalQuery = [
       input.currentWeek ? `현재 임신 주수 ${input.currentWeek}주` : null,
       input.text,
@@ -352,14 +738,51 @@ export function createMobileChatResponder<
       .join("\n");
 
     const schift = deps.getSchiftClient();
+    if (deps.preferLocalFallback) {
+      console.info("mobile chat response: local fast path");
+      return buildLocalFallbackResponse({
+        currentWeek: input.currentWeek,
+        promptContext: input.promptContext,
+        text: input.text,
+      });
+    }
 
     return resolveAssistantResponse({
       hardGuardrailReason: input.hardGuardrailReason,
       workflowEnabled: Boolean(schift),
+      fallbackResponse: async () =>
+        buildLocalFallbackResponse({
+          currentWeek: input.currentWeek,
+          promptContext: input.promptContext,
+          text: input.text,
+        }),
       runWorkflow: async () => {
         if (!schift) {
           throw new Error("Schift client is unavailable");
         }
+
+        const cachedRagContext =
+          memoryContext.ragContext?.trim() &&
+          (!memoryContext.ragContextWeek ||
+            !input.currentWeek ||
+            memoryContext.ragContextWeek === input.currentWeek)
+            ? { context: memoryContext.ragContext, sources: [] }
+            : null;
+        const loadedRagContext = deps.ragContext?.trim()
+          ? { context: deps.ragContext, sources: [] }
+          : cachedRagContext ??
+            (deps.loadRagContext &&
+            shouldLoadRagContext({
+              userText: input.text,
+              currentStage,
+              currentTurnStage,
+              workflowStage: memoryContext.workflowStage,
+            })
+              ? await deps.loadRagContext({
+                  query: input.text,
+                  currentWeek: input.currentWeek,
+                })
+              : null);
 
         const { run } = await deps.runSchiftWorkflow({
           schift,
@@ -370,13 +793,23 @@ export function createMobileChatResponder<
             sessionId: input.normalizedSessionId,
             hasImages: input.imageDataUris.length > 0,
             compactSummary: memoryContext.compactSummary,
+            currentStage,
+            currentTurnStage,
+            stageContext: stageContext || null,
             lastScenario: memoryContext.lastScenario,
             lastCharacterTone: memoryContext.lastCharacterTone,
             lastEmotionTone: memoryContext.lastEmotionTone,
+            workflowVersion: memoryContext.workflowVersion,
+            workflowStage: memoryContext.workflowStage,
+            workflowStageName: memoryContext.workflowStageName,
+            selectedQuestionId: input.selectedQuestionId?.trim() || null,
+            sessionMoodId: memoryContext.sessionMoodId,
+            sessionMoodLabel: memoryContext.sessionMoodLabel,
+            requiredToneContext: requiredToneContext || null,
             personaHint: memoryContext.personaHint,
             personaConfidence: memoryContext.personaConfidence,
             tonePreference: memoryContext.tonePreference,
-            results: deps.ragContext?.trim() || null,
+            results: loadedRagContext?.context.trim() || null,
             weekKnowledgeEntityId: deps.weekKnowledgeEntityId?.trim() || null,
             promptItems: promptItems || null,
           },
@@ -389,11 +822,25 @@ export function createMobileChatResponder<
         }
 
         const workflowOutputs = deps.extractSchiftWorkflowOutputs(run);
-        const workflowPayload = parseWorkflowAssistantPayload(workflowOutputs);
+        const workflowPayload = normalizeWorkflowMemoryPayload(
+          parseWorkflowAssistantPayload(workflowOutputs),
+        );
+        if (
+          workflowPayload &&
+          loadedRagContext?.context.trim() &&
+          loadedRagContext !== cachedRagContext
+        ) {
+          workflowPayload.nextSessionMemory = {
+            ...(workflowPayload?.nextSessionMemory ?? {}),
+            ragContext: loadedRagContext.context.trim().slice(0, 6000),
+            ragContextWeek: input.currentWeek,
+          };
+        }
         const structuredWorkflowMessage = await buildWorkflowAssistantMessage({
           run,
           loadCharacterImages: deps.loadCharacterImages,
           extractOutputs: deps.extractSchiftWorkflowOutputs,
+          currentWeek: input.currentWeek,
         });
         const workflowText = deps.formatSchiftWorkflowRun(run);
         const isEmptyWorkflowOutput =
@@ -419,6 +866,13 @@ export function createMobileChatResponder<
             promptContext: input.promptContext,
           }),
         );
+        if (loadedRagContext?.sources?.length) {
+          normalized.assistantMessage.parts.push({
+            type: "_rag_sources",
+            id: `rag-sources-${Date.now()}`,
+            sources: loadedRagContext.sources,
+          } as unknown as (typeof normalized.assistantMessage.parts)[number]);
+        }
 
         return {
           assistantMessage: normalized.assistantMessage,

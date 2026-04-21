@@ -314,7 +314,7 @@ export function PatientProfileDayModal({
               <PatientTodayTabs
                 sections={[
                   { id: "summary", label: "대화 요약" },
-                  { id: "heart", label: "아기와 나누는 마음" },
+                  { id: "heart", label: "날짜 질문" },
                 ]}
                 activeSection={conversationSection}
                 onChange={onChangeConversationSection}
@@ -355,16 +355,18 @@ export function PatientProfileDayModal({
                       <Text style={styles.modalQuestion}>
                         Q. {item.question}
                       </Text>
-                      <Text style={styles.modalAnswer}>A. {item.answer}</Text>
                       <View style={styles.modalAiResponse}>
-                        <Text style={styles.modalAiTitle}>AI 응답</Text>
-                        <Text style={styles.modalAiBody}>{item.summary}</Text>
+                        <Text style={styles.modalAiTitle}>답변 요약</Text>
+                        <Text style={styles.modalAiBody}>
+                          {item.answerSummary ??
+                            "아직 답변 요약이 준비되지 않았어요."}
+                        </Text>
                       </View>
                     </View>
                   ))}
                   {heartShareItems.length === 0 ? (
                     <Text style={styles.modalEmptyText}>
-                      이 날짜에 보여드릴 대화 요약이 아직 없어요.
+                      이 날짜에 보여드릴 질문이 아직 없어요.
                     </Text>
                   ) : null}
                 </View>
@@ -567,10 +569,6 @@ const styles = StyleSheet.create({
   modalQuestion: {
     ...typo.label,
     color: palette.accent,
-  },
-  modalAnswer: {
-    ...typo.body,
-    color: surface.textPrimary,
   },
   modalAiResponse: {
     borderRadius: radii.lg,

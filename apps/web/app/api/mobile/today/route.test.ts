@@ -345,7 +345,7 @@ describe("GET /api/mobile/today", () => {
     const diffDays = Math.round(
       (dueDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24),
     );
-    const pregnancyDayCount = Math.max(0, Math.min(294, 294 - diffDays));
+    const pregnancyDayCount = Math.max(0, Math.min(280, 280 - diffDays));
     const expectedWeek = Math.max(
       1,
       Math.min(42, Math.floor(pregnancyDayCount / 7)),

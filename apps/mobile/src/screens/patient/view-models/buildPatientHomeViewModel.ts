@@ -5,7 +5,11 @@ import type {
 import {
   createKoreanDateKey,
   diffCalendarDays,
+  pickHomeCopyItem,
+  PREGNANCY_TERM_DAYS,
   readIsoDateKey,
+  renderHomeCopyTemplate,
+  selectHomeCopyItem,
 } from "@gynecology-chatbot/app-core";
 import {
   DEFAULT_BABY_MESSAGE,
@@ -32,7 +36,12 @@ function buildBabyMessage(input: {
     return DEFAULT_BABY_MESSAGE;
   }
 
-  return `${input.babyName}는 지금 ${input.pregnancyWeekLabel}에 머물고 있어요. 오늘도 엄마와 연결된 시간을 기다리고 있어요.`;
+  const dayMatch = input.pregnancyWeekLabel.match(/(\d{1,2})\s*일/);
+  const dayLabel = dayMatch
+    ? `${Number(dayMatch[1])}일차`
+    : input.pregnancyWeekLabel;
+
+  return `${input.babyName}는 지금 ${dayLabel}에요. 오늘도 엄마와 연결된 시간을 기다리고 있어요.`;
 }
 
 function getDaysUntilDue(dueDate?: string | null, now?: Date): number | null {
@@ -52,8 +61,6 @@ function getDaysUntilDue(dueDate?: string | null, now?: Date): number | null {
   );
 }
 
-const MAX_PREGNANCY_DAYS = 294;
-
 function computePregnancyDayFromDueDate(
   dueDate?: string | null,
   now?: Date,
@@ -62,7 +69,7 @@ function computePregnancyDayFromDueDate(
   const dueDateKey = readIsoDateKey(dueDate);
   if (!dueDateKey) return null;
   const diff = diffCalendarDays(dueDateKey, createKoreanDateKey(now));
-  return Math.max(0, Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diff));
+  return Math.max(0, Math.min(PREGNANCY_TERM_DAYS, PREGNANCY_TERM_DAYS - diff));
 }
 
 const TONE_MESSAGES: Record<string, string> = {
@@ -110,20 +117,48 @@ export function buildPatientHomeViewModel({
   const daysUntilDue = getDaysUntilDue(profile?.dueDate, now);
   const todayKey = createKoreanDateKey(now);
   const quoteSeed = [todayKey, heroName, pregnancyWeekLabel].join("-");
+  const homeCopyItems = home?.homeCopyItems ?? [];
 
-  // babyMessage: 실제 주차가 있을 때만 주차 멘트, 아니면 기본 메시지
-  const babyMessage = imageWeekLabel
-    ? buildBabyMessage({
-        pregnancyWeekLabel: imageWeekLabel,
+  const babyCopyItem = selectHomeCopyItem(
+    homeCopyItems,
+    "hero_bubble",
+    imageWeekLabel ? "default" : "unknown",
+    `${quoteSeed}-hero`,
+  );
+  const babyMessage = babyCopyItem
+    ? renderHomeCopyTemplate(babyCopyItem.body, {
         babyName: heroName,
+        pregnancyWeekLabel: imageWeekLabel,
       })
-    : DEFAULT_BABY_MESSAGE;
+    : imageWeekLabel
+      ? buildBabyMessage({
+          pregnancyWeekLabel: imageWeekLabel,
+          babyName: heroName,
+        })
+      : DEFAULT_BABY_MESSAGE;
 
-  // noteBody: tonePreference를 실제 문구로 매핑
   const tone = profile?.tonePreference?.trim() ?? "";
-  const noteBody =
-    TONE_MESSAGES[tone] ??
-    "몸이 보내는 신호를 너무 급하게 판단하지 말고, 오늘 느낀 것을 차분히 살펴봐요.";
+  const noteCopyItem = selectHomeCopyItem(
+    homeCopyItems,
+    "daily_note",
+    tone,
+    `${quoteSeed}-note-${tone || "default"}`,
+  );
+  const noteBody = noteCopyItem
+    ? renderHomeCopyTemplate(noteCopyItem.body, {
+        babyName: heroName,
+        pregnancyWeekLabel,
+        tone,
+      })
+    : (TONE_MESSAGES[tone] ??
+      "몸이 보내는 신호를 너무 급하게 판단하지 말고, 오늘 느낀 것을 차분히 살펴봐요.");
+  const quoteCopyItem = pickHomeCopyItem(
+    homeCopyItems.filter(
+      (item) =>
+        item.slot === "encouragement_quote" && item.status === "published",
+    ),
+    quoteSeed,
+  );
 
   return {
     heroName,
@@ -145,7 +180,13 @@ export function buildPatientHomeViewModel({
       postDue || daysUntilDue == null
         ? `${pregnancyDayCount}일`
         : `${daysUntilDue}일`,
-    quote: pickPatientEncouragementQuote(quoteSeed),
+    quote: quoteCopyItem
+      ? renderHomeCopyTemplate(quoteCopyItem.body, {
+          babyName: heroName,
+          pregnancyWeekLabel,
+          tone,
+        })
+      : pickPatientEncouragementQuote(quoteSeed),
     noteTitle: "오늘의 한마디",
     noteBody,
     primaryActionLabel: "오늘,우리 보기",

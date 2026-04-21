@@ -272,8 +272,12 @@ describe("WeekContentRepository", () => {
       "content.pregnancy_week_data?id=eq.week-2",
       expect.objectContaining({
         title: "수정",
-        warning_signs: "/hero-next.jpg",
-        recommended_actions: "/compare-next.jpg",
+      }),
+    );
+    expect(mockedUpdate.mock.calls[0]?.[1]).not.toEqual(
+      expect.objectContaining({
+        warning_signs: expect.anything(),
+        recommended_actions: expect.anything(),
       }),
     );
     expect(mockedInsert).toHaveBeenCalledWith(

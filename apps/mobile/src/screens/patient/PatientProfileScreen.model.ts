@@ -21,8 +21,7 @@ export type ProfileStatusBadge = {
 export type ProfileHeartShareItem = {
   id: string;
   question: string;
-  answer: string;
-  summary: string;
+  answerSummary: string | null;
 };
 
 export type ProfileEncyclopediaEntry = {
@@ -130,14 +129,21 @@ function buildConversationSummary(recordDay: RecordDayView | null) {
 function buildHeartShareItems(
   recordDay: RecordDayView | null,
 ): ProfileHeartShareItem[] {
+  if ((recordDay?.dailyQuestions?.length ?? 0) > 0) {
+    return (recordDay?.dailyQuestions ?? []).map((item) => ({
+      id: item.id,
+      question: item.question,
+      answerSummary: item.answerSummary,
+    }));
+  }
+
   if (recordDay?.dailyQuestion) {
     return [
       {
         id: "question",
         question: recordDay.dailyQuestion.question,
-        answer: recordDay.dailyQuestion.answer ?? "아직 남긴 답변이 없어요.",
-        summary:
-          recordDay.dailyQuestion.aiSummary ?? "대화 요약을 준비 중이에요.",
+        answerSummary:
+          recordDay.dailyQuestion.aiSummary ?? recordDay.dailyQuestion.answer,
       },
     ];
   }
@@ -155,11 +161,7 @@ function buildHeartShareItems(
     {
       id: "question",
       question: "하루 질문",
-      answer: aiSummary?.title ?? "이날의 질문 기록을 준비 중이에요.",
-      summary:
-        aiSummary?.summary ??
-        linkedSession?.preview ??
-        "대화 요약을 준비 중이에요.",
+      answerSummary: aiSummary?.summary ?? linkedSession?.preview ?? null,
     },
   ];
 }
@@ -174,6 +176,10 @@ function hasConversation(recordDay: RecordDayView | null) {
   }
 
   if (recordDay.dailyQuestion?.answer || recordDay.dailyQuestion?.aiSummary) {
+    return true;
+  }
+
+  if (recordDay.dailyQuestions?.some((item) => item.answerSummary)) {
     return true;
   }
 
@@ -231,7 +237,7 @@ export function buildProfileDayState(input: {
     conversationStatus: {
       label: hasConversation(input.selectedRecordDay ?? null) ? "했음" : "안함",
       tone: hasConversation(input.selectedRecordDay ?? null)
-        ? "active"
+        ? "success"
         : "idle",
     } as ProfileStatusBadge,
     conversationSummary: buildConversationSummary(

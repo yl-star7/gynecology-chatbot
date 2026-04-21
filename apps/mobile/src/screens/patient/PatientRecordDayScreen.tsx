@@ -288,7 +288,29 @@ export function PatientRecordDayScreen({
         </Card>
 
         <Card>
-          <Text style={styles.sectionTitle}>대화</Text>
+          <Text style={styles.sectionTitle}>날짜 질문</Text>
+          <View style={styles.sectionList}>
+            {recordDay && (recordDay.dailyQuestions?.length ?? 0) > 0 ? (
+              recordDay.dailyQuestions?.map((item) => (
+                <View key={item.id} style={[styles.recordCard, shadows.card]}>
+                  <Text style={styles.recordType}>날짜 질문</Text>
+                  <Text style={styles.recordTitle}>{item.question}</Text>
+                  <Text style={styles.recordSummary}>
+                    {item.answerSummary ??
+                      "아직 답변 요약이 준비되지 않았어요."}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyText}>
+                이 날짜에 보여드릴 질문이 아직 없어요.
+              </Text>
+            )}
+          </View>
+        </Card>
+
+        <Card>
+          <Text style={styles.sectionTitle}>대화 기록</Text>
           <View style={styles.sectionList}>
             {recordDay && recordDay.relatedSessions.length > 0 ? (
               recordDay.relatedSessions.map((session) => (

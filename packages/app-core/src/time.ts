@@ -1,4 +1,14 @@
 export const KOREA_TIME_ZONE = "Asia/Seoul";
+export const PREGNANCY_TERM_DAYS = 280;
+export const MIN_PREGNANCY_WEEK = 1;
+export const MAX_PREGNANCY_WEEK = 42;
+export const MAX_MANUAL_PREGNANCY_DAYS = MAX_PREGNANCY_WEEK * 7;
+
+export type PregnancyPosition = {
+  weekNumber: number;
+  dayNumber: number;
+  postDue: boolean;
+};
 
 export function createKoreanDateKey(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -41,6 +51,105 @@ export function diffCalendarDays(targetIsoDate: string, baseIsoDate: string) {
   const targetTime = Date.UTC(target.year, target.month - 1, target.day);
   const baseTime = Date.UTC(base.year, base.month - 1, base.day);
   return Math.round((targetTime - baseTime) / 86_400_000);
+}
+
+function clampInteger(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, Math.floor(value)));
+}
+
+export function calculatePregnancyPositionFromDayCount(
+  pregnancyDayCount: number,
+): Omit<PregnancyPosition, "postDue"> {
+  const clampedDayCount = clampInteger(
+    pregnancyDayCount,
+    0,
+    MAX_MANUAL_PREGNANCY_DAYS,
+  );
+  const rawWeek = Math.floor(clampedDayCount / 7);
+
+  return {
+    weekNumber: clampInteger(rawWeek, MIN_PREGNANCY_WEEK, MAX_PREGNANCY_WEEK),
+    dayNumber: (clampedDayCount % 7) + 1,
+  };
+}
+
+export function calculatePregnancyPositionFromDueDate(
+  dueDate: string,
+  targetIsoDate = createKoreanDateKey(),
+): PregnancyPosition {
+  const diffDays = diffCalendarDays(dueDate, targetIsoDate);
+  if (diffDays < 0) {
+    return { weekNumber: 40, dayNumber: 1, postDue: true };
+  }
+
+  const pregnancyDayCount = clampInteger(
+    PREGNANCY_TERM_DAYS - diffDays,
+    0,
+    PREGNANCY_TERM_DAYS,
+  );
+
+  return {
+    ...calculatePregnancyPositionFromDayCount(pregnancyDayCount),
+    postDue: false,
+  };
+}
+
+export function resolvePregnancyPositionFromProfile(
+  profile: {
+    pregnancyDayCount?: number | null;
+    pregnancyWeek?: number | null;
+    pregnancyDayInWeek?: number | null;
+    dueDate?: string | null;
+  },
+  targetIsoDate: string,
+  baseIsoDate = createKoreanDateKey(),
+): PregnancyPosition | null {
+  if (profile.dueDate) {
+    return calculatePregnancyPositionFromDueDate(
+      profile.dueDate,
+      targetIsoDate,
+    );
+  }
+
+  let currentPregnancyDayCount: number | null = null;
+  if (
+    typeof profile.pregnancyWeek === "number" &&
+    Number.isFinite(profile.pregnancyWeek) &&
+    profile.pregnancyWeek > 0
+  ) {
+    const week = clampInteger(
+      profile.pregnancyWeek,
+      MIN_PREGNANCY_WEEK,
+      MAX_PREGNANCY_WEEK,
+    );
+    const dayInWeek =
+      typeof profile.pregnancyDayInWeek === "number" &&
+      Number.isFinite(profile.pregnancyDayInWeek)
+        ? clampInteger(profile.pregnancyDayInWeek, 0, 6)
+        : 0;
+    currentPregnancyDayCount = week * 7 + dayInWeek;
+  } else if (
+    typeof profile.pregnancyDayCount === "number" &&
+    Number.isFinite(profile.pregnancyDayCount) &&
+    profile.pregnancyDayCount > 0
+  ) {
+    currentPregnancyDayCount = profile.pregnancyDayCount;
+  }
+
+  if (currentPregnancyDayCount === null) {
+    return null;
+  }
+
+  const selectedPregnancyDayCount =
+    currentPregnancyDayCount + diffCalendarDays(targetIsoDate, baseIsoDate);
+  if (selectedPregnancyDayCount <= 0) {
+    return null;
+  }
+
+  return {
+    ...calculatePregnancyPositionFromDayCount(selectedPregnancyDayCount),
+    postDue: false,
+  };
 }
 
 export function addCalendarDays(isoDate: string, amount: number) {

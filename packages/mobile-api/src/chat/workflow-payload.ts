@@ -24,11 +24,20 @@ export type WorkflowScenario =
   | "symptom_counsel"
   | "general";
 
+export type WorkflowV2Stage = 0 | 1 | 2 | "free_chat" | "ended";
+
 export type SessionMemoryPayload = {
   compactSummary?: string | null;
   lastScenario?: WorkflowScenario | null;
   lastCharacterTone?: CharacterTone | null;
   lastEmotionTone?: CharacterTone | null;
+  workflowVersion?: number | null;
+  stage?: WorkflowV2Stage | null;
+  stageName?: string | null;
+  moodId?: string | null;
+  moodLabel?: string | null;
+  ragContext?: string | null;
+  ragContextWeek?: number | null;
   updatedAt?: string | null;
 };
 
@@ -50,6 +59,7 @@ export type WorkflowDeepLink = {
   description: string;
   target: "knowledge";
   entityId?: string;
+  weekNumber?: number;
 };
 
 export type WorkflowAssistantPayload = {
@@ -109,6 +119,14 @@ function normalizeDeepLinks(value: unknown): WorkflowDeepLink[] | undefined {
         uuidPattern.test(record.entityId.trim())
       ) {
         link.entityId = record.entityId.trim();
+      }
+      if (
+        typeof record.weekNumber === "number" &&
+        Number.isInteger(record.weekNumber) &&
+        record.weekNumber >= 1 &&
+        record.weekNumber <= 42
+      ) {
+        link.weekNumber = record.weekNumber;
       }
       return link;
     })

@@ -1,7 +1,7 @@
 import { dbInsert, dbSelect, dbUpdate } from "../db/admin-client";
 import {
   createKoreanDateKey,
-  diffCalendarDays,
+  resolvePregnancyPositionFromProfile,
 } from "@gynecology-chatbot/app-core/time";
 import type {
   PersonaConfidence,
@@ -91,6 +91,11 @@ type UserQuestionEventRow = {
   status: "sent" | "opened" | "answered" | "skipped";
 };
 
+type PromptQuestionLookupRow = {
+  id: string;
+  question_text: string;
+};
+
 type CalendarQuestionResponseRow = {
   id: string;
   payload: {
@@ -120,10 +125,6 @@ export type PromptContext = {
   onboardingPayload: PregnancyProfilePromptRow["onboarding_payload"];
   missingFields: string[];
 };
-
-const MAX_PREGNANCY_DAYS = 294;
-const MIN_PREGNANCY_WEEK = 1;
-const MAX_PREGNANCY_WEEK = 42;
 
 function getKstDateKey(now = new Date()) {
   return createKoreanDateKey(now);
@@ -302,6 +303,122 @@ function mapPersonaProfileRow(
   };
 }
 
+function normalizeForPromptMatch(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getCharBigrams(value: string) {
+  const compact = normalizeForPromptMatch(value).replace(/\s+/g, "");
+  const result = new Set<string>();
+  for (let index = 0; index < compact.length - 1; index += 1) {
+    result.add(compact.slice(index, index + 2));
+  }
+  return result;
+}
+
+function scorePromptSimilarity(input: string, prompt: string) {
+  const normalizedInput = normalizeForPromptMatch(input);
+  const normalizedPrompt = normalizeForPromptMatch(prompt);
+  if (!normalizedInput || !normalizedPrompt) return 0;
+  if (
+    normalizedInput === normalizedPrompt ||
+    normalizedInput.includes(normalizedPrompt) ||
+    normalizedPrompt.includes(normalizedInput)
+  ) {
+    return 1;
+  }
+
+  const inputBigrams = getCharBigrams(normalizedInput);
+  const promptBigrams = getCharBigrams(normalizedPrompt);
+  if (inputBigrams.size === 0 || promptBigrams.size === 0) return 0;
+  let overlap = 0;
+  for (const token of inputBigrams) {
+    if (promptBigrams.has(token)) overlap += 1;
+  }
+  const dice = (2 * overlap) / (inputBigrams.size + promptBigrams.size);
+
+  const valueAnswerHints =
+    /성실|정직|배려|사랑|책임|용기|건강|행복|가치|태도/.test(normalizedInput);
+  const valueQuestionHints = /가치|태도|사람|자라|물려/.test(normalizedPrompt);
+  const teachingAnswerHints = /가르|알려|배우|습관|인사|공부|말|방법/.test(
+    normalizedInput,
+  );
+  const teachingQuestionHints = /가르|알려|배우|먼저/.test(normalizedPrompt);
+  const semanticBoost =
+    (valueAnswerHints && valueQuestionHints) ||
+    (teachingAnswerHints && teachingQuestionHints)
+      ? 0.35
+      : 0;
+
+  return Math.min(1, dice + semanticBoost);
+}
+
+function resolveOrdinalSelectionIndex(text: string) {
+  const normalized = normalizeForPromptMatch(text);
+  if (/^(1|1번|첫|첫번|첫번째|첫 번째)/.test(normalized)) return 0;
+  if (/^(2|2번|둘|두번|두번째|두 번째)/.test(normalized)) return 1;
+  if (/첫.*질문|첫째.*질문/.test(normalized)) return 0;
+  if (/두.*질문|둘째.*질문/.test(normalized)) return 1;
+  return null;
+}
+
+async function loadPromptQuestionsById(questionIds: string[]) {
+  if (questionIds.length === 0)
+    return new Map<string, PromptQuestionLookupRow>();
+  const rows = await dbSelect<PromptQuestionLookupRow[]>(
+    `content_week_questions?select=id,question_text&id=in.(${questionIds.join(",")})`,
+  );
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+function resolveBestQuestionEventMatch(input: {
+  events: UserQuestionEventRow[];
+  questionsById: Map<string, PromptQuestionLookupRow>;
+  userMessageText: string;
+}) {
+  const ordinal = resolveOrdinalSelectionIndex(input.userMessageText);
+  if (ordinal !== null && input.events[ordinal]) {
+    return {
+      event: input.events[ordinal],
+      mode: "opened" as const,
+      score: 1,
+    };
+  }
+
+  const scored = input.events
+    .map((event) => {
+      const question = input.questionsById.get(event.question_id);
+      return {
+        event,
+        question,
+        score: question
+          ? scorePromptSimilarity(input.userMessageText, question.question_text)
+          : 0,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const best = scored[0];
+  if (!best || best.score < 0.25) return null;
+
+  const normalizedInput = normalizeForPromptMatch(input.userMessageText);
+  const normalizedQuestion = normalizeForPromptMatch(
+    best.question?.question_text ?? "",
+  );
+  const mode =
+    best.score > 0.9 ||
+    normalizedInput.includes("질문") ||
+    normalizedInput === normalizedQuestion
+      ? "opened"
+      : "answered";
+
+  return { event: best.event, mode, score: best.score };
+}
+
 async function syncAnsweredQuestionToCalendar(input: {
   userId: string;
   sessionId: string;
@@ -353,69 +470,20 @@ async function syncAnsweredQuestionToCalendar(input: {
   });
 }
 
-function calculatePregnancyPositionFromDueDate(
-  dueDate: string,
-  targetIsoDate: string,
-) {
-  const diffDays = diffCalendarDays(dueDate, targetIsoDate);
-  if (diffDays < 0) {
-    return { weekNumber: 40, dayNumber: 1 };
-  }
-
-  const pregnancyDayCount = Math.max(
-    0,
-    Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diffDays),
-  );
-  const weekNumber = Math.max(
-    MIN_PREGNANCY_WEEK,
-    Math.min(MAX_PREGNANCY_WEEK, Math.floor(pregnancyDayCount / 7)),
-  );
-  const dayNumber = (pregnancyDayCount % 7) + 1;
-
-  return { weekNumber, dayNumber };
-}
-
-function resolveCurrentPregnancyDayCount(profile: PregnancyProfilePromptRow) {
-  if (
-    typeof profile.pregnancy_day_count === "number" &&
-    profile.pregnancy_day_count > 0
-  ) {
-    return profile.pregnancy_day_count;
-  }
-
-  if (
-    typeof profile.pregnancy_week === "number" &&
-    typeof profile.pregnancy_day_in_week === "number"
-  ) {
-    return (profile.pregnancy_week - 1) * 7 + profile.pregnancy_day_in_week;
-  }
-
-  return null;
-}
-
 function resolveSelectedPregnancyPosition(
   profile: PregnancyProfilePromptRow,
   isoDate: string,
 ) {
-  if (profile.due_date) {
-    return calculatePregnancyPositionFromDueDate(profile.due_date, isoDate);
-  }
-
-  const currentPregnancyDayCount = resolveCurrentPregnancyDayCount(profile);
-  if (!currentPregnancyDayCount) {
-    return null;
-  }
-
-  const dayOffset = diffCalendarDays(isoDate, getKstDateKey());
-  const selectedPregnancyDayCount = currentPregnancyDayCount + dayOffset;
-  if (selectedPregnancyDayCount <= 0) {
-    return null;
-  }
-
-  return {
-    weekNumber: Math.ceil(selectedPregnancyDayCount / 7),
-    dayNumber: ((selectedPregnancyDayCount - 1) % 7) + 1,
-  };
+  return resolvePregnancyPositionFromProfile(
+    {
+      pregnancyDayCount: profile.pregnancy_day_count,
+      pregnancyWeek: profile.pregnancy_week,
+      pregnancyDayInWeek: profile.pregnancy_day_in_week,
+      dueDate: profile.due_date,
+    },
+    isoDate,
+    isoDate,
+  );
 }
 
 export async function getPromptContext(
@@ -499,20 +567,12 @@ export async function getPromptContext(
 
   const [
     dayContentRow,
-    datedChecklistRows,
-    genericChecklistRows,
     datedQuestionRow,
     genericQuestionRow,
   ] = await Promise.all([
     dbSelect<DayContentRow[]>(
       `content_pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
     ).then((rows) => rows[0] ?? null),
-    dbSelect<ChecklistRow[]>(
-      `content_week_checklists?select=id,code,title,description,checklist_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
-    ),
-    dbSelect<ChecklistRow[]>(
-      `content_week_checklists?select=id,code,title,description,checklist_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
-    ),
     dbSelect<QuestionRow[]>(
       `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
     ).then((rows) => rows[0] ?? null),
@@ -521,9 +581,6 @@ export async function getPromptContext(
     ).then((rows) => rows[0] ?? null),
   ]);
 
-  const checklists = [...datedChecklistRows, ...genericChecklistRows].map(
-    mapChecklistRow,
-  );
   const questions = datedQuestionRow
     ? [mapQuestionRow(datedQuestionRow)]
     : genericQuestionRow
@@ -553,7 +610,7 @@ export async function getPromptContext(
     dayNumber,
     week,
     dayContent: mapDayContentRow(dayContentRow),
-    checklists,
+    checklists: [],
     questions,
     tonePreference: profile?.onboarding_payload?.tonePreference ?? null,
     profileMemory: Object.keys(profileMemory).length > 0 ? profileMemory : null,
@@ -569,28 +626,55 @@ export async function markOutstandingPromptEventsAnswered(input: {
   userMessageId: string | null;
   userMessageText: string;
 }): Promise<{ answeredCount: number }> {
-  const [checklistEvents, questionEvents] = await Promise.all([
-    dbSelect<UserChecklistEventRow[]>(
-      `user_checklist_events?select=id,checklist_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}&status=eq.sent`,
-    ),
-    dbSelect<UserQuestionEventRow[]>(
-      `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}&status=eq.sent`,
-    ),
-  ]);
+  const questionEvents = await dbSelect<UserQuestionEventRow[]>(
+    `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}&session_id=eq.${input.sessionId}&status=in.(sent,opened)`,
+  );
 
   const now = new Date().toISOString();
+  let answeredQuestionCount = 0;
 
-  for (const event of checklistEvents as UserChecklistEventRow[]) {
-    await dbUpdate(`user_checklist_events?id=eq.${event.id}`, {
-      status: "completed",
-      completion_message_id: input.userMessageId,
+  const openedQuestionEvents = (
+    questionEvents as UserQuestionEventRow[]
+  ).filter((event) => event.status === "opened");
+  const sentQuestionEvents = (questionEvents as UserQuestionEventRow[]).filter(
+    (event) => event.status === "sent",
+  );
+  const questionIds = [
+    ...new Set(questionEvents.map((event) => event.question_id)),
+  ];
+  const questionsById = await loadPromptQuestionsById(questionIds);
+  const questionEventsToAnswer =
+    openedQuestionEvents.length > 0
+      ? openedQuestionEvents
+      : (() => {
+          const match = resolveBestQuestionEventMatch({
+            events: sentQuestionEvents,
+            questionsById,
+            userMessageText: input.userMessageText,
+          });
+          return match?.mode === "answered" ? [match.event] : [];
+        })();
+  const questionEventsToOpen =
+    openedQuestionEvents.length === 0
+      ? (() => {
+          const match = resolveBestQuestionEventMatch({
+            events: sentQuestionEvents,
+            questionsById,
+            userMessageText: input.userMessageText,
+          });
+          return match?.mode === "opened" ? [match.event] : [];
+        })()
+      : [];
+
+  for (const event of questionEventsToOpen) {
+    await dbUpdate(`user_question_events?id=eq.${event.id}`, {
+      status: "opened",
       answer_text: input.userMessageText,
-      completed_at: now,
       updated_at: now,
     });
   }
 
-  for (const event of questionEvents as UserQuestionEventRow[]) {
+  for (const event of questionEventsToAnswer) {
     await dbUpdate(`user_question_events?id=eq.${event.id}`, {
       status: "answered",
       answer_message_id: input.userMessageId,
@@ -607,9 +691,12 @@ export async function markOutstandingPromptEventsAnswered(input: {
       userMessageText: input.userMessageText,
       answeredAt: now,
     });
+    answeredQuestionCount += 1;
   }
 
-  return { answeredCount: checklistEvents.length + questionEvents.length };
+  return {
+    answeredCount: answeredQuestionCount + questionEventsToOpen.length,
+  };
 }
 
 export async function createPromptEvents(input: {
@@ -620,18 +707,6 @@ export async function createPromptEvents(input: {
   questions: QuestionRow[];
 }) {
   const now = new Date().toISOString();
-
-  for (const checklist of input.checklists) {
-    await dbInsert("user_checklist_events", {
-      user_id: input.userId,
-      checklist_id: checklist.id,
-      session_id: input.sessionId,
-      prompt_message_id: input.assistantMessageId,
-      status: "sent",
-      sent_at: now,
-      updated_at: now,
-    });
-  }
 
   for (const question of input.questions) {
     await dbInsert("user_question_events", {
@@ -649,17 +724,12 @@ export async function createPromptEvents(input: {
 export async function getAlreadyPromptedIds(input: {
   userId: string;
 }): Promise<{ checklistIds: Set<string>; questionIds: Set<string> }> {
-  const [checklistEvents, questionEvents] = await Promise.all([
-    dbSelect<UserChecklistEventRow[]>(
-      `user_checklist_events?select=id,checklist_id,status&user_id=eq.${input.userId}`,
-    ),
-    dbSelect<UserQuestionEventRow[]>(
-      `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}`,
-    ),
-  ]);
+  const questionEvents = await dbSelect<UserQuestionEventRow[]>(
+    `user_question_events?select=id,question_id,status&user_id=eq.${input.userId}`,
+  );
 
   return {
-    checklistIds: new Set(checklistEvents.map((e) => e.checklist_id)),
+    checklistIds: new Set(),
     questionIds: new Set(questionEvents.map((e) => e.question_id)),
   };
 }

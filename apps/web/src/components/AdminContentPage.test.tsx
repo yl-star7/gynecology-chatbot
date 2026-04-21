@@ -258,7 +258,7 @@ describe("AdminContentPage", () => {
     global.fetch = originalFetch;
   });
 
-  it("uploads week cover images through signed URLs", async () => {
+  it("uploads and saves week cover images through signed URLs", async () => {
     render(
       <AdminContentPage
         adminDisplayName="운영자"
@@ -272,12 +272,14 @@ describe("AdminContentPage", () => {
     await screen.findByText("1주차 개요");
     fireEvent.click(screen.getByRole("button", { name: "상세 편집 열기" }));
     await screen.findByRole("heading", { name: "1주차 편집" });
+    expect(screen.getByText("주차 대표 이미지")).toBeInTheDocument();
+    expect(screen.getByText("크기 비교 이미지")).toBeInTheDocument();
 
     const fileInputs = document.querySelectorAll('input[type="file"]');
-    expect(fileInputs.length).toBeGreaterThanOrEqual(1);
+    expect(fileInputs.length).toBeGreaterThanOrEqual(2);
 
     const file = new File(["cover"], "cover.png", { type: "image/png" });
-    fireEvent.change(fileInputs[0] as HTMLInputElement, {
+    fireEvent.change(fileInputs[1] as HTMLInputElement, {
       target: { files: [file] },
     });
 
@@ -290,6 +292,40 @@ describe("AdminContentPage", () => {
         }),
       );
     });
+
+    await screen.findAllByText(
+      "비교 이미지를 업로드했습니다. 주차 저장을 눌러 반영해 주세요.",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/admin/content/weeks/1",
+        expect.objectContaining({
+          method: "PATCH",
+        }),
+      );
+    });
+
+    const patchCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([url, init]) =>
+        url === "/api/admin/content/weeks/1" && init?.method === "PATCH",
+    );
+    const body = JSON.parse(
+      String(patchCall?.[1]?.body),
+    ) as AdminWeekUpdateInput;
+
+    expect(body.compareImagePath).toBe(
+      "storage://pregnancy-content/weeks/01/123-cover.png",
+    );
+    expect(body.media).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          mediaRole: "compare",
+          objectPath: "weeks/01/123-cover.png",
+        }),
+      ]),
+    );
   });
 
   it("publishes a review-ready week through the explicit publish gate", async () => {

@@ -235,7 +235,7 @@ export function PatientProfileScreen() {
   function openCalendarDay(isoDate: string) {
     setSelectedIsoDate(isoDate);
     setModalSection("conversation");
-    setConversationSection("summary");
+    setConversationSection("heart");
   }
 
   function closeCalendarDayModal() {

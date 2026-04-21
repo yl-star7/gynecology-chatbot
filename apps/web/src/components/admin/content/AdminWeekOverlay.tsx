@@ -20,7 +20,8 @@ export interface AdminWeekOverlayProps {
   isLoadingWeeks: boolean;
   uploadingCoverField: "heroImagePath" | "compareImagePath" | null;
   uploadingMediaIndex: number | null;
-  selectedWeekReferenceMedia: AdminWeekMedia | undefined;
+  selectedWeekHeroMedia: AdminWeekMedia | undefined;
+  selectedWeekCompareMedia: AdminWeekMedia | undefined;
   onWeekFieldChange: (
     field:
       | "title"
@@ -83,7 +84,8 @@ export function AdminWeekOverlay({
   isLoadingWeeks,
   uploadingCoverField,
   uploadingMediaIndex,
-  selectedWeekReferenceMedia,
+  selectedWeekHeroMedia,
+  selectedWeekCompareMedia,
   onWeekFieldChange,
   onWeekStatusChange,
   onUploadWeekCoverImage,
@@ -107,9 +109,10 @@ export function AdminWeekOverlay({
   onSaveWeek,
   onPublishWeek,
 }: AdminWeekOverlayProps) {
-  const publicStorageBaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL.replace(/\/$/, "")}/storage/v1/object/public`
-    : null;
+  const publicStorageBaseUrl = (
+    process.env.NEXT_PUBLIC_GCS_PUBLIC_BASE_URL ??
+    "https://storage.googleapis.com"
+  ).replace(/\/$/, "");
 
   function resolveImagePreviewSrc(path: string | null | undefined) {
     const trimmed = path?.trim();
@@ -126,10 +129,6 @@ export function AdminWeekOverlay({
     }
 
     if (trimmed.startsWith("storage://")) {
-      if (!publicStorageBaseUrl) {
-        return null;
-      }
-
       const normalized = trimmed.replace("storage://", "");
       const slashIndex = normalized.indexOf("/");
       if (slashIndex === -1) {
@@ -152,10 +151,11 @@ export function AdminWeekOverlay({
     field: "heroImagePath" | "compareImagePath";
     label: string;
     value: string | null;
+    fallbackMedia: AdminWeekMedia | undefined;
   }) {
     const fallbackStoragePath =
-      !input.value && selectedWeekReferenceMedia
-        ? `storage://${selectedWeekReferenceMedia.bucketId}/${selectedWeekReferenceMedia.objectPath}`
+      !input.value && input.fallbackMedia
+        ? `storage://${input.fallbackMedia.bucketId}/${input.fallbackMedia.objectPath}`
         : null;
     const previewSrc = resolveImagePreviewSrc(
       input.value ?? fallbackStoragePath,
@@ -342,8 +342,16 @@ export function AdminWeekOverlay({
 
               {renderWeekImageField({
                 field: "heroImagePath",
-                label: "주차 이미지",
+                label: "주차 대표 이미지",
                 value: selectedWeekDetail.heroImagePath,
+                fallbackMedia: selectedWeekHeroMedia,
+              })}
+
+              {renderWeekImageField({
+                field: "compareImagePath",
+                label: "크기 비교 이미지",
+                value: selectedWeekDetail.compareImagePath,
+                fallbackMedia: selectedWeekCompareMedia,
               })}
 
               <div className={styles.panelHeader}>

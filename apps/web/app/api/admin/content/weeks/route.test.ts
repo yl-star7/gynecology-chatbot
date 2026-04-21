@@ -2,54 +2,34 @@ jest.mock("@/lib/admin/auth", () => ({
   readAdminSessionUser: jest.fn(),
 }));
 
-jest.mock("@/lib/admin/create-admin-services", () => ({
-  createAdminServices: jest.fn(),
-}));
-
-jest.mock("@/lib/admin/admin-cache", () => ({
-  loadCachedAdminWeeks: jest.fn(),
-}));
-
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { createAdminServices } from "@/lib/admin/create-admin-services";
-import { loadCachedAdminWeeks } from "@/lib/admin/admin-cache";
 import { GET } from "./route";
 
 const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<
   typeof readAdminSessionUser
 >;
-const mockedCreateAdminServices = createAdminServices as jest.MockedFunction<
-  typeof createAdminServices
->;
-const mockedLoadCachedAdminWeeks = loadCachedAdminWeeks as jest.MockedFunction<
-  typeof loadCachedAdminWeeks
->;
 
-function createAdminContentPortStub(
-  overrides: Partial<ReturnType<typeof createAdminServices>["adminContentPort"]>,
-) {
-  return {
-    createDocument: jest.fn(),
-    getDocument: jest.fn(),
-    updateDocument: jest.fn(),
-    deleteDocument: jest.fn(),
-    updateWorkflowRule: jest.fn(),
-    listKnowledgeItems: jest.fn(),
-    createKnowledgeItem: jest.fn(),
-    updateKnowledgeItem: jest.fn(),
-    deleteKnowledgeItem: jest.fn(),
-    listWeeks: jest.fn(),
-    getWeek: jest.fn(),
-    saveWeek: jest.fn(),
-    ...overrides,
-  };
-}
+describe("GET /api/admin/content/weeks proxy", () => {
+  const originalFetch = global.fetch;
+  const originalAdminApiBaseUrl = process.env.ADMIN_API_BASE_URL;
+  const originalAdminApiProxySecret = process.env.ADMIN_API_PROXY_SECRET;
 
-describe("GET /api/admin/content/weeks", () => {
   beforeEach(() => {
     mockedReadAdminSessionUser.mockReset();
-    mockedCreateAdminServices.mockReset();
-    mockedLoadCachedAdminWeeks.mockReset();
+    process.env.ADMIN_API_BASE_URL = "http://api.example.test";
+    process.env.ADMIN_API_PROXY_SECRET = "proxy-secret";
+    global.fetch = jest.fn(async () =>
+      new Response(JSON.stringify({ weeks: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ) as typeof fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    process.env.ADMIN_API_BASE_URL = originalAdminApiBaseUrl;
+    process.env.ADMIN_API_PROXY_SECRET = originalAdminApiProxySecret;
   });
 
   test("rejects requests without an admin session", async () => {
@@ -58,52 +38,19 @@ describe("GET /api/admin/content/weeks", () => {
     const response = await GET();
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: "unauthorized" });
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  test("returns week summaries for authenticated admins", async () => {
-    mockedReadAdminSessionUser.mockResolvedValue({
-      id: "admin-1",
-      displayName: "운영자",
-      phoneNumber: "010",
-      role: "admin",
-    });
-    mockedLoadCachedAdminWeeks.mockResolvedValue([
-      {
-        id: "week-1",
-        weekNumber: 1,
-        title: "1주차",
-        babySizeLabel: null,
-        babySizeCompareObject: null,
-        babySummary: null,
-        motherSummary: null,
-        heroImagePath: null,
-        compareImagePath: null,
-        status: "draft",
-        updatedAt: "2026-03-17T00:00:00.000Z",
-      },
-    ]);
+  test("forwards week summary requests to the API server", async () => {
+    mockedReadAdminSessionUser.mockResolvedValue({ id: "admin-1" } as never);
 
     const response = await GET();
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      weeks: [
-        {
-          id: "week-1",
-          weekNumber: 1,
-          title: "1주차",
-          babySizeLabel: null,
-          babySizeCompareObject: null,
-          babySummary: null,
-          motherSummary: null,
-          heroImagePath: null,
-          compareImagePath: null,
-          status: "draft",
-          updatedAt: "2026-03-17T00:00:00.000Z",
-        },
-      ],
-    });
-    expect(mockedCreateAdminServices).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({ weeks: [] });
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://api.example.test/api/admin/content/weeks",
+      expect.objectContaining({ method: "GET" }),
+    );
   });
 });

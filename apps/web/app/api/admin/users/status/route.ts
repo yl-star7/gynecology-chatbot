@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { createAdminServices } from "@/lib/admin/create-admin-services";
+import { proxyAdminApiRequest } from "@/lib/admin/api-server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,29 +10,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const userId = typeof body.userId === "string" ? body.userId : "";
-    const status = body.status === "paused" ? "paused" : body.status === "active" ? "active" : "";
-    const reason = typeof body.reason === "string" ? body.reason.trim() : "";
-
-    if (!userId || !status || !reason) {
-      return NextResponse.json(
-        { error: "userId, status, and reason are required" },
-        { status: 400 },
-      );
-    }
-
-    const services = createAdminServices();
-    await services.adminUserPort.updateUserStatus({
-      actorId: admin.id,
-      userId,
-      status,
-      reason,
-    });
-
-    return NextResponse.json({ ok: true });
+    return proxyAdminApiRequest("users/status", { admin, request });
   } catch (error) {
-    console.error("admin update user status route error", error);
+    console.error("admin update user status proxy error", error);
     return NextResponse.json(
       {
         error:

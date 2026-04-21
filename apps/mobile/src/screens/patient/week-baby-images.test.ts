@@ -14,6 +14,15 @@ test("getAllWeekBabyImageUris returns one uri per supported week (5~40)", () => 
   assert.equal(new Set(uris).size, uris.length, "중복된 URI가 있으면 안 됨");
 });
 
+test("getWeekBabyImageSource defaults to the current public GCS location", () => {
+  const source = getWeekBabyImageSource("18주");
+
+  assert.equal(
+    source.uri,
+    "https://storage.googleapis.com/pregnancy-content/weeks/18/w18-bell-pepper.png",
+  );
+});
+
 test("buildPrefetchPlan without anchor defers every week", () => {
   const plan = buildPrefetchPlan(null);
   assert.equal(plan.priority.length, 0);

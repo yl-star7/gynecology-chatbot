@@ -2,6 +2,7 @@ import type { DimensionValue } from "react-native";
 import { StyleSheet, Text, View } from "react-native";
 import { Card, Pressable } from "../../ui";
 import {
+  palette,
   patientSurfacePalette as surface,
   radii,
   space,
@@ -130,7 +131,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   calendarCellActive: {
-    backgroundColor: surface.accentSolid,
+    backgroundColor: palette.successText,
   },
   calendarLabel: {
     ...typo.label,

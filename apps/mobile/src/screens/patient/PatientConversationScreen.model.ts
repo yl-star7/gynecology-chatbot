@@ -18,6 +18,10 @@ import {
 } from "./patientErrorCopy.model";
 import { isPastConversationSession } from "./patientConversationSessionStatus.model";
 import { createInitialConversationMessage } from "./PatientConversationInitialMessage.model";
+import {
+  resolveConversationDeepLinkAction,
+  type ConversationDeepLinkMeta,
+} from "./PatientConversationDeepLink.model";
 
 function createSessionId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
@@ -93,7 +97,6 @@ export function usePatientConversationScreenModel({
     entityId?: string;
   } | null>(null);
   const didSeedInitialMessageRef = useRef(false);
-  const didUserSendMessageRef = useRef(false);
 
   useEffect(() => {
     const showEvent =
@@ -180,19 +183,6 @@ export function usePatientConversationScreenModel({
     return () => clearTimeout(timer);
   }, [isSending, session.messages.length]);
 
-  useEffect(() => {
-    return () => {
-      if (!didUserSendMessageRef.current) {
-        return;
-      }
-      const summarize = services.chatPort.summarizeSession;
-      if (!summarize) {
-        return;
-      }
-      void summarize.call(services.chatPort, resolvedSessionId).catch(() => {});
-    };
-  }, [resolvedSessionId, services.chatPort]);
-
   const isReadOnly =
     !isNewConversationSession(sessionId) &&
     isPastConversationSession(session.lastMessageAtIso);
@@ -209,7 +199,6 @@ export function usePatientConversationScreenModel({
       "아기와 대화",
       createUserMessage(nextText, capturedImage),
     );
-    didUserSendMessageRef.current = true;
     setText("");
     setImageDataUri(null);
     setErrorMessage(null);
@@ -255,8 +244,23 @@ export function usePatientConversationScreenModel({
     }
   }
 
-  function handleDeepLink(target: string, entityId?: string) {
-    setLinkSheet({ target, entityId });
+  function handleDeepLink(
+    target: string,
+    entityId?: string,
+    meta?: ConversationDeepLinkMeta,
+  ) {
+    const action = resolveConversationDeepLinkAction({
+      target,
+      entityId,
+      ...meta,
+    });
+
+    if (action.type === "encyclopedia") {
+      router.push(action.href as never);
+      return;
+    }
+
+    setLinkSheet({ target: action.target, entityId: action.entityId });
   }
 
   function handleDismissLinkSheet() {

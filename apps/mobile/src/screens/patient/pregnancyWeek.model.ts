@@ -1,6 +1,7 @@
 import {
   createKoreanDateKey,
   diffCalendarDays,
+  PREGNANCY_TERM_DAYS,
   readIsoDateKey,
 } from "@gynecology-chatbot/app-core";
 
@@ -8,7 +9,6 @@ const MIN_DISPLAY_WEEK = 1;
 const MAX_DISPLAY_WEEK = 42;
 const MIN_IMAGE_WEEK = 5;
 const MAX_IMAGE_WEEK = 40;
-const MAX_PREGNANCY_DAYS = 294;
 
 type PregnancyWeekKnownState = {
   kind: "week";
@@ -40,7 +40,10 @@ function computePregnancyDayFromDueDate(dueDate?: string | null, now?: Date) {
   const dueDateKey = readIsoDateKey(dueDate);
   if (!dueDateKey) return null;
   const diff = diffCalendarDays(dueDateKey, createKoreanDateKey(now));
-  return Math.max(0, Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diff));
+  return Math.max(
+    0,
+    Math.min(PREGNANCY_TERM_DAYS, PREGNANCY_TERM_DAYS - diff),
+  );
 }
 
 function computeWeekFromDueDate(dueDate?: string | null, now?: Date) {

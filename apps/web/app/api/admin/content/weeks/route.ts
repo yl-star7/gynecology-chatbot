@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { loadCachedAdminWeeks } from "@/lib/admin/admin-cache";
+import { proxyAdminApiRequest } from "@/lib/admin/api-server";
 
 export async function GET() {
   try {
@@ -9,10 +10,9 @@ export async function GET() {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const weeks = await loadCachedAdminWeeks();
-    return NextResponse.json({ weeks });
+    return proxyAdminApiRequest("content/weeks", { admin, method: "GET" });
   } catch (error) {
-    console.error("admin content weeks route error", error);
+    console.error("admin content weeks GET proxy error", error);
     return NextResponse.json(
       { error: "failed to load weeks" },
       { status: 500 },

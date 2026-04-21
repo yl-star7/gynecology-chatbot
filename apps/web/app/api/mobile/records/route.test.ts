@@ -278,7 +278,7 @@ describe("GET /api/mobile/records", () => {
           due_date: "2026-07-01",
         },
       ] as never)
-      .mockResolvedValueOnce([{ id: "week-30" }] as never)
+      .mockResolvedValueOnce([{ id: "week-28" }] as never)
       .mockResolvedValueOnce([
         {
           id: "check-due-date",
@@ -300,7 +300,7 @@ describe("GET /api/mobile/records", () => {
           due_date: "2026-07-01",
         },
       ] as never)
-      .mockResolvedValueOnce([{ id: "week-30" }] as never)
+      .mockResolvedValueOnce([{ id: "week-28" }] as never)
       .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([] as never);
 
@@ -313,7 +313,7 @@ describe("GET /api/mobile/records", () => {
 
     expect(mockedSupabaseSelect).toHaveBeenCalledWith(
       expect.stringContaining(
-        "content_pregnancy_week_data?select=id&week_number=eq.30&status=eq.published&limit=1",
+        "content_pregnancy_week_data?select=id&week_number=eq.28&status=eq.published&limit=1",
       ),
     );
     await expect(response.json()).resolves.toEqual({

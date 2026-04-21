@@ -27,4 +27,12 @@ describe("today-date model", () => {
       (beforeMidnight.dayInWeek + 1) % 7,
     );
   });
+
+  it("uses a 280-day pregnancy term when deriving week from due date", () => {
+    expect(calculateCurrentPregnancyWeek("2026-07-01", "2026-04-03")).toEqual({
+      week: 27,
+      dayInWeek: 2,
+      postDue: false,
+    });
+  });
 });

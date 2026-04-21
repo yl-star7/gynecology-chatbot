@@ -11,22 +11,37 @@ from urllib.parse import urlparse
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-IMAGE_DIR = PROJECT_ROOT / "output" / "week-baby-images"
-BASE_URL = "http://localhost:4000"
+IMAGE_DIR = Path(
+    os.environ.get(
+        "WEEK_BABY_IMAGE_DIR",
+        PROJECT_ROOT / "output" / "week-baby-images-clay-full",
+    )
+)
+BASE_URL = os.environ.get("ADMIN_BASE_URL", "http://localhost:4000").rstrip("/")
 
 
 def latest_week_images() -> dict[int, Path]:
     latest: dict[int, tuple[int, Path]] = {}
     pattern = re.compile(r"week-baby-w(\d+)_(\d+)_\.png$")
+    stable_pattern = re.compile(r"w(\d{2})-[a-z0-9-]+\.png$")
+    bundled_pattern = re.compile(r"week-baby-w(\d{2})\.png$")
     for path in sorted(IMAGE_DIR.glob("week-baby-w*.png")):
-      match = pattern.search(path.name)
-      if not match:
-        continue
-      week = int(match.group(1))
-      version = int(match.group(2))
-      current = latest.get(week)
-      if current is None or version > current[0]:
-        latest[week] = (version, path)
+        match = pattern.search(path.name)
+        if not match:
+            continue
+        week = int(match.group(1))
+        version = int(match.group(2))
+        current = latest.get(week)
+        if current is None or version > current[0]:
+            latest[week] = (version, path)
+    for path in sorted(IMAGE_DIR.glob("*.png")):
+        match = stable_pattern.fullmatch(path.name) or bundled_pattern.fullmatch(
+            path.name
+        )
+        if not match:
+            continue
+        week = int(match.group(1))
+        latest.setdefault(week, (0, path))
     return {week: entry[1] for week, entry in latest.items()}
 
 
@@ -58,6 +73,7 @@ def login_cookie(phone: str, password: str) -> str:
 
 
 def issue_signed_upload(cookie_file: str, week_number: int, image_path: Path):
+    object_path = f"weeks/{week_number:02d}/{image_path.name}"
     curl_cmd = [
         "curl",
         "-s",
@@ -71,6 +87,8 @@ def issue_signed_upload(cookie_file: str, week_number: int, image_path: Path):
         "mediaScope=week",
         "-F",
         f"weekNumber={week_number}",
+        "-F",
+        f"objectPath={object_path}",
         f"{BASE_URL}/api/admin/content/media/upload",
     ]
     result = subprocess.run(curl_cmd, capture_output=True, text=True, check=True)
@@ -92,19 +110,66 @@ def upload_binary(signed_url: str, image_path: Path, content_type: str) -> None:
             raise RuntimeError(f"Signed upload failed: {resp.status}")
 
 
-def query_week_ids() -> dict[int, str]:
+def run_psql(sql: str) -> str:
     db_url = os.environ["DATABASE_URL"]
     password = urlparse(db_url).password or ""
-    sql = "select week_number, id from content.pregnancy_week_data where week_number between 5 and 40 order by week_number;"
     result = subprocess.run(
-        ["direnv", "exec", str(PROJECT_ROOT), "psql", db_url, "-Atc", sql],
+        [
+            "direnv",
+            "exec",
+            str(PROJECT_ROOT),
+            "psql",
+            db_url,
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-Atc",
+            sql,
+        ],
         env={**os.environ, "PGPASSWORD": password},
         capture_output=True,
         text=True,
         check=True,
     )
+    return result.stdout
+
+
+def sql_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def resolve_content_tables() -> tuple[str, str]:
+    local_schema = os.environ.get("LOCAL_DB_SCHEMA", "").strip()
+    local_data_table = f"{local_schema}.content_pregnancy_week_data"
+    local_media_table = f"{local_schema}.content_pregnancy_week_media"
+    sql = """
+    SELECT CASE
+      WHEN to_regclass('content.pregnancy_week_data') IS NOT NULL THEN 'content.pregnancy_week_data|content.pregnancy_week_media'
+      WHEN to_regclass('public.content_pregnancy_week_data') IS NOT NULL THEN 'public.content_pregnancy_week_data|public.content_pregnancy_week_media'
+      WHEN %s <> '' AND to_regclass(%s) IS NOT NULL THEN %s
+      ELSE ''
+    END;
+    """ % (
+        sql_literal(local_schema),
+        sql_literal(local_data_table),
+        sql_literal(f"{local_data_table}|{local_media_table}"),
+    )
+    value = run_psql(sql).strip()
+    if not value:
+        raise RuntimeError("No pregnancy week content tables found")
+    data_table, media_table = value.split("|", 1)
+    return data_table, media_table
+
+
+def query_week_ids(data_table: str) -> dict[int, str]:
+    sql = f"""
+    select week_number, id
+    from {data_table}
+    where week_number between 5 and 40
+    order by week_number;
+    """
+    output = run_psql(sql)
     mapping: dict[int, str] = {}
-    for line in result.stdout.splitlines():
+    for line in output.splitlines():
         if not line.strip():
             continue
         week, week_id = line.split("|", 1)
@@ -112,16 +177,21 @@ def query_week_ids() -> dict[int, str]:
     return mapping
 
 
-def upsert_week_reference_image(week_id: str, week_number: int, object_path: str, source_name: str) -> None:
+def upsert_week_reference_image(
+    media_table: str,
+    week_id: str,
+    object_path: str,
+    source_name: str,
+) -> None:
     db_url = os.environ["DATABASE_URL"]
     password = urlparse(db_url).password or ""
     sql = f"""
-    DELETE FROM content.pregnancy_week_media
+    DELETE FROM {media_table}
     WHERE week_data_id = '{week_id}'::uuid
       AND media_scope = 'week'
-      AND media_role = 'reference';
+      AND media_role IN ('hero', 'reference', 'weekly_summary');
 
-    INSERT INTO content.pregnancy_week_media (
+    INSERT INTO {media_table} (
       id, week_data_id, day_content_id, day_number, media_scope, bucket_id,
       object_path, media_role, alt_text, source_file_name, display_order
     )
@@ -132,10 +202,10 @@ def upsert_week_reference_image(week_id: str, week_number: int, object_path: str
       NULL,
       'week',
       'pregnancy-content',
-      '{object_path}',
-      'reference',
-      '주차 비교 이미지',
-      '{source_name}',
+      {sql_literal(object_path)},
+      'hero',
+      '주차 대표 이미지',
+      {sql_literal(source_name)},
       1
     );
     """
@@ -150,9 +220,14 @@ def upsert_week_reference_image(week_id: str, week_number: int, object_path: str
 
 def main() -> int:
     phone = os.environ.get("LOCAL_ADMIN_PHONE_NUMBER", "01099998888")
-    password = os.environ.get("ADMIN_LOGIN_PASSWORD") or os.environ.get("LOCAL_ADMIN_PASSWORD") or "admin1234"
+    password = (
+        os.environ.get("ADMIN_LOGIN_PASSWORD")
+        or os.environ.get("LOCAL_ADMIN_PASSWORD")
+        or "admin1234"
+    )
     images = latest_week_images()
-    week_ids = query_week_ids()
+    data_table, media_table = resolve_content_tables()
+    week_ids = query_week_ids(data_table)
 
     if not images:
         raise RuntimeError("No generated week images found.")
@@ -164,10 +239,14 @@ def main() -> int:
             continue
         image_path = images[week]
         sign = issue_signed_upload(cookie_file, week, image_path)
-        upload_binary(sign["signedUrl"], image_path, sign.get("contentType") or "image/png")
+        upload_binary(
+            sign["signedUrl"],
+            image_path,
+            sign.get("contentType") or "image/png",
+        )
         upsert_week_reference_image(
+            media_table,
             week_ids[week],
-            week,
             sign["objectPath"],
             sign["sourceFileName"],
         )

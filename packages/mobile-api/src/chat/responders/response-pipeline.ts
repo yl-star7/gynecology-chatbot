@@ -15,6 +15,10 @@ export async function resolveAssistantResponse(input: {
     assistantMessage: ChatMessage;
     workflowMemoryPayload: WorkflowAssistantPayload | null;
   }>;
+  fallbackResponse?: () => Promise<{
+    assistantMessage: ChatMessage;
+    workflowMemoryPayload: WorkflowAssistantPayload | null;
+  }>;
 }): Promise<{
   assistantMessage: ChatMessage;
   workflowMemoryPayload: WorkflowAssistantPayload | null;
@@ -53,6 +57,10 @@ export async function resolveAssistantResponse(input: {
       console.warn("mobile chat response: workflow failed", {
         error: formatError(error),
       });
+      if (input.fallbackResponse) {
+        console.info("mobile chat response: local fallback");
+        return input.fallbackResponse();
+      }
       throw error;
     }
   }
@@ -61,5 +69,9 @@ export async function resolveAssistantResponse(input: {
   console.warn("mobile chat response: workflow unavailable", {
     error: formatError(error),
   });
+  if (input.fallbackResponse) {
+    console.info("mobile chat response: local fallback");
+    return input.fallbackResponse();
+  }
   throw error;
 }

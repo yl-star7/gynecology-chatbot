@@ -2,77 +2,55 @@ jest.mock("@/lib/admin/auth", () => ({
   readAdminSessionUser: jest.fn(),
 }));
 
-jest.mock("@/lib/admin/create-admin-services", () => ({
-  createAdminServices: jest.fn(),
-}));
-
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { createAdminServices } from "@/lib/admin/create-admin-services";
 import { DELETE, PATCH } from "./route";
 
 const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<
   typeof readAdminSessionUser
 >;
-const mockedCreateAdminServices = createAdminServices as jest.MockedFunction<
-  typeof createAdminServices
->;
 
-describe("admin allowed phone number detail route", () => {
+describe("admin allowed phone number detail route proxy", () => {
+  const originalFetch = global.fetch;
+  const originalAdminApiBaseUrl = process.env.ADMIN_API_BASE_URL;
+  const originalAdminApiProxySecret = process.env.ADMIN_API_PROXY_SECRET;
+
   beforeEach(() => {
     mockedReadAdminSessionUser.mockReset();
-    mockedCreateAdminServices.mockReset();
+    mockedReadAdminSessionUser.mockResolvedValue({ id: "admin-1" } as never);
+    process.env.ADMIN_API_BASE_URL = "http://api.example.test";
+    process.env.ADMIN_API_PROXY_SECRET = "proxy-secret";
+    global.fetch = jest.fn(async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ) as typeof fetch;
   });
 
-  it("updates an allowed phone number", async () => {
-    mockedReadAdminSessionUser.mockResolvedValue({ id: "admin-1" } as never);
-    const updateAllowedPhoneNumber = jest.fn().mockResolvedValue({
-      id: "allow-1",
-      phoneNumber: "+821012345678",
-      displayName: "김수연",
-      note: "업데이트",
-      createdAt: "2026-03-27T00:00:00.000Z",
-      updatedAt: "2026-03-27T00:00:00.000Z",
-    });
-    mockedCreateAdminServices.mockReturnValue({
-      adminUserPort: {
-        updateAllowedPhoneNumber,
-        deleteAllowedPhoneNumber: jest.fn(),
-      },
-    } as never);
+  afterEach(() => {
+    global.fetch = originalFetch;
+    process.env.ADMIN_API_BASE_URL = originalAdminApiBaseUrl;
+    process.env.ADMIN_API_PROXY_SECRET = originalAdminApiProxySecret;
+  });
 
+  it("forwards updates to the API server", async () => {
     const response = await PATCH(
       new Request("http://localhost:3000/api/admin/allowed-phone-numbers/allow-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phoneNumber: "01012345678",
-          displayName: "김수연",
-          note: "업데이트",
-        }),
+        body: JSON.stringify({ phoneNumber: "01012345678" }),
       }) as never,
       { params: Promise.resolve({ id: "allow-1" }) } as never,
     );
 
     expect(response.status).toBe(200);
-    expect(updateAllowedPhoneNumber).toHaveBeenCalledWith({
-      actorId: "admin-1",
-      id: "allow-1",
-      phoneNumber: "01012345678",
-      displayName: "김수연",
-      note: "업데이트",
-    });
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://api.example.test/api/admin/allowed-phone-numbers/allow-1",
+      expect.objectContaining({ method: "PUT", body: expect.any(Buffer) }),
+    );
   });
 
-  it("deletes an allowed phone number", async () => {
-    mockedReadAdminSessionUser.mockResolvedValue({ id: "admin-1" } as never);
-    const deleteAllowedPhoneNumber = jest.fn().mockResolvedValue(undefined);
-    mockedCreateAdminServices.mockReturnValue({
-      adminUserPort: {
-        updateAllowedPhoneNumber: jest.fn(),
-        deleteAllowedPhoneNumber,
-      },
-    } as never);
-
+  it("forwards deletes to the API server", async () => {
     const response = await DELETE(
       new Request("http://localhost:3000/api/admin/allowed-phone-numbers/allow-1", {
         method: "DELETE",
@@ -81,9 +59,9 @@ describe("admin allowed phone number detail route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(deleteAllowedPhoneNumber).toHaveBeenCalledWith({
-      actorId: "admin-1",
-      id: "allow-1",
-    });
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://api.example.test/api/admin/allowed-phone-numbers/allow-1",
+      expect.objectContaining({ method: "DELETE" }),
+    );
   });
 });

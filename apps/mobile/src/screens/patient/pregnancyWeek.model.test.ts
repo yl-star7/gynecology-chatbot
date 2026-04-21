@@ -30,10 +30,10 @@ test("pregnancy week state computes a typed week label from due date when raw la
   if (state.kind !== "week") {
     throw new Error("expected a week state");
   }
-  assert.equal(state.week, 24);
+  assert.equal(state.week, 22);
   assert.equal(state.day, 2);
-  assert.equal(getPregnancyWeekDisplayLabel(state), "24주 2일");
-  assert.equal(getPregnancyWeekImageLabel(state), "24주 2일");
+  assert.equal(getPregnancyWeekDisplayLabel(state), "22주 2일");
+  assert.equal(getPregnancyWeekImageLabel(state), "22주 2일");
 });
 
 test("pregnancy week state rejects malformed visible labels instead of treating them as image labels", () => {

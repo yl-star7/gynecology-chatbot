@@ -1,8 +1,12 @@
 import { Hono } from "hono";
 import type { TodayChecklistItem } from "@gynecology-chatbot/app-core";
-import { createKoreanDateKey } from "@gynecology-chatbot/app-core/time";
+import {
+  createKoreanDateKey,
+  resolvePregnancyPositionFromProfile,
+} from "@gynecology-chatbot/app-core/time";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import { sanitizeInlineCitationMarkers } from "@gynecology-chatbot/mobile-api/chat/sanitizers";
+import { buildDailyQuestionSummaries } from "@gynecology-chatbot/mobile-api/record-day-questions";
 import {
   resolveRecentChatPreview,
   toRecordDayView,
@@ -29,6 +33,7 @@ type CalendarRecordRow = {
     assistantSummary?: string | null;
     lastMessageAt?: string;
     source?: string;
+    question?: string;
   } | null;
 };
 
@@ -100,10 +105,6 @@ const VALID_EMOTION_TONES: EmotionTone[] = [
   "sad",
 ];
 
-const MAX_PREGNANCY_DAYS = 294;
-const MIN_PREGNANCY_WEEK = 1;
-const MAX_PREGNANCY_WEEK = 42;
-
 const EMOTION_TONE_LABELS: Record<EmotionTone, string> = {
   calm: "차분함",
   joyful: "기쁨",
@@ -140,79 +141,20 @@ function asMessageParts(
   return Array.isArray(value) ? (value as MessagePreviewRow["parts"]) : null;
 }
 
-function diffCalendarDays(targetIsoDate: string, baseIsoDate: string) {
-  const [targetYear, targetMonth, targetDay] = targetIsoDate
-    .split("-")
-    .map(Number);
-  const [baseYear, baseMonth, baseDay] = baseIsoDate.split("-").map(Number);
-  const target = Date.UTC(targetYear, targetMonth - 1, targetDay);
-  const base = Date.UTC(baseYear, baseMonth - 1, baseDay);
-  return Math.round((target - base) / 86_400_000);
-}
-
-function calculatePregnancyPositionFromDueDate(
-  dueDate: string,
-  targetIsoDate: string,
-) {
-  const diffDays = diffCalendarDays(dueDate, targetIsoDate);
-  if (diffDays < 0) {
-    return { weekNumber: 40, dayNumber: 1 };
-  }
-
-  const pregnancyDayCount = Math.max(
-    0,
-    Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diffDays),
-  );
-  const weekNumber = Math.max(
-    MIN_PREGNANCY_WEEK,
-    Math.min(MAX_PREGNANCY_WEEK, Math.floor(pregnancyDayCount / 7)),
-  );
-  const dayNumber = (pregnancyDayCount % 7) + 1;
-
-  return { weekNumber, dayNumber };
-}
-
-function resolveCurrentPregnancyDayCount(profile: ProfileRow) {
-  if (
-    typeof profile.pregnancy_day_count === "number" &&
-    profile.pregnancy_day_count > 0
-  ) {
-    return profile.pregnancy_day_count;
-  }
-
-  if (
-    typeof profile.pregnancy_week === "number" &&
-    typeof profile.pregnancy_day_in_week === "number"
-  ) {
-    return (profile.pregnancy_week - 1) * 7 + profile.pregnancy_day_in_week;
-  }
-
-  return null;
-}
-
 function resolveSelectedPregnancyPosition(
   profile: ProfileRow,
   isoDate: string,
 ) {
-  if (profile.due_date) {
-    return calculatePregnancyPositionFromDueDate(profile.due_date, isoDate);
-  }
-
-  const currentPregnancyDayCount = resolveCurrentPregnancyDayCount(profile);
-  if (!currentPregnancyDayCount) {
-    return null;
-  }
-
-  const dayOffset = diffCalendarDays(isoDate, getKstDateKey());
-  const selectedPregnancyDayCount = currentPregnancyDayCount + dayOffset;
-  if (selectedPregnancyDayCount <= 0) {
-    return null;
-  }
-
-  return {
-    weekNumber: Math.ceil(selectedPregnancyDayCount / 7),
-    dayNumber: ((selectedPregnancyDayCount - 1) % 7) + 1,
-  };
+  return resolvePregnancyPositionFromProfile(
+    {
+      pregnancyDayCount: profile.pregnancy_day_count,
+      pregnancyWeek: profile.pregnancy_week,
+      pregnancyDayInWeek: profile.pregnancy_day_in_week,
+      dueDate: profile.due_date,
+    },
+    isoDate,
+    getKstDateKey(),
+  );
 }
 
 function buildChecklistStatusMap(events: ChecklistEventRow[]) {
@@ -241,12 +183,21 @@ function buildChecklistLabel(row: ChecklistRow) {
 function buildConversationSummary(
   records: CalendarRecordRow[],
   relatedSessions: SessionRow[],
+  options: { deferUnsummarizedSessionSummary?: boolean } = {},
 ) {
   const aiSummary = records.find(
     (record) => record.entry_type === "ai_summary",
   );
   if (aiSummary?.summary) {
     return aiSummary.summary;
+  }
+
+  if (options.deferUnsummarizedSessionSummary) {
+    if (relatedSessions.length === 0) {
+      return null;
+    }
+
+    return `${relatedSessions.length}개의 대화가 있었어요. 하루 요약은 다음날 정리해 보여드릴게요.`;
   }
 
   const chatSummary = records.find(
@@ -374,7 +325,7 @@ async function loadChecklistItems(
   }));
 }
 
-async function loadDailyQuestion(
+async function loadDailyQuestions(
   userId: string,
   isoDate: string,
   records: CalendarRecordRow[],
@@ -397,12 +348,12 @@ async function loadDailyQuestion(
       }
     : null;
   if (!profile) {
-    return null;
+    return [];
   }
 
   const position = resolveSelectedPregnancyPosition(profile, isoDate);
   if (!position) {
-    return null;
+    return [];
   }
 
   const weekRecord = await prisma.content_pregnancy_week_data.findFirst({
@@ -414,11 +365,11 @@ async function loadDailyQuestion(
   });
   const week: WeekRow | null = weekRecord;
   if (!week) {
-    return null;
+    return [];
   }
 
-  const [datedQuestion, genericQuestion] = await Promise.all([
-    prisma.content_week_questions.findFirst({
+  const [datedQuestionRows, genericQuestionRows] = await Promise.all([
+    prisma.content_week_questions.findMany({
       where: {
         week_data_id: week.id,
         day_number: position.dayNumber,
@@ -431,7 +382,7 @@ async function loadDailyQuestion(
         day_number: true,
       },
     }),
-    prisma.content_week_questions.findFirst({
+    prisma.content_week_questions.findMany({
       where: {
         week_data_id: week.id,
         day_number: null,
@@ -446,26 +397,11 @@ async function loadDailyQuestion(
     }),
   ]);
 
-  const questionRecord = datedQuestion ?? genericQuestion ?? null;
-  const question: QuestionRow | null = questionRecord;
-  if (!question) {
-    return null;
-  }
-
-  const latestAnswer = records.find(
-    (record) =>
-      record.entry_type === "survey_response" &&
-      record.payload?.questionId === question.id,
-  );
-  const aiSummary = records.find(
-    (record) => record.entry_type === "ai_summary",
-  );
-
-  return {
-    question: question.question_text,
-    answer: latestAnswer?.summary ?? latestAnswer?.payload?.answer ?? null,
-    aiSummary: aiSummary?.summary ?? null,
-  };
+  return buildDailyQuestionSummaries({
+    datedQuestionRows: datedQuestionRows as QuestionRow[],
+    genericQuestionRows: genericQuestionRows as QuestionRow[],
+    records,
+  });
 }
 
 app.get("/", async (c) => {
@@ -523,8 +459,11 @@ app.get("/", async (c) => {
       })
     )
       .filter(
-        (row): row is typeof row & { session_id: string; last_message_at: Date } =>
-          typeof row.session_id === "string" && row.last_message_at instanceof Date,
+        (
+          row,
+        ): row is typeof row & { session_id: string; last_message_at: Date } =>
+          typeof row.session_id === "string" &&
+          row.last_message_at instanceof Date,
       )
       .map(
         (row): SessionActivityRow => ({
@@ -627,8 +566,11 @@ app.get("/", async (c) => {
     const conversationSummary = buildConversationSummary(
       records,
       orderedRelatedSessions,
+      {
+        deferUnsummarizedSessionSummary: isoDate === getKstDateKey(),
+      },
     );
-    const dailyQuestion = await loadDailyQuestion(userId, isoDate, records);
+    const dailyQuestions = await loadDailyQuestions(userId, isoDate, records);
 
     return c.json({
       recordDay: toRecordDayView({
@@ -637,7 +579,7 @@ app.get("/", async (c) => {
         emotionTone: resolvedEmotionTone,
         checklistItems,
         conversationSummary,
-        dailyQuestion,
+        dailyQuestions,
         records,
         relatedSessions: orderedRelatedSessions,
       }),

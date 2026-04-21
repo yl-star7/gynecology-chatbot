@@ -12,6 +12,9 @@ import type {
   AdminWeekSection,
   AdminWeekSummary,
   AdminWorkflowRule,
+  HomeCopyItem,
+  HomeCopySlot,
+  HomeCopyStatus,
 } from "@gynecology-chatbot/app-core";
 
 import type { RagFileItem } from "./content/AdminDocumentsSection";
@@ -74,6 +77,46 @@ function removeOrderedItem<T extends OrderedItem>(items: T[], index: number) {
     }));
 }
 
+function isCoverMediaMatch(
+  media: AdminWeekMedia,
+  field: "heroImagePath" | "compareImagePath",
+) {
+  if (media.mediaScope !== "week" || media.dayNumber !== null) {
+    return false;
+  }
+
+  if (field === "compareImagePath") {
+    return media.mediaRole === "compare";
+  }
+
+  return ["hero", "reference", "weekly_summary"].includes(media.mediaRole);
+}
+
+function buildCoverMediaEntry(input: {
+  current?: AdminWeekMedia;
+  field: "heroImagePath" | "compareImagePath";
+  bucketId: string;
+  objectPath: string;
+  sourceFileName: string | null;
+  displayOrder: number;
+}): AdminWeekMedia {
+  const mediaRole = input.field === "compareImagePath" ? "compare" : "hero";
+
+  return {
+    id: input.current?.id ?? "",
+    dayNumber: null,
+    mediaScope: "week",
+    bucketId: input.bucketId,
+    objectPath: input.objectPath,
+    mediaRole,
+    altText:
+      input.current?.altText ??
+      (mediaRole === "hero" ? "주차 대표 이미지" : "주차 비교 이미지"),
+    sourceFileName: input.sourceFileName,
+    displayOrder: input.current?.displayOrder ?? input.displayOrder,
+  };
+}
+
 export function useAdminContentState(
   dashboard: AdminDashboardData,
   view: "documents" | "static" | "weeks" | "policies",
@@ -81,6 +124,15 @@ export function useAdminContentState(
   const [knowledgeItems, setKnowledgeItems] = useState<AdminKnowledgeItem[]>(
     [],
   );
+  const [homeCopyItems, setHomeCopyItems] = useState<HomeCopyItem[]>([]);
+  const [selectedHomeCopyItemId, setSelectedHomeCopyItemId] = useState("");
+  const [homeCopySlot, setHomeCopySlot] = useState<HomeCopySlot>("hero_bubble");
+  const [homeCopyVariant, setHomeCopyVariant] = useState("default");
+  const [homeCopyTitle, setHomeCopyTitle] = useState("");
+  const [homeCopyBody, setHomeCopyBody] = useState("");
+  const [homeCopyStatus, setHomeCopyStatus] =
+    useState<HomeCopyStatus>("published");
+  const [homeCopyDisplayOrder, setHomeCopyDisplayOrder] = useState("");
   const [selectedKnowledgeItemId, setSelectedKnowledgeItemId] = useState("");
   const [knowledgeSlug, setKnowledgeSlug] = useState("");
   const [knowledgeSection, setKnowledgeSection] =
@@ -119,6 +171,7 @@ export function useAdminContentState(
   >(dashboard.workflowRules[0]?.status ?? "review");
   const [contentMessage, setContentMessage] = useState<string | null>(null);
   const [isRagSubmitting, setIsRagSubmitting] = useState(false);
+  const [isHomeCopySaving, setIsHomeCopySaving] = useState(false);
   const [isKnowledgeSaving, setIsKnowledgeSaving] = useState(false);
   const [isWorkflowSaving, setIsWorkflowSaving] = useState(false);
   const [isWorkflowBootstrapping, setIsWorkflowBootstrapping] = useState(false);
@@ -168,18 +221,14 @@ export function useAdminContentState(
       contentType?: string;
     };
 
-    if (
-      !response.ok ||
-      !payload.bucketId ||
-      !payload.objectPath ||
-      !payload.signedUrl
-    ) {
+    const { bucketId, objectPath, signedUrl } = payload;
+    if (!response.ok || !bucketId || !objectPath || !signedUrl) {
       throw new Error(
         payload.error ?? "이미지 업로드 URL 발급에 실패했습니다.",
       );
     }
 
-    const uploadResponse = await fetch(payload.signedUrl, {
+    const uploadResponse = await fetch(signedUrl, {
       method: "PUT",
       headers: {
         "content-type": payload.contentType ?? input.file.type,
@@ -192,7 +241,11 @@ export function useAdminContentState(
       throw new Error("signed URL 업로드에 실패했습니다.");
     }
 
-    return payload;
+    return {
+      bucketId,
+      objectPath,
+      sourceFileName: payload.sourceFileName ?? null,
+    };
   }
 
   useEffect(() => {
@@ -237,6 +290,48 @@ export function useAdminContentState(
             error instanceof Error
               ? error.message
               : "지식 문서 목록을 불러오지 못했습니다.",
+          );
+        }
+      }
+    }
+
+    async function loadHomeCopyItems() {
+      try {
+        const response = await fetch("/api/admin/content/home-copy");
+        const payload = (await response.json()) as {
+          error?: string;
+          homeCopyItems?: HomeCopyItem[];
+        };
+
+        if (!response.ok) {
+          throw new Error(
+            payload.error ?? "앱 메인 문구 목록을 불러오지 못했습니다.",
+          );
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const nextItems = payload.homeCopyItems ?? [];
+        setHomeCopyItems(nextItems);
+
+        const firstItem = nextItems[0];
+        if (firstItem) {
+          setSelectedHomeCopyItemId(firstItem.id);
+          setHomeCopySlot(firstItem.slot);
+          setHomeCopyVariant(firstItem.variant ?? "");
+          setHomeCopyTitle(firstItem.title);
+          setHomeCopyBody(firstItem.body);
+          setHomeCopyStatus("published");
+          setHomeCopyDisplayOrder(String(firstItem.displayOrder));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setContentMessage(
+            error instanceof Error
+              ? error.message
+              : "앱 메인 문구 목록을 불러오지 못했습니다.",
           );
         }
       }
@@ -289,6 +384,7 @@ export function useAdminContentState(
 
     if (needsKnowledgeItems) {
       void loadKnowledgeItems();
+      void loadHomeCopyItems();
     }
 
     if (needsWeeks) {
@@ -458,9 +554,33 @@ export function useAdminContentState(
       updateWeekDetail((current) => ({
         ...current,
         [field]: `storage://${payload.bucketId}/${payload.objectPath}`,
+        media: (() => {
+          const matchedIndex = current.media.findIndex((media) =>
+            isCoverMediaMatch(media, field),
+          );
+          const nextEntry = buildCoverMediaEntry({
+            current:
+              matchedIndex >= 0 ? current.media[matchedIndex] : undefined,
+            field,
+            bucketId: payload.bucketId,
+            objectPath: payload.objectPath,
+            sourceFileName: payload.sourceFileName ?? file.name,
+            displayOrder: current.media.length + 1,
+          });
+
+          if (matchedIndex >= 0) {
+            return current.media.map((media, index) =>
+              index === matchedIndex ? nextEntry : media,
+            );
+          }
+
+          return [...current.media, nextEntry];
+        })(),
       }));
       setContentMessage(
-        "대표 이미지를 업로드했습니다. 주차 저장을 눌러 반영해 주세요.",
+        `${
+          field === "compareImagePath" ? "비교 이미지" : "대표 이미지"
+        }를 업로드했습니다. 주차 저장을 눌러 반영해 주세요.`,
       );
     } catch (error) {
       setContentMessage(
@@ -841,6 +961,28 @@ export function useAdminContentState(
       "published",
       `${selectedWeekDetail.weekNumber}주차를 검수 후 게시했습니다.`,
     );
+  }
+
+  function syncSelectedHomeCopyItem(id: string) {
+    setSelectedHomeCopyItemId(id);
+    const nextItem = homeCopyItems.find((item) => item.id === id);
+    setHomeCopySlot(nextItem?.slot ?? "hero_bubble");
+    setHomeCopyVariant(nextItem?.variant ?? "");
+    setHomeCopyTitle(nextItem?.title ?? "");
+    setHomeCopyBody(nextItem?.body ?? "");
+    setHomeCopyStatus("published");
+    setHomeCopyDisplayOrder(nextItem ? String(nextItem.displayOrder) : "");
+  }
+
+  function resetHomeCopyItemForm() {
+    setSelectedHomeCopyItemId("");
+    setHomeCopySlot("hero_bubble");
+    setHomeCopyVariant("default");
+    setHomeCopyTitle("");
+    setHomeCopyBody("");
+    setHomeCopyStatus("published");
+    setHomeCopyDisplayOrder("");
+    setContentMessage(null);
   }
 
   function syncSelectedKnowledgeItem(id: string) {
@@ -1283,6 +1425,134 @@ export function useAdminContentState(
     setIsWorkflowDeleting(false);
   }
 
+  function buildHomeCopyPayload() {
+    return {
+      slot: homeCopySlot,
+      variant: homeCopyVariant.trim() || null,
+      title: homeCopyTitle,
+      body: homeCopyBody,
+      status: "published",
+      displayOrder: homeCopyDisplayOrder ? Number(homeCopyDisplayOrder) : null,
+    };
+  }
+
+  function syncHomeCopyForm(item: HomeCopyItem) {
+    setSelectedHomeCopyItemId(item.id);
+    setHomeCopySlot(item.slot);
+    setHomeCopyVariant(item.variant ?? "");
+    setHomeCopyTitle(item.title);
+    setHomeCopyBody(item.body);
+    setHomeCopyStatus("published");
+    setHomeCopyDisplayOrder(String(item.displayOrder));
+  }
+
+  async function handleCreateHomeCopyItem() {
+    if (!homeCopyTitle.trim() || !homeCopyBody.trim()) {
+      setContentMessage("제목과 문구를 모두 입력해 주세요.");
+      return;
+    }
+
+    setIsHomeCopySaving(true);
+    setContentMessage(null);
+
+    const response = await fetch("/api/admin/content/home-copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildHomeCopyPayload()),
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      homeCopyItem?: HomeCopyItem;
+      homeCopyItems?: HomeCopyItem[];
+    };
+
+    if (!response.ok || !payload.homeCopyItem) {
+      setContentMessage(payload.error ?? "앱 메인 문구 생성에 실패했습니다.");
+      setIsHomeCopySaving(false);
+      return;
+    }
+
+    setHomeCopyItems(payload.homeCopyItems ?? [payload.homeCopyItem]);
+    syncHomeCopyForm(payload.homeCopyItem);
+    setContentMessage("앱 메인 문구를 생성했습니다.");
+    setIsHomeCopySaving(false);
+  }
+
+  async function handleUpdateHomeCopyItem() {
+    if (
+      !selectedHomeCopyItemId ||
+      !homeCopyTitle.trim() ||
+      !homeCopyBody.trim()
+    ) {
+      setContentMessage("수정할 문구를 선택하고 제목과 문구를 입력해 주세요.");
+      return;
+    }
+
+    setIsHomeCopySaving(true);
+    setContentMessage(null);
+
+    const response = await fetch(
+      `/api/admin/content/home-copy/${encodeURIComponent(selectedHomeCopyItemId)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildHomeCopyPayload()),
+      },
+    );
+    const payload = (await response.json()) as {
+      error?: string;
+      homeCopyItem?: HomeCopyItem;
+      homeCopyItems?: HomeCopyItem[];
+    };
+
+    if (!response.ok || !payload.homeCopyItem) {
+      setContentMessage(payload.error ?? "앱 메인 문구 수정에 실패했습니다.");
+      setIsHomeCopySaving(false);
+      return;
+    }
+
+    setHomeCopyItems(payload.homeCopyItems ?? homeCopyItems);
+    syncHomeCopyForm(payload.homeCopyItem);
+    setContentMessage("앱 메인 문구를 수정했습니다.");
+    setIsHomeCopySaving(false);
+  }
+
+  async function handleDeleteHomeCopyItem() {
+    if (!selectedHomeCopyItemId) {
+      setContentMessage("삭제할 문구를 먼저 선택해 주세요.");
+      return;
+    }
+
+    setIsHomeCopySaving(true);
+    setContentMessage(null);
+
+    const response = await fetch(
+      `/api/admin/content/home-copy/${encodeURIComponent(selectedHomeCopyItemId)}`,
+      { method: "DELETE" },
+    );
+    const payload = (await response.json()) as {
+      error?: string;
+      homeCopyItems?: HomeCopyItem[];
+    };
+
+    if (!response.ok) {
+      setContentMessage(payload.error ?? "앱 메인 문구 삭제에 실패했습니다.");
+      setIsHomeCopySaving(false);
+      return;
+    }
+
+    const nextItems = payload.homeCopyItems ?? [];
+    setHomeCopyItems(nextItems);
+    const nextItem = nextItems[0];
+    if (nextItem) {
+      syncHomeCopyForm(nextItem);
+    } else {
+      resetHomeCopyItemForm();
+    }
+    setContentMessage("앱 메인 문구를 삭제했습니다.");
+    setIsHomeCopySaving(false);
+  }
+
   async function handleCreateKnowledgeItem() {
     if (
       !knowledgeSlug.trim() ||
@@ -1425,6 +1695,14 @@ export function useAdminContentState(
   }
 
   return {
+    homeCopyItems,
+    selectedHomeCopyItemId,
+    homeCopySlot,
+    homeCopyVariant,
+    homeCopyTitle,
+    homeCopyBody,
+    homeCopyStatus,
+    homeCopyDisplayOrder,
     knowledgeItems,
     selectedKnowledgeItemId,
     knowledgeSlug,
@@ -1448,6 +1726,7 @@ export function useAdminContentState(
     workflowStatus,
     contentMessage,
     isRagSubmitting,
+    isHomeCopySaving,
     isKnowledgeSaving,
     isWorkflowSaving,
     isWorkflowBootstrapping,
@@ -1460,11 +1739,19 @@ export function useAdminContentState(
     isLoadingWeeks,
     uploadingCoverField,
     uploadingMediaIndex,
+    syncSelectedHomeCopyItem,
+    resetHomeCopyItemForm,
     syncSelectedKnowledgeItem,
     resetKnowledgeItemForm,
     syncSelectedRagDocument,
     resetRagDocumentForm,
     syncSelectedWorkflowRule,
+    setHomeCopySlot,
+    setHomeCopyVariant,
+    setHomeCopyTitle,
+    setHomeCopyBody,
+    setHomeCopyStatus,
+    setHomeCopyDisplayOrder,
     setKnowledgeSlug,
     setKnowledgeSection,
     setKnowledgeTitle,
@@ -1480,6 +1767,9 @@ export function useAdminContentState(
     setWorkflowRetrievalScope,
     setWorkflowModelName,
     setWorkflowStatus,
+    handleCreateHomeCopyItem,
+    handleUpdateHomeCopyItem,
+    handleDeleteHomeCopyItem,
     handleCreateKnowledgeItem,
     handleUpdateKnowledgeItem,
     handleDeleteKnowledgeItem,

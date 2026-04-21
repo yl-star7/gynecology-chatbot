@@ -2,6 +2,7 @@
 
 import {
   DEFAULT_MOBILE_THEME_KEY,
+  PREGNANCY_TERM_DAYS,
   addCalendarDays,
   createKoreanDateKey,
   readIsoDateKey,
@@ -151,7 +152,7 @@ export function MobileOnboardingView({ userId }: Props) {
             value={dueDate}
             type="date"
             min={createKoreanDateKey()}
-            max={addCalendarDays(createKoreanDateKey(), 294)}
+            max={addCalendarDays(createKoreanDateKey(), PREGNANCY_TERM_DAYS)}
           />
           {error ? <MobileNotice>{error}</MobileNotice> : null}
           <button

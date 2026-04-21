@@ -86,6 +86,13 @@ export interface MobileProfilePort {
   getProfile(): Promise<MobileProfileViewData>;
   getBranding(): Promise<{
     surveyFormUrl: string | null;
+    characterImages?: {
+      version: string;
+      images: Record<
+        "neutral" | "calm" | "joyful" | "anxious" | "tired" | "sad",
+        string
+      >;
+    };
   }>;
   updateProfile(input: {
     userId: string;

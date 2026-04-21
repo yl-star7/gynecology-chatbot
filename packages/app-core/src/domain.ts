@@ -18,6 +18,30 @@ export interface HomeShortcutCard {
   href: string;
 }
 
+export type HomeCopySlot = "hero_bubble" | "daily_note" | "encouragement_quote";
+
+export type HomeCopyStatus = "draft" | "published" | "archived";
+
+export interface HomeCopyItem {
+  id: string;
+  slot: HomeCopySlot;
+  variant: string | null;
+  title: string;
+  body: string;
+  status: HomeCopyStatus;
+  displayOrder: number;
+  updatedAt: string;
+}
+
+export interface HomeCopyItemInput {
+  slot: HomeCopySlot;
+  variant?: string | null;
+  title: string;
+  body: string;
+  status: HomeCopyStatus;
+  displayOrder?: number | null;
+}
+
 export interface HomeViewData {
   userName: string;
   pregnancyDayCount: number;
@@ -26,6 +50,7 @@ export interface HomeViewData {
   calendarDays: CalendarDay[];
   notebookCard: HomeShortcutCard;
   knowledgeCard: HomeShortcutCard;
+  homeCopyItems?: HomeCopyItem[];
 }
 
 export interface RecentChatSummary {
@@ -44,6 +69,12 @@ export interface RecordDayItem {
   linkedSessionId?: string | null;
 }
 
+export interface DailyQuestionSummary {
+  id: string;
+  question: string;
+  answerSummary: string | null;
+}
+
 export interface RecordDayView {
   isoDate: string;
   dateLabel: string;
@@ -56,6 +87,7 @@ export interface RecordDayView {
     answer: string | null;
     aiSummary: string | null;
   } | null;
+  dailyQuestions?: DailyQuestionSummary[];
   records: RecordDayItem[];
   relatedSessions: RecentChatSummary[];
 }
@@ -147,6 +179,7 @@ export interface DeepLinkPart {
   description: string;
   target: string;
   entityId?: string;
+  weekNumber?: number;
 }
 
 export type ChatPart =

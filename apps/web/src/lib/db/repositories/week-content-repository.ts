@@ -380,8 +380,6 @@ export class WeekContentRepository {
           baby_size_compare_object: input.babySizeCompareObject,
           baby_summary: input.babySummary,
           mother_summary: input.motherSummary,
-          warning_signs: input.heroImagePath,
-          recommended_actions: input.compareImagePath,
           status: input.status,
           updated_at: new Date(),
         },
@@ -395,8 +393,6 @@ export class WeekContentRepository {
       baby_size_compare_object: input.babySizeCompareObject,
       baby_summary: input.babySummary,
       mother_summary: input.motherSummary,
-      warning_signs: input.heroImagePath,
-      recommended_actions: input.compareImagePath,
       status: input.status,
       updated_at: new Date().toISOString(),
     });

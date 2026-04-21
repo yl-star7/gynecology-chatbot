@@ -24,8 +24,8 @@ describe("mobile serializers date handling", () => {
       month: "2026-04",
     });
 
-    expect(home.pregnancyDayCount).toBe(206);
-    expect(home.pregnancyWeekLabel).toBe("29주 3일");
+    expect(home.pregnancyDayCount).toBe(192);
+    expect(home.pregnancyWeekLabel).toBe("27주 3일");
   });
 
   it("formats recent chat labels with Korean time today and yesterday boundaries", () => {

@@ -2,25 +2,51 @@
 
 import { useState } from "react";
 
-import type { AdminKnowledgeItem } from "@gynecology-chatbot/app-core";
+import type {
+  AdminKnowledgeItem,
+  HomeCopyItem,
+  HomeCopySlot,
+  HomeCopyStatus,
+} from "@gynecology-chatbot/app-core";
 
 import {
   getWeekStatusBadge,
   getWeekStatusLabel,
 } from "../admin-dashboard-labels";
 import styles from "../AdminConsoleLayout.module.css";
+import { AdminHomeCopyPanel } from "./AdminHomeCopyPanel";
 
 export interface AdminStaticSectionProps {
+  homeCopyItems: HomeCopyItem[];
+  selectedHomeCopyItemId: string;
   knowledgeItems: AdminKnowledgeItem[];
   selectedKnowledgeItemId: string;
   contentMessage: string | null;
+  homeCopySlot: HomeCopySlot;
+  homeCopyVariant: string;
+  homeCopyTitle: string;
+  homeCopyBody: string;
+  homeCopyStatus: HomeCopyStatus;
+  homeCopyDisplayOrder: string;
   knowledgeSlug: string;
   knowledgeSection: AdminKnowledgeItem["section"];
   knowledgeTitle: string;
   knowledgeBody: string;
   knowledgeImageUrl: string;
   knowledgeStatus: AdminKnowledgeItem["status"];
+  isHomeCopySaving: boolean;
   isKnowledgeSaving: boolean;
+  onSelectHomeCopyItem: (id: string) => void;
+  onHomeCopySlotChange: (value: HomeCopySlot) => void;
+  onHomeCopyVariantChange: (value: string) => void;
+  onHomeCopyTitleChange: (value: string) => void;
+  onHomeCopyBodyChange: (value: string) => void;
+  onHomeCopyStatusChange: (value: HomeCopyStatus) => void;
+  onHomeCopyDisplayOrderChange: (value: string) => void;
+  onCreateHomeCopyItem: () => Promise<void>;
+  onUpdateHomeCopyItem: () => Promise<void>;
+  onDeleteHomeCopyItem: () => Promise<void>;
+  onResetHomeCopyItem: () => void;
   onSelectKnowledgeItem: (id: string) => void;
   onKnowledgeSlugChange: (value: string) => void;
   onKnowledgeSectionChange: (value: AdminKnowledgeItem["section"]) => void;
@@ -35,16 +61,36 @@ export interface AdminStaticSectionProps {
 }
 
 export function AdminStaticSection({
+  homeCopyItems,
+  selectedHomeCopyItemId,
   knowledgeItems,
   selectedKnowledgeItemId,
   contentMessage,
+  homeCopySlot,
+  homeCopyVariant,
+  homeCopyTitle,
+  homeCopyBody,
+  homeCopyStatus,
+  homeCopyDisplayOrder,
   knowledgeSlug,
   knowledgeSection,
   knowledgeTitle,
   knowledgeBody,
   knowledgeImageUrl,
   knowledgeStatus,
+  isHomeCopySaving,
   isKnowledgeSaving,
+  onSelectHomeCopyItem,
+  onHomeCopySlotChange,
+  onHomeCopyVariantChange,
+  onHomeCopyTitleChange,
+  onHomeCopyBodyChange,
+  onHomeCopyStatusChange,
+  onHomeCopyDisplayOrderChange,
+  onCreateHomeCopyItem,
+  onUpdateHomeCopyItem,
+  onDeleteHomeCopyItem,
+  onResetHomeCopyItem,
   onSelectKnowledgeItem,
   onKnowledgeSlugChange,
   onKnowledgeSectionChange,
@@ -76,6 +122,30 @@ export function AdminStaticSection({
 
   return (
     <section className={styles.sectionStack}>
+      <AdminHomeCopyPanel
+        homeCopyItems={homeCopyItems}
+        selectedHomeCopyItemId={selectedHomeCopyItemId}
+        contentMessage={contentMessage}
+        homeCopySlot={homeCopySlot}
+        homeCopyVariant={homeCopyVariant}
+        homeCopyTitle={homeCopyTitle}
+        homeCopyBody={homeCopyBody}
+        homeCopyStatus={homeCopyStatus}
+        homeCopyDisplayOrder={homeCopyDisplayOrder}
+        isHomeCopySaving={isHomeCopySaving}
+        onSelectHomeCopyItem={onSelectHomeCopyItem}
+        onHomeCopySlotChange={onHomeCopySlotChange}
+        onHomeCopyVariantChange={onHomeCopyVariantChange}
+        onHomeCopyTitleChange={onHomeCopyTitleChange}
+        onHomeCopyBodyChange={onHomeCopyBodyChange}
+        onHomeCopyStatusChange={onHomeCopyStatusChange}
+        onHomeCopyDisplayOrderChange={onHomeCopyDisplayOrderChange}
+        onCreateHomeCopyItem={onCreateHomeCopyItem}
+        onUpdateHomeCopyItem={onUpdateHomeCopyItem}
+        onDeleteHomeCopyItem={onDeleteHomeCopyItem}
+        onResetHomeCopyItem={onResetHomeCopyItem}
+      />
+
       <section className={styles.panel}>
         <div className={styles.routeHeader}>
           <div>

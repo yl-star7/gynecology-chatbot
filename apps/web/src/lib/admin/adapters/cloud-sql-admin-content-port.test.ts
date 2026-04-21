@@ -202,8 +202,8 @@ describe("CloudSqlAdminContentPortAdapter", () => {
         babySizeCompareObject: "작은 블루베리",
         babySummary: "baby summary",
         motherSummary: "mother summary",
-        heroImagePath: "위험 신호 정리",
-        compareImagePath: "권장 액션 정리",
+        heroImagePath: null,
+        compareImagePath: null,
         status: "published",
         updatedAt: "2026-03-17T10:00:00.000Z",
       },
@@ -299,6 +299,17 @@ describe("CloudSqlAdminContentPortAdapter", () => {
           source_file_name: "week2-hero.jpg",
           display_order: 1,
         },
+        {
+          id: "media-2",
+          day_number: null,
+          media_scope: "week",
+          bucket_id: "pregnancy-content",
+          object_path: "weeks/2/compare.jpg",
+          media_role: "compare",
+          alt_text: "주차 비교 이미지",
+          source_file_name: "week2-compare.jpg",
+          display_order: 2,
+        },
       ],
     });
 
@@ -320,6 +331,10 @@ describe("CloudSqlAdminContentPortAdapter", () => {
     expect(detail?.media[0]).toMatchObject({
       mediaScope: "week",
       objectPath: "weeks/2/hero.jpg",
+    });
+    expect(detail).toMatchObject({
+      heroImagePath: "storage://pregnancy-content/weeks/2/hero.jpg",
+      compareImagePath: "storage://pregnancy-content/weeks/2/compare.jpg",
     });
     expect(detail?.id).toBe("week-2");
   });

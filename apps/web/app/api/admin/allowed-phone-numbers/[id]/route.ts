@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { createAdminServices } from "@/lib/admin/create-admin-services";
+import { proxyAdminApiRequest } from "@/lib/admin/api-server";
 
 export async function PATCH(
   request: NextRequest,
@@ -13,33 +14,20 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    const body = await request.json();
-    const phoneNumber =
-      typeof body.phoneNumber === "string" ? body.phoneNumber.trim() : "";
-    const displayName =
-      typeof body.displayName === "string" ? body.displayName.trim() : "";
-    const note = typeof body.note === "string" ? body.note.trim() : "";
-
-    if (!id || !phoneNumber) {
-      return NextResponse.json(
-        { error: "id and phoneNumber are required" },
-        { status: 400 },
-      );
+    if (!id) {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
-    const services = createAdminServices();
-    const allowedPhoneNumber =
-      await services.adminUserPort.updateAllowedPhoneNumber({
-        actorId: admin.id,
-        id,
-        phoneNumber,
-        displayName: displayName || null,
-        note: note || null,
-      });
-
-    return NextResponse.json({ allowedPhoneNumber });
+    return proxyAdminApiRequest(
+      `allowed-phone-numbers/${encodeURIComponent(id)}`,
+      {
+        admin,
+        request,
+        method: "PUT",
+      },
+    );
   } catch (error) {
-    console.error("admin allowed phone numbers patch route error", error);
+    console.error("admin allowed phone numbers PATCH proxy error", error);
     return NextResponse.json(
       {
         error:
@@ -67,15 +55,15 @@ export async function DELETE(
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
-    const services = createAdminServices();
-    await services.adminUserPort.deleteAllowedPhoneNumber({
-      actorId: admin.id,
-      id,
-    });
-
-    return NextResponse.json({ ok: true });
+    return proxyAdminApiRequest(
+      `allowed-phone-numbers/${encodeURIComponent(id)}`,
+      {
+        admin,
+        method: "DELETE",
+      },
+    );
   } catch (error) {
-    console.error("admin allowed phone numbers delete route error", error);
+    console.error("admin allowed phone numbers DELETE proxy error", error);
     return NextResponse.json(
       {
         error:

@@ -1,5 +1,14 @@
 import { loadMaternalNursingWorkflow } from "./load-workflow-yaml";
 
+function parsePromptJson(prompt: string | undefined) {
+  expect(prompt).toBeDefined();
+  return JSON.parse(prompt ?? "{}") as {
+    scenario?: string;
+    answerVariations?: string[];
+    moodPrompts?: Array<{ label: string; message: string; tone: string }>;
+  };
+}
+
 function restoreEnv(name: string, value: string | undefined) {
   if (value === undefined) {
     delete process.env[name];
@@ -39,27 +48,63 @@ describe("maternal nursing workflow YAML", () => {
     );
   });
 
-  it("loads the Mermaid-guided state machine into the prompt template", () => {
+  it("loads workflow version 2 with the approved stage contract", () => {
     const workflow = loadMaternalNursingWorkflow();
     const tmpl = workflow.graph.blocks.find((block) => block.id === "tmpl");
 
+    expect(workflow.version).toBe(2);
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("Mermaid 단계 상태 머신"),
-    );
-    expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("currentStage='letter_reflection'"),
+      expect.stringContaining("Workflow v2 승인 플로우 계약"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("nextSessionMemory.compactSummary"),
+      expect.stringContaining("stage=0: mood_intake"),
+    );
+    expect(tmpl?.config?.system_prompt).toEqual(
+      expect.stringContaining("선택된 mood는 session memory와 tone context에 반드시 저장"),
+    );
+    expect(tmpl?.config?.system_prompt).toEqual(
+      expect.stringContaining("비동기 webhook/session memory 저장 경로"),
     );
     expect(tmpl?.config?.template).toEqual(
-      expect.stringContaining("## 대화 상태 입력"),
+      expect.stringContaining("{{workflowStage}}"),
     );
     expect(tmpl?.config?.template).toEqual(
-      expect.stringContaining("{{compactSummary}}"),
+      expect.stringContaining("{{selectedQuestionId}}"),
     );
-    expect(tmpl?.config?.template).toEqual(
-      expect.stringContaining("{{lastScenario}}"),
+  });
+
+  it("keeps premade mood intake and weekly opt-in variation pools large enough", () => {
+    const workflow = loadMaternalNursingWorkflow();
+    const moodIntake = parsePromptJson(workflow.prompts.static_mood_intake);
+    const weekInfoOptIn = parsePromptJson(
+      workflow.prompts.static_week_info_opt_in,
+    );
+
+    expect(moodIntake.scenario).toBe("mood_intake");
+    expect(moodIntake.moodPrompts).toHaveLength(20);
+    expect(
+      new Set(moodIntake.moodPrompts?.map((prompt) => prompt.label)),
+    ).toHaveProperty("size", 20);
+    expect(moodIntake.moodPrompts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "좋아요", tone: "joyful" }),
+        expect.objectContaining({ label: "걱정돼요", tone: "anxious" }),
+        expect.objectContaining({ label: "피곤해요", tone: "tired" }),
+        expect.objectContaining({ label: "슬퍼요", tone: "sad" }),
+      ]),
+    );
+
+    expect(weekInfoOptIn.scenario).toBe("week_info_opt_in");
+    expect(weekInfoOptIn.answerVariations).toHaveLength(20);
+    expect(new Set(weekInfoOptIn.answerVariations)).toHaveProperty("size", 20);
+    expect(weekInfoOptIn.answerVariations?.[0]).toEqual(
+      expect.stringContaining("오늘 주차"),
+    );
+    expect(weekInfoOptIn.answerVariations?.join("\n")).toEqual(
+      expect.stringContaining("산모"),
+    );
+    expect(weekInfoOptIn.answerVariations?.join("\n")).toEqual(
+      expect.stringContaining("태아"),
     );
   });
 
@@ -68,12 +113,6 @@ describe("maternal nursing workflow YAML", () => {
 
     expect(workflow.graph.blocks.map((block) => block.id)).toEqual([
       "start",
-      "state_router",
-      "guardrail_router",
-      "retriever",
-      "baby_info_offer_tmpl",
-      "attachment_question_tmpl",
-      "static_answer",
       "tmpl",
       "llm",
       "answer",
@@ -82,56 +121,9 @@ describe("maternal nursing workflow YAML", () => {
     expect(workflow.graph.edges).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          source: "state_router",
-          target: "guardrail_router",
-          source_handle: "normal",
-          target_handle: "in",
-        }),
-        expect.objectContaining({
-          source: "guardrail_router",
-          target: "retriever",
-          source_handle: "safe",
-          target_handle: "_gate",
-        }),
-        expect.objectContaining({
-          source: "state_router",
-          target: "baby_info_offer_tmpl",
-          source_handle: "baby_info_offer_static",
-          target_handle: "vars",
-        }),
-        expect.objectContaining({
-          source: "state_router",
-          target: "attachment_question_tmpl",
-          source_handle: "attachment_question_static",
-          target_handle: "vars",
-        }),
-        expect.objectContaining({
           source: "start",
-          target: "retriever",
-          target_handle: "query",
-        }),
-        expect.objectContaining({
-          source: "retriever",
           target: "tmpl",
-          source_handle: "results",
-        }),
-        expect.objectContaining({
-          source: "baby_info_offer_tmpl",
-          target: "static_answer",
-          source_handle: "prompt",
-          target_handle: "text",
-        }),
-        expect.objectContaining({
-          source: "attachment_question_tmpl",
-          target: "static_answer",
-          source_handle: "prompt",
-          target_handle: "text",
-        }),
-        expect.objectContaining({
-          source: "static_answer",
-          target: "end",
-          source_handle: "out",
-          target_handle: "in",
+          target_handle: "query",
         }),
         expect.objectContaining({
           source: "tmpl",
@@ -165,29 +157,32 @@ describe("maternal nursing workflow YAML", () => {
     const tmpl = workflow.graph.blocks.find((block) => block.id === "tmpl");
 
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("currentStage='baby_info'"),
+      expect.stringContaining("Y path"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("다 했어요 / 하나만 했어요 / 이따가 할래요"),
+      expect.stringContaining("N path"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("현재 단계: 편지 후속 질문"),
+      expect.stringContaining("knowledge deep link/sheet"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("태동/데일리 후속 질문"),
+      expect.stringContaining("오늘의 질문을 동시에 준비"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("deepLink를 만들지 말고"),
+      expect.stringContaining("stage=2"),
+    );
+    expect(tmpl?.config?.system_prompt).toEqual(
+      expect.stringContaining("이전 workflow를 replay하지 말고 inference로 직접 라우팅"),
     );
   });
 
-  it("guides one-entity weekly info and keeps weekly questions separate", () => {
+  it("guides combined weekly info and keeps weekly questions separate", () => {
     const workflow = loadMaternalNursingWorkflow();
     const tmpl = workflow.graph.blocks.find((block) => block.id === "tmpl");
 
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining(
-        "아기 정보와 엄마 정보를 한 answer에 섞지 마세요",
+        "아기 정보와 엄마 정보를 한 answer에 함께 담으세요",
       ),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
@@ -201,27 +196,24 @@ describe("maternal nursing workflow YAML", () => {
     );
   });
 
-  it("routes deterministic stage transitions outside retrieval and generation", () => {
+  it("defines the post-question continuation and ending contract", () => {
     const workflow = loadMaternalNursingWorkflow();
-    const router = workflow.graph.blocks.find(
-      (block) => block.id === "state_router",
-    );
-    const staticAnswer = workflow.graph.blocks.find(
-      (block) => block.id === "static_answer",
-    );
+    const tmpl = workflow.graph.blocks.find((block) => block.id === "tmpl");
 
-    expect(router?.config?.routes).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ name: "baby_info_offer_static" }),
-        expect.objectContaining({ name: "attachment_question_static" }),
-      ]),
+    expect(tmpl?.config?.system_prompt).toEqual(
+      expect.stringContaining("두 번째 질문"),
     );
-    expect(staticAnswer?.config?.format).toBe("text");
-    expect(workflow.prompts.static_baby_info_offer).toEqual(
-      expect.stringContaining('"scenario":"baby_info_offer"'),
+    expect(tmpl?.config?.system_prompt).toEqual(
+      expect.stringContaining("자유 대화"),
     );
-    expect(workflow.prompts.static_attachment_question).toEqual(
-      expect.stringContaining('"scenario":"attachment_question"'),
+    expect(tmpl?.config?.system_prompt).toEqual(
+      expect.stringContaining("compressed log"),
+    );
+    expect(tmpl?.config?.system_prompt).toEqual(
+      expect.stringContaining("제한 없이"),
+    );
+    expect(tmpl?.config?.system_prompt).toEqual(
+      expect.stringContaining("end는 summary를 트리거"),
     );
   });
 });

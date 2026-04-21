@@ -61,9 +61,6 @@ export async function buildPromptFollowUpMessages(input: {
   const selectedChecklists: ChecklistRow[] = [];
   const selectedQuestions: QuestionRow[] = [];
 
-  const availableChecklists = input.checklists.filter(
-    (c) => !input.excludeChecklistIds?.has(c.id),
-  );
   const availableQuestions = input.questions.filter(
     (q) => !input.excludeQuestionIds?.has(q.id),
   );
@@ -120,62 +117,6 @@ export async function buildPromptFollowUpMessages(input: {
         },
       ],
     });
-  } else {
-    const checklist = availableChecklists[0];
-    if (checklist) {
-      selectedChecklists.push(checklist);
-      const cleanTitle = sanitizeInlineCitationMarkers(checklist.title);
-      const cleanDesc = checklist.description
-        ? sanitizeInlineCitationMarkers(checklist.description)
-        : "";
-      const descText =
-        cleanDesc && cleanDesc !== cleanTitle ? `\n${cleanDesc}` : "";
-
-      let choices: ChecklistChoice[] = DEFAULT_CHECKLIST_CHOICES;
-      if (input.generateChecklistChoices) {
-        try {
-          const generated = await input.generateChecklistChoices({
-            checklistId: checklist.id,
-            checklistCode: checklist.code,
-            title: cleanTitle,
-            description: cleanDesc,
-            weekNumber: input.week.week_number ?? null,
-          });
-          if (generated && generated.length > 0) {
-            choices = generated.slice(0, 5);
-          }
-        } catch {
-          // fall back to defaults silently
-        }
-      }
-
-      messages.push({
-        role: "assistant",
-        createdAtLabel: "방금 전",
-        parts: [
-          {
-            type: "text",
-            id: `checklist-${checklist.id}`,
-            tag: "checklist",
-            contentId: checklist.id,
-            contentCode: checklist.code,
-            text: `${input.week.checklist_intro ?? "오늘 할 일"}\n${cleanTitle}${descText}`,
-          },
-          {
-            type: "quickReplies",
-            id: `quick-replies-checklist-${checklist.id}`,
-            tag: "checklist",
-            contentId: checklist.id,
-            contentCode: checklist.code,
-            title: "빠르게 답해보세요",
-            choices: buildQuickReplyChoices({
-              baseId: checklist.id,
-              options: choices,
-            }),
-          },
-        ],
-      });
-    }
   }
 
   return { messages, selectedChecklists, selectedQuestions };

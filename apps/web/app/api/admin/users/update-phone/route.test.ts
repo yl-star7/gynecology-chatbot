@@ -2,25 +2,34 @@ jest.mock("@/lib/admin/auth", () => ({
   readAdminSessionUser: jest.fn(),
 }));
 
-jest.mock("@/lib/admin/create-admin-services", () => ({
-  createAdminServices: jest.fn(),
-}));
-
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { createAdminServices } from "@/lib/admin/create-admin-services";
 import { POST } from "./route";
 
 const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<
   typeof readAdminSessionUser
 >;
-const mockedCreateAdminServices = createAdminServices as jest.MockedFunction<
-  typeof createAdminServices
->;
 
-describe("POST /api/admin/users/update-phone", () => {
+describe("POST /api/admin/users/update-phone proxy", () => {
+  const originalFetch = global.fetch;
+  const originalAdminApiBaseUrl = process.env.ADMIN_API_BASE_URL;
+  const originalAdminApiProxySecret = process.env.ADMIN_API_PROXY_SECRET;
+
   beforeEach(() => {
     mockedReadAdminSessionUser.mockReset();
-    mockedCreateAdminServices.mockReset();
+    process.env.ADMIN_API_BASE_URL = "http://api.example.test";
+    process.env.ADMIN_API_PROXY_SECRET = "proxy-secret";
+    global.fetch = jest.fn(async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ) as typeof fetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    process.env.ADMIN_API_BASE_URL = originalAdminApiBaseUrl;
+    process.env.ADMIN_API_PROXY_SECRET = originalAdminApiProxySecret;
   });
 
   test("rejects requests without an admin session", async () => {
@@ -30,59 +39,29 @@ describe("POST /api/admin/users/update-phone", () => {
       new Request("http://localhost:3000/api/admin/users/update-phone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: "user-1",
-          phoneNumber: "01099998888",
-          reason: "운영자 요청",
-        }),
+        body: JSON.stringify({ userId: "user-1", phoneNumber: "01099998888", reason: "운영자 요청" }),
       }) as never,
     );
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: "unauthorized" });
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  test("passes the authenticated admin id to the user port", async () => {
-    mockedReadAdminSessionUser.mockResolvedValue({
-      id: "admin-1",
-      displayName: "운영자",
-      phoneNumber: "010",
-      role: "admin",
-    });
-    const updatePhoneNumber = jest.fn().mockResolvedValue(undefined);
-    mockedCreateAdminServices.mockReturnValue({
-      adminDashboardPort: {} as never,
-      adminUserPort: {
-        listUsers: jest.fn(),
-        listAllowedPhoneNumbers: jest.fn(),
-        updatePhoneNumber,
-        createAllowedPhoneNumber: jest.fn(),
-        updateAllowedPhoneNumber: jest.fn(),
-        deleteAllowedPhoneNumber: jest.fn(),
-        resetSession: jest.fn(),
-        updateUserStatus: jest.fn(),
-      },
-      adminContentPort: {} as never,
-    });
+  test("forwards authenticated requests to the API server", async () => {
+    mockedReadAdminSessionUser.mockResolvedValue({ id: "admin-1" } as never);
 
     const response = await POST(
       new Request("http://localhost:3000/api/admin/users/update-phone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: "user-1",
-          phoneNumber: "01099998888",
-          reason: "운영자 요청",
-        }),
+        body: JSON.stringify({ userId: "user-1", phoneNumber: "01099998888", reason: "운영자 요청" }),
       }) as never,
     );
 
-    expect(updatePhoneNumber).toHaveBeenCalledWith({
-      actorId: "admin-1",
-      userId: "user-1",
-      phoneNumber: "01099998888",
-      reason: "운영자 요청",
-    });
     expect(response.status).toBe(200);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://api.example.test/api/admin/users/update-phone",
+      expect.objectContaining({ method: "POST", body: expect.any(Buffer) }),
+    );
   });
 });

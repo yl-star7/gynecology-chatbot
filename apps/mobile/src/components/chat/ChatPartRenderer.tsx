@@ -62,6 +62,7 @@ type DeepLinkPart = {
   description: string;
   target: string;
   entityId?: string;
+  weekNumber?: number;
 };
 
 type ChatPart =
@@ -86,7 +87,15 @@ export interface ChatPartRendererProps {
   onQuickReplySelect?: (message: string) => void;
   onSurveyAnswer?: (surveyId: string, choiceId: string) => Promise<boolean>;
   surveySaveErrorText?: string;
-  onDeepLinkPress?: (target: string, entityId?: string) => void;
+  onDeepLinkPress?: (
+    target: string,
+    entityId?: string,
+    meta?: {
+      title?: string;
+      description?: string;
+      weekNumber?: number | null;
+    },
+  ) => void;
 }
 
 // ─── Part renderers ───────────────────────────────────────
@@ -381,29 +390,36 @@ function DeepLinkPartView({
   onDeepLinkPress,
 }: {
   part: DeepLinkPart;
-  onDeepLinkPress?: (target: string, entityId?: string) => void;
+  onDeepLinkPress?: ChatPartRendererProps["onDeepLinkPress"];
 }) {
+  const title = part.title?.trim() || "연결된 정보";
   return (
     <Pressable
       style={({ pressed }) => [
         styles.deepLinkCard,
         pressed && styles.deepLinkCardPressed,
       ]}
-      onPress={() => onDeepLinkPress?.(part.target, part.entityId)}
+      onPress={() =>
+        onDeepLinkPress?.(part.target, part.entityId, {
+          title,
+          description: part.description,
+          weekNumber: part.weekNumber ?? null,
+        })
+      }
       accessibilityRole="button"
-      accessibilityLabel={`${part.title} — ${part.description}`}
+      accessibilityLabel={`${title} — ${part.description}`}
     >
       <View style={styles.deepLinkContent}>
-        <Text style={styles.deepLinkTitle}>{part.title} 보기</Text>
+        <Text style={styles.deepLinkTitle} numberOfLines={2}>
+          {title}
+        </Text>
         {part.description ? (
-          <Text style={styles.deepLinkDesc}>{part.description}</Text>
+          <Text style={styles.deepLinkDesc} numberOfLines={2}>
+            {part.description}
+          </Text>
         ) : null}
       </View>
-      <Ionicons
-        name="arrow-forward"
-        size={16}
-        color={palette.accent}
-      />
+      <Ionicons name="arrow-forward" size={16} color={palette.accent} />
     </Pressable>
   );
 }
@@ -688,12 +704,15 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm,
     paddingHorizontal: space.md,
     gap: space.sm,
+    minWidth: space.xxxl * 7,
+    maxWidth: "100%",
   },
   deepLinkCardPressed: {
     opacity: 0.75,
   },
   deepLinkContent: {
     flex: 1,
+    minWidth: 0,
     gap: space.xs,
   },
   deepLinkTitle: {

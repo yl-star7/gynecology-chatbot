@@ -1,5 +1,12 @@
 import { NextRequest } from "next/server";
-import { createKoreanMonthKey } from "@gynecology-chatbot/app-core/time";
+import {
+  getPublishedHomeCopyItems,
+  HOME_COPY_CONFIG_KEY,
+} from "@gynecology-chatbot/app-core";
+import {
+  createKoreanDateKey,
+  createKoreanMonthKey,
+} from "@gynecology-chatbot/app-core/time";
 import { prisma } from "@gynecology-chatbot/db/prisma";
 
 import {
@@ -38,6 +45,17 @@ function formatDateOnly(value: Date | null | undefined) {
   return value ? value.toISOString().slice(0, 10) : "";
 }
 
+function shouldDeferTodaySessionSummary(row: {
+  date: Date | null;
+  entry_type: string | null;
+}) {
+  const entryType = row.entry_type ?? "";
+  return (
+    formatDateOnly(row.date) === createKoreanDateKey() &&
+    ["chat", "chat_saved", "ai_summary"].includes(entryType)
+  );
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
@@ -49,7 +67,7 @@ export async function GET(request: NextRequest) {
     const monthStart = `${month}-01`;
     const monthEnd = `${month}-${String(monthLastDay).padStart(2, "0")}`;
 
-    const [profile, calendarRows] = await Promise.all([
+    const [profile, calendarRows, homeCopyConfig] = await Promise.all([
       prisma.pregnancy_profiles.findUnique({
         where: { user_id: userId },
         select: {
@@ -74,6 +92,10 @@ export async function GET(request: NextRequest) {
           entry_type: true,
         },
       }),
+      prisma.system_config.findUnique({
+        where: { key: HOME_COPY_CONFIG_KEY },
+        select: { value: true },
+      }),
     ]);
 
     return mobileNoStoreJson({
@@ -92,11 +114,12 @@ export async function GET(request: NextRequest) {
         calendarRows: calendarRows.map(
           (row): CalendarActivityRow => ({
             date: formatDateOnly(row.date),
-            summary: row.summary,
+            summary: shouldDeferTodaySessionSummary(row) ? null : row.summary,
             entry_type: row.entry_type,
           }),
         ),
         month,
+        homeCopyItems: getPublishedHomeCopyItems(homeCopyConfig?.value),
       }),
     });
   } catch (error) {

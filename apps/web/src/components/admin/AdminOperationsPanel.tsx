@@ -22,6 +22,19 @@ interface BrandingData {
   surveyFormUrl: string | null;
 }
 
+type CharacterImageTone =
+  | "neutral"
+  | "calm"
+  | "joyful"
+  | "anxious"
+  | "tired"
+  | "sad";
+
+interface CharacterImagesData {
+  version: string;
+  images: Record<CharacterImageTone, string>;
+}
+
 interface SchiftCollection {
   id: string;
   name: string;
@@ -67,10 +80,32 @@ const DEFAULT_SCHEDULE: ScheduleData = {
 
 const DEFAULT_BRANDING: BrandingData = {
   mascotBucketId: "pregnancy-content",
-  mascotObjectPath: "assets/penguin-nurse/expressions/happy.png",
-  mascotSourceFileName: "happy.png",
+  mascotObjectPath: "assets/penguin-nurse/app/neutral.png",
+  mascotSourceFileName: "neutral.png",
   mascotAltText: "펭귄 간호사",
   surveyFormUrl: null,
+};
+
+const CHARACTER_IMAGE_TONES: Array<{
+  key: CharacterImageTone;
+  label: string;
+}> = [
+  { key: "neutral", label: "기본" },
+  { key: "calm", label: "차분" },
+  { key: "joyful", label: "기쁨" },
+  { key: "anxious", label: "걱정" },
+  { key: "tired", label: "피곤" },
+  { key: "sad", label: "슬픔" },
+];
+
+const DEFAULT_CHARACTER_IMAGES: CharacterImagesData = {
+  version: "gcs-penguin-nurse-v1",
+  images: Object.fromEntries(
+    CHARACTER_IMAGE_TONES.map(({ key }) => [
+      key,
+      `https://storage.googleapis.com/pregnancy-content/assets/penguin-nurse/app/${key}.png`,
+    ]),
+  ) as Record<CharacterImageTone, string>,
 };
 
 export function AdminOperationsPanel() {
@@ -97,6 +132,12 @@ export function AdminOperationsPanel() {
   const [brandingSaving, setBrandingSaving] = useState(false);
   const [brandingResult, setBrandingResult] = useState<string | null>(null);
   const [brandingError, setBrandingError] = useState<string | null>(null);
+  const [characterImages, setCharacterImages] = useState<CharacterImagesData>(
+    DEFAULT_CHARACTER_IMAGES,
+  );
+  const [characterImagesLoading, setCharacterImagesLoading] = useState(true);
+  const [characterImagesSavingTone, setCharacterImagesSavingTone] =
+    useState<CharacterImageTone | null>(null);
 
   // Panel 6: Schift RAG status
   const [schiftStatus, setSchiftStatus] = useState<SchiftStatus | null>(null);
@@ -165,6 +206,20 @@ export function AdminOperationsPanel() {
       }
     }
 
+    async function fetchCharacterImages() {
+      setCharacterImagesLoading(true);
+      try {
+        const res = await fetch("/api/admin/branding/character-images");
+        if (res.ok) {
+          const data: CharacterImagesData = await res.json();
+          if (!cancelled) setCharacterImages(data);
+        }
+      } catch {
+      } finally {
+        if (!cancelled) setCharacterImagesLoading(false);
+      }
+    }
+
     async function fetchSchiftStatus() {
       setSchiftLoading(true);
       setSchiftError(null);
@@ -183,6 +238,7 @@ export function AdminOperationsPanel() {
     void fetchRagProvider();
     void fetchSchedule();
     void fetchBranding();
+    void fetchCharacterImages();
     void fetchSchiftStatus();
     return () => {
       cancelled = true;
@@ -237,7 +293,7 @@ export function AdminOperationsPanel() {
     try {
       const formData = new FormData();
       formData.set("file", file);
-      formData.set("bucketId", "branding-assets");
+      formData.set("bucketId", "pregnancy-content");
       formData.set("mediaScope", "week");
       formData.set("weekNumber", "0");
 
@@ -306,6 +362,89 @@ export function AdminOperationsPanel() {
       );
     } finally {
       setBrandingSaving(false);
+    }
+  }
+
+  async function handleUploadCharacterImage(
+    tone: CharacterImageTone,
+    file: File,
+  ) {
+    setCharacterImagesSavingTone(tone);
+    setBrandingResult(null);
+    setBrandingError(null);
+    try {
+      const objectPath = `assets/penguin-nurse/app/${tone}.png`;
+      const formData = new FormData();
+      formData.set("file", file);
+      formData.set("bucketId", "pregnancy-content");
+      formData.set("mediaScope", "asset");
+      formData.set("objectPath", objectPath);
+
+      const uploadRes = await fetch("/api/admin/content/media/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const uploadPayload = (await uploadRes.json()) as {
+        error?: string;
+        bucketId?: string;
+        objectPath?: string;
+        signedUrl?: string;
+        contentType?: string;
+      };
+
+      if (
+        !uploadRes.ok ||
+        !uploadPayload.bucketId ||
+        !uploadPayload.objectPath ||
+        !uploadPayload.signedUrl
+      ) {
+        throw new Error(
+          uploadPayload.error ?? "캐릭터 이미지 업로드에 실패했습니다.",
+        );
+      }
+
+      const signedUploadResponse = await fetch(uploadPayload.signedUrl, {
+        method: "PUT",
+        headers: {
+          "content-type": uploadPayload.contentType ?? file.type,
+          "x-upsert": "true",
+        },
+        body: file,
+      });
+
+      if (!signedUploadResponse.ok) {
+        throw new Error("signed URL 업로드에 실패했습니다.");
+      }
+
+      const nextImages = {
+        ...characterImages.images,
+        [tone]: `https://storage.googleapis.com/${uploadPayload.bucketId}/${uploadPayload.objectPath}`,
+      };
+      const saveRes = await fetch("/api/admin/branding/character-images", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: nextImages }),
+      });
+      const savePayload = (await saveRes.json()) as {
+        error?: string;
+        config?: CharacterImagesData;
+      };
+      if (!saveRes.ok || !savePayload.config) {
+        throw new Error(
+          savePayload.error ?? "캐릭터 이미지 설정 저장에 실패했습니다.",
+        );
+      }
+
+      setCharacterImages(savePayload.config);
+      setBrandingResult("캐릭터 이미지 cache를 갱신했습니다.");
+    } catch (error) {
+      setBrandingError(
+        error instanceof Error
+          ? error.message
+          : "캐릭터 이미지 저장에 실패했습니다.",
+      );
+    } finally {
+      setCharacterImagesSavingTone(null);
     }
   }
 
@@ -554,6 +693,51 @@ export function AdminOperationsPanel() {
             <p className={styles.formHint}>
               마이페이지에서 설문 화면을 열 때 이 링크를 사용해요.
             </p>
+
+            <div className={styles.panelHeader}>
+              <div>
+                <h3 className={styles.panelTitle}>간호사 캐릭터 cache</h3>
+              </div>
+            </div>
+            {characterImagesLoading ? (
+              <div
+                className={styles.analyticsLoading}
+                role="status"
+                aria-live="polite"
+              >
+                캐릭터 이미지를 불러오는 중...
+              </div>
+            ) : (
+              <div className={styles.opsScheduleRows}>
+                {CHARACTER_IMAGE_TONES.map(({ key, label }) => (
+                  <label className={styles.fieldGroup} key={key}>
+                    <span className={styles.fieldLabel}>
+                      {label} 이미지
+                    </span>
+                    <input
+                      className={styles.fieldInput}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      aria-label={`${label} 이미지`}
+                      disabled={characterImagesSavingTone === key}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        void handleUploadCharacterImage(key, file);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                    <span className={styles.formHint}>
+                      {characterImages.images[key]}
+                    </span>
+                  </label>
+                ))}
+                <p className={styles.formHint}>
+                  앱은 시작할 때 version을 비교하고 바뀐 경우에만 이 cache를
+                  다시 받아요. 현재 version: {characterImages.version}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
