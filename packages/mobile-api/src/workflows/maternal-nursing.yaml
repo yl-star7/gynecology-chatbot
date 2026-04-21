@@ -529,7 +529,7 @@ blocks:
     title: JSON 응답 포맷
     config:
       format: text
-      include_sources: true
+      include_sources: false
 
   - id: end
     type: end
