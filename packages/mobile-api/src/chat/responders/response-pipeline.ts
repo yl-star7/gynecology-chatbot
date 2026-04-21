@@ -2,6 +2,12 @@ import type { ChatMessage } from "@gynecology-chatbot/app-core";
 
 import type { WorkflowAssistantPayload } from "../workflow-payload";
 
+function formatError(error: unknown) {
+  return error instanceof Error
+    ? { name: error.name, message: error.message }
+    : { message: String(error) };
+}
+
 export async function resolveAssistantResponse(input: {
   hardGuardrailReason: string | null;
   workflowEnabled: boolean;
@@ -9,12 +15,12 @@ export async function resolveAssistantResponse(input: {
     assistantMessage: ChatMessage;
     workflowMemoryPayload: WorkflowAssistantPayload | null;
   }>;
-  runFallback: () => Promise<ChatMessage>;
 }): Promise<{
   assistantMessage: ChatMessage;
   workflowMemoryPayload: WorkflowAssistantPayload | null;
 }> {
   if (input.hardGuardrailReason) {
+    console.info("mobile chat response: hard guardrail response");
     return {
       assistantMessage: {
         id: `assistant-${Date.now()}`,
@@ -38,22 +44,22 @@ export async function resolveAssistantResponse(input: {
   }
 
   if (input.workflowEnabled) {
+    console.info("mobile chat response: workflow start");
     try {
-      return await input.runWorkflow();
+      const result = await input.runWorkflow();
+      console.info("mobile chat response: workflow success");
+      return result;
     } catch (error) {
-      console.warn(
-        "mobile chat workflow failed; using fallback",
-        error instanceof Error ? error.message : error,
-      );
-      return {
-        assistantMessage: await input.runFallback(),
-        workflowMemoryPayload: null,
-      };
+      console.warn("mobile chat response: workflow failed", {
+        error: formatError(error),
+      });
+      throw error;
     }
   }
 
-  return {
-    assistantMessage: await input.runFallback(),
-    workflowMemoryPayload: null,
-  };
+  const error = new Error("Mobile chat workflow is unavailable");
+  console.warn("mobile chat response: workflow unavailable", {
+    error: formatError(error),
+  });
+  throw error;
 }

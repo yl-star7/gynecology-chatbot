@@ -1,13 +1,12 @@
+import type { ChatMessage } from "@gynecology-chatbot/app-core";
+
 import {
-  buildLocalWorkflowFallbackReply,
   buildMemorySystemBlock,
   buildWorkflowAssistantMessage,
   pickLatestEmotionTone,
 } from "./route-response-helpers";
 
-function getTextParts(
-  message: ReturnType<typeof buildLocalWorkflowFallbackReply>,
-) {
+function getTextParts(message: ChatMessage) {
   return message.parts.flatMap((part) =>
     part.type === "text" ? [part.text] : [],
   );
@@ -81,46 +80,6 @@ describe("route response helpers", () => {
           ],
         }),
       ]),
-    );
-  });
-
-  it.each(["오늘은 우울해요.", "오늘은 슬퍼요.", "오늘은 화나요.", "짜증나요"])(
-    "keeps low-emotion fallback replies in empathy flow for %s",
-    (text) => {
-      const message = buildLocalWorkflowFallbackReply({
-        currentWeek: 28,
-        text,
-      });
-
-      const renderedText = getTextParts(message).join("\n");
-
-      expect(["anxious", "sad"]).toContain(message.characterTone);
-      expect(renderedText).toContain("말해줘서 고마워요");
-      expect(renderedText).not.toContain("오늘 기분을 먼저 확인");
-    },
-  );
-
-  it("advances positive emotion fallback instead of asking mood again", () => {
-    const message = buildLocalWorkflowFallbackReply({
-      currentWeek: 28,
-      text: "오늘은 좋아요.",
-    });
-
-    const renderedText = getTextParts(message).join("\n");
-    const quickReplies = message.parts.find(
-      (part) => part.type === "quickReplies",
-    );
-
-    expect(message.characterTone).toBe("joyful");
-    expect(renderedText).toContain("아기 발달 정보를 짧게 확인해볼까요");
-    expect(renderedText).not.toContain("오늘 기분을 먼저 확인");
-    expect(quickReplies).toEqual(
-      expect.objectContaining({
-        choices: [
-          expect.objectContaining({ label: "네" }),
-          expect.objectContaining({ label: "이따가요" }),
-        ],
-      }),
     );
   });
 });

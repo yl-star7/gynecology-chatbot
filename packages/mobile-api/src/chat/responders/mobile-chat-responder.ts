@@ -3,8 +3,6 @@ import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import type { PromptContext } from "../chat-repository";
 import { resolveAssistantResponse } from "./response-pipeline";
 import {
-  buildLocalWorkflowFallbackReply,
-  buildMemorySystemBlock,
   buildWorkflowAssistantMessage,
   pickLatestEmotionTone,
 } from "./route-response-helpers";
@@ -12,7 +10,6 @@ import {
   parseWorkflowAssistantPayload,
   type WorkflowAssistantPayload,
 } from "../workflow-payload";
-import { loadMaternalNursingWorkflow } from "../../workflows/load-workflow-yaml";
 
 function normalizeLetterFollowUpFlow(input: {
   assistantMessage: ChatMessage;
@@ -230,104 +227,45 @@ type WorkflowRunLike = {
   block_states?: unknown;
 };
 
-function renderWorkflowPromptTemplate(
-  template: string,
-  values: Record<string, string | number | null | undefined>,
-) {
-  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, key) =>
-    values[key] === null || values[key] === undefined
-      ? ""
-      : String(values[key]),
-  );
-}
-
-function buildAssistantMessageFromPayload(
-  payload: WorkflowAssistantPayload,
-): ChatMessage | null {
-  if (!payload.answer?.trim()) {
-    return null;
-  }
-
-  const now = Date.now();
-  const parts: ChatMessage["parts"] = [
-    {
-      type: "text",
-      id: `yaml-static-text-${now}`,
-      text: payload.answer.trim(),
-    },
-  ];
-
-  if (payload.quickReplies && payload.quickReplies.length > 0) {
-    parts.push({
-      type: "quickReplies",
-      id: `yaml-static-quick-${now}`,
-      choices: payload.quickReplies.map((choice, index) => ({
-        id: `yaml-static-choice-${index + 1}`,
-        label: choice.label,
-        message: choice.message,
-      })),
-    });
-  }
-
-  return {
-    id: `assistant-${now}`,
-    role: "assistant",
-    createdAtLabel: "방금 전",
-    characterTone: payload.characterTone ?? null,
-    parts,
-  };
-}
-
-function resolveYamlStaticStageResponse(input: {
+function formatPromptItemsForWorkflow(input: {
   promptContext: PromptContext | null;
-  currentWeek: number | null;
-  text: string;
-}): {
-  assistantMessage: ChatMessage;
-  workflowMemoryPayload: WorkflowAssistantPayload;
-} | null {
-  const normalizedText = input.text.trim();
-  const isPositiveEmotionSelection =
-    /^(오늘은\s*)?(좋아요|좋아|괜찮아요|기분 좋아요|행복해요|설레요)[.!?。]*$/.test(
-      normalizedText,
+  alreadyPromptedIds: {
+    checklistIds: Set<string>;
+    questionIds: Set<string>;
+  };
+}) {
+  if (!input.promptContext) {
+    return "";
+  }
+
+  const checklists = input.promptContext.checklists
+    .filter((item) => !input.alreadyPromptedIds.checklistIds.has(item.id))
+    .slice(0, 3)
+    .map((item, index) => {
+      const description = item.description?.trim()
+        ? ` - ${item.description.trim()}`
+        : "";
+      return `${index + 1}. [${item.id}] ${item.title.trim()}${description}`;
+    });
+
+  const questions = input.promptContext.questions
+    .filter((item) => !input.alreadyPromptedIds.questionIds.has(item.id))
+    .slice(0, 2)
+    .map(
+      (item, index) =>
+        `${index + 1}. [${item.id}] ${item.question_text.trim()}${
+          item.help_text?.trim() ? ` - ${item.help_text.trim()}` : ""
+        }`,
     );
-  const isChecklistAnswer = /^(다 했어요|하나만 했어요|했어요)[.!?。]*$/.test(
-    normalizedText,
-  );
 
-  const promptKey = isPositiveEmotionSelection
-    ? "static_baby_info_offer"
-    : isChecklistAnswer
-      ? "static_attachment_question"
-      : null;
-
-  if (!promptKey) {
-    return null;
-  }
-
-  const template = loadMaternalNursingWorkflow().prompts[promptKey];
-  if (!template) {
-    return null;
-  }
-
-  const rendered = renderWorkflowPromptTemplate(template, {
-    currentWeek: input.currentWeek,
-  });
-  const workflowMemoryPayload = parseWorkflowAssistantPayload({
-    answer: rendered,
-  });
-  if (!workflowMemoryPayload) {
-    return null;
-  }
-
-  const assistantMessage = buildAssistantMessageFromPayload(
-    workflowMemoryPayload,
-  );
-  if (!assistantMessage) {
-    return null;
-  }
-
-  return { assistantMessage, workflowMemoryPayload };
+  return [
+    checklists.length > 0
+      ? `오늘 체크리스트 후보:\n${checklists.join("\n")}`
+      : "오늘 체크리스트 후보: 없음",
+    questions.length > 0
+      ? `오늘 모아애착 질문 후보:\n${questions.join("\n")}`
+      : "오늘 모아애착 질문 후보: 없음",
+  ].join("\n\n");
 }
 
 export function createMobileChatResponder<
@@ -350,6 +288,9 @@ export function createMobileChatResponder<
       personaHint: string | null;
       personaConfidence: string | null;
       tonePreference: string | null;
+      results: string | null;
+      weekKnowledgeEntityId: string | null;
+      promptItems: string | null;
     };
   }) => Promise<{
     run: TRun;
@@ -359,17 +300,16 @@ export function createMobileChatResponder<
   ) => Record<string, unknown> | undefined;
   formatSchiftWorkflowRun: (run: TRun) => string;
   loadCharacterImages: () => Promise<Record<string, string | null>>;
-  runFallbackModel: (input: {
-    text: string;
-    currentWeek: number | null;
-    normalizedSessionId: string;
-    imageDataUris: string[];
-    memorySystemBlock: string;
-    workflowEnabled: boolean;
-  }) => Promise<ChatMessage>;
+  ragContext?: string;
+  weekKnowledgeEntityId?: string | null;
 }) {
   return async function respond(input: {
+    userId: string;
     promptContext: PromptContext | null;
+    alreadyPromptedIds: {
+      checklistIds: Set<string>;
+      questionIds: Set<string>;
+    };
     currentWeek: number | null;
     normalizedSessionId: string;
     text: string;
@@ -379,6 +319,10 @@ export function createMobileChatResponder<
     assistantMessage: ChatMessage;
     workflowMemoryPayload: WorkflowAssistantPayload | null;
   }> {
+    const promptItems = formatPromptItemsForWorkflow({
+      promptContext: input.promptContext,
+      alreadyPromptedIds: input.alreadyPromptedIds,
+    });
     const memoryContext = {
       compactSummary:
         input.promptContext?.sessionMemory?.compactSummary ?? null,
@@ -406,19 +350,6 @@ export function createMobileChatResponder<
     ]
       .filter((value): value is string => Boolean(value && value.trim()))
       .join("\n");
-    const memorySystemBlock = buildMemorySystemBlock(memoryContext);
-    const staticStageResponse =
-      input.hardGuardrailReason === null
-        ? resolveYamlStaticStageResponse({
-            promptContext: input.promptContext,
-            currentWeek: input.currentWeek,
-            text: input.text,
-          })
-        : null;
-
-    if (staticStageResponse) {
-      return staticStageResponse;
-    }
 
     const schift = deps.getSchiftClient();
 
@@ -445,6 +376,9 @@ export function createMobileChatResponder<
             personaHint: memoryContext.personaHint,
             personaConfidence: memoryContext.personaConfidence,
             tonePreference: memoryContext.tonePreference,
+            results: deps.ragContext?.trim() || null,
+            weekKnowledgeEntityId: deps.weekKnowledgeEntityId?.trim() || null,
+            promptItems: promptItems || null,
           },
         });
 
@@ -490,27 +424,6 @@ export function createMobileChatResponder<
           assistantMessage: normalized.assistantMessage,
           workflowMemoryPayload: normalized.workflowMemoryPayload,
         };
-      },
-      runFallback: async () => {
-        try {
-          return await deps.runFallbackModel({
-            text: input.text,
-            currentWeek: input.currentWeek,
-            normalizedSessionId: input.normalizedSessionId,
-            imageDataUris: input.imageDataUris,
-            memorySystemBlock,
-            workflowEnabled: Boolean(schift),
-          });
-        } catch (error) {
-          console.warn(
-            "mobile chat fallback model failed; using local workflow fallback",
-            error instanceof Error ? error.message : error,
-          );
-          return buildLocalWorkflowFallbackReply({
-            currentWeek: input.currentWeek,
-            text: input.text,
-          });
-        }
       },
     });
   };

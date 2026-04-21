@@ -3,19 +3,29 @@ import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import { resolveAssistantResponse } from "./response-pipeline";
 
 describe("response pipeline", () => {
-  it("returns hard guardrail message without calling workflow or fallback", async () => {
+  let infoSpy: jest.SpiedFunction<typeof console.info>;
+  let warnSpy: jest.SpiedFunction<typeof console.warn>;
+
+  beforeEach(() => {
+    infoSpy = jest.spyOn(console, "info").mockImplementation(() => undefined);
+    warnSpy = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    infoSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  it("returns hard guardrail message without calling workflow", async () => {
     const runWorkflow = jest.fn();
-    const runFallback = jest.fn();
 
     const result = await resolveAssistantResponse({
       hardGuardrailReason: "상처를 주는 표현에는 답변하지 않고 있어요.",
       workflowEnabled: true,
       runWorkflow,
-      runFallback,
     });
 
     expect(runWorkflow).not.toHaveBeenCalled();
-    expect(runFallback).not.toHaveBeenCalled();
     expect(result.assistantMessage.parts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -25,6 +35,9 @@ describe("response pipeline", () => {
       ]),
     );
     expect(result.workflowMemoryPayload).toBeNull();
+    expect(infoSpy).toHaveBeenCalledWith(
+      "mobile chat response: hard guardrail response",
+    );
   });
 
   it("uses workflow result when workflow returns completed message", async () => {
@@ -44,7 +57,6 @@ describe("response pipeline", () => {
           nextSessionMemory: { compactSummary: "요약" },
         },
       }),
-      runFallback: jest.fn(),
     });
 
     expect(result.assistantMessage).toEqual(workflowMessage);
@@ -53,47 +65,52 @@ describe("response pipeline", () => {
         nextSessionMemory: expect.objectContaining({ compactSummary: "요약" }),
       }),
     );
+    expect(infoSpy).toHaveBeenCalledWith(
+      "mobile chat response: workflow start",
+    );
+    expect(infoSpy).toHaveBeenCalledWith(
+      "mobile chat response: workflow success",
+    );
   });
 
-  it("falls back when workflow throws", async () => {
-    const fallbackMessage: ChatMessage = {
-      id: "assistant-fallback",
-      role: "assistant",
-      createdAtLabel: "방금 전",
-      parts: [{ type: "text", id: "p-fallback", text: "폴백 응답" }],
-    };
+  it("throws when workflow throws", async () => {
+    const workflowError = new Error("workflow failed");
 
-    const result = await resolveAssistantResponse({
-      hardGuardrailReason: null,
-      workflowEnabled: true,
-      runWorkflow: jest.fn().mockRejectedValue(new Error("workflow failed")),
-      runFallback: jest.fn().mockResolvedValue(fallbackMessage),
-    });
+    await expect(
+      resolveAssistantResponse({
+        hardGuardrailReason: null,
+        workflowEnabled: true,
+        runWorkflow: jest.fn().mockRejectedValue(workflowError),
+      }),
+    ).rejects.toThrow(workflowError);
 
-    expect(result.assistantMessage).toEqual(fallbackMessage);
-    expect(result.workflowMemoryPayload).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "mobile chat response: workflow failed",
+      expect.objectContaining({
+        error: expect.objectContaining({ message: "workflow failed" }),
+      }),
+    );
   });
 
-  it("uses fallback directly when workflow is disabled", async () => {
-    const fallbackMessage: ChatMessage = {
-      id: "assistant-fallback",
-      role: "assistant",
-      createdAtLabel: "방금 전",
-      parts: [{ type: "text", id: "p-fallback", text: "모델 응답" }],
-    };
-
+  it("throws when workflow is disabled", async () => {
     const runWorkflow = jest.fn();
-    const runFallback = jest.fn().mockResolvedValue(fallbackMessage);
 
-    const result = await resolveAssistantResponse({
-      hardGuardrailReason: null,
-      workflowEnabled: false,
-      runWorkflow,
-      runFallback,
-    });
+    await expect(
+      resolveAssistantResponse({
+        hardGuardrailReason: null,
+        workflowEnabled: false,
+        runWorkflow,
+      }),
+    ).rejects.toThrow("Mobile chat workflow is unavailable");
 
     expect(runWorkflow).not.toHaveBeenCalled();
-    expect(runFallback).toHaveBeenCalled();
-    expect(result.assistantMessage).toEqual(fallbackMessage);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "mobile chat response: workflow unavailable",
+      expect.objectContaining({
+        error: expect.objectContaining({
+          message: "Mobile chat workflow is unavailable",
+        }),
+      }),
+    );
   });
 });

@@ -55,7 +55,12 @@ export function buildChatOrchestrator(deps: {
     sessionId: string,
   ) => Promise<PromptContext | null>;
   resolveAssistantResponse: (input: {
+    userId: string;
     promptContext: PromptContext | null;
+    alreadyPromptedIds: {
+      checklistIds: Set<string>;
+      questionIds: Set<string>;
+    };
     currentWeek: number | null;
     normalizedSessionId: string;
     text: string;
@@ -153,10 +158,17 @@ export function buildChatOrchestrator(deps: {
       sessionId,
     );
     const currentWeek = promptContext?.pregnancyWeek ?? input.pregnancyWeek;
+    const alreadyPrompted = promptContext
+      ? await deps.getAlreadyPromptedIds({
+          userId: input.userId,
+        })
+      : { checklistIds: new Set<string>(), questionIds: new Set<string>() };
 
     const { assistantMessage, workflowMemoryPayload } =
       await deps.resolveAssistantResponse({
+        userId: input.userId,
         promptContext,
+        alreadyPromptedIds: alreadyPrompted,
         currentWeek,
         normalizedSessionId: sessionId,
         text: input.text,
@@ -172,17 +184,22 @@ export function buildChatOrchestrator(deps: {
 
     const assistantMessages: ChatMessage[] = [assistantMessage];
 
-    let followUpChecklists: ChecklistRow[] = [];
-    let followUpQuestions: QuestionRow[] = [];
+    let followUpChecklists: ChecklistRow[] = promptContext
+      ? promptContext.checklists.filter((item) =>
+          workflowMemoryPayload?.selectedChecklistIds?.includes(item.id),
+        )
+      : [];
+    let followUpQuestions: QuestionRow[] = promptContext
+      ? promptContext.questions.filter((item) =>
+          workflowMemoryPayload?.selectedQuestionIds?.includes(item.id),
+        )
+      : [];
 
     if (
       promptContext &&
       answeredCount === 0 &&
       !shouldSkipDocumentFollowUps(workflowMemoryPayload)
     ) {
-      const alreadyPrompted = await deps.getAlreadyPromptedIds({
-        userId: input.userId,
-      });
       const followUpResult = await deps.buildFollowUps({
         week: promptContext.week,
         dayContent: promptContext.dayContent,
@@ -214,7 +231,9 @@ export function buildChatOrchestrator(deps: {
 
     if (followUpChecklists.length > 0 || followUpQuestions.length > 0) {
       const followUpMessageId =
-        savedIds.length > 1 ? savedIds[savedIds.length - 1].id : null;
+        savedIds.length > 1
+          ? savedIds[savedIds.length - 1].id
+          : (savedIds[0]?.id ?? null);
       await deps.createPromptEvents({
         userId: input.userId,
         sessionId,

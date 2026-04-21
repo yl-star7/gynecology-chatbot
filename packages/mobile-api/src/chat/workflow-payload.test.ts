@@ -80,6 +80,60 @@ describe("workflow payload", () => {
     );
   });
 
+  it("parses knowledge deep links from workflow payloads", () => {
+    const payload = parseWorkflowAssistantPayload({
+      answer: JSON.stringify({
+        answer: "28주차 아기 발달을 짧게 볼게요.",
+        deepLinks: [
+          {
+            title: "28주차 아기 발달",
+            description: "더 자세한 주차 정보를 볼 수 있어요.",
+            target: "knowledge",
+            entityId: "550e8400-e29b-41d4-a716-446655440028",
+          },
+          {
+            title: "임의 ID 링크",
+            description: "entityId를 제거하고 표시해요.",
+            target: "knowledge",
+            entityId: "28w_baby_development",
+          },
+          {
+            title: "잘못된 링크",
+            description: "표시하지 않아요.",
+            target: "external",
+          },
+        ],
+      }),
+    });
+
+    expect(payload?.deepLinks).toEqual([
+      {
+        title: "28주차 아기 발달",
+        description: "더 자세한 주차 정보를 볼 수 있어요.",
+        target: "knowledge",
+        entityId: "550e8400-e29b-41d4-a716-446655440028",
+      },
+      {
+        title: "임의 ID 링크",
+        description: "entityId를 제거하고 표시해요.",
+        target: "knowledge",
+      },
+    ]);
+  });
+
+  it("parses selected checklist and question ids", () => {
+    const payload = parseWorkflowAssistantPayload({
+      answer: JSON.stringify({
+        answer: "오늘 질문을 골라볼게요.",
+        selectedChecklistIds: ["check-1", "check-2", ""],
+        selectedQuestionIds: ["question-1"],
+      }),
+    });
+
+    expect(payload?.selectedChecklistIds).toEqual(["check-1", "check-2"]);
+    expect(payload?.selectedQuestionIds).toEqual(["question-1"]);
+  });
+
   it("accepts concrete workflow stage scenarios for session memory", () => {
     const payload = parseWorkflowAssistantPayload({
       answer: JSON.stringify({

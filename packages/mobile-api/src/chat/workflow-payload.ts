@@ -45,6 +45,13 @@ export type WorkflowQuickReplyChoice = {
   message: string;
 };
 
+export type WorkflowDeepLink = {
+  title: string;
+  description: string;
+  target: "knowledge";
+  entityId?: string;
+};
+
 export type WorkflowAssistantPayload = {
   answer?: string;
   characterTone?: CharacterTone;
@@ -52,6 +59,9 @@ export type WorkflowAssistantPayload = {
   guardrailReason?: string;
   scenario?: WorkflowScenario;
   quickReplies?: WorkflowQuickReplyChoice[];
+  deepLinks?: WorkflowDeepLink[];
+  selectedChecklistIds?: string[];
+  selectedQuestionIds?: string[];
   nextSessionMemory?: SessionMemoryPayload;
   nextProfileMemory?: ProfileMemoryPayload;
 };
@@ -75,6 +85,45 @@ function normalizeQuickReplies(
     .filter((v): v is WorkflowQuickReplyChoice => v !== null)
     .slice(0, 5);
   return choices.length > 0 ? choices : undefined;
+}
+
+function normalizeDeepLinks(value: unknown): WorkflowDeepLink[] | undefined {
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!Array.isArray(value)) return undefined;
+  const links = value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const record = item as Record<string, unknown>;
+      const title = typeof record.title === "string" ? record.title.trim() : "";
+      const description =
+        typeof record.description === "string" ? record.description.trim() : "";
+      if (!title || !description || record.target !== "knowledge") return null;
+      const link: WorkflowDeepLink = {
+        title,
+        description,
+        target: "knowledge" as const,
+      };
+      if (
+        typeof record.entityId === "string" &&
+        uuidPattern.test(record.entityId.trim())
+      ) {
+        link.entityId = record.entityId.trim();
+      }
+      return link;
+    })
+    .filter((v): v is WorkflowDeepLink => v !== null)
+    .slice(0, 2);
+  return links.length > 0 ? links : undefined;
+}
+
+function normalizeIdList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const ids = value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean)
+    .slice(0, 5);
+  return ids.length > 0 ? ids : undefined;
 }
 
 export function parseWorkflowAssistantPayload(
@@ -131,6 +180,9 @@ export function parseWorkflowAssistantPayload(
         ? (outputs.scenario as WorkflowScenario)
         : undefined,
     quickReplies: normalizeQuickReplies(outputs.quickReplies),
+    deepLinks: normalizeDeepLinks(outputs.deepLinks),
+    selectedChecklistIds: normalizeIdList(outputs.selectedChecklistIds),
+    selectedQuestionIds: normalizeIdList(outputs.selectedQuestionIds),
   };
 
   if (
@@ -139,6 +191,9 @@ export function parseWorkflowAssistantPayload(
     directPayload.guardrailReason ||
     directPayload.scenario ||
     directPayload.quickReplies ||
+    directPayload.deepLinks ||
+    directPayload.selectedChecklistIds ||
+    directPayload.selectedQuestionIds ||
     (outputs.nextSessionMemory &&
       typeof outputs.nextSessionMemory === "object") ||
     (outputs.nextProfileMemory && typeof outputs.nextProfileMemory === "object")
@@ -173,6 +228,9 @@ export function parseWorkflowAssistantPayload(
       text?: unknown;
       answer?: unknown;
       quickReplies?: unknown;
+      deepLinks?: unknown;
+      selectedChecklistIds?: unknown;
+      selectedQuestionIds?: unknown;
     };
     if (
       typeof parsed.text === "string" &&
@@ -196,6 +254,9 @@ export function parseWorkflowAssistantPayload(
       return {
         ...parsed,
         quickReplies: normalizeQuickReplies(parsed.quickReplies),
+        deepLinks: normalizeDeepLinks(parsed.deepLinks),
+        selectedChecklistIds: normalizeIdList(parsed.selectedChecklistIds),
+        selectedQuestionIds: normalizeIdList(parsed.selectedQuestionIds),
       };
     }
   } catch {
