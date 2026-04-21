@@ -316,19 +316,42 @@ export function maybeShortCircuitStaticTurn(
   const memory = input.promptContext?.sessionMemory ?? null;
   const rawStage = memory?.stage ?? null;
   const compactSummary = memory?.compactSummary ?? "";
+  const lastScenario = memory?.lastScenario ?? "";
   const progress: QuestionProgress = input.progress ?? {
     answeredQuestionIds: [],
     currentAttachmentQuestionId: null,
   };
 
   // SQL 기반 progress 가 진실 소스.
-  // currentAttachmentQuestionId 가 있으면 LLM/메모리가 stage 를 잘못 리셋했어도
-  // 질문 대화 중으로 간주 (stage=2 로 강제 pin).
-  // selectedQuestionId 가 이번 턴에 들어왔다면 stage=1 → stage=2 전환으로 간주.
   const stage: number | string | null =
     progress.currentAttachmentQuestionId && !input.selectedQuestionId
       ? 2
       : rawStage;
+
+  // ── 공통 우선 규칙: 사용자가 "아니요/이따가/나중/싫어요" 로 거절하거나
+  //    "오늘의 질문" 으로 이어가고 싶다고 하면 stage 무관 바로 stage=1 today_question 제시.
+  //    이전 상태가 baby_info_offer/week_info_opt_in 이면 특히 중요 (loop 방지).
+  const isRefusal = /이따가|아니요|나중|안 볼래|안볼래|싫어요|됐어요|패스/.test(
+    input.userText,
+  );
+  const wantsQuestion =
+    /오늘의 질문|질문으로 이어|질문 볼래|질문 할래|질문 해볼래/.test(
+      input.userText,
+    );
+  const isInfoContext =
+    lastScenario === "baby_info_offer" ||
+    lastScenario === "week_info_opt_in" ||
+    lastScenario === "baby_info" ||
+    compactSummary.includes("태아 발달 확인 제안") ||
+    compactSummary.includes("주차 정보 안내");
+  if (
+    !input.selectedQuestionId &&
+    !progress.currentAttachmentQuestionId &&
+    (isRefusal || wantsQuestion) &&
+    (isInfoContext || stage === 0 || stage === 1 || stage === null)
+  ) {
+    return buildTodayQuestionTurn(input, progress);
+  }
 
   // 첫 진입: stage 없음 → mood intake
   if (stage === null && !input.selectedMood) {
@@ -344,6 +367,11 @@ export function maybeShortCircuitStaticTurn(
     if (/이따가|아니요|나중|안 볼래|안볼래/.test(input.userText)) {
       return buildTodayQuestionTurn(input, progress);
     }
+    // "오늘의 질문으로 이어갈래요" / "질문으로 이어" / "질문 볼래요" → stage=1
+    // (Y path 주차 정보 응답 이후 사용자가 질문으로 가고 싶을 때)
+    if (/오늘의 질문|질문으로 이어|질문 볼래|질문 할래/.test(input.userText)) {
+      return buildTodayQuestionTurn(input, progress);
+    }
     // "Y" (네, 볼래요) → 주차 정보는 Schift LLM 경로로 넘기거나 별도 deep link 로직
     return null;
   }
@@ -353,9 +381,41 @@ export function maybeShortCircuitStaticTurn(
     if (!input.selectedQuestionId) {
       return buildTodayQuestionTurn(input, progress);
     }
-    // 질문 선택됨 → LLM 경로 (stage=2). 라우트가 memory에
-    // currentAttachmentQuestionId = input.selectedQuestionId 로 persist.
-    return null;
+    // 질문 선택됨 → "이 질문에 대해 편지 써볼까요?" 전환 턴 (LLM 없이 즉시 응답)
+    //  다음 턴에 사용자가 실제 편지를 쓰면 stage=2 LLM 로 letter_reflection 경로.
+    const pickedQuestion = input.todayQuestionCandidates.find(
+      (q) => q.id === input.selectedQuestionId,
+    );
+    const questionText =
+      (pickedQuestion?.text ?? input.text.trim()) || "오늘의 질문";
+    return {
+      assistantMessage: assistantMessage([
+        makeText(
+          [
+            `"${questionText}"`,
+            "",
+            "이 질문에 대해 편안하게 답해주세요. 아기에게 들려주는 편지처럼 써도 좋고, 떠오르는 한 문장이어도 괜찮아요.",
+          ].join("\n"),
+        ),
+      ]),
+      workflowMemoryPayload: {
+        scenario: "attachment_question",
+        characterTone: "calm",
+        guardrailStatus: "safe",
+        selectedQuestionIds: [input.selectedQuestionId],
+        currentAttachmentQuestionId: input.selectedQuestionId,
+        nextSessionMemory: {
+          workflowVersion: 2,
+          stage: 2,
+          stageName: "choice_conversation",
+          compactSummary: `현재 단계: 질문 답변 대기 (${input.selectedQuestionId})`,
+          lastScenario: "attachment_question",
+          lastCharacterTone: "calm",
+          answeredQuestionIds: progress.answeredQuestionIds,
+          currentAttachmentQuestionId: input.selectedQuestionId,
+        } as Record<string, unknown>,
+      } as WorkflowAssistantPayload,
+    };
   }
 
   if (stage === 2) {

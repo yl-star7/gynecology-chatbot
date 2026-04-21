@@ -430,6 +430,41 @@ export async function POST(request: NextRequest) {
             next.compactSummary = "현재 단계: 자유 대화";
           }
         }
+        // (c) Y path 성공: scenario=baby_info 인데 stage 가 0/null 이면 stage=1 로 강제 전진
+        //      (stage=1 today_question 로 이어가 loop 방지)
+        const scenarioOut =
+          (payload.scenario as string | undefined) ??
+          (next?.lastScenario as string | undefined);
+        if (
+          next &&
+          scenarioOut === "baby_info" &&
+          (next.stage === 0 ||
+            next.stage === "0" ||
+            next.stage === null ||
+            next.stage === undefined)
+        ) {
+          next.stage = 1;
+          next.stageName = "today_question";
+          if (!next.compactSummary?.includes("주차 정보 안내")) {
+            next.compactSummary = "현재 단계: 주차 정보 안내 완료";
+          }
+        }
+        // (d) scenario=baby_info_offer 가 stage=0 을 반복 loop 하는 경우 방지:
+        //      이번 유저 텍스트가 "이따가/아니요" 면 다음 shortcut 이 처리하므로 OK.
+        //      그러나 첫 Y path 이후 LLM 이 또 baby_info_offer 로 되돌리면 루프 위험.
+        //      직전 lastScenario 가 이미 baby_info_offer 인데 또 offer 로 돌아오면 stage=1 로 강제 전진.
+        const priorScenario =
+          input.promptContext?.sessionMemory?.lastScenario ?? null;
+        if (
+          next &&
+          scenarioOut === "baby_info_offer" &&
+          priorScenario === "baby_info_offer" &&
+          (next.stage === 0 || next.stage === "0")
+        ) {
+          next.stage = 1;
+          next.stageName = "today_question";
+          next.compactSummary = "현재 단계: 오늘의 질문 준비";
+        }
       }
       return result;
     };
