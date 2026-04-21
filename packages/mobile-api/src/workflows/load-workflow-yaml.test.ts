@@ -119,8 +119,13 @@ describe("maternal nursing workflow YAML", () => {
       "tmpl",
       "llm",
       "answer",
+      "summary_webhook",
       "end",
     ]);
+    const webhookBlock = workflow.graph.blocks.find(
+      (block) => block.id === "summary_webhook",
+    );
+    expect(webhookBlock?.type).toBe("webhook");
     const retrieverBlock = workflow.graph.blocks.find(
       (block) => block.id === "retriever",
     );
@@ -172,6 +177,12 @@ describe("maternal nursing workflow YAML", () => {
           source: "answer",
           target: "end",
           source_handle: "answer",
+        }),
+        expect.objectContaining({
+          source: "answer",
+          target: "summary_webhook",
+          source_handle: "answer",
+          target_handle: "in",
         }),
       ]),
     );

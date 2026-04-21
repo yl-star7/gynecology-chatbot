@@ -55,8 +55,23 @@ function resolveRef(
     return staticResponses[key];
   }
 
+  // $env.VAR — process.env 치환 (빌드/동기화 시점)
+  if (section === "env" && key) {
+    return process.env[key] ?? value;
+  }
+
+  // $config.KEY — YAML 상단의 config: 섹션에서 치환
+  if (section === "config" && key) {
+    const cfg = ((yamlConfigRef.current ?? {}) as Record<string, unknown>)[key];
+    return cfg ?? value;
+  }
+
   return value;
 }
+
+const yamlConfigRef: { current: Record<string, unknown> | null } = {
+  current: null,
+};
 
 function resolveConfig(
   config: Record<string, unknown> | undefined,
@@ -74,6 +89,8 @@ function resolveConfig(
 }
 
 function buildResult(yaml: WorkflowYaml) {
+  yamlConfigRef.current =
+    (yaml as unknown as { config?: Record<string, unknown> }).config ?? null;
   const graph: WorkflowGraph = {
     blocks: yaml.blocks.map((block, index) => ({
       id: block.id,

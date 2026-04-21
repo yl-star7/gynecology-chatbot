@@ -12,6 +12,14 @@ admin_metadata:
   model_name: gemini-2.5-flash-lite
 
 # ─────────────────────────────────────
+# 전역 설정 ($config.KEY 로 블록 config 안에서 참조)
+# $env.VAR 는 process.env 로 치환됨
+# ─────────────────────────────────────
+config:
+  calendar_summary_webhook_url: $env.CALENDAR_SUMMARY_WEBHOOK_URL
+  calendar_summary_webhook_secret: $env.CALENDAR_SUMMARY_WEBHOOK_SECRET
+
+# ─────────────────────────────────────
 # 프롬프트 (관리자 수정 대상)
 # ─────────────────────────────────────
 
@@ -525,6 +533,13 @@ blocks:
       format: text
       include_sources: false
 
+  - id: summary_webhook
+    type: webhook
+    title: calendar 요약 기록 webhook
+    config:
+      url: $config.calendar_summary_webhook_url
+      secret: $config.calendar_summary_webhook_secret
+
   - id: end
     type: end
     title: 종료
@@ -559,6 +574,11 @@ edges:
     target: answer
     source_handle: text
     target_handle: text
+
+  - source: answer
+    target: summary_webhook
+    source_handle: answer
+    target_handle: in
 
   - source: answer
     target: end

@@ -29,6 +29,8 @@
     "./chat/follow-ups": "./src/chat/follow-ups.ts",
     "./chat/sanitizers": "./src/chat/sanitizers.ts",
     "./chat/session-summary": "./src/chat/session-summary.ts",
+    "./chat/stage-shortcut": "./src/chat/stage-shortcut.ts",
+    "./chat/question-summary": "./src/chat/question-summary.ts",
     "./chat/workflow-payload": "./src/chat/workflow-payload.ts",
     "./chat/responders/mobile-chat-responder": "./src/chat/responders/mobile-chat-responder.ts",
     "./chat/responders/response-pipeline": "./src/chat/responders/response-pipeline.ts",
