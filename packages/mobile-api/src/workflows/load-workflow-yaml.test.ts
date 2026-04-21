@@ -50,27 +50,28 @@ describe("maternal nursing workflow YAML", () => {
 
   it("loads workflow version 2 with the approved stage contract", () => {
     const workflow = loadMaternalNursingWorkflow();
-    const tmpl = workflow.graph.blocks.find((block) => block.id === "tmpl");
+    const rag = workflow.graph.blocks.find((block) => block.id === "rag");
 
     expect(workflow.version).toBe(2);
-    expect(tmpl?.config?.system_prompt).toEqual(
+    expect(rag?.type).toBe("rag");
+    expect(rag?.config?.system_prompt).toEqual(
       expect.stringContaining("Workflow v2 승인 플로우 계약"),
     );
-    expect(tmpl?.config?.system_prompt).toEqual(
+    expect(rag?.config?.system_prompt).toEqual(
       expect.stringContaining("stage=0: mood_intake"),
     );
-    expect(tmpl?.config?.system_prompt).toEqual(
+    expect(rag?.config?.system_prompt).toEqual(
       expect.stringContaining(
         "선택된 mood는 session memory와 tone context에 반드시 저장",
       ),
     );
-    expect(tmpl?.config?.system_prompt).toEqual(
+    expect(rag?.config?.system_prompt).toEqual(
       expect.stringContaining("비동기 webhook/session memory 저장 경로"),
     );
-    expect(tmpl?.config?.template).toEqual(
+    expect(rag?.config?.template).toEqual(
       expect.stringContaining("{{workflowStage}}"),
     );
-    expect(tmpl?.config?.template).toEqual(
+    expect(rag?.config?.template).toEqual(
       expect.stringContaining("{{selectedQuestionId}}"),
     );
   });
@@ -115,73 +116,31 @@ describe("maternal nursing workflow YAML", () => {
 
     expect(workflow.graph.blocks.map((block) => block.id)).toEqual([
       "start",
-      "retriever",
-      "tmpl",
-      "llm",
-      "answer",
-      "summary_webhook",
+      "rag",
       "end",
     ]);
-    const webhookBlock = workflow.graph.blocks.find(
-      (block) => block.id === "summary_webhook",
-    );
-    expect(webhookBlock?.type).toBe("webhook");
-    const retrieverBlock = workflow.graph.blocks.find(
-      (block) => block.id === "retriever",
-    );
-    expect(retrieverBlock?.type).toBe("retriever");
-    expect(retrieverBlock?.config).toEqual(
+    const ragBlock = workflow.graph.blocks.find((block) => block.id === "rag");
+    expect(ragBlock?.type).toBe("rag");
+    expect(ragBlock?.config).toEqual(
       expect.objectContaining({
         collection: "pregnancy-knowledge",
         top_k: 5,
+        model: "gemini-2.5-flash-lite",
+        thinking_budget: 0,
       }),
     );
     expect(workflow.graph.edges).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           source: "start",
-          target: "retriever",
+          target: "rag",
           source_handle: "out",
-          target_handle: "query",
+          target_handle: "in",
         }),
         expect.objectContaining({
-          source: "retriever",
-          target: "tmpl",
-          source_handle: "results",
-          target_handle: "results",
-        }),
-        expect.objectContaining({
-          source: "start",
-          target: "tmpl",
-          target_handle: "query",
-        }),
-        expect.objectContaining({
-          source: "tmpl",
-          target: "llm",
-          source_handle: "prompt",
-          target_handle: "prompt",
-        }),
-        expect.objectContaining({
-          source: "tmpl",
-          target: "llm",
-          source_handle: "system_prompt",
-          target_handle: "system_prompt",
-        }),
-        expect.objectContaining({
-          source: "llm",
-          target: "answer",
-          source_handle: "text",
-          target_handle: "text",
-        }),
-        expect.objectContaining({
-          source: "answer",
+          source: "rag",
           target: "end",
-          source_handle: "answer",
-        }),
-        expect.objectContaining({
-          source: "answer",
-          target: "summary_webhook",
-          source_handle: "answer",
+          source_handle: "out",
           target_handle: "in",
         }),
       ]),
@@ -190,7 +149,7 @@ describe("maternal nursing workflow YAML", () => {
 
   it("stores stage contracts inside the main prompt", () => {
     const workflow = loadMaternalNursingWorkflow();
-    const tmpl = workflow.graph.blocks.find((block) => block.id === "tmpl");
+    const tmpl = workflow.graph.blocks.find((block) => block.id === "rag");
 
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining("Y path"),
@@ -216,7 +175,7 @@ describe("maternal nursing workflow YAML", () => {
 
   it("guides combined weekly info and keeps weekly questions separate", () => {
     const workflow = loadMaternalNursingWorkflow();
-    const tmpl = workflow.graph.blocks.find((block) => block.id === "tmpl");
+    const tmpl = workflow.graph.blocks.find((block) => block.id === "rag");
 
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining(
@@ -236,7 +195,7 @@ describe("maternal nursing workflow YAML", () => {
 
   it("defines the post-question continuation and ending contract", () => {
     const workflow = loadMaternalNursingWorkflow();
-    const tmpl = workflow.graph.blocks.find((block) => block.id === "tmpl");
+    const tmpl = workflow.graph.blocks.find((block) => block.id === "rag");
 
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining("두 번째 질문"),

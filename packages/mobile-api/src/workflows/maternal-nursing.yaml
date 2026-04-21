@@ -504,41 +504,31 @@ blocks:
     type: start
     title: 사용자 질문 입력
 
-  - id: retriever
-    type: retriever
-    title: pregnancy-knowledge 검색
+  # 통합 RAG 블록: retrieval + rerank + prompt_template + LLM + answer 포맷 한 번에.
+  # inputs: { query } (+ bucket/collection/filter/tags/top_k/response_schema override 가능)
+  # outputs: { answer, text, data, sources, results, usage }
+  - id: rag
+    type: rag
+    title: pregnancy-knowledge RAG + Gemini 응답
     config:
+      # ── Retrieval ──
       collection: pregnancy-knowledge
       top_k: 5
-
-  - id: tmpl
-    type: prompt_template
-    title: 단계 판정 및 프롬프트 렌더링
-    config:
-      template: $prompts.template
-      system_prompt: $prompts.system
-
-  - id: llm
-    type: llm
-    title: LLM 응답 생성
-    config:
+      mode: vector
+      rerank: false
+      # ── LLM ──
       model: gemini-2.5-flash-lite
       temperature: 0.1
       max_tokens: 1024
-
-  - id: answer
-    type: answer
-    title: JSON 응답 포맷
-    config:
-      format: text
+      thinking_budget: 0
+      # ── Prompting ──
+      system_prompt: $prompts.system
+      template: $prompts.template
+      # ── Output 제어 ──
       include_sources: false
 
-  - id: summary_webhook
-    type: webhook
-    title: calendar 요약 기록 webhook
-    config:
-      url: $config.calendar_summary_webhook_url
-      secret: $config.calendar_summary_webhook_secret
+  # summary_webhook 블록은 Schift 가 webhook.path validation 확정 시 재활성.
+  # 현재는 서버 사이드 stage-shortcut.sideEffects + question-summary.ts 경로로 대체.
 
   - id: end
     type: end
@@ -546,41 +536,11 @@ blocks:
 
 edges:
   - source: start
-    target: retriever
+    target: rag
     source_handle: out
-    target_handle: query
-
-  - source: retriever
-    target: tmpl
-    source_handle: results
-    target_handle: results
-
-  - source: start
-    target: tmpl
-    source_handle: out
-    target_handle: query
-
-  - source: tmpl
-    target: llm
-    source_handle: prompt
-    target_handle: prompt
-
-  - source: tmpl
-    target: llm
-    source_handle: system_prompt
-    target_handle: system_prompt
-
-  - source: llm
-    target: answer
-    source_handle: text
-    target_handle: text
-
-  - source: answer
-    target: summary_webhook
-    source_handle: answer
     target_handle: in
 
-  - source: answer
+  - source: rag
     target: end
-    source_handle: answer
+    source_handle: out
     target_handle: in

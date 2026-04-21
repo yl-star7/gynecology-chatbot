@@ -60,10 +60,15 @@ function resolveRef(
     return process.env[key] ?? value;
   }
 
-  // $config.KEY — YAML 상단의 config: 섹션에서 치환
+  // $config.KEY — YAML 상단의 config: 섹션에서 치환 (중첩 $ref 재해석)
   if (section === "config" && key) {
     const cfg = ((yamlConfigRef.current ?? {}) as Record<string, unknown>)[key];
-    return cfg ?? value;
+    if (cfg === undefined) return value;
+    // config 값이 또 다른 $ref 면 한 단계 재귀 resolve
+    if (typeof cfg === "string" && cfg.startsWith("$")) {
+      return resolveRef(cfg, prompts, staticResponses);
+    }
+    return cfg;
   }
 
   return value;
