@@ -36,14 +36,23 @@ export type StageShortcutInput = {
   moodPool: Array<{ label: string; message: string; tone: CharacterTone }>;
   weekInfoOptInVariations: string[];
   todayQuestionCandidates: Array<{ id: string; text: string }>;
+  /**
+   * 라우트가 SQL(user_question_events) 에서 조회해 주입.
+   * - answeredQuestionIds: 오늘 이미 답한 질문 id 들
+   * - currentAttachmentQuestionId: 이 세션에서 현재 대화 중인 질문 id
+   *   (status='sent' AND answered_at IS NULL 의 최신 레코드)
+   *
+   * 미지정 시 빈 진행 상태(`{answered:[], current:null}`) 로 처리.
+   */
+  progress?: QuestionProgress;
   rngSeed?: number;
 };
 
 /**
  * 답변 완료 질문 ID 누적 리스트 + 현재 대화 중인 질문 ID.
- * session memory 에 함께 persist.
+ * 진실 소스: user_question_events (status='answered' / 'sent')
  */
-type QuestionProgress = {
+export type QuestionProgress = {
   answeredQuestionIds: string[];
   currentAttachmentQuestionId: string | null;
 };
@@ -307,24 +316,9 @@ export function maybeShortCircuitStaticTurn(
   const memory = input.promptContext?.sessionMemory ?? null;
   const stage = memory?.stage ?? null;
   const compactSummary = memory?.compactSummary ?? "";
-  const memoryRecord = memory as unknown as Record<string, unknown> | null;
-  const answeredQuestionIds: string[] = Array.isArray(
-    memoryRecord?.answeredQuestionIds,
-  )
-    ? (memoryRecord!.answeredQuestionIds as string[])
-    : Array.isArray(
-          (memory as { selectedQuestionIds?: string[] })?.selectedQuestionIds,
-        )
-      ? ((memory as { selectedQuestionIds?: string[] }).selectedQuestionIds ??
-        [])
-      : [];
-  const currentAttachmentQuestionId =
-    typeof memoryRecord?.currentAttachmentQuestionId === "string"
-      ? (memoryRecord.currentAttachmentQuestionId as string)
-      : null;
-  const progress: QuestionProgress = {
-    answeredQuestionIds,
-    currentAttachmentQuestionId,
+  const progress: QuestionProgress = input.progress ?? {
+    answeredQuestionIds: [],
+    currentAttachmentQuestionId: null,
   };
 
   // 첫 진입: stage 없음 → mood intake
