@@ -60,7 +60,9 @@ describe("maternal nursing workflow YAML", () => {
       expect.stringContaining("stage=0: mood_intake"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("선택된 mood는 session memory와 tone context에 반드시 저장"),
+      expect.stringContaining(
+        "선택된 mood는 session memory와 tone context에 반드시 저장",
+      ),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining("비동기 webhook/session memory 저장 경로"),
@@ -113,13 +115,36 @@ describe("maternal nursing workflow YAML", () => {
 
     expect(workflow.graph.blocks.map((block) => block.id)).toEqual([
       "start",
+      "retriever",
       "tmpl",
       "llm",
       "answer",
       "end",
     ]);
+    const retrieverBlock = workflow.graph.blocks.find(
+      (block) => block.id === "retriever",
+    );
+    expect(retrieverBlock?.type).toBe("retriever");
+    expect(retrieverBlock?.config).toEqual(
+      expect.objectContaining({
+        collection: "pregnancy-knowledge",
+        top_k: 5,
+      }),
+    );
     expect(workflow.graph.edges).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          source: "start",
+          target: "retriever",
+          source_handle: "out",
+          target_handle: "query",
+        }),
+        expect.objectContaining({
+          source: "retriever",
+          target: "tmpl",
+          source_handle: "results",
+          target_handle: "results",
+        }),
         expect.objectContaining({
           source: "start",
           target: "tmpl",
@@ -172,7 +197,9 @@ describe("maternal nursing workflow YAML", () => {
       expect.stringContaining("stage=2"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("이전 workflow를 replay하지 말고 inference로 직접 라우팅"),
+      expect.stringContaining(
+        "이전 workflow를 replay하지 말고 inference로 직접 라우팅",
+      ),
     );
   });
 

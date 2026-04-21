@@ -509,6 +509,13 @@ blocks:
     type: start
     title: 사용자 질문 입력
 
+  - id: retriever
+    type: retriever
+    title: pregnancy-knowledge 검색
+    config:
+      collection: pregnancy-knowledge
+      top_k: 5
+
   - id: tmpl
     type: prompt_template
     title: 단계 판정 및 프롬프트 렌더링
@@ -536,6 +543,16 @@ blocks:
     title: 종료
 
 edges:
+  - source: start
+    target: retriever
+    source_handle: out
+    target_handle: query
+
+  - source: retriever
+    target: tmpl
+    source_handle: results
+    target_handle: results
+
   - source: start
     target: tmpl
     source_handle: out

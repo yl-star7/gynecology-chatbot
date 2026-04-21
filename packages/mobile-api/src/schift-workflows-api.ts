@@ -164,7 +164,7 @@ async function createWorkflowWithBlocks(
   return shell;
 }
 
-async function syncWorkflowGraphWithBlocks(
+export async function syncWorkflowGraphWithBlocks(
   schiftClient: Schift,
   workflowId: string,
   wfDef: ReturnType<typeof loadMaternalNursingWorkflow>,
