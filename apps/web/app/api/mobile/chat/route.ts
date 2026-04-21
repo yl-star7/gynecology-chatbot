@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createKoreanDateKey } from "@gynecology-chatbot/app-core/time";
 
 export const maxDuration = 60;
-import { searchFileRag } from "@/lib/mobile/rag";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import {
   extractSchiftWorkflowOutputs,
@@ -273,12 +272,6 @@ export async function POST(request: NextRequest) {
       formatSchiftWorkflowRun,
       loadCharacterImages,
       preferLocalFallback: true,
-      loadRagContext: ({ query, currentWeek }) =>
-        searchFileRag({
-          query,
-          currentWeek,
-          matchCount: 5,
-        }),
       weekKnowledgeEntityId,
     });
 

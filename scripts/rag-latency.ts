@@ -4,7 +4,7 @@ import path from "node:path";
 loadEnv({ path: path.resolve(process.cwd(), ".env.local"), override: true });
 loadEnv({ path: path.resolve(process.cwd(), ".env") });
 
-import { searchFileRag } from "@gynecology-chatbot/mobile-api/rag";
+import { searchFileRag } from "../packages/mobile-api/src/rag";
 
 const queries = [
   { q: "임신 27주차 손발 부종 정상", week: 27 },
