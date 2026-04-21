@@ -5,7 +5,10 @@ type AdminProxyUser = {
 };
 
 function getAdminApiBaseUrl() {
-  const value = process.env.ADMIN_API_BASE_URL?.trim();
+  const value =
+    process.env.ADMIN_API_BASE_URL?.trim() ||
+    process.env.EXPO_PUBLIC_API_BASE_URL?.trim() ||
+    "https://agaya-api-yvdnhntt7a-du.a.run.app";
   if (!value) {
     throw new Error("ADMIN_API_BASE_URL is required for admin API requests");
   }
