@@ -392,7 +392,37 @@ export async function POST(request: NextRequest) {
       }
 
       // 1) 일반 Schift 경로
-      return baseMobileResponder(input);
+      const result = await baseMobileResponder(input);
+
+      // 2) Schift LLM 이 stage 를 잘못 리셋해도 보정.
+      //    - progress.currentAttachmentQuestionId 가 있고 closing signal 이 아니면
+      //      LLM 결과의 stage 를 2 로 강제 (질문 대화 유지)
+      //    - closing signal 이면 stage=2 유지 + 다음 short-circuit 에서 재진입/소진 처리
+      const payload = result.workflowMemoryPayload;
+      if (payload && progress.currentAttachmentQuestionId) {
+        const next = payload.nextSessionMemory as
+          | (SessionMemoryPayload & {
+              currentAttachmentQuestionId?: string | null;
+              answeredQuestionIds?: string[];
+            })
+          | undefined;
+        if (next && (next.stage === 0 || next.stage === "0")) {
+          next.stage = 2;
+          next.stageName = "choice_conversation";
+          if (!next.compactSummary?.includes("질문")) {
+            next.compactSummary = "현재 단계: 질문 답변 중";
+          }
+        }
+        if (next && !next.currentAttachmentQuestionId) {
+          (next as Record<string, unknown>).currentAttachmentQuestionId =
+            progress.currentAttachmentQuestionId;
+        }
+        if (next && !Array.isArray(next.answeredQuestionIds)) {
+          (next as Record<string, unknown>).answeredQuestionIds =
+            progress.answeredQuestionIds;
+        }
+      }
+      return result;
     };
 
     const orchestrateChat = buildChatOrchestrator({

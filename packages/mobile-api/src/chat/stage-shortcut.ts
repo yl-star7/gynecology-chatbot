@@ -314,12 +314,21 @@ export function maybeShortCircuitStaticTurn(
   input: StageShortcutInput,
 ): StageShortcutResult | null {
   const memory = input.promptContext?.sessionMemory ?? null;
-  const stage = memory?.stage ?? null;
+  const rawStage = memory?.stage ?? null;
   const compactSummary = memory?.compactSummary ?? "";
   const progress: QuestionProgress = input.progress ?? {
     answeredQuestionIds: [],
     currentAttachmentQuestionId: null,
   };
+
+  // SQL 기반 progress 가 진실 소스.
+  // currentAttachmentQuestionId 가 있으면 LLM/메모리가 stage 를 잘못 리셋했어도
+  // 질문 대화 중으로 간주 (stage=2 로 강제 pin).
+  // selectedQuestionId 가 이번 턴에 들어왔다면 stage=1 → stage=2 전환으로 간주.
+  const stage: number | string | null =
+    progress.currentAttachmentQuestionId && !input.selectedQuestionId
+      ? 2
+      : rawStage;
 
   // 첫 진입: stage 없음 → mood intake
   if (stage === null && !input.selectedMood) {

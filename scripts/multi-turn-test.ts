@@ -210,6 +210,17 @@ async function runTurn(
     } catch (e) {
       parts.push({ type: "text", text: raw.slice(0, 200) });
     }
+    // 라우트와 같은 stage 보정: progress.currentAttachmentQuestionId 있고 LLM이 stage=0으로 리셋했으면 stage=2로 force
+    if (
+      state.progress.currentAttachmentQuestionId &&
+      (nextMemory.stage === 0 || nextMemory.stage === "0")
+    ) {
+      nextMemory.stage = 2;
+      nextMemory.stageName = "choice_conversation";
+      if (!nextMemory.compactSummary.includes("질문")) {
+        nextMemory.compactSummary = "현재 단계: 질문 답변 중";
+      }
+    }
   }
 
   const elapsedMs = Math.round(performance.now() - t0);
