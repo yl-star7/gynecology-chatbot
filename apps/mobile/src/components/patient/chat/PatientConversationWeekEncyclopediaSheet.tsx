@@ -39,9 +39,10 @@ export function PatientConversationWeekEncyclopediaSheet({
 }) {
   const { height } = useWindowDimensions();
   const canOpenFullView = Boolean(onOpenFullView && model.selectedWeekNumber);
-  const sheetHeight = Math.round(height * 0.64);
+  const isCompact = model.sections.length === 0;
+  const sheetHeight = Math.round(height * (isCompact ? 0.42 : 0.64));
   const scrollHeight = Math.max(
-    space.xxxl * 8,
+    isCompact ? space.xxxl * 3 : space.xxxl * 8,
     sheetHeight - (canOpenFullView ? space.xxxl * 8 : space.xxxl * 5),
   );
 
@@ -60,7 +61,17 @@ export function PatientConversationWeekEncyclopediaSheet({
           accessibilityLabel="닫기"
           onPress={onClose}
         />
-        <View style={[styles.sheet, { height: sheetHeight }]}>
+        <View
+          style={[
+            styles.sheet,
+            {
+              height: sheetHeight,
+              paddingBottom: canOpenFullView
+                ? space.xxxl * 2 + space.sm
+                : space.lg,
+            },
+          ]}
+        >
           <View style={styles.handle} />
           <View style={styles.header}>
             <View style={styles.headerCopy}>
@@ -88,7 +99,7 @@ export function PatientConversationWeekEncyclopediaSheet({
             showsVerticalScrollIndicator={false}
           >
             {model.emptyTitle ? (
-              <Card variant="muted" style={styles.emptyCard}>
+              <Card style={styles.emptyCard}>
                 <Text style={styles.sectionTitle}>{model.emptyTitle}</Text>
                 {model.emptyDescription ? (
                   <Text style={styles.bodyText}>{model.emptyDescription}</Text>
@@ -160,7 +171,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radii.xl,
     paddingHorizontal: space.lg,
     paddingTop: space.md,
-    paddingBottom: space.xxxl * 2 + space.sm,
     gap: space.md,
     ...shadows.card,
   },

@@ -218,9 +218,35 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(payload.selectedQuestionIds).toEqual(["q1", "q2", "q3"]);
   });
 
-  it("returns to stage=1 with remaining questions when current question finished but quota not met", () => {
+  it("keeps stage=2 on short gratitude (not explicit closing)", () => {
+    // "고마워요" 같은 감사 표현은 closing 아님 — LLM 경로로 떨어져야 함
     const r = maybeShortCircuitStaticTurn({
       userText: "고마워요",
+      selectedMood: null,
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 2,
+          stageName: "choice_conversation",
+          compactSummary: "현재 단계: 질문 답변 중",
+        } as PromptContext["sessionMemory"],
+      }),
+      progress: {
+        answeredQuestionIds: [],
+        currentAttachmentQuestionId: "q1",
+      },
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+    });
+    // stage=2 유지: shortcut 이 가로채지 않고 null 반환 → LLM empathy 응답 예상
+    expect(r).toBeNull();
+  });
+
+  it("returns to stage=1 on explicit '다음 질문으로' signal", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "다음 질문으로 이어갈래요.",
       selectedMood: null,
       selectedQuestionId: null,
       currentWeek: 27,
@@ -248,15 +274,6 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(next.stage).toBe(1);
     expect(next.answeredQuestionIds).toEqual(["q1"]);
     expect(next.currentAttachmentQuestionId).toBeNull();
-    // stage=1 에서 남은 질문 2개(q2, q3) 보여야 함 (q1은 제외)
-    const quick = r!.assistantMessage.parts.find(
-      (p) => p.type === "quickReplies",
-    );
-    if (quick?.type === "quickReplies") {
-      const ids = quick.choices.map((c) => c.id);
-      expect(ids).not.toContain("q1");
-      expect(ids).toEqual(expect.arrayContaining(["q2", "q3"]));
-    }
   });
 
   it("transitions to free_chat stage when user selects 자유대화", () => {

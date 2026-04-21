@@ -19,8 +19,10 @@ import type {
 /** 하루에 제공하는 오늘의 질문(attachment_question) 수. 소진 시 자유대화/종료 선택 */
 export const DAILY_ATTACHMENT_QUESTION_QUOTA = 3;
 
+// 명시적 종료/다음 질문 전환 신호만. "고마워요" 같은 짧은 감사 표현은 제외 —
+// 질문 하나당 2~3턴 공감 대화가 이어지도록.
 const CLOSING_SIGNAL =
-  /괜찮아졌|위로됐|고마워요|이제 됐|좀 가벼워졌|오늘은 여기까지|이만 마칠|마칠게요|여기까지 할/;
+  /다음 질문|오늘은 여기까지|이만 마칠|마칠게요|여기까지 할|여기까지만|그만할게요|그만 할게요/;
 const POSITIVE_ACK = /^(네|응|예|좋아|보여|볼래|알려|확인할래요)/;
 
 export type StageShortcutInput = {

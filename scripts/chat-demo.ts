@@ -369,7 +369,13 @@ async function main() {
     "엄마는 지금 네가 너무 소중해. 늘 건강하게 자라줬으면 해.",
     state,
   );
-  await runTurn(7, "고마워요", state);
+  await runTurn(7, "하나 더 이야기하고 싶어요.", state);
+  await runTurn(
+    7.5 as any,
+    "우리 아이가 씩씩하게 자라면 좋겠어요. 나중에 엄마 손 꼭 잡고 놀자.",
+    state,
+  );
+  await runTurn(7.9 as any, "다음 질문으로 이어갈래요.", state);
   state.selectedQuestionId = "q-27-2";
   state.progress.currentAttachmentQuestionId = "q-27-2";
   await runTurn(
@@ -383,13 +389,13 @@ async function main() {
     "태동이 느껴질 때마다 아이가 엄마 곁에 있구나 싶어요.",
     state,
   );
-  await runTurn(10, "고마워요", state);
+  await runTurn(10, "다음 질문으로 이어갈래요.", state);
   state.selectedQuestionId = "q-27-3";
   state.progress.currentAttachmentQuestionId = "q-27-3";
   await runTurn(11, "오늘 하루 중 아기를 떠올린 순간이 있었나요?", state);
   state.selectedQuestionId = null;
   await runTurn(12, "아침에 아기 옷을 정리하다 문득 얼굴이 떠올랐어요.", state);
-  await runTurn(13, "고마워요", state);
+  await runTurn(13, "다음 질문으로 이어갈래요.", state);
   await runTurn(14, "자유롭게 대화하고 싶어요.", state);
   await runTurn(15, "아기 이름 짓기 고민 중이에요.", state);
   await runTurn(16, "오늘은 여기까지 할게요.", state);
