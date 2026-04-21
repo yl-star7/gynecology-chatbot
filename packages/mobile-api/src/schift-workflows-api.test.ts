@@ -1,7 +1,7 @@
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseInsert: jest.fn(),
-  supabaseSelect: jest.fn(),
-  supabaseUpdate: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbInsert: jest.fn(),
+  dbSelect: jest.fn(),
+  dbUpdate: jest.fn(),
 }));
 
 jest.mock("@schift-io/sdk", () => {
@@ -62,10 +62,10 @@ jest.mock("@schift-io/sdk", () => {
 });
 
 import {
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+  dbInsert,
+  dbSelect,
+  dbUpdate,
+} from "@/lib/db/admin-client";
 import { createDefaultInternalAnswerWorkflow } from "./schift-workflows-api";
 
 describe("createDefaultInternalAnswerWorkflow", () => {
@@ -74,9 +74,9 @@ describe("createDefaultInternalAnswerWorkflow", () => {
 
   beforeEach(() => {
     process.env.SCHIFT_API_KEY = "test-key";
-    (supabaseSelect as jest.Mock).mockReset();
-    (supabaseInsert as jest.Mock).mockReset();
-    (supabaseUpdate as jest.Mock).mockReset();
+    (dbSelect as jest.Mock).mockReset();
+    (dbInsert as jest.Mock).mockReset();
+    (dbUpdate as jest.Mock).mockReset();
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith("/v1/workflows")) {
@@ -107,26 +107,26 @@ describe("createDefaultInternalAnswerWorkflow", () => {
   });
 
   it("uses provider-aware wrappers when persisting workflow definitions", async () => {
-    (supabaseSelect as jest.Mock)
+    (dbSelect as jest.Mock)
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
-    (supabaseInsert as jest.Mock).mockResolvedValueOnce([]);
+    (dbInsert as jest.Mock).mockResolvedValueOnce([]);
 
     await createDefaultInternalAnswerWorkflow();
 
-    expect(supabaseSelect).toHaveBeenNthCalledWith(
+    expect(dbSelect).toHaveBeenNthCalledWith(
       1,
       expect.stringContaining(
         "workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata&id=eq.wf-1",
       ),
     );
-    expect(supabaseSelect).toHaveBeenNthCalledWith(
+    expect(dbSelect).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining(
         "workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata&slug=eq.internal-data-answer",
       ),
     );
-    expect(supabaseInsert).toHaveBeenCalledWith(
+    expect(dbInsert).toHaveBeenCalledWith(
       "workflow_definitions",
       expect.objectContaining({
         id: "wf-1",
@@ -134,7 +134,7 @@ describe("createDefaultInternalAnswerWorkflow", () => {
         provider: "schift",
       }),
     );
-    expect(supabaseUpdate).not.toHaveBeenCalled();
+    expect(dbUpdate).not.toHaveBeenCalled();
   });
 
   it("archives malformed canonical workflows and recreates them", async () => {
@@ -186,10 +186,10 @@ describe("createDefaultInternalAnswerWorkflow", () => {
       },
     ) as typeof fetch;
 
-    (supabaseSelect as jest.Mock)
+    (dbSelect as jest.Mock)
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
-    (supabaseInsert as jest.Mock).mockResolvedValueOnce([]);
+    (dbInsert as jest.Mock).mockResolvedValueOnce([]);
 
     await createDefaultInternalAnswerWorkflow();
 
@@ -259,10 +259,10 @@ describe("createDefaultInternalAnswerWorkflow", () => {
       throw new Error(`unexpected fetch: ${url}`);
     }) as typeof fetch;
 
-    (supabaseSelect as jest.Mock)
+    (dbSelect as jest.Mock)
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
-    (supabaseInsert as jest.Mock).mockResolvedValueOnce([]);
+    (dbInsert as jest.Mock).mockResolvedValueOnce([]);
 
     await createDefaultInternalAnswerWorkflow();
 
@@ -277,7 +277,7 @@ describe("createDefaultInternalAnswerWorkflow", () => {
         body: JSON.stringify({ status: "archived" }),
       }),
     );
-    expect(supabaseInsert).toHaveBeenCalledWith(
+    expect(dbInsert).toHaveBeenCalledWith(
       "workflow_definitions",
       expect.objectContaining({ id: "wf-existing", provider: "schift" }),
     );

@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { prisma } from "@gynecology-chatbot/db/prisma";
+import { dbSelect, dbUpdate } from "@/lib/db/admin-client";
 
 type AuthSessionRow = {
   id: string;
@@ -56,21 +56,30 @@ export async function verifyMobileSessionToken(
   }
 
   const sessionHash = hashSessionToken(sessionToken);
-  const sessionRecord = await prisma.auth_sessions.findFirst({
-    where: { refresh_token_hash: sessionHash },
-    select: {
-      id: true,
-      user_id: true,
-      expires_at: true,
-      revoked_at: true,
-    },
-  });
+  const sessionRecord = (
+    await dbSelect<
+      Array<{
+        id: string;
+        user_id: string;
+        expires_at: string | Date;
+        revoked_at: string | Date | null;
+      }>
+    >(
+      `auth_sessions?select=id,user_id,expires_at,revoked_at&refresh_token_hash=eq.${sessionHash}&limit=1`,
+    )
+  )[0];
   const session: AuthSessionRow | undefined = sessionRecord
     ? {
         id: sessionRecord.id,
         user_id: sessionRecord.user_id,
-        expires_at: sessionRecord.expires_at.toISOString(),
-        revoked_at: sessionRecord.revoked_at?.toISOString() ?? null,
+        expires_at:
+          sessionRecord.expires_at instanceof Date
+            ? sessionRecord.expires_at.toISOString()
+            : sessionRecord.expires_at,
+        revoked_at:
+          sessionRecord.revoked_at instanceof Date
+            ? sessionRecord.revoked_at.toISOString()
+            : (sessionRecord.revoked_at ?? null),
       }
     : undefined;
 
@@ -90,13 +99,11 @@ export async function verifyMobileSessionToken(
     throw new Error("mobile session user mismatch");
   }
 
-  const userRecord = await prisma.users.findUnique({
-    where: { id: session.user_id },
-    select: {
-      id: true,
-      account_status: true,
-    },
-  });
+  const userRecord = (
+    await dbSelect<SessionUserRow[]>(
+      `users?select=id,account_status&id=eq.${session.user_id}&limit=1`,
+    )
+  )[0];
   const user: SessionUserRow | undefined = userRecord
     ? {
         id: userRecord.id,
@@ -112,11 +119,8 @@ export async function verifyMobileSessionToken(
     throw new Error("mobile session user is not active");
   }
 
-  await prisma.auth_sessions.update({
-    where: { id: session.id },
-    data: {
-      last_used_at: new Date(),
-    },
+  await dbUpdate(`auth_sessions?id=eq.${session.id}`, {
+    last_used_at: new Date().toISOString(),
   });
 
   return {

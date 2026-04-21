@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { supabaseSelect, supabaseInsert } from "@/lib/supabase/admin-client";
+import { dbSelect, dbInsert } from "@/lib/db/admin-client";
 
 const VALID_QUESTION_TYPES = [
   "text",
@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
     const order =
       "&order=week_data_id.asc,day_number.asc.nullsfirst,display_order.asc";
 
-    const rows = await supabaseSelect<QuestionRow[]>(
+    const rows = await dbSelect<QuestionRow[]>(
       `${baseQuery}${filter}${order}`,
     );
 
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rows = await supabaseInsert<QuestionRow[]>(
+    const rows = await dbInsert<QuestionRow[]>(
       "content.week_questions",
       payload,
     );

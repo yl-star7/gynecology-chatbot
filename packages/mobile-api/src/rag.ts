@@ -1,5 +1,4 @@
-import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
-import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
+import { dbSelect } from "./db/admin-client";
 import { getSchiftClient } from "./schift-client";
 
 type DisabledFileRow = { id: string };
@@ -20,9 +19,6 @@ type SchiftSearchResult = {
   metadata?: Record<string, unknown>;
 };
 
-type RagProvider = "schift";
-
-type ConfigRow = { key: string; value: { ragProvider?: RagProvider } };
 const PGVECTOR_DIMENSION = 1536;
 const FILE_RAG_TIMEOUT_MS = 5000;
 
@@ -30,37 +26,11 @@ function normalizeEmbeddingLength(values: number[]) {
   return values.slice(0, PGVECTOR_DIMENSION);
 }
 
-function asObject<T>(value: Prisma.JsonValue | null | undefined): T | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as T)
-    : null;
-}
-
-async function getRagProvider(): Promise<RagProvider> {
-  try {
-    const row = await prisma.system_config.findUnique({
-      where: { key: "rag_provider" },
-      select: { key: true, value: true },
-    });
-    const config = row
-      ? ({
-          key: row.key,
-          value: asObject<ConfigRow["value"]>(row.value) ?? {},
-        } satisfies ConfigRow)
-      : null;
-    if (config?.value?.ragProvider === "schift") {
-      return "schift";
-    }
-  } catch {}
-  return "schift";
-}
-
 async function getDisabledFileIds(): Promise<Set<string>> {
   try {
-    const rows = await prisma.content_rag_files.findMany({
-      where: { enabled: false },
-      select: { id: true },
-    });
+    const rows = await dbSelect<DisabledFileRow[]>(
+      "content_rag_files?select=id&enabled=eq.false",
+    );
     return new Set(rows.map((r) => r.id));
   } catch {
     return new Set();
@@ -167,16 +137,6 @@ async function searchViaSchift(
   }));
 }
 
-function getEmbeddingApiKey() {
-  const apiKey =
-    process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Embedding configuration is missing");
-  }
-
-  return apiKey;
-}
-
 export async function retrievePregnancyContext(input: {
   query: string;
   currentWeek: number | null;
@@ -184,19 +144,14 @@ export async function retrievePregnancyContext(input: {
 }) {
   if (!input.query.trim()) return [] as RagDocumentRow[];
 
-  const provider = await getRagProvider();
   const count = input.matchCount ?? 7;
 
-  if (provider === "schift") {
-    try {
-      return await searchViaSchift(input.query, input.currentWeek, count);
-    } catch (error) {
-      console.warn("Schift RAG search failed:", error);
-      return [];
-    }
+  try {
+    return await searchViaSchift(input.query, input.currentWeek, count);
+  } catch (error) {
+    console.warn("Schift RAG search failed:", error);
+    return [];
   }
-
-  return [];
 }
 
 export async function embedPregnancyDocument(
@@ -204,35 +159,11 @@ export async function embedPregnancyDocument(
 ): Promise<number[]> {
   if (!content.trim()) throw new Error("Content is empty");
 
-  const provider = await getRagProvider();
+  const schift = getSchiftClient();
+  if (!schift) throw new Error("Schift client not configured");
 
-  if (provider === "schift" || provider === "auto") {
-    const schift = getSchiftClient();
-    if (schift) {
-      try {
-        const result = await schift.embed({ text: content });
-        return normalizeEmbeddingLength(result.embedding);
-      } catch (error) {
-        if (provider === "schift") {
-          throw error;
-        }
-
-        console.warn(
-          "Schift embed failed in auto mode, falling back to Gemini:",
-          error,
-        );
-      }
-    }
-    if (provider === "schift") throw new Error("Schift client not configured");
-  }
-
-  const apiKey = getEmbeddingApiKey();
-
-  const embeddings = new GoogleGenerativeAIEmbeddings({
-    apiKey,
-    modelName: "gemini-embedding-001",
-  });
-  return normalizeEmbeddingLength(await embeddings.embedQuery(content));
+  const result = await schift.embed({ text: content });
+  return normalizeEmbeddingLength(result.embedding);
 }
 
 export type RagSource = {

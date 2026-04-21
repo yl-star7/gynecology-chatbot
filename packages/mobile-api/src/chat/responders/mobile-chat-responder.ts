@@ -12,6 +12,7 @@ import {
   parseWorkflowAssistantPayload,
   type WorkflowAssistantPayload,
 } from "../workflow-payload";
+import { loadMaternalNursingWorkflow } from "../../workflows/load-workflow-yaml";
 
 function normalizeLetterFollowUpFlow(input: {
   assistantMessage: ChatMessage;
@@ -67,12 +68,267 @@ function normalizeLetterFollowUpFlow(input: {
   return input;
 }
 
+function normalizeStageContractFlow(input: {
+  assistantMessage: ChatMessage;
+  workflowMemoryPayload: WorkflowAssistantPayload | null;
+  currentWeek: number | null;
+  userText: string;
+  promptContext: PromptContext | null;
+}) {
+  const scenario =
+    input.workflowMemoryPayload?.scenario ??
+    input.workflowMemoryPayload?.nextSessionMemory?.lastScenario ??
+    null;
+  const requestedBabyInfo =
+    /아기|태아|발달|성장/.test(input.userText) &&
+    /볼래|알려|궁금|네|확인/.test(input.userText);
+
+  if (scenario === "baby_info_offer") {
+    if (requestedBabyInfo) {
+      const weekLabel = input.currentWeek
+        ? `${input.currentWeek}주차`
+        : "지금 주수";
+      const babyItems =
+        input.promptContext?.dayContent?.baby_development_payload?.items ?? [];
+      const babySummary = [
+        ...babyItems,
+        input.promptContext?.dayContent?.baby_message,
+        input.promptContext?.week.baby_summary,
+      ]
+        .filter((value): value is string => Boolean(value?.trim()))
+        .slice(0, 2);
+      const body =
+        babySummary.length > 0
+          ? babySummary.join("\n\n")
+          : "아기 발달 정보를 준비 중이에요. 지금은 담당 의료진과 확인한 주수 정보를 기준으로 천천히 살펴볼게요.";
+      input.assistantMessage.parts = [
+        {
+          type: "text",
+          id: `workflow-baby-info-${Date.now()}`,
+          text: `${weekLabel} 아기 소식이에요.\n\n${body}\n\n엄마 몸 변화도 이어서 볼까요?`,
+        },
+        {
+          type: "quickReplies",
+          id: `workflow-baby-info-quick-${Date.now()}`,
+          choices: [
+            {
+              id: "baby-info-mother-yes",
+              label: "네",
+              message: "네, 엄마 변화도 알려주세요.",
+            },
+            {
+              id: "baby-info-mother-later",
+              label: "이따가요",
+              message: "아니요, 이따가 확인할래요.",
+            },
+          ],
+        },
+      ];
+      input.workflowMemoryPayload!.scenario = "baby_info";
+      input.workflowMemoryPayload!.nextSessionMemory = {
+        ...(input.workflowMemoryPayload?.nextSessionMemory ?? {}),
+        compactSummary: "현재 단계: 태아 발달 안내 완료",
+        lastScenario: "baby_info",
+      };
+      return input;
+    }
+
+    const weekLabel = input.currentWeek
+      ? `${input.currentWeek}주차`
+      : "지금 주수";
+    input.assistantMessage.parts = [
+      {
+        type: "text",
+        id: `workflow-baby-info-offer-${Date.now()}`,
+        text: `좋은 기분을 나눠줘서 고마워요.\n\n${weekLabel}에 맞는 아기 발달 정보를 짧게 확인해볼까요?`,
+      },
+      {
+        type: "quickReplies",
+        id: `workflow-baby-info-offer-quick-${Date.now()}`,
+        choices: [
+          {
+            id: "baby-info-offer-yes",
+            label: "네",
+            message: "아기 발달 정보를 볼래요.",
+          },
+          {
+            id: "baby-info-offer-later",
+            label: "이따가요",
+            message: "아니요, 이따가 확인할래요.",
+          },
+        ],
+      },
+    ];
+    input.workflowMemoryPayload!.scenario = "baby_info_offer";
+    input.workflowMemoryPayload!.nextSessionMemory = {
+      ...(input.workflowMemoryPayload?.nextSessionMemory ?? {}),
+      compactSummary: "현재 단계: 태아 발달 확인 제안",
+      lastScenario: "baby_info_offer",
+    };
+  }
+
+  if (scenario === "attachment_question") {
+    const questionCount =
+      input.assistantMessage.parts
+        .flatMap((part) => (part.type === "text" ? [part.text] : []))
+        .join("\n")
+        .match(/[?？]/g)?.length ?? 0;
+    const quickReplies = input.assistantMessage.parts.find(
+      (part) => part.type === "quickReplies",
+    );
+    const shouldNormalize =
+      questionCount < 2 ||
+      !quickReplies ||
+      quickReplies.type !== "quickReplies" ||
+      quickReplies.choices.length !== 2 ||
+      quickReplies.choices.some((choice) =>
+        /네|아니요|이따가|질문해/.test(choice.label),
+      );
+
+    if (shouldNormalize) {
+      const questions = [
+        "오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?",
+        "요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?",
+      ];
+      input.assistantMessage.parts = [
+        {
+          type: "text",
+          id: `workflow-attachment-question-${Date.now()}`,
+          text: [
+            "오늘 해본 만큼으로도 충분해요. 이제 아기와 마음을 이어볼 질문을 골라보세요.",
+            "",
+            `- ${questions[0]}`,
+            `- ${questions[1]}`,
+          ].join("\n"),
+        },
+        {
+          type: "quickReplies",
+          id: `workflow-attachment-question-quick-${Date.now()}`,
+          choices: questions.map((question, index) => ({
+            id: `attachment-question-${index + 1}`,
+            label: question,
+            message: question,
+          })),
+        },
+      ];
+    }
+    input.workflowMemoryPayload!.scenario = "attachment_question";
+    input.workflowMemoryPayload!.nextSessionMemory = {
+      ...(input.workflowMemoryPayload?.nextSessionMemory ?? {}),
+      compactSummary: "현재 단계: 모아애착 질문",
+      lastScenario: "attachment_question",
+    };
+  }
+
+  return input;
+}
+
 type WorkflowRunLike = {
   status: string;
   error?: string | null;
   outputs?: Record<string, unknown>;
   block_states?: unknown;
 };
+
+function renderWorkflowPromptTemplate(
+  template: string,
+  values: Record<string, string | number | null | undefined>,
+) {
+  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, key) =>
+    values[key] === null || values[key] === undefined
+      ? ""
+      : String(values[key]),
+  );
+}
+
+function buildAssistantMessageFromPayload(
+  payload: WorkflowAssistantPayload,
+): ChatMessage | null {
+  if (!payload.answer?.trim()) {
+    return null;
+  }
+
+  const now = Date.now();
+  const parts: ChatMessage["parts"] = [
+    {
+      type: "text",
+      id: `yaml-static-text-${now}`,
+      text: payload.answer.trim(),
+    },
+  ];
+
+  if (payload.quickReplies && payload.quickReplies.length > 0) {
+    parts.push({
+      type: "quickReplies",
+      id: `yaml-static-quick-${now}`,
+      choices: payload.quickReplies.map((choice, index) => ({
+        id: `yaml-static-choice-${index + 1}`,
+        label: choice.label,
+        message: choice.message,
+      })),
+    });
+  }
+
+  return {
+    id: `assistant-${now}`,
+    role: "assistant",
+    createdAtLabel: "방금 전",
+    characterTone: payload.characterTone ?? null,
+    parts,
+  };
+}
+
+function resolveYamlStaticStageResponse(input: {
+  promptContext: PromptContext | null;
+  currentWeek: number | null;
+  text: string;
+}): {
+  assistantMessage: ChatMessage;
+  workflowMemoryPayload: WorkflowAssistantPayload;
+} | null {
+  const normalizedText = input.text.trim();
+  const isPositiveEmotionSelection =
+    /^(오늘은\s*)?(좋아요|좋아|괜찮아요|기분 좋아요|행복해요|설레요)[.!?。]*$/.test(
+      normalizedText,
+    );
+  const isChecklistAnswer = /^(다 했어요|하나만 했어요|했어요)[.!?。]*$/.test(
+    normalizedText,
+  );
+
+  const promptKey = isPositiveEmotionSelection
+    ? "static_baby_info_offer"
+    : isChecklistAnswer
+      ? "static_attachment_question"
+      : null;
+
+  if (!promptKey) {
+    return null;
+  }
+
+  const template = loadMaternalNursingWorkflow().prompts[promptKey];
+  if (!template) {
+    return null;
+  }
+
+  const rendered = renderWorkflowPromptTemplate(template, {
+    currentWeek: input.currentWeek,
+  });
+  const workflowMemoryPayload = parseWorkflowAssistantPayload({
+    answer: rendered,
+  });
+  if (!workflowMemoryPayload) {
+    return null;
+  }
+
+  const assistantMessage = buildAssistantMessageFromPayload(
+    workflowMemoryPayload,
+  );
+  if (!assistantMessage) {
+    return null;
+  }
+
+  return { assistantMessage, workflowMemoryPayload };
+}
 
 export function createMobileChatResponder<
   TSchift,
@@ -151,6 +407,19 @@ export function createMobileChatResponder<
       .filter((value): value is string => Boolean(value && value.trim()))
       .join("\n");
     const memorySystemBlock = buildMemorySystemBlock(memoryContext);
+    const staticStageResponse =
+      input.hardGuardrailReason === null
+        ? resolveYamlStaticStageResponse({
+            promptContext: input.promptContext,
+            currentWeek: input.currentWeek,
+            text: input.text,
+          })
+        : null;
+
+    if (staticStageResponse) {
+      return staticStageResponse;
+    }
+
     const schift = deps.getSchiftClient();
 
     return resolveAssistantResponse({
@@ -207,10 +476,15 @@ export function createMobileChatResponder<
           );
         }
 
-        const normalized = normalizeLetterFollowUpFlow({
-          assistantMessage: structuredWorkflowMessage,
-          workflowMemoryPayload: workflowPayload,
-        });
+        const normalized = normalizeLetterFollowUpFlow(
+          normalizeStageContractFlow({
+            assistantMessage: structuredWorkflowMessage,
+            workflowMemoryPayload: workflowPayload,
+            currentWeek: input.currentWeek,
+            userText: input.text,
+            promptContext: input.promptContext,
+          }),
+        );
 
         return {
           assistantMessage: normalized.assistantMessage,

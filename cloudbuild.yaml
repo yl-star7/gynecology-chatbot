@@ -35,6 +35,8 @@ steps:
           --file apps/api/Dockerfile \
           --tag "${_IMAGE}:${_IMAGE_TAG}" \
           --tag "${_IMAGE}:latest" \
+          --cache-from "type=registry,ref=${_IMAGE}:buildcache" \
+          --cache-to "type=registry,ref=${_IMAGE}:buildcache,mode=max" \
           --load \
           .
 

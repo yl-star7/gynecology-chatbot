@@ -4,6 +4,7 @@ import { basename, dirname, extname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import mammoth from "mammoth";
 import { Storage } from "@google-cloud/storage";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import {
   extractImagePlacements,
   getStorageObjectPath,
@@ -11,12 +12,6 @@ import {
   parsePregnancyWeekDocText,
   type ParsedPregnancyWeek,
 } from "../src/lib/content/pregnancy-docx-import";
-import {
-  supabaseDelete,
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "../src/lib/supabase/admin-client";
 
 type CliOptions = {
   input: string;
@@ -182,7 +177,7 @@ function toWeekPayload(week: ParsedPregnancyWeek) {
     checklist_intro: "오늘 함께 해 봐요",
     question_intro: "아기와 나누는 마음",
     status: "published",
-    updated_at: new Date().toISOString(),
+    updated_at: new Date(),
   };
 }
 
@@ -200,7 +195,7 @@ function toDayPayload(week: ParsedPregnancyWeek, dayNumber: number) {
     baby_message: day.babyMessage,
     mother_changes_payload: { items: day.motherChanges },
     display_order: day.dayNumber,
-    updated_at: new Date().toISOString(),
+    updated_at: new Date(),
   };
 }
 
@@ -250,30 +245,31 @@ async function ensureBucket(bucketId: string) {
 }
 
 async function upsertWeek(week: ParsedPregnancyWeek) {
-  const existing = await supabaseSelect<WeekRow[]>(
-    `content_pregnancy_week_data?select=id,week_number&week_number=eq.${week.weekNumber}&limit=1`,
-  );
+  const existing = await prisma.pregnancy_week_data.findUnique({
+    where: { week_number: week.weekNumber },
+    select: { id: true, week_number: true },
+  });
   const payload = {
     week_number: week.weekNumber,
     ...toWeekPayload(week),
   };
 
-  if (existing[0]) {
-    await supabaseUpdate<WeekRow>(
-      `content_pregnancy_week_data?id=eq.${existing[0].id}`,
-      payload,
-    );
-    return existing[0].id;
+  if (existing) {
+    await prisma.pregnancy_week_data.update({
+      where: { id: existing.id },
+      data: payload,
+    });
+    return existing.id;
   }
 
-  const inserted = await supabaseInsert<WeekRow[]>(
-    "content_pregnancy_week_data",
-    {
+  const inserted = await prisma.pregnancy_week_data.create({
+    data: {
       id: randomUUID(),
       ...payload,
     },
-  );
-  return inserted[0].id;
+    select: { id: true },
+  });
+  return inserted.id;
 }
 
 async function upsertDay(
@@ -281,31 +277,32 @@ async function upsertDay(
   week: ParsedPregnancyWeek,
   dayNumber: number,
 ) {
-  const existing = await supabaseSelect<DayRow[]>(
-    `content_pregnancy_day_contents?select=id,day_number&week_data_id=eq.${weekDataId}&day_number=eq.${dayNumber}&limit=1`,
-  );
+  const existing = await prisma.pregnancy_day_contents.findFirst({
+    where: { week_data_id: weekDataId, day_number: dayNumber },
+    select: { id: true, day_number: true },
+  });
   const payload = {
     week_data_id: weekDataId,
     day_number: dayNumber,
     ...toDayPayload(week, dayNumber),
   };
 
-  if (existing[0]) {
-    await supabaseUpdate<DayRow>(
-      `content_pregnancy_day_contents?id=eq.${existing[0].id}`,
-      payload,
-    );
-    return existing[0].id;
+  if (existing) {
+    await prisma.pregnancy_day_contents.update({
+      where: { id: existing.id },
+      data: payload,
+    });
+    return existing.id;
   }
 
-  const inserted = await supabaseInsert<DayRow[]>(
-    "content_pregnancy_day_contents",
-    {
+  const inserted = await prisma.pregnancy_day_contents.create({
+    data: {
       id: randomUUID(),
       ...payload,
     },
-  );
-  return inserted[0].id;
+    select: { id: true },
+  });
+  return inserted.id;
 }
 
 async function replaceChecklistRows(
@@ -319,15 +316,15 @@ async function replaceChecklistRows(
     return;
   }
 
-  await supabaseDelete(
-    `content_week_checklists?day_content_id=eq.${dayContentId}`,
-  );
+  await prisma.week_checklists.deleteMany({
+    where: { day_content_id: dayContentId },
+  });
   if (day.checklistItems.length === 0) {
     return;
   }
 
-  await supabaseInsert("content_week_checklists", [
-    ...day.checklistItems.map((item, index) => ({
+  await prisma.week_checklists.createMany({
+    data: day.checklistItems.map((item, index) => ({
       id: randomUUID(),
       week_data_id: weekDataId,
       day_content_id: dayContentId,
@@ -346,9 +343,9 @@ async function replaceChecklistRows(
       display_order: index + 1,
       is_required: false,
       is_active: true,
-      updated_at: new Date().toISOString(),
+      updated_at: new Date(),
     })),
-  ]);
+  });
 }
 
 async function replaceQuestionRows(
@@ -362,15 +359,15 @@ async function replaceQuestionRows(
     return;
   }
 
-  await supabaseDelete(
-    `content_week_questions?day_content_id=eq.${dayContentId}`,
-  );
+  await prisma.week_questions.deleteMany({
+    where: { day_content_id: dayContentId },
+  });
   if (day.questions.length === 0) {
     return;
   }
 
-  await supabaseInsert("content_week_questions", [
-    ...day.questions.map((item, index) => ({
+  await prisma.week_questions.createMany({
+    data: day.questions.map((item, index) => ({
       id: randomUUID(),
       week_data_id: weekDataId,
       day_content_id: dayContentId,
@@ -381,13 +378,13 @@ async function replaceQuestionRows(
       question_text: item,
       question_type: "text",
       help_text: "자유롭게 작성해 주세요.",
-      question_payload: {},
+      question_payload: {} as Prisma.InputJsonValue,
       display_order: index + 1,
       is_required: false,
       is_active: true,
-      updated_at: new Date().toISOString(),
+      updated_at: new Date(),
     })),
-  ]);
+  });
 }
 
 async function replaceWeekMediaRows(
@@ -398,9 +395,9 @@ async function replaceWeekMediaRows(
   docxPath: string,
   placements: ImagePlacementRecord[],
 ) {
-  await supabaseDelete(
-    `content_pregnancy_week_media?week_data_id=eq.${weekDataId}`,
-  );
+  await prisma.pregnancy_week_media.deleteMany({
+    where: { week_data_id: weekDataId },
+  });
 
   if (placements.length === 0) {
     return;
@@ -445,12 +442,12 @@ async function replaceWeekMediaRows(
         alt_text: altText,
         source_file_name: sourceName,
         display_order: scopedOrder,
-        updated_at: new Date().toISOString(),
+        updated_at: new Date(),
       });
     }
   }
 
-  await supabaseInsert("content_pregnancy_week_media", rows);
+  await prisma.pregnancy_week_media.createMany({ data: rows });
 }
 
 async function main() {

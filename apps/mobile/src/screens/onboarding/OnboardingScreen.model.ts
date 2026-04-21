@@ -1,3 +1,8 @@
+import {
+  createKoreanDateKey,
+  readIsoDateKey,
+} from "@gynecology-chatbot/app-core";
+
 export const ONBOARDING_LAYOUT = {
   progressHeight: 4,
   sectionGap: 20,
@@ -20,7 +25,7 @@ function normalizeDueDateToIsoDate(input: string) {
     return trimmed;
   }
 
-  return parsed.toISOString().slice(0, 10);
+  return readIsoDateKey(trimmed) ?? createKoreanDateKey(parsed);
 }
 
 export function buildOnboardingCompletionInput(input: {

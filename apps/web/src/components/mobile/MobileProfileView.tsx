@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  createKoreanDateKey,
   DEFAULT_MOBILE_THEME_KEY,
   MOBILE_THEME_OPTIONS,
+  parseIsoDateKey,
   resolveMobileThemeKey,
   type MobileThemeKey,
 } from "@gynecology-chatbot/app-core";
@@ -257,16 +259,16 @@ export function MobileProfileView({
   }
 
   const calendarDays = useMemo(() => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const today = parseIsoDateKey(createKoreanDateKey());
+    const firstDay = new Date(Date.UTC(today.year, today.month - 1, 1));
+    const lastDay = new Date(Date.UTC(today.year, today.month, 0));
     const result: Array<number | null> = [];
 
-    for (let index = 0; index < firstDay.getDay(); index += 1) {
+    for (let index = 0; index < firstDay.getUTCDay(); index += 1) {
       result.push(null);
     }
 
-    for (let day = 1; day <= lastDay.getDate(); day += 1) {
+    for (let day = 1; day <= lastDay.getUTCDate(); day += 1) {
       result.push(day);
     }
 

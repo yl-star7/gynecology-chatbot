@@ -2,23 +2,23 @@ jest.mock("@/lib/admin/auth", () => ({
   readAdminSessionUser: jest.fn(),
 }));
 
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseInsert: jest.fn(),
-  supabaseSelect: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbInsert: jest.fn(),
+  dbSelect: jest.fn(),
 }));
 
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { supabaseInsert, supabaseSelect } from "@/lib/supabase/admin-client";
+import { dbInsert, dbSelect } from "@/lib/db/admin-client";
 import { GET, POST } from "./route";
 
 const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<
   typeof readAdminSessionUser
 >;
-const mockedSupabaseSelect = supabaseSelect as jest.MockedFunction<
-  typeof supabaseSelect
+const mockedSupabaseSelect = dbSelect as jest.MockedFunction<
+  typeof dbSelect
 >;
-const mockedSupabaseInsert = supabaseInsert as jest.MockedFunction<
-  typeof supabaseInsert
+const mockedSupabaseInsert = dbInsert as jest.MockedFunction<
+  typeof dbInsert
 >;
 
 describe("/api/admin/users/persona", () => {

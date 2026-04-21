@@ -1,7 +1,7 @@
 import type { Workflow, WorkflowGraph } from "@schift-io/sdk";
 
 import { Schift } from "@schift-io/sdk";
-import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
+import { dbInsert, dbSelect, dbUpdate } from "./db/admin-client";
 import { loadMaternalNursingWorkflow } from "./workflows/load-workflow-yaml";
 
 function hasRunnableGraph(workflow: Workflow) {
@@ -92,7 +92,7 @@ type WorkflowDefinitionRow = {
   metadata: Record<string, unknown> | null;
 };
 
-function asObject<T>(value: Prisma.JsonValue | null | undefined): T | null {
+function asObject<T>(value: unknown): T | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as T)
     : null;
@@ -274,19 +274,11 @@ export async function createDefaultInternalAnswerWorkflow(
     description: `<!-- si-admin-workflow:${JSON.stringify(adminMetadata)}-->\n${wfDef.description}`,
   })) as Workflow;
 
-  const currentRowById = await prisma.workflow_definitions.findUnique({
-    where: { id: updated.id },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      provider: true,
-      status: true,
-      is_active: true,
-      config: true,
-      metadata: true,
-    },
-  });
+  const currentRowById = (
+    await dbSelect<WorkflowDefinitionRow[]>(
+      `workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata&id=eq.${updated.id}&limit=1`,
+    )
+  )[0];
   const currentRowsById = currentRowById
     ? [
         {
@@ -305,8 +297,6 @@ export async function createDefaultInternalAnswerWorkflow(
         },
       ]
     : [];
-  const currentRowsBySlug =
-    currentRowsById.length > 0 ? currentRowsById : (() => [])();
   const payload = {
     id: updated.id,
     name: updated.name,
@@ -324,30 +314,25 @@ export async function createDefaultInternalAnswerWorkflow(
 
   const currentRowBySlug = currentRowsById[0]
     ? null
-    : await prisma.workflow_definitions.findUnique({
-        where: { slug: "internal-data-answer" },
-        select: { id: true },
-      });
+    : (
+        await dbSelect<WorkflowDefinitionRow[]>(
+          "workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata&slug=eq.internal-data-answer&limit=1",
+        )
+      )[0];
 
   if (currentRowsById[0] || currentRowBySlug?.id) {
-    await prisma.workflow_definitions.update({
-      where: { id: currentRowsById[0]?.id ?? currentRowBySlug!.id },
-      data: {
+    await dbUpdate(
+      `workflow_definitions?id=eq.${currentRowsById[0]?.id ?? currentRowBySlug!.id}`,
+      {
         ...payload,
-        config: payload.config as Prisma.InputJsonValue,
-        metadata: payload.metadata as Prisma.InputJsonValue,
-        updated_at: new Date(),
+        updated_at: new Date().toISOString(),
       },
-    });
+    );
   } else {
-    await prisma.workflow_definitions.create({
-      data: {
-        ...payload,
-        config: payload.config as Prisma.InputJsonValue,
-        metadata: payload.metadata as Prisma.InputJsonValue,
-        updated_at: new Date(),
-        created_at: new Date(),
-      },
+    await dbInsert("workflow_definitions", {
+      ...payload,
+      updated_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     });
   }
 

@@ -1,105 +1,127 @@
-jest.mock("@/lib/supabase/admin-client", () => {
-  const supabaseInsert = jest.fn();
-  const supabaseSelect = jest.fn();
-  const supabaseUpdate = jest.fn();
+jest.mock("@/lib/db/admin-client", () => ({
+  dbInsert: jest.fn(),
+  dbSelect: jest.fn(),
+  dbUpdate: jest.fn(),
+}));
 
-  class QueryBuilder {
-    constructor(
-      private readonly table: string,
-      private readonly mode: "select" | "insert" | "update",
-      private readonly payload?: unknown,
-      private readonly columns?: string,
-      private readonly filters: string[] = [],
-      private readonly limitValue?: number,
-    ) {}
-
-    eq(column: string, value: string | number | boolean) {
-      return new QueryBuilder(
-        this.table,
-        this.mode,
-        this.payload,
-        this.columns,
-        [...this.filters, `${column}=eq.${value}`],
-        this.limitValue,
-      );
-    }
-
-    limit(value: number) {
-      return new QueryBuilder(
-        this.table,
-        this.mode,
-        this.payload,
-        this.columns,
-        this.filters,
-        value,
-      );
-    }
-
-    select(columns?: string) {
-      if (this.mode === "insert" || this.mode === "update") {
-        return new QueryBuilder(
-          this.table,
-          this.mode,
-          this.payload,
-          columns,
-          this.filters,
-          this.limitValue,
-        );
-      }
-
-      return new QueryBuilder(
-        this.table,
-        "select",
-        undefined,
-        columns,
-        this.filters,
-        this.limitValue,
-      );
-    }
-
-    insert(payload: unknown) {
-      return new QueryBuilder(this.table, "insert", payload);
-    }
-
-    update(payload: unknown) {
-      return new QueryBuilder(this.table, "update", payload);
-    }
-
-    then(
-      resolve: (value: { data: unknown; error: null }) => unknown,
-      reject?: (reason: unknown) => unknown,
-    ) {
-      const query = [
-        this.columns ? `select=${this.columns}` : null,
-        ...this.filters,
-        this.limitValue ? `limit=${this.limitValue}` : null,
-      ]
-        .filter(Boolean)
-        .join("&");
-      const path = query ? `${this.table}?${query}` : this.table;
-      const source =
-        this.mode === "select"
-          ? supabaseSelect(path)
-          : this.mode === "insert"
-            ? supabaseInsert(this.table, this.payload)
-            : supabaseUpdate(path, this.payload);
-
-      return Promise.resolve(source).then(
-        (data) => resolve({ data, error: null }),
-        reject,
-      );
-    }
+jest.mock("@gynecology-chatbot/db/prisma", () => {
+  function getDbMocks() {
+    return jest.requireMock("@/lib/db/admin-client") as {
+      dbInsert: jest.Mock;
+      dbSelect: jest.Mock;
+      dbUpdate: jest.Mock;
+    };
   }
 
-  const getSupabaseAdminClient = jest.fn(() => ({
-    from: (table: string) => new QueryBuilder(table, "select"),
-  }));
+  function selectedColumns(select: Record<string, unknown> | undefined) {
+    if (!select) return "*";
+    const columns = Object.entries(select)
+      .filter(([, included]) => Boolean(included))
+      .map(([column]) => column);
+    return columns.length > 0 ? columns.join(",") : "*";
+  }
+
+  function filterParams(where: Record<string, unknown> | undefined) {
+    if (!where) return [];
+    return Object.entries(where).map(([column, value]) => {
+      if (value === null) return `${column}=is.null`;
+      return `${column}=eq.${String(value)}`;
+    });
+  }
+
+  function pathFor(
+    model: string,
+    args: {
+      select?: Record<string, unknown>;
+      where?: Record<string, unknown>;
+    } = {},
+  ) {
+    return `${model}?${[
+      `select=${selectedColumns(args.select)}`,
+      ...filterParams(args.where),
+      "limit=1",
+    ].join("&")}`;
+  }
+
+  function toDate(value: unknown) {
+    if (!value || value instanceof Date) return value;
+    if (typeof value !== "string") return value;
+    return new Date(value.includes("T") ? value : `${value}T00:00:00`);
+  }
+
+  function normalizeRow(model: string, row: Record<string, unknown> | null) {
+    if (!row) return null;
+    if (model === "users") {
+      return {
+        ...row,
+        phone_verified_at: toDate(row.phone_verified_at),
+        last_login_at: toDate(row.last_login_at),
+      };
+    }
+    if (model === "pregnancy_profiles") {
+      return {
+        ...row,
+        due_date: toDate(row.due_date),
+        notification_time: row.notification_time
+          ? toDate(`1970-01-01T${row.notification_time}`)
+          : row.notification_time,
+      };
+    }
+    return row;
+  }
+
+  async function firstRow(model: string, args = {}) {
+    const { dbSelect } = getDbMocks();
+    const rows = await dbSelect(pathFor(model, args));
+    return normalizeRow(model, Array.isArray(rows) ? (rows[0] ?? null) : null);
+  }
+
+  function createDelegate(model: string) {
+    return {
+      findUnique: jest.fn((args = {}) => firstRow(model, args)),
+      create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
+        const { dbInsert } = getDbMocks();
+        const rows = await dbInsert(model, data);
+        return Array.isArray(rows) ? (rows[0] ?? data) : data;
+      }),
+      update: jest.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where?: Record<string, unknown>;
+          data: Record<string, unknown>;
+        }) => {
+          const { dbUpdate } = getDbMocks();
+          const rows = await dbUpdate(pathFor(model, { where }), data);
+          return Array.isArray(rows) ? (rows[0] ?? data) : data;
+        },
+      ),
+      updateMany: jest.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where?: Record<string, unknown>;
+          data: Record<string, unknown>;
+        }) => {
+          const { dbUpdate } = getDbMocks();
+          await dbUpdate(pathFor(model, { where }), data);
+          return { count: 1 };
+        },
+      ),
+    };
+  }
 
   return {
-    getSupabaseAdminClient,
-    supabaseInsert,
-    supabaseSelect,
-    supabaseUpdate,
+    Prisma: {},
+    prisma: {
+      auth_sessions: createDelegate("auth_sessions"),
+      blocked_phone_numbers: createDelegate("blocked_phone_numbers"),
+      phone_verification_requests: createDelegate("phone_verification_requests"),
+      pregnancy_profiles: createDelegate("pregnancy_profiles"),
+      users: createDelegate("users"),
+    },
   };
 });
 
@@ -131,17 +153,15 @@ import {
   completeUserOnboarding,
 } from "@/lib/mobile/auth";
 import {
-  getSupabaseAdminClient,
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+  dbInsert,
+  dbSelect,
+  dbUpdate,
+} from "@/lib/db/admin-client";
 import { checkSmsVerification } from "@/lib/mobile/solapi-sms";
 
-const mockedGetSupabaseAdminClient = jest.mocked(getSupabaseAdminClient);
-const mockedSupabaseInsert = jest.mocked(supabaseInsert);
-const mockedSupabaseSelect = jest.mocked(supabaseSelect);
-const mockedSupabaseUpdate = jest.mocked(supabaseUpdate);
+const mockedSupabaseInsert = jest.mocked(dbInsert);
+const mockedSupabaseSelect = jest.mocked(dbSelect);
+const mockedSupabaseUpdate = jest.mocked(dbUpdate);
 const mockedCheckSmsVerification = jest.mocked(checkSmsVerification);
 
 describe("completePhoneSignIn", () => {
@@ -279,7 +299,6 @@ describe("completePhoneSignIn", () => {
 
 describe("completeUserOnboarding", () => {
   beforeEach(() => {
-    mockedGetSupabaseAdminClient.mockReset();
     mockedSupabaseInsert.mockReset();
     mockedSupabaseSelect.mockReset();
     mockedSupabaseUpdate.mockReset();
@@ -288,10 +307,6 @@ describe("completeUserOnboarding", () => {
 
   test("uses wrapper-backed profile queries in docker mode", async () => {
     process.env.SERVER_DATA_PROVIDER = "docker";
-    mockedGetSupabaseAdminClient.mockImplementation(() => {
-      throw new Error("direct admin client should not be used in docker mode");
-    });
-
     mockedSupabaseSelect
       .mockResolvedValueOnce([
         {

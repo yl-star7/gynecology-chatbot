@@ -2,31 +2,31 @@ jest.mock("@/lib/admin/auth", () => ({
   readAdminSessionUser: jest.fn(),
 }));
 
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseInsert: jest.fn(),
-  supabaseSelect: jest.fn(),
-  supabaseUpdate: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbInsert: jest.fn(),
+  dbSelect: jest.fn(),
+  dbUpdate: jest.fn(),
 }));
 
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import {
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+  dbInsert,
+  dbSelect,
+  dbUpdate,
+} from "@/lib/db/admin-client";
 import { PUT } from "./route";
 
 const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<
   typeof readAdminSessionUser
 >;
-const mockedSupabaseInsert = supabaseInsert as jest.MockedFunction<
-  typeof supabaseInsert
+const mockedSupabaseInsert = dbInsert as jest.MockedFunction<
+  typeof dbInsert
 >;
-const mockedSupabaseSelect = supabaseSelect as jest.MockedFunction<
-  typeof supabaseSelect
+const mockedSupabaseSelect = dbSelect as jest.MockedFunction<
+  typeof dbSelect
 >;
-const mockedSupabaseUpdate = supabaseUpdate as jest.MockedFunction<
-  typeof supabaseUpdate
+const mockedSupabaseUpdate = dbUpdate as jest.MockedFunction<
+  typeof dbUpdate
 >;
 
 describe("PUT /api/admin/branding", () => {

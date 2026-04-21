@@ -1,11 +1,10 @@
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseSelect: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbSelect: jest.fn(),
 }));
 
 jest.mock("@/lib/server-data-provider", () => ({
   resolveServerDataProvider: jest.fn(),
-  hasDockerConfig: jest.fn(() => false),
-  hasSupabaseConfig: jest.fn(() => true),
+  hasDockerConfig: jest.fn(() => true),
 }));
 
 jest.mock("next/headers", () => ({
@@ -24,15 +23,15 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
 }));
 
 import { cookies } from "next/headers";
-import { supabaseSelect } from "@/lib/supabase/admin-client";
+import { dbSelect } from "@/lib/db/admin-client";
 import {
   authenticateAdmin,
   readAdminSessionUser,
   writeAdminSession,
 } from "./auth";
 
-const mockedSelect = supabaseSelect as jest.MockedFunction<
-  typeof supabaseSelect
+const mockedSelect = dbSelect as jest.MockedFunction<
+  typeof dbSelect
 >;
 const mockedCookies = cookies as jest.MockedFunction<typeof cookies>;
 

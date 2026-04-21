@@ -20,17 +20,7 @@ import { randomUUID } from "crypto";
 
 import { embedPregnancyDocument } from "@/lib/mobile/rag";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
-import {
-  hasDockerConfig,
-  hasSupabaseConfig,
-  resolveServerDataProvider,
-} from "@/lib/server-data-provider";
-import {
-  supabaseDelete,
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+import { hasDockerConfig } from "@/lib/server-data-provider";
 import {
   buildSchiftWorkflowDescription,
   mapSchiftWorkflowRule,
@@ -46,8 +36,7 @@ import {
 } from "@/lib/db/repositories/week-content-repository";
 
 function hasBackendAdminConfig() {
-  const provider = resolveServerDataProvider();
-  return provider === "docker" ? hasDockerConfig() : hasSupabaseConfig();
+  return hasDockerConfig();
 }
 
 type SupabaseKnowledgeItemRow = {
@@ -60,8 +49,6 @@ type SupabaseKnowledgeItemRow = {
   status: "draft" | "published" | "archived";
   updated_at: string | Date;
 };
-
-type PublicKnowledgeItemRow = SupabaseKnowledgeItemRow;
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -110,31 +97,17 @@ async function insertAdminAuditLog(input: {
   beforePayload: Record<string, unknown>;
   afterPayload: Record<string, unknown>;
 }) {
-  if (hasDirectContentDatabase()) {
-    await prisma.admin_audit_logs.create({
-      data: {
-        admin_user_id: getAdminActorId(input.actorId),
-        target_user_id: null,
-        action_type: input.actionType,
-        entity_type: input.entityType,
-        entity_id: input.entityId,
-        reason: input.reason,
-        before_payload: toInputJsonValue(input.beforePayload),
-        after_payload: toInputJsonValue(input.afterPayload),
-      },
-    });
-    return;
-  }
-
-  await supabaseInsert("admin_audit_logs", {
-    admin_user_id: getAdminActorId(input.actorId),
-    target_user_id: null,
-    action_type: input.actionType,
-    entity_type: input.entityType,
-    entity_id: input.entityId,
-    reason: input.reason,
-    before_payload: input.beforePayload,
-    after_payload: input.afterPayload,
+  await prisma.admin_audit_logs.create({
+    data: {
+      admin_user_id: getAdminActorId(input.actorId),
+      target_user_id: null,
+      action_type: input.actionType,
+      entity_type: input.entityType,
+      entity_id: input.entityId,
+      reason: input.reason,
+      before_payload: toInputJsonValue(input.beforePayload),
+      after_payload: toInputJsonValue(input.afterPayload),
+    },
   });
 }
 
@@ -355,41 +328,24 @@ function mapWorkflowRule(
   };
 }
 
-export class SupabaseAdminContentPortAdapter implements AdminContentPort {
+export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
   private readonly fallback = new MockAdminContentAdapter();
   private readonly weekContentRepository = new WeekContentRepository();
 
   private async selectKnowledgeItemRows() {
-    if (hasDirectContentDatabase()) {
-      return prisma.content_knowledge_items.findMany({
-        select: {
-          id: true,
-          slug: true,
-          section: true,
-          title: true,
-          body: true,
-          image_url: true,
-          status: true,
-          updated_at: true,
-        },
-        orderBy: [{ updated_at: "desc" }, { title: "asc" }],
-      });
-    }
-
-    try {
-      return await supabaseSelect<Array<PublicKnowledgeItemRow>>(
-        "content_knowledge_items?select=id,slug,section,title,body,image_url,status,updated_at&order=updated_at.desc",
-      );
-    } catch (error) {
-      console.error(
-        "public knowledge items unavailable, falling back to content schema",
-        error,
-      );
-      return supabaseSelect<Array<SupabaseKnowledgeItemRow>>(
-        "knowledge_items?select=id,slug,section,title,body,image_url,status,updated_at&order=updated_at.desc",
-        { schema: "content" },
-      );
-    }
+    return prisma.content_knowledge_items.findMany({
+      select: {
+        id: true,
+        slug: true,
+        section: true,
+        title: true,
+        body: true,
+        image_url: true,
+        status: true,
+        updated_at: true,
+      },
+      orderBy: [{ updated_at: "desc" }, { title: "asc" }],
+    });
   }
 
   async createDocument(
@@ -408,45 +364,31 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       draft: false,
       source: "admin_upload",
     };
-    const inserted = hasDirectContentDatabase()
-      ? await prisma.$queryRaw<Array<SupabaseRagDocumentRow>>`
-          INSERT INTO public.content_pregnancy_documents (
-            id,
-            title,
-            content,
-            pregnancy_week,
-            category,
-            image_url,
-            embedding,
-            metadata,
-            created_at
-          )
-          VALUES (
-            ${documentId}::uuid,
-            ${input.title},
-            ${input.content},
-            ${input.pregnancyWeek},
-            ${input.category},
-            ${imageUrl},
-            ${toVectorLiteral(embedding)}::vector,
-            ${JSON.stringify(metadata)}::jsonb,
-            NOW()
-          )
-          RETURNING id, title, content, pregnancy_week, category, image_url, metadata, created_at, NULL::timestamptz AS updated_at
-        `
-      : await supabaseInsert<Array<SupabaseRagDocumentRow>>(
-          "content_pregnancy_documents",
-          {
-            id: documentId,
-            title: input.title,
-            content: input.content,
-            pregnancy_week: input.pregnancyWeek,
-            category: input.category,
-            image_url: imageUrl,
-            embedding,
-            metadata,
-          },
-        );
+    const inserted = await prisma.$queryRaw<Array<SupabaseRagDocumentRow>>`
+      INSERT INTO public.content_pregnancy_documents (
+        id,
+        title,
+        content,
+        pregnancy_week,
+        category,
+        image_url,
+        embedding,
+        metadata,
+        created_at
+      )
+      VALUES (
+        ${documentId}::uuid,
+        ${input.title},
+        ${input.content},
+        ${input.pregnancyWeek},
+        ${input.category},
+        ${imageUrl},
+        ${toVectorLiteral(embedding)}::vector,
+        ${JSON.stringify(metadata)}::jsonb,
+        NOW()
+      )
+      RETURNING id, title, content, pregnancy_week, category, image_url, metadata, created_at, NULL::timestamptz AS updated_at
+    `;
 
     const document = mapRagDocument(inserted[0] as SupabaseRagDocumentRow);
     if (shouldWriteAdminAuditLog(actorId)) {
@@ -480,25 +422,21 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return null;
     }
 
-    const rows = hasDirectContentDatabase()
-      ? ((await prisma.content_pregnancy_documents.findMany({
-          where: { id: documentId },
-          select: {
-            id: true,
-            title: true,
-            content: true,
-            pregnancy_week: true,
-            category: true,
-            image_url: true,
-            metadata: true,
-            created_at: true,
-            updated_at: true,
-          },
-          take: 1,
-        })) as SupabaseRagDocumentRow[])
-      : ((await supabaseSelect<Array<SupabaseRagDocumentRow>>(
-          `content_pregnancy_documents?select=id,title,content,pregnancy_week,category,image_url,metadata,created_at&id=eq.${documentId}&limit=1`,
-        )) ?? []);
+    const rows = (await prisma.content_pregnancy_documents.findMany({
+      where: { id: documentId },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        pregnancy_week: true,
+        category: true,
+        image_url: true,
+        metadata: true,
+        created_at: true,
+        updated_at: true,
+      },
+      take: 1,
+    })) as SupabaseRagDocumentRow[];
 
     return rows[0] ? mapRagDocument(rows[0]) : null;
   }
@@ -521,30 +459,18 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     const beforeDocument = shouldWriteAdminAuditLog(actorId)
       ? await this.getDocument(documentId)
       : null;
-    const updated = hasDirectContentDatabase()
-      ? await prisma.$queryRaw<Array<SupabaseRagDocumentRow>>`
-          UPDATE public.content_pregnancy_documents
-             SET title = ${input.title},
-                 content = ${input.content},
-                 pregnancy_week = ${input.pregnancyWeek},
-                 category = ${input.category},
-                 image_url = ${imageUrl},
-                 embedding = ${toVectorLiteral(embedding)}::vector,
-                 updated_at = NOW()
-           WHERE id = ${documentId}::uuid
-       RETURNING id, title, content, pregnancy_week, category, image_url, metadata, created_at, updated_at
-        `
-      : await supabaseUpdate<Array<SupabaseRagDocumentRow>>(
-          `content_pregnancy_documents?id=eq.${documentId}`,
-          {
-            title: input.title,
-            content: input.content,
-            pregnancy_week: input.pregnancyWeek,
-            category: input.category,
-            image_url: imageUrl,
-            embedding,
-          },
-        );
+    const updated = await prisma.$queryRaw<Array<SupabaseRagDocumentRow>>`
+      UPDATE public.content_pregnancy_documents
+         SET title = ${input.title},
+             content = ${input.content},
+             pregnancy_week = ${input.pregnancyWeek},
+             category = ${input.category},
+             image_url = ${imageUrl},
+             embedding = ${toVectorLiteral(embedding)}::vector,
+             updated_at = NOW()
+       WHERE id = ${documentId}::uuid
+   RETURNING id, title, content, pregnancy_week, category, image_url, metadata, created_at, updated_at
+    `;
     const document = updated[0] ? mapRagDocument(updated[0]) : null;
     if (document && shouldWriteAdminAuditLog(actorId)) {
       await insertAdminAuditLog({
@@ -586,33 +512,8 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return;
     }
 
-    if (hasDirectContentDatabase()) {
-      await prisma.content_pregnancy_documents.delete({
-        where: { id: documentId },
-      });
-      if (shouldWriteAdminAuditLog(actorId)) {
-        await insertAdminAuditLog({
-          actorId,
-          actionType: "content_update",
-          entityType: "pregnancy_document",
-          entityId: documentId,
-          reason: "pregnancy_document_delete",
-          beforePayload: beforeDocument
-            ? {
-                title: beforeDocument.title,
-                category: beforeDocument.category,
-                pregnancy_week: beforeDocument.pregnancyWeek,
-                chunk_count: beforeDocument.chunkCount,
-              }
-            : {},
-          afterPayload: {},
-        });
-      }
-      return;
-    }
-
-    await supabaseDelete(`pregnancy_documents?id=eq.${documentId}`, {
-      schema: "content",
+    await prisma.content_pregnancy_documents.delete({
+      where: { id: documentId },
     });
     if (shouldWriteAdminAuditLog(actorId)) {
       await insertAdminAuditLog({
@@ -643,25 +544,21 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       return this.fallback.updateWorkflowRule(id, input);
     }
 
-    const currentRows = hasDirectContentDatabase()
-      ? ((await prisma.workflow_definitions.findMany({
-          where: { id },
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            provider: true,
-            status: true,
-            is_active: true,
-            config: true,
-            metadata: true,
-            updated_at: true,
-          },
-          take: 1,
-        })) as SupabaseWorkflowDefinitionRow[])
-      : ((await supabaseSelect<Array<SupabaseWorkflowDefinitionRow>>(
-          `workflow_definitions?select=id,name,slug,provider,status,is_active,config,metadata,updated_at&id=eq.${id}&limit=1`,
-        )) ?? []);
+    const currentRows = (await prisma.workflow_definitions.findMany({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        provider: true,
+        status: true,
+        is_active: true,
+        config: true,
+        metadata: true,
+        updated_at: true,
+      },
+      take: 1,
+    })) as SupabaseWorkflowDefinitionRow[];
     const current = currentRows[0];
     if (!current || current.provider === "schift") {
       const schift = getSchiftClient();
@@ -699,17 +596,10 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
             updated_at: new Date(),
           };
 
-          if (hasDirectContentDatabase()) {
-            await prisma.workflow_definitions.update({
-              where: { id },
-              data: workflowData,
-            });
-          } else {
-            await supabaseUpdate<Array<SupabaseWorkflowDefinitionRow>>(
-              `workflow_definitions?id=eq.${id}`,
-              workflowData,
-            );
-          }
+          await prisma.workflow_definitions.update({
+            where: { id },
+            data: workflowData,
+          });
         }
 
         const workflowRule = mapSchiftWorkflowRule(updatedWorkflow);
@@ -760,28 +650,23 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       updated_at: new Date(),
     };
 
-    const updated = hasDirectContentDatabase()
-      ? ([
-          await prisma.workflow_definitions.update({
-            where: { id },
-            data: workflowData,
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              provider: true,
-              status: true,
-              is_active: true,
-              config: true,
-              metadata: true,
-              updated_at: true,
-            },
-          }),
-        ] as unknown as Array<SupabaseWorkflowDefinitionRow>)
-      : await supabaseUpdate<Array<SupabaseWorkflowDefinitionRow>>(
-          `workflow_definitions?id=eq.${id}`,
-          workflowData,
-        );
+    const updated = [
+      await prisma.workflow_definitions.update({
+        where: { id },
+        data: workflowData,
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          provider: true,
+          status: true,
+          is_active: true,
+          config: true,
+          metadata: true,
+          updated_at: true,
+        },
+      }),
+    ] as unknown as Array<SupabaseWorkflowDefinitionRow>;
 
     const workflowRule = updated[0] ? mapWorkflowRule(updated[0]) : null;
     if (workflowRule && shouldWriteAdminAuditLog(actorId)) {
@@ -830,49 +715,31 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const imageUrl = input.imageUrl ?? null;
-    const publishedAt =
-      input.status === "published" ? new Date().toISOString() : null;
-    const inserted = hasDirectContentDatabase()
-      ? ([
-          await prisma.content_knowledge_items.create({
-            data: {
-              id: randomUUID(),
-              slug: input.slug,
-              section: input.section,
-              title: input.title,
-              body: input.body,
-              image_url: imageUrl,
-              status: input.status,
-              published_at: input.status === "published" ? new Date() : null,
-              updated_at: new Date(),
-            },
-            select: {
-              id: true,
-              slug: true,
-              section: true,
-              title: true,
-              body: true,
-              image_url: true,
-              status: true,
-              updated_at: true,
-            },
-          }),
-        ] as unknown as Array<SupabaseKnowledgeItemRow>)
-      : await supabaseInsert<Array<SupabaseKnowledgeItemRow>>(
-          "knowledge_items",
-          {
-            id: randomUUID(),
-            slug: input.slug,
-            section: input.section,
-            title: input.title,
-            body: input.body,
-            image_url: imageUrl,
-            status: input.status,
-            published_at: publishedAt,
-            updated_at: new Date().toISOString(),
-          },
-          { schema: "content" },
-        );
+    const inserted = [
+      await prisma.content_knowledge_items.create({
+        data: {
+          id: randomUUID(),
+          slug: input.slug,
+          section: input.section,
+          title: input.title,
+          body: input.body,
+          image_url: imageUrl,
+          status: input.status,
+          published_at: input.status === "published" ? new Date() : null,
+          updated_at: new Date(),
+        },
+        select: {
+          id: true,
+          slug: true,
+          section: true,
+          title: true,
+          body: true,
+          image_url: true,
+          status: true,
+          updated_at: true,
+        },
+      }),
+    ] as unknown as Array<SupabaseKnowledgeItemRow>;
 
     const knowledgeItem = mapKnowledgeItem(
       inserted[0] as SupabaseKnowledgeItemRow,
@@ -907,56 +774,39 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
     }
 
     const imageUrl = input.imageUrl ?? null;
-    const publishedAt =
-      input.status === "published" ? new Date().toISOString() : null;
     const beforeItem = shouldWriteAdminAuditLog(actorId)
       ? (await this.selectKnowledgeItemRows()).find((item) => item.id === id)
       : null;
-    const updated = hasDirectContentDatabase()
-      ? ([
-          await prisma.content_knowledge_items.update({
-            where: { id },
-            data: {
-              slug: input.slug,
-              section: input.section,
-              title: input.title,
-              body: input.body,
-              image_url: imageUrl,
-              status: input.status,
-              published_at:
-                input.status === "published"
-                  ? beforeItem?.status === "published"
-                    ? undefined
-                    : new Date()
-                  : null,
-              updated_at: new Date(),
-            },
-            select: {
-              id: true,
-              slug: true,
-              section: true,
-              title: true,
-              body: true,
-              image_url: true,
-              status: true,
-              updated_at: true,
-            },
-          }),
-        ] as unknown as Array<SupabaseKnowledgeItemRow>)
-      : await supabaseUpdate<Array<SupabaseKnowledgeItemRow>>(
-          `knowledge_items?id=eq.${id}`,
-          {
-            slug: input.slug,
-            section: input.section,
-            title: input.title,
-            body: input.body,
-            image_url: imageUrl,
-            status: input.status,
-            published_at: publishedAt,
-            updated_at: new Date().toISOString(),
-          },
-          { schema: "content" },
-        );
+    const updated = [
+      await prisma.content_knowledge_items.update({
+        where: { id },
+        data: {
+          slug: input.slug,
+          section: input.section,
+          title: input.title,
+          body: input.body,
+          image_url: imageUrl,
+          status: input.status,
+          published_at:
+            input.status === "published"
+              ? beforeItem?.status === "published"
+                ? undefined
+                : new Date()
+              : null,
+          updated_at: new Date(),
+        },
+        select: {
+          id: true,
+          slug: true,
+          section: true,
+          title: true,
+          body: true,
+          image_url: true,
+          status: true,
+          updated_at: true,
+        },
+      }),
+    ] as unknown as Array<SupabaseKnowledgeItemRow>;
     const knowledgeItem = updated[0] ? mapKnowledgeItem(updated[0]) : null;
     if (knowledgeItem && shouldWriteAdminAuditLog(actorId)) {
       await insertAdminAuditLog({
@@ -994,32 +844,7 @@ export class SupabaseAdminContentPortAdapter implements AdminContentPort {
       ? (await this.selectKnowledgeItemRows()).find((item) => item.id === id)
       : null;
 
-    if (hasDirectContentDatabase()) {
-      await prisma.content_knowledge_items.delete({ where: { id } });
-      if (shouldWriteAdminAuditLog(actorId)) {
-        await insertAdminAuditLog({
-          actorId,
-          actionType: "content_update",
-          entityType: "knowledge_item",
-          entityId: id,
-          reason: "knowledge_item_delete",
-          beforePayload: beforeItem
-            ? {
-                slug: beforeItem.slug,
-                section: beforeItem.section,
-                title: beforeItem.title,
-                status: beforeItem.status,
-              }
-            : {},
-          afterPayload: {},
-        });
-      }
-      return;
-    }
-
-    await supabaseDelete(`knowledge_items?id=eq.${id}`, {
-      schema: "content",
-    });
+    await prisma.content_knowledge_items.delete({ where: { id } });
     if (shouldWriteAdminAuditLog(actorId)) {
       await insertAdminAuditLog({
         actorId,

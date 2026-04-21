@@ -3,6 +3,11 @@ import type {
   MobileProfileViewData,
 } from "@gynecology-chatbot/app-core";
 import {
+  createKoreanDateKey,
+  diffCalendarDays,
+  readIsoDateKey,
+} from "@gynecology-chatbot/app-core";
+import {
   DEFAULT_BABY_MESSAGE,
   DEFAULT_BABY_NAME,
   DEFAULT_SUPPORT_MESSAGE,
@@ -15,15 +20,8 @@ import {
 } from "../pregnancyWeek.model.ts";
 import { getWeekBabyImageSource } from "../week-baby-images.ts";
 
-const HOURS_PER_DAY = 24;
-const MINUTES_PER_HOUR = 60;
-const SECONDS_PER_MINUTE = 60;
-const MS_PER_SECOND = 1000;
-const MS_PER_DAY =
-  MS_PER_SECOND * SECONDS_PER_MINUTE * MINUTES_PER_HOUR * HOURS_PER_DAY;
-
 function formatMonthLabel(date: Date) {
-  return `${date.getMonth() + 1}월`;
+  return `${Number(createKoreanDateKey(date).slice(5, 7))}월`;
 }
 
 function buildBabyMessage(input: {
@@ -43,13 +41,15 @@ function getDaysUntilDue(dueDate?: string | null, now?: Date): number | null {
   }
 
   const due = new Date(dueDate);
-  if (Number.isNaN(due.getTime())) {
+  const dueDateKey = readIsoDateKey(dueDate);
+  if (Number.isNaN(due.getTime()) || !dueDateKey) {
     return null;
   }
 
-  const base = now ?? new Date();
-  const diff = due.getTime() - base.getTime();
-  return Math.max(0, Math.ceil(diff / MS_PER_DAY));
+  return Math.max(
+    0,
+    diffCalendarDays(dueDateKey, createKoreanDateKey(now ?? new Date())),
+  );
 }
 
 const MAX_PREGNANCY_DAYS = 294;
@@ -59,15 +59,9 @@ function computePregnancyDayFromDueDate(
   now?: Date,
 ): number | null {
   if (!dueDate) return null;
-  const due = new Date(dueDate);
-  if (Number.isNaN(due.getTime())) return null;
-  const base = now ?? new Date();
-  const startOfBase = new Date(
-    base.getFullYear(),
-    base.getMonth(),
-    base.getDate(),
-  );
-  const diff = Math.round((due.getTime() - startOfBase.getTime()) / MS_PER_DAY);
+  const dueDateKey = readIsoDateKey(dueDate);
+  if (!dueDateKey) return null;
+  const diff = diffCalendarDays(dueDateKey, createKoreanDateKey(now));
   return Math.max(0, Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diff));
 }
 
@@ -114,13 +108,8 @@ export function buildPatientHomeViewModel({
     0;
 
   const daysUntilDue = getDaysUntilDue(profile?.dueDate, now);
-  const quoteSeed = [
-    now.getFullYear(),
-    now.getMonth() + 1,
-    now.getDate(),
-    heroName,
-    pregnancyWeekLabel,
-  ].join("-");
+  const todayKey = createKoreanDateKey(now);
+  const quoteSeed = [todayKey, heroName, pregnancyWeekLabel].join("-");
 
   // babyMessage: 실제 주차가 있을 때만 주차 멘트, 아니면 기본 메시지
   const babyMessage = imageWeekLabel
@@ -139,7 +128,7 @@ export function buildPatientHomeViewModel({
   return {
     heroName,
     monthLabel: formatMonthLabel(now),
-    dayLabel: String(now.getDate()),
+    dayLabel: String(Number(todayKey.slice(8, 10))),
     babyMessage,
     supportMessage: DEFAULT_SUPPORT_MESSAGE,
     pregnancyWeekLabel,

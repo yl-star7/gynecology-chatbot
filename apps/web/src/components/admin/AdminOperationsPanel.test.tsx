@@ -10,7 +10,7 @@ describe("AdminOperationsPanel", () => {
       const url = typeof input === "string" ? input : input.toString();
 
       if (url === "/api/admin/rag-provider" && !init?.method) {
-        return new Response(JSON.stringify({ ragProvider: "auto" }), {
+        return new Response(JSON.stringify({ ragProvider: "schift" }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });

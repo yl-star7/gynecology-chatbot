@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { supabaseInsert, supabaseSelect } from "@/lib/supabase/admin-client";
+import { dbInsert, dbSelect } from "@/lib/db/admin-client";
 
 const PERSONA_HINTS = new Set([
   "anxious",
@@ -94,10 +94,10 @@ export async function GET(request: NextRequest | Request) {
     }
 
     const [profileRows, signalRows] = await Promise.all([
-      supabaseSelect<PersonaProfileRow[]>(
+      dbSelect<PersonaProfileRow[]>(
         `v_user_persona_profiles?select=user_id,persona_hint,confidence,evidence_summary,weighted_score,last_observed_at&user_id=eq.${encodeURIComponent(userId)}&limit=1`,
       ),
-      supabaseSelect<PersonaSignalRow[]>(
+      dbSelect<PersonaSignalRow[]>(
         `user_persona_signals?select=id,user_id,session_id,source_message_id,persona_hint,confidence,evidence,weight,observed_at,created_at&user_id=eq.${encodeURIComponent(userId)}&order=observed_at.desc&limit=20`,
       ),
     ]);
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest | Request) {
     }
 
     const observedAt = new Date().toISOString();
-    const inserted = await supabaseInsert<PersonaSignalRow[]>(
+    const inserted = await dbInsert<PersonaSignalRow[]>(
       "user_persona_signals",
       {
         user_id: userId,

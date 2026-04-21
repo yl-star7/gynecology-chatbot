@@ -32,7 +32,7 @@ export function PatientProfileSettingsForm({
 }: {
   babyNickname: string;
   dueDate: string;
-  dueDateMaxDate: Date;
+  dueDateMaxDate: string;
   error: string | null;
   hospitalName: string;
   isSaving: boolean;

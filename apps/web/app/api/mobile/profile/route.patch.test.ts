@@ -87,7 +87,7 @@ describe("PATCH /api/mobile/profile", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: "tonePreference is required",
+      error: "상담 분위기를 선택해주세요.",
     });
     expect(mockedUpdateMobileProfile).not.toHaveBeenCalled();
   });

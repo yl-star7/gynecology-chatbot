@@ -3,7 +3,10 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import type { HomeViewData } from "@gynecology-chatbot/app-core";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
-import { readCachedHomeView } from "../../core/patientViewCache";
+import {
+  hasFreshCachedHomeView,
+  readCachedHomeView,
+} from "../../core/patientViewCache";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card, Pressable } from "../../components/ui";
@@ -42,7 +45,7 @@ export function PatientRecordsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const services = useMobileServices();
-  const { currentUser } = useMobileAppSession();
+  const { currentUser, isRestoringSession } = useMobileAppSession();
   const [home, setHome] = useState<HomeViewData | null>(null);
   const contentInsets = buildPatientTabContentInsets({
     bottomInset: insets.bottom,
@@ -50,15 +53,27 @@ export function PatientRecordsScreen() {
   });
 
   useEffect(() => {
-    if (currentUser) {
-      setHome(readCachedHomeView(currentUser.id));
+    if (isRestoringSession) {
+      return;
+    }
+
+    if (!currentUser) {
+      setHome(null);
+      router.replace("/auth/login");
+      return;
+    }
+
+    setHome(readCachedHomeView(currentUser.id));
+
+    if (hasFreshCachedHomeView(currentUser.id)) {
+      return;
     }
 
     services.homePort
       .getHomeView()
       .then(setHome)
       .catch(() => undefined);
-  }, [currentUser, services]);
+  }, [currentUser, isRestoringSession, router, services.homePort]);
 
   const viewModel = buildPatientRecordsViewModel(home);
   const activeDays = useMemo(

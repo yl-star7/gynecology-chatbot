@@ -59,8 +59,14 @@ describe("POST /api/admin/schift/workflows/[workflowId]/run", () => {
       started_at: "2026-03-23T12:00:00.000Z",
       finished_at: "2026-03-23T12:00:03.000Z",
     });
+    const get = jest.fn().mockResolvedValue({
+      id: "wf-1",
+      name: "내부 데이터 응답",
+      status: "published",
+      graph: { blocks: [], edges: [] },
+    });
     mockedGetSchiftClient.mockReturnValue({
-      workflows: { run },
+      workflows: { get, run },
     } as never);
 
     const response = await POST(

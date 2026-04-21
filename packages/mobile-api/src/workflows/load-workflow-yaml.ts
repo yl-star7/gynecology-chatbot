@@ -1,11 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
+import { Storage } from "@google-cloud/storage";
 import { parse as parseYaml } from "yaml";
 
 import type { WorkflowGraph } from "@schift-io/sdk";
 
-const STORAGE_BUCKET = "workflow-config";
+const STORAGE_BUCKET = "agaya-workflow-config";
 const STORAGE_PATH = "maternal-nursing.yaml";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5분
 
@@ -106,14 +108,32 @@ let remoteCache: {
   fetchedAt: number;
 } | null = null;
 
+function getGcsProjectId() {
+  return (
+    process.env.GCS_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || undefined
+  );
+}
+
+function shouldAttemptGcsRead() {
+  return Boolean(
+    process.env.GCS_WORKFLOW_BUCKET ||
+    process.env.GCS_PROJECT_ID ||
+    process.env.GOOGLE_CLOUD_PROJECT ||
+    process.env.GOOGLE_APPLICATION_CREDENTIALS,
+  );
+}
+
 async function fetchFromGcs(): Promise<string | null> {
+  if (!shouldAttemptGcsRead()) {
+    return null;
+  }
+
   const bucket = process.env.GCS_WORKFLOW_BUCKET ?? STORAGE_BUCKET;
-  const objectUrl = `https://storage.googleapis.com/${bucket}/${STORAGE_PATH}`;
 
   try {
-    const res = await fetch(objectUrl);
-    if (!res.ok) return null;
-    return await res.text();
+    const storage = new Storage({ projectId: getGcsProjectId() });
+    const [buffer] = await storage.bucket(bucket).file(STORAGE_PATH).download();
+    return buffer.toString("utf-8");
   } catch {
     return null;
   }
@@ -122,8 +142,17 @@ async function fetchFromGcs(): Promise<string | null> {
 // ── 로컬 파일 fallback ──
 
 function loadLocalYaml(): WorkflowYaml {
+  const currentDir = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
-    path.join(__dirname, "maternal-nursing.yaml"),
+    path.join(currentDir, "maternal-nursing.yaml"),
+    path.join(
+      process.cwd(),
+      "packages/mobile-api/src/workflows/maternal-nursing.yaml",
+    ),
+    path.join(
+      process.cwd(),
+      "../../packages/mobile-api/src/workflows/maternal-nursing.yaml",
+    ),
     path.join(process.cwd(), "src/lib/mobile/workflows/maternal-nursing.yaml"),
     path.join(
       process.cwd(),
@@ -164,7 +193,7 @@ export function loadMaternalNursingWorkflow() {
       }
     })
     .catch(() => {
-      // Supabase 접근 실패 시 로컬 파일 유지
+      // GCS 접근 실패 시 로컬 파일 유지
     });
 
   // 캐시가 있으면 원격 버전 반환, 없으면 로컬

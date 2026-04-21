@@ -4,9 +4,13 @@ import type {
   MobileProfileViewData,
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
+import {
+  createKoreanDateKey,
+  diffCalendarDays,
+  readIsoDateKey,
+} from "@gynecology-chatbot/app-core/time";
 import { pickPatientEncouragementQuote } from "./patient-encouragement-quotes";
 
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const MAX_PREGNANCY_DAYS = 294;
 
 function getDaysUntilDue(dueDate?: string | null) {
@@ -14,22 +18,19 @@ function getDaysUntilDue(dueDate?: string | null) {
     return null;
   }
 
-  const due = new Date(dueDate);
-  if (Number.isNaN(due.getTime())) {
+  const dueDateKey = readIsoDateKey(dueDate);
+  if (!dueDateKey) {
     return null;
   }
 
-  const diff = due.getTime() - Date.now();
-  return Math.max(0, Math.ceil(diff / MS_PER_DAY));
+  return Math.max(0, diffCalendarDays(dueDateKey, createKoreanDateKey()));
 }
 
 function computePregnancyDayCount(dueDate?: string | null, fallback?: number): number {
   if (dueDate) {
-    const due = new Date(dueDate);
-    if (!Number.isNaN(due.getTime())) {
-      const today = new Date();
-      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const diffDays = Math.round((due.getTime() - startOfToday.getTime()) / MS_PER_DAY);
+    const dueDateKey = readIsoDateKey(dueDate);
+    if (dueDateKey) {
+      const diffDays = diffCalendarDays(dueDateKey, createKoreanDateKey());
       return Math.max(0, Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diffDays));
     }
   }
@@ -49,14 +50,7 @@ export function buildWebPatientHomeViewModel({
   const pregnancyDayCount = computePregnancyDayCount(profile?.dueDate, home?.pregnancyDayCount);
   const pregnancyWeekLabel = home?.pregnancyWeekLabel ?? "주차 정보를 준비 중이에요";
 
-  const now = new Date();
-  const quoteSeed = [
-    now.getFullYear(),
-    now.getMonth() + 1,
-    now.getDate(),
-    heroName,
-    pregnancyWeekLabel,
-  ].join("-");
+  const quoteSeed = [createKoreanDateKey(), heroName, pregnancyWeekLabel].join("-");
 
   return {
     heroName,

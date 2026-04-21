@@ -1,6 +1,6 @@
 # Cloud Run Mobile Cutover Checklist
 
-**Target**: Migrate mobile app API base from `https://gynecology-chatbot.vercel.app` to `https://agaya-api-yvdnhntt7a-as.a.run.app` (Cloud Run).
+**Target**: Migrate mobile app API base from `https://gynecology-chatbot.vercel.app` to `https://agaya-api-yvdnhntt7a-du.a.run.app` (Cloud Run).
 **Scope**: `apps/mobile` uses Cloud Run and Cloud SQL.
 
 ## 1. Files holding API/web base URLs
@@ -26,7 +26,7 @@ Non-API URLs (do NOT touch):
 
 ## 2. Preview vs Production envs
 
-Both `preview` and `production` profiles in `eas.json` point to Vercel and must be updated independently. Update both in the same PR.
+Both `preview` and `production` profiles in `eas.json` point to Cloud Run and must stay aligned.
 
 ## 3. WebViews and hosted pages
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { supabaseSelect, supabaseInsert } from "@/lib/supabase/admin-client";
+import { dbSelect, dbInsert } from "@/lib/db/admin-client";
 
 type ChecklistRow = {
   id: string;
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
     const order =
       "&order=week_data_id.asc,day_number.asc.nullsfirst,display_order.asc";
 
-    const rows = await supabaseSelect<ChecklistRow[]>(
+    const rows = await dbSelect<ChecklistRow[]>(
       `${baseQuery}${filter}${order}`,
     );
 
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rows = await supabaseInsert<ChecklistRow[]>(
+    const rows = await dbInsert<ChecklistRow[]>(
       "content.week_checklists",
       payload,
     );

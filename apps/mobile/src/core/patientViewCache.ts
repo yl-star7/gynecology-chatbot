@@ -15,8 +15,12 @@ import {
   readNativeChunkedValue,
   readNativeStorageValue,
 } from "./nativeSessionStorage";
+import {
+  isPatientCacheEntryFreshForToday,
+  isPatientCacheEntryFromToday,
+} from "./patientViewCacheFreshness.model";
 
-const VIEW_CACHE_TTL_MS = 60 * 1000;
+const VIEW_CACHE_TTL_MS = 5 * 60 * 1000;
 const PATIENT_VIEW_CACHE_VERSION = 1;
 const PATIENT_VIEW_CACHE_STORAGE_PREFIX = "phedy-mobile-patient-view-cache";
 const PATIENT_VIEW_CACHE_USERS_KEY = `${PATIENT_VIEW_CACHE_STORAGE_PREFIX}-users`;
@@ -33,7 +37,7 @@ type PersistedPatientViewCache = {
   today: CacheEntry<TodayViewData> | null;
   recentChats: CacheEntry<RecentChatSummary[]> | null;
   pregnancyWeeks: CacheEntry<MobilePregnancyWeekSummary[]> | null;
-  recordDays: Array<[string, CacheEntry<RecordDayView>]>;
+  recordDays: [string, CacheEntry<RecordDayView>][];
 };
 
 const profileCache = new Map<string, CacheEntry<MobileProfileViewData>>();
@@ -54,7 +58,26 @@ function isFreshEntry<T>(entry?: CacheEntry<T>) {
     return false;
   }
 
-  return Date.now() - entry.updatedAt < VIEW_CACHE_TTL_MS;
+  return isPatientCacheEntryFreshForToday({
+    updatedAt: entry.updatedAt,
+    ttlMs: VIEW_CACHE_TTL_MS,
+  });
+}
+
+function readTodayScopedCacheValue<T>(
+  cache: Map<string, CacheEntry<T>>,
+  key?: string | null,
+): T | null {
+  if (!key) {
+    return null;
+  }
+
+  const entry = cache.get(key);
+  if (!entry || !isPatientCacheEntryFromToday({ updatedAt: entry.updatedAt })) {
+    return null;
+  }
+
+  return entry.value;
 }
 
 function readCacheValue<T>(
@@ -413,7 +436,7 @@ export function clearCachedProfileView(userId?: string | null) {
 }
 
 export function readCachedHomeView(userId?: string | null) {
-  return readCacheValue(homeCache, userId);
+  return readTodayScopedCacheValue(homeCache, userId);
 }
 
 export function hasFreshCachedHomeView(userId?: string | null) {
@@ -437,7 +460,7 @@ export function clearCachedHomeView(userId?: string | null) {
 }
 
 export function readCachedTodayView(userId?: string | null) {
-  return readCacheValue(todayCache, userId);
+  return readTodayScopedCacheValue(todayCache, userId);
 }
 
 export function hasFreshCachedTodayView(userId?: string | null) {

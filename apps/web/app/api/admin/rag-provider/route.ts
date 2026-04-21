@@ -4,10 +4,10 @@ import { readAdminSessionUser } from "@/lib/admin/auth";
 
 const CONFIG_KEY = "rag_provider";
 
-type RagProvider = "schift" | "supabase" | "auto";
+type RagProvider = "schift";
 
 const DEFAULT_CONFIG = {
-  ragProvider: "auto" as RagProvider,
+  ragProvider: "schift" as RagProvider,
 };
 
 type ConfigRow = { key: string; value: typeof DEFAULT_CONFIG };
@@ -15,9 +15,16 @@ type ConfigRow = { key: string; value: typeof DEFAULT_CONFIG };
 function asConfig(
   value: Prisma.JsonValue | null | undefined,
 ): ConfigRow["value"] | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as ConfigRow["value"])
-    : null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const rawProvider = (value as { ragProvider?: unknown }).ragProvider;
+  if (rawProvider === "schift") {
+    return { ragProvider: "schift" };
+  }
+
+  return null;
 }
 
 export async function GET() {
@@ -50,13 +57,9 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const ragProvider = body.ragProvider;
 
-    if (
-      ragProvider !== "schift" &&
-      ragProvider !== "supabase" &&
-      ragProvider !== "auto"
-    ) {
+    if (ragProvider !== "schift") {
       return NextResponse.json(
-        { error: "ragProvider must be 'schift', 'supabase', or 'auto'" },
+        { error: "ragProvider must be 'schift'" },
         { status: 400 },
       );
     }

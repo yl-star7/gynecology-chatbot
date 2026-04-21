@@ -543,6 +543,15 @@ export function AdminWeeksSection({
                             {publishReview.missingItems.length > 3 ? " 외" : ""}
                           </small>
                         ) : null}
+                        {selectedWeekDetail.status !== "published" ? (
+                          <button
+                            type="button"
+                            className={styles.primaryButton}
+                            onClick={() => void onPublishWeek()}
+                          >
+                            검수 후 게시
+                          </button>
+                        ) : null}
                       </article>
                     </div>
                   </div>

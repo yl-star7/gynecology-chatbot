@@ -6,28 +6,27 @@ import type {
   RecordDayView,
   TodayChecklistItem,
 } from "@gynecology-chatbot/app-core";
+import {
+  addCalendarDays,
+  createKoreanDateKey,
+  diffCalendarDays,
+} from "@gynecology-chatbot/app-core/time";
 
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const MAX_PREGNANCY_DAYS = 294;
 const MIN_PREGNANCY_WEEK = 1;
 const MAX_PREGNANCY_WEEK = 42;
+
+function getKstDateKey(now = new Date()) {
+  return createKoreanDateKey(now);
+}
 
 function computePregnancyDayCountFromDueDate(
   dueDate?: string | null,
   fallback?: number,
 ): number {
   if (dueDate) {
-    const due = new Date(dueDate);
-    if (!Number.isNaN(due.getTime())) {
-      const today = new Date();
-      const startOfToday = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate(),
-      );
-      const diffDays = Math.round(
-        (due.getTime() - startOfToday.getTime()) / MS_PER_DAY,
-      );
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+      const diffDays = diffCalendarDays(dueDate, getKstDateKey());
       return Math.max(
         0,
         Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diffDays),
@@ -105,19 +104,11 @@ function computePregnancyWeekLabelFromDueDate(dueDate?: string | null) {
 
 function normalizeDateKey(value: string | Date) {
   if (value instanceof Date) {
-    return value.toISOString().slice(0, 10);
+    return getKstDateKey(value);
   }
 
   const match = value.match(/\d{4}-\d{2}-\d{2}/);
   return match ? match[0] : value;
-}
-
-function toLocalDateKey(date: Date) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
 }
 
 function parseMonth(value: string) {
@@ -130,7 +121,7 @@ function parseMonth(value: string) {
 
 function getMonthStartDate(value: string) {
   const { year, monthIndex } = parseMonth(value);
-  return new Date(year, monthIndex, 1);
+  return new Date(Date.UTC(year, monthIndex, 1));
 }
 
 function getDaysInMonth(value: string) {
@@ -144,15 +135,13 @@ function formatRecentChatLabel(value: string | null) {
   }
 
   const date = new Date(value);
-  const today = new Date();
-  const todayKey = toLocalDateKey(today);
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayKey = toLocalDateKey(yesterday);
-  const dateKey = toLocalDateKey(date);
+  const todayKey = getKstDateKey();
+  const yesterdayKey = addCalendarDays(todayKey, -1);
+  const dateKey = getKstDateKey(date);
   const timeLabel = date.toLocaleTimeString("ko-KR", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Seoul",
   });
 
   if (dateKey === todayKey) {
@@ -166,6 +155,7 @@ function formatRecentChatLabel(value: string | null) {
   return date.toLocaleDateString("ko-KR", {
     month: "long",
     day: "numeric",
+    timeZone: "Asia/Seoul",
   });
 }
 
@@ -259,6 +249,7 @@ export function toChatSession(
       createdAtLabel: new Date(message.created_at).toLocaleTimeString("ko-KR", {
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "Asia/Seoul",
       }),
       parts: message.parts,
     })),
@@ -322,6 +313,7 @@ export function toHomeViewData(input: {
     currentMonthLabel: monthDate.toLocaleDateString("ko-KR", {
       year: "numeric",
       month: "long",
+      timeZone: "UTC",
     }),
     calendarDays,
     notebookCard: {
@@ -355,13 +347,14 @@ export function toRecordDayView(input: {
 }): RecordDayView {
   return {
     isoDate: input.isoDate,
-    dateLabel: new Date(`${input.isoDate}T00:00:00`).toLocaleDateString(
+    dateLabel: new Date(`${input.isoDate}T00:00:00.000Z`).toLocaleDateString(
       "ko-KR",
       {
         year: "numeric",
         month: "long",
         day: "numeric",
         weekday: "long",
+        timeZone: "UTC",
       },
     ),
     infoViewed: input.infoViewed,

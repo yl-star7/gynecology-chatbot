@@ -1,12 +1,12 @@
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseInsert: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbInsert: jest.fn(),
 }));
 
-import { supabaseInsert } from "@/lib/supabase/admin-client";
+import { dbInsert } from "@/lib/db/admin-client";
 import { POST } from "./route";
 
-const mockedSupabaseInsert = supabaseInsert as jest.MockedFunction<
-  typeof supabaseInsert
+const mockedSupabaseInsert = dbInsert as jest.MockedFunction<
+  typeof dbInsert
 >;
 
 describe("POST /api/internal/persona-signals", () => {

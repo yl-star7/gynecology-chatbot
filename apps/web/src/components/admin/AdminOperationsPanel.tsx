@@ -80,9 +80,7 @@ export function AdminOperationsPanel() {
   const [pushError, setPushError] = useState<string | null>(null);
 
   // Panel 2: RAG Provider
-  const [ragProvider, setRagProvider] = useState<
-    "schift" | "supabase" | "auto"
-  >("auto");
+  const [ragProvider, setRagProvider] = useState<"schift">("schift");
   const [ragLoading, setRagLoading] = useState(true);
   const [ragSaving, setRagSaving] = useState(false);
   const [ragResult, setRagResult] = useState<string | null>(null);
@@ -145,7 +143,7 @@ export function AdminOperationsPanel() {
         const res = await fetch("/api/admin/rag-provider");
         if (res.ok) {
           const data = await res.json();
-          if (!cancelled) setRagProvider(data.ragProvider ?? "auto");
+          if (!cancelled) setRagProvider("schift");
         }
       } catch {
       } finally {
@@ -622,7 +620,9 @@ export function AdminOperationsPanel() {
                         {wf.status}
                       </span>
                       <span className={styles.formHint} style={{ margin: 0 }}>
-                        {wf.block_count}블록 · {new Date(wf.updated_at).toLocaleDateString("ko-KR")}
+	                        {wf.block_count}블록 · {new Date(wf.updated_at).toLocaleDateString("ko-KR", {
+	                          timeZone: "Asia/Seoul",
+	                        })}
                       </span>
                     </div>
                     {wf.description && (
@@ -702,24 +702,9 @@ export function AdminOperationsPanel() {
           </div>
         ) : (
           <div className={styles.opsScheduleRows}>
-            {(["schift", "supabase", "auto"] as const).map((option) => (
-              <label key={option} className={styles.opsToggleLabel}>
-                <input
-                  type="radio"
-                  name="ragProvider"
-                  className={styles.opsToggle}
-                  checked={ragProvider === option}
-                  onChange={() => setRagProvider(option)}
-                />
-                <span className={styles.fieldLabel}>
-                  {option === "schift"
-                    ? "Schift (벡터 DB)"
-                    : option === "supabase"
-                      ? "Supabase (pgvector)"
-                      : "Auto (Schift 우선)"}
-                </span>
-              </label>
-            ))}
+            <div className={styles.opsToggleLabel}>
+              <span className={styles.fieldLabel}>Schift (벡터 DB)</span>
+            </div>
           </div>
         )}
 

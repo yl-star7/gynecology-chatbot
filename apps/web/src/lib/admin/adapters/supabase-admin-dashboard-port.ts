@@ -7,11 +7,7 @@ import type {
 } from "@gynecology-chatbot/app-core";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 
-import {
-  hasDockerConfig,
-  hasSupabaseConfig,
-  resolveServerDataProvider,
-} from "@/lib/server-data-provider";
+import { hasDockerConfig } from "@/lib/server-data-provider";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import { listSchiftWorkflows } from "@/lib/mobile/schift-workflows-api";
 import { normalizePhoneNumberToE164 } from "@/lib/mobile/solapi-sms";
@@ -25,8 +21,7 @@ import { MockAdminDashboardPortAdapter } from "./mock-admin-dashboard-port";
 import { mapSchiftWorkflowRule } from "./schift-workflow";
 
 function hasBackendAdminConfig() {
-  const provider = resolveServerDataProvider();
-  return provider === "docker" ? hasDockerConfig() : hasSupabaseConfig();
+  return hasDockerConfig();
 }
 
 type JsonValue = Prisma.JsonValue;
@@ -648,7 +643,9 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
         actionType: action.action_type,
         actionLabel: description.actionLabel,
         detail: description.detail,
-        occurredAtLabel: new Date(action.occurred_at).toLocaleString("ko-KR"),
+        occurredAtLabel: new Date(action.occurred_at).toLocaleString("ko-KR", {
+          timeZone: "Asia/Seoul",
+        }),
         sessionId: action.session_id,
         sessionTitle: session?.title ?? null,
       };
@@ -705,7 +702,9 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
             ? resolveDisplayName(log.target_user_id)
             : "알 수 없는 사용자",
           action: log.action_type,
-          requestedAt: new Date(log.created_at).toLocaleString("ko-KR"),
+          requestedAt: new Date(log.created_at).toLocaleString("ko-KR", {
+            timeZone: "Asia/Seoul",
+          }),
           status: "completed" as const,
         })),
       ragDocuments: ragDocuments.map((document) => ({
@@ -716,7 +715,9 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
           : "공통",
         category: document.category,
         chunkCount: document.metadata?.chunk_count ?? 1,
-        updatedAt: new Date(document.created_at).toLocaleString("ko-KR"),
+        updatedAt: new Date(document.created_at).toLocaleString("ko-KR", {
+          timeZone: "Asia/Seoul",
+        }),
         status: "ready" as const,
       })),
       historyUsers:
@@ -733,16 +734,19 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
                   profile?.pregnancy_week ?? null,
                   profile?.pregnancy_day_in_week ?? null,
                 ),
-                latestSessionLabel: userSessions[0]?.last_message_at
-                  ? new Date(userSessions[0].last_message_at).toLocaleString(
-                      "ko-KR",
-                    )
+	                latestSessionLabel: userSessions[0]?.last_message_at
+	                  ? new Date(userSessions[0].last_message_at).toLocaleString(
+	                      "ko-KR",
+	                      { timeZone: "Asia/Seoul" },
+	                    )
                   : "기록 없음",
                 sessions: userSessions.map((session) => ({
                   id: session.id,
                   title: session.title,
-                  updatedAtLabel: session.last_message_at
-                    ? new Date(session.last_message_at).toLocaleString("ko-KR")
+	                  updatedAtLabel: session.last_message_at
+	                    ? new Date(session.last_message_at).toLocaleString("ko-KR", {
+	                        timeZone: "Asia/Seoul",
+	                      })
                     : "기록 없음",
                   pregnancyWeekLabel: toPregnancyWeekLabel(
                     profile?.pregnancy_week ?? null,
@@ -761,10 +765,11 @@ export class SupabaseAdminDashboardPortAdapter implements AdminDashboardPort {
                             : message.role,
                         createdAtLabel: new Date(
                           message.created_at,
-                        ).toLocaleTimeString("ko-KR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }),
+	                        ).toLocaleTimeString("ko-KR", {
+	                          hour: "2-digit",
+	                          minute: "2-digit",
+	                          timeZone: "Asia/Seoul",
+	                        }),
                         summary: message.plain_text || "요약 없음",
                         ...(ragSourcePart?.sources?.length
                           ? { ragSources: ragSourcePart.sources }

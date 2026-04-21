@@ -21,6 +21,14 @@ import {
 import { DailyLocalNotificationRegistrar } from "../src/components/DailyLocalNotificationRegistrar";
 import { PushTokenRegistrar } from "../src/components/PushTokenRegistrar";
 import { preloadPatientAppData } from "../src/core/mobileBootstrap.model";
+import {
+  hasFreshCachedHomeView,
+  hasFreshCachedPregnancyWeeks,
+  hasFreshCachedProfileView,
+  hasFreshCachedRecentChats,
+  hasFreshCachedRecordDayView,
+  hasFreshCachedTodayView,
+} from "../src/core/patientViewCache";
 import { BrandMark } from "../src/components/ui";
 import { patientSurfacePalette as surface, space, typo } from "../src/theme";
 
@@ -69,7 +77,18 @@ function BootstrapGate({ children }: { children: React.ReactNode }) {
     }
 
     void SplashScreen.hideAsync().catch(() => undefined);
-    void preloadPatientAppData({ currentUser, services });
+    void preloadPatientAppData({
+      currentUser,
+      services,
+      cacheState: {
+        hasFreshProfileView: hasFreshCachedProfileView,
+        hasFreshHomeView: hasFreshCachedHomeView,
+        hasFreshTodayView: hasFreshCachedTodayView,
+        hasFreshPregnancyWeeks: hasFreshCachedPregnancyWeeks,
+        hasFreshRecentChats: hasFreshCachedRecentChats,
+        hasFreshRecordDayView: hasFreshCachedRecordDayView,
+      },
+    });
   }, [currentUser, isRestoringSession, services]);
 
   if (isRestoringSession) {

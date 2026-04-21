@@ -26,6 +26,11 @@ type MessagePreviewRow = {
   }> | null;
 };
 
+type SessionSummaryRow = {
+  session_id: string | null;
+  summary: string | null;
+};
+
 function toIsoString(value: Date | null | undefined) {
   return value?.toISOString() ?? null;
 }
@@ -50,20 +55,46 @@ export async function GET(request: NextRequest) {
     });
 
     const sessionIds = sessions.map((session) => session.id);
-    const latestMessages =
+    const [latestMessages, summaryRows] =
       sessionIds.length > 0
-        ? await prisma.chat_messages.findMany({
-            where: {
-              session_id: { in: sessionIds },
-            },
-            orderBy: [{ created_at: "desc" }],
-            select: {
-              session_id: true,
-              plain_text: true,
-              parts: true,
-            },
-          })
-        : [];
+        ? await Promise.all([
+            prisma.chat_messages.findMany({
+              where: {
+                session_id: { in: sessionIds },
+              },
+              orderBy: [{ created_at: "desc" }],
+              select: {
+                session_id: true,
+                plain_text: true,
+                parts: true,
+              },
+            }),
+            prisma.calendar_logs.findMany({
+              where: {
+                user_id: userId,
+                session_id: { in: sessionIds },
+                entry_type: "ai_summary",
+              },
+              orderBy: [{ created_at: "desc" }],
+              select: {
+                session_id: true,
+                summary: true,
+              },
+            }),
+          ])
+        : [[], []];
+
+    const summaryBySessionId = new Map<string, string>();
+    for (const row of summaryRows as SessionSummaryRow[]) {
+      if (!row.session_id || summaryBySessionId.has(row.session_id)) {
+        continue;
+      }
+
+      const summary = row.summary?.replace(/\s+/g, " ").trim();
+      if (summary) {
+        summaryBySessionId.set(row.session_id, summary);
+      }
+    }
 
     const previewBySessionId = new Map<string, string>();
     for (const message of latestMessages) {
@@ -85,7 +116,10 @@ export async function GET(request: NextRequest) {
         sessions.map((session) => ({
           ...session,
           last_message_at: toIsoString(session.last_message_at),
-          last_message_preview: previewBySessionId.get(session.id) ?? null,
+          last_message_preview:
+            summaryBySessionId.get(session.id) ??
+            previewBySessionId.get(session.id) ??
+            null,
         })),
       ),
     });

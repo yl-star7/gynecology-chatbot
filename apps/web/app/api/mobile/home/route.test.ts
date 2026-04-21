@@ -29,8 +29,8 @@ jest.mock("@/lib/mobile/session-auth", () => ({
   ),
 }));
 
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseSelect: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbSelect: jest.fn(),
 }));
 
 jest.mock("@/lib/mobile/serializers", () => ({
@@ -72,14 +72,14 @@ describe("GET /api/mobile/home", () => {
   });
 
   it("uses the actual last day of the requested month for calendar range queries", async () => {
-    const { supabaseSelect } = jest.requireMock("@/lib/supabase/admin-client") as {
-      supabaseSelect: jest.Mock;
+    const { dbSelect } = jest.requireMock("@/lib/db/admin-client") as {
+      dbSelect: jest.Mock;
     };
     const { toHomeViewData } = jest.requireMock("@/lib/mobile/serializers") as {
       toHomeViewData: jest.Mock;
     };
     mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
-    supabaseSelect
+    dbSelect
       .mockResolvedValueOnce([
         {
           display_name: "사용자",
@@ -97,7 +97,7 @@ describe("GET /api/mobile/home", () => {
     } as never);
 
     expect(response.status).toBe(200);
-    expect(supabaseSelect).toHaveBeenNthCalledWith(
+    expect(dbSelect).toHaveBeenNthCalledWith(
       2,
       "v_user_calendar_activity?select=date,summary,entry_type&user_id=eq.user-1&date=gte.2026-04-01&date=lte.2026-04-30",
     );

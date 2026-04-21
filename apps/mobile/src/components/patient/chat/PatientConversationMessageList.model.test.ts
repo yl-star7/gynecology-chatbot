@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  isRenderableConversationPart,
   resolveAssistantMessageIdsWithLaterUserMessage,
   resolveConversationMessageListState,
   resolveLatestVisibleQuickRepliesMessageId,
+  resolveShouldShowTypingIndicator,
 } from "./PatientConversationMessageList.model.ts";
 
 test("conversation message list keeps existing empty sessions out of the new conversation empty state while loading", () => {
@@ -47,6 +49,59 @@ test("conversation message list shows messages whenever messages exist", () => {
       sessionLoadErrorMessage: "대화를 불러오지 못했어요.",
     }),
     "messages",
+  );
+});
+
+test("conversation message list shows typing indicator while a message is waiting for a reply", () => {
+  assert.equal(
+    resolveShouldShowTypingIndicator({
+      listState: "messages",
+      isSending: true,
+    }),
+    true,
+  );
+});
+
+test("conversation message list hides typing indicator outside active message sends", () => {
+  assert.equal(
+    resolveShouldShowTypingIndicator({
+      listState: "empty",
+      isSending: true,
+    }),
+    false,
+  );
+  assert.equal(
+    resolveShouldShowTypingIndicator({
+      listState: "messages",
+      isSending: false,
+    }),
+    false,
+  );
+});
+
+test("conversation message list hides placeholder-only assistant text bubbles", () => {
+  const hiddenTexts = ["", "   ", "...", "…", "⋯", " · · · ", "\u200B...\u200B"];
+
+  for (const text of hiddenTexts) {
+    assert.equal(
+      isRenderableConversationPart({
+        part: { id: `text-${text}`, type: "text", text },
+        messageId: "assistant-1",
+        assistantMessageIdsWithLaterUserMessage: new Set(),
+      }),
+      false,
+    );
+  }
+});
+
+test("conversation message list renders text with real content", () => {
+  assert.equal(
+    isRenderableConversationPart({
+      part: { id: "text-1", type: "text", text: "확인해볼까요?" },
+      messageId: "assistant-1",
+      assistantMessageIdsWithLaterUserMessage: new Set(),
+    }),
+    true,
   );
 });
 

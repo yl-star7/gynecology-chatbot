@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
-import { ChatPartRenderer } from "../../chat";
+import { ChatPartRenderer, TypingIndicator } from "../../chat";
 import { NurseAvatar, NurseCharacter } from "../NurseCharacter";
 import { Pressable } from "../../ui";
 import {
@@ -12,9 +12,11 @@ import {
   typo,
 } from "../../../theme";
 import {
+  isRenderableConversationPart,
   resolveAssistantMessageIdsWithLaterUserMessage,
   resolveConversationMessageListState,
   resolveLatestVisibleQuickRepliesMessageId,
+  resolveShouldShowTypingIndicator,
 } from "./PatientConversationMessageList.model";
 
 const EMPTY_STATE_QUICK_REPLIES = [
@@ -77,6 +79,10 @@ export function PatientConversationMessageList({
       assistantMessageIdsWithLaterUserMessage,
     },
   );
+  const shouldShowTypingIndicator = resolveShouldShowTypingIndicator({
+    listState,
+    isSending,
+  });
 
   return (
     <ScrollView
@@ -190,30 +196,14 @@ export function PatientConversationMessageList({
                 );
               }
 
-              const isRenderablePart = (part: ChatMessage["parts"][number]) => {
-                if (part.type === "text") {
-                  const trimmed = part.text.trim();
-                  return trimmed !== "" && trimmed !== "...";
-                }
-                const isQuickReplies = part.type === "quickReplies";
-                const isSurvey = part.type === "survey";
-                const isInteractivePart = isQuickReplies || isSurvey;
-                if (
-                  isInteractivePart &&
-                  assistantMessageIdsWithLaterUserMessage.has(message.id)
-                ) {
-                  return false;
-                }
-                if (
-                  isQuickReplies &&
-                  message.id !== latestQuickRepliesMessageId
-                ) {
-                  return false;
-                }
-                return true;
-              };
-
-              const visibleParts = message.parts.filter(isRenderablePart);
+              const visibleParts = message.parts.filter((part) =>
+                isRenderableConversationPart({
+                  part,
+                  messageId: message.id,
+                  assistantMessageIdsWithLaterUserMessage,
+                  latestQuickRepliesMessageId,
+                }),
+              );
               if (visibleParts.length === 0) {
                 return null;
               }
@@ -253,6 +243,25 @@ export function PatientConversationMessageList({
                 </View>
               );
             })}
+            {shouldShowTypingIndicator ? (
+              <View style={styles.assistantRow}>
+                <NurseAvatar />
+                <View style={styles.assistantStack}>
+                  <Text style={styles.assistantName}>아가야</Text>
+                  <View style={styles.assistantBubbleRow}>
+                    <View
+                      style={[
+                        styles.assistantColumn,
+                        styles.assistantMessageWrapper,
+                        styles.typingIndicatorWrapper,
+                      ]}
+                    >
+                      <TypingIndicator />
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ) : null}
           </View>
         </View>
       ) : null}
@@ -409,6 +418,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingVertical: space.sm,
     maxWidth: "100%",
+  },
+  typingIndicatorWrapper: {
+    minWidth: space.xxxl,
   },
   assistantQuickRepliesWrapper: {
     alignSelf: "flex-start",

@@ -18,6 +18,7 @@ import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
 type WeekItem = {
   weekNumber: number;
+  linkEntityId?: string | null;
   title: string;
   babySizeLabel: string | null;
   babySummary: string | null;
@@ -136,31 +137,49 @@ export function MobileContentIndexView({
           <div className="grid gap-2">
             <p className="px-1 text-sm font-semibold text-[var(--text)]">주차별 임신 정보</p>
             <div className="grid gap-2">
-              {weeks.map((week) => (
-                <Link
-                  key={week.weekNumber}
-                  href={appendUserIdToPath(
-                    `/link/knowledge?entityId=week-${week.weekNumber}`,
-                    resolvedUserId,
-                  )}
-                  className="flex items-center gap-3 rounded-[16px] border border-[var(--line)] bg-[var(--panel-strong)] p-4"
-                >
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)]">
-                    <span className="text-sm font-bold text-[var(--accent-dark)]">{week.weekNumber}</span>
+              {weeks.map((week) => {
+                const href = week.linkEntityId
+                  ? appendUserIdToPath(
+                      `/link/knowledge?entityId=${encodeURIComponent(week.linkEntityId)}`,
+                      resolvedUserId,
+                    )
+                  : null;
+                const content = (
+                  <>
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)]">
+                      <span className="text-sm font-bold text-[var(--accent-dark)]">{week.weekNumber}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-[var(--text)]">{week.title}</p>
+                      <p className="mt-0.5 truncate text-xs text-[var(--text-soft)]">
+                        {week.babySizeLabel ? `${week.babySizeLabel} 크기` : ""}
+                        {week.babySizeLabel && week.babySummary ? " · " : ""}
+                        {week.babySummary ? week.babySummary.slice(0, 40) : ""}
+                      </p>
+                    </div>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-soft)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </>
+                );
+
+                return href ? (
+                  <Link
+                    key={week.weekNumber}
+                    href={href}
+                    className="flex items-center gap-3 rounded-[16px] border border-[var(--line)] bg-[var(--panel-strong)] p-4"
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <div
+                    key={week.weekNumber}
+                    className="flex items-center gap-3 rounded-[16px] border border-[var(--line)] bg-[var(--panel-strong)] p-4 opacity-60"
+                  >
+                    {content}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-[var(--text)]">{week.title}</p>
-                    <p className="mt-0.5 truncate text-xs text-[var(--text-soft)]">
-                      {week.babySizeLabel ? `${week.babySizeLabel} 크기` : ""}
-                      {week.babySizeLabel && week.babySummary ? " · " : ""}
-                      {week.babySummary ? week.babySummary.slice(0, 40) : ""}
-                    </p>
-                  </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-soft)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </Link>
-              ))}
+                );
+              })}
             </div>
           </div>
         ) : null}

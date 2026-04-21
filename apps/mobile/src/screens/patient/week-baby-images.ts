@@ -8,8 +8,10 @@ const MIN_SUPPORTED_WEEK = 5;
 const MAX_SUPPORTED_WEEK = 40;
 const PRIORITY_RADIUS = 3;
 
-const SUPABASE_STORAGE_URL =
-  "https://wmguogzglxktsxnqrqjd.supabase.co/storage/v1/object/public/pregnancy-content/weeks";
+const GCS_WEEK_BABY_IMAGE_BASE_URL = (
+  process.env.EXPO_PUBLIC_PREGNANCY_CONTENT_BASE_URL ??
+  "https://storage.googleapis.com/pregnancy-content/weeks"
+).replace(/\/$/, "");
 
 const weekBabyFileNames: Record<number, string> = {
   5: "w05-sesame-seed.png",
@@ -91,7 +93,7 @@ export function getWeekBabyImageSource(weekLabel?: string | null) {
 function buildWeekBabyImageUri(week: number): string {
   const paddedWeek = String(week).padStart(2, "0");
   const fileName = weekBabyFileNames[week] ?? `w${paddedWeek}-baby.png`;
-  return `${SUPABASE_STORAGE_URL}/${paddedWeek}/${fileName}`;
+  return `${GCS_WEEK_BABY_IMAGE_BASE_URL}/${paddedWeek}/${fileName}`;
 }
 
 export function getAllWeekBabyImageUris(): string[] {

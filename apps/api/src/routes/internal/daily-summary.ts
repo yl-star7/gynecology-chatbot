@@ -1,30 +1,12 @@
 import { Hono } from "hono";
+import {
+  addCalendarDays,
+  createKoreanDateKey,
+  createKoreanDateTime,
+} from "@gynecology-chatbot/app-core/time";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 
 const app = new Hono();
-
-type ChecklistEvent = {
-  user_id: string;
-  answer_text: string | null;
-  status: string;
-  completed_at: string | null;
-  week_checklists: { title: string } | null;
-};
-
-type QuestionEvent = {
-  user_id: string;
-  answer_text: string | null;
-  status: string;
-  answered_at: string | null;
-  week_questions: { question_text: string } | null;
-};
-
-type ChatSnippet = {
-  user_id: string;
-  session_title: string;
-  user_messages: string;
-  message_count: number;
-};
 
 type UserDayData = {
   userId: string;
@@ -50,14 +32,18 @@ function isAuthorized(authHeader: string | undefined) {
 }
 
 function getKstYesterday(): string {
-  const now = new Date();
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  kst.setDate(kst.getDate() - 1);
-  return kst.toISOString().slice(0, 10);
+  return addCalendarDays(createKoreanDateKey(), -1);
 }
 
 function parseDateOnly(isoDate: string) {
   return new Date(`${isoDate}T00:00:00.000Z`);
+}
+
+function createKstDayRange(isoDate: string) {
+  return {
+    start: createKoreanDateTime({ isoDate }),
+    end: createKoreanDateTime({ isoDate: addCalendarDays(isoDate, 1) }),
+  };
 }
 
 function asObject<T>(value: Prisma.JsonValue | null | undefined): T | null {
@@ -68,13 +54,14 @@ function asObject<T>(value: Prisma.JsonValue | null | undefined): T | null {
 
 async function fetchUserDayData(targetDate: string): Promise<UserDayData[]> {
   const dayDate = parseDateOnly(targetDate);
+  const dayRange = createKstDayRange(targetDate);
 
   const [rawChecklists, rawQuestions, rawChats] = await Promise.all([
     prisma.user_checklist_events.findMany({
       where: {
         updated_at: {
-          gte: dayDate,
-          lt: new Date(dayDate.getTime() + 24 * 60 * 60 * 1000),
+          gte: dayRange.start,
+          lt: dayRange.end,
         },
       },
       select: {
@@ -90,8 +77,8 @@ async function fetchUserDayData(targetDate: string): Promise<UserDayData[]> {
     prisma.user_question_events.findMany({
       where: {
         updated_at: {
-          gte: dayDate,
-          lt: new Date(dayDate.getTime() + 24 * 60 * 60 * 1000),
+          gte: dayRange.start,
+          lt: dayRange.end,
         },
       },
       select: {

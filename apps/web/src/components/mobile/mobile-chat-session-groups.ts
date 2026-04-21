@@ -1,4 +1,9 @@
 import type { RecentChatSummary } from "@gynecology-chatbot/app-core";
+import {
+  addCalendarDays,
+  createKoreanDateKey,
+  parseIsoDateKey,
+} from "@gynecology-chatbot/app-core/time";
 
 export interface ChatSessionGroup {
   dateKey: string;
@@ -7,18 +12,12 @@ export interface ChatSessionGroup {
 }
 
 function toDateKey(date: Date) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
+  return createKoreanDateKey(date);
 }
 
 function formatGroupLabel(dateKey: string, now: Date) {
   const todayKey = toDateKey(now);
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayKey = toDateKey(yesterday);
+  const yesterdayKey = addCalendarDays(todayKey, -1);
 
   if (dateKey === todayKey) {
     return "오늘";
@@ -28,11 +27,13 @@ function formatGroupLabel(dateKey: string, now: Date) {
     return "어제";
   }
 
-  const date = new Date(`${dateKey}T00:00:00`);
+  const { year, month, day } = parseIsoDateKey(dateKey);
+  const date = new Date(Date.UTC(year, month - 1, day));
   return date.toLocaleDateString("ko-KR", {
     month: "long",
     day: "numeric",
     weekday: "short",
+    timeZone: "UTC",
   });
 }
 

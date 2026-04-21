@@ -7,8 +7,8 @@ jest.mock("expo-server-sdk", () => {
   }));
 });
 
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseSelect: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbSelect: jest.fn(),
 }));
 
 jest.mock("@/lib/privacy/phone-crypto", () => ({
@@ -25,18 +25,18 @@ jest.mock("./solapi-sms", () => ({
 
 import Expo from "expo-server-sdk";
 
-import { supabaseSelect } from "@/lib/supabase/admin-client";
+import { dbSelect } from "@/lib/db/admin-client";
 import { sendDailyPushNotifications } from "./push-sender";
 import { sendSmsMessage } from "./solapi-sms";
 
 describe("sendDailyPushNotifications", () => {
   beforeEach(() => {
-    (supabaseSelect as jest.Mock).mockReset();
+    (dbSelect as jest.Mock).mockReset();
     (sendSmsMessage as jest.Mock).mockClear();
   });
 
   test("falls back to SMS for notification-enabled users without push tokens", async () => {
-    (supabaseSelect as jest.Mock).mockImplementation(async (path: string) => {
+    (dbSelect as jest.Mock).mockImplementation(async (path: string) => {
       if (path.startsWith("pregnancy_profiles?")) {
         return [
           {
@@ -79,7 +79,7 @@ describe("sendDailyPushNotifications", () => {
   test("keeps push delivery for users with valid Expo tokens", async () => {
     (Expo as unknown as { isExpoPushToken: jest.Mock }).isExpoPushToken =
       jest.fn(() => true);
-    (supabaseSelect as jest.Mock).mockResolvedValue([
+    (dbSelect as jest.Mock).mockResolvedValue([
       {
         user_id: "user-1",
         push_token: "ExponentPushToken[abc]",
@@ -104,7 +104,7 @@ describe("sendDailyPushNotifications", () => {
   test("sends scheduled pushes only to users whose notification time is due in Korea", async () => {
     (Expo as unknown as { isExpoPushToken: jest.Mock }).isExpoPushToken =
       jest.fn(() => true);
-    (supabaseSelect as jest.Mock).mockResolvedValue([
+    (dbSelect as jest.Mock).mockResolvedValue([
       {
         user_id: "user-1",
         push_token: "ExponentPushToken[due]",

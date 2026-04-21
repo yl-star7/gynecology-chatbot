@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 import {
   localSupabaseDelete,
   localSupabaseInsert,
@@ -8,8 +7,6 @@ import {
 } from "../local-postgres";
 import {
   hasDockerConfig,
-  hasSupabaseConfig,
-  resolveServerDataProvider,
 } from "../server-data-provider";
 
 type SchemaScopedTarget = {
@@ -28,11 +25,11 @@ const CONTENT_PUBLIC_RELATION_MAP: Record<string, string> = {
   "content.knowledge_items": "content_knowledge_items",
 };
 
-export type SupabaseRequestOptions = {
+export type DbRequestOptions = {
   schema?: "public" | "content";
 };
 
-export type SupabaseInsertOptions = SupabaseRequestOptions & {
+export type DbInsertOptions = DbRequestOptions & {
   onConflict?: string;
   ignoreDuplicates?: boolean;
 };
@@ -53,48 +50,9 @@ type QueryLike<T> = {
   limit(count: number): T;
 };
 
-export function getSupabaseServiceRoleKey() {
-  return (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.SUPABASE_SERVICE_ROLE ??
-    process.env.SERVICEROLE
-  );
-}
-
-export function getSupabaseAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = getSupabaseServiceRoleKey();
-
-  if (!url || !serviceRoleKey) {
-    throw new Error(
-      "Supabase server configuration requires NEXT_PUBLIC_SUPABASE_URL and a service role key",
-    );
-  }
-
-  return createClient(url, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-}
-
-function shouldUseLocalPostgres() {
-  return resolveServerDataProvider() === "docker";
-}
-
 function assertSelectedProviderConfig() {
-  const provider = resolveServerDataProvider();
-
-  if (provider === "docker" && !hasDockerConfig()) {
-    throw new Error("SERVER_DATA_PROVIDER=docker requires DATABASE_URL");
-  }
-
-  if (provider === "supabase" && !hasSupabaseConfig()) {
-    throw new Error(
-      "SERVER_DATA_PROVIDER=supabase requires NEXT_PUBLIC_SUPABASE_URL and a service-role key",
-    );
+  if (!hasDockerConfig()) {
+    throw new Error("DATABASE_URL is required for Cloud SQL access");
   }
 }
 
@@ -213,7 +171,7 @@ function applyFilters<T extends QueryLike<T>>(
       continue;
     }
 
-    throw new Error(`Unsupported Supabase filter: ${column}=${rawValue}`);
+    throw new Error(`Unsupported DB filter: ${column}=${rawValue}`);
   }
 
   const orderValue = searchParams.get("order");
@@ -243,111 +201,41 @@ function applyFilters<T extends QueryLike<T>>(
   return nextQuery;
 }
 
-export async function supabaseSelect<T>(
+export async function dbSelect<T>(
   path: string,
-  options: SupabaseRequestOptions = {},
+  options: DbRequestOptions = {},
 ) {
   assertSelectedProviderConfig();
-  if (shouldUseLocalPostgres()) {
-    return localSupabaseSelect<T>(applySchema(path, options.schema));
-  }
-
-  const target = parseSchemaScopedTarget(applySchema(path, options.schema));
-  const client = getSupabaseAdminClient();
-  const searchParams = new URLSearchParams(target.search);
-  const selectClause = searchParams.get("select") ?? "*";
-
-  let query = client
-    .schema(target.schema)
-    .from(target.relation)
-    .select(selectClause);
-  query = applyFilters(query, searchParams);
-  const { data, error } = await query;
-  if (error) throw new Error(`Supabase select failed: ${error.message}`);
-  return (data ?? []) as T;
+  return localSupabaseSelect<T>(applySchema(path, options.schema));
 }
 
-export async function supabaseInsert<T>(
+export async function dbInsert<T>(
   table: string,
   payload: object | object[],
-  options: SupabaseInsertOptions = {},
+  options: DbInsertOptions = {},
 ) {
   assertSelectedProviderConfig();
-  if (shouldUseLocalPostgres()) {
-    return localSupabaseInsert<T>(applySchema(table, options.schema), payload);
-  }
-
-  const target = parseSchemaScopedTarget(applySchema(table, options.schema));
-  const query = options.onConflict
-    ? getSupabaseAdminClient()
-        .schema(target.schema)
-        .from(target.relation)
-        .upsert(payload, {
-          onConflict: options.onConflict,
-          ignoreDuplicates: options.ignoreDuplicates,
-        })
-    : getSupabaseAdminClient()
-        .schema(target.schema)
-        .from(target.relation)
-        .insert(payload);
-
-  const { data, error } = await query.select();
-  if (error) throw new Error(`Supabase insert failed: ${error.message}`);
-  return (data ?? []) as T;
+  return localSupabaseInsert<T>(applySchema(table, options.schema), payload);
 }
 
-export async function supabaseUpdate<T>(
+export async function dbUpdate<T>(
   path: string,
   payload: object,
-  options: SupabaseRequestOptions = {},
+  options: DbRequestOptions = {},
 ) {
   assertSelectedProviderConfig();
-  if (shouldUseLocalPostgres()) {
-    return localSupabaseUpdate<T>(applySchema(path, options.schema), payload);
-  }
-
-  const target = parseSchemaScopedTarget(applySchema(path, options.schema));
-  const searchParams = new URLSearchParams(target.search);
-  let query = getSupabaseAdminClient()
-    .schema(target.schema)
-    .from(target.relation)
-    .update(payload)
-    .select();
-  query = applyFilters(query, searchParams);
-  const { data, error } = await query;
-  if (error) throw new Error(`Supabase update failed: ${error.message}`);
-  return (data ?? []) as T;
+  return localSupabaseUpdate<T>(applySchema(path, options.schema), payload);
 }
 
-export async function supabaseDelete<T>(
+export async function dbDelete<T>(
   path: string,
-  options: SupabaseRequestOptions = {},
+  options: DbRequestOptions = {},
 ) {
   assertSelectedProviderConfig();
-  if (shouldUseLocalPostgres()) {
-    return localSupabaseDelete<T>(applySchema(path, options.schema));
-  }
-
-  const target = parseSchemaScopedTarget(applySchema(path, options.schema));
-  const searchParams = new URLSearchParams(target.search);
-  let query = getSupabaseAdminClient()
-    .schema(target.schema)
-    .from(target.relation)
-    .delete()
-    .select();
-  query = applyFilters(query, searchParams);
-  const { data, error } = await query;
-  if (error) throw new Error(`Supabase delete failed: ${error.message}`);
-  return (data ?? []) as T;
+  return localSupabaseDelete<T>(applySchema(path, options.schema));
 }
 
-export async function supabaseRpc<T>(fn: string, payload: object) {
+export async function dbRpc<T>(fn: string, payload: object) {
   assertSelectedProviderConfig();
-  if (shouldUseLocalPostgres()) {
-    return localSupabaseRpc<T>(fn, payload as Record<string, unknown>);
-  }
-
-  const { data, error } = await getSupabaseAdminClient().rpc(fn, payload);
-  if (error) throw new Error(`Supabase rpc failed: ${error.message}`);
-  return data as T;
+  return localSupabaseRpc<T>(fn, payload as Record<string, unknown>);
 }

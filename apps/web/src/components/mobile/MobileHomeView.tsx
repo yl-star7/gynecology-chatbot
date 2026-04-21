@@ -1,6 +1,9 @@
 "use client";
 
-import type { HomeViewData } from "@gynecology-chatbot/app-core";
+import {
+  createKoreanDateKey,
+  type HomeViewData,
+} from "@gynecology-chatbot/app-core";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchHome, fetchMobileProfile } from "@/lib/mobile/web-mobile-api";
@@ -62,6 +65,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
     profile: { babyNickname, dueDate },
   });
   const babyImagePath = getWeekBabyImagePath(viewModel.pregnancyWeekLabel);
+  const todayKey = createKoreanDateKey();
 
   return (
     <MobileShell
@@ -74,7 +78,7 @@ export function MobileHomeView({ userId }: { userId: string | null }) {
       <div className="grid gap-4">
         <section className="grid gap-2">
           <p className="text-xs font-semibold tracking-[0.18em] text-[var(--text-soft)]">
-            {`${new Date().getMonth() + 1}월 ${new Date().getDate()}일`}
+            {`${Number(todayKey.slice(5, 7))}월 ${Number(todayKey.slice(8, 10))}일`}
           </p>
           <h1 className="text-4xl font-semibold tracking-[-0.05em] text-[var(--text)]">
             {viewModel.heroName}

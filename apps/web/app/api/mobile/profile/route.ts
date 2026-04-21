@@ -1,5 +1,6 @@
 import {
   DEFAULT_MOBILE_THEME_KEY,
+  createKoreanDateKey,
   resolveMobileThemeKey,
 } from "@gynecology-chatbot/app-core";
 import { NextRequest, NextResponse } from "next/server";
@@ -138,25 +139,18 @@ function asObject<T>(value: Prisma.JsonValue | null | undefined): T | null {
     : null;
 }
 
-function formatDateOnly(value: Date | null | undefined) {
-  return value ? value.toISOString().slice(0, 10) : null;
+function formatDateOnly(value: Date | string | null | undefined) {
+  if (!value) return null;
+  return value instanceof Date ? value.toISOString().slice(0, 10) : value;
 }
 
-function formatTimeOnly(value: Date | null | undefined) {
-  return value ? value.toISOString().slice(11, 19) : null;
+function formatTimeOnly(value: Date | string | null | undefined) {
+  if (!value) return null;
+  return value instanceof Date ? value.toISOString().slice(11, 19) : value;
 }
 
 function getKstDateKey() {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
-  const month = parts.find((part) => part.type === "month")?.value ?? "01";
-  const day = parts.find((part) => part.type === "day")?.value ?? "01";
-  return `${year}-${month}-${day}`;
+  return createKoreanDateKey();
 }
 
 function parseDateOnly(isoDate: string) {

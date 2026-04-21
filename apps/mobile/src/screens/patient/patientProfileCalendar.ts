@@ -1,4 +1,8 @@
 import type { CalendarDay } from "@gynecology-chatbot/app-core";
+import {
+  createKoreanDateKey,
+  parseIsoDateKey,
+} from "@gynecology-chatbot/app-core";
 import type { DimensionValue } from "react-native";
 
 const CALENDAR_COLUMN_WIDTH: DimensionValue = `${100 / 7}%`;
@@ -29,10 +33,10 @@ function parseCalendarMonth(calendarDays: CalendarDay[] | null | undefined) {
 }
 
 export function buildMonthGrid(date: Date) {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
+  const { year, month } = parseIsoDateKey(createKoreanDateKey(date));
+  const monthIndex = month - 1;
+  const firstDay = new Date(year, monthIndex, 1);
+  const lastDay = new Date(year, monthIndex + 1, 0);
   const leadingEmpty = firstDay.getDay();
   const days: (number | null)[] = [];
 
@@ -52,9 +56,10 @@ export function buildProfileCalendarModel(
   fallbackDate = new Date(),
 ) {
   const resolvedMonth = parseCalendarMonth(calendarDays);
+  const fallbackMonth = parseIsoDateKey(createKoreanDateKey(fallbackDate));
   const monthDate = resolvedMonth
     ? new Date(resolvedMonth.year, resolvedMonth.monthIndex, 1)
-    : new Date(fallbackDate.getFullYear(), fallbackDate.getMonth(), 1);
+    : new Date(fallbackMonth.year, fallbackMonth.month - 1, 1);
   const year = monthDate.getFullYear();
   const monthIndex = monthDate.getMonth();
   const lastDay = new Date(year, monthIndex + 1, 0).getDate();

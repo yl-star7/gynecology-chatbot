@@ -1,7 +1,8 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createKoreanDateKey } from "@gynecology-chatbot/app-core/time";
 import { generateText } from "ai";
 import Expo from "expo-server-sdk";
-import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
+import { dbInsert, dbSelect } from "./db/admin-client";
 
 const expo = new Expo();
 
@@ -27,27 +28,14 @@ type ChatSessionRow = {
   last_message_at: string | null;
 };
 
-function parseDateOnly(isoDate: string) {
-  return new Date(`${isoDate}T00:00:00.000Z`);
-}
-
 export async function runProactiveChatForEligibleUsers(): Promise<{
   scheduled: number;
   errors: string[];
 }> {
   const targets = (
-    await prisma.pregnancy_profiles.findMany({
-      where: {
-        push_token: { not: null },
-        notification_enabled: true,
-      },
-      select: {
-        user_id: true,
-        push_token: true,
-        pregnancy_week: true,
-        display_name: true,
-      },
-    })
+    await dbSelect<PushTargetRow[]>(
+      "pregnancy_profiles?select=user_id,push_token,pregnancy_week,display_name&push_token=not.is.null&notification_enabled=eq.true",
+    )
   ).filter(
     (target): target is PushTargetRow => typeof target.push_token === "string",
   );
@@ -65,20 +53,13 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
   // Fetch the most recent session per user to check last_message_at
   const recentSessions = eligibleUserIds.length
     ? (
-        await prisma.chat_sessions.findMany({
-          where: {
-            user_id: { in: eligibleUserIds },
-            last_message_at: { gte: twentyFourHoursAgo },
-          },
-          select: {
-            user_id: true,
-            last_message_at: true,
-          },
-        })
+        await dbSelect<ChatSessionRow[]>(
+          `chat_sessions?select=user_id,last_message_at&user_id=in.(${eligibleUserIds.join(",")})&last_message_at=gte.${twentyFourHoursAgo.toISOString()}`,
+        )
       ).map(
         (session): ChatSessionRow => ({
           user_id: session.user_id,
-          last_message_at: session.last_message_at?.toISOString() ?? null,
+          last_message_at: session.last_message_at,
         }),
       )
     : [];
@@ -116,37 +97,34 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
 
       // 4. Create a proactive session for this user (needed for calendar_logs FK)
       const now = new Date();
-      const insertedSession = await prisma.chat_sessions.create({
-        data: {
+      const insertedSession = (
+        await dbInsert<Array<{ id: string }>>("chat_sessions", {
           user_id: target.user_id,
           title: "일일 안부",
           status: "active",
-          last_message_at: now,
-          updated_at: now,
-        },
-        select: { id: true },
-      });
-      const sessionId = insertedSession.id;
+          last_message_at: now.toISOString(),
+          updated_at: now.toISOString(),
+        })
+      )[0];
+      const sessionId = insertedSession?.id;
 
       if (!sessionId) {
         throw new Error("Failed to create proactive session");
       }
 
       // 5. Store a calendar_logs record with entry_type "ai_summary"
-      const today = new Date().toISOString().slice(0, 10);
-      await prisma.calendar_logs.create({
-        data: {
+      const today = createKoreanDateKey();
+      await dbInsert("calendar_logs", {
           user_id: target.user_id,
           session_id: sessionId,
-          date: parseDateOnly(today),
+          date: today,
           entry_type: "ai_summary",
           title: "일일 안부 메시지",
           summary: messageContent,
           payload: {
             source: "proactive_chat",
             pregnancyWeek,
-          } as Prisma.InputJsonValue,
-        },
+          },
       });
 
       // 6. Send push notification via Expo SDK

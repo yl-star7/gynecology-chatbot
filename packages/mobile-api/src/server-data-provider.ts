@@ -1,12 +1,8 @@
-export type ServerDataProvider = "docker" | "supabase";
-
-function getSupabaseServiceRoleKey() {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE ?? process.env.SERVICEROLE;
-}
+export type ServerDataProvider = "docker";
 
 function normalizeProvider(value: string | undefined): ServerDataProvider | null {
-  if (value === "docker" || value === "supabase") {
-    return value;
+  if (value === "docker") {
+    return "docker";
   }
 
   return null;
@@ -18,11 +14,7 @@ export function resolveServerDataProvider(): ServerDataProvider {
     return explicitProvider;
   }
 
-  throw new Error('SERVER_DATA_PROVIDER must be explicitly set to "docker" or "supabase"');
-}
-
-export function hasSupabaseConfig() {
-  return Boolean(getSupabaseServiceRoleKey() && process.env.NEXT_PUBLIC_SUPABASE_URL);
+  throw new Error('SERVER_DATA_PROVIDER must be explicitly set to "docker"');
 }
 
 export function hasDockerConfig() {

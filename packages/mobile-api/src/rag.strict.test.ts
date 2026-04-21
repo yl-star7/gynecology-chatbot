@@ -1,18 +1,18 @@
-const searchMock = jest.fn();
-const supabaseSelectMock = jest.fn(
+const mockSearch = jest.fn();
+const mockDbSelect = jest.fn(
   async (_path?: string, _options?: unknown) => [
-    { key: "rag_provider", value: { ragProvider: "supabase" } },
+    { key: "rag_provider", value: { ragProvider: "schift" } },
   ],
 );
 
 jest.mock("./schift-client", () => ({
-  getSchiftClient: () => ({ search: searchMock }),
+  getSchiftClient: () => ({ search: mockSearch }),
 }));
 
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseSelect: (path: string, options?: unknown) =>
-    supabaseSelectMock(path, options),
-  supabaseRpc: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbSelect: (path: string, options?: unknown) =>
+    mockDbSelect(path, options),
+  dbRpc: jest.fn(),
 }));
 import { retrievePregnancyContext, searchFileRag } from "./rag";
 
@@ -22,9 +22,9 @@ describe("retrievePregnancyContext strict configuration", () => {
 
   afterEach(() => {
     jest.clearAllMocks();
-    supabaseSelectMock.mockReset();
-    supabaseSelectMock.mockResolvedValue([
-      { key: "rag_provider", value: { ragProvider: "supabase" } },
+    mockDbSelect.mockReset();
+    mockDbSelect.mockResolvedValue([
+      { key: "rag_provider", value: { ragProvider: "schift" } },
     ]);
 
     if (originalGemini === undefined) {
@@ -40,23 +40,24 @@ describe("retrievePregnancyContext strict configuration", () => {
     }
   });
 
-  it("throws when embedding API key is missing", async () => {
+  it("does not require Gemini embedding config for Schift retrieval", async () => {
     delete process.env.GEMINI_API_KEY;
     delete process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    mockSearch.mockResolvedValue({ results: [] });
 
     await expect(
       retrievePregnancyContext({
         query: "입덧이 심해요",
         currentWeek: 10,
       }),
-    ).rejects.toThrow("Embedding configuration is missing");
+    ).resolves.toEqual([]);
   });
 
   it("supports Schift object search responses", async () => {
-    supabaseSelectMock.mockResolvedValue([
+    mockDbSelect.mockResolvedValue([
       { key: "rag_provider", value: { ragProvider: "schift" } },
     ]);
-    searchMock.mockResolvedValue({
+    mockSearch.mockResolvedValue({
       collection: "pregnancy-knowledge",
       results: [
         {
@@ -87,7 +88,7 @@ describe("retrievePregnancyContext strict configuration", () => {
   });
 
   it("supports file rag from Schift object responses", async () => {
-    searchMock.mockResolvedValue({
+    mockSearch.mockResolvedValue({
       collection: "pregnancy-knowledge",
       results: [
         {
@@ -101,7 +102,7 @@ describe("retrievePregnancyContext strict configuration", () => {
         },
       ],
     });
-    supabaseSelectMock.mockResolvedValue([]);
+    mockDbSelect.mockResolvedValue([]);
 
     await expect(searchFileRag({ query: "오심과 구토" })).resolves.toEqual({
       context: expect.stringContaining(

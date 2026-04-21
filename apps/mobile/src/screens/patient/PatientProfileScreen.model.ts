@@ -1,4 +1,5 @@
 import type { CalendarDay, RecordDayView } from "@gynecology-chatbot/app-core";
+import { createKoreanDateKey } from "@gynecology-chatbot/app-core";
 
 type RecordDayWithInfoCards = RecordDayView & {
   infoCards?: ProfileInfoCard[] | null;
@@ -81,13 +82,7 @@ export function buildProfileChecklistItemState(item: {
 }
 
 function isSameIsoDate(isoDate: string, now: Date) {
-  const todayIsoDate = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-  ].join("-");
-
-  return isoDate === todayIsoDate;
+  return isoDate === createKoreanDateKey(now);
 }
 
 function resolveChecklistStatus(

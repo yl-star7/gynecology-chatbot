@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useRef, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
@@ -91,6 +92,13 @@ const MOCK_MESSAGES: ChatMessage[] = [
     parts: [{ type: "text", id: "user-better-text", text: "쉬면 좀 괜찮아져요." }],
   },
   {
+    id: "assistant-placeholder",
+    role: "assistant",
+    createdAtLabel: "오전 10:14",
+    characterTone: "calm",
+    parts: [{ type: "text", id: "assistant-placeholder-text", text: "..." }],
+  },
+  {
     id: "assistant-checklist",
     role: "assistant",
     createdAtLabel: "오전 10:14",
@@ -129,8 +137,10 @@ const MOCK_MESSAGES: ChatMessage[] = [
 
 export default function ChatMockRoute() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ sending?: string }>();
   const scrollRef = useRef(null);
   const [text, setText] = useState("");
+  const isSending = params.sending === "1";
 
   if (!__DEV__) {
     return null;
@@ -156,7 +166,7 @@ export default function ChatMockRoute() {
               scrollRef.current = instance;
             }}
             messages={MOCK_MESSAGES}
-            isSending={false}
+            isSending={isSending}
             isLoadingSessionDetail={false}
             sessionLoadErrorMessage={null}
             scrollBottomPadding={space.xxxl * 4}
@@ -169,7 +179,7 @@ export default function ChatMockRoute() {
           <PatientConversationComposer
             text={text}
             onChangeText={setText}
-            isSending={false}
+            isSending={isSending}
             isReadOnly={false}
             imageDataUri={null}
             onImageSelected={() => {}}

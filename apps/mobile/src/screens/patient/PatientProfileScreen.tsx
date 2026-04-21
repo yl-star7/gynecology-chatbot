@@ -24,8 +24,10 @@ import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
 import {
+  hasFreshCachedHomeView,
   hasFreshCachedProfileView,
   hasFreshCachedTodayView,
+  readCachedHomeView,
   readCachedProfileView,
   readCachedTodayView,
 } from "../../core/patientViewCache";
@@ -82,10 +84,11 @@ export function PatientProfileScreen() {
     }
 
     const cachedProfile = readCachedProfileView(currentUser.id);
+    const cachedHome = readCachedHomeView(currentUser.id);
     const cachedToday = readCachedTodayView(currentUser.id);
 
     setProfile(cachedProfile);
-    setHome(null);
+    setHome(cachedHome);
     setToday(cachedToday);
     setSelectedRecordDay(null);
   }, [currentUser]);
@@ -101,21 +104,42 @@ export function PatientProfileScreen() {
         return;
       }
 
-      if (hasFreshCachedProfileView(currentUser.id)) {
-        setProfile(readCachedProfileView(currentUser.id));
-        setToday(readCachedTodayView(currentUser.id));
-        setError(null);
+      const cachedProfile = readCachedProfileView(currentUser.id);
+      const cachedHome = readCachedHomeView(currentUser.id);
+      const cachedToday = readCachedTodayView(currentUser.id);
+      const hasFreshProfile = hasFreshCachedProfileView(currentUser.id);
+      const hasFreshHome = hasFreshCachedHomeView(currentUser.id);
+
+      if (cachedProfile) {
+        setProfile(cachedProfile);
+      }
+      if (cachedHome) {
+        setHome(cachedHome);
+      }
+      if (cachedToday) {
+        setToday(cachedToday);
       }
 
-      Promise.all([profilePort.getProfile(), homePort.getHomeView()])
-        .then(([nextProfile, nextHome]) => {
-          setProfile(nextProfile);
-          setHome(nextHome);
-          setError(null);
-        })
-        .catch((nextError) => {
-          setError(resolvePatientProfileLoadError(nextError));
-        });
+      if (hasFreshProfile && hasFreshHome) {
+        setError(null);
+      } else {
+        Promise.all([
+          hasFreshProfile && cachedProfile
+            ? Promise.resolve(cachedProfile)
+            : profilePort.getProfile(),
+          hasFreshHome && cachedHome
+            ? Promise.resolve(cachedHome)
+            : homePort.getHomeView(),
+        ])
+          .then(([nextProfile, nextHome]) => {
+            setProfile(nextProfile);
+            setHome(nextHome);
+            setError(null);
+          })
+          .catch((nextError) => {
+            setError(resolvePatientProfileLoadError(nextError));
+          });
+      }
 
       if (!hasFreshCachedTodayView(currentUser.id)) {
         todayPort

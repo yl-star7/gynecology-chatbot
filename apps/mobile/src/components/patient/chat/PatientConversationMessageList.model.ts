@@ -30,6 +30,49 @@ export function resolveConversationMessageListState({
   return "empty";
 }
 
+export function resolveShouldShowTypingIndicator({
+  listState,
+  isSending,
+}: {
+  listState: ConversationMessageListState;
+  isSending: boolean;
+}) {
+  return listState === "messages" && isSending;
+}
+
+export function isRenderableConversationPart({
+  part,
+  messageId,
+  assistantMessageIdsWithLaterUserMessage,
+  latestQuickRepliesMessageId,
+}: {
+  part: ChatMessage["parts"][number];
+  messageId: string;
+  assistantMessageIdsWithLaterUserMessage: Set<string>;
+  latestQuickRepliesMessageId?: string;
+}) {
+  if (part.type === "text") {
+    const visibleText = part.text
+      .replace(/[\s\u200B-\u200D\uFEFF.·…⋯]+/g, "")
+      .trim();
+    return visibleText.length > 0;
+  }
+
+  const isQuickReplies = part.type === "quickReplies";
+  const isSurvey = part.type === "survey";
+  const isInteractivePart = isQuickReplies || isSurvey;
+  if (
+    isInteractivePart &&
+    assistantMessageIdsWithLaterUserMessage.has(messageId)
+  ) {
+    return false;
+  }
+  if (isQuickReplies && messageId !== latestQuickRepliesMessageId) {
+    return false;
+  }
+  return true;
+}
+
 export function resolveAssistantMessageIdsWithLaterUserMessage(
   messages: Pick<ChatMessage, "id" | "role">[],
 ): Set<string> {

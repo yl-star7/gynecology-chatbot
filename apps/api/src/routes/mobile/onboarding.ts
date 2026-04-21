@@ -1,5 +1,9 @@
 import { Hono } from "hono";
-import { DEFAULT_MOBILE_THEME_KEY } from "@gynecology-chatbot/app-core";
+import {
+  createKoreanDateKey,
+  DEFAULT_MOBILE_THEME_KEY,
+  readIsoDateKey,
+} from "@gynecology-chatbot/app-core";
 import { completeUserOnboarding } from "@gynecology-chatbot/mobile-api/auth";
 import {
   mobileRouteErrorResponse,
@@ -38,7 +42,7 @@ function normalizeDateOnly(value: string) {
     return "";
   }
 
-  const normalized = parsed.toISOString().slice(0, 10);
+  const normalized = readIsoDateKey(trimmed) ?? createKoreanDateKey(parsed);
   return isValidDateOnly(normalized) ? normalized : "";
 }
 

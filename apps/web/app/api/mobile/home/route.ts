@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { createKoreanMonthKey } from "@gynecology-chatbot/app-core/time";
 import { prisma } from "@gynecology-chatbot/db/prisma";
 
 import {
@@ -19,8 +20,7 @@ function getMonth(raw: string | null) {
     return raw;
   }
 
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return createKoreanMonthKey();
 }
 
 function getLastDayOfMonth(month: string) {

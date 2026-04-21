@@ -16,12 +16,12 @@ jest.mock("@ai-sdk/google", () => ({
   createGoogleGenerativeAI: jest.fn(() => () => "mock-model"),
 }));
 
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseInsert: jest.fn(),
-  supabaseSelect: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbInsert: jest.fn(),
+  dbSelect: jest.fn(),
 }));
 
-import { supabaseInsert, supabaseSelect } from "@/lib/supabase/admin-client";
+import { dbInsert, dbSelect } from "@/lib/db/admin-client";
 import { runProactiveChatForEligibleUsers } from "./proactive-chat";
 
 describe("runProactiveChatForEligibleUsers", () => {
@@ -29,8 +29,8 @@ describe("runProactiveChatForEligibleUsers", () => {
 
   beforeEach(() => {
     process.env.GEMINI_API_KEY = "test-key";
-    (supabaseSelect as jest.Mock).mockReset();
-    (supabaseInsert as jest.Mock).mockReset();
+    (dbSelect as jest.Mock).mockReset();
+    (dbInsert as jest.Mock).mockReset();
   });
 
   afterAll(() => {
@@ -38,7 +38,7 @@ describe("runProactiveChatForEligibleUsers", () => {
   });
 
   it("uses provider-aware wrappers for reads and writes", async () => {
-    (supabaseSelect as jest.Mock).mockImplementation(async (path: string) => {
+    (dbSelect as jest.Mock).mockImplementation(async (path: string) => {
       if (path.startsWith("pregnancy_profiles?")) {
         return [
           {
@@ -57,22 +57,22 @@ describe("runProactiveChatForEligibleUsers", () => {
       return [];
     });
 
-    (supabaseInsert as jest.Mock)
+    (dbInsert as jest.Mock)
       .mockResolvedValueOnce([{ id: "session-1" }])
       .mockResolvedValueOnce([]);
 
     const result = await runProactiveChatForEligibleUsers();
 
     expect(result).toMatchObject({ scheduled: 1, errors: [] });
-    expect(supabaseSelect).toHaveBeenNthCalledWith(
+    expect(dbSelect).toHaveBeenNthCalledWith(
       1,
       expect.stringContaining("pregnancy_profiles?select=user_id,push_token,pregnancy_week,display_name"),
     );
-    expect(supabaseSelect).toHaveBeenNthCalledWith(
+    expect(dbSelect).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining("chat_sessions?select=user_id,last_message_at"),
     );
-    expect(supabaseInsert).toHaveBeenNthCalledWith(
+    expect(dbInsert).toHaveBeenNthCalledWith(
       1,
       "chat_sessions",
       expect.objectContaining({
@@ -80,7 +80,7 @@ describe("runProactiveChatForEligibleUsers", () => {
         title: "일일 안부",
       }),
     );
-    expect(supabaseInsert).toHaveBeenNthCalledWith(
+    expect(dbInsert).toHaveBeenNthCalledWith(
       2,
       "calendar_logs",
       expect.objectContaining({

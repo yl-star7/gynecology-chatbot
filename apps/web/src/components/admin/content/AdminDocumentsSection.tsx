@@ -191,7 +191,9 @@ export function AdminDocumentsSection({
               </span>
               <span>{formatFileSize(file.fileSize)}</span>
               <span>
-                {new Date(file.createdAt).toLocaleDateString("ko-KR")}
+	                {new Date(file.createdAt).toLocaleDateString("ko-KR", {
+	                  timeZone: "Asia/Seoul",
+	                })}
               </span>
               <span>
                 <button

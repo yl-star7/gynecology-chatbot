@@ -1,3 +1,9 @@
+import {
+  addCalendarDays,
+  createKoreanDateKey,
+  createKoreanDateTime,
+} from "@gynecology-chatbot/app-core";
+
 const DEFAULT_NOTIFICATION_TIME = "08:30";
 const DEFAULT_ROLLING_NOTIFICATION_DAYS = 14;
 const DAILY_LOCAL_NOTIFICATION_IDENTIFIER_PREFIX = "patient-daily-tip";
@@ -21,11 +27,7 @@ export type RollingDailyLocalNotificationRequest = {
 };
 
 function formatLocalDateKey(date: Date) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
+  return createKoreanDateKey(date);
 }
 
 export type DailyLocalNotificationScheduleInput = {
@@ -186,16 +188,22 @@ function buildNextNotificationDate(input: {
   hour: number;
   minute: number;
 }) {
-  const date = new Date(input.now);
-  date.setSeconds(0, 0);
-  date.setHours(input.hour, input.minute, 0, 0);
+  const todayKey = createKoreanDateKey(input.now);
+  const firstDate = createKoreanDateTime({
+    isoDate: todayKey,
+    hour: input.hour,
+    minute: input.minute,
+  });
+  const firstDateKey =
+    firstDate.getTime() <= input.now.getTime()
+      ? addCalendarDays(todayKey, 1)
+      : todayKey;
 
-  if (date.getTime() <= input.now.getTime()) {
-    date.setDate(date.getDate() + 1);
-  }
-
-  date.setDate(date.getDate() + input.dayOffset);
-  return date;
+  return createKoreanDateTime({
+    isoDate: addCalendarDays(firstDateKey, input.dayOffset),
+    hour: input.hour,
+    minute: input.minute,
+  });
 }
 
 export function buildRollingDailyLocalNotificationRequests(input: {

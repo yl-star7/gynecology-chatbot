@@ -14,7 +14,10 @@
     "isolatedModules": true,
     "types": ["node"],
     "baseUrl": ".",
-    "paths": {}
+    "paths": {
+      "@/*": ["src/*"],
+      "@/lib/*": ["src/*"]
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]

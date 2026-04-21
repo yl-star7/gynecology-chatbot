@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { createKoreanDateKey } from "@gynecology-chatbot/app-core";
 import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -28,8 +29,15 @@ function formatIsoDate(year: number, month: number, day: number) {
 interface DueDateCalendarPickerProps {
   value: string;
   onChange: (isoDate: string) => void;
-  minDate?: Date;
-  maxDate?: Date;
+  minDate?: string | Date;
+  maxDate?: string | Date;
+}
+
+function normalizeDateLimit(value?: string | Date) {
+  if (!value) return null;
+  if (value instanceof Date) return createKoreanDateKey(value);
+  const match = value.match(/^\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : null;
 }
 
 export function DueDateCalendarPicker({
@@ -38,15 +46,18 @@ export function DueDateCalendarPicker({
   minDate,
   maxDate,
 }: DueDateCalendarPickerProps) {
-  const initial = value ? new Date(value) : new Date();
+  const initialKey = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? createKoreanDateKey();
+  const [initialYear, initialMonth] = initialKey.split("-").map(Number);
   const [viewYear, setViewYear] = useState(
-    Number.isNaN(initial.getTime()) ? new Date().getFullYear() : initial.getFullYear(),
+    initialYear,
   );
   const [viewMonth, setViewMonth] = useState(
-    Number.isNaN(initial.getTime()) ? new Date().getMonth() : initial.getMonth(),
+    initialMonth - 1,
   );
 
   const days = buildMonthGrid(viewYear, viewMonth);
+  const minDateKey = normalizeDateLimit(minDate);
+  const maxDateKey = normalizeDateLimit(maxDate);
 
   function prevMonth() {
     if (viewMonth === 0) {
@@ -67,9 +78,9 @@ export function DueDateCalendarPicker({
   }
 
   function isDisabled(day: number) {
-    const date = new Date(viewYear, viewMonth, day);
-    if (minDate && date < minDate) return true;
-    if (maxDate && date > maxDate) return true;
+    const isoDate = formatIsoDate(viewYear, viewMonth, day);
+    if (minDateKey && isoDate < minDateKey) return true;
+    if (maxDateKey && isoDate > maxDateKey) return true;
     return false;
   }
 

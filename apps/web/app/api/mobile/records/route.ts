@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { TodayChecklistItem } from "@gynecology-chatbot/app-core";
+import { createKoreanDateKey } from "@gynecology-chatbot/app-core/time";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 
 import {
@@ -111,16 +112,7 @@ const EMOTION_TONE_LABELS: Record<EmotionTone, string> = {
 };
 
 function getKstDateKey() {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
-  const month = parts.find((part) => part.type === "month")?.value ?? "01";
-  const day = parts.find((part) => part.type === "day")?.value ?? "01";
-  return `${year}-${month}-${day}`;
+  return createKoreanDateKey();
 }
 
 function parseDateOnly(isoDate: string) {

@@ -6,7 +6,7 @@ import {
   parsePersonaSignalInput,
   type PersonaSignalRow,
 } from "@/lib/mobile/persona/persona-signals";
-import { supabaseInsert } from "@/lib/supabase/admin-client";
+import { dbInsert } from "@/lib/db/admin-client";
 
 function isAuthorized(request: NextRequest | Request) {
   const secret = process.env.CRON_SECRET;
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest | Request) {
       );
     }
 
-    const inserted = await supabaseInsert<PersonaSignalRow[]>(
+    const inserted = await dbInsert<PersonaSignalRow[]>(
       "user_persona_signals",
       createPersonaSignalPayload(input),
       { onConflict: "id", ignoreDuplicates: true },

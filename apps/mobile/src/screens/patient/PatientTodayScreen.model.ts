@@ -7,19 +7,18 @@ import type {
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
+import { createPatientCacheDateKey } from "../../core/patientViewCacheFreshness.model";
 import {
-  cacheRecentChats,
   cacheTodayView,
   clearCachedHomeView,
   clearCachedRecentChats,
   clearCachedRecordDayView,
   hasFreshCachedChatSession,
-  hasFreshCachedRecentChats,
   hasFreshCachedTodayView,
-  readCachedRecentChats,
   readCachedTodayView,
 } from "../../core/patientViewCache";
 import { warmConversationSessions } from "./patientConversationNavigation.model";
+import { filterTodayConversationSessions } from "./PatientTodayConversationSessions.model";
 import {
   confirmChecklistRequest,
   createChecklistSyncTracker,
@@ -27,21 +26,12 @@ import {
   rememberChecklistDesiredState,
   resolveChecklistRequest,
   rollbackChecklistRequest,
-  updateRecordDayChecklistItems,
   updateTodayChecklistItems,
   type ChecklistSyncTracker,
 } from "./PatientTodayScreen.helpers";
 import { buildPatientTodayViewModel } from "./view-models";
 
 const EMPTY_BABY_BODY = "오늘 아기의 변화를 준비 중이에요.";
-
-function createTodayIsoDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = `${now.getMonth() + 1}`.padStart(2, "0");
-  const day = `${now.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 export function usePatientTodayScreenModel() {
   const router = useRouter();
@@ -60,7 +50,7 @@ export function usePatientTodayScreenModel() {
     createChecklistSyncTracker([]),
   );
   const pendingChecklistIdsRef = useRef<string[]>([]);
-  const todayIsoDate = createTodayIsoDate();
+  const todayIsoDate = createPatientCacheDateKey();
 
   useEffect(() => {
     pendingChecklistIdsRef.current = pendingChecklistIds;
@@ -97,7 +87,7 @@ export function usePatientTodayScreenModel() {
       checklistSyncRef.current,
       cachedToday?.checklistItems ?? [],
     );
-    setRecentSessions(readCachedRecentChats(currentUser.id) ?? []);
+    setRecentSessions([]);
   }, [currentUser]);
 
   useFocusEffect(
@@ -120,10 +110,6 @@ export function usePatientTodayScreenModel() {
         );
       }
 
-      const cachedRecentChats = readCachedRecentChats(currentUser.id);
-      if (cachedRecentChats) {
-        setRecentSessions(cachedRecentChats);
-      }
       setHasAttemptedInfoViewed(false);
 
       if (!hasFreshCachedTodayView(currentUser.id)) {
@@ -142,25 +128,16 @@ export function usePatientTodayScreenModel() {
       void services.homePort
         .getRecordDay(todayIsoDate)
         .then((nextRecordDay) => {
-          if (nextRecordDay.relatedSessions.length > 0) {
-            setRecentSessions(nextRecordDay.relatedSessions);
-            warmRecentSessionDetails(nextRecordDay.relatedSessions);
+          const todaySessions = filterTodayConversationSessions({
+            sessions: nextRecordDay.relatedSessions,
+            todayIsoDate,
+          });
+          setRecentSessions(todaySessions);
+          if (todaySessions.length > 0) {
+            warmRecentSessionDetails(todaySessions);
           }
         })
         .catch(() => undefined);
-
-      if (!hasFreshCachedRecentChats(currentUser.id)) {
-        void services.chatPort
-          .listRecentChats()
-          .then((nextRecentChats) => {
-            setRecentSessions(nextRecentChats);
-            cacheRecentChats(currentUser.id, nextRecentChats);
-            warmRecentSessionDetails(nextRecentChats);
-          })
-          .catch(() => undefined);
-      } else if (cachedRecentChats && cachedRecentChats.length > 0) {
-        warmRecentSessionDetails(cachedRecentChats);
-      }
     }, [
       currentUser,
       isRestoringSession,

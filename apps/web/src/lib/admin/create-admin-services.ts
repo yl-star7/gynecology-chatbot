@@ -7,16 +7,12 @@ import type {
 import { MockAdminContentPortAdapter } from "./adapters/mock-admin-content-port";
 import { MockAdminDashboardPortAdapter } from "./adapters/mock-admin-dashboard-port";
 import { MockAdminUserPortAdapter } from "./adapters/mock-admin-user-port";
-import { SupabaseAdminContentPortAdapter } from "./adapters/supabase-admin-content-port";
+import { CloudSqlAdminContentPortAdapter } from "./adapters/cloud-sql-admin-content-port";
 import {
   SupabaseAdminDashboardPortAdapter,
   SupabaseAdminUserPortAdapter,
 } from "./adapters/supabase-admin-dashboard-port";
-import {
-  hasDockerConfig,
-  hasSupabaseConfig,
-  resolveServerDataProvider,
-} from "../server-data-provider";
+import { hasDockerConfig } from "../server-data-provider";
 
 export interface AdminServices {
   adminDashboardPort: AdminDashboardPort;
@@ -32,8 +28,7 @@ export interface CreateAdminServicesOptions {
 }
 
 function hasBackendAdminConfig() {
-  const provider = resolveServerDataProvider();
-  return provider === "docker" ? hasDockerConfig() : hasSupabaseConfig();
+  return hasDockerConfig();
 }
 
 export function createAdminServices(
@@ -54,7 +49,7 @@ export function createAdminServices(
       adminUserPort:
         options.adminUserPort ?? new SupabaseAdminUserPortAdapter(),
       adminContentPort:
-        options.adminContentPort ?? new SupabaseAdminContentPortAdapter(),
+        options.adminContentPort ?? new CloudSqlAdminContentPortAdapter(),
     };
   }
 

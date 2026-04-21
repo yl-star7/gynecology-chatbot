@@ -10,6 +10,7 @@
     "./domain": "./src/domain.ts",
     "./ports": "./src/ports.ts",
     "./theme": "./src/theme.ts",
+    "./time": "./src/time.ts",
     "./testing": "./src/testing.ts"
   },
   "scripts": {

@@ -58,7 +58,7 @@ export async function DELETE(
       );
     }
 
-    // Supabase Storage에서 원본 삭제
+    // GCS에서 원본 삭제
     try {
       await deleteStorageObject({
         bucketId: RAG_FILES_BUCKET,

@@ -3,6 +3,10 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import {
+  addCalendarDays,
+  createKoreanDateKey,
+} from "@gynecology-chatbot/app-core";
+import {
   BrandMark,
   Button,
   Card,
@@ -84,12 +88,8 @@ export function OnboardingScreen() {
           <DueDateCalendarPicker
             value={dueDate}
             onChange={setDueDate}
-            minDate={new Date()}
-            maxDate={(() => {
-              const d = new Date();
-              d.setDate(d.getDate() + 294);
-              return d;
-            })()}
+            minDate={createKoreanDateKey()}
+            maxDate={addCalendarDays(createKoreanDateKey(), 294)}
           />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}

@@ -24,8 +24,14 @@ type EncyclopediaRow = {
   items: unknown[];
 };
 
+type DocumentLinkRow = {
+  id: string;
+  pregnancy_week: number | null;
+};
+
 type MobileWeek = {
   weekNumber: number;
+  linkEntityId?: string | null;
   title: string | null;
   babySizeLabel: string | null;
   babySummary: string | null;
@@ -152,6 +158,31 @@ function mergeWeeks(
     .sort((left, right) => left.weekNumber - right.weekNumber);
 }
 
+function buildDocumentIdByWeek(rows: DocumentLinkRow[]) {
+  const documentIdByWeek = new Map<number, string>();
+
+  for (const row of rows) {
+    if (
+      row.pregnancy_week === null ||
+      documentIdByWeek.has(row.pregnancy_week)
+    ) {
+      continue;
+    }
+    documentIdByWeek.set(row.pregnancy_week, row.id);
+  }
+
+  return documentIdByWeek;
+}
+
+function attachLinkEntityIds(weeks: MobileWeek[], rows: DocumentLinkRow[]) {
+  const documentIdByWeek = buildDocumentIdByWeek(rows);
+
+  return weeks.map((week) => ({
+    ...week,
+    linkEntityId: documentIdByWeek.get(week.weekNumber) ?? null,
+  }));
+}
+
 function asUnknownArray(value: Prisma.JsonValue | null | undefined) {
   return Array.isArray(value) ? value : [];
 }
@@ -204,7 +235,7 @@ export async function GET(request: NextRequest) {
   try {
     await requireMobileSession(request);
 
-    const [encyclopediaRows, rows] = await Promise.all([
+    const [encyclopediaRows, rows, documentLinkRows] = await Promise.all([
       loadWeeklyEncyclopediaRows(),
       prisma.content_pregnancy_week_data.findMany({
         where: { status: "published" },
@@ -217,22 +248,33 @@ export async function GET(request: NextRequest) {
           mother_summary: true,
         },
       }),
+      prisma.content_pregnancy_documents.findMany({
+        where: { pregnancy_week: { not: null } },
+        orderBy: [{ pregnancy_week: "asc" }, { updated_at: "desc" }],
+        select: {
+          id: true,
+          pregnancy_week: true,
+        },
+      }),
     ]);
 
     return NextResponse.json({
-      weeks: mergeWeeks(
-        mapSourceWeeks(
-          rows.map(
-            (row): WeekRow => ({
-              week_number: row.week_number,
-              title: row.title ?? `${row.week_number}주차`,
-              baby_size_label: row.baby_size_label,
-              baby_summary: row.baby_summary,
-              mother_summary: row.mother_summary,
-            }),
+      weeks: attachLinkEntityIds(
+        mergeWeeks(
+          mapSourceWeeks(
+            rows.map(
+              (row): WeekRow => ({
+                week_number: row.week_number,
+                title: row.title ?? `${row.week_number}주차`,
+                baby_size_label: row.baby_size_label,
+                baby_summary: row.baby_summary,
+                mother_summary: row.mother_summary,
+              }),
+            ),
           ),
+          mapEncyclopediaWeeks(encyclopediaRows),
         ),
-        mapEncyclopediaWeeks(encyclopediaRows),
+        documentLinkRows,
       ),
     });
   } catch (error) {

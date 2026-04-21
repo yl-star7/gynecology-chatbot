@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, StyleSheet, View } from "react-native";
-import { palette, radii, space } from "../../theme";
+import { palette, space } from "../../theme";
 
 const DOT_SIZE = 7;
 const DOT_COUNT = 3;

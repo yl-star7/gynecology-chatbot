@@ -1,3 +1,9 @@
+import {
+  createKoreanDateKey,
+  diffCalendarDays,
+  readIsoDateKey,
+} from "@gynecology-chatbot/app-core/time";
+
 /**
  * 임신 주차 및 일차 계산 로직
  * @param startDate 임신 시작일 (ISO string)
@@ -6,15 +12,12 @@
 export function calculatePregnancyProgress(startDate: string): { week: number; day: number } {
     if (!startDate) return { week: 1, day: 1 };
 
-    const start = new Date(startDate);
-    const now = new Date();
-
-    // 정확한 일수 계산을 위해 자정으로 설정
-    start.setHours(0, 0, 0, 0);
-    now.setHours(0, 0, 0, 0);
-
-    const diffTime = now.getTime() - start.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const startDateKey =
+      /^\d{4}-\d{2}-\d{2}$/.test(startDate)
+        ? readIsoDateKey(startDate)
+        : createKoreanDateKey(new Date(startDate));
+    if (!startDateKey) return { week: 1, day: 1 };
+    const diffDays = diffCalendarDays(createKoreanDateKey(), startDateKey);
 
     // 임신 40주(280일)를 기준으로 1주 1일~40주 0일 등으로 표시
     // week: 0~6일 -> 1주, 7~13일 -> 2주...

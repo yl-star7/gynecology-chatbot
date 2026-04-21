@@ -19,6 +19,8 @@ import { PatientShell } from "../../components/patient/PatientShell";
 import { Card, Pressable } from "../../components/ui";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import {
+  hasFreshCachedPregnancyWeeks,
+  hasFreshCachedProfileView,
   readCachedPregnancyWeeks,
   readCachedProfileView,
 } from "../../core/patientViewCache";
@@ -86,6 +88,8 @@ export function PatientWeeklyEncyclopediaScreen() {
 
     const cachedWeeks = readCachedPregnancyWeeks(currentUser.id);
     const cachedProfile = readCachedProfileView(currentUser.id);
+    const hasFreshWeeks = hasFreshCachedPregnancyWeeks(currentUser.id);
+    const hasFreshProfile = hasFreshCachedProfileView(currentUser.id);
 
     if (cachedWeeks) {
       setWeeks(cachedWeeks);
@@ -94,7 +98,7 @@ export function PatientWeeklyEncyclopediaScreen() {
       setProfile(cachedProfile);
     }
 
-    if (!cachedWeeks || !cachedProfile) {
+    if (!hasFreshWeeks || !hasFreshProfile) {
       void fetchContent();
     }
   }, [currentUser, fetchContent]);

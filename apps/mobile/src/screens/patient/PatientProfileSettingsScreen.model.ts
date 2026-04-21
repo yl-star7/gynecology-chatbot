@@ -5,6 +5,10 @@ import type {
   HomeViewData,
   MobileProfileViewData,
 } from "@gynecology-chatbot/app-core";
+import {
+  addCalendarDays,
+  createKoreanDateKey,
+} from "@gynecology-chatbot/app-core";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import {
   cacheProfileView,
@@ -36,9 +40,7 @@ export const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", 
 export { DEFAULT_NOTIFICATION_TIME, normalizePatientNotificationTimeInput };
 
 function createDueDateMaxDate() {
-  const date = new Date();
-  date.setDate(date.getDate() + 294);
-  return date;
+  return addCalendarDays(createKoreanDateKey(), 294);
 }
 
 export function usePatientProfileSettingsScreenModel() {

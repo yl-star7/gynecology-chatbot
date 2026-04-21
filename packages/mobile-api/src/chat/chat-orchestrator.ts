@@ -5,7 +5,10 @@ import type {
   PromptContext,
   QuestionRow,
 } from "./chat-repository";
-import type { PromptFollowUpResult } from "./follow-ups";
+import {
+  stripFollowUpContentFromAnswer,
+  type PromptFollowUpResult,
+} from "./follow-ups";
 import type {
   ProfileMemoryPayload,
   SessionMemoryPayload,
@@ -16,23 +19,7 @@ import type { WorkflowAssistantPayload } from "./workflow-payload";
 function shouldSkipDocumentFollowUps(
   workflowMemoryPayload: WorkflowAssistantPayload | null,
 ) {
-  const lastScenario =
-    workflowMemoryPayload?.nextSessionMemory?.lastScenario ??
-    workflowMemoryPayload?.scenario ??
-    null;
-  const compactSummary =
-    workflowMemoryPayload?.nextSessionMemory?.compactSummary ?? "";
-
-  if (
-    lastScenario === "attachment_question" ||
-    lastScenario === "empathy_chat"
-  ) {
-    return true;
-  }
-
-  return ["편지 후속 질문", "태동/데일리 후속 질문"].some((keyword) =>
-    compactSummary.includes(keyword),
-  );
+  return Boolean(workflowMemoryPayload);
 }
 
 export function buildChatOrchestrator(deps: {
@@ -204,6 +191,14 @@ export function buildChatOrchestrator(deps: {
         excludeChecklistIds: alreadyPrompted.checklistIds,
         excludeQuestionIds: alreadyPrompted.questionIds,
       });
+      if (followUpResult.messages.length > 0) {
+        assistantMessage.parts = sanitizeChatParts(
+          stripFollowUpContentFromAnswer(assistantMessage.parts, {
+            checklists: promptContext.checklists,
+            questions: promptContext.questions,
+          }),
+        );
+      }
       for (const msg of followUpResult.messages) {
         assistantMessages.push(msg as ChatMessage);
       }

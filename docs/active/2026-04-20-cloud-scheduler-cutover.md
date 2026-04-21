@@ -2,7 +2,7 @@
 
 ## 현재 상태
 - Vercel cron 설정은 제거됨 (`apps/web/vercel.json`).
-- Cloud Run internal endpoint 골격 추가됨: `apps/api/src/routes/internal/daily-summary.ts`
+- Cloud Run internal endpoint 추가됨: `apps/api/src/routes/internal/daily-summary.ts`
 - 기존 proactive 경로는 유지됨:
   - `apps/web/app/api/admin/proactive/trigger/route.ts`
   - `apps/web/app/api/cron/daily-push/route.ts`
@@ -15,12 +15,12 @@
    - 대상 2: 기존 proactive trigger 또는 별도 Cloud Run internal route
 3. Cloud Scheduler 인증
    - OIDC 또는 Bearer `CRON_SECRET` 중 하나로 통일
-4. 실제 daily summary 로직을 `supabase/functions/daily-summary/index.ts`에서 Cloud Run route로 이식
-5. 이식 완료 후 `supabase/functions/daily-summary/index.ts` 제거
+4. daily summary 로직을 Cloud Run route로 이식 완료
+5. 옛 Supabase Edge Function 제거 완료
 
 ## 남은 Supabase SDK 실사용
 - `packages/mobile-api/src/supabase/admin-client.ts`
-- `supabase/functions/daily-summary/index.ts`
+- `supabase/functions/daily-summary/index.ts` 제거됨
 
 ## 메모
 - Storage 쪽 GCS 전환은 1차 완료.

@@ -1,8 +1,8 @@
-jest.mock("@/lib/supabase/admin-client", () => {
+jest.mock("@/lib/db/admin-client", () => {
   const mockSelect = jest.fn();
   return {
-    supabaseSelect: mockSelect,
-    supabaseUpdate: jest.fn(),
+    dbSelect: mockSelect,
+    dbUpdate: jest.fn(),
     getSupabaseAdminClient: jest.fn(() => {
       const mockResult = { data: [], error: null };
       const createBuilder = () => ({
@@ -25,14 +25,14 @@ jest.mock("@/lib/supabase/admin-client", () => {
   };
 });
 
-import { supabaseSelect, supabaseUpdate } from "@/lib/supabase/admin-client";
+import { dbSelect, dbUpdate } from "@/lib/db/admin-client";
 import { requireMobileSession } from "./session-auth";
 
-const mockedSupabaseSelect = supabaseSelect as jest.MockedFunction<
-  typeof supabaseSelect
+const mockedSupabaseSelect = dbSelect as jest.MockedFunction<
+  typeof dbSelect
 >;
-const mockedSupabaseUpdate = supabaseUpdate as jest.MockedFunction<
-  typeof supabaseUpdate
+const mockedSupabaseUpdate = dbUpdate as jest.MockedFunction<
+  typeof dbUpdate
 >;
 
 describe("requireMobileSession", () => {

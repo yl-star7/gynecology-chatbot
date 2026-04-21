@@ -29,17 +29,17 @@ jest.mock("@/lib/mobile/session-auth", () => ({
   ),
 }));
 
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseSelect: jest.fn(),
-  supabaseInsert: jest.fn(),
-  supabaseUpdate: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbSelect: jest.fn(),
+  dbInsert: jest.fn(),
+  dbUpdate: jest.fn(),
 }));
 
 var adminSupabaseSelectMock: jest.Mock;
 var adminSupabaseInsertMock: jest.Mock;
 var adminSupabaseUpdateMock: jest.Mock;
 
-jest.mock("@/lib/supabase/admin-client", () => {
+jest.mock("@/lib/db/admin-client", () => {
   adminSupabaseSelectMock = jest.fn();
   adminSupabaseInsertMock = jest.fn();
   adminSupabaseUpdateMock = jest.fn();
@@ -164,9 +164,9 @@ jest.mock("@/lib/supabase/admin-client", () => {
   }
 
   return {
-    supabaseSelect: adminSupabaseSelectMock,
-    supabaseInsert: adminSupabaseInsertMock,
-    supabaseUpdate: adminSupabaseUpdateMock,
+    dbSelect: adminSupabaseSelectMock,
+    dbInsert: adminSupabaseInsertMock,
+    dbUpdate: adminSupabaseUpdateMock,
     getSupabaseAdminClient: () => ({
       from: (table: string) =>
         new QueryBuilder({ table, mode: "select", schema: undefined }),
@@ -180,23 +180,23 @@ jest.mock("@/lib/supabase/admin-client", () => {
 
 import { requireMobileSession } from "@/lib/mobile/session-auth";
 import {
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+  dbInsert,
+  dbSelect,
+  dbUpdate,
+} from "@/lib/db/admin-client";
 import { GET, PATCH } from "./route";
 
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
   typeof requireMobileSession
 >;
-const mockedSupabaseSelect = supabaseSelect as jest.MockedFunction<
-  typeof supabaseSelect
+const mockedSupabaseSelect = dbSelect as jest.MockedFunction<
+  typeof dbSelect
 >;
-const mockedSupabaseInsert = supabaseInsert as jest.MockedFunction<
-  typeof supabaseInsert
+const mockedSupabaseInsert = dbInsert as jest.MockedFunction<
+  typeof dbInsert
 >;
-const mockedSupabaseUpdate = supabaseUpdate as jest.MockedFunction<
-  typeof supabaseUpdate
+const mockedSupabaseUpdate = dbUpdate as jest.MockedFunction<
+  typeof dbUpdate
 >;
 
 describe("GET /api/mobile/today", () => {

@@ -121,6 +121,168 @@ jest.mock("lucide-react", () => {
   return iconComponents;
 });
 
+jest.mock("@gynecology-chatbot/db/prisma", () => {
+  function getDbClient() {
+    try {
+      return require("@/lib/db/admin-client");
+    } catch {
+      return {};
+    }
+  }
+
+  function selectedColumns(select) {
+    if (!select || typeof select !== "object") return "*";
+    return Object.entries(select)
+      .filter(([, enabled]) => Boolean(enabled))
+      .map(([column]) => column)
+      .join(",");
+  }
+
+  function formatValue(value) {
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    return String(value);
+  }
+
+  function whereParams(where = {}) {
+    const params = [];
+    for (const [column, value] of Object.entries(where ?? {})) {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        if ("in" in value) {
+          params.push(`${column}=in.(${value.in.join(",")})`);
+        } else if ("not" in value && value.not === null) {
+          params.push(`${column}=not.is.null`);
+        } else {
+          for (const operator of ["eq", "gte", "lte", "lt", "gt"]) {
+            if (operator in value) {
+              params.push(`${column}=${operator}.${formatValue(value[operator])}`);
+            }
+          }
+        }
+      } else if (value === null) {
+        params.push(`${column}=is.null`);
+      } else if (value !== undefined) {
+        params.push(`${column}=eq.${formatValue(value)}`);
+      }
+    }
+    return params;
+  }
+
+  function orderParams(orderBy) {
+    if (!orderBy) return [];
+    const entries = Array.isArray(orderBy) ? orderBy : [orderBy];
+    return entries.flatMap((entry) =>
+      Object.entries(entry).map(([column, direction]) => {
+        if (typeof direction === "string") {
+          return `order=${column}.${direction}`;
+        }
+        return `order=${column}.asc`;
+      }),
+    );
+  }
+
+  function buildPath(table, args = {}) {
+    const params = [
+      `select=${selectedColumns(args.select)}`,
+      ...whereParams(args.where),
+      ...orderParams(args.orderBy),
+      args.take || args.limit ? `limit=${args.take ?? args.limit}` : null,
+    ].filter(Boolean);
+    return `${table}?${params.join("&")}`;
+  }
+
+  function firstRow(rows) {
+    return Array.isArray(rows) ? (rows[0] ?? null) : rows;
+  }
+
+  function normalizeDateFields(row, select) {
+    if (!row || typeof row !== "object") return row;
+    const next = { ...row };
+    const selected = select && typeof select === "object" ? Object.keys(select) : [];
+    for (const key of [...new Set([...Object.keys(next), ...selected])]) {
+      const shouldBeDate =
+        key === "date" ||
+        key.endsWith("_at") ||
+        key === "due_date" ||
+        key === "expires_at" ||
+        key === "revoked_at" ||
+        key === "last_message_at";
+      if (!shouldBeDate) continue;
+      if (next[key] === undefined && selected.includes(key)) {
+        next[key] = new Date("2026-04-17T00:00:00.000Z");
+      } else if (typeof next[key] === "string") {
+        next[key] = new Date(next[key]);
+      }
+    }
+    return next;
+  }
+
+  function createModel(table) {
+    return {
+      async findMany(args = {}) {
+        const { dbSelect } = getDbClient();
+        if (!dbSelect) return [];
+        const rows = await dbSelect(buildPath(table, args)).catch(() => []);
+        return Array.isArray(rows)
+          ? rows.map((row) => normalizeDateFields(row, args.select))
+          : rows;
+      },
+      async findFirst(args = {}) {
+        const rows = await this.findMany({ ...args, take: args.take ?? 1 });
+        return firstRow(rows);
+      },
+      async findUnique(args = {}) {
+        const rows = await this.findMany({ ...args, take: 1 });
+        return firstRow(rows);
+      },
+      async create(args = {}) {
+        const { dbInsert } = getDbClient();
+        if (!dbInsert) return args.data ?? {};
+        const rows = await dbInsert(table, args.data ?? {}).catch(() => []);
+        return firstRow(rows) ?? args.data ?? {};
+      },
+      async update(args = {}) {
+        const { dbUpdate } = getDbClient();
+        if (!dbUpdate) return args.data ?? {};
+        const rows = await dbUpdate(
+          `${table}?${whereParams(args.where).join("&")}`,
+          args.data ?? {},
+        ).catch(() => []);
+        return (
+          normalizeDateFields(firstRow(rows), args.select) ??
+          normalizeDateFields(args.data ?? {}, args.select)
+        );
+      },
+      async updateMany(args = {}) {
+        return this.update(args);
+      },
+      async delete(args = {}) {
+        const { dbDelete } = getDbClient();
+        if (!dbDelete) return {};
+        return dbDelete(`${table}?${whereParams(args.where).join("&")}`).catch(
+          () => [],
+        );
+      },
+    };
+  }
+
+  return {
+    prisma: new Proxy(
+      {
+        $queryRaw: jest.fn(async () => []),
+        $transaction: jest.fn(async (items) => Promise.all(items)),
+      },
+      {
+        get(target, prop) {
+          if (prop in target) return target[prop];
+          const model = createModel(String(prop));
+          target[prop] = model;
+          return model;
+        },
+      },
+    ),
+  };
+});
+
 // IntersectionObserver 모킹 (스크롤 관련 테스트용)
 global.IntersectionObserver = class IntersectionObserver {
   constructor() {}

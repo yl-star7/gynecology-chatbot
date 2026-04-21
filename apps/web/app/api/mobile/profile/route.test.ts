@@ -35,8 +35,8 @@ jest.mock("@/lib/mobile/session-auth", () => ({
   ),
 }));
 
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseSelect: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbSelect: jest.fn(),
 }));
 
 jest.mock("@/lib/privacy/phone-crypto", () => ({
@@ -45,7 +45,7 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
 
 import { updateMobileProfile } from "@/lib/mobile/auth";
 import { requireMobileSession } from "@/lib/mobile/session-auth";
-import { supabaseSelect } from "@/lib/supabase/admin-client";
+import { dbSelect } from "@/lib/db/admin-client";
 import { GET, PATCH } from "./route";
 
 const mockedUpdateMobileProfile = updateMobileProfile as jest.MockedFunction<
@@ -54,8 +54,8 @@ const mockedUpdateMobileProfile = updateMobileProfile as jest.MockedFunction<
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
   typeof requireMobileSession
 >;
-const mockedSupabaseSelect = supabaseSelect as jest.MockedFunction<
-  typeof supabaseSelect
+const mockedSupabaseSelect = dbSelect as jest.MockedFunction<
+  typeof dbSelect
 >;
 
 describe("GET /api/mobile/profile", () => {

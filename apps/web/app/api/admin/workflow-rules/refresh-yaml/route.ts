@@ -13,7 +13,7 @@ export async function POST() {
     const result = await refreshWorkflowFromStorage();
     if (!result) {
       return NextResponse.json(
-        { error: "Supabase Storage에서 YAML을 찾을 수 없습니다." },
+        { error: "GCS에서 YAML을 찾을 수 없습니다." },
         { status: 404 },
       );
     }

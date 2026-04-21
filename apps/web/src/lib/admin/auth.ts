@@ -1,17 +1,13 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { supabaseSelect } from "@/lib/supabase/admin-client";
+import { dbSelect } from "@/lib/db/admin-client";
 import { normalizePhoneNumberToE164 } from "@/lib/mobile/solapi-sms";
 import {
   computePhoneNumberBlindIndex,
   decryptPhoneNumber,
 } from "@/lib/privacy/phone-crypto";
-import {
-  hasDockerConfig,
-  hasSupabaseConfig,
-  resolveServerDataProvider,
-} from "@/lib/server-data-provider";
+import { hasDockerConfig } from "@/lib/server-data-provider";
 
 const ADMIN_SESSION_COOKIE = "gc_admin_session";
 
@@ -62,11 +58,7 @@ function getAdminAuthProvider(): AdminAuthProvider {
     return "mock";
   }
 
-  const provider = resolveServerDataProvider();
-  const hasBackendConfig =
-    provider === "docker" ? hasDockerConfig() : hasSupabaseConfig();
-
-  return hasBackendConfig ? "backend" : "mock";
+  return hasDockerConfig() ? "backend" : "mock";
 }
 
 function getAdminLoginPassword() {
@@ -128,7 +120,7 @@ function decodeAdminSession(cookieValue: string | undefined) {
 }
 
 async function findAdminProfileDisplayName(userId: string) {
-  const profiles = await supabaseSelect<AdminProfileRow[]>(
+  const profiles = await dbSelect<AdminProfileRow[]>(
     `pregnancy_profiles?select=display_name&user_id=eq.${userId}&limit=1`,
   );
 
@@ -151,7 +143,7 @@ export async function findAdminUserByPhoneNumber(phoneNumber: string) {
   }
 
   for (const candidate of createAdminPhoneCandidates(phoneNumber)) {
-    const users = await supabaseSelect<AdminUserRow[]>(
+    const users = await dbSelect<AdminUserRow[]>(
       `users?select=id,phone_number_encrypted,role&phone_number_blind_index=eq.${encodeURIComponent(computePhoneNumberBlindIndex(candidate))}&limit=1`,
     );
     const user = users[0];
@@ -225,7 +217,7 @@ export async function readAdminSessionUser() {
     };
   }
 
-  const users = await supabaseSelect<AdminUserRow[]>(
+  const users = await dbSelect<AdminUserRow[]>(
     `users?select=id,phone_number_encrypted,role&id=eq.${userId}&limit=1`,
   );
   const user = users[0];

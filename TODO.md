@@ -32,8 +32,8 @@
 
 ## P2 — 메인 워크플로우 관리 (현황 확인)
 
-- 메인 응답 경로는 이미 Schift workflow(`maternal-nursing.yaml` → Supabase Storage `workflow-config/`)로 서버 관리 중. route.ts는 workflow 호출 + Schift 장애 시 mobile-local Gemini fallback만 담당. 이관 불필요.
-- 추가 튜닝이 필요할 경우 `apps/web/src/lib/mobile/workflows/maternal-nursing.yaml`의 `prompts.system` / `prompts.template` 수정 후 Supabase Storage 업로드 → `refreshWorkflowFromStorage()` 또는 5분 TTL 경과로 반영.
+- 메인 응답 경로는 이미 Schift workflow(`maternal-nursing.yaml` → GCS `agaya-workflow-config/`)로 서버 관리 중. route.ts는 workflow 호출 + Schift 장애 시 mobile-local Gemini fallback만 담당. 이관 불필요.
+- 추가 튜닝이 필요할 경우 `packages/mobile-api/src/workflows/maternal-nursing.yaml`의 `prompts.system` / `prompts.template` 수정 후 GCS 업로드 → `refreshWorkflowFromStorage()` 또는 5분 TTL 경과로 반영.
 
 ## P3
 

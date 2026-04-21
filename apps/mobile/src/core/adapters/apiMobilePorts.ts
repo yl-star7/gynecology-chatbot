@@ -12,28 +12,26 @@ import type {
   TodayPort,
 } from "@gynecology-chatbot/app-core";
 import type { MobileApiClient } from "../../api/mobileApi.ts";
+import { createTodayIsoDate } from "../mobileBootstrap.model.ts";
 import {
   cacheChatSession,
   cacheHomeView,
   cachePregnancyWeeks,
   cacheProfileView,
+  cacheRecentChats,
+  cacheRecordDayView,
   cacheTodayView,
   clearCachedChatSession,
   clearCachedHomeView,
   clearCachedRecentChats,
   clearCachedRecordDayView,
   hasFreshCachedChatSession,
+  hasFreshCachedRecentChats,
+  hasFreshCachedRecordDayView,
   readCachedChatSession,
+  readCachedRecentChats,
+  readCachedRecordDayView,
 } from "../patientViewCache";
-
-function createTodayIsoDate() {
-  const now = new Date();
-  return [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-  ].join("-");
-}
 
 export class ApiMobileAuthAdapter implements AuthPort {
   private readonly client: MobileApiClient;
@@ -92,7 +90,16 @@ export class ApiMobileHomeAdapter implements MobileHomePort {
   }
 
   async getRecordDay(isoDate: string) {
+    const userId = this.getUserId();
+    if (hasFreshCachedRecordDayView(userId, isoDate)) {
+      const cached = readCachedRecordDayView(userId, isoDate);
+      if (cached) {
+        return cached;
+      }
+    }
+
     const payload = await this.client.fetchRecordDay(isoDate);
+    cacheRecordDayView(userId, isoDate, payload.recordDay);
     return payload.recordDay;
   }
 }
@@ -152,7 +159,16 @@ export class ApiMobileChatAdapter implements MobileChatPort {
   }
 
   async listRecentChats() {
+    const userId = this.getUserId();
+    if (hasFreshCachedRecentChats(userId)) {
+      const cached = readCachedRecentChats(userId);
+      if (cached) {
+        return cached;
+      }
+    }
+
     const payload = await this.client.fetchSessions();
+    cacheRecentChats(userId, payload.sessions);
     return payload.sessions;
   }
 
@@ -206,6 +222,7 @@ export class ApiMobileChatAdapter implements MobileChatPort {
     const result = await this.client.summarizeChatSession(sessionId);
     if (result.summarized) {
       const userId = this.getUserId();
+      clearCachedRecentChats(userId);
       clearCachedRecordDayView(userId, createTodayIsoDate());
     }
     return result;

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { preloadPatientAppData } from "./mobileBootstrap.model.ts";
+import {
+  createTodayIsoDate,
+  preloadPatientAppData,
+} from "./mobileBootstrap.model.ts";
 
 function createServices(calls: string[], rejectHome = false) {
   return {
@@ -101,4 +104,46 @@ test("preloadPatientAppData waits for every preload attempt even if one fails", 
     "record:2026-04-18",
     "today",
   ]);
+});
+
+test("preloadPatientAppData skips network warmups when fresh cache is available", async () => {
+  const calls: string[] = [];
+
+  await preloadPatientAppData({
+    currentUser: {
+      id: "user-1",
+      hasCompletedOnboarding: true,
+    },
+    services: createServices(calls),
+    todayIsoDate: "2026-04-18",
+    cacheState: {
+      hasFreshProfileView: () => true,
+      hasFreshHomeView: () => true,
+      hasFreshTodayView: () => false,
+      hasFreshPregnancyWeeks: () => true,
+      hasFreshRecentChats: () => true,
+      hasFreshRecordDayView: (_userId: string, isoDate: string) =>
+        isoDate === "2026-04-18",
+    },
+  });
+
+  assert.deepEqual(calls, ["today"]);
+});
+
+test("createTodayIsoDate uses Korean calendar days", () => {
+  const previousTimeZone = process.env.TZ;
+  process.env.TZ = "UTC";
+
+  try {
+    assert.equal(
+      createTodayIsoDate(new Date("2026-04-20T15:01:00.000Z")),
+      "2026-04-21",
+    );
+  } finally {
+    if (previousTimeZone === undefined) {
+      delete process.env.TZ;
+    } else {
+      process.env.TZ = previousTimeZone;
+    }
+  }
 });

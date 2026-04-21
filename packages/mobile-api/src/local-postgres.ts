@@ -1,4 +1,9 @@
 import { randomUUID } from "crypto";
+import {
+  addCalendarDays,
+  createKoreanDateKey,
+  diffCalendarDays,
+} from "@gynecology-chatbot/app-core/time";
 import { Pool, types } from "pg";
 import { createPhoneNumberStorage } from "./privacy/phone-crypto";
 import { buildLocalPostgresBootstrapSql } from "./local-postgres-schema";
@@ -177,32 +182,23 @@ function getQualifiedTable(table: string) {
 }
 
 function toIsoDate(input: Date) {
-  return input.toISOString().slice(0, 10);
+  return createKoreanDateKey(input);
 }
 
 function createSeedDates() {
   const now = new Date();
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const twoDaysAgo = new Date(now);
-  twoDaysAgo.setDate(now.getDate() - 2);
-  const fourDaysAgo = new Date(now);
-  fourDaysAgo.setDate(now.getDate() - 4);
+  const todayKey = createKoreanDateKey(now);
+  const yesterday = new Date(`${addCalendarDays(todayKey, -1)}T00:00:00.000Z`);
+  const twoDaysAgo = new Date(`${addCalendarDays(todayKey, -2)}T00:00:00.000Z`);
+  const fourDaysAgo = new Date(
+    `${addCalendarDays(todayKey, -4)}T00:00:00.000Z`,
+  );
 
   return { now, yesterday, twoDaysAgo, fourDaysAgo };
 }
 
 function calculatePregnancyMetricsFromDueDate(dueDateText: string) {
-  const dueDate = new Date(`${dueDateText}T00:00:00`);
-  const today = new Date();
-  const startOfToday = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate(),
-  );
-  const diffDays = Math.round(
-    (dueDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const diffDays = diffCalendarDays(dueDateText, createKoreanDateKey());
   const pregnancyDayCount = Math.max(0, Math.min(280, 280 - diffDays));
 
   return {
@@ -929,6 +925,10 @@ async function ensureSeedData() {
 }
 
 export async function ensureLocalPostgresReady() {
+  if (getLocalSchema() === "public") {
+    return;
+  }
+
   if (!ensurePromise) {
     ensurePromise = (async () => {
       const db = getPool();

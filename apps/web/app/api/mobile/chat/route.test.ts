@@ -27,10 +27,10 @@ jest.mock("@/lib/mobile/session-auth", () => ({
   }),
 }));
 
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseInsert: jest.fn(),
-  supabaseSelect: jest.fn(),
-  supabaseUpdate: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbInsert: jest.fn(),
+  dbSelect: jest.fn(),
+  dbUpdate: jest.fn(),
 }));
 
 var adminSupabaseSelectMock: jest.Mock;
@@ -38,7 +38,7 @@ var adminSupabaseInsertMock: jest.Mock;
 var adminSupabaseUpdateMock: jest.Mock;
 var getSupabaseAdminClientMock: jest.Mock;
 
-jest.mock("@/lib/supabase/admin-client", () => {
+jest.mock("@/lib/db/admin-client", () => {
   adminSupabaseSelectMock = jest.fn();
   adminSupabaseInsertMock = jest.fn();
   adminSupabaseUpdateMock = jest.fn();
@@ -200,14 +200,14 @@ jest.mock("@/lib/supabase/admin-client", () => {
   }
 
   return {
-    supabaseSelect: adminSupabaseSelectMock,
-    supabaseInsert: adminSupabaseInsertMock,
-    supabaseUpdate: adminSupabaseUpdateMock,
+    dbSelect: adminSupabaseSelectMock,
+    dbInsert: adminSupabaseInsertMock,
+    dbUpdate: adminSupabaseUpdateMock,
     getSupabaseAdminClient: getSupabaseAdminClientMock,
   };
 });
 
-jest.mock("@gynecology-chatbot/mobile-api/supabase/admin-client", () => {
+jest.mock("@gynecology-chatbot/mobile-api/db/admin-client", () => {
   if (!adminSupabaseSelectMock) {
     adminSupabaseSelectMock = jest.fn();
   }
@@ -219,9 +219,163 @@ jest.mock("@gynecology-chatbot/mobile-api/supabase/admin-client", () => {
   }
 
   return {
-    supabaseSelect: adminSupabaseSelectMock,
-    supabaseInsert: adminSupabaseInsertMock,
-    supabaseUpdate: adminSupabaseUpdateMock,
+    dbSelect: adminSupabaseSelectMock,
+    dbInsert: adminSupabaseInsertMock,
+    dbUpdate: adminSupabaseUpdateMock,
+  };
+});
+
+jest.mock("@gynecology-chatbot/db/prisma", () => {
+  const modelNames = [
+    "calendar_logs",
+    "chat_messages",
+    "chat_sessions",
+    "content_pregnancy_day_contents",
+    "content_pregnancy_week_data",
+    "content_week_checklists",
+    "content_week_questions",
+    "pregnancy_profiles",
+    "system_config",
+    "user_checklist_events",
+    "user_question_events",
+    "v_user_persona_profiles",
+  ];
+
+  function selectedColumns(select: Record<string, unknown> | undefined) {
+    if (!select) return "*";
+
+    const columns = Object.entries(select)
+      .filter(([, included]) => Boolean(included))
+      .map(([column]) => column);
+
+    if (
+      columns.includes("id") &&
+      columns.includes("title") &&
+      columns.includes("last_message_at")
+    ) {
+      return "id,title";
+    }
+
+    return columns.length > 0 ? columns.join(",") : "*";
+  }
+
+  function filterParams(where: Record<string, unknown> | undefined) {
+    if (!where) return [];
+
+    return Object.entries(where).flatMap(([column, value]) => {
+      if (value === null) return [`${column}=is.null`];
+      if (Array.isArray(value)) return [`${column}=in.(${value.join(",")})`];
+      if (
+        value &&
+        typeof value === "object" &&
+        "in" in (value as Record<string, unknown>) &&
+        Array.isArray((value as { in: unknown[] }).in)
+      ) {
+        return [`${column}=in.${(value as { in: unknown[] }).in.join(",")}`];
+      }
+      return [`${column}=eq.${String(value)}`];
+    });
+  }
+
+  function orderParams(
+    orderBy:
+      | Record<string, "asc" | "desc">
+      | Array<Record<string, "asc" | "desc">>
+      | undefined,
+  ) {
+    if (!orderBy) return [];
+
+    const orders = (Array.isArray(orderBy) ? orderBy : [orderBy]).flatMap(
+      (entry) =>
+        Object.entries(entry).map(([column, direction]) =>
+          direction === "desc" ? `${column}.desc` : `${column}.asc`,
+        ),
+    );
+
+    return orders.length > 0 ? [`order=${orders.join(",")}`] : [];
+  }
+
+  function pathFor(
+    model: string,
+    args: {
+      select?: Record<string, unknown>;
+      where?: Record<string, unknown>;
+      orderBy?:
+        | Record<string, "asc" | "desc">
+        | Array<Record<string, "asc" | "desc">>;
+      take?: number;
+    } = {},
+  ) {
+    const params = [
+      `select=${selectedColumns(args.select)}`,
+      ...filterParams(args.where),
+      ...orderParams(args.orderBy),
+      ...(typeof args.take === "number" ? [`limit=${args.take}`] : []),
+    ];
+
+    return `${model}?${params.join("&")}`;
+  }
+
+  function firstRow<T>(rows: T[] | null | undefined) {
+    return Array.isArray(rows) ? (rows[0] ?? null) : null;
+  }
+
+  function createDelegate(model: string) {
+    return {
+      findFirst: jest.fn(async (args = {}) =>
+        firstRow(await adminSupabaseSelectMock(pathFor(model, args))),
+      ),
+      findUnique: jest.fn(async (args = {}) =>
+        firstRow(await adminSupabaseSelectMock(pathFor(model, args))),
+      ),
+      findMany: jest.fn(
+        async (args = {}) => await adminSupabaseSelectMock(pathFor(model, args)),
+      ),
+      create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
+        const inserted = await adminSupabaseInsertMock(model, data);
+        return firstRow(inserted) ?? data;
+      }),
+      update: jest.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where?: Record<string, unknown>;
+          data: Record<string, unknown>;
+        }) => {
+          const updated = await adminSupabaseUpdateMock(
+            pathFor(model, { where }),
+            data,
+          );
+          return firstRow(updated) ?? data;
+        },
+      ),
+      updateMany: jest.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where?: Record<string, unknown>;
+          data: Record<string, unknown>;
+        }) => {
+          await adminSupabaseUpdateMock(pathFor(model, { where }), data);
+          return { count: 1 };
+        },
+      ),
+    };
+  }
+
+  const prisma = Object.fromEntries(
+    modelNames.map((model) => [model, createDelegate(model)]),
+  );
+
+  return {
+    prisma: {
+      ...prisma,
+      $transaction: jest.fn((items: Array<Promise<unknown>>) =>
+        Promise.all(items),
+      ),
+    },
   };
 });
 
@@ -249,10 +403,10 @@ jest.mock("@/lib/mobile/schift-workflow", () => ({
 
 import { requireMobileSession } from "@/lib/mobile/session-auth";
 import {
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+  dbInsert,
+  dbSelect,
+  dbUpdate,
+} from "@/lib/db/admin-client";
 import { generateText } from "ai";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import { runSchiftWorkflow } from "@/lib/mobile/schift-workflow";
@@ -269,14 +423,14 @@ import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
   typeof requireMobileSession
 >;
-const mockedSupabaseSelect = supabaseSelect as jest.MockedFunction<
-  typeof supabaseSelect
+const mockedSupabaseSelect = dbSelect as jest.MockedFunction<
+  typeof dbSelect
 >;
-const mockedSupabaseInsert = supabaseInsert as jest.MockedFunction<
-  typeof supabaseInsert
+const mockedSupabaseInsert = dbInsert as jest.MockedFunction<
+  typeof dbInsert
 >;
-const mockedSupabaseUpdate = supabaseUpdate as jest.MockedFunction<
-  typeof supabaseUpdate
+const mockedSupabaseUpdate = dbUpdate as jest.MockedFunction<
+  typeof dbUpdate
 >;
 const mockedGenerateText = generateText as jest.MockedFunction<
   typeof generateText
@@ -1731,6 +1885,18 @@ describe("POST /api/mobile/chat", () => {
           "최근 세션 요약: 최근 복통과 수분 부족 이야기를 나눴어요.",
         ),
         prompt: expect.stringContaining("최근 감정 톤: tired"),
+      }),
+    );
+    expect(mockedGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining(
+          "아기 정보와 엄마 정보를 한 answer에 섞지 마세요",
+        ),
+      }),
+    );
+    expect(mockedGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining("주간 질문은 answer 안에 합쳐 쓰지 마세요"),
       }),
     );
   });

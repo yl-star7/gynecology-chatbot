@@ -1,7 +1,7 @@
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseSelect: jest.fn(),
-  supabaseInsert: jest.fn(),
-  supabaseUpdate: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbSelect: jest.fn(),
+  dbInsert: jest.fn(),
+  dbUpdate: jest.fn(),
 }));
 
 import {
@@ -17,19 +17,19 @@ import {
   updateSessionMemory,
 } from "./chat-repository";
 import {
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+  dbInsert,
+  dbSelect,
+  dbUpdate,
+} from "@/lib/db/admin-client";
 
-const mockedSupabaseSelect = supabaseSelect as jest.MockedFunction<
-  typeof supabaseSelect
+const mockedSupabaseSelect = dbSelect as jest.MockedFunction<
+  typeof dbSelect
 >;
-const mockedSupabaseInsert = supabaseInsert as jest.MockedFunction<
-  typeof supabaseInsert
+const mockedSupabaseInsert = dbInsert as jest.MockedFunction<
+  typeof dbInsert
 >;
-const mockedSupabaseUpdate = supabaseUpdate as jest.MockedFunction<
-  typeof supabaseUpdate
+const mockedSupabaseUpdate = dbUpdate as jest.MockedFunction<
+  typeof dbUpdate
 >;
 
 describe("chat repository", () => {

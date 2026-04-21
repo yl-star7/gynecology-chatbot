@@ -7,13 +7,13 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname, "../.."),
   outputFileTracingIncludes: {
     "/api/internal/workflows/sync": [
-      "./src/lib/mobile/workflows/maternal-nursing.yaml",
+      "../../packages/mobile-api/src/workflows/maternal-nursing.yaml",
     ],
     "/api/admin/workflow-rules/bootstrap": [
-      "./src/lib/mobile/workflows/maternal-nursing.yaml",
+      "../../packages/mobile-api/src/workflows/maternal-nursing.yaml",
     ],
     "/api/admin/workflow-rules/refresh-yaml": [
-      "./src/lib/mobile/workflows/maternal-nursing.yaml",
+      "../../packages/mobile-api/src/workflows/maternal-nursing.yaml",
     ],
   },
 };

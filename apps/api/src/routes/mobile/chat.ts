@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createKoreanDateKey } from "@gynecology-chatbot/app-core/time";
 import { generateText, tool, stepCountIs } from "ai";
 import { z } from "zod";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
@@ -71,16 +72,7 @@ function normalizeSessionId(value: string) {
 }
 
 function getKstDateKey() {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
-  const month = parts.find((part) => part.type === "month")?.value ?? "01";
-  const day = parts.find((part) => part.type === "day")?.value ?? "01";
-  return `${year}-${month}-${day}`;
+  return createKoreanDateKey();
 }
 
 function getInternalWebhookBaseUrl(c: Context) {
@@ -100,7 +92,9 @@ function parseDateOnly(isoDate: string) {
   return new Date(`${isoDate}T00:00:00.000Z`);
 }
 
-function asStringRecord(value: Prisma.JsonValue): Record<string, string | null> {
+function asStringRecord(
+  value: Prisma.JsonValue,
+): Record<string, string | null> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
   }
@@ -289,6 +283,14 @@ app.post("/", async (c) => {
                 "6. 편지 후속 질문: 사용자의 답을 받으면 공감·정상화·의미화를 짧게 덧붙인 뒤 다음 역질문 1개만 이어가세요. 총 2~3개의 질문을 한 번에 하나씩 진행하세요. 기본은 자유 입력이고, 사용자가 막힐 때만 짧은 quickReplies를 보조로 붙일 수 있어요.",
                 "7. 태동/데일리 2차 질문: 편지 기반 질문이 2~3개 끝나면 허락을 다시 묻지 말고 태동이나 오늘의 몸 상태, 하루 흐름을 묻는 2차 질문으로 자연스럽게 자동 전환하세요. 여기서도 바로 종료하지 마세요.",
                 "8. 공감 대화 마무리: 사용자가 '괜찮아졌어요', '고마워요', '위로됐어요', '오늘은 여기까지' 처럼 **스스로 해소/감사/종료 의사를 표현할 때만** 짧고 따뜻하게 마무리하세요. 자동으로 종료하지 마세요.",
+                "",
+                "## 주차 정보와 주간 질문 분리",
+                "- 25주차 정보 요청처럼 사용자가 특정 주차의 아기/엄마 정보를 함께 물어도, 아기 정보와 엄마 정보를 한 answer에 섞지 마세요.",
+                "- 한 턴에는 아기 정보 또는 엄마 정보 중 하나의 엔티티만 다루고, 사용자가 둘 다 요청하면 먼저 더 자연스러운 순서의 1개를 짧게 안내한 뒤 다음 엔티티를 이어서 볼지 물어보세요.",
+                "- 기본 순서는 아기 정보 → 엄마 정보 → 생활 체크리스트 → 주간 질문입니다. 사용자가 엄마 몸 변화나 증상을 직접 물으면 엄마 정보를 먼저 답하고, 그 다음 아기 정보나 주간 질문으로 이어가세요.",
+                "- 검색된 내부 데이터나 사전 참고 자료가 많아도 이번 answer에는 핵심 엔티티 1개만 담고, 나머지는 다음 턴으로 남겨두세요.",
+                "- 주간 질문은 answer 안에 합쳐 쓰지 마세요. 주간 질문/체크리스트/모아애착 질문은 본문 정보와 분리된 다음 단계로 다루고, answer에서는 짧게 연결만 하세요.",
+                "- 사용자가 아직 체크리스트 완료, 질문 선택, 질문 답변 같은 액션을 하지 않았다면 '생각해볼 질문'이나 별도 모아애착 질문을 덧붙이지 마세요.",
                 input.workflowEnabled
                   ? "워크플로우 실행이 실패한 경우에만 searchPregnancyKnowledge 도구를 사용하세요."
                   : "의료 관련 질문에는 searchPregnancyKnowledge 도구를 사용해 근거 기반으로 답변하세요.",
@@ -304,6 +306,7 @@ app.post("/", async (c) => {
                 "- 개발자 용어 금지",
                 "- 의료 진단 확정 표현 금지 ('~일 수 있어요', '담당 의료진과 상의해보세요')",
                 "- 의료 정보를 나열하듯 전달하지 말고, 산모와 대화하듯 따뜻한 대화체로 자연스럽게 녹여서 전달하세요.",
+                "- 정보형 답변은 한 턴에 핵심 엔티티 1개만 250~380자 안팎으로 짧게 설명하세요.",
                 "- 응답 중간이나 끝에서 산모의 요즘 상태, 기분, 생활 습관 등을 자연스럽게 물어보세요. 딱딱한 '궁금한 점이 있으신가요?' 대신, 대화 흐름에 맞는 구체적인 질문을 해주세요. (예: '요즘 잠은 좀 잘 주무시나요?', '오늘 하루는 어떠셨어요?')",
                 ...(input.memorySystemBlock ? [input.memorySystemBlock] : []),
                 "임신 주차 정보가 주어지면 그 주차와 인접 주차 기준으로 설명하세요.",

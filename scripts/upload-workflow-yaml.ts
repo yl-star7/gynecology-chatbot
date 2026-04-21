@@ -1,5 +1,5 @@
 /**
- * 모성간호 상담 워크플로우 YAML을 GCS(`workflow-config` bucket)에 업로드하고,
+ * 모성간호 상담 워크플로우 YAML을 GCS(`agaya-workflow-config` bucket)에 업로드하고,
  * admin refresh 엔드포인트를 호출해 서버 캐시를 즉시 갱신한다.
  *
  * Usage:
@@ -18,11 +18,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { Storage } from "@google-cloud/storage";
 
-const BUCKET = "workflow-config";
+const BUCKET = process.env.GCS_WORKFLOW_BUCKET ?? "agaya-workflow-config";
 const OBJECT_PATH = "maternal-nursing.yaml";
 const YAML_PATH = path.resolve(
   __dirname,
-  "../apps/web/src/lib/mobile/workflows/maternal-nursing.yaml",
+  "../packages/mobile-api/src/workflows/maternal-nursing.yaml",
 );
 
 function getEnv(name: string): string {
@@ -32,6 +32,12 @@ function getEnv(name: string): string {
     process.exit(1);
   }
   return value;
+}
+
+function getErrorCode(error: unknown) {
+  return error && typeof error === "object" && "code" in error
+    ? (error as { code?: unknown }).code
+    : null;
 }
 
 async function uploadToStorage(): Promise<void> {
@@ -48,9 +54,18 @@ async function uploadToStorage(): Promise<void> {
       undefined,
   });
   const bucket = storage.bucket(BUCKET);
-  const [exists] = await bucket.exists();
-  if (!exists) {
-    await bucket.create();
+  try {
+    const [exists] = await bucket.exists();
+    if (!exists) {
+      await bucket.create();
+    }
+  } catch (error) {
+    if (getErrorCode(error) !== 403) {
+      throw error;
+    }
+    console.warn(
+      "[upload-workflow-yaml] bucket existence check denied — attempting object upload to existing bucket",
+    );
   }
   await bucket.file(OBJECT_PATH).save(body, {
     resumable: false,

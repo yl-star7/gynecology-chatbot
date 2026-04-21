@@ -203,6 +203,7 @@ export interface MobileWeeklyEncyclopediaSection {
 
 export interface MobilePregnancyWeekSummary {
   weekNumber: number;
+  linkEntityId?: string | null;
   title: string;
   babySizeLabel: string | null;
   babySummary: string | null;

@@ -13,12 +13,6 @@ import { noStoreJson } from "../../lib/responses.js";
 
 const app = new Hono();
 
-type SessionRow = {
-  id: string;
-  title: string;
-  last_message_at: string | null;
-};
-
 type MessagePreviewRow = {
   session_id: string;
   plain_text: string | null;
@@ -27,6 +21,11 @@ type MessagePreviewRow = {
     text?: string;
     choices?: unknown[] | null;
   }> | null;
+};
+
+type SessionSummaryRow = {
+  session_id: string | null;
+  summary: string | null;
 };
 
 function toIsoString(value: Date | null | undefined) {
@@ -54,20 +53,46 @@ app.get("/", async (c) => {
     });
 
     const sessionIds = sessions.map((session) => session.id);
-    const latestMessages =
+    const [latestMessages, summaryRows] =
       sessionIds.length > 0
-        ? await prisma.chat_messages.findMany({
-            where: {
-              session_id: { in: sessionIds },
-            },
-            orderBy: [{ created_at: "desc" }],
-            select: {
-              session_id: true,
-              plain_text: true,
-              parts: true,
-            },
-          })
-        : [];
+        ? await Promise.all([
+            prisma.chat_messages.findMany({
+              where: {
+                session_id: { in: sessionIds },
+              },
+              orderBy: [{ created_at: "desc" }],
+              select: {
+                session_id: true,
+                plain_text: true,
+                parts: true,
+              },
+            }),
+            prisma.calendar_logs.findMany({
+              where: {
+                user_id: userId,
+                session_id: { in: sessionIds },
+                entry_type: "ai_summary",
+              },
+              orderBy: [{ created_at: "desc" }],
+              select: {
+                session_id: true,
+                summary: true,
+              },
+            }),
+          ])
+        : [[], []];
+
+    const summaryBySessionId = new Map<string, string>();
+    for (const row of summaryRows as SessionSummaryRow[]) {
+      if (!row.session_id || summaryBySessionId.has(row.session_id)) {
+        continue;
+      }
+
+      const summary = row.summary?.replace(/\s+/g, " ").trim();
+      if (summary) {
+        summaryBySessionId.set(row.session_id, summary);
+      }
+    }
 
     const previewBySessionId = new Map<string, string>();
     for (const message of latestMessages) {
@@ -89,7 +114,10 @@ app.get("/", async (c) => {
         sessions.map((session) => ({
           ...session,
           last_message_at: toIsoString(session.last_message_at),
-          last_message_preview: previewBySessionId.get(session.id) ?? null,
+          last_message_preview:
+            summaryBySessionId.get(session.id) ??
+            previewBySessionId.get(session.id) ??
+            null,
         })),
       ),
     });

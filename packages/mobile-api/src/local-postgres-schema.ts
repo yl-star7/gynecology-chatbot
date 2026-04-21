@@ -10,6 +10,12 @@ function getQualifiedTable(schema: string, table: string) {
   return `${assertIdentifier(schema)}.${assertIdentifier(table)}`;
 }
 
+function getIndexName(schema: string, index: string) {
+  return schema === "public"
+    ? assertIdentifier(index)
+    : assertIdentifier(`${schema}_${index}`);
+}
+
 export function buildLocalPostgresBootstrapSql(schema: string) {
   return `
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "users")} (
@@ -296,10 +302,10 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           completed_at timestamptz
         );
 
-        CREATE INDEX IF NOT EXISTS ${assertIdentifier(schema)}."idx_content_paraphrase_runs_target_week"
+        CREATE INDEX IF NOT EXISTS ${getIndexName(schema, "idx_content_paraphrase_runs_target_week")}
           ON ${getQualifiedTable(schema, "content_paraphrase_runs")} (target_week_number, created_at DESC);
 
-        CREATE INDEX IF NOT EXISTS ${assertIdentifier(schema)}."idx_content_paraphrase_runs_status"
+        CREATE INDEX IF NOT EXISTS ${getIndexName(schema, "idx_content_paraphrase_runs_status")}
           ON ${getQualifiedTable(schema, "content_paraphrase_runs")} (status);
 
         CREATE TABLE IF NOT EXISTS ${getQualifiedTable(schema, "content_paraphrased_items")} (
@@ -328,13 +334,13 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           updated_at timestamptz NOT NULL DEFAULT now()
         );
 
-        CREATE INDEX IF NOT EXISTS ${assertIdentifier(schema)}."idx_content_paraphrased_items_week_category"
+        CREATE INDEX IF NOT EXISTS ${getIndexName(schema, "idx_content_paraphrased_items_week_category")}
           ON ${getQualifiedTable(schema, "content_paraphrased_items")} (source_week_number, category, status);
 
-        CREATE INDEX IF NOT EXISTS ${assertIdentifier(schema)}."idx_content_paraphrased_items_source_hash"
+        CREATE INDEX IF NOT EXISTS ${getIndexName(schema, "idx_content_paraphrased_items_source_hash")}
           ON ${getQualifiedTable(schema, "content_paraphrased_items")} (source_hash);
 
-        CREATE UNIQUE INDEX IF NOT EXISTS ${assertIdentifier(schema)}."idx_content_paraphrased_items_active_source"
+        CREATE UNIQUE INDEX IF NOT EXISTS ${getIndexName(schema, "idx_content_paraphrased_items_active_source")}
           ON ${getQualifiedTable(schema, "content_paraphrased_items")} (
             source_table,
             source_week_number,

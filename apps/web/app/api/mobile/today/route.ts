@@ -7,51 +7,16 @@ import {
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
 import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
+import {
+  calculateCurrentPregnancyWeek,
+  createKstDateKey,
+} from "./today-date.model";
 
 type ProfileRow = {
   pregnancy_week: number | null;
   pregnancy_day_in_week: number | null;
   due_date: string | null;
 };
-
-function getKstDate(): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(
-    new Date(),
-  );
-}
-
-const MAX_PREGNANCY_DAYS = 294;
-
-function calculateCurrentPregnancyWeek(dueDate: string): {
-  week: number;
-  dayInWeek: number;
-  postDue: boolean;
-} {
-  const due = new Date(`${dueDate}T00:00:00`);
-  const today = new Date();
-  const startOfToday = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate(),
-  );
-  const diffDays = Math.round(
-    (due.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24),
-  );
-  const pregnancyDayCount = Math.max(
-    0,
-    Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diffDays),
-  );
-  const postDue = diffDays < 0;
-
-  if (postDue) {
-    return { week: 40, dayInWeek: 0, postDue: true };
-  }
-
-  const rawWeek = Math.floor(pregnancyDayCount / 7);
-  const week = Math.max(1, Math.min(42, rawWeek));
-  const dayInWeek = pregnancyDayCount % 7;
-  return { week, dayInWeek, postDue: false };
-}
 
 type WeekRow = {
   id: string;
@@ -186,7 +151,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const todayDate = getKstDate();
+    const todayDate = createKstDateKey();
     const [dayRow, datedChecklistRows, genericChecklistRows, infoViewRow] =
       await Promise.all([
         prisma.content_pregnancy_day_contents.findFirst({
@@ -307,7 +272,7 @@ export async function PATCH(request: NextRequest) {
     const action = typeof body.action === "string" ? body.action : "";
 
     if (action === "view_info") {
-      const todayDate = getKstDate();
+      const todayDate = createKstDateKey();
       const existingInfoRow = await prisma.calendar_logs.findFirst({
         where: {
           user_id: userId,

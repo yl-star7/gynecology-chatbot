@@ -1,5 +1,9 @@
 import { Hono } from "hono";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
+import {
+  createKoreanDateKey,
+  diffCalendarDays,
+} from "@gynecology-chatbot/app-core/time";
 import { sanitizeInlineCitationMarkers } from "@gynecology-chatbot/mobile-api/chat/sanitizers";
 import {
   mobileRouteErrorResponse,
@@ -16,9 +20,7 @@ type ProfileRow = {
 };
 
 function getKstDate(): string {
-  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(
-    new Date(),
-  );
+  return createKoreanDateKey();
 }
 
 const MAX_PREGNANCY_DAYS = 294;
@@ -28,16 +30,7 @@ function calculateCurrentPregnancyWeek(dueDate: string): {
   dayInWeek: number;
   postDue: boolean;
 } {
-  const due = new Date(`${dueDate}T00:00:00`);
-  const today = new Date();
-  const startOfToday = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate(),
-  );
-  const diffDays = Math.round(
-    (due.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const diffDays = diffCalendarDays(dueDate, getKstDate());
   const pregnancyDayCount = Math.max(
     0,
     Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diffDays),
@@ -64,13 +57,6 @@ type DayContentRow = {
   baby_development_payload: { items?: string[] } | null;
   baby_message: string | null;
   mother_changes_payload: { items?: string[] } | null;
-};
-
-type ChecklistRow = {
-  id: string;
-  title: string | null;
-  description: string | null;
-  display_order: number | null;
 };
 
 type ChecklistEventRow = {

@@ -88,7 +88,7 @@ describe("ensureLocalPostgresReady", () => {
     );
   });
 
-  test("does not seed completed onboarding payload for default local user", async () => {
+  test("seeds local onboarding defaults without marking onboarding complete", async () => {
     const queryMock = jest.fn().mockResolvedValue({ rows: [] });
 
     jest.doMock("pg", () => ({
@@ -109,7 +109,13 @@ describe("ensureLocalPostgresReady", () => {
     )?.[1];
 
     expect(pregnancyProfileParams).toBeDefined();
-    expect(JSON.parse(String(pregnancyProfileParams?.[7]))).toEqual({});
+    expect(JSON.parse(String(pregnancyProfileParams?.[7]))).toEqual({
+      pregnancyWeekOrDueDate: "29",
+      tonePreference: "차분하게",
+      babyNickname: "튼튼이",
+      notificationTime: "08:30",
+      themeKey: "default",
+    });
   });
 
   test("seeds fruit-based baby size comparisons for pregnancy week data", async () => {

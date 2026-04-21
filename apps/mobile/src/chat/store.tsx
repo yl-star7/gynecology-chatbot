@@ -1,5 +1,11 @@
 import type { ChatMessage, ChatSession } from "@gynecology-chatbot/app-core";
-import { createContext, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 
 interface ChatSessionsContextValue {
   sessions: ChatSession[];
@@ -14,49 +20,63 @@ const ChatSessionsContext = createContext<ChatSessionsContextValue | null>(
 
 export function ChatSessionsProvider({
   children,
-  userId,
 }: {
   children: React.ReactNode;
   userId?: string | null;
 }) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
 
+  const getSession = useCallback(
+    (sessionId: string) => {
+      const inMemorySession =
+        sessions.find((session) => session.id === sessionId) ?? null;
+
+      return (
+        inMemorySession ?? {
+          id: sessionId,
+          title: "새 상담",
+          messages: [],
+        }
+      );
+    },
+    [sessions],
+  );
+
+  const replaceSession = useCallback(
+    (_sessionId: string, session: ChatSession) => {
+      setSessions((current) => [
+        session,
+        ...current.filter((item) => item.id !== session.id),
+      ]);
+    },
+    [],
+  );
+
+  const appendMessage = useCallback(
+    (sessionId: string, title: string, message: ChatMessage) => {
+      setSessions((current) => {
+        const existing = current.find((session) => session.id === sessionId);
+        const nextSession = existing
+          ? { ...existing, title, messages: [...existing.messages, message] }
+          : { id: sessionId, title, messages: [message] };
+
+        return [
+          nextSession,
+          ...current.filter((session) => session.id !== sessionId),
+        ];
+      });
+    },
+    [],
+  );
+
   const value = useMemo<ChatSessionsContextValue>(
     () => ({
       sessions,
-      getSession(sessionId) {
-        const inMemorySession =
-          sessions.find((session) => session.id === sessionId) ?? null;
-
-        return (
-          inMemorySession ?? {
-            id: sessionId,
-            title: "새 상담",
-            messages: [],
-          }
-        );
-      },
-      replaceSession(_sessionId, session) {
-        setSessions((current) => [
-          session,
-          ...current.filter((item) => item.id !== session.id),
-        ]);
-      },
-      appendMessage(sessionId, title, message) {
-        setSessions((current) => {
-          const existing = current.find((session) => session.id === sessionId);
-          const nextSession = existing
-            ? { ...existing, title, messages: [...existing.messages, message] }
-            : { id: sessionId, title, messages: [message] };
-
-          return [
-            nextSession,
-            ...current.filter((session) => session.id !== sessionId),
-          ];
-        });
-      },
+      getSession,
+      replaceSession,
+      appendMessage,
     }),
-    [sessions, userId],
+    [appendMessage, getSession, replaceSession, sessions],
   );
 
   return (

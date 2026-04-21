@@ -1,9 +1,14 @@
+import {
+  createKoreanDateKey,
+  diffCalendarDays,
+  readIsoDateKey,
+} from "@gynecology-chatbot/app-core";
+
 const MIN_DISPLAY_WEEK = 1;
 const MAX_DISPLAY_WEEK = 42;
 const MIN_IMAGE_WEEK = 5;
 const MAX_IMAGE_WEEK = 40;
 const MAX_PREGNANCY_DAYS = 294;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 type PregnancyWeekKnownState = {
   kind: "week";
@@ -32,11 +37,9 @@ function parseWeekLabel(label?: string | null) {
 
 function computePregnancyDayFromDueDate(dueDate?: string | null, now?: Date) {
   if (!dueDate) return null;
-  const due = new Date(dueDate);
-  if (Number.isNaN(due.getTime())) return null;
-  const base = now ?? new Date();
-  const startOfBase = new Date(base.getFullYear(), base.getMonth(), base.getDate());
-  const diff = Math.round((due.getTime() - startOfBase.getTime()) / MS_PER_DAY);
+  const dueDateKey = readIsoDateKey(dueDate);
+  if (!dueDateKey) return null;
+  const diff = diffCalendarDays(dueDateKey, createKoreanDateKey(now));
   return Math.max(0, Math.min(MAX_PREGNANCY_DAYS, MAX_PREGNANCY_DAYS - diff));
 }
 
@@ -51,9 +54,9 @@ function computeWeekFromDueDate(dueDate?: string | null, now?: Date) {
 
 function isPostDue(dueDate?: string | null, now?: Date) {
   if (!dueDate) return false;
-  const due = new Date(dueDate);
-  if (Number.isNaN(due.getTime())) return false;
-  return due.getTime() < (now ?? new Date()).getTime();
+  const dueDateKey = readIsoDateKey(dueDate);
+  if (!dueDateKey) return false;
+  return diffCalendarDays(dueDateKey, createKoreanDateKey(now)) < 0;
 }
 
 export function createPregnancyWeekState(input: {

@@ -268,16 +268,24 @@ export function AdminWeekOverlay({
                 <div className={styles.panelStat}>
                   <span className={styles.metaLabel}>최근 수정</span>
                   <strong>
-                    {(() => {
-                      const d = new Date(selectedWeekDetail.updatedAt);
-                      return `${d.getMonth() + 1}월 ${d.getDate()}일`;
-                    })()}
+	                    {(() => {
+	                      const d = new Date(selectedWeekDetail.updatedAt);
+	                      return d.toLocaleDateString("ko-KR", {
+	                        month: "long",
+	                        day: "numeric",
+	                        timeZone: "Asia/Seoul",
+	                      });
+	                    })()}
                   </strong>
                   <small style={{ color: "var(--admin-text-soft)" }}>
-                    {(() => {
-                      const d = new Date(selectedWeekDetail.updatedAt);
-                      return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-                    })()}
+	                    {(() => {
+	                      const d = new Date(selectedWeekDetail.updatedAt);
+	                      return d.toLocaleTimeString("ko-KR", {
+	                        hour: "2-digit",
+	                        minute: "2-digit",
+	                        timeZone: "Asia/Seoul",
+	                      });
+	                    })()}
                   </small>
                 </div>
               </div>

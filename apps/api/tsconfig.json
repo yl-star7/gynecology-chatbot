@@ -16,7 +16,8 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@/lib/*": ["../../packages/mobile-api/src/*"]
     }
   },
   "include": ["src/**/*.ts"],

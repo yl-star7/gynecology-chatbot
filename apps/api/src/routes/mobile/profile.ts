@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import {
   DEFAULT_MOBILE_THEME_KEY,
+  createKoreanDateKey,
   resolveMobileThemeKey,
 } from "@gynecology-chatbot/app-core";
 import {
@@ -149,16 +150,7 @@ function formatTimeOnly(value: Date | null | undefined) {
 }
 
 function getKstDateKey() {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
-  const month = parts.find((part) => part.type === "month")?.value ?? "01";
-  const day = parts.find((part) => part.type === "day")?.value ?? "01";
-  return `${year}-${month}-${day}`;
+  return createKoreanDateKey();
 }
 
 function parseDateOnly(isoDate: string) {

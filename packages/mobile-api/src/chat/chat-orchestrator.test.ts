@@ -4,7 +4,7 @@ import { buildChatOrchestrator } from "./chat-orchestrator";
 import type { PromptContext } from "./chat-repository";
 
 describe("chat orchestrator", () => {
-  it("creates follow-up messages and persists prompt events for selected questions", async () => {
+  it("does not append document follow-ups when workflow memory controls the next step", async () => {
     const promptContext: PromptContext = {
       pregnancyWeek: 13,
       dayNumber: 1,
@@ -60,6 +60,11 @@ describe("chat orchestrator", () => {
     const updateSession = jest.fn().mockResolvedValue(undefined);
     const updateProfile = jest.fn().mockResolvedValue(undefined);
     const dispatchPersonaSignalWebhook = jest.fn().mockResolvedValue(undefined);
+    const buildFollowUps = jest.fn().mockReturnValue({
+      messages: [],
+      selectedChecklists: [],
+      selectedQuestions: [],
+    });
 
     const orchestrator = buildChatOrchestrator({
       ensureSession: jest.fn().mockResolvedValue({ sessionId: "session-1" }),
@@ -91,11 +96,7 @@ describe("chat orchestrator", () => {
       updateSessionMemory: updateSession,
       updateProfileMemory: updateProfile,
       dispatchPersonaSignalWebhook,
-      buildFollowUps: jest.fn().mockReturnValue({
-        messages: [],
-        selectedChecklists: [],
-        selectedQuestions: [],
-      }),
+      buildFollowUps,
       createPromptEvents: jest.fn().mockResolvedValue(undefined),
       getAlreadyPromptedIds: jest.fn().mockResolvedValue({
         checklistIds: new Set<string>(),
@@ -114,6 +115,7 @@ describe("chat orchestrator", () => {
 
     expect(result.assistantMessages).toHaveLength(1);
     expect(saveAssistantMessages).toHaveBeenCalled();
+    expect(buildFollowUps).not.toHaveBeenCalled();
     expect(updateSession).toHaveBeenCalledWith(
       "session-1",
       expect.objectContaining({ compactSummary: "요약" }),
@@ -121,6 +123,141 @@ describe("chat orchestrator", () => {
     );
     expect(updateProfile).not.toHaveBeenCalled();
     expect(dispatchPersonaSignalWebhook).not.toHaveBeenCalled();
+  });
+
+  it("strips weekly prompt content from the main answer before saving separate follow-ups", async () => {
+    const promptContext: PromptContext = {
+      pregnancyWeek: 25,
+      dayNumber: 1,
+      week: {
+        id: "week-25",
+        week_number: 25,
+        title: "25주차",
+        baby_summary: null,
+        mother_summary: null,
+        warning_signs: null,
+        recommended_actions: null,
+        checklist_intro: "오늘 할 일",
+        question_intro: "생각해볼 질문",
+        status: "published",
+      },
+      dayContent: null,
+      checklists: [
+        {
+          id: "check-1",
+          code: "drink-water",
+          title: "수분 섭취 체크",
+          description: null,
+          checklist_payload: null,
+          display_order: 1,
+          is_required: true,
+        },
+      ],
+      questions: [
+        {
+          id: "question-1",
+          code: "main-concern",
+          question_text: "오늘 가장 걱정되는 점은 무엇인가요?",
+          question_type: "text",
+          help_text: null,
+          question_payload: {},
+          display_order: 1,
+          is_required: true,
+        },
+      ],
+      tonePreference: null,
+      profileMemory: null,
+      sessionMemory: null,
+      onboardingPayload: null,
+      missingFields: [],
+    };
+    const followUpMessage = {
+      role: "assistant" as const,
+      createdAtLabel: "방금 전",
+      parts: [
+        {
+          type: "text" as const,
+          id: "question-text-question-1",
+          tag: "question" as const,
+          contentId: "question-1",
+          contentCode: "main-concern",
+          text: "생각해볼 질문\n오늘 가장 걱정되는 점은 무엇인가요?",
+        },
+      ],
+    };
+    const saveAssistantMessages = jest
+      .fn()
+      .mockResolvedValue([
+        { id: "assistant-main" },
+        { id: "assistant-followup" },
+      ]);
+
+    const orchestrator = buildChatOrchestrator({
+      ensureSession: jest.fn().mockResolvedValue({ sessionId: "session-1" }),
+      saveUserMessage: jest.fn().mockResolvedValue({ id: "user-message-1" }),
+      touchSessionActivity: jest.fn().mockResolvedValue(undefined),
+      recordUserAction: jest.fn().mockResolvedValue(undefined),
+      markOutstandingPromptEventsAnswered: jest
+        .fn()
+        .mockResolvedValue({ answeredCount: 0 }),
+      getPromptContext: jest.fn().mockResolvedValue(promptContext),
+      resolveAssistantResponse: jest.fn().mockResolvedValue({
+        assistantMessage: {
+          id: "assistant-1",
+          role: "assistant",
+          createdAtLabel: "방금 전",
+          parts: [
+            {
+              type: "text",
+              id: "text-1",
+              text: [
+                "25주차 아기 정보예요.",
+                "오늘 가장 걱정되는 점은 무엇인가요?",
+                "수분 섭취 체크",
+              ].join("\n"),
+            },
+          ],
+        } as ChatMessage,
+        workflowMemoryPayload: null,
+      }),
+      saveAssistantMessages,
+      updateSessionMemory: jest.fn().mockResolvedValue(undefined),
+      updateProfileMemory: jest.fn().mockResolvedValue(undefined),
+      dispatchPersonaSignalWebhook: jest.fn().mockResolvedValue(undefined),
+      buildFollowUps: jest.fn().mockReturnValue({
+        messages: [followUpMessage],
+        selectedChecklists: [],
+        selectedQuestions: [promptContext.questions[0]],
+      }),
+      createPromptEvents: jest.fn().mockResolvedValue(undefined),
+      getAlreadyPromptedIds: jest.fn().mockResolvedValue({
+        checklistIds: new Set<string>(),
+        questionIds: new Set<string>(),
+      }),
+    });
+
+    const result = await orchestrator({
+      userId: "user-1",
+      text: "25주차 아기 정보 알려줘",
+      sessionId: "session-1",
+      pregnancyWeek: 25,
+      imageDataUris: [],
+      hardGuardrailReason: null,
+    });
+
+    const mainText = result.assistantMessages[0]?.parts[0];
+    expect(mainText).toEqual(
+      expect.objectContaining({
+        type: "text",
+        text: "25주차 아기 정보예요.",
+      }),
+    );
+    expect(result.assistantMessages[1]).toEqual(followUpMessage);
+    expect(saveAssistantMessages).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: result.assistantMessages,
+      }),
+    );
   });
 
   it("skips document follow-ups while letter reflection flow is active", async () => {

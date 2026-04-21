@@ -1,10 +1,4 @@
-function toLocalDateKey(date: Date) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
+import { createKoreanDateKey } from "@gynecology-chatbot/app-core";
 
 export function isPastConversationSession(
   lastMessageAtIso: string | null | undefined,
@@ -19,5 +13,5 @@ export function isPastConversationSession(
     return false;
   }
 
-  return toLocalDateKey(lastDate) !== toLocalDateKey(now);
+  return createKoreanDateKey(lastDate) !== createKoreanDateKey(now);
 }

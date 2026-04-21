@@ -1,5 +1,5 @@
 import type { UserActionType } from "@gynecology-chatbot/app-core";
-import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
+import { dbInsert } from "./db/admin-client";
 
 export interface RecordUserActionInput {
   userId: string;
@@ -15,14 +15,12 @@ export async function recordUserAction(input: RecordUserActionInput) {
   }
 
   try {
-    await prisma.user_action_logs.create({
-      data: {
-        user_id: input.userId,
-        session_id: input.sessionId ?? null,
-        message_id: input.messageId ?? null,
-        action_type: input.actionType,
-        payload: (input.payload ?? {}) as Prisma.InputJsonValue,
-      },
+    await dbInsert("user_action_logs", {
+      user_id: input.userId,
+      session_id: input.sessionId ?? null,
+      message_id: input.messageId ?? null,
+      action_type: input.actionType,
+      payload: input.payload ?? {},
     });
   } catch (error) {
     console.warn("failed to record user action", error);

@@ -1,5 +1,5 @@
 import Expo from "expo-server-sdk";
-import { prisma } from "@gynecology-chatbot/db/prisma";
+import { dbSelect } from "./db/admin-client";
 import { decryptPhoneNumber } from "./privacy/phone-crypto";
 import { sendSmsMessage } from "./solapi-sms";
 
@@ -74,23 +74,16 @@ export async function sendDailyPushNotifications(
 ) {
   // 1. Query notification-enabled targets.
   const allTargets = (
-    await prisma.pregnancy_profiles.findMany({
-      where: { notification_enabled: true },
-      select: {
-        user_id: true,
-        push_token: true,
-        pregnancy_week: true,
-        display_name: true,
-        notification_time: true,
-      },
-    })
+    await dbSelect<PushTargetRow[]>(
+      "pregnancy_profiles?select=user_id,push_token,pregnancy_week,display_name,notification_time&notification_enabled=eq.true",
+    )
   ).map((target) => ({
     user_id: target.user_id,
     push_token: target.push_token,
     pregnancy_week: target.pregnancy_week,
     display_name: target.display_name,
     notification_time: target.notification_time
-      ? target.notification_time.toISOString().slice(11, 16)
+      ? target.notification_time.slice(0, 5)
       : null,
   }));
   const targets = filterTargetsForScheduledDelivery(allTargets, options);
@@ -133,13 +126,9 @@ export async function sendDailyPushNotifications(
     const userIds = smsTargets.map((target) => target.user_id);
     const userRows = userIds.length
       ? (
-          await prisma.users.findMany({
-            where: { id: { in: userIds } },
-            select: {
-              id: true,
-              phone_number_encrypted: true,
-            },
-          })
+          await dbSelect<SmsUserRow[]>(
+            `users?select=id,phone_number_encrypted&id=in.(${userIds.join(",")})`,
+          )
         ).filter(
           (row): row is SmsUserRow =>
             typeof row.phone_number_encrypted === "string",

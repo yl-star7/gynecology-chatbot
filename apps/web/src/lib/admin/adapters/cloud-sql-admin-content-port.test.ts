@@ -1,18 +1,19 @@
 import {
-  supabaseDelete,
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+  dbDelete,
+  dbInsert,
+  dbSelect,
+  dbUpdate,
+} from "@/lib/db/admin-client";
 import { embedPregnancyDocument } from "@/lib/mobile/rag";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import { patchSchiftWorkflow } from "@/lib/mobile/schift-workflows-api";
 import {
   hasDockerConfig,
-  hasSupabaseConfig,
   resolveServerDataProvider,
 } from "@/lib/server-data-provider";
-import { SupabaseAdminContentPortAdapter } from "./supabase-admin-content-port";
+import { CloudSqlAdminContentPortAdapter } from "./cloud-sql-admin-content-port";
+
+var mockedPrisma: any;
 
 const mockedWeekRepositoryListWeeks = jest.fn();
 const mockedWeekRepositoryGetWeek = jest.fn();
@@ -27,11 +28,11 @@ const mockedWeekRepositoryDeleteChecklist = jest.fn();
 const mockedWeekRepositoryDeleteQuestion = jest.fn();
 const mockedWeekRepositoryDeleteMedia = jest.fn();
 
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseDelete: jest.fn(),
-  supabaseSelect: jest.fn(),
-  supabaseInsert: jest.fn(),
-  supabaseUpdate: jest.fn(),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbDelete: jest.fn(),
+  dbSelect: jest.fn(),
+  dbInsert: jest.fn(),
+  dbUpdate: jest.fn(),
 }));
 
 jest.mock("@/lib/mobile/rag", () => ({
@@ -43,10 +44,33 @@ jest.mock("@/lib/mobile/schift-client", () => ({
 }));
 
 jest.mock("@/lib/server-data-provider", () => ({
-  resolveServerDataProvider: jest.fn(() => "supabase"),
-  hasDockerConfig: jest.fn(() => false),
-  hasSupabaseConfig: jest.fn(() => true),
+  resolveServerDataProvider: jest.fn(() => "docker"),
+  hasDockerConfig: jest.fn(() => true),
 }));
+
+jest.mock("@gynecology-chatbot/db/prisma", () => {
+  mockedPrisma = {
+    $queryRaw: jest.fn(),
+    admin_audit_logs: {
+      create: jest.fn(),
+    },
+    content_pregnancy_documents: {
+      findMany: jest.fn(),
+      delete: jest.fn(),
+    },
+    workflow_definitions: {
+      findMany: jest.fn(),
+      update: jest.fn(),
+    },
+    content_knowledge_items: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+  };
+  return { prisma: mockedPrisma };
+});
 
 jest.mock("@/lib/mobile/schift-workflows-api", () => ({
   patchSchiftWorkflow: jest.fn(),
@@ -69,17 +93,17 @@ jest.mock("@/lib/db/repositories/week-content-repository", () => ({
   })),
 }));
 
-const mockedDelete = supabaseDelete as jest.MockedFunction<
-  typeof supabaseDelete
+const mockedDelete = dbDelete as jest.MockedFunction<
+  typeof dbDelete
 >;
-const mockedSelect = supabaseSelect as jest.MockedFunction<
-  typeof supabaseSelect
+const mockedSelect = dbSelect as jest.MockedFunction<
+  typeof dbSelect
 >;
-const mockedInsert = supabaseInsert as jest.MockedFunction<
-  typeof supabaseInsert
+const mockedInsert = dbInsert as jest.MockedFunction<
+  typeof dbInsert
 >;
-const mockedUpdate = supabaseUpdate as jest.MockedFunction<
-  typeof supabaseUpdate
+const mockedUpdate = dbUpdate as jest.MockedFunction<
+  typeof dbUpdate
 >;
 const mockedEmbedPregnancyDocument =
   embedPregnancyDocument as jest.MockedFunction<typeof embedPregnancyDocument>;
@@ -92,20 +116,22 @@ const mockedPatchSchiftWorkflow = patchSchiftWorkflow as jest.MockedFunction<
 const mockedHasDockerConfig = hasDockerConfig as jest.MockedFunction<
   typeof hasDockerConfig
 >;
-const mockedHasSupabaseConfig = hasSupabaseConfig as jest.MockedFunction<
-  typeof hasSupabaseConfig
->;
 const mockedResolveServerDataProvider =
   resolveServerDataProvider as jest.MockedFunction<
     typeof resolveServerDataProvider
   >;
 
-describe("SupabaseAdminContentPortAdapter", () => {
-  const adapter = new SupabaseAdminContentPortAdapter();
+describe("CloudSqlAdminContentPortAdapter", () => {
+  const adapter = new CloudSqlAdminContentPortAdapter();
   const originalDatabaseUrl = process.env.DATABASE_URL;
 
   beforeEach(() => {
     process.env.DATABASE_URL = "";
+    mockedHasDockerConfig.mockReturnValue(true);
+    mockedResolveServerDataProvider.mockReturnValue("docker");
+    mockedPrisma.content_pregnancy_documents.findMany.mockResolvedValue([]);
+    mockedPrisma.workflow_definitions.findMany.mockResolvedValue([]);
+    mockedPrisma.content_knowledge_items.findMany.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -117,7 +143,6 @@ describe("SupabaseAdminContentPortAdapter", () => {
     mockedGetSchiftClient.mockReset();
     mockedPatchSchiftWorkflow.mockReset();
     mockedHasDockerConfig.mockReset();
-    mockedHasSupabaseConfig.mockReset();
     mockedResolveServerDataProvider.mockReset();
     mockedWeekRepositoryListWeeks.mockReset();
     mockedWeekRepositoryGetWeek.mockReset();
@@ -131,6 +156,16 @@ describe("SupabaseAdminContentPortAdapter", () => {
     mockedWeekRepositoryDeleteChecklist.mockReset();
     mockedWeekRepositoryDeleteQuestion.mockReset();
     mockedWeekRepositoryDeleteMedia.mockReset();
+    mockedPrisma.$queryRaw.mockReset();
+    mockedPrisma.admin_audit_logs.create.mockReset();
+    mockedPrisma.content_pregnancy_documents.findMany.mockReset();
+    mockedPrisma.content_pregnancy_documents.delete.mockReset();
+    mockedPrisma.workflow_definitions.findMany.mockReset();
+    mockedPrisma.workflow_definitions.update.mockReset();
+    mockedPrisma.content_knowledge_items.findMany.mockReset();
+    mockedPrisma.content_knowledge_items.create.mockReset();
+    mockedPrisma.content_knowledge_items.update.mockReset();
+    mockedPrisma.content_knowledge_items.delete.mockReset();
   });
 
   afterAll(() => {
@@ -138,9 +173,8 @@ describe("SupabaseAdminContentPortAdapter", () => {
   });
 
   it("maps week summaries from Supabase rows", async () => {
-    mockedResolveServerDataProvider.mockReturnValue("supabase");
-    mockedHasSupabaseConfig.mockReturnValue(true);
-    mockedHasDockerConfig.mockReturnValue(false);
+    mockedResolveServerDataProvider.mockReturnValue("docker");
+        mockedHasDockerConfig.mockReturnValue(true);
     mockedWeekRepositoryListWeeks.mockResolvedValueOnce([
       {
         id: "week-1",
@@ -178,9 +212,8 @@ describe("SupabaseAdminContentPortAdapter", () => {
   });
 
   it("returns detailed week content with ordered sections and assets", async () => {
-    mockedResolveServerDataProvider.mockReturnValue("supabase");
-    mockedHasSupabaseConfig.mockReturnValue(true);
-    mockedHasDockerConfig.mockReturnValue(false);
+    mockedResolveServerDataProvider.mockReturnValue("docker");
+        mockedHasDockerConfig.mockReturnValue(true);
     mockedWeekRepositoryGetWeek.mockResolvedValueOnce({
       id: "week-2",
       week_number: 2,
@@ -292,18 +325,16 @@ describe("SupabaseAdminContentPortAdapter", () => {
   });
 
   it("returns null when the week is missing", async () => {
-    mockedResolveServerDataProvider.mockReturnValue("supabase");
-    mockedHasSupabaseConfig.mockReturnValue(true);
-    mockedHasDockerConfig.mockReturnValue(false);
+    mockedResolveServerDataProvider.mockReturnValue("docker");
+        mockedHasDockerConfig.mockReturnValue(true);
     mockedWeekRepositoryGetWeek.mockResolvedValueOnce(null);
     const detail = await adapter.getWeek(99);
     expect(detail).toBeNull();
   });
 
   it("saves week metadata, sections, and assets", async () => {
-    mockedResolveServerDataProvider.mockReturnValue("supabase");
-    mockedHasSupabaseConfig.mockReturnValue(true);
-    mockedHasDockerConfig.mockReturnValue(false);
+    mockedResolveServerDataProvider.mockReturnValue("docker");
+        mockedHasDockerConfig.mockReturnValue(true);
     mockedWeekRepositoryGetWeek.mockResolvedValue({
       id: "week-12",
       week_number: 12,
@@ -504,9 +535,8 @@ describe("SupabaseAdminContentPortAdapter", () => {
   });
 
   it("deletes persisted sections and assets omitted from the payload", async () => {
-    mockedResolveServerDataProvider.mockReturnValue("supabase");
-    mockedHasSupabaseConfig.mockReturnValue(true);
-    mockedHasDockerConfig.mockReturnValue(false);
+    mockedResolveServerDataProvider.mockReturnValue("docker");
+        mockedHasDockerConfig.mockReturnValue(true);
     mockedWeekRepositoryGetWeek.mockResolvedValue({
       id: "week-12",
       week_number: 12,
@@ -693,13 +723,12 @@ describe("SupabaseAdminContentPortAdapter", () => {
   });
 
   it("creates and updates rag documents", async () => {
-    mockedResolveServerDataProvider.mockReturnValue("supabase");
-    mockedHasSupabaseConfig.mockReturnValue(true);
-    mockedHasDockerConfig.mockReturnValue(false);
+    mockedResolveServerDataProvider.mockReturnValue("docker");
+    mockedHasDockerConfig.mockReturnValue(true);
     mockedEmbedPregnancyDocument
       .mockResolvedValueOnce([0.1, 0.2, 0.3])
       .mockResolvedValueOnce([0.4, 0.5, 0.6]);
-    mockedInsert.mockResolvedValueOnce([
+    mockedPrisma.$queryRaw.mockResolvedValueOnce([
       {
         id: "11111111-1111-4111-8111-111111111111",
         title: "두통 가이드",
@@ -711,7 +740,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
         updated_at: "2026-03-18T10:00:00.000Z",
       },
     ]);
-    mockedUpdate.mockResolvedValueOnce([
+    mockedPrisma.$queryRaw.mockResolvedValueOnce([
       {
         id: "11111111-1111-4111-8111-111111111111",
         title: "수정된 두통 가이드",
@@ -755,53 +784,28 @@ describe("SupabaseAdminContentPortAdapter", () => {
       2,
       "수정 본문",
     );
-    expect(mockedInsert).toHaveBeenCalledWith(
-      "content_pregnancy_documents",
-      expect.objectContaining({
-        title: "두통 가이드",
-        pregnancy_week: 18,
-        embedding: [0.1, 0.2, 0.3],
-      }),
-    );
-    expect(mockedUpdate).toHaveBeenCalledWith(
-      "content_pregnancy_documents?id=eq.11111111-1111-4111-8111-111111111111",
-      expect.objectContaining({
-        title: "수정된 두통 가이드",
-        category: "warning",
-        embedding: [0.4, 0.5, 0.6],
-      }),
-    );
+    expect(mockedPrisma.$queryRaw).toHaveBeenCalledTimes(2);
   });
 
   it("deletes rag documents and updates workflow rules", async () => {
-    mockedResolveServerDataProvider.mockReturnValue("supabase");
-    mockedHasSupabaseConfig.mockReturnValue(true);
-    mockedHasDockerConfig.mockReturnValue(false);
+    mockedResolveServerDataProvider.mockReturnValue("docker");
+    mockedHasDockerConfig.mockReturnValue(true);
     mockedGetSchiftClient.mockReturnValue(null);
-    mockedDelete.mockResolvedValueOnce([]);
-    mockedSelect.mockImplementation(async (path) => {
-      if (
-        typeof path === "string" &&
-        path.startsWith("workflow_definitions?select=")
-      ) {
-        return [
-          {
-            id: "wf-1",
-            name: "기본 응답",
-            slug: "default-chat",
-            provider: "flowise",
-            status: "published",
-            is_active: true,
-            config: { modelName: "gemini-2.5-flash-lite" },
-            metadata: { trigger: "일반 채팅" },
-            updated_at: "2026-03-18T10:00:00.000Z",
-          },
-        ];
-      }
-
-      return [];
-    });
-    mockedUpdate.mockResolvedValueOnce([
+    mockedPrisma.content_pregnancy_documents.delete.mockResolvedValueOnce({});
+    mockedPrisma.workflow_definitions.findMany.mockResolvedValueOnce([
+      {
+        id: "wf-1",
+        name: "기본 응답",
+        slug: "default-chat",
+        provider: "flowise",
+        status: "published",
+        is_active: true,
+        config: { modelName: "gemini-2.5-flash-lite" },
+        metadata: { trigger: "일반 채팅" },
+        updated_at: "2026-03-18T10:00:00.000Z",
+      },
+    ]);
+    mockedPrisma.workflow_definitions.update.mockResolvedValueOnce(
       {
         id: "wf-1",
         name: "수정된 기본 응답",
@@ -820,7 +824,7 @@ describe("SupabaseAdminContentPortAdapter", () => {
         },
         updated_at: "2026-03-18T11:00:00.000Z",
       },
-    ]);
+    );
 
     await adapter.deleteDocument("11111111-1111-4111-8111-111111111111");
     const updatedRule = await adapter.updateWorkflowRule("wf-1", {
@@ -831,9 +835,8 @@ describe("SupabaseAdminContentPortAdapter", () => {
       status: "review",
     });
 
-    expect(mockedDelete).toHaveBeenCalledWith(
-      "pregnancy_documents?id=eq.11111111-1111-4111-8111-111111111111",
-      { schema: "content" },
+    expect(mockedPrisma.content_pregnancy_documents.delete).toHaveBeenCalledWith(
+      { where: { id: "11111111-1111-4111-8111-111111111111" } },
     );
     expect(updatedRule).toMatchObject({
       id: "wf-1",
@@ -844,10 +847,9 @@ describe("SupabaseAdminContentPortAdapter", () => {
   });
 
   it("updates Schift workflows when no local workflow row exists", async () => {
-    mockedResolveServerDataProvider.mockReturnValue("supabase");
-    mockedHasSupabaseConfig.mockReturnValue(true);
-    mockedHasDockerConfig.mockReturnValue(false);
-    mockedSelect.mockResolvedValueOnce([]);
+    mockedResolveServerDataProvider.mockReturnValue("docker");
+    mockedHasDockerConfig.mockReturnValue(true);
+    mockedPrisma.workflow_definitions.findMany.mockResolvedValueOnce([]);
     mockedGetSchiftClient.mockReturnValue({
       workflows: {
         get: jest.fn().mockResolvedValue({

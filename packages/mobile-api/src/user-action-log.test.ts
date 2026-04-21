@@ -1,5 +1,5 @@
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseInsert: jest.fn().mockResolvedValue([]),
+jest.mock("@/lib/db/admin-client", () => ({
+  dbInsert: jest.fn().mockResolvedValue([]),
   getSupabaseAdminClient: jest.fn(() => ({
     from: jest.fn(() => ({
       insert: jest.fn().mockResolvedValue({ data: [], error: null }),
@@ -7,12 +7,12 @@ jest.mock("@/lib/supabase/admin-client", () => ({
   })),
 }));
 
-import { supabaseInsert } from "@/lib/supabase/admin-client";
+import { dbInsert } from "@/lib/db/admin-client";
 
 import { recordUserAction } from "./user-action-log";
 
-const mockedInsert = supabaseInsert as jest.MockedFunction<
-  typeof supabaseInsert
+const mockedInsert = dbInsert as jest.MockedFunction<
+  typeof dbInsert
 >;
 
 describe("recordUserAction", () => {

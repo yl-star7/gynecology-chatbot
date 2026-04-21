@@ -2,6 +2,9 @@
 
 import {
   DEFAULT_MOBILE_THEME_KEY,
+  addCalendarDays,
+  createKoreanDateKey,
+  readIsoDateKey,
   resolveMobileThemeKey,
 } from "@gynecology-chatbot/app-core";
 import type { MobileThemeKey } from "@gynecology-chatbot/app-core";
@@ -41,7 +44,7 @@ function normalizeDueDateToIsoDate(value: string) {
     return trimmed;
   }
 
-  return parsed.toISOString().slice(0, 10);
+  return readIsoDateKey(trimmed) ?? createKoreanDateKey(parsed);
 }
 
 export function buildWebOnboardingCompletionInput(input: {
@@ -147,12 +150,8 @@ export function MobileOnboardingView({ userId }: Props) {
             onChange={(e) => setDueDate(e.target.value)}
             value={dueDate}
             type="date"
-            min={new Date().toISOString().slice(0, 10)}
-            max={(() => {
-              const d = new Date();
-              d.setDate(d.getDate() + 294);
-              return d.toISOString().slice(0, 10);
-            })()}
+            min={createKoreanDateKey()}
+            max={addCalendarDays(createKoreanDateKey(), 294)}
           />
           {error ? <MobileNotice>{error}</MobileNotice> : null}
           <button

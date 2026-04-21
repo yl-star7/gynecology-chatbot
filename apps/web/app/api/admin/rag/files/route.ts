@@ -76,7 +76,7 @@ export async function GET() {
   }
 }
 
-/** POST /api/admin/rag/files — 파일 업로드 (Supabase Storage + Schift ingest) */
+/** POST /api/admin/rag/files — 파일 업로드 (GCS + Schift ingest) */
 export async function POST(request: NextRequest) {
   try {
     const admin = await readAdminSessionUser();
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     const ext = (file.name || "").split(".").pop()?.toLowerCase() || "bin";
     const storagePath = `rag/${fileId}.${ext}`;
 
-    // 1. Supabase Storage에 원본 저장
+    // 1. GCS에 원본 저장
     const buffer = Buffer.from(await file.arrayBuffer());
     await uploadBufferToStorage({
       bucketId: RAG_FILES_BUCKET,

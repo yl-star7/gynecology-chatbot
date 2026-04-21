@@ -16,11 +16,11 @@ import {
 import { randomUUID } from "crypto";
 
 import {
-  supabaseDelete,
-  supabaseInsert,
-  supabaseSelect,
-  supabaseUpdate,
-} from "@/lib/supabase/admin-client";
+  dbDelete,
+  dbInsert,
+  dbSelect,
+  dbUpdate,
+} from "@/lib/db/admin-client";
 
 export type SupabaseWeekRow = {
   id: string;
@@ -97,29 +97,29 @@ type WeekContentPrisma = Pick<
 >;
 
 type WeekContentRepositoryDeps = {
-  select?: typeof supabaseSelect;
-  update?: typeof supabaseUpdate;
-  insert?: typeof supabaseInsert;
-  remove?: typeof supabaseDelete;
+  select?: typeof dbSelect;
+  update?: typeof dbUpdate;
+  insert?: typeof dbInsert;
+  remove?: typeof dbDelete;
   prisma?: WeekContentPrisma;
   hasDirectContentDatabase?: () => boolean;
   createId?: () => string;
 };
 
 export class WeekContentRepository {
-  private readonly select: typeof supabaseSelect;
-  private readonly update: typeof supabaseUpdate;
-  private readonly insert: typeof supabaseInsert;
-  private readonly remove: typeof supabaseDelete;
+  private readonly select: typeof dbSelect;
+  private readonly update: typeof dbUpdate;
+  private readonly insert: typeof dbInsert;
+  private readonly remove: typeof dbDelete;
   private readonly prisma: WeekContentPrisma;
   private readonly hasDirectContentDatabase: () => boolean;
   private readonly createId: () => string;
 
   constructor(deps: WeekContentRepositoryDeps = {}) {
-    this.select = deps.select ?? supabaseSelect;
-    this.update = deps.update ?? supabaseUpdate;
-    this.insert = deps.insert ?? supabaseInsert;
-    this.remove = deps.remove ?? supabaseDelete;
+    this.select = deps.select ?? dbSelect;
+    this.update = deps.update ?? dbUpdate;
+    this.insert = deps.insert ?? dbInsert;
+    this.remove = deps.remove ?? dbDelete;
     this.prisma = deps.prisma ?? prisma;
     this.hasDirectContentDatabase =
       deps.hasDirectContentDatabase ??
