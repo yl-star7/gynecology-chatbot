@@ -142,6 +142,71 @@ function stripQuestionChoicesFromAnswer(input: {
     .trim();
 }
 
+function extractQuestionChoicesFromAnswer(text: string) {
+  return text
+    .split("\n")
+    .map((line) => line.replace(/^[-*•]\s*/, "").trim())
+    .filter((line) => line.endsWith("?"))
+    .slice(0, 2)
+    .map((question) => ({ label: question, message: question }));
+}
+
+function resolveQuickReplies(input: {
+  answer: string;
+  scenario?: string;
+  quickReplies?: Array<{ label: string; message: string }>;
+}) {
+  if (input.quickReplies && input.quickReplies.length > 0) {
+    return input.quickReplies;
+  }
+
+  if (input.scenario === "attachment_question") {
+    const extracted = extractQuestionChoicesFromAnswer(input.answer);
+    if (extracted.length > 0) return extracted;
+  }
+
+  if (input.scenario === "emotion_reason") {
+    return [
+      { label: "그냥 그래요", message: "그냥 이유 없이 그래요." },
+      { label: "몸이 피곤해요", message: "몸이 너무 피곤해요." },
+      { label: "걱정돼요", message: "걱정이 많아졌어요." },
+      { label: "말할래요", message: "조금 더 말하고 싶어요." },
+    ];
+  }
+
+  if (input.scenario === "baby_info") {
+    return [
+      { label: "엄마 변화도 볼래요", message: "엄마 변화도 알려주세요." },
+      { label: "오늘은 여기까지", message: "오늘은 여기까지 할게요." },
+    ];
+  }
+
+  if (input.scenario === "mother_info") {
+    return [
+      { label: "오늘 할 일 볼래요", message: "오늘 실천할 일을 볼래요." },
+      { label: "오늘 질문 볼래요", message: "오늘의 질문을 볼래요." },
+      { label: "이따가 할래요", message: "이따가 확인할래요." },
+    ];
+  }
+
+  if (input.scenario === "checklist") {
+    return [
+      { label: "다 했어요", message: "다 했어요." },
+      { label: "하나만 했어요", message: "하나만 했어요." },
+      { label: "이따가 할래요", message: "이따가 할래요." },
+    ];
+  }
+
+  if (input.scenario === "empathy_chat") {
+    return [
+      { label: "오늘은 여기까지", message: "오늘은 여기까지 할게요." },
+      { label: "하나 더 말할래요", message: "하나 더 말하고 싶어요." },
+    ];
+  }
+
+  return [];
+}
+
 export async function buildWorkflowAssistantMessage<
   TRun extends {
     outputs?: Record<string, unknown>;
@@ -160,6 +225,11 @@ export async function buildWorkflowAssistantMessage<
   }
 
   const parts: ChatMessage["parts"] = [];
+  const quickReplies = resolveQuickReplies({
+    answer: payload.answer,
+    scenario: payload.scenario,
+    quickReplies: payload.quickReplies,
+  });
 
   // C간호사 캐릭터 이미지는 채팅 말풍선에 포함하지 않는다.
 
@@ -181,7 +251,7 @@ export async function buildWorkflowAssistantMessage<
     text: sanitizeInlineCitationMarkers(
       stripQuestionChoicesFromAnswer({
         text: payload.answer.trim(),
-        quickReplies: payload.quickReplies,
+        quickReplies,
         scenario: payload.scenario,
       }),
     ),
@@ -201,12 +271,12 @@ export async function buildWorkflowAssistantMessage<
     }
   }
 
-  if (payload.quickReplies && payload.quickReplies.length > 0) {
+  if (quickReplies.length > 0) {
     const quickRepliesId = `workflow-quick-${Date.now()}`;
     parts.push({
       type: "quickReplies",
       id: quickRepliesId,
-      choices: payload.quickReplies.map((choice, index) => ({
+      choices: quickReplies.map((choice, index) => ({
         id: `${quickRepliesId}-choice-${index + 1}`,
         label: choice.label,
         message: choice.message,

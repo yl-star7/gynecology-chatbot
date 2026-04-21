@@ -82,4 +82,69 @@ describe("route response helpers", () => {
       ]),
     );
   });
+
+  it("promotes attachment questions from answer text into quick replies", async () => {
+    const message = await buildWorkflowAssistantMessage({
+      run: {
+        outputs: {
+          answer: JSON.stringify({
+            answer:
+              "오늘 해본 만큼으로도 충분해요.\n\n- 아기에게 물려주고 싶은 가치는 무엇인가요?\n- 아기에게 가장 먼저 가르쳐주고 싶은 것은 무엇인가요?",
+            characterTone: "calm",
+            scenario: "attachment_question",
+          }),
+        },
+      },
+      loadCharacterImages: async () => ({}),
+      extractOutputs: (run) => run.outputs as Record<string, unknown>,
+    });
+
+    const text = getTextParts(message!).join("\n");
+    const quickReplies = message?.parts.find(
+      (part) => part.type === "quickReplies",
+    );
+
+    expect(text).toBe("오늘 해본 만큼으로도 충분해요.");
+    expect(quickReplies).toEqual(
+      expect.objectContaining({
+        choices: [
+          expect.objectContaining({
+            label: "아기에게 물려주고 싶은 가치는 무엇인가요?",
+          }),
+          expect.objectContaining({
+            label: "아기에게 가장 먼저 가르쳐주고 싶은 것은 무엇인가요?",
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("adds scenario quick replies when workflow omits them", async () => {
+    const message = await buildWorkflowAssistantMessage({
+      run: {
+        outputs: {
+          answer: JSON.stringify({
+            answer: "28주차 아기 소식을 짧게 볼게요.",
+            characterTone: "calm",
+            scenario: "baby_info",
+          }),
+        },
+      },
+      loadCharacterImages: async () => ({}),
+      extractOutputs: (run) => run.outputs as Record<string, unknown>,
+    });
+
+    const quickReplies = message?.parts.find(
+      (part) => part.type === "quickReplies",
+    );
+
+    expect(quickReplies).toEqual(
+      expect.objectContaining({
+        choices: [
+          expect.objectContaining({ label: "엄마 변화도 볼래요" }),
+          expect.objectContaining({ label: "오늘은 여기까지" }),
+        ],
+      }),
+    );
+  });
 });
