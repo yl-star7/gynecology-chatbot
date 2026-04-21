@@ -13,6 +13,7 @@ import {
 } from "../../../theme";
 import {
   isRenderableConversationPart,
+  resolveRenderableConversationMessages,
   resolveAssistantMessageIdsWithLaterUserMessage,
   resolveConversationMessageListState,
   resolveLatestVisibleQuickRepliesMessageId,
@@ -74,11 +75,6 @@ export function PatientConversationMessageList({
   ) => void;
 }) {
   const [didChooseEmptyReply, setDidChooseEmptyReply] = useState(false);
-  const listState = resolveConversationMessageListState({
-    messagesLength: messages.length,
-    isLoadingSessionDetail,
-    sessionLoadErrorMessage,
-  });
   const assistantMessageIdsWithLaterUserMessage =
     resolveAssistantMessageIdsWithLaterUserMessage(messages);
   const latestQuickRepliesMessageId = resolveLatestVisibleQuickRepliesMessageId(
@@ -87,6 +83,16 @@ export function PatientConversationMessageList({
       assistantMessageIdsWithLaterUserMessage,
     },
   );
+  const renderableMessages = resolveRenderableConversationMessages({
+    messages,
+    assistantMessageIdsWithLaterUserMessage,
+    latestQuickRepliesMessageId,
+  });
+  const listState = resolveConversationMessageListState({
+    messagesLength: renderableMessages.length,
+    isLoadingSessionDetail,
+    sessionLoadErrorMessage,
+  });
   const shouldShowTypingIndicator = resolveShouldShowTypingIndicator({
     listState,
     isSending,
@@ -171,7 +177,7 @@ export function PatientConversationMessageList({
       {listState === "messages" || shouldShowTypingIndicator ? (
         <View style={styles.threadedContent}>
           <View style={styles.messageList}>
-            {messages.map((message) => {
+            {renderableMessages.map((message) => {
               if (message.role === "user") {
                 const textPart = message.parts.find(
                   (part) => part.type === "text",

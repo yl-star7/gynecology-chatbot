@@ -58,6 +58,17 @@ export function isRenderableConversationPart({
     return visibleText.length > 0;
   }
 
+  if (part.type === "image") {
+    return part.imageUrl.trim().length > 0;
+  }
+
+  if (part.type === "deepLink") {
+    return (
+      part.target.trim().length > 0 &&
+      (part.title.trim().length > 0 || part.description.trim().length > 0)
+    );
+  }
+
   const isQuickReplies = part.type === "quickReplies";
   const isSurvey = part.type === "survey";
   const isInteractivePart = isQuickReplies || isSurvey;
@@ -71,6 +82,27 @@ export function isRenderableConversationPart({
     return false;
   }
   return true;
+}
+
+export function resolveRenderableConversationMessages({
+  messages,
+  assistantMessageIdsWithLaterUserMessage,
+  latestQuickRepliesMessageId,
+}: {
+  messages: ChatMessage[];
+  assistantMessageIdsWithLaterUserMessage: Set<string>;
+  latestQuickRepliesMessageId?: string;
+}) {
+  return messages.filter((message) =>
+    message.parts.some((part) =>
+      isRenderableConversationPart({
+        part,
+        messageId: message.id,
+        assistantMessageIdsWithLaterUserMessage,
+        latestQuickRepliesMessageId,
+      }),
+    ),
+  );
 }
 
 export function resolveAssistantMessageIdsWithLaterUserMessage(

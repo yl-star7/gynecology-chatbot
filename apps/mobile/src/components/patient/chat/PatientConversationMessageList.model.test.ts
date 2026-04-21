@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   isRenderableConversationPart,
+  resolveRenderableConversationMessages,
   resolveAssistantMessageIdsWithLaterUserMessage,
   resolveConversationMessageListState,
   resolveLatestVisibleQuickRepliesMessageId,
@@ -120,6 +121,72 @@ test("conversation message list renders text with real content", () => {
       assistantMessageIdsWithLaterUserMessage: new Set(),
     }),
     true,
+  );
+});
+
+test("conversation message list filters empty user bubbles from the rendered thread", () => {
+  const messages = [
+    {
+      id: "empty-user",
+      role: "user",
+      createdAtLabel: "방금 전",
+      parts: [{ id: "empty-text", type: "text", text: "   " }],
+    },
+    {
+      id: "empty-image-user",
+      role: "user",
+      createdAtLabel: "방금 전",
+      parts: [{ id: "empty-image", type: "image", imageUrl: "", alt: "" }],
+    },
+    {
+      id: "real-user",
+      role: "user",
+      createdAtLabel: "방금 전",
+      parts: [{ id: "real-text", type: "text", text: "괜찮아요" }],
+    },
+  ] as const;
+
+  assert.deepEqual(
+    resolveRenderableConversationMessages({
+      messages,
+      assistantMessageIdsWithLaterUserMessage: new Set(),
+    }).map((message) => message.id),
+    ["real-user"],
+  );
+});
+
+test("conversation message list filters placeholder-only assistant messages from the rendered thread", () => {
+  const messages = [
+    {
+      id: "placeholder-assistant",
+      role: "assistant",
+      createdAtLabel: "방금 전",
+      parts: [{ id: "placeholder", type: "text", text: "..." }],
+    },
+    {
+      id: "link-assistant",
+      role: "assistant",
+      createdAtLabel: "방금 전",
+      parts: [
+        { id: "placeholder-2", type: "text", text: "..." },
+        {
+          id: "link",
+          type: "deepLink",
+          title: "18주차 임신백과",
+          description: "이번 주 변화를 확인해요.",
+          target: "weekly_encyclopedia",
+          weekNumber: 18,
+        },
+      ],
+    },
+  ] as const;
+
+  assert.deepEqual(
+    resolveRenderableConversationMessages({
+      messages,
+      assistantMessageIdsWithLaterUserMessage: new Set(),
+    }).map((message) => message.id),
+    ["link-assistant"],
   );
 });
 
