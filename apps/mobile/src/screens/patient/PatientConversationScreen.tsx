@@ -8,7 +8,12 @@ import { ChatLinkSheet } from "../../components/patient/chat/ChatLinkSheet";
 import { PatientConversationWeekEncyclopediaSheet } from "../../components/patient/chat/PatientConversationWeekEncyclopediaSheet";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { Pressable } from "../../components/ui";
-import { patientSurfacePalette as surface, radii, space } from "../../theme";
+import {
+  patientSurfacePalette as surface,
+  radii,
+  shadows,
+  space,
+} from "../../theme";
 import { usePatientConversationScreenModel } from "./PatientConversationScreen.model";
 import { resolvePatientSurveySaveError } from "./patientErrorCopy.model";
 
@@ -119,5 +124,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: surface.surfacePrimary,
+    ...shadows.card,
   },
 });

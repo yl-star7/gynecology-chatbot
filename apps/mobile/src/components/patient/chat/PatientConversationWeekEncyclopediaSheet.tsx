@@ -39,6 +39,11 @@ export function PatientConversationWeekEncyclopediaSheet({
 }) {
   const { height } = useWindowDimensions();
   const canOpenFullView = Boolean(onOpenFullView && model.selectedWeekNumber);
+  const sheetHeight = Math.round(height * 0.64);
+  const scrollHeight = Math.max(
+    space.xxxl * 8,
+    sheetHeight - (canOpenFullView ? space.xxxl * 8 : space.xxxl * 5),
+  );
 
   return (
     <Modal
@@ -55,7 +60,7 @@ export function PatientConversationWeekEncyclopediaSheet({
           accessibilityLabel="닫기"
           onPress={onClose}
         />
-        <View style={[styles.sheet, { maxHeight: Math.round(height * 0.82) }]}>
+        <View style={[styles.sheet, { height: sheetHeight }]}>
           <View style={styles.handle} />
           <View style={styles.header}>
             <View style={styles.headerCopy}>
@@ -78,7 +83,7 @@ export function PatientConversationWeekEncyclopediaSheet({
           </View>
 
           <ScrollView
-            style={styles.scroll}
+            style={[styles.scroll, { height: scrollHeight }]}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
@@ -150,12 +155,12 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   sheet: {
-    backgroundColor: surface.surfacePrimary,
+    backgroundColor: surface.surfaceSecondary,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
     paddingHorizontal: space.lg,
-    paddingTop: space.sm,
-    paddingBottom: space.lg,
+    paddingTop: space.md,
+    paddingBottom: space.xxxl * 2 + space.sm,
     gap: space.md,
     ...shadows.card,
   },
@@ -201,13 +206,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     gap: space.sm,
-    paddingBottom: space.xs,
+    paddingBottom: space.xxxl + space.md,
   },
   emptyCard: {
     gap: space.sm,
   },
   sectionCard: {
     gap: space.sm,
+    padding: space.lg,
   },
   sectionTitle: {
     ...typo.titleSm,
@@ -238,6 +244,11 @@ const styles = StyleSheet.create({
     color: surface.textSecondary,
   },
   ctaButton: {
+    position: "absolute",
+    left: space.lg,
+    right: space.lg,
+    bottom: space.lg,
+    zIndex: 2,
     minHeight: space.xxxl + space.lg,
     borderRadius: radii.full,
     backgroundColor: palette.accent,

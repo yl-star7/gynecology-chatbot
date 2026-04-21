@@ -38,6 +38,10 @@ import {
   buildQuestionSummaryRecord,
   shouldSaveQuestionSummary,
 } from "@gynecology-chatbot/mobile-api/chat/question-summary";
+import {
+  selectStageWorkflow,
+  type StageWorkflowMapping,
+} from "@gynecology-chatbot/mobile-api/chat/stage-workflow-selector";
 import { loadMaternalNursingWorkflow } from "@gynecology-chatbot/mobile-api/workflows/load-workflow-yaml";
 import type { CharacterTone } from "@gynecology-chatbot/mobile-api/chat/workflow-payload";
 import {
@@ -280,6 +284,41 @@ export async function POST(request: NextRequest) {
     const weekKnowledgeEntityId =
       await findWeekKnowledgeEntityId(pregnancyWeek);
 
+    // stage → workflow ID 매핑 조회 (DB 우선, 없으면 env)
+    const stageMapping: StageWorkflowMapping = await (async () => {
+      try {
+        const row = await prisma.system_config.findUnique({
+          where: { key: "workflow_stage_mapping" },
+          select: { value: true },
+        });
+        const stored = (row?.value ?? null) as unknown;
+        if (stored && typeof stored === "object" && !Array.isArray(stored)) {
+          const s = stored as Record<string, unknown>;
+          const pick = (k: string, envKey: string) =>
+            typeof s[k] === "string" && (s[k] as string).trim()
+              ? (s[k] as string).trim()
+              : (process.env[envKey] ?? null);
+          return {
+            baby_info: pick("baby_info", "SCHIFT_WF_BABY_INFO"),
+            letter_reflection: pick(
+              "letter_reflection",
+              "SCHIFT_WF_LETTER_REFLECTION",
+            ),
+            free_chat: pick("free_chat", "SCHIFT_WF_FREE_CHAT"),
+            general: pick("general", "SCHIFT_WF_GENERAL"),
+          };
+        }
+      } catch {
+        // fallthrough to env
+      }
+      return {
+        baby_info: process.env.SCHIFT_WF_BABY_INFO ?? null,
+        letter_reflection: process.env.SCHIFT_WF_LETTER_REFLECTION ?? null,
+        free_chat: process.env.SCHIFT_WF_FREE_CHAT ?? null,
+        general: process.env.SCHIFT_WF_GENERAL ?? null,
+      };
+    })();
+
     const baseMobileResponder = createMobileChatResponder({
       getSchiftClient,
       runSchiftWorkflow,
@@ -288,6 +327,16 @@ export async function POST(request: NextRequest) {
       loadCharacterImages,
       preferLocalFallback: true,
       weekKnowledgeEntityId,
+      selectWorkflowId: (sel) => {
+        const picked = selectStageWorkflow(sel, stageMapping);
+        if (picked) {
+          console.info(
+            `[stage-workflow] key=${picked.key} id=${picked.workflowId} reason=${picked.reason}`,
+          );
+          return picked.workflowId;
+        }
+        return null;
+      },
     });
 
     // Short-circuit 래퍼 — stage=0/1 static 턴은 LLM 없이 즉시 반환.

@@ -617,6 +617,7 @@ export function createMobileChatResponder<
   getSchiftClient: () => TSchift | null;
   runSchiftWorkflow: (input: {
     schift: TSchift;
+    workflowId?: string;
     inputs: {
       query: string;
       retrievalQuery: string;
@@ -660,6 +661,17 @@ export function createMobileChatResponder<
     query: string;
     currentWeek: number | null;
   }) => Promise<RagContextResult>;
+  /**
+   * stage 기반으로 호출할 Schift workflow ID 를 고른다.
+   * 반환 값이 있으면 해당 ID 로 호출, 없으면 기본 resolveSchiftWorkflowId 로직 (name 매칭).
+   */
+  selectWorkflowId?: (input: {
+    query: string;
+    workflowStage: string | number | null;
+    currentAttachmentQuestionId: string | null;
+    lastScenario: string | null;
+    compactSummary: string | null;
+  }) => string | null | undefined;
   preferLocalFallback?: boolean;
   ragContext?: string;
   weekKnowledgeEntityId?: string | null;
@@ -804,8 +816,22 @@ export function createMobileChatResponder<
                 })
               : null));
 
+        const selectedWorkflowId = deps.selectWorkflowId?.({
+          query: input.text,
+          workflowStage: memoryContext.workflowStage,
+          currentAttachmentQuestionId:
+            ((
+              input.promptContext?.sessionMemory as unknown as Record<
+                string,
+                unknown
+              >
+            )?.currentAttachmentQuestionId as string | null) ?? null,
+          lastScenario: memoryContext.lastScenario,
+          compactSummary: memoryContext.compactSummary,
+        });
         const { run } = await deps.runSchiftWorkflow({
           schift,
+          ...(selectedWorkflowId ? { workflowId: selectedWorkflowId } : {}),
           inputs: {
             query: input.text,
             retrievalQuery,
