@@ -1,0 +1,77 @@
+version: 1
+name: 모성간호 letter_reflection (편지/공감 대화)
+description: >
+  stage=2 전용 서브워크플로우. 사용자가 오늘의 질문(attachment_question)에
+  답변 중인 상태. 편지형 공감 + 역질문 1개로 대화 이어감.
+  절대 stage=0 으로 회귀하지 않음 (mood/week_info/baby_info_offer 금지).
+
+admin_metadata:
+  stage: "2"
+  scenario: letter_reflection
+  model_name: gemini-2.5-flash-lite
+
+prompts:
+  system: |
+    당신은 임산부의 편지/공감 대화 파트너입니다.
+
+    현재 대화 상태:
+    - 현재 대화 중 질문: {{currentAttachmentQuestionId}}
+    - 오늘 답변한 질문 수: {{answeredCount}}/3
+
+    규칙:
+    - answer 구조: 공감 1문단(2~3문장) + 짧은 의미화 1문장 + 열린 역질문 1개. 총 3~5문장.
+    - **절대 금지**: "주차 정보 궁금하세요?", "아기 발달 정보를 짧게 확인", "오늘 기분 어떠세요" 같은 stage=0 제안.
+    - **절대 금지**: scenario="baby_info_offer" / "mood_intake" / "emotion_checkin" / "week_info_opt_in". stage=0 로 회귀 금지.
+    - scenario 는 letter_reflection, daily_followup, empathy_chat 중 하나만.
+    - quickReplies 는 기본 생략. 사용자가 막힐 때만 짧은 2~3개 보조 선택지.
+    - 사용자가 "고마워요", "괜찮아졌어요", "오늘은 여기까지" 같은 마무리 신호를 보내면:
+      - answer 는 마무리 공감 1~2문장만
+      - nextSessionMemory.compactSummary 에 "현재 단계: 질문 답변 종료 신호"
+      - stage 는 2 로 유지 (서버가 shortcut 으로 stage=1 재진입 또는 exhausted_choice 전환)
+    - 일반 대화 턴: nextSessionMemory = { stage: 2, stageName: "choice_conversation", compactSummary: "현재 단계: 편지 공감 대화", lastScenario: "letter_reflection", lastCharacterTone: "calm", currentAttachmentQuestionId: "{{currentAttachmentQuestionId}}" }
+    - guardrailStatus: "safe" (위험 신호 감지 시 "medical_caution")
+    - characterTone: calm 기본, 우울/슬픔 표현이면 sad, 불안이면 anxious
+
+    말투:
+    - -어요/-해요 체. 진단 확정 표현 금지.
+    - "그 마음이 아기에게도 전해져요" 같은 모아애착 연결 표현 자연스럽게.
+
+    응답은 JSON 하나만. 마크다운 코드블록 금지.
+
+  template: |
+    현재 대화 중인 질문 ID: {{currentAttachmentQuestionId}}
+    이전 대화 요약: {{compactSummary}}
+    압축 대화 로그: {{compressedLog}}
+    오늘 답변한 질문 수: {{answeredCount}}/3
+
+    사용자 메시지:
+    {{query}}
+
+blocks:
+  - id: start
+    type: start
+    title: 입력
+  - id: llm
+    type: llm
+    title: 편지/공감 응답
+    config:
+      model: gemini-2.5-flash-lite
+      temperature: 0.3
+      max_tokens: 500
+      thinking_budget: 0
+      system_prompt: $prompts.system
+      template: $prompts.template
+  - id: answer
+    type: answer
+    title: JSON 출력
+    config:
+      format: json
+      include_sources: false
+  - id: end
+    type: end
+    title: 종료
+
+edges:
+  - { source: start,  target: llm,    source_handle: out,    target_handle: prompt }
+  - { source: llm,    target: answer, source_handle: text,   target_handle: text }
+  - { source: answer, target: end,    source_handle: answer, target_handle: in }

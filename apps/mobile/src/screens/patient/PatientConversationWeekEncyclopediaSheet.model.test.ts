@@ -54,7 +54,10 @@ test("conversation week sheet selects the current profile week encyclopedia cont
   );
   assert.equal(model.sections[0]?.body, "아기가 활발히 움직여요.");
   assert.deepEqual(model.sections[2]?.items, ["물 마시기", "짧게 걷기"]);
-  assert.equal(model.sections[4]?.items?.[0], "태동이 매일 같나요? 날마다 다를 수 있어요.");
+  assert.equal(
+    model.sections[4]?.items?.[0],
+    "태동이 매일 같나요? 날마다 다를 수 있어요.",
+  );
 });
 
 test("conversation week sheet exposes a loading state before encyclopedia content arrives", () => {
@@ -67,6 +70,19 @@ test("conversation week sheet exposes a loading state before encyclopedia conten
 
   assert.equal(model.title, "주차 사전을 불러오는 중이에요");
   assert.equal(model.emptyTitle, null);
+  assert.deepEqual(model.sections, []);
+});
+
+test("conversation week sheet keeps loading when weeks arrive before the profile week", () => {
+  const model = buildConversationWeekEncyclopediaSheetModel({
+    weeks,
+    profilePregnancyWeekLabel: null,
+    isLoading: true,
+    errorMessage: null,
+  });
+
+  assert.equal(model.title, "주차 사전을 불러오는 중이에요");
+  assert.equal(model.selectedWeekNumber, null);
   assert.deepEqual(model.sections, []);
 });
 

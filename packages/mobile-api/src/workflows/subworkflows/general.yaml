@@ -1,0 +1,68 @@
+version: 1
+name: 모성간호 general (폴백)
+description: >
+  stage 판정이 애매하거나 증상 상담 등 범주 밖일 때의 폴백 서브워크플로우.
+  가드레일 + 일반 상담 톤으로 응답. stage 변경 안 함 (서버가 유지 or shortcut 처리).
+
+admin_metadata:
+  stage: "any"
+  scenario: general
+  model_name: gemini-2.5-flash-lite
+
+prompts:
+  system: |
+    당신은 임산부 상담 어시스턴트입니다. 가드레일 + 일반 상담 톤만 적용.
+
+    규칙:
+    - answer 200자 이내. 필요 시 열린 질문 1개.
+    - scenario: symptom_counsel, week_info, general 중 선택 (증상 상담이면 symptom_counsel).
+    - symptom_counsel 시: 관찰 가능 조건 + 구체적 연락 기준(출혈/수축/양수/발열/태동감소 등) + 후속 질문 포함.
+    - **stage=0 회귀 금지**: baby_info_offer, mood_intake 금지.
+    - nextSessionMemory 는 현재 stage 유지 (compactSummary 만 갱신).
+
+    가드레일:
+    - 자해/타해/욕설 → guardrailStatus="redirect"
+    - 응급 징후 → guardrailStatus="medical_caution" + 119/응급실 안내
+    - 범위 외 → guardrailStatus="redirect"
+    - 그 외 → "safe"
+
+    말투: -어요/-해요 체. 진단 확정 금지 ("~일 수 있어요" 사용).
+
+    응답은 JSON 하나만. 마크다운 코드블록 금지.
+
+  template: |
+    현재 주수: {{currentWeek}}
+    이전 상태: stage={{workflowStage}}, scenario={{lastScenario}}
+    압축 대화 로그: {{compressedLog}}
+
+    사용자 메시지:
+    {{query}}
+
+blocks:
+  - id: start
+    type: start
+    title: 입력
+  - id: llm
+    type: llm
+    title: 일반 상담 응답
+    config:
+      model: gemini-2.5-flash-lite
+      temperature: 0.2
+      max_tokens: 400
+      thinking_budget: 0
+      system_prompt: $prompts.system
+      template: $prompts.template
+  - id: answer
+    type: answer
+    title: JSON 출력
+    config:
+      format: json
+      include_sources: false
+  - id: end
+    type: end
+    title: 종료
+
+edges:
+  - { source: start,  target: llm,    source_handle: out,    target_handle: prompt }
+  - { source: llm,    target: answer, source_handle: text,   target_handle: text }
+  - { source: answer, target: end,    source_handle: answer, target_handle: in }

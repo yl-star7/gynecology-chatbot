@@ -1,0 +1,132 @@
+version: 2
+name: 모성간호 router (stage 분기)
+description: >
+  단일 진입점 router workflow. workflowStage + 사용자 텍스트 + currentAttachmentQuestionId
+  를 보고 4개 subworkflow 중 하나로 분기한다.
+  - baby_info: stage=0 & 사용자가 주차 정보 보겠다고 답함
+  - letter:    stage=2 & currentAttachmentQuestionId 존재
+  - free_chat: stage='free_chat'
+  - fallback:  그 외 (general)
+
+admin_metadata:
+  trigger: stage router
+  model_name: gemini-2.5-flash-lite
+
+# ─────────────────────────────────────
+# 전역 설정
+# ─────────────────────────────────────
+config:
+  calendar_summary_webhook_url: $env.CALENDAR_SUMMARY_WEBHOOK_URL
+  calendar_summary_webhook_secret: $env.CALENDAR_SUMMARY_WEBHOOK_SECRET
+  wf_baby_info: $env.SCHIFT_WF_BABY_INFO
+  wf_letter: $env.SCHIFT_WF_LETTER_REFLECTION
+  wf_free_chat: $env.SCHIFT_WF_FREE_CHAT
+  wf_general: $env.SCHIFT_WF_GENERAL
+
+# ─────────────────────────────────────
+# 블록 그래프
+# ─────────────────────────────────────
+blocks:
+  - id: start
+    type: start
+    title: 사용자 질문 입력
+
+  - id: stage_router
+    type: router
+    title: stage 기반 분기
+    config:
+      routes: [baby_info, letter, free_chat, fallback]
+      expression: |
+        workflowStage === "free_chat" ? "free_chat"
+        : (workflowStage === 0 && /네|볼래|보여|궁금/.test(query || "")) ? "baby_info"
+        : (workflowStage === 2 && currentAttachmentQuestionId) ? "letter"
+        : "fallback"
+
+  - id: sub_baby_info
+    type: subworkflow
+    title: baby_info (주차 정보 요약)
+    config:
+      workflow_id: $config.wf_baby_info
+      input_mapping:
+        currentWeek: "$.currentWeek"
+        query: "$.query"
+        weekKnowledgeEntityId: "$.weekKnowledgeEntityId"
+      output_mapping:
+        "*": "result"
+
+  - id: sub_letter
+    type: subworkflow
+    title: letter (편지/공감 대화)
+    config:
+      workflow_id: $config.wf_letter
+      input_mapping:
+        query: "$.query"
+        compactSummary: "$.compactSummary"
+        currentAttachmentQuestionId: "$.currentAttachmentQuestionId"
+        answeredCount: "$.answeredCount"
+        compressedLog: "$.compressedLog"
+      output_mapping:
+        "*": "result"
+
+  - id: sub_free_chat
+    type: subworkflow
+    title: free_chat (자유 대화)
+    config:
+      workflow_id: $config.wf_free_chat
+      input_mapping:
+        query: "$.query"
+        compressedLog: "$.compressedLog"
+      output_mapping:
+        "*": "result"
+
+  - id: sub_general
+    type: subworkflow
+    title: general (폴백)
+    config:
+      workflow_id: $config.wf_general
+      input_mapping:
+        query: "$.query"
+        currentWeek: "$.currentWeek"
+        workflowStage: "$.workflowStage"
+        lastScenario: "$.lastScenario"
+        compressedLog: "$.compressedLog"
+      output_mapping:
+        "*": "result"
+
+  - id: merge
+    type: merge
+    title: 분기 결과 병합
+    config:
+      strategy: first_non_null
+
+  - id: summary_webhook
+    type: outbound_webhook
+    title: calendar 요약 기록 발송
+    config:
+      url: $config.calendar_summary_webhook_url
+      headers:
+        Authorization: "Bearer $config.calendar_summary_webhook_secret"
+        Content-Type: application/json
+
+  - id: end
+    type: end
+    title: 종료
+
+edges:
+  - { source: start,         target: stage_router, source_handle: out,        target_handle: in }
+
+  # router → 각 subworkflow
+  - { source: stage_router,  target: sub_baby_info,  source_handle: baby_info,  target_handle: in }
+  - { source: stage_router,  target: sub_letter,     source_handle: letter,     target_handle: in }
+  - { source: stage_router,  target: sub_free_chat,  source_handle: free_chat,  target_handle: in }
+  - { source: stage_router,  target: sub_general,    source_handle: fallback,   target_handle: in }
+
+  # 각 subworkflow → merge
+  - { source: sub_baby_info,  target: merge, source_handle: out, target_handle: in_0 }
+  - { source: sub_letter,     target: merge, source_handle: out, target_handle: in_1 }
+  - { source: sub_free_chat,  target: merge, source_handle: out, target_handle: in_2 }
+  - { source: sub_general,    target: merge, source_handle: out, target_handle: in_3 }
+
+  # merge → outbound webhook + end (fanout)
+  - { source: merge, target: summary_webhook, source_handle: out, target_handle: body }
+  - { source: merge, target: end,             source_handle: out, target_handle: in }

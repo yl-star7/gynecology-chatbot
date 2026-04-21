@@ -1,6 +1,9 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChatMessage } from "@gynecology-chatbot/app-core";
+import type {
+  ChatMessage,
+  MobilePregnancyWeekSummary,
+} from "@gynecology-chatbot/app-core";
 import {
   AppState,
   Keyboard,
@@ -11,11 +14,19 @@ import {
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
+import {
+  hasFreshCachedPregnancyWeeks,
+  hasFreshCachedProfileView,
+  readCachedPregnancyWeeks,
+  readCachedProfileView,
+} from "../../core/patientViewCache";
 import { space } from "../../theme";
 import {
+  resolvePatientContentLoadError,
   resolvePatientConversationLoadError,
   resolvePatientConversationSendError,
 } from "./patientErrorCopy.model";
+import { buildConversationWeekEncyclopediaSheetModel } from "./PatientConversationWeekEncyclopediaSheet.model";
 import { isPastConversationSession } from "./patientConversationSessionStatus.model";
 import { createInitialConversationMessage } from "./PatientConversationInitialMessage.model";
 import {
@@ -96,6 +107,19 @@ export function usePatientConversationScreenModel({
     target: string;
     entityId?: string;
   } | null>(null);
+  const [isWeekEncyclopediaSheetVisible, setIsWeekEncyclopediaSheetVisible] =
+    useState(false);
+  const [weekEncyclopediaWeeks, setWeekEncyclopediaWeeks] = useState<
+    MobilePregnancyWeekSummary[]
+  >([]);
+  const [
+    weekEncyclopediaProfilePregnancyWeekLabel,
+    setWeekEncyclopediaProfilePregnancyWeekLabel,
+  ] = useState<string | null>(null);
+  const [isLoadingWeekEncyclopedia, setIsLoadingWeekEncyclopedia] =
+    useState(false);
+  const [weekEncyclopediaErrorMessage, setWeekEncyclopediaErrorMessage] =
+    useState<string | null>(null);
   const didSeedInitialMessageRef = useRef(false);
 
   useEffect(() => {
@@ -272,6 +296,73 @@ export function usePatientConversationScreenModel({
     router.push(`/chat/link/${target}${params}`);
   }
 
+  async function handleOpenWeekEncyclopediaSheet() {
+    setIsWeekEncyclopediaSheetVisible(true);
+    setWeekEncyclopediaErrorMessage(null);
+
+    if (!currentUser) {
+      setWeekEncyclopediaErrorMessage("정보를 불러오지 못했어요.");
+      return;
+    }
+
+    const cachedWeeks = readCachedPregnancyWeeks(currentUser.id);
+    const cachedProfile = readCachedProfileView(currentUser.id);
+    if (cachedWeeks) {
+      setWeekEncyclopediaWeeks(cachedWeeks);
+    }
+    if (cachedProfile) {
+      setWeekEncyclopediaProfilePregnancyWeekLabel(
+        cachedProfile.pregnancyWeekLabel,
+      );
+    }
+
+    const shouldFetch =
+      !hasFreshCachedPregnancyWeeks(currentUser.id) ||
+      !hasFreshCachedProfileView(currentUser.id) ||
+      !cachedWeeks ||
+      !cachedProfile;
+    if (!shouldFetch) {
+      return;
+    }
+
+    setIsLoadingWeekEncyclopedia(true);
+    try {
+      const [nextWeeks, nextProfile] = await Promise.all([
+        services.knowledgePort.listPregnancyWeeks(),
+        services.profilePort.getProfile(),
+      ]);
+      setWeekEncyclopediaWeeks(nextWeeks);
+      setWeekEncyclopediaProfilePregnancyWeekLabel(
+        nextProfile.pregnancyWeekLabel,
+      );
+    } catch (error: unknown) {
+      setWeekEncyclopediaErrorMessage(resolvePatientContentLoadError(error));
+    } finally {
+      setIsLoadingWeekEncyclopedia(false);
+    }
+  }
+
+  function handleDismissWeekEncyclopediaSheet() {
+    setIsWeekEncyclopediaSheetVisible(false);
+  }
+
+  function handleOpenWeekEncyclopediaFullView() {
+    const model = buildConversationWeekEncyclopediaSheetModel({
+      weeks: weekEncyclopediaWeeks,
+      profilePregnancyWeekLabel: weekEncyclopediaProfilePregnancyWeekLabel,
+      isLoading: isLoadingWeekEncyclopedia,
+      errorMessage: weekEncyclopediaErrorMessage,
+    });
+    setIsWeekEncyclopediaSheetVisible(false);
+    if (model.selectedWeekNumber) {
+      router.push(
+        `/encyclopedia?mode=browse&week=${model.selectedWeekNumber}` as never,
+      );
+      return;
+    }
+    router.push("/encyclopedia" as never);
+  }
+
   function handleComposerLayout(event: LayoutChangeEvent) {
     const nextHeight = event.nativeEvent.layout.height;
     if (Math.abs(nextHeight - composerHeight) > 1) {
@@ -305,6 +396,16 @@ export function usePatientConversationScreenModel({
     linkSheet,
     handleDismissLinkSheet,
     handleOpenLinkFullView,
+    isWeekEncyclopediaSheetVisible,
+    weekEncyclopediaSheetModel: buildConversationWeekEncyclopediaSheetModel({
+      weeks: weekEncyclopediaWeeks,
+      profilePregnancyWeekLabel: weekEncyclopediaProfilePregnancyWeekLabel,
+      isLoading: isLoadingWeekEncyclopedia,
+      errorMessage: weekEncyclopediaErrorMessage,
+    }),
+    handleOpenWeekEncyclopediaSheet,
+    handleDismissWeekEncyclopediaSheet,
+    handleOpenWeekEncyclopediaFullView,
     getLinkTarget: services.knowledgePort.getLinkTarget.bind(
       services.knowledgePort,
     ),

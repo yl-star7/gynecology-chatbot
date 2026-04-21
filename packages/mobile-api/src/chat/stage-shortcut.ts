@@ -340,7 +340,7 @@ export function maybeShortCircuitStaticTurn(
     );
   const isInfoContext =
     lastScenario === "baby_info_offer" ||
-    lastScenario === "week_info_opt_in" ||
+    (lastScenario as string) === "week_info_opt_in" ||
     lastScenario === "baby_info" ||
     compactSummary.includes("태아 발달 확인 제안") ||
     compactSummary.includes("주차 정보 안내");
@@ -387,7 +387,7 @@ export function maybeShortCircuitStaticTurn(
       (q) => q.id === input.selectedQuestionId,
     );
     const questionText =
-      (pickedQuestion?.text ?? input.text.trim()) || "오늘의 질문";
+      (pickedQuestion?.text ?? input.userText.trim()) || "오늘의 질문";
     return {
       assistantMessage: assistantMessage([
         makeText(

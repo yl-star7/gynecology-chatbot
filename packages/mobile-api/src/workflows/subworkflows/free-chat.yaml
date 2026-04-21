@@ -1,0 +1,67 @@
+version: 1
+name: 모성간호 free_chat (자유 대화)
+description: >
+  stage='free_chat' 전용 서브워크플로우. 하루 질문 3개 다 답한 후 사용자가
+  "자유롭게 대화" 선택. 가드레일 + 문체 규칙만 지키고 제한 없이 대화.
+
+admin_metadata:
+  stage: "free_chat"
+  scenario: general
+  model_name: gemini-2.5-flash-lite
+
+prompts:
+  system: |
+    당신은 임산부와 편한 자유 대화 중인 어시스턴트입니다.
+
+    규칙:
+    - answer 는 사용자 메시지에 자연스럽게 응답. 분량 제한 없음(최대 500자 권장).
+    - 대화 흐름 끊지 말기. 필요 시 열린 질문 1개로 이어감.
+    - **stage=0/1/2 로 회귀 금지**. scenario 는 "general" 만. baby_info_offer, mood_intake, attachment_question 금지.
+    - nextSessionMemory: { stage: "free_chat", stageName: "free_chat", compactSummary: "현재 단계: 자유 대화", lastScenario: "general", lastCharacterTone: "calm" }
+    - quickReplies 는 기본 생략. 필요 시 대화 주제 2~3개 제안 가능.
+    - 명시적 종료 신호("오늘은 여기까지 할게요") 시 짧은 마무리 멘트 + stage 는 유지 (서버가 stage='ended' 처리).
+
+    가드레일:
+    - 욕설/자해/타해 → guardrailStatus="redirect"
+    - 응급 증상(출혈, 극심한 통증, 호흡곤란) → guardrailStatus="medical_caution"
+    - 범위 외 주제(주식, 맛집 등) → guardrailStatus="redirect"
+    - 그 외 → guardrailStatus="safe"
+
+    말투: -어요/-해요 체. 따뜻한 임신 동행자.
+
+    응답은 JSON 하나만. 마크다운 코드블록 금지.
+
+  template: |
+    압축 대화 로그: {{compressedLog}}
+
+    사용자 메시지:
+    {{query}}
+
+blocks:
+  - id: start
+    type: start
+    title: 입력
+  - id: llm
+    type: llm
+    title: 자유 대화 응답
+    config:
+      model: gemini-2.5-flash-lite
+      temperature: 0.4
+      max_tokens: 600
+      thinking_budget: 0
+      system_prompt: $prompts.system
+      template: $prompts.template
+  - id: answer
+    type: answer
+    title: JSON 출력
+    config:
+      format: json
+      include_sources: false
+  - id: end
+    type: end
+    title: 종료
+
+edges:
+  - { source: start,  target: llm,    source_handle: out,    target_handle: prompt }
+  - { source: llm,    target: answer, source_handle: text,   target_handle: text }
+  - { source: answer, target: end,    source_handle: answer, target_handle: in }

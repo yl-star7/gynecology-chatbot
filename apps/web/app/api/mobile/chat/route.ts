@@ -435,13 +435,13 @@ export async function POST(request: NextRequest) {
         const scenarioOut =
           (payload.scenario as string | undefined) ??
           (next?.lastScenario as string | undefined);
+        const stageNumOrStr = (next?.stage as unknown) ?? null;
         if (
           next &&
           scenarioOut === "baby_info" &&
-          (next.stage === 0 ||
-            next.stage === "0" ||
-            next.stage === null ||
-            next.stage === undefined)
+          (Number(stageNumOrStr) === 0 ||
+            stageNumOrStr === null ||
+            stageNumOrStr === undefined)
         ) {
           next.stage = 1;
           next.stageName = "today_question";
@@ -450,16 +450,13 @@ export async function POST(request: NextRequest) {
           }
         }
         // (d) scenario=baby_info_offer 가 stage=0 을 반복 loop 하는 경우 방지:
-        //      이번 유저 텍스트가 "이따가/아니요" 면 다음 shortcut 이 처리하므로 OK.
-        //      그러나 첫 Y path 이후 LLM 이 또 baby_info_offer 로 되돌리면 루프 위험.
-        //      직전 lastScenario 가 이미 baby_info_offer 인데 또 offer 로 돌아오면 stage=1 로 강제 전진.
         const priorScenario =
           input.promptContext?.sessionMemory?.lastScenario ?? null;
         if (
           next &&
           scenarioOut === "baby_info_offer" &&
           priorScenario === "baby_info_offer" &&
-          (next.stage === 0 || next.stage === "0")
+          Number(stageNumOrStr) === 0
         ) {
           next.stage = 1;
           next.stageName = "today_question";

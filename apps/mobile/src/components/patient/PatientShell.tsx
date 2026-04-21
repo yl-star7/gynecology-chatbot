@@ -21,6 +21,7 @@ export function PatientShell({
   children,
   activeTab: _activeTab,
   title,
+  trailingAction,
   showProfileButton = true,
   pageTone = "plain",
   headerCompact = false,
@@ -33,6 +34,7 @@ export function PatientShell({
   activeTab?: PatientTabKey;
   title?: string;
   backHref?: string;
+  trailingAction?: ReactNode;
   showProfileButton?: boolean;
   pageTone?: "main" | "plain";
   headerCompact?: boolean;
@@ -46,6 +48,7 @@ export function PatientShell({
   const headerLayout = resolvePatientShellHeaderLayout({
     hasBackButton: Boolean(backHref),
     showProfileButton,
+    hasTrailingAction: Boolean(trailingAction),
   });
 
   return (
@@ -93,6 +96,9 @@ export function PatientShell({
             ) : null}
             {title ? <Text style={styles.headerTitle}>{title}</Text> : null}
           </View>
+          {headerLayout.rightSlot === "action" ? (
+            <View style={styles.trailingAction}>{trailingAction}</View>
+          ) : null}
           {headerLayout.rightSlot === "profile" ? (
             <Pressable
               onPress={() => router.navigate("/(tabs)/profile")}
@@ -162,6 +168,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: surface.surfaceAccent,
+  },
+  trailingAction: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   iconButton: {
     width: space.xxxl + space.md,

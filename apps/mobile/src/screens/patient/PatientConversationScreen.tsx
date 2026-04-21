@@ -1,11 +1,14 @@
 // @ts-nocheck
+import { Ionicons } from "@expo/vector-icons";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientConversationMessageList } from "../../components/patient/chat/PatientConversationMessageList";
 import { PatientConversationComposer } from "../../components/patient/chat/PatientConversationComposer";
 import { ChatLinkSheet } from "../../components/patient/chat/ChatLinkSheet";
+import { PatientConversationWeekEncyclopediaSheet } from "../../components/patient/chat/PatientConversationWeekEncyclopediaSheet";
 import { PatientShell } from "../../components/patient/PatientShell";
-import { patientSurfacePalette as surface, space } from "../../theme";
+import { Pressable } from "../../components/ui";
+import { patientSurfacePalette as surface, radii, space } from "../../theme";
 import { usePatientConversationScreenModel } from "./PatientConversationScreen.model";
 import { resolvePatientSurveySaveError } from "./patientErrorCopy.model";
 
@@ -25,6 +28,23 @@ export function PatientConversationScreen({
       pageTone="plain"
       headerCompact
       showProfileButton={false}
+      trailingAction={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="현재 주차 임신백과 열기"
+          hitSlop={12}
+          style={styles.toolbarButton}
+          onPress={() => {
+            void model.handleOpenWeekEncyclopediaSheet();
+          }}
+        >
+          <Ionicons
+            name="book-outline"
+            size={space.lg + space.xs}
+            color={surface.textPrimary}
+          />
+        </Pressable>
+      }
     >
       <KeyboardAvoidingView
         style={styles.flex}
@@ -74,6 +94,12 @@ export function PatientConversationScreen({
         onClose={model.handleDismissLinkSheet}
         onOpenFullView={model.handleOpenLinkFullView}
       />
+      <PatientConversationWeekEncyclopediaSheet
+        visible={model.isWeekEncyclopediaSheetVisible}
+        model={model.weekEncyclopediaSheetModel}
+        onClose={model.handleDismissWeekEncyclopediaSheet}
+        onOpenFullView={model.handleOpenWeekEncyclopediaFullView}
+      />
     </PatientShell>
   );
 }
@@ -85,5 +111,13 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: surface.surfaceSecondary,
+  },
+  toolbarButton: {
+    width: space.xxxl + space.md,
+    height: space.xxxl + space.md,
+    borderRadius: radii.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: surface.surfacePrimary,
   },
 });

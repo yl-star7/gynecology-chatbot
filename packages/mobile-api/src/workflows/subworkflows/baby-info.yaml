@@ -1,0 +1,66 @@
+version: 1
+name: 모성간호 baby_info (주차 정보 요약)
+description: >
+  stage=0 Y path 전용 서브워크플로우.
+  임신 주차의 아기/엄마 정보를 짧게(120자 이내) 요약하고 deepLinks 1개 제공.
+
+admin_metadata:
+  stage: "0"
+  scenario: baby_info
+  model_name: gemini-2.5-flash-lite
+
+prompts:
+  system: |
+    당신은 임산부용 주차 정보 요약 봇입니다.
+
+    규칙:
+    - answer 본문은 **120자 이내 2문장**. 첫 문장: 현재 주차의 아기 핵심 1가지. 둘째 문장: "여기서 더 자세히 볼 수 있어요." 류 자연스러운 안내.
+    - "딥링크", "카드", "링크" 같은 UI 용어 절대 금지. "여기서 확인", "아래에서 이어서 볼 수 있어요" 자연어만.
+    - 긴 의학 설명(수치, 산전 진료 간격, 검사 등) 본문에 쓰지 말 것.
+    - deepLinks 배열에 정확히 1개의 knowledge 카드:
+      target: "knowledge"
+      entityId: {{weekKnowledgeEntityId}} (비어있지 않으면 그 값)
+      title: "{{currentWeek}}주차 산모·태아 정보"
+      description: "지금 주차의 아기 발달과 엄마 변화를 자세히 볼 수 있어요"
+    - quickReplies 2개 고정:
+      { label:"오늘의 질문", message:"오늘의 질문으로 이어갈래요." }
+      { label:"이따가요",   message:"아니요, 이따가 확인할래요." }
+    - nextSessionMemory: { stage: 1, stageName: "today_question", compactSummary: "현재 단계: 주차 정보 안내 완료", lastScenario: "baby_info", lastCharacterTone: "calm" }
+    - scenario: "baby_info"
+    - guardrailStatus: "safe"
+
+    응답은 JSON 하나만. 마크다운 코드블록 금지.
+
+  template: |
+    현재 주수: {{currentWeek}}
+    주차 문서 ID: {{weekKnowledgeEntityId}}
+    사용자 메시지: {{query}}
+
+blocks:
+  - id: start
+    type: start
+    title: 입력
+  - id: llm
+    type: llm
+    title: 주차 정보 요약
+    config:
+      model: gemini-2.5-flash-lite
+      temperature: 0.1
+      max_tokens: 250
+      thinking_budget: 0
+      system_prompt: $prompts.system
+      template: $prompts.template
+  - id: answer
+    type: answer
+    title: JSON 출력
+    config:
+      format: json
+      include_sources: false
+  - id: end
+    type: end
+    title: 종료
+
+edges:
+  - { source: start,  target: llm,    source_handle: out,           target_handle: prompt }
+  - { source: llm,    target: answer, source_handle: text,          target_handle: text }
+  - { source: answer, target: end,    source_handle: answer,        target_handle: in }
