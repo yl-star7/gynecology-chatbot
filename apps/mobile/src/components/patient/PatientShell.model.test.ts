@@ -20,6 +20,7 @@ test("header layout keeps profile button when shown", () => {
   const layout = resolvePatientShellHeaderLayout({
     hasBackButton: false,
     showProfileButton: true,
+    hasTrailingAction: false,
   });
 
   assert.deepEqual(layout, {
@@ -34,12 +35,28 @@ test("header layout uses relaxed top inset when back button is shown", () => {
   const layout = resolvePatientShellHeaderLayout({
     hasBackButton: true,
     showProfileButton: false,
+    hasTrailingAction: false,
   });
 
   assert.deepEqual(layout, {
     leftSlot: "back",
     rightSlot: "none",
     compactTrailingSpace: true,
+    usesCompactTopInset: true,
+  });
+});
+
+test("header layout prefers a custom trailing action over the profile button", () => {
+  const layout = resolvePatientShellHeaderLayout({
+    hasBackButton: true,
+    showProfileButton: true,
+    hasTrailingAction: true,
+  });
+
+  assert.deepEqual(layout, {
+    leftSlot: "back",
+    rightSlot: "action",
+    compactTrailingSpace: false,
     usesCompactTopInset: true,
   });
 });
