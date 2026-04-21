@@ -34,6 +34,7 @@
     "./chat/attachment-question-progress": "./src/chat/attachment-question-progress.ts",
     "./chat/question-event-sync": "./src/chat/question-event-sync.ts",
     "./chat/stage-workflow-selector": "./src/chat/stage-workflow-selector.ts",
+    "./chat/letter-reflection-postprocess": "./src/chat/letter-reflection-postprocess.ts",
     "./chat/workflow-payload": "./src/chat/workflow-payload.ts",
     "./chat/responders/mobile-chat-responder": "./src/chat/responders/mobile-chat-responder.ts",
     "./chat/responders/response-pipeline": "./src/chat/responders/response-pipeline.ts",

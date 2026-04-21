@@ -42,6 +42,7 @@ import {
   selectStageWorkflow,
   type StageWorkflowMapping,
 } from "@gynecology-chatbot/mobile-api/chat/stage-workflow-selector";
+import { rewriteLetterReflectionQuickReplies } from "@gynecology-chatbot/mobile-api/chat/letter-reflection-postprocess";
 import { loadMaternalNursingWorkflow } from "@gynecology-chatbot/mobile-api/workflows/load-workflow-yaml";
 import type { CharacterTone } from "@gynecology-chatbot/mobile-api/chat/workflow-payload";
 import {
@@ -511,6 +512,19 @@ export async function POST(request: NextRequest) {
           next.stageName = "today_question";
           next.compactSummary = "현재 단계: 오늘의 질문 준비";
         }
+      }
+      // (e) letter_reflection 응답 후처리: 남은 질문 개수 quickReply 라벨에 반영
+      const scenarioFinal =
+        (payload?.scenario as string | undefined) ??
+        ((payload?.nextSessionMemory as any)?.lastScenario as
+          | string
+          | undefined);
+      if (
+        scenarioFinal === "letter_reflection" ||
+        scenarioFinal === "daily_followup" ||
+        scenarioFinal === "empathy_chat"
+      ) {
+        rewriteLetterReflectionQuickReplies(payload as any, progress);
       }
       return result;
     };

@@ -11,6 +11,7 @@ loadEnv({ path: path.resolve(process.cwd(), ".env") });
 
 import { Schift } from "@schift-io/sdk";
 import {
+  detectMoodFromText,
   maybeShortCircuitStaticTurn,
   type QuestionProgress,
 } from "../packages/mobile-api/src/chat/stage-shortcut";
@@ -18,6 +19,7 @@ import {
   selectStageWorkflow,
   type StageWorkflowMapping,
 } from "../packages/mobile-api/src/chat/stage-workflow-selector";
+import { rewriteLetterReflectionQuickReplies } from "../packages/mobile-api/src/chat/letter-reflection-postprocess";
 import { loadMaternalNursingWorkflow } from "../packages/mobile-api/src/workflows/load-workflow-yaml";
 import type { CharacterTone } from "../packages/mobile-api/src/chat/workflow-payload";
 
@@ -141,8 +143,9 @@ async function runTurn(userText: string, state: State) {
   else console.log("\n(앱 열기)");
 
   const t0 = performance.now();
-  const selectedMood =
-    moodPool.find((m) => m.message === userText)?.message ?? null;
+  // 기분 매칭: exact message → substring → tone keyword 폴백
+  const detected = detectMoodFromText(userText, moodPool);
+  const selectedMood = detected?.message ?? null;
 
   const shortcut = maybeShortCircuitStaticTurn({
     userText,
@@ -235,6 +238,10 @@ async function runTurn(userText: string, state: State) {
   if (!answer) {
     const idx = raw.indexOf("{");
     answer = idx > 0 ? raw.slice(0, idx).trim() : raw;
+  }
+  // letter_reflection 응답 후처리: 남은 질문 개수 반영
+  if (sel.key === "letter_reflection" && parsed) {
+    rewriteLetterReflectionQuickReplies(parsed as any, state.progress);
   }
   renderBot(answer || "(빈 응답)", {
     source: `schift:${sel.key}`,
