@@ -65,7 +65,7 @@ describe("maybeShortCircuitStaticTurn", () => {
     }
   });
 
-  it("fires mood webhook and shows week_info_opt_in when mood just selected", () => {
+  it("fires mood webhook and shows week_info_opt_in when exact mood option was selected", () => {
     const r = maybeShortCircuitStaticTurn({
       userText: "오늘 기분이 좋아요.",
       selectedMood: "오늘 기분이 좋아요.",
@@ -93,6 +93,26 @@ describe("maybeShortCircuitStaticTurn", () => {
     if (text?.type === "text") {
       expect(text.text).toContain(optInVariations[0]);
     }
+  });
+
+  it("falls through when free text resembles a mood but was not an exact option tap", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "오늘은 몸이 많이 피곤해요.",
+      selectedMood: null,
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 0,
+          stageName: "mood_intake",
+          compactSummary: "현재 단계: 감정 확인",
+        } as PromptContext["sessionMemory"],
+      }),
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+    });
+    expect(r).toBeNull();
   });
 
   it("returns today_question when user answered N to opt-in", () => {

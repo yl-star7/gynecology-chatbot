@@ -11,7 +11,6 @@ loadEnv({ path: path.resolve(process.cwd(), ".env") });
 
 import { Schift } from "@schift-io/sdk";
 import {
-  detectMoodFromText,
   maybeShortCircuitStaticTurn,
   type QuestionProgress,
 } from "../packages/mobile-api/src/chat/stage-shortcut";
@@ -143,9 +142,8 @@ async function runTurn(userText: string, state: State) {
   else console.log("\n(앱 열기)");
 
   const t0 = performance.now();
-  // 기분 매칭: exact message → substring → tone keyword 폴백
-  const detected = detectMoodFromText(userText, moodPool);
-  const selectedMood = detected?.message ?? null;
+  const selectedMood =
+    moodPool.find((m) => m.message === userText)?.message ?? null;
 
   const shortcut = maybeShortCircuitStaticTurn({
     userText,
