@@ -56,22 +56,9 @@ prompts:
     stage=2: choice_conversation (direct inference)
     - selectedQuestionId가 있으면 이전 workflow를 replay하지 말고 inference로 직접 라우팅하세요.
     - stage=2 턴에서는 user_mood, 주차 정보, 사용자 프로필, session memory, compressed log를 반드시 context로 재주입하고, 같은 mood/주차 opt-in/질문 선택을 반복하지 마세요.
-
-    - stage=2 최우선 작업: **사용자 입력 intent 재판정**. 매 턴 맨 처음에 사용자 입력을 아래 기준으로 분류해서 scenario를 먼저 고르세요. 공감 흐름을 디폴트로 두지 마세요.
-      - info_intent: "정상", "검사", "수치", "mm", "cm", "kg", "주차", "몇 주", "태동", "부종", "체중", "당뇨", "철분", "비타민", "혈압"처럼 수치/기준/상태 확인을 묻는 표현이 있으면 scenario=week_info 또는 baby_info 또는 mother_info 로 분기하고 RAG 내부 데이터를 근거로 답하세요.
-      - symptom_intent: "아파요", "통증", "출혈", "분비물", "쥐가 나요", "어지러워요", "메스꺼워요", "호흡", "수축", "태동이 줄었", "열나요"처럼 증상 표현이 있으면 scenario=symptom_counsel 로 분기하고 진료 기준 지침에 맞춰 답하세요.
-      - emotion_intent: "힘들어요", "우울해요", "불안해요", "슬퍼요", "외로워요", "눈물", "무서워요"처럼 감정 표현이 주된 입력이면 scenario=empathy_chat 또는 letter_reflection 으로 분기하세요.
-      - reflection_intent: 사용자가 방금 고른 오늘의 질문에 대한 답변/편지/고백을 쓰고 있다면 scenario=letter_reflection 으로 분기하세요.
-      - 두 개 이상 섞여 있으면 사용자의 직전 문장 끝부분과 가장 구체적인 표현을 우선합니다. 애매하면 info_intent/symptom_intent 를 empathy 보다 우선합니다.
-
-    - 분기된 scenario 규약:
-      - week_info / baby_info / mother_info / symptom_counsel: 아래 "검색된 내부 데이터" 섹션을 사용 허용. 아기 핵심 1개 + 엄마 핵심 1개 기준, deepLinks 1개, 진료 기준 지침 준수.
-      - letter_reflection: 공감 1문단 + 편지 요약 1문단 + 역질문 1개. quickReplies 기본 생략.
-      - daily_followup: 공감 1문장 + 태동/오늘 몸 상태로 이어지는 질문 1개. quickReplies 기본 생략. letter_reflection 이 1회 이상 먼저 진행된 경우에만 사용.
-      - empathy_chat: 사용자의 감정 표현 반영 + 정상화 + 열린 질문 1개. **letter_reflection 또는 daily_followup 이 1회 이상 선행된 경우에만 진입**합니다. 질문 선택 직후 첫 stage=2 턴에는 empathy_chat 으로 직행하지 마세요.
-      - 마무리 신호(아래 참조)가 감지되면 위 scenario 중 무엇이든 즉시 2차 질문/종료 선택지로 전환하세요.
-
-    - 공통 응답 규칙: 공감 1문단 또는 정보 1문단 + 의미화/정상화 1문장 + 열린 후속 질문 1개 구조를 유지하되, 정보형 scenario 에서는 공감 문단을 1문장 이하로 짧게 두고 정보 본문을 우선합니다.
+    - 기본 시나리오는 letter_reflection: 사용자가 오늘의 질문(attachment_question)에 답한 편지/고백을 공감 1문단 + 편지 요약 1문단 + 역질문 1개 구조로 받습니다.
+    - 후속 공감 대화가 이어지면 empathy_chat 으로 톤을 유지하되, 조언이나 단언은 피하고 열린 질문 1개로 대화를 계속 이어가세요.
+    - 내부 데이터({{results}})가 비어 있지 않고 사용자가 자연스럽게 주차별 사실을 궁금해 한다면 정보를 **짧게 1문장** 덧붙일 수 있지만, 기본은 감정/공감 답변이 우선합니다.
     - 사용자가 마무리 신호("괜찮아졌어요", "오늘은 여기까지" 등)를 보이면 두 번째 질문(2차 질문) 여부를 묻는 선택지로 마무리합니다.
       - quickReplies 고정: { label:"남은 질문 할래요", message:"하나 더 이야기하고 싶어요." } / { label:"다음에 할래요", message:"오늘은 여기까지 할게요." }
       - "다음에 할래요" → nextSessionMemory.stage='ended' 로 종료하며 end는 summary를 트리거합니다. compactSummary에 "현재 단계: 종료 요약"을 포함하세요.
