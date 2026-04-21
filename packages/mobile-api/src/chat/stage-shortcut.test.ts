@@ -114,7 +114,8 @@ describe("maybeShortCircuitStaticTurn", () => {
     });
     expect(r).not.toBeNull();
     expect(r!.workflowMemoryPayload.scenario).toBe("attachment_question");
-    expect(r!.workflowMemoryPayload.selectedQuestionIds).toHaveLength(2);
+    const payload = r!.workflowMemoryPayload as Record<string, unknown>;
+    expect(payload.offeredQuestionIds).toHaveLength(2);
   });
 
   it("falls through (null) when stage=0 Y path — needs LLM", () => {
@@ -178,7 +179,7 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(r).toBeNull();
   });
 
-  it("offers exhausted choice when closing signal + all questions used", () => {
+  it("offers exhausted choice when closing signal + all questions answered (includes current)", () => {
     const r = maybeShortCircuitStaticTurn({
       userText: "오늘은 여기까지 할래요",
       selectedMood: null,
@@ -189,8 +190,10 @@ describe("maybeShortCircuitStaticTurn", () => {
           stage: 2,
           stageName: "choice_conversation",
           compactSummary: "현재 단계: 질문 답변 종료",
-          selectedQuestionIds: ["q1", "q2", "q3"],
-        } as PromptContext["sessionMemory"] & { selectedQuestionIds: string[] },
+          // q1, q2 이미 답변 + 현재 q3 대화 중 → closing 시 q3 추가 → 소진
+          answeredQuestionIds: ["q1", "q2"],
+          currentAttachmentQuestionId: "q3",
+        } as PromptContext["sessionMemory"] & Record<string, unknown>,
       }),
       moodPool,
       weekInfoOptInVariations: optInVariations,
@@ -209,6 +212,47 @@ describe("maybeShortCircuitStaticTurn", () => {
         expect.arrayContaining(["free-chat", "end-session"]),
       );
     }
+    const payload = r!.workflowMemoryPayload as Record<string, unknown>;
+    expect(payload.selectedQuestionIds).toEqual(["q1", "q2", "q3"]);
+  });
+
+  it("returns to stage=1 with remaining questions when current question finished but quota not met", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "고마워요",
+      selectedMood: null,
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 2,
+          stageName: "choice_conversation",
+          compactSummary: "현재 단계: 질문 답변 중",
+          answeredQuestionIds: [],
+          currentAttachmentQuestionId: "q1",
+        } as PromptContext["sessionMemory"] & Record<string, unknown>,
+      }),
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+    });
+    expect(r).not.toBeNull();
+    expect(r!.workflowMemoryPayload.scenario).toBe("attachment_question");
+    const next = r!.workflowMemoryPayload.nextSessionMemory as Record<
+      string,
+      unknown
+    >;
+    expect(next.stage).toBe(1);
+    expect(next.answeredQuestionIds).toEqual(["q1"]);
+    expect(next.currentAttachmentQuestionId).toBeNull();
+    // stage=1 에서 남은 질문 2개(q2, q3) 보여야 함 (q1은 제외)
+    const quick = r!.assistantMessage.parts.find(
+      (p) => p.type === "quickReplies",
+    );
+    if (quick?.type === "quickReplies") {
+      const ids = quick.choices.map((c) => c.id);
+      expect(ids).not.toContain("q1");
+      expect(ids).toEqual(expect.arrayContaining(["q2", "q3"]));
+    }
   });
 
   it("transitions to free_chat stage when user selects 자유대화", () => {
@@ -222,8 +266,9 @@ describe("maybeShortCircuitStaticTurn", () => {
           stage: 2,
           stageName: "exhausted_choice",
           compactSummary: "현재 단계: 자유대화/종료 선택",
-          selectedQuestionIds: ["q1", "q2", "q3"],
-        } as PromptContext["sessionMemory"] & { selectedQuestionIds: string[] },
+          answeredQuestionIds: ["q1", "q2", "q3"],
+          currentAttachmentQuestionId: null,
+        } as PromptContext["sessionMemory"] & Record<string, unknown>,
       }),
       moodPool,
       weekInfoOptInVariations: optInVariations,

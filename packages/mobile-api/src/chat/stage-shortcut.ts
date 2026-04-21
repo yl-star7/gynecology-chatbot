@@ -26,6 +26,10 @@ const POSITIVE_ACK = /^(네|응|예|좋아|보여|볼래|알려|확인할래요)
 export type StageShortcutInput = {
   userText: string;
   selectedMood: string | null;
+  /**
+   * 이번 턴에 사용자가 quickReply로 막 고른 질문 ID.
+   * null 이면 텍스트 입력 또는 다른 UI 액션.
+   */
   selectedQuestionId: string | null;
   currentWeek: number | null;
   promptContext: PromptContext | null;
@@ -33,6 +37,15 @@ export type StageShortcutInput = {
   weekInfoOptInVariations: string[];
   todayQuestionCandidates: Array<{ id: string; text: string }>;
   rngSeed?: number;
+};
+
+/**
+ * 답변 완료 질문 ID 누적 리스트 + 현재 대화 중인 질문 ID.
+ * session memory 에 함께 persist.
+ */
+type QuestionProgress = {
+  answeredQuestionIds: string[];
+  currentAttachmentQuestionId: string | null;
 };
 
 export type StageShortcutResult = {
@@ -171,15 +184,16 @@ function buildWeekInfoOptInTurn(
 // ────────────────────────────────────────────────────────────
 function buildTodayQuestionTurn(
   input: StageShortcutInput,
-  selectedAnswered: Set<string>,
+  progress: QuestionProgress,
 ): StageShortcutResult {
+  const answered = new Set(progress.answeredQuestionIds);
   const candidates = input.todayQuestionCandidates.filter(
-    (q) => !selectedAnswered.has(q.id),
+    (q) => !answered.has(q.id),
   );
   const remaining = candidates.slice(0, 2);
 
   if (remaining.length === 0) {
-    return buildExhaustedChoiceTurn();
+    return buildExhaustedChoiceTurn(progress);
   }
 
   return {
@@ -199,23 +213,31 @@ function buildTodayQuestionTurn(
       scenario: "attachment_question",
       characterTone: "calm",
       guardrailStatus: "safe",
-      selectedQuestionIds: remaining.map((q) => q.id),
+      // 이번 턴에 "보여준" 후보들
+      offeredQuestionIds: remaining.map((q) => q.id),
+      // 누적 상태 그대로 유지
+      selectedQuestionIds: progress.answeredQuestionIds,
+      currentAttachmentQuestionId: null,
       nextSessionMemory: {
         workflowVersion: 2,
         stage: 1,
         stageName: "today_question",
-        compactSummary: "현재 단계: 모아애착 질문",
+        compactSummary: `현재 단계: 모아애착 질문 (${progress.answeredQuestionIds.length}/${DAILY_ATTACHMENT_QUESTION_QUOTA} 답변 완료)`,
         lastScenario: "attachment_question",
         lastCharacterTone: "calm",
-      },
-    },
+        answeredQuestionIds: progress.answeredQuestionIds,
+        currentAttachmentQuestionId: null,
+      } as Record<string, unknown>,
+    } as WorkflowAssistantPayload,
   };
 }
 
 // ────────────────────────────────────────────────────────────
 // 하루치 질문 소진 → 자유대화 / 종료 선택
 // ────────────────────────────────────────────────────────────
-function buildExhaustedChoiceTurn(): StageShortcutResult {
+function buildExhaustedChoiceTurn(
+  progress: QuestionProgress,
+): StageShortcutResult {
   return {
     assistantMessage: assistantMessage([
       makeText("오늘 준비된 질문은 다 함께 봤어요. 조금 더 이야기 나눠볼까요?"),
@@ -236,6 +258,8 @@ function buildExhaustedChoiceTurn(): StageShortcutResult {
       scenario: "general",
       characterTone: "calm",
       guardrailStatus: "safe",
+      selectedQuestionIds: progress.answeredQuestionIds,
+      currentAttachmentQuestionId: null,
       nextSessionMemory: {
         workflowVersion: 2,
         stage: 2,
@@ -243,8 +267,10 @@ function buildExhaustedChoiceTurn(): StageShortcutResult {
         compactSummary: "현재 단계: 자유대화/종료 선택",
         lastScenario: "general",
         lastCharacterTone: "calm",
-      },
-    },
+        answeredQuestionIds: progress.answeredQuestionIds,
+        currentAttachmentQuestionId: null,
+      } as Record<string, unknown>,
+    } as WorkflowAssistantPayload,
   };
 }
 
@@ -281,9 +307,25 @@ export function maybeShortCircuitStaticTurn(
   const memory = input.promptContext?.sessionMemory ?? null;
   const stage = memory?.stage ?? null;
   const compactSummary = memory?.compactSummary ?? "";
-  const selectedQuestionIds = new Set(
-    (memory as { selectedQuestionIds?: string[] })?.selectedQuestionIds ?? [],
-  );
+  const memoryRecord = memory as unknown as Record<string, unknown> | null;
+  const answeredQuestionIds: string[] = Array.isArray(
+    memoryRecord?.answeredQuestionIds,
+  )
+    ? (memoryRecord!.answeredQuestionIds as string[])
+    : Array.isArray(
+          (memory as { selectedQuestionIds?: string[] })?.selectedQuestionIds,
+        )
+      ? ((memory as { selectedQuestionIds?: string[] }).selectedQuestionIds ??
+        [])
+      : [];
+  const currentAttachmentQuestionId =
+    typeof memoryRecord?.currentAttachmentQuestionId === "string"
+      ? (memoryRecord.currentAttachmentQuestionId as string)
+      : null;
+  const progress: QuestionProgress = {
+    answeredQuestionIds,
+    currentAttachmentQuestionId,
+  };
 
   // 첫 진입: stage 없음 → mood intake
   if (stage === null && !input.selectedMood) {
@@ -297,19 +339,19 @@ export function maybeShortCircuitStaticTurn(
     }
     // "N" (이따가요) → stage=1 today_question으로
     if (/이따가|아니요|나중|안 볼래|안볼래/.test(input.userText)) {
-      return buildTodayQuestionTurn(input, selectedQuestionIds);
+      return buildTodayQuestionTurn(input, progress);
     }
     // "Y" (네, 볼래요) → 주차 정보는 Schift LLM 경로로 넘기거나 별도 deep link 로직
-    // 여기서는 short-circuit 안 함 (LLM 필요)
     return null;
   }
 
   if (stage === 1) {
     // 사용자가 질문 선택 안 했고 attachment_question 턴 재진입
     if (!input.selectedQuestionId) {
-      return buildTodayQuestionTurn(input, selectedQuestionIds);
+      return buildTodayQuestionTurn(input, progress);
     }
-    // 질문 선택됨 → LLM 경로 (stage=2 conversation)
+    // 질문 선택됨 → LLM 경로 (stage=2). 라우트가 memory에
+    // currentAttachmentQuestionId = input.selectedQuestionId 로 persist.
     return null;
   }
 
@@ -321,19 +363,27 @@ export function maybeShortCircuitStaticTurn(
     ) {
       return buildEndedTurn();
     }
-    // 소진 체크: 마무리 신호 + selectedQuestionIds 가득 차면 자유대화/종료 선택
-    if (
-      CLOSING_SIGNAL.test(input.userText) &&
-      selectedQuestionIds.size >= DAILY_ATTACHMENT_QUESTION_QUOTA
-    ) {
-      return buildExhaustedChoiceTurn();
-    }
-    // 마무리 신호만: 아직 질문 남음 → 2차 질문 안내
-    if (
-      CLOSING_SIGNAL.test(input.userText) &&
-      selectedQuestionIds.size < DAILY_ATTACHMENT_QUESTION_QUOTA
-    ) {
-      return buildTodayQuestionTurn(input, selectedQuestionIds);
+    // 마무리 신호 → 현재 질문을 answered 에 push, 소진 여부 판단
+    if (CLOSING_SIGNAL.test(input.userText)) {
+      const updated: QuestionProgress = {
+        answeredQuestionIds:
+          progress.currentAttachmentQuestionId &&
+          !progress.answeredQuestionIds.includes(
+            progress.currentAttachmentQuestionId,
+          )
+            ? [
+                ...progress.answeredQuestionIds,
+                progress.currentAttachmentQuestionId,
+              ]
+            : progress.answeredQuestionIds,
+        currentAttachmentQuestionId: null,
+      };
+      if (
+        updated.answeredQuestionIds.length >= DAILY_ATTACHMENT_QUESTION_QUOTA
+      ) {
+        return buildExhaustedChoiceTurn(updated);
+      }
+      return buildTodayQuestionTurn(input, updated);
     }
     // "자유대화" 선택 → free_chat 전환
     if (/자유롭게/.test(input.userText)) {
