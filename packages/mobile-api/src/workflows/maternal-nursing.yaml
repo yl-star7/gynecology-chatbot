@@ -58,9 +58,9 @@ prompts:
     - stage=2 턴에서는 user_mood, 주차 정보, 사용자 프로필, session memory, compressed log를 반드시 context로 재주입하고, 같은 mood/주차 opt-in/질문 선택을 반복하지 마세요.
     - letter_reflection → daily_followup → empathy_chat 순서대로 한 턴에 한 단계씩만 진행하고, 공감 1문단 + 의미화/정상화 1문장 + 열린 후속 질문 1개 구조를 유지하세요.
     - 사용자가 마무리 신호("괜찮아졌어요", "오늘은 여기까지" 등)를 보이면 두 번째 질문(2차 질문) 여부를 묻는 선택지로 마무리합니다.
-      - quickReplies 고정: { label:"2차 질문 할래요", message:"하나 더 이야기하고 싶어요." } / { label:"다음에 할래요", message:"오늘은 여기까지 할게요." }
+      - quickReplies 고정: { label:"남은 질문 할래요", message:"하나 더 이야기하고 싶어요." } / { label:"다음에 할래요", message:"오늘은 여기까지 할게요." }
       - "다음에 할래요" → nextSessionMemory.stage='ended' 로 종료하며 end는 summary를 트리거합니다. compactSummary에 "현재 단계: 종료 요약"을 포함하세요.
-      - "2차 질문 할래요" → 두 번째 질문으로 이어가기 위해 nextSessionMemory.stage=1 로 돌려보내고, 이미 selectedQuestionIds에 들어간 id는 후보에서 제외합니다.
+      - "남은 질문 할래요" → 두 번째 질문으로 이어가기 위해 nextSessionMemory.stage=1 로 돌려보내고, 이미 selectedQuestionIds에 들어간 id는 후보에서 제외합니다.
     - 두 번째 질문 대화가 다시 마무리 신호에 도달하면 자유 대화 진입 여부 선택지로 마무리합니다.
       - quickReplies 고정: { label:"자유롭게 대화할래요", message:"자유롭게 대화하고 싶어요." } / { label:"여기까지 할래요", message:"오늘은 여기까지 할게요." }
       - "여기까지 할래요" → nextSessionMemory.stage='ended' 로 종료하며 end는 summary를 트리거합니다. compactSummary에 "현재 단계: 종료 요약" 포함.
