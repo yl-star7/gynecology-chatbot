@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import { ChatPartRenderer, TypingIndicator } from "../../chat";
+import { resolveQuickReplyDisplayLabel } from "../../chat/ChatPartRenderer.model";
 import { NurseAvatar, NurseCharacter } from "../NurseCharacter";
 import { Pressable } from "../../ui";
 import {
@@ -162,7 +163,7 @@ export function PatientConversationMessageList({
                         accessibilityLabel={choice.label}
                       >
                         <Text style={styles.quickReplyLabel}>
-                          {choice.label}
+                          {resolveQuickReplyDisplayLabel(choice.label)}
                         </Text>
                       </Pressable>
                     ))}
@@ -339,6 +340,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "flex-start",
+    alignItems: "flex-start",
     gap: space.sm,
   },
   quickReplyPill: {
@@ -347,12 +349,15 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm,
     paddingHorizontal: space.lg,
     maxWidth: "100%",
+    minWidth: 0,
+    flexShrink: 1,
   },
   quickReplyLabel: {
     ...typo.caption,
     color: palette.accent,
     fontWeight: "600",
     flexShrink: 1,
+    flexWrap: "wrap",
   },
   threadedContent: {
     flexGrow: 1,

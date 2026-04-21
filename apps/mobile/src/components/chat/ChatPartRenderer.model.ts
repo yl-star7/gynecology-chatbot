@@ -7,10 +7,7 @@ export function normalizeChatMarkdownLines(text: string) {
   return lines.flatMap((line, index) => {
     const nextLine = lines[index + 1] ?? "";
 
-    if (
-      bulletLinePattern.test(line) ||
-      !bulletLinePattern.test(nextLine)
-    ) {
+    if (bulletLinePattern.test(line) || !bulletLinePattern.test(nextLine)) {
       return [line];
     }
 
@@ -27,4 +24,8 @@ export function normalizeChatMarkdownLines(text: string) {
 
     return [intro, `${match[2]} ${item}`];
   });
+}
+
+export function resolveQuickReplyDisplayLabel(label: string) {
+  return label;
 }

@@ -16,7 +16,10 @@ import {
   space,
   typo,
 } from "../../theme";
-import { normalizeChatMarkdownLines } from "./ChatPartRenderer.model";
+import {
+  normalizeChatMarkdownLines,
+  resolveQuickReplyDisplayLabel,
+} from "./ChatPartRenderer.model";
 
 // ─── Domain types ─────────────────────────────────────────
 
@@ -377,7 +380,9 @@ function QuickRepliesPartView({
             accessibilityRole="button"
             accessibilityLabel={choice.label}
           >
-            <Text style={styles.quickReplyLabel}>{choice.label}</Text>
+            <Text style={styles.quickReplyLabel}>
+              {resolveQuickReplyDisplayLabel(choice.label)}
+            </Text>
           </Pressable>
         ))}
       </View>
@@ -675,6 +680,7 @@ const styles = StyleSheet.create({
   quickRepliesRow: {
     flexDirection: "row",
     flexWrap: "wrap",
+    alignItems: "flex-start",
     gap: space.xs,
   },
   quickReplyPill: {
@@ -683,6 +689,8 @@ const styles = StyleSheet.create({
     paddingVertical: space.xs,
     paddingHorizontal: space.md,
     maxWidth: "100%",
+    minWidth: 0,
+    flexShrink: 1,
   },
   quickReplyPillPressed: {
     backgroundColor: surface.surfaceAccent,
@@ -693,6 +701,7 @@ const styles = StyleSheet.create({
     color: palette.accent,
     fontWeight: "600",
     flexShrink: 1,
+    flexWrap: "wrap",
   },
 
   // DeepLinkPart
