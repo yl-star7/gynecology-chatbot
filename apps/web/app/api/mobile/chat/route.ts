@@ -30,6 +30,14 @@ import {
   type QuestionProgress,
 } from "@gynecology-chatbot/mobile-api/chat/stage-shortcut";
 import { fetchAttachmentQuestionProgress } from "@gynecology-chatbot/mobile-api/chat/attachment-question-progress";
+import {
+  markQuestionAnswered,
+  recordQuestionSent,
+} from "@gynecology-chatbot/mobile-api/chat/question-event-sync";
+import {
+  buildQuestionSummaryRecord,
+  shouldSaveQuestionSummary,
+} from "@gynecology-chatbot/mobile-api/chat/question-summary";
 import { loadMaternalNursingWorkflow } from "@gynecology-chatbot/mobile-api/workflows/load-workflow-yaml";
 import type { CharacterTone } from "@gynecology-chatbot/mobile-api/chat/workflow-payload";
 import {
@@ -450,6 +458,106 @@ export async function POST(request: NextRequest) {
       imageDataUris,
       hardGuardrailReason,
     });
+
+    // ── attachment_question 이벤트 동기화 ──
+    // 1) 사용자가 질문 선택 (selectedQuestionId 입력) → user_question_events INSERT
+    if (selectedQuestionId) {
+      try {
+        await recordQuestionSent({
+          prisma: prisma as unknown as Parameters<
+            typeof recordQuestionSent
+          >[0]["prisma"],
+          userId,
+          sessionId: result.sessionId,
+          questionId: selectedQuestionId,
+        });
+      } catch (error) {
+        console.warn("recordQuestionSent failed", error);
+      }
+    }
+    // 2) 이전 턴의 currentAttachmentQuestionId 와 다음 턴이 다르면 질문 종료로 간주
+    //    → UPDATE status='answered' + calendar question_summary 기록
+    const nextMem = (result.workflowMemoryPayload?.nextSessionMemory ??
+      null) as
+      | (SessionMemoryPayload & {
+          currentAttachmentQuestionId?: string | null;
+        })
+      | null;
+    const priorCurrent = ((
+      result as unknown as {
+        priorSessionMemory?: { currentAttachmentQuestionId?: string | null };
+      }
+    ).priorSessionMemory?.currentAttachmentQuestionId ?? null) as string | null;
+    const nextCurrent = nextMem?.currentAttachmentQuestionId ?? null;
+    const justClosedQuestionId =
+      priorCurrent && priorCurrent !== nextCurrent ? priorCurrent : null;
+    if (justClosedQuestionId) {
+      try {
+        const answerText = text.trim();
+        await markQuestionAnswered({
+          prisma: prisma as unknown as Parameters<
+            typeof markQuestionAnswered
+          >[0]["prisma"],
+          userId,
+          sessionId: result.sessionId,
+          questionId: justClosedQuestionId,
+          answerText,
+        });
+      } catch (error) {
+        console.warn("markQuestionAnswered failed", error);
+      }
+    }
+    // 3) stage=2 턴 (LLM 경로) 에서 selectedQuestionId 있을 때 calendar question_summary 기록
+    const stageForSummary = nextMem?.stage;
+    const assistantAnswer = result.assistantMessages
+      .flatMap((message) =>
+        message.parts.flatMap((part) =>
+          part.type === "text" && part.text.trim() ? [part.text.trim()] : [],
+        ),
+      )
+      .join("\n\n")
+      .trim();
+    if (
+      shouldSaveQuestionSummary({
+        workflowStage: stageForSummary,
+        selectedQuestionId,
+        alreadyPersistedQuestionIds: new Set(),
+      })
+    ) {
+      try {
+        const dateKey = getKstDateKey();
+        const questionRow = await prisma.content_week_questions.findFirst({
+          where: { id: selectedQuestionId! },
+          select: { question_text: true },
+        });
+        const record = buildQuestionSummaryRecord({
+          userId,
+          sessionId: result.sessionId,
+          dateKey,
+          questionId: selectedQuestionId!,
+          questionText: questionRow?.question_text ?? null,
+          userAnswer: text.trim(),
+          assistantAnswer,
+          compactSummary: nextMem?.compactSummary ?? null,
+          emotionTone: nextMem?.lastEmotionTone ?? null,
+          moodId: nextMem?.moodId ?? null,
+          moodLabel: nextMem?.moodLabel ?? null,
+        });
+        await prisma.calendar_logs.create({
+          data: {
+            user_id: record.userId,
+            session_id: record.sessionId,
+            date: parseDateOnly(record.date),
+            entry_type: record.entryType,
+            title: record.title,
+            summary: record.summary,
+            payload: record.payload as Prisma.InputJsonValue,
+          },
+        });
+      } catch (error) {
+        console.warn("question_summary calendar save failed", error);
+      }
+    }
 
     try {
       const todayDate = getKstDateKey();

@@ -32,6 +32,7 @@
     "./chat/stage-shortcut": "./src/chat/stage-shortcut.ts",
     "./chat/question-summary": "./src/chat/question-summary.ts",
     "./chat/attachment-question-progress": "./src/chat/attachment-question-progress.ts",
+    "./chat/question-event-sync": "./src/chat/question-event-sync.ts",
     "./chat/workflow-payload": "./src/chat/workflow-payload.ts",
     "./chat/responders/mobile-chat-responder": "./src/chat/responders/mobile-chat-responder.ts",
     "./chat/responders/response-pipeline": "./src/chat/responders/response-pipeline.ts",
