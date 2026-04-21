@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
+import { InteractionManager } from "react-native";
 import type {
   RecentChatSummary,
   TodayViewData,
@@ -50,6 +51,7 @@ export function usePatientTodayScreenModel() {
     createChecklistSyncTracker([]),
   );
   const pendingChecklistIdsRef = useRef<string[]>([]);
+  const openingSessionIdRef = useRef<string | null>(null);
   const todayIsoDate = createPatientCacheDateKey();
 
   useEffect(() => {
@@ -298,8 +300,31 @@ export function usePatientTodayScreenModel() {
   }
 
   function openRecentSession(sessionId: string) {
+    if (openingSessionIdRef.current === sessionId) {
+      return;
+    }
+
+    openingSessionIdRef.current = sessionId;
     setConversationOpenError(null);
-    router.push(`/chat/${sessionId}`);
+    const prefetch = services.chatPort
+      .getSession(sessionId)
+      .then((session) => {
+        replaceSession(sessionId, session);
+      })
+      .catch(() => {
+        // 채팅 화면에서 상세 불러오기를 다시 시도합니다.
+      });
+
+    requestAnimationFrame(() => {
+      InteractionManager.runAfterInteractions(() => {
+        router.push(`/chat/${sessionId}`);
+        void prefetch.finally(() => {
+          setTimeout(() => {
+            openingSessionIdRef.current = null;
+          }, 400);
+        });
+      });
+    });
   }
 
   function openOnboarding() {

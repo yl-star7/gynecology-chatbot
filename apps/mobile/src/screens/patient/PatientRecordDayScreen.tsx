@@ -2,7 +2,13 @@
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RecordDayView } from "@gynecology-chatbot/app-core";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  InteractionManager,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card, Pressable } from "../../components/ui";
 import { PatientShell } from "../../components/patient/PatientShell";
@@ -73,6 +79,7 @@ export function PatientRecordDayScreen({
     createChecklistSyncTracker([]),
   );
   const pendingChecklistIdsRef = useRef<string[]>([]);
+  const isOpeningConversationRef = useRef(false);
   const backHref = useMemo(() => resolveBackHref(returnTo), [returnTo]);
   const activeTab = useMemo(() => resolveActiveTab(returnTo), [returnTo]);
   const contentInsets = buildPatientTabContentInsets({
@@ -85,15 +92,29 @@ export function PatientRecordDayScreen({
   }, [pendingChecklistIds]);
 
   function openConversationSession(sessionId: string) {
-    setError(null);
-    router.push(`/chat/${sessionId}`);
+    if (isOpeningConversationRef.current) {
+      return;
+    }
 
-    void prefetchConversationSession({
+    isOpeningConversationRef.current = true;
+    setError(null);
+    const prefetch = prefetchConversationSession({
       sessionId,
       getSession: chatPort.getSession.bind(chatPort),
       replaceSession,
     }).catch(() => {
       // 채팅 화면 자체가 loadSessionDetail 로 재시도하므로 여기선 조용히 실패
+    });
+
+    requestAnimationFrame(() => {
+      InteractionManager.runAfterInteractions(() => {
+        router.push(`/chat/${sessionId}`);
+        void prefetch.finally(() => {
+          setTimeout(() => {
+            isOpeningConversationRef.current = false;
+          }, 400);
+        });
+      });
     });
   }
 

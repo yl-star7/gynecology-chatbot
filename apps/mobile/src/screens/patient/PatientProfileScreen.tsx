@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  InteractionManager,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -74,6 +75,7 @@ export function PatientProfileScreen() {
     useState<ModalSection>("conversation");
   const [conversationSection, setConversationSection] =
     useState<ConversationSection>("summary");
+  const isOpeningConversationRef = useRef(false);
 
   useEffect(() => {
     if (!currentUser) {
@@ -252,16 +254,32 @@ export function PatientProfileScreen() {
   }
 
   function openConversationSession(sessionId: string) {
-    setRecordDayError(null);
-    closeCalendarDayModal();
-    router.push(`/chat/${sessionId}`);
+    if (isOpeningConversationRef.current) {
+      return;
+    }
 
-    void prefetchConversationSession({
+    isOpeningConversationRef.current = true;
+    setRecordDayError(null);
+    const targetHref = `/chat/${sessionId}` as const;
+    const prefetch = prefetchConversationSession({
       sessionId,
       getSession: chatPort.getSession.bind(chatPort),
       replaceSession,
     }).catch(() => {
       // 채팅 화면 자체가 loadSessionDetail 로 재시도하므로 여기선 조용히 실패
+    });
+
+    closeCalendarDayModal();
+
+    requestAnimationFrame(() => {
+      InteractionManager.runAfterInteractions(() => {
+        router.push(targetHref);
+        void prefetch.finally(() => {
+          setTimeout(() => {
+            isOpeningConversationRef.current = false;
+          }, 400);
+        });
+      });
     });
   }
 
