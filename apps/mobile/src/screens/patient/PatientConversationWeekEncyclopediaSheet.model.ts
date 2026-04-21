@@ -97,6 +97,26 @@ export function buildConversationWeekEncyclopediaSheetModel(input: {
     });
   }
 
+  if (
+    selectedWeek.reflectionQuestion?.summary ||
+    selectedWeek.reflectionQuestion?.body ||
+    selectedWeek.reflectionQuestion?.items?.length
+  ) {
+    sections.push({
+      title: selectedWeek.reflectionQuestion.title ?? "생각해볼 질문",
+      body: [
+        selectedWeek.reflectionQuestion.summary,
+        selectedWeek.reflectionQuestion.body,
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+      items:
+        selectedWeek.reflectionQuestion.items
+          ?.map((item) => (typeof item === "string" ? item : null))
+          .filter((item): item is string => Boolean(item)) ?? [],
+    });
+  }
+
   if (weeklyModel.faqItems.length > 0) {
     sections.push({
       title: weeklyModel.faqTitle,

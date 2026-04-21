@@ -234,8 +234,12 @@ async function runTurn(userText: string, state: State) {
   const parsed = extractJson(raw);
   let answer = (parsed?.answer as string) ?? "";
   if (!answer) {
-    const idx = raw.indexOf("{");
-    answer = idx > 0 ? raw.slice(0, idx).trim() : raw;
+    const cleaned = stripJsonFence(raw);
+    const idx = cleaned.indexOf("{");
+    answer = idx > 0 ? cleaned.slice(0, idx).trim() : cleaned;
+    if (/^```(?:json)?$/i.test(answer.trim())) {
+      answer = "";
+    }
   }
   // letter_reflection 응답 후처리: 남은 질문 개수 반영
   if (sel.key === "letter_reflection" && parsed) {

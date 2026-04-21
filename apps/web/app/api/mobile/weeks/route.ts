@@ -48,11 +48,24 @@ type MobileWeek = {
     body: string | null;
     items: unknown[];
   } | null;
+  reflectionQuestion?: {
+    title: string | null;
+    summary: string | null;
+    body: string | null;
+    items: unknown[];
+  } | null;
   faq?: {
     title: string | null;
     items: unknown[];
   } | null;
 };
+
+function combineSummaryAndBody(summary: string | null, body: string | null) {
+  const parts = [summary, body]
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part));
+  return [...new Set(parts)].join("\n\n") || null;
+}
 
 function mapSourceWeeks(rows: WeekRow[]) {
   return rows.map((row) => ({
@@ -76,6 +89,7 @@ function mapEncyclopediaWeeks(rows: EncyclopediaRow[]) {
       motherSummary: null,
       lifeGuide: null,
       caution: null,
+      reflectionQuestion: null,
       faq: null,
     };
 
@@ -86,10 +100,12 @@ function mapEncyclopediaWeeks(rows: EncyclopediaRow[]) {
       row.content_scope === "section" &&
       row.category === "baby_development"
     ) {
-      current.babySummary = row.summary ?? row.body ?? current.babySummary;
+      current.babySummary =
+        combineSummaryAndBody(row.summary, row.body) ?? current.babySummary;
     }
     if (row.content_scope === "section" && row.category === "mother_body") {
-      current.motherSummary = row.summary ?? row.body ?? current.motherSummary;
+      current.motherSummary =
+        combineSummaryAndBody(row.summary, row.body) ?? current.motherSummary;
     }
     if (row.content_scope === "section" && row.category === "life_guide") {
       current.lifeGuide = {
@@ -101,6 +117,17 @@ function mapEncyclopediaWeeks(rows: EncyclopediaRow[]) {
     }
     if (row.content_scope === "section" && row.category === "caution") {
       current.caution = {
+        title: row.title,
+        summary: row.summary,
+        body: row.body,
+        items: row.items ?? [],
+      };
+    }
+    if (
+      row.content_scope === "section" &&
+      row.category === "reflection_question"
+    ) {
+      current.reflectionQuestion = {
         title: row.title,
         summary: row.summary,
         body: row.body,
@@ -146,6 +173,10 @@ function mergeWeeks(
         encyclopediaWeek.motherSummary ?? sourceWeek?.motherSummary ?? null,
       lifeGuide: encyclopediaWeek.lifeGuide ?? sourceWeek?.lifeGuide ?? null,
       caution: encyclopediaWeek.caution ?? sourceWeek?.caution ?? null,
+      reflectionQuestion:
+        encyclopediaWeek.reflectionQuestion ??
+        sourceWeek?.reflectionQuestion ??
+        null,
       faq: encyclopediaWeek.faq ?? sourceWeek?.faq ?? null,
     });
   }

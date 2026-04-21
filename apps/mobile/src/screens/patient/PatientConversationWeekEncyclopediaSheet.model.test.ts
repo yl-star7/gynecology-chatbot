@@ -21,6 +21,12 @@ const weeks: MobilePregnancyWeekSummary[] = [
       summary: "통증이 강하면 상담해요.",
       items: ["강한 통증", "출혈"],
     },
+    reflectionQuestion: {
+      title: "생각해볼 질문",
+      summary: "오늘 몸의 변화를 적어봐요.",
+      body: "마음이 편했던 순간도 함께 남겨요.",
+      items: ["오늘 가장 편했던 자세는 무엇인가요?"],
+    },
     faq: {
       title: "궁금해요",
       items: [
@@ -50,14 +56,24 @@ test("conversation week sheet selects the current profile week encyclopedia cont
   assert.equal(model.emptyTitle, null);
   assert.deepEqual(
     model.sections.map((section) => section.title),
-    ["태아 발달", "엄마 몸 변화", "생활 가이드", "주의할 점", "궁금해요"],
+    [
+      "태아 발달",
+      "엄마 몸 변화",
+      "생활 가이드",
+      "주의할 점",
+      "생각해볼 질문",
+      "궁금해요",
+    ],
   );
   assert.equal(model.sections[0]?.body, "아기가 활발히 움직여요.");
   assert.deepEqual(model.sections[2]?.items, ["물 마시기", "짧게 걷기"]);
   assert.equal(
-    model.sections[4]?.items?.[0],
+    model.sections[5]?.items?.[0],
     "태동이 매일 같나요? 날마다 다를 수 있어요.",
   );
+  assert.deepEqual(model.sections[4]?.items, [
+    "오늘 가장 편했던 자세는 무엇인가요?",
+  ]);
 });
 
 test("conversation week sheet exposes a loading state before encyclopedia content arrives", () => {

@@ -243,6 +243,7 @@ export interface MobilePregnancyWeekSummary {
   motherSummary: string | null;
   lifeGuide?: MobileWeeklyEncyclopediaSection | null;
   caution?: MobileWeeklyEncyclopediaSection | null;
+  reflectionQuestion?: MobileWeeklyEncyclopediaSection | null;
   faq?: {
     title: string | null;
     items: unknown[];
