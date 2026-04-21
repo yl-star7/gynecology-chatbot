@@ -117,13 +117,8 @@ describe("maternal nursing workflow YAML", () => {
     expect(workflow.graph.blocks.map((block) => block.id)).toEqual([
       "start",
       "rag",
-      "summary_webhook",
       "end",
     ]);
-    const webhookBlock = workflow.graph.blocks.find(
-      (block) => block.id === "summary_webhook",
-    );
-    expect(webhookBlock?.type).toBe("outbound_webhook");
     const ragBlock = workflow.graph.blocks.find((block) => block.id === "rag");
     expect(ragBlock?.type).toBe("rag");
     expect(ragBlock?.config).toEqual(

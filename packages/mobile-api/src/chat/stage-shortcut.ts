@@ -388,11 +388,30 @@ export function maybeShortCircuitStaticTurn(
       }
       return buildTodayQuestionTurn(input, updated);
     }
-    // "자유대화" 선택 → free_chat 전환
+    // "자유대화" 선택 → free_chat 전환 (종료 escape hatch 포함)
     if (/자유롭게/.test(input.userText)) {
       return {
         assistantMessage: assistantMessage([
-          makeText("편하게 이야기 이어갈게요. 어떤 얘기 하고 싶어요?"),
+          makeText(
+            "편하게 이야기 이어갈게요. 오늘 나누고 싶은 이야기가 있으세요?",
+          ),
+          makeQuickReplies([
+            {
+              id: "free-chat-topic-body",
+              label: "몸 상태 이야기",
+              message: "요즘 몸 상태가 어떤지 이야기하고 싶어요.",
+            },
+            {
+              id: "free-chat-topic-feeling",
+              label: "오늘 기분",
+              message: "오늘 기분을 조금 더 나누고 싶어요.",
+            },
+            {
+              id: "end-session",
+              label: "여기까지 할래요",
+              message: "오늘은 여기까지 할게요.",
+            },
+          ]),
         ]),
         workflowMemoryPayload: {
           scenario: "general",

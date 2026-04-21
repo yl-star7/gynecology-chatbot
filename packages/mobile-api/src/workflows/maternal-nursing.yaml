@@ -552,15 +552,18 @@ blocks:
       # ── Output 제어 ──
       include_sources: false
 
-  # calendar 요약 기록 외부 POST 발송 (Schift outbound_webhook 블록).
-  - id: summary_webhook
-    type: outbound_webhook
-    title: calendar 요약 기록 발송
-    config:
-      url: $config.calendar_summary_webhook_url
-      headers:
-        Authorization: "Bearer $config.calendar_summary_webhook_secret"
-        Content-Type: application/json
+  # calendar 요약 기록 외부 POST 발송 (Schift outbound_webhook).
+  # Schift 팀이 outbound_webhook 블록을 배포한 후 아래를 재활성:
+  # - id: summary_webhook
+  #   type: outbound_webhook
+  #   title: calendar 요약 기록 발송
+  #   config:
+  #     url: $config.calendar_summary_webhook_url
+  #     headers:
+  #       Authorization: "Bearer $config.calendar_summary_webhook_secret"
+  #       Content-Type: application/json
+  # edges 에서도 { source: rag, target: summary_webhook, target_handle: body } 재추가.
+  # 현재는 서버 사이드 route.ts 에서 calendar_logs.create 로 대체 (dedup 있음).
 
   - id: end
     type: end
@@ -571,12 +574,6 @@ edges:
     target: rag
     source_handle: out
     target_handle: in
-
-  # rag 출력 → outbound_webhook 로 fanout (body 로 전달)
-  - source: rag
-    target: summary_webhook
-    source_handle: out
-    target_handle: body
 
   - source: rag
     target: end
