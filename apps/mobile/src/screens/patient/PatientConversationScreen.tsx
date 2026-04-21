@@ -46,7 +46,7 @@ export function PatientConversationScreen({
           <Ionicons
             name="book-outline"
             size={space.lg + space.xs}
-            color={surface.textPrimary}
+            color={surface.accentSolid}
           />
         </Pressable>
       }
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: surface.surfacePrimary,
+    backgroundColor: surface.surfaceAccent,
     ...shadows.card,
   },
 });

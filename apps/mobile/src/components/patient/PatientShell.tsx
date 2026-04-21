@@ -170,6 +170,8 @@ const styles = StyleSheet.create({
     backgroundColor: surface.surfaceAccent,
   },
   trailingAction: {
+    width: space.xxxl + space.md,
+    minHeight: space.xxxl + space.md,
     alignItems: "center",
     justifyContent: "center",
   },

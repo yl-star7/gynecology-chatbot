@@ -1,8 +1,6 @@
 version: 1
 name: 모성간호 baby_info (주차 정보 요약)
-description: >
-  stage=0 Y path 전용. 임신 주차 정보를 짧게(120자) 요약 + RAG deepLinks 1개.
-  Schift RAG 블록 1개로 retrieval + LLM + answer 통합.
+description: stage=0 Y path. 주차 정보 120자 + deepLinks 1개.
 
 admin_metadata:
   stage: "0"
@@ -11,47 +9,75 @@ admin_metadata:
 
 prompts:
   system: |
-    당신은 임산부용 주차 정보 요약 봇입니다.
+    임산부용 주차 정보 요약 봇.
 
-    규칙:
-    - answer 본문은 **120자 이내 2문장**. 첫 문장: 아기 핵심 1가지. 둘째 문장: "여기서 더 자세히 볼 수 있어요." 류 자연어 안내.
-    - "딥링크/카드/링크" UI 용어 금지.
-    - 의학 수치/진료 간격 본문에 쓰지 말 것.
-    - deepLinks 배열에 정확히 1개 knowledge 카드: target="knowledge", entityId={{weekKnowledgeEntityId}}, title="{{currentWeek}}주차 산모·태아 정보", description="지금 주차의 아기 발달과 엄마 변화를 자세히 볼 수 있어요".
-    - quickReplies 2개 고정: { label:"오늘의 질문", message:"오늘의 질문으로 이어갈래요." } / { label:"이따가요", message:"아니요, 이따가 확인할래요." }
-    - nextSessionMemory: { stage:1, stageName:"today_question", compactSummary:"현재 단계: 주차 정보 안내 완료", lastScenario:"baby_info" }
-    - scenario:"baby_info", guardrailStatus:"safe"
-
-    응답은 JSON 하나만. 마크다운 코드블록 금지.
+    출력 규칙 (반드시 준수):
+    1) 응답은 유효한 JSON 객체 **하나**. 앞뒤에 평문/마크다운 금지. 코드블록 금지.
+    2) JSON 스키마:
+       {
+         "answer": string,
+         "scenario": "baby_info",
+         "guardrailStatus": "safe",
+         "characterTone": "calm",
+         "deepLinks": [{ "target": "knowledge", "entityId": string, "title": string, "description": string }],
+         "quickReplies": [
+           { "label": "오늘의 질문", "message": "오늘의 질문으로 이어갈래요." },
+           { "label": "이따가요", "message": "아니요, 이따가 확인할래요." }
+         ],
+         "nextSessionMemory": {
+           "stage": 1,
+           "stageName": "today_question",
+           "compactSummary": "현재 단계: 주차 정보 안내 완료",
+           "lastScenario": "baby_info",
+           "lastCharacterTone": "calm"
+         }
+       }
+    3) answer 본문은 **120자 이내 2문장**. 첫 문장: 아기 핵심 1가지. 둘째 문장: "여기서 더 자세히 볼 수 있어요." 류 자연어 안내.
+    4) "딥링크", "카드", "링크" 같은 UI 용어 금지. 자연어만.
+    5) 의학 수치/진료 간격 본문에 쓰지 말 것.
+    6) deepLinks 배열 1개:
+       - target: "knowledge"
+       - entityId: 사용자 입력의 weekKnowledgeEntityId 값을 그대로 복사
+       - title: "{주차}주차 산모·태아 정보"
+       - description: "지금 주차의 아기 발달과 엄마 변화를 자세히 볼 수 있어요"
+    7) 주차 값은 사용자 입력의 currentWeek 숫자를 사용.
 
   template: |
-    현재 주수: {{currentWeek}}
-    주차 문서 ID: {{weekKnowledgeEntityId}}
+    currentWeek={{currentWeek}}
+    weekKnowledgeEntityId={{weekKnowledgeEntityId}}
     사용자 메시지: {{query}}
 
 blocks:
   - id: start
     type: start
     title: 입력
-  - id: rag
-    type: rag
-    title: 주차 RAG + 응답 생성
+  - id: tmpl
+    type: prompt_template
+    title: 프롬프트 렌더
     config:
-      collection: pregnancy-knowledge
-      top_k: 3
-      mode: vector
-      rerank: false
-      model: gemini-2.5-flash-lite
-      temperature: 0.1
-      max_tokens: 250
-      thinking_budget: 0
       system_prompt: $prompts.system
       template: $prompts.template
+  - id: llm
+    type: llm
+    title: 주차 정보 LLM
+    config:
+      model: gemini-2.5-flash-lite
+      temperature: 0.1
+      max_tokens: 400
+      thinking_budget: 0
+  - id: answer
+    type: answer
+    title: 텍스트 출력
+    config:
+      format: text
       include_sources: false
   - id: end
     type: end
     title: 종료
 
 edges:
-  - { source: start, target: rag, source_handle: out, target_handle: in }
-  - { source: rag,   target: end, source_handle: out, target_handle: in }
+  - { source: start,  target: tmpl,   source_handle: out,           target_handle: query }
+  - { source: tmpl,   target: llm,    source_handle: prompt,        target_handle: prompt }
+  - { source: tmpl,   target: llm,    source_handle: system_prompt, target_handle: system_prompt }
+  - { source: llm,    target: answer, source_handle: text,          target_handle: text }
+  - { source: answer, target: end,    source_handle: answer,        target_handle: in }
