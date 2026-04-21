@@ -26,6 +26,13 @@ import { buildPromptFollowUpMessages } from "@/lib/mobile/chat/follow-ups";
 import { buildChatOrchestrator } from "@/lib/mobile/chat/chat-orchestrator";
 import { createMobileChatResponder } from "@/lib/mobile/chat/responders/mobile-chat-responder";
 import {
+  maybeShortCircuitStaticTurn,
+  type QuestionProgress,
+} from "@gynecology-chatbot/mobile-api/chat/stage-shortcut";
+import { fetchAttachmentQuestionProgress } from "@gynecology-chatbot/mobile-api/chat/attachment-question-progress";
+import { loadMaternalNursingWorkflow } from "@gynecology-chatbot/mobile-api/workflows/load-workflow-yaml";
+import type { CharacterTone } from "@gynecology-chatbot/mobile-api/chat/workflow-payload";
+import {
   ProfileMemoryPayload,
   SessionMemoryPayload,
 } from "@/lib/mobile/chat/workflow-payload";
@@ -265,7 +272,7 @@ export async function POST(request: NextRequest) {
     const weekKnowledgeEntityId =
       await findWeekKnowledgeEntityId(pregnancyWeek);
 
-    const respondWithMobileChat = createMobileChatResponder({
+    const baseMobileResponder = createMobileChatResponder({
       getSchiftClient,
       runSchiftWorkflow,
       extractSchiftWorkflowOutputs,
@@ -274,6 +281,111 @@ export async function POST(request: NextRequest) {
       preferLocalFallback: true,
       weekKnowledgeEntityId,
     });
+
+    // Short-circuit 래퍼 — stage=0/1 static 턴은 LLM 없이 즉시 반환.
+    // stage=2 및 LLM 필요 턴은 baseMobileResponder 로 위임.
+    const workflowDef = loadMaternalNursingWorkflow();
+    const moodPool = (() => {
+      try {
+        const parsed = JSON.parse(
+          workflowDef.prompts.static_mood_intake ?? "{}",
+        );
+        return Array.isArray(parsed.moodPrompts)
+          ? (parsed.moodPrompts as Array<{
+              label: string;
+              message: string;
+              tone: CharacterTone;
+            }>)
+          : [];
+      } catch {
+        return [];
+      }
+    })();
+    const weekInfoOptInVariations = (() => {
+      try {
+        const parsed = JSON.parse(
+          workflowDef.prompts.static_week_info_opt_in ?? "{}",
+        );
+        return Array.isArray(parsed.answerVariations)
+          ? (parsed.answerVariations as string[])
+          : [];
+      } catch {
+        return [];
+      }
+    })();
+
+    const respondWithMobileChat: typeof baseMobileResponder = async (input) => {
+      // 0) SQL 기반 진행 상태 조회
+      let progress: QuestionProgress;
+      try {
+        progress = await fetchAttachmentQuestionProgress({
+          prisma: prisma as unknown as Parameters<
+            typeof fetchAttachmentQuestionProgress
+          >[0]["prisma"],
+          userId: input.userId,
+          sessionId: input.normalizedSessionId,
+        });
+      } catch (error) {
+        console.warn("attachment progress fetch failed", error);
+        progress = {
+          answeredQuestionIds: [],
+          currentAttachmentQuestionId: null,
+        };
+      }
+
+      const todayQuestionCandidates = (
+        input.promptContext?.questions ?? []
+      ).map((q) => ({
+        id: q.id,
+        text:
+          (q as unknown as { question_text?: string }).question_text ??
+          (q as unknown as { text?: string }).text ??
+          q.id,
+      }));
+
+      // mood selection 은 user 가 mood quickReply 탭 시 text 로 들어옴
+      const selectedMood =
+        moodPool.find((m) => m.message === input.text)?.message ?? null;
+
+      const shortcut = maybeShortCircuitStaticTurn({
+        userText: input.text,
+        selectedMood,
+        selectedQuestionId: input.selectedQuestionId ?? null,
+        currentWeek: input.currentWeek,
+        promptContext: input.promptContext,
+        moodPool,
+        weekInfoOptInVariations,
+        todayQuestionCandidates,
+        progress,
+      });
+
+      if (shortcut) {
+        // mood webhook fire-and-forget (session memory 에 mood 주입)
+        if (shortcut.sideEffects?.fireMoodWebhook) {
+          const moodSide = shortcut.sideEffects.fireMoodWebhook;
+          postWorkflowSessionMemoryWebhook({
+            request,
+            userId: input.userId,
+            sessionId: input.normalizedSessionId,
+            sourceMessageId: null,
+            idempotencyKey: `mood-${input.userId}-${input.normalizedSessionId}-${moodSide.moodId}`,
+            nextSessionMemory: {
+              moodId: moodSide.moodId,
+              moodLabel: moodSide.moodLabel,
+            } as SessionMemoryPayload,
+          }).catch((error) => {
+            console.warn("mood webhook dispatch failed", error);
+          });
+        }
+        return {
+          assistantMessage: shortcut.assistantMessage,
+          workflowMemoryPayload: shortcut.workflowMemoryPayload,
+        };
+      }
+
+      // 1) 일반 Schift 경로
+      return baseMobileResponder(input);
+    };
 
     const orchestrateChat = buildChatOrchestrator({
       ensureSession: ensureChatSession,
