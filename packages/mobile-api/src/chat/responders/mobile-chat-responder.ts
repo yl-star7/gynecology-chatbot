@@ -319,7 +319,9 @@ function buildStageContext(input: {
 }) {
   const lines = [
     input.currentStage ? `currentStage=${input.currentStage}` : null,
-    input.currentTurnStage ? `currentTurnStage=${input.currentTurnStage}` : null,
+    input.currentTurnStage
+      ? `currentTurnStage=${input.currentTurnStage}`
+      : null,
     input.compactSummary ? `compactSummary=${input.compactSummary}` : null,
     input.currentTurnStage === "stage=2/question-choice"
       ? "stage=2/question-choice: 선택된 질문을 현재 입력으로 처리하고, stage 0/1 이전 workflow를 replay하지 말고 inference로 직접 라우팅하세요."
@@ -346,20 +348,30 @@ function buildRequiredToneContext(input: {
   return lines.length > 0 ? lines.join("\n") : null;
 }
 
+const INFO_INTENT_PATTERN =
+  /(정상|검사|수치|주차|몇\s*주|태동|부종|체중|당뇨|철분|비타민|혈압|발달|크기|초음파|양수|태반|호르몬|영양|철|칼슘|엽산|단백질|체온|심박|임신성)/;
+const SYMPTOM_INTENT_PATTERN =
+  /(아파|아픔|통증|출혈|분비물|쥐가|어지러|메스꺼|호흡|수축|태동이\s*줄|열나|발열|구토|두통|복통|허리|골반|가려|저려|부어|붓는|붓기)/;
+
+function hasInfoOrSymptomIntent(text: string): boolean {
+  return INFO_INTENT_PATTERN.test(text) || SYMPTOM_INTENT_PATTERN.test(text);
+}
+
 function shouldLoadRagContext(input: {
   userText: string;
   currentStage: WorkflowScenario | null;
   currentTurnStage: string | null;
   workflowStage: string | number | null;
 }) {
-  if (!input.userText.trim()) return false;
+  const trimmed = input.userText.trim();
+  if (!trimmed) return false;
   if (input.currentTurnStage === "stage=2/question-choice") return false;
   if (
     input.workflowStage === 2 ||
     input.workflowStage === "free_chat" ||
     input.workflowStage === "ended"
   ) {
-    return false;
+    return hasInfoOrSymptomIntent(trimmed);
   }
   return ![
     "emotion_checkin",
@@ -379,7 +391,8 @@ function normalizeWorkflowMemoryPayload(
   const emotionTone =
     payload.nextSessionMemory?.lastEmotionTone ??
     payload.nextProfileMemory?.lastEmotionTone ??
-    (payload.scenario === "emotion_checkin" || payload.scenario === "emotion_reason"
+    (payload.scenario === "emotion_checkin" ||
+    payload.scenario === "emotion_reason"
       ? payload.characterTone
       : undefined);
 
@@ -424,7 +437,9 @@ function buildCombinedWeeklyInfo(input: {
   currentWeek: number | null;
   promptContext: PromptContext | null;
 }) {
-  const weekLabel = input.currentWeek ? `${input.currentWeek}주차` : "지금 주수";
+  const weekLabel = input.currentWeek
+    ? `${input.currentWeek}주차`
+    : "지금 주수";
   const baby = [
     ...(input.promptContext?.dayContent?.baby_development_payload?.items ?? []),
     input.promptContext?.dayContent?.baby_message,
@@ -687,7 +702,8 @@ export function createMobileChatResponder<
       sessionMoodId: input.promptContext?.sessionMemory?.moodId ?? null,
       sessionMoodLabel: input.promptContext?.sessionMemory?.moodLabel ?? null,
       ragContext: input.promptContext?.sessionMemory?.ragContext ?? null,
-      ragContextWeek: input.promptContext?.sessionMemory?.ragContextWeek ?? null,
+      ragContextWeek:
+        input.promptContext?.sessionMemory?.ragContextWeek ?? null,
     };
     const currentStage = memoryContext.lastScenario;
     const currentTurnStage = isQuestionChoiceTurn({
@@ -770,7 +786,7 @@ export function createMobileChatResponder<
             : null;
         const loadedRagContext = deps.ragContext?.trim()
           ? { context: deps.ragContext, sources: [] }
-          : cachedRagContext ??
+          : (cachedRagContext ??
             (deps.loadRagContext &&
             shouldLoadRagContext({
               userText: input.text,
@@ -782,7 +798,7 @@ export function createMobileChatResponder<
                   query: input.text,
                   currentWeek: input.currentWeek,
                 })
-              : null);
+              : null));
 
         const { run } = await deps.runSchiftWorkflow({
           schift,
