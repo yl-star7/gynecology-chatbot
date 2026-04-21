@@ -1,11 +1,6 @@
 import { useEffect, useRef } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
-import {
-  palette,
-  patientSurfacePalette as surface,
-  space,
-  typo,
-} from "../../theme";
+import { Animated, StyleSheet, View } from "react-native";
+import { palette, space } from "../../theme";
 
 const DOT_SIZE = 7;
 const DOT_COUNT = 3;
@@ -40,54 +35,45 @@ export function TypingIndicator() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.dotRow}>
-        {dots.map((dot, index) => (
-          <Animated.View
-            key={index}
-            style={[
-              styles.dot,
-              {
-                opacity: dot.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.3, 1],
-                }),
-                transform: [
-                  {
-                    translateY: dot.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -4],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-        ))}
-      </View>
-      <Text style={styles.label}>답변을 준비하고 있어요</Text>
+      {dots.map((dot, index) => (
+        <Animated.View
+          key={index}
+          style={[
+            styles.dot,
+            {
+              opacity: dot.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.3, 1],
+              }),
+              transform: [
+                {
+                  translateY: dot.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -4],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    gap: space.xs,
-    paddingVertical: space.xs,
-    paddingHorizontal: space.xs,
-  },
-  dotRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: space.xs,
+    minHeight: DOT_SIZE + 8,
+    paddingVertical: space.xs,
+    paddingHorizontal: space.xs,
   },
   dot: {
     width: DOT_SIZE,
     height: DOT_SIZE,
     borderRadius: DOT_SIZE / 2,
     backgroundColor: palette.accent,
-  },
-  label: {
-    ...typo.caption,
-    color: surface.textSecondary,
   },
 });

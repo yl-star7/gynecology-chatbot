@@ -120,7 +120,7 @@ export function PatientConversationMessageList({
         </View>
       ) : null}
 
-      {listState === "empty" ? (
+      {listState === "empty" && !isSending ? (
         <View style={styles.emptyStateContent}>
           <View style={styles.assistantRow}>
             <NurseAvatar />
@@ -160,7 +160,7 @@ export function PatientConversationMessageList({
         </View>
       ) : null}
 
-      {listState === "messages" ? (
+      {listState === "messages" || shouldShowTypingIndicator ? (
         <View style={styles.threadedContent}>
           <View style={styles.messageList}>
             {messages.map((message) => {

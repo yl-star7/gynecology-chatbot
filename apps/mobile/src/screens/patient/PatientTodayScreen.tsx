@@ -82,6 +82,7 @@ export function PatientTodayScreen() {
               title={model.viewModel.conversationTitle}
               description={model.viewModel.conversationDescription}
               recentSessions={model.recentSessions}
+              isLoadingRecentSessions={model.isLoadingConversationSessions}
               openErrorMessage={model.conversationOpenError}
               onOpenNewChat={model.openNewChat}
               onOpenRecentSession={model.openRecentSession}

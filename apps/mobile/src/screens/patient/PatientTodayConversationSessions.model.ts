@@ -1,5 +1,8 @@
-import type { RecentChatSummary } from "@gynecology-chatbot/app-core";
-import { createPatientCacheDateKey } from "../../core/patientViewCacheFreshness.model";
+import type {
+  RecentChatSummary,
+  RecordDayView,
+} from "@gynecology-chatbot/app-core";
+import { createPatientCacheDateKey } from "../../core/patientViewCacheFreshness.model.ts";
 
 export function filterTodayConversationSessions({
   sessions,
@@ -20,4 +23,26 @@ export function filterTodayConversationSessions({
 
     return createPatientCacheDateKey(timestampMs) === todayIsoDate;
   });
+}
+
+export function buildTodayConversationSessionsState({
+  recordDay,
+  todayIsoDate,
+  isLoadingRecordDay,
+}: {
+  recordDay: Pick<RecordDayView, "relatedSessions"> | null;
+  todayIsoDate: string;
+  isLoadingRecordDay: boolean;
+}) {
+  const recentSessions = recordDay
+    ? filterTodayConversationSessions({
+        sessions: recordDay.relatedSessions,
+        todayIsoDate,
+      })
+    : [];
+
+  return {
+    recentSessions,
+    isLoadingRecentSessions: isLoadingRecordDay && recentSessions.length === 0,
+  };
 }

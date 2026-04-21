@@ -68,7 +68,7 @@ test("conversation message list hides typing indicator outside active message se
       listState: "empty",
       isSending: true,
     }),
-    false,
+    true,
   );
   assert.equal(
     resolveShouldShowTypingIndicator({
@@ -79,8 +79,26 @@ test("conversation message list hides typing indicator outside active message se
   );
 });
 
+test("conversation message list shows typing indicator while first message is being appended", () => {
+  assert.equal(
+    resolveShouldShowTypingIndicator({
+      listState: "empty",
+      isSending: true,
+    }),
+    true,
+  );
+});
+
 test("conversation message list hides placeholder-only assistant text bubbles", () => {
-  const hiddenTexts = ["", "   ", "...", "…", "⋯", " · · · ", "\u200B...\u200B"];
+  const hiddenTexts = [
+    "",
+    "   ",
+    "...",
+    "…",
+    "⋯",
+    " · · · ",
+    "\u200B...\u200B",
+  ];
 
   for (const text of hiddenTexts) {
     assert.equal(

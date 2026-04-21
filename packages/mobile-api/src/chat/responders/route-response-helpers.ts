@@ -344,9 +344,13 @@ export function buildFallbackReply(input: {
 function inferFallbackCharacterTone(text: string): CharacterTone {
   const normalized = text.toLowerCase();
   if (/불안|걱정|무서|초조|긴장/.test(normalized)) return "anxious";
-  if (/우울|슬프|눈물|속상/.test(normalized)) return "sad";
+  if (/화나|짜증|분노|답답|열받|억울|예민|스트레스/.test(normalized)) {
+    return "anxious";
+  }
+  if (/우울|슬프|슬퍼|눈물|속상|외로/.test(normalized)) return "sad";
   if (/피곤|졸리|잠|지쳐|힘들/.test(normalized)) return "tired";
-  if (/좋아|기뻐|행복|설레/.test(normalized)) return "joyful";
+  if (/괜찮지\s*않|안\s*괜찮|좋지\s*않/.test(normalized)) return "sad";
+  if (/좋아|괜찮|기뻐|행복|설레/.test(normalized)) return "joyful";
   return "calm";
 }
 
@@ -428,6 +432,22 @@ export function buildLocalWorkflowFallbackReply(input: {
         { label: "피곤해요", message: "몸이 너무 피곤해요." },
         { label: "걱정돼요", message: "걱정이 많아졌어요." },
         { label: "말할래요", message: "조금 더 말하고 싶어요." },
+      ]),
+    );
+  } else if (tone === "joyful") {
+    parts.push({
+      type: "text",
+      id: `${idPrefix}-text`,
+      text: [
+        "좋은 기분을 나눠줘서 고마워요.",
+        "",
+        `${weekLabel}에 맞는 아기 발달 정보를 짧게 확인해볼까요?`,
+      ].join("\n"),
+    });
+    parts.push(
+      buildQuickReplies(idPrefix, [
+        { label: "네", message: "아기 발달 정보를 볼래요." },
+        { label: "이따가요", message: "아니요, 이따가 확인할래요." },
       ]),
     );
   } else {

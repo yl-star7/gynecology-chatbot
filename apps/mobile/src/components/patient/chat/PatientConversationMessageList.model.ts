@@ -37,7 +37,7 @@ export function resolveShouldShowTypingIndicator({
   listState: ConversationMessageListState;
   isSending: boolean;
 }) {
-  return listState === "messages" && isSending;
+  return isSending && (listState === "messages" || listState === "empty");
 }
 
 export function isRenderableConversationPart({

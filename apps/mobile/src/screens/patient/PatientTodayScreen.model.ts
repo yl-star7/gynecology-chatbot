@@ -15,11 +15,13 @@ import {
   clearCachedRecentChats,
   clearCachedRecordDayView,
   hasFreshCachedChatSession,
+  hasFreshCachedRecordDayView,
   hasFreshCachedTodayView,
+  readCachedRecordDayView,
   readCachedTodayView,
 } from "../../core/patientViewCache";
 import { warmConversationSessions } from "./patientConversationNavigation.model";
-import { filterTodayConversationSessions } from "./PatientTodayConversationSessions.model";
+import { buildTodayConversationSessionsState } from "./PatientTodayConversationSessions.model";
 import {
   confirmChecklistRequest,
   createChecklistSyncTracker,
@@ -46,6 +48,8 @@ export function usePatientTodayScreenModel() {
   const [conversationOpenError, setConversationOpenError] = useState<
     string | null
   >(null);
+  const [isLoadingConversationSessions, setIsLoadingConversationSessions] =
+    useState(false);
   const [hasAttemptedInfoViewed, setHasAttemptedInfoViewed] = useState(false);
   const checklistSyncRef = useRef<ChecklistSyncTracker>(
     createChecklistSyncTracker([]),
@@ -53,10 +57,6 @@ export function usePatientTodayScreenModel() {
   const pendingChecklistIdsRef = useRef<string[]>([]);
   const openingSessionIdRef = useRef<string | null>(null);
   const todayIsoDate = createPatientCacheDateKey();
-
-  useEffect(() => {
-    pendingChecklistIdsRef.current = pendingChecklistIds;
-  }, [pendingChecklistIds]);
 
   const warmRecentSessionDetails = useCallback(
     (sessions: RecentChatSummary[]) => {
@@ -75,6 +75,33 @@ export function usePatientTodayScreenModel() {
     [currentUser, replaceSession, services.chatPort],
   );
 
+  const applyConversationSessionsState = useCallback(
+    ({
+      recordDay,
+      isLoadingRecordDay,
+    }: {
+      recordDay: Parameters<
+        typeof buildTodayConversationSessionsState
+      >[0]["recordDay"];
+      isLoadingRecordDay: boolean;
+    }) => {
+      const nextState = buildTodayConversationSessionsState({
+        recordDay,
+        todayIsoDate,
+        isLoadingRecordDay,
+      });
+
+      setRecentSessions(nextState.recentSessions);
+      setIsLoadingConversationSessions(nextState.isLoadingRecentSessions);
+      warmRecentSessionDetails(nextState.recentSessions);
+    },
+    [todayIsoDate, warmRecentSessionDetails],
+  );
+
+  useEffect(() => {
+    pendingChecklistIdsRef.current = pendingChecklistIds;
+  }, [pendingChecklistIds]);
+
   useEffect(() => {
     if (!currentUser) {
       setToday(null);
@@ -83,14 +110,21 @@ export function usePatientTodayScreenModel() {
     }
 
     const cachedToday = readCachedTodayView(currentUser.id);
+    const cachedRecordDay = readCachedRecordDayView(
+      currentUser.id,
+      todayIsoDate,
+    );
 
     setToday(cachedToday);
     hydrateChecklistSyncTracker(
       checklistSyncRef.current,
       cachedToday?.checklistItems ?? [],
     );
-    setRecentSessions([]);
-  }, [currentUser]);
+    applyConversationSessionsState({
+      recordDay: cachedRecordDay,
+      isLoadingRecordDay: false,
+    });
+  }, [applyConversationSessionsState, currentUser, todayIsoDate]);
 
   useFocusEffect(
     useCallback(() => {
@@ -127,26 +161,43 @@ export function usePatientTodayScreenModel() {
           .catch(() => undefined);
       }
 
-      void services.homePort
-        .getRecordDay(todayIsoDate)
-        .then((nextRecordDay) => {
-          const todaySessions = filterTodayConversationSessions({
-            sessions: nextRecordDay.relatedSessions,
-            todayIsoDate,
+      const cachedRecordDay = readCachedRecordDayView(
+        currentUser.id,
+        todayIsoDate,
+      );
+      const shouldLoadRecordDay = !hasFreshCachedRecordDayView(
+        currentUser.id,
+        todayIsoDate,
+      );
+
+      applyConversationSessionsState({
+        recordDay: cachedRecordDay,
+        isLoadingRecordDay: shouldLoadRecordDay,
+      });
+
+      if (shouldLoadRecordDay) {
+        void services.homePort
+          .getRecordDay(todayIsoDate)
+          .then((nextRecordDay) => {
+            applyConversationSessionsState({
+              recordDay: nextRecordDay,
+              isLoadingRecordDay: false,
+            });
+          })
+          .catch(() => {
+            applyConversationSessionsState({
+              recordDay: cachedRecordDay,
+              isLoadingRecordDay: false,
+            });
           });
-          setRecentSessions(todaySessions);
-          if (todaySessions.length > 0) {
-            warmRecentSessionDetails(todaySessions);
-          }
-        })
-        .catch(() => undefined);
+      }
     }, [
+      applyConversationSessionsState,
       currentUser,
       isRestoringSession,
       router,
       services,
       todayIsoDate,
-      warmRecentSessionDetails,
     ]),
   );
 
@@ -337,6 +388,7 @@ export function usePatientTodayScreenModel() {
     pendingChecklistIds,
     conversationOpenError,
     recentSessions,
+    isLoadingConversationSessions,
     today,
     viewModel: buildPatientTodayViewModel({ today }),
     shouldShowOnboardingNudge:

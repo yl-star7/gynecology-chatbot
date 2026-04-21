@@ -14,6 +14,7 @@ export function PatientTodayConversationSection({
   title,
   description,
   recentSessions,
+  isLoadingRecentSessions,
   openErrorMessage,
   onOpenNewChat,
   onOpenRecentSession,
@@ -21,6 +22,7 @@ export function PatientTodayConversationSection({
   title: string;
   description: string;
   recentSessions: RecentChatSummary[];
+  isLoadingRecentSessions: boolean;
   openErrorMessage: string | null;
   onOpenNewChat: () => void;
   onOpenRecentSession: (sessionId: string) => void | Promise<void>;
@@ -40,7 +42,11 @@ export function PatientTodayConversationSection({
       </Pressable>
 
       <View style={styles.recentSessionList}>
-        {recentSessions.length > 0 ? (
+        {isLoadingRecentSessions && recentSessions.length === 0 ? (
+          <Text style={styles.recentSessionEmptyText}>
+            오늘 대화를 불러오고 있어요.
+          </Text>
+        ) : recentSessions.length > 0 ? (
           recentSessions.map((item) => (
             <Pressable
               key={item.id}
