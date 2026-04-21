@@ -643,6 +643,10 @@ export function createMobileChatResponder<
       results: string | null;
       weekKnowledgeEntityId: string | null;
       promptItems: string | null;
+      currentAttachmentQuestionId: unknown;
+      answeredQuestionIds: unknown;
+      answeredCount: number;
+      dailyQuestionQuota: number;
     };
   }) => Promise<{
     run: TRun;
@@ -819,6 +823,38 @@ export function createMobileChatResponder<
             workflowStage: memoryContext.workflowStage,
             workflowStageName: memoryContext.workflowStageName,
             selectedQuestionId: input.selectedQuestionId?.trim() || null,
+            currentAttachmentQuestionId:
+              (
+                input.promptContext?.sessionMemory as unknown as Record<
+                  string,
+                  unknown
+                >
+              )?.currentAttachmentQuestionId ?? null,
+            answeredQuestionIds:
+              (
+                input.promptContext?.sessionMemory as unknown as Record<
+                  string,
+                  unknown
+                >
+              )?.answeredQuestionIds ?? [],
+            answeredCount: Array.isArray(
+              (
+                input.promptContext?.sessionMemory as unknown as Record<
+                  string,
+                  unknown
+                >
+              )?.answeredQuestionIds,
+            )
+              ? (
+                  (
+                    input.promptContext?.sessionMemory as unknown as Record<
+                      string,
+                      unknown
+                    >
+                  ).answeredQuestionIds as unknown[]
+                ).length
+              : 0,
+            dailyQuestionQuota: 3,
             sessionMoodId: memoryContext.sessionMoodId,
             sessionMoodLabel: memoryContext.sessionMoodLabel,
             requiredToneContext: requiredToneContext || null,

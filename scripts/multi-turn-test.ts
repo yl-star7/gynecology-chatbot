@@ -130,6 +130,11 @@ async function runTurn(
   }> = [];
   let scenario: string | null = null;
   let nextMemory: Memory = state.memory;
+  let deepLinks: Array<{
+    title?: string;
+    target?: string;
+    entityId?: string;
+  }> = [];
 
   if (shortcut) {
     source = "shortcut";
@@ -149,6 +154,18 @@ async function runTurn(
       lastCharacterTone: (next?.lastCharacterTone as string | null) ?? null,
       lastEmotionTone: (next?.lastEmotionTone as string | null) ?? null,
     };
+    // progress 자동 갱신: shortcut 이 반환한 answered/current 로 state 업데이트
+    const nextAnswered = next?.answeredQuestionIds as string[] | undefined;
+    const nextCurrent = next?.currentAttachmentQuestionId as
+      | string
+      | null
+      | undefined;
+    if (Array.isArray(nextAnswered)) {
+      state.progress.answeredQuestionIds = nextAnswered;
+    }
+    if (nextCurrent !== undefined) {
+      state.progress.currentAttachmentQuestionId = nextCurrent;
+    }
   } else {
     source = "schift";
     const run = (await schift.workflows.run(WORKFLOW_ID, {
@@ -177,6 +194,9 @@ async function runTurn(
       scenario = (j.scenario as string) ?? null;
       const answerText = (j.answer as string) ?? raw;
       parts.push({ type: "text", text: answerText });
+      if (Array.isArray(j.deepLinks)) {
+        deepLinks = j.deepLinks;
+      }
       const nextQr = j.quickReplies as
         | Array<{ label: string; message: string }>
         | undefined;
@@ -236,12 +256,25 @@ async function runTurn(
     `  bot  [${scenario ?? "?"}]: ${text.slice(0, 180)}${text.length > 180 ? "..." : ""}`,
   );
   if (quickLabels) console.log(`  qr: ${quickLabels}`);
+  if (deepLinks.length > 0) {
+    console.log(
+      `  deepLinks: ${deepLinks
+        .map(
+          (d) =>
+            `${d.target ?? "?"} "${d.title ?? "?"}" entity=${d.entityId ?? "-"}`,
+        )
+        .join("; ")}`,
+    );
+  }
   console.log(
     `  next: stage=${nextMemory.stage} name=${nextMemory.stageName ?? "-"} ` +
       `mood=${nextMemory.moodLabel ?? "-"} scenario=${nextMemory.lastScenario ?? "-"}`,
   );
+  console.log(
+    `  progress: answered=[${state.progress.answeredQuestionIds.join(",")}] current=${state.progress.currentAttachmentQuestionId ?? "-"}`,
+  );
 
-  return { memory: nextMemory, source, scenario };
+  return { memory: nextMemory, source, scenario, deepLinks };
 }
 
 async function main() {
@@ -302,13 +335,9 @@ async function main() {
   state.memory = r.memory;
 
   // Turn 6: closing → 남은 질문 있으면 stage=1 재진입
+  //   shortcut 이 progress.answeredQuestionIds 를 자동 갱신함
   r = await runTurn(6, "고마워요", state);
   state.memory = r.memory;
-  // progress 업데이트: q-27-1 완료
-  state.progress = {
-    answeredQuestionIds: ["q-27-1"],
-    currentAttachmentQuestionId: null,
-  };
 
   // Turn 7: 질문 2 선택
   state.selectedQuestionId = "q-27-2";
@@ -330,8 +359,62 @@ async function main() {
   state.memory = r.memory;
 
   // Turn 9: 또 closing → 남은 질문 1개(q-27-3) 또는 소진
-  r = await runTurn(9, "오늘은 여기까지 할래요", state);
+  r = await runTurn(9, "고마워요", state);
   state.memory = r.memory;
+
+  // Turn 10: 마지막 질문 선택 (q-27-3)
+  state.selectedQuestionId = "q-27-3";
+  state.progress.currentAttachmentQuestionId = "q-27-3";
+  r = await runTurn(10, "오늘 하루 중 아기를 떠올린 순간이 있었나요?", state);
+  state.memory = r.memory;
+
+  // Turn 11: 3번째 편지
+  state.selectedQuestionId = null;
+  r = await runTurn(
+    11,
+    "아침에 아기 옷을 정리하다가 문득 아이 얼굴이 떠올랐어요.",
+    state,
+  );
+  state.memory = r.memory;
+
+  // Turn 12: closing → 3/3 소진 → exhausted_choice (자유대화/종료)
+  r = await runTurn(12, "고마워요", state);
+  state.memory = r.memory;
+
+  // Turn 13: 자유대화 선택 → stage=free_chat
+  r = await runTurn(13, "자유롭게 대화하고 싶어요.", state);
+  state.memory = r.memory;
+
+  // Turn 14: 자유대화 (LLM 경로)
+  r = await runTurn(14, "아기 이름 짓기 고민 중이에요.", state);
+  state.memory = r.memory;
+
+  // Turn 15: 자유대화 중 종료
+  r = await runTurn(15, "오늘은 여기까지 할게요.", state);
+  state.memory = r.memory;
+
+  console.log(
+    "\n\n======= 시나리오 2: stage=0 Y path (주차 정보 + deepLinks) =======",
+  );
+  state = {
+    memory: { stage: null, stageName: null, compactSummary: "" },
+    progress: { answeredQuestionIds: [], currentAttachmentQuestionId: null },
+    selectedQuestionId: null,
+  };
+  // Turn 1: mood prompt
+  r = await runTurn(1, "", state);
+  state.memory = r.memory;
+  // Turn 2: mood 선택
+  r = await runTurn(2, "오늘 기분이 좋아요.", state);
+  state.memory = r.memory;
+  // Turn 3: Y path → Schift LLM (deepLinks 기대)
+  r = await runTurn(3, "네, 오늘 주차 정보 볼래요.", state);
+  state.memory = r.memory;
+  if (r.deepLinks && r.deepLinks.length > 0) {
+    console.log(`  ✓ deepLinks 포함됨 (${r.deepLinks.length}개)`);
+  } else {
+    console.log(`  ✗ deepLinks 누락 — LLM 프롬프트 규약 재점검 필요`);
+  }
 
   console.log("\n======= 종료 =======");
 }

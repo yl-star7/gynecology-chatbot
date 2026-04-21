@@ -40,35 +40,59 @@ function resolveRef(
   prompts: Record<string, string>,
   staticResponses: Record<string, Record<string, unknown>>,
 ): unknown {
-  if (typeof value !== "string" || !value.startsWith("$")) {
+  if (typeof value !== "string") {
     return value;
   }
 
-  const refPath = value.slice(1);
-  const [section, key] = refPath.split(".");
+  // 문자열 시작이 $ref 인 경우: 전체 값을 해당 ref 로 치환 (object/array 가능)
+  if (value.startsWith("$") && !value.includes(" ")) {
+    const refPath = value.slice(1);
+    const [section, key] = refPath.split(".");
 
-  if (section === "prompts" && key in prompts) {
-    return prompts[key];
-  }
-
-  if (section === "static_responses" && key in staticResponses) {
-    return staticResponses[key];
-  }
-
-  // $env.VAR — process.env 치환 (빌드/동기화 시점)
-  if (section === "env" && key) {
-    return process.env[key] ?? value;
-  }
-
-  // $config.KEY — YAML 상단의 config: 섹션에서 치환 (중첩 $ref 재해석)
-  if (section === "config" && key) {
-    const cfg = ((yamlConfigRef.current ?? {}) as Record<string, unknown>)[key];
-    if (cfg === undefined) return value;
-    // config 값이 또 다른 $ref 면 한 단계 재귀 resolve
-    if (typeof cfg === "string" && cfg.startsWith("$")) {
-      return resolveRef(cfg, prompts, staticResponses);
+    if (section === "prompts" && key in prompts) {
+      return prompts[key];
     }
-    return cfg;
+    if (section === "static_responses" && key in staticResponses) {
+      return staticResponses[key];
+    }
+    if (section === "env" && key) {
+      return process.env[key] ?? value;
+    }
+    if (section === "config" && key) {
+      const cfg = ((yamlConfigRef.current ?? {}) as Record<string, unknown>)[
+        key
+      ];
+      if (cfg === undefined) return value;
+      if (typeof cfg === "string" && cfg.startsWith("$")) {
+        return resolveRef(cfg, prompts, staticResponses);
+      }
+      return cfg;
+    }
+  }
+
+  // 문자열 안에 $config.X / $env.X 가 인라인으로 있으면 부분 치환
+  const interpolationPattern = /\$(config|env)\.([A-Za-z_][A-Za-z0-9_]*)/g;
+  if (interpolationPattern.test(value)) {
+    return value.replace(
+      interpolationPattern,
+      (_match, section: string, key: string) => {
+        if (section === "env") {
+          return process.env[key] ?? "";
+        }
+        if (section === "config") {
+          const cfg = (
+            (yamlConfigRef.current ?? {}) as Record<string, unknown>
+          )[key];
+          if (cfg === undefined) return "";
+          if (typeof cfg === "string" && cfg.startsWith("$")) {
+            const resolved = resolveRef(cfg, prompts, staticResponses);
+            return typeof resolved === "string" ? resolved : "";
+          }
+          return typeof cfg === "string" ? cfg : String(cfg);
+        }
+        return "";
+      },
+    );
   }
 
   return value;
@@ -78,19 +102,34 @@ const yamlConfigRef: { current: Record<string, unknown> | null } = {
   current: null,
 };
 
+function resolveDeep(
+  value: unknown,
+  prompts: Record<string, string>,
+  staticResponses: Record<string, Record<string, unknown>>,
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveDeep(item, prompts, staticResponses));
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = resolveDeep(v, prompts, staticResponses);
+    }
+    return out;
+  }
+  return resolveRef(value, prompts, staticResponses);
+}
+
 function resolveConfig(
   config: Record<string, unknown> | undefined,
   prompts: Record<string, string>,
   staticResponses: Record<string, Record<string, unknown>>,
 ): Record<string, unknown> {
   if (!config) return {};
-
-  const resolved: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(config)) {
-    resolved[k] = resolveRef(v, prompts, staticResponses);
-  }
-
-  return resolved;
+  return resolveDeep(config, prompts, staticResponses) as Record<
+    string,
+    unknown
+  >;
 }
 
 function buildResult(yaml: WorkflowYaml) {

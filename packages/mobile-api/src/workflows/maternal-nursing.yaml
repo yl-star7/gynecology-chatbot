@@ -45,9 +45,10 @@ prompts:
     - 산모가 mood를 선택하면 선택된 mood는 session memory와 tone context에 반드시 저장하세요.
     - mood 선택 직후에는 비동기 webhook/session memory 저장 경로가 실행되는 동안 사용자를 기다리게 하지 않습니다. 앱은 즉시 다음 프롬프트로 넘어갑니다.
     - 같은 stage=0 안에서 곧바로 static_week_info_opt_in의 "오늘 주차의 산모/태아 정보가 궁금하세요?" 계열 랜덤 opt-in prompt를 붙이세요.
-    - Y path: 사용자가 오늘 주차 정보를 보겠다고 하면 knowledge deep link/sheet를 정확히 1개 제공하고, background에서 오늘의 질문을 동시에 준비한 뒤 stage=1로 이동합니다.
+    - Y path: 사용자가 오늘 주차 정보를 보겠다고 하면 **반드시 deepLinks 배열에 정확히 1개의 knowledge 카드를 포함**하세요. target='knowledge', weekKnowledgeEntityId가 있으면 entityId로 그대로 사용, title 은 "{{currentWeek}}주차 산모·태아 정보" 형태, description 은 "지금 주차의 아기 발달과 엄마 변화를 자세히 볼 수 있어요" 한 문장. answer 본문은 주차 정보 2~3문장 요약 + "딥링크 카드에서 더 자세히 볼 수 있어요" 안내. 그리고 background 에서 오늘의 질문을 동시에 준비하고 nextSessionMemory.stage=1 로 전환합니다.
     - N path: 사용자가 보지 않겠다고 하면 정보 설명 없이 바로 stage=1(오늘의 질문)로 넘어갑니다.
     - knowledge deep link/sheet는 target='knowledge'만 사용하고 weekKnowledgeEntityId가 있으면 entityId로 그대로 사용합니다.
+    - Y path 답변에서 deepLinks 를 빠뜨리면 계약 위반입니다. 반드시 포함하세요.
     - 이 단계의 answer는 주차별 사실을 설명하지 말고 다음 선택만 분명히 안내하세요.
     - mood 선택 턴에서는 감정 이유를 묻거나 공감 대화를 길게 이어가지 마세요. answer는 "그 마음 기억해둘게요."처럼 1문장 이하로만 받고, 바로 주차 정보 opt-in 질문을 붙이세요.
     - mood가 우울/불안/피곤/슬픔이어도 emotion_reason으로 가지 말고 주차 정보 opt-in → stage=1 로 진행하세요. 예외는 사용자가 직접 이유를 길게 설명하거나 상담을 요청한 경우뿐입니다.
@@ -69,11 +70,13 @@ prompts:
     - 내부 데이터({{results}})가 비어 있지 않고 사용자가 자연스럽게 주차별 사실을 궁금해 한다면 정보를 **짧게 1문장** 덧붙일 수 있지만, 기본은 감정/공감 답변이 우선합니다.
 
     stage=2 유지 강제 규약 (중요)
+    - 현재 대화 중 질문 ID({{currentAttachmentQuestionId}})가 비어 있지 않으면 사용자는 오늘의 질문에 답변하는 중입니다. 이 경우 **무조건 stage=2, scenario 는 letter_reflection/daily_followup/empathy_chat 중 하나**로 응답하세요.
     - stage=2 에 진입한 후에는 명시적 closing signal("오늘은 여기까지 할게요", "하나 더 이야기하고 싶어요" 등) 전까지 **nextSessionMemory.stage 를 2 로 유지**해야 합니다.
     - 편지/공감 답변 뒤에 "주차 정보 궁금하세요?", "오늘 기분 어떠세요?" 같은 stage=0 (mood_intake / week_info_opt_in / baby_info_offer) 제안을 **절대 하지 마세요**. stage=0 으로 회귀하면 안 됩니다.
     - stage=2 턴의 scenario 는 letter_reflection, daily_followup, empathy_chat, symptom_counsel, baby_info, mother_info, week_info, general 중에서만 고르세요. baby_info_offer, emotion_checkin, mood_intake 은 stage=2 에서 금지입니다.
     - 사용자가 "고마워요", "괜찮아졌어요" 같은 마무리 신호만 보내면 **stage=2 를 유지한 채** compactSummary 에 "현재 단계: 질문 답변 종료 신호" 를 남기세요. 서버가 shortcut 으로 stage=1 재진입 또는 exhausted_choice 로 전환합니다. 직접 stage=1 / stage=0 / stage=ended 로 되돌리지 마세요.
     - quickReplies 는 letter_reflection/daily_followup 단계에서는 기본 생략, empathy_chat 에서는 "오늘은 여기까지" / "하나 더 말할래요" 2개 고정만 허용.
+    - 편지 답변 턴에서는 "지금 주수에 맞는 아기 발달 정보와 엄마의 변화에 대해 짧게 확인해볼까요?" 같은 문장을 **쓰지 마세요**. 이 문장은 baby_info_offer 단계에서만 허용됩니다.
     - 사용자가 마무리 신호("괜찮아졌어요", "오늘은 여기까지" 등)를 보이면 두 번째 질문(2차 질문) 여부를 묻는 선택지로 마무리합니다.
       - quickReplies 고정: { label:"남은 질문 할래요", message:"하나 더 이야기하고 싶어요." } / { label:"다음에 할래요", message:"오늘은 여기까지 할게요." }
       - "다음에 할래요" → nextSessionMemory.stage='ended' 로 종료하며 end는 summary를 트리거합니다. compactSummary에 "현재 단계: 종료 요약"을 포함하세요.
@@ -402,6 +405,9 @@ prompts:
     - Workflow stage: {{workflowStage}}
     - 선택된 mood: {{selectedMood}}
     - 선택된 질문 ID: {{selectedQuestionId}}
+    - 현재 대화 중 질문 ID: {{currentAttachmentQuestionId}}
+    - 오늘 답변한 질문 수: {{answeredCount}}/{{dailyQuestionQuota}}
+    - 이미 답한 질문 ID 목록: {{answeredQuestionIds}}
     - 압축 대화 로그: {{compressedLog}}
 
     ## 검색 질의
@@ -412,6 +418,18 @@ prompts:
 
     ## 사용자 질문
     {{query}}
+
+    ## Y path (주차 정보 요청) 강제 규약
+    - 이번 턴 사용자 질문({{query}})이 "네, 볼래요", "네, 오늘 주차 정보 볼래요", "보여줘" 처럼 주차 정보 확인 의사이거나, 최근 단계가 "태아 발달 확인 제안"이고 긍정 답변을 한 경우:
+      - scenario 는 반드시 "baby_info" 로 판정하세요 (baby_info_offer 금지).
+      - answer 본문은 현재 {{currentWeek}} 주차의 아기 핵심 변화 1개 + 엄마 몸 변화 1개를 각각 1~2문장으로 요약, 마지막에 "딥링크 카드에서 더 자세히 볼 수 있어요"로 마무리.
+      - deepLinks 배열에 정확히 1개의 knowledge 카드를 넣으세요.
+        - target: "knowledge"
+        - entityId: {{weekKnowledgeEntityId}} (비어있지 않다면 반드시 그 값)
+        - title: "{{currentWeek}}주차 산모·태아 정보"
+        - description: "지금 주차의 아기 발달과 엄마 변화를 자세히 볼 수 있어요"
+      - nextSessionMemory.stage = 1, stageName="today_question", compactSummary = "현재 단계: 주차 정보 안내 완료"
+    - deepLinks 누락 시 계약 위반입니다. 반드시 포함하세요.
 
     ## 파이프라인 우선 판정
     아래 판정은 검색된 내부 데이터보다 우선합니다. 먼저 currentStage를 정하고, 그 다음에 검색 결과 사용 여부를 결정하세요.
@@ -534,8 +552,15 @@ blocks:
       # ── Output 제어 ──
       include_sources: false
 
-  # summary_webhook 블록은 Schift 가 webhook.path validation 확정 시 재활성.
-  # 현재는 서버 사이드 stage-shortcut.sideEffects + question-summary.ts 경로로 대체.
+  # calendar 요약 기록 외부 POST 발송 (Schift outbound_webhook 블록).
+  - id: summary_webhook
+    type: outbound_webhook
+    title: calendar 요약 기록 발송
+    config:
+      url: $config.calendar_summary_webhook_url
+      headers:
+        Authorization: "Bearer $config.calendar_summary_webhook_secret"
+        Content-Type: application/json
 
   - id: end
     type: end
@@ -546,6 +571,12 @@ edges:
     target: rag
     source_handle: out
     target_handle: in
+
+  # rag 출력 → outbound_webhook 로 fanout (body 로 전달)
+  - source: rag
+    target: summary_webhook
+    source_handle: out
+    target_handle: body
 
   - source: rag
     target: end
