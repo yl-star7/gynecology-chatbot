@@ -346,23 +346,6 @@ export function usePatientConversationScreenModel({
     setIsWeekEncyclopediaSheetVisible(false);
   }
 
-  function handleOpenWeekEncyclopediaFullView() {
-    const model = buildConversationWeekEncyclopediaSheetModel({
-      weeks: weekEncyclopediaWeeks,
-      profilePregnancyWeekLabel: weekEncyclopediaProfilePregnancyWeekLabel,
-      isLoading: isLoadingWeekEncyclopedia,
-      errorMessage: weekEncyclopediaErrorMessage,
-    });
-    setIsWeekEncyclopediaSheetVisible(false);
-    if (model.selectedWeekNumber) {
-      router.push(
-        `/encyclopedia?mode=browse&week=${model.selectedWeekNumber}` as never,
-      );
-      return;
-    }
-    router.push("/encyclopedia" as never);
-  }
-
   function handleComposerLayout(event: LayoutChangeEvent) {
     const nextHeight = event.nativeEvent.layout.height;
     if (Math.abs(nextHeight - composerHeight) > 1) {
@@ -405,7 +388,6 @@ export function usePatientConversationScreenModel({
     }),
     handleOpenWeekEncyclopediaSheet,
     handleDismissWeekEncyclopediaSheet,
-    handleOpenWeekEncyclopediaFullView,
     getLinkTarget: services.knowledgePort.getLinkTarget.bind(
       services.knowledgePort,
     ),

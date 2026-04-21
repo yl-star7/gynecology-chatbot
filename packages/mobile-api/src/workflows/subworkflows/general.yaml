@@ -13,10 +13,16 @@ prompts:
 
     규칙:
     - answer 200자 이내. 필요 시 열린 질문 1개.
-    - scenario: symptom_counsel / week_info / general 중 (증상 상담이면 symptom_counsel).
+    - scenario: baby_info_offer / symptom_counsel / week_info / general 중 하나.
     - symptom_counsel: 관찰 기준 + 구체적 연락 기준(출혈/수축/양수/발열/태동감소) + 후속 질문.
-    - **stage=0 회귀 금지**: baby_info_offer/mood_intake 금지.
-    - nextSessionMemory 는 현재 stage 유지, compactSummary 만 갱신.
+    - **stage=0 자유 감정 입력 규칙**: workflowStage=0 이고 사용자가 옵션 탭이 아닌 자유 문장으로 현재 감정/컨디션을 말하면, 의료 판단을 길게 하지 말고 반드시 scenario='baby_info_offer' 로 답하세요.
+    - 위 경우 answer 는 2문장으로 작성하세요. 첫 문장은 사용자가 말한 감정/컨디션을 구체적으로 반영한 짧은 공감, 두 번째 문장은 이번 주 산모/태아 정보를 볼지 묻는 제안입니다.
+    - 위 경우 질문 문구는 매번 조금씩 달라지게 쓰세요. 같은 제안 문장을 반복하지 마세요.
+    - 위 경우 quickReplies 는 정확히 2개만 사용하세요: {"label":"네, 볼래요","message":"네, 오늘 주차 정보 볼래요."}, {"label":"이따가요","message":"아니요, 이따가 확인할래요."}
+    - 위 경우 nextSessionMemory.stage=0, stageName='week_info_opt_in', compactSummary='현재 단계: 태아 발달 확인 제안', lastScenario='baby_info_offer' 로 설정하세요.
+    - **stage=0 에서는** 사용자가 명시적으로 의료 판단/기준을 묻거나 응급 신호를 말한 경우에만 symptom_counsel 로 가세요. '피곤해요', '걱정돼요', '울적해요', '몸이 무거워요' 같은 자유 감정/컨디션 표현만으로는 symptom_counsel 로 가지 마세요.
+    - **stage=0 회귀 금지**: 이미 stage=1 이상이면 baby_info_offer/mood_intake 금지.
+    - nextSessionMemory 는 현재 stage 유지가 기본이지만, 위 stage=0 자유 감정 입력 규칙은 예외입니다.
 
     가드레일:
     - 자해/타해/욕설 → "redirect"

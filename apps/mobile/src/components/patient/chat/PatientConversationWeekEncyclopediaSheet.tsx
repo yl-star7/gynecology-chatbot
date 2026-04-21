@@ -1,8 +1,10 @@
 // @ts-nocheck
-import { Ionicons } from "@expo/vector-icons";
 import type { ComponentType } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Modal,
+  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,29 +23,74 @@ import {
 import type { ConversationWeekEncyclopediaSheetModel } from "../../../screens/patient/PatientConversationWeekEncyclopediaSheet.model";
 
 const SheetIcon = Ionicons as unknown as ComponentType<{
-  name: "close" | "open-outline";
+  name: "close";
   size: number;
   color: string;
 }>;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
 
 export function PatientConversationWeekEncyclopediaSheet({
   visible,
   model,
   onClose,
-  onOpenFullView,
 }: {
   visible: boolean;
   model: ConversationWeekEncyclopediaSheetModel;
   onClose: () => void;
-  onOpenFullView?: () => void;
 }) {
   const { height } = useWindowDimensions();
-  const canOpenFullView = Boolean(onOpenFullView && model.selectedWeekNumber);
   const isCompact = model.sections.length === 0;
-  const sheetHeight = Math.round(height * (isCompact ? 0.42 : 0.64));
+  const defaultSheetHeight = Math.round(height * (isCompact ? 0.42 : 0.64));
+  const minSheetHeight = Math.round(height * (isCompact ? 0.32 : 0.42));
+  const maxSheetHeight = Math.round(height * 0.86);
+  const [sheetHeight, setSheetHeight] = useState(defaultSheetHeight);
+  const sheetHeightRef = useRef(defaultSheetHeight);
+  const dragStartHeightRef = useRef(defaultSheetHeight);
+
+  const setAdjustedSheetHeight = useCallback((nextHeight: number) => {
+    sheetHeightRef.current = nextHeight;
+    setSheetHeight(nextHeight);
+  }, []);
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+
+    setAdjustedSheetHeight(defaultSheetHeight);
+  }, [defaultSheetHeight, setAdjustedSheetHeight, visible]);
+
+  const handleToggleSheetHeight = useCallback(() => {
+    const isExpanded = sheetHeightRef.current >= maxSheetHeight - space.lg;
+    setAdjustedSheetHeight(isExpanded ? defaultSheetHeight : maxSheetHeight);
+  }, [defaultSheetHeight, maxSheetHeight, setAdjustedSheetHeight]);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gestureState) =>
+          Math.abs(gestureState.dy) > 5,
+        onPanResponderGrant: () => {
+          dragStartHeightRef.current = sheetHeightRef.current;
+        },
+        onPanResponderMove: (_event, gestureState) => {
+          const nextHeight = clamp(
+            dragStartHeightRef.current - gestureState.dy,
+            minSheetHeight,
+            maxSheetHeight,
+          );
+          setAdjustedSheetHeight(nextHeight);
+        },
+      }),
+    [maxSheetHeight, minSheetHeight, setAdjustedSheetHeight],
+  );
+
   const scrollHeight = Math.max(
     isCompact ? space.xxxl * 3 : space.xxxl * 8,
-    sheetHeight - (canOpenFullView ? space.xxxl * 8 : space.xxxl * 5),
+    sheetHeight - space.xxxl * 5,
   );
 
   return (
@@ -66,13 +113,18 @@ export function PatientConversationWeekEncyclopediaSheet({
             styles.sheet,
             {
               height: sheetHeight,
-              paddingBottom: canOpenFullView
-                ? space.xxxl * 2 + space.sm
-                : space.lg,
             },
           ]}
         >
-          <View style={styles.handle} />
+          <Pressable
+            {...panResponder.panHandlers}
+            accessibilityLabel="시트 높이 조절"
+            accessibilityRole="button"
+            onPress={handleToggleSheetHeight}
+            style={styles.dragHandleArea}
+          >
+            <View style={styles.handle} />
+          </Pressable>
           <View style={styles.header}>
             <View style={styles.headerCopy}>
               <Text style={styles.eyebrow}>주차별 사전</Text>
@@ -129,22 +181,6 @@ export function PatientConversationWeekEncyclopediaSheet({
               </Card>
             ))}
           </ScrollView>
-
-          {canOpenFullView ? (
-            <Pressable
-              style={styles.ctaButton}
-              accessibilityRole="button"
-              accessibilityLabel="임신백과에서 자세히 보기"
-              onPress={onOpenFullView}
-            >
-              <SheetIcon
-                name="open-outline"
-                size={space.lg}
-                color={surface.surfacePrimary}
-              />
-              <Text style={styles.ctaLabel}>임신백과에서 자세히 보기</Text>
-            </Pressable>
-          ) : null}
         </View>
       </View>
     </Modal>
@@ -174,8 +210,12 @@ const styles = StyleSheet.create({
     gap: space.md,
     ...shadows.card,
   },
+  dragHandleArea: {
+    minHeight: space.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   handle: {
-    alignSelf: "center",
     width: space.xxxl + space.md,
     height: space.xs,
     borderRadius: radii.full,
@@ -216,7 +256,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     gap: space.sm,
-    paddingBottom: space.xxxl + space.md,
+    paddingBottom: space.md,
   },
   emptyCard: {
     gap: space.sm,
@@ -252,25 +292,5 @@ const styles = StyleSheet.create({
     flex: 1,
     ...typo.body,
     color: surface.textSecondary,
-  },
-  ctaButton: {
-    position: "absolute",
-    left: space.lg,
-    right: space.lg,
-    bottom: space.lg,
-    zIndex: 2,
-    minHeight: space.xxxl + space.lg,
-    borderRadius: radii.full,
-    backgroundColor: palette.accent,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: space.xs,
-    paddingHorizontal: space.lg,
-  },
-  ctaLabel: {
-    ...typo.button,
-    color: surface.surfacePrimary,
-    fontWeight: "700",
   },
 });

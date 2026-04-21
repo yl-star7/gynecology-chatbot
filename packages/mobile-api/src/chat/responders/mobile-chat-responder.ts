@@ -471,11 +471,19 @@ function buildLocalFallbackResponse(input: {
 } {
   const userText = input.text.trim();
   const lastScenario = input.promptContext?.sessionMemory?.lastScenario ?? null;
+  const workflowStage = input.promptContext?.sessionMemory?.stage ?? null;
   const wantsInfo =
     /알려|볼래|궁금|확인|주차|아기|태아|엄마|산모/.test(userText) ||
     (/네|응|좋아/.test(userText) && lastScenario === "baby_info_offer");
   const wantsQuestion = /질문|이어/.test(userText);
-  const isLowMood = /우울|피곤|불안|걱정|슬퍼|화나|답답/.test(userText);
+  const isLowMood = /우울|피곤|불안|걱정|슬퍼|화나|답답|무거/.test(userText);
+  const isFreeMoodAtStageZero =
+    input.promptContext !== null &&
+    workflowStage === 0 &&
+    lastScenario !== "baby_info_offer" &&
+    !wantsInfo &&
+    !wantsQuestion &&
+    userText.length > 0;
 
   if (wantsInfo) {
     return {
@@ -566,22 +574,40 @@ function buildLocalFallbackResponse(input: {
     };
   }
 
+  if (!isFreeMoodAtStageZero && !input.promptContext) {
+    throw new Error("Local fallback requires prompt context");
+  }
+
+  const infoOfferVariations = isLowMood
+    ? [
+        `${userText}라고 느끼고 계시는군요.\n\n이번 주 산모와 태아에게 어떤 변화가 있는지 같이 볼까요?`,
+        `${userText}는 날에는 속도를 조금 늦춰도 괜찮아요.\n\n오늘 주차 정보를 짧게 확인해볼까요?`,
+        `${userText}고 말해줘서 고마워요.\n\n지금 주차의 엄마와 아기 이야기를 가볍게 볼까요?`,
+      ]
+    : [
+        "그 마음 기억해둘게요.\n\n오늘 주차의 산모와 태아 정보를 함께 볼까요?",
+        "말해줘서 고마워요.\n\n이번 주 아기와 엄마 변화를 짧게 확인해볼까요?",
+        "좋아요, 지금 마음을 기억해둘게요.\n\n오늘 주차 정보를 먼저 보고 이어가볼까요?",
+      ];
+  const variationIndex = userText
+    ? Math.abs(
+        Array.from(userText).reduce((acc, ch) => acc + ch.charCodeAt(0), 0),
+      ) % infoOfferVariations.length
+    : 0;
+  const infoOfferText = infoOfferVariations[variationIndex];
+
   return {
     assistantMessage: {
       id: `assistant-local-${Date.now()}`,
       role: "assistant" as const,
       createdAtLabel: "방금 전",
       parts: [
-        makeTextPart(
-          isLowMood
-            ? "그 마음 기억해둘게요.\n\n오늘 주차의 아기와 엄마 정보를 짧게 볼까요?"
-            : "좋아요, 기억해둘게요.\n\n오늘 주차의 아기와 엄마 정보를 짧게 볼까요?",
-        ),
+        makeTextPart(infoOfferText),
         makeQuickReplies([
           {
             id: "local-info",
-            label: "주차 정보",
-            message: "네, 알려주세요.",
+            label: "네, 볼래요",
+            message: "네, 오늘 주차 정보 볼래요.",
           },
           {
             id: "local-later",
@@ -596,12 +622,12 @@ function buildLocalFallbackResponse(input: {
       nextSessionMemory: {
         workflowVersion: 2,
         stage: 0,
-        stageName: "info_opt_in",
-        compactSummary: `현재 단계: 정보 확인 제안. 사용자는 "${userText}"라고 답했어요.`,
+        stageName: "week_info_opt_in",
+        compactSummary: "현재 단계: 태아 발달 확인 제안",
         lastScenario: "baby_info_offer",
         lastCharacterTone: isLowMood ? "tired" : "calm",
         lastEmotionTone: isLowMood ? "tired" : "calm",
-        moodLabel: userText || null,
+        moodLabel: isFreeMoodAtStageZero ? userText || null : null,
       },
       nextProfileMemory: {
         lastEmotionTone: isLowMood ? "tired" : "calm",
@@ -779,15 +805,24 @@ export function createMobileChatResponder<
       });
     }
 
+    const shouldUseLocalFallback =
+      input.promptContext?.sessionMemory?.stage === 0 &&
+      input.promptContext?.sessionMemory?.lastScenario !== "baby_info_offer" &&
+      !/알려|볼래|궁금|확인|주차|아기|태아|엄마|산모|질문|이어/.test(
+        input.text.trim(),
+      );
+
     return resolveAssistantResponse({
       hardGuardrailReason: input.hardGuardrailReason,
       workflowEnabled: Boolean(schift),
-      fallbackResponse: async () =>
-        buildLocalFallbackResponse({
-          currentWeek: input.currentWeek,
-          promptContext: input.promptContext,
-          text: input.text,
-        }),
+      fallbackResponse: shouldUseLocalFallback
+        ? async () =>
+            buildLocalFallbackResponse({
+              currentWeek: input.currentWeek,
+              promptContext: input.promptContext,
+              text: input.text,
+            })
+        : undefined,
       runWorkflow: async () => {
         if (!schift) {
           throw new Error("Schift client is unavailable");

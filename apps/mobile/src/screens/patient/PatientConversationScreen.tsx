@@ -103,7 +103,6 @@ export function PatientConversationScreen({
         visible={model.isWeekEncyclopediaSheetVisible}
         model={model.weekEncyclopediaSheetModel}
         onClose={model.handleDismissWeekEncyclopediaSheet}
-        onOpenFullView={model.handleOpenWeekEncyclopediaFullView}
       />
     </PatientShell>
   );

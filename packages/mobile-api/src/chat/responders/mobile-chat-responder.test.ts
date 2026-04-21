@@ -128,7 +128,8 @@ describe("mobile chat responder", () => {
           {
             id: "question-1",
             code: "attachment",
-            question_text: "오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?",
+            question_text:
+              "오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?",
             question_type: "text",
             help_text: null,
             question_payload: {},
@@ -346,7 +347,9 @@ describe("mobile chat responder", () => {
           title: "28주 3일",
           baby_development_payload: { items: ["아기의 감각이 더 또렷해져요."] },
           baby_message: null,
-          mother_changes_payload: { items: ["배가 당기는 느낌이 늘 수 있어요."] },
+          mother_changes_payload: {
+            items: ["배가 당기는 느낌이 늘 수 있어요."],
+          },
         },
         checklists: [],
         questions: [],
@@ -376,7 +379,6 @@ describe("mobile chat responder", () => {
     expect(textPart.text).toContain("오늘의 질문");
     expect(textPart.text).not.toContain("엄마 몸 변화도 이어서");
   });
-
 
   it("mirrors session emotion memory into profile memory for webhook dispatch", async () => {
     const responder = createMobileChatResponder({
@@ -419,6 +421,87 @@ describe("mobile chat responder", () => {
     expect(result.workflowMemoryPayload?.nextProfileMemory).toEqual(
       expect.objectContaining({ lastEmotionTone: "anxious" }),
     );
+  });
+
+  it("uses stage=0 local fallback for free-form mood input and varies the opt-in wording", async () => {
+    const responder = createMobileChatResponder({
+      getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
+      runSchiftWorkflow: jest
+        .fn()
+        .mockRejectedValue(new Error("should not run")),
+      extractSchiftWorkflowOutputs: (run) => run.outputs ?? {},
+      formatSchiftWorkflowRun: () => "답변: workflow 출력이 없어요.",
+      loadCharacterImages: async () => ({}),
+    });
+
+    const result = await responder({
+      promptContext: {
+        pregnancyWeek: 27,
+        dayNumber: 1,
+        week: {
+          id: "week-27",
+          week_number: 27,
+          title: "27주차",
+          baby_summary: null,
+          mother_summary: null,
+          warning_signs: null,
+          recommended_actions: null,
+          checklist_intro: null,
+          question_intro: null,
+          status: "published",
+        },
+        dayContent: null,
+        checklists: [],
+        questions: [],
+        tonePreference: null,
+        profileMemory: null,
+        sessionMemory: {
+          workflowVersion: 2,
+          stage: 0,
+          stageName: "mood_intake",
+          compactSummary: "현재 단계: 감정 확인",
+          lastScenario: "emotion_checkin",
+        },
+        onboardingPayload: null,
+        missingFields: [],
+      },
+      currentWeek: 27,
+      normalizedSessionId: "session-1",
+      text: "오늘은 몸이 많이 피곤해요",
+      imageDataUris: [],
+      hardGuardrailReason: null,
+    });
+
+    expect(result.workflowMemoryPayload?.scenario).toBe("baby_info_offer");
+    expect(result.workflowMemoryPayload?.nextSessionMemory?.stage).toBe(0);
+    expect(result.workflowMemoryPayload?.nextSessionMemory?.stageName).toBe(
+      "week_info_opt_in",
+    );
+    expect(
+      result.workflowMemoryPayload?.nextSessionMemory?.compactSummary,
+    ).toBe("현재 단계: 태아 발달 확인 제안");
+    const quickReplies = result.assistantMessage.parts.find(
+      (part) => part.type === "quickReplies",
+    );
+    expect(quickReplies?.type).toBe("quickReplies");
+    if (quickReplies?.type === "quickReplies") {
+      expect(quickReplies.choices.map((choice) => choice.label)).toEqual([
+        "네, 볼래요",
+        "이따가요",
+      ]);
+      expect(quickReplies.choices.map((choice) => choice.message)).toEqual([
+        "네, 오늘 주차 정보 볼래요.",
+        "아니요, 이따가 확인할래요.",
+      ]);
+    }
+    const textPart = result.assistantMessage.parts.find(
+      (part) => part.type === "text",
+    );
+    expect(textPart?.type).toBe("text");
+    if (textPart?.type === "text") {
+      expect(textPart.text).toContain("피곤");
+      expect(textPart.text).toMatch(/주차|산모|태아|엄마|아기/);
+    }
   });
 
   it("throws when workflow output is empty", async () => {
