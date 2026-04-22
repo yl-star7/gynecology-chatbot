@@ -61,7 +61,7 @@ export function PatientConversationMessageList({
   isLoadingSessionDetail: boolean;
   sessionLoadErrorMessage: string | null;
   scrollBottomPadding: number;
-  onQuickReplySelect: (message: string) => void;
+  onQuickReplySelect: (message: string, choiceId?: string) => void;
   onRetrySessionLoad: () => void;
   onSurveyAnswer: (surveyId: string, choiceId: string) => Promise<boolean>;
   surveySaveErrorText: string;
@@ -157,7 +157,7 @@ export function PatientConversationMessageList({
                         style={styles.quickReplyPill}
                         onPress={() => {
                           setDidChooseEmptyReply(true);
-                          onQuickReplySelect(choice.message);
+                          onQuickReplySelect(choice.message, choice.id);
                         }}
                         accessibilityRole="button"
                         accessibilityLabel={choice.label}

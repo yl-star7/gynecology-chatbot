@@ -211,7 +211,10 @@ export function usePatientConversationScreenModel({
     !isNewConversationSession(sessionId) &&
     isPastConversationSession(session.lastMessageAtIso);
 
-  async function handleSend(overrideText?: string) {
+  async function handleSend(
+    overrideText?: string,
+    selectedQuestionId?: string,
+  ) {
     const nextText = (overrideText ?? text).trim();
     if (!nextText || isSending || isReadOnly) {
       return;
@@ -232,6 +235,7 @@ export function usePatientConversationScreenModel({
       const assistantMessages = await services.chatPort.sendMessage({
         sessionId: resolvedSessionId,
         text: nextText,
+        selectedQuestionId,
         imageUris: capturedImage ? [capturedImage] : [],
       });
       const [firstMessage, ...followUpMessages] = assistantMessages;
@@ -252,8 +256,8 @@ export function usePatientConversationScreenModel({
     }
   }
 
-  function handleQuickReply(replyMessage: string) {
-    void handleSend(replyMessage);
+  function handleQuickReply(replyMessage: string, choiceId?: string) {
+    void handleSend(replyMessage, choiceId);
   }
 
   async function handleSurveyAnswer(surveyId: string, choiceId: string) {

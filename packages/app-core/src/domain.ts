@@ -210,6 +210,7 @@ export interface ChatComposerInput {
   text: string;
   imageUris: string[];
   pregnancyWeek?: number;
+  selectedQuestionId?: string;
 }
 
 export interface LinkTargetContent {
