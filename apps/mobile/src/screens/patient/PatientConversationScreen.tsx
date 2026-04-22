@@ -119,6 +119,7 @@ const styles = StyleSheet.create({
   toolbarButton: {
     width: space.xxxl + space.md,
     height: space.xxxl + space.md,
+    marginBottom: space.xs,
     borderRadius: radii.full,
     alignItems: "center",
     justifyContent: "center",
