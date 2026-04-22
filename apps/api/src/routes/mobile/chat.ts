@@ -2,9 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { createKoreanDateKey } from "@gynecology-chatbot/app-core/time";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
-import {
-  searchFileRag,
-} from "@gynecology-chatbot/mobile-api/rag";
+import { searchFileRag } from "@gynecology-chatbot/mobile-api/rag";
 import { getSchiftClient } from "@gynecology-chatbot/mobile-api/schift-client";
 import {
   extractSchiftWorkflowOutputs,
@@ -28,7 +26,27 @@ import {
 import { buildPromptFollowUpMessages } from "@gynecology-chatbot/mobile-api/chat/follow-ups";
 import { buildChatOrchestrator } from "@gynecology-chatbot/mobile-api/chat/chat-orchestrator";
 import { createMobileChatResponder } from "@gynecology-chatbot/mobile-api/chat/responders/mobile-chat-responder";
+import {
+  maybeShortCircuitStaticTurn,
+  type QuestionProgress,
+} from "@gynecology-chatbot/mobile-api/chat/stage-shortcut";
+import { fetchAttachmentQuestionProgress } from "@gynecology-chatbot/mobile-api/chat/attachment-question-progress";
+import {
+  markQuestionAnswered,
+  recordQuestionSent,
+} from "@gynecology-chatbot/mobile-api/chat/question-event-sync";
+import {
+  buildQuestionSummaryRecord,
+  shouldSaveQuestionSummary,
+} from "@gynecology-chatbot/mobile-api/chat/question-summary";
+import {
+  selectStageWorkflow,
+  type StageWorkflowMapping,
+} from "@gynecology-chatbot/mobile-api/chat/stage-workflow-selector";
+import { rewriteLetterReflectionQuickReplies } from "@gynecology-chatbot/mobile-api/chat/letter-reflection-postprocess";
+import { loadMaternalNursingWorkflow } from "@gynecology-chatbot/mobile-api/workflows/load-workflow-yaml";
 import type {
+  CharacterTone,
   ProfileMemoryPayload,
   SessionMemoryPayload,
 } from "@gynecology-chatbot/mobile-api/chat/workflow-payload";
@@ -272,13 +290,47 @@ app.post("/", async (c) => {
     const weekKnowledgeEntityId =
       await findWeekKnowledgeEntityId(pregnancyWeek);
 
-    const respondWithMobileChat = createMobileChatResponder({
+    const stageMapping: StageWorkflowMapping = await (async () => {
+      try {
+        const row = await prisma.system_config.findUnique({
+          where: { key: "workflow_stage_mapping" },
+          select: { value: true },
+        });
+        const stored = (row?.value ?? null) as unknown;
+        if (stored && typeof stored === "object" && !Array.isArray(stored)) {
+          const s = stored as Record<string, unknown>;
+          const pick = (k: string, envKey: string) =>
+            typeof s[k] === "string" && (s[k] as string).trim()
+              ? (s[k] as string).trim()
+              : (process.env[envKey] ?? null);
+          return {
+            baby_info: pick("baby_info", "SCHIFT_WF_BABY_INFO"),
+            letter_reflection: pick(
+              "letter_reflection",
+              "SCHIFT_WF_LETTER_REFLECTION",
+            ),
+            free_chat: pick("free_chat", "SCHIFT_WF_FREE_CHAT"),
+            general: pick("general", "SCHIFT_WF_GENERAL"),
+          };
+        }
+      } catch {
+        // fallthrough to env
+      }
+      return {
+        baby_info: process.env.SCHIFT_WF_BABY_INFO ?? null,
+        letter_reflection: process.env.SCHIFT_WF_LETTER_REFLECTION ?? null,
+        free_chat: process.env.SCHIFT_WF_FREE_CHAT ?? null,
+        general: process.env.SCHIFT_WF_GENERAL ?? null,
+      };
+    })();
+
+    const baseMobileResponder = createMobileChatResponder({
       getSchiftClient,
       runSchiftWorkflow,
       extractSchiftWorkflowOutputs,
       formatSchiftWorkflowRun,
       loadCharacterImages,
-      preferLocalFallback: true,
+      preferLocalFallback: false,
       loadRagContext: ({ query, currentWeek }) =>
         searchFileRag({
           query,
@@ -286,7 +338,192 @@ app.post("/", async (c) => {
           matchCount: 5,
         }),
       weekKnowledgeEntityId,
+      selectWorkflowId: (sel) => {
+        const picked = selectStageWorkflow(sel, stageMapping);
+        if (picked) {
+          console.info(
+            `[stage-workflow] key=${picked.key} id=${picked.workflowId} reason=${picked.reason}`,
+          );
+          return picked.workflowId;
+        }
+        return null;
+      },
     });
+
+    const workflowDef = loadMaternalNursingWorkflow();
+    const moodPool = (() => {
+      try {
+        const parsed = JSON.parse(
+          workflowDef.prompts.static_mood_intake ?? "{}",
+        );
+        return Array.isArray(parsed.moodPrompts)
+          ? (parsed.moodPrompts as Array<{
+              label: string;
+              message: string;
+              tone: CharacterTone;
+            }>)
+          : [];
+      } catch {
+        return [];
+      }
+    })();
+    const weekInfoOptInVariations = (() => {
+      try {
+        const parsed = JSON.parse(
+          workflowDef.prompts.static_week_info_opt_in ?? "{}",
+        );
+        return Array.isArray(parsed.answerVariations)
+          ? (parsed.answerVariations as string[])
+          : [];
+      } catch {
+        return [];
+      }
+    })();
+
+    const respondWithMobileChat: typeof baseMobileResponder = async (input) => {
+      let progress: QuestionProgress;
+      try {
+        progress = await fetchAttachmentQuestionProgress({
+          prisma: prisma as unknown as Parameters<
+            typeof fetchAttachmentQuestionProgress
+          >[0]["prisma"],
+          userId: input.userId,
+          sessionId: input.normalizedSessionId,
+        });
+      } catch (error) {
+        console.warn("attachment progress fetch failed", error);
+        progress = {
+          answeredQuestionIds: [],
+          currentAttachmentQuestionId: null,
+        };
+      }
+
+      const todayQuestionCandidates = (
+        input.promptContext?.questions ?? []
+      ).map((q) => ({
+        id: q.id,
+        text:
+          (q as unknown as { question_text?: string }).question_text ??
+          (q as unknown as { text?: string }).text ??
+          q.id,
+      }));
+
+      const selectedMood =
+        moodPool.find((m) => m.message === input.text)?.message ?? null;
+
+      const shortcut = maybeShortCircuitStaticTurn({
+        userText: input.text,
+        selectedMood,
+        selectedQuestionId: input.selectedQuestionId ?? null,
+        currentWeek: input.currentWeek,
+        promptContext: input.promptContext,
+        moodPool,
+        weekInfoOptInVariations,
+        todayQuestionCandidates,
+        progress,
+      });
+
+      if (shortcut) {
+        if (shortcut.sideEffects?.fireMoodWebhook) {
+          const moodSide = shortcut.sideEffects.fireMoodWebhook;
+          postWorkflowSessionMemoryWebhook({
+            c,
+            userId: input.userId,
+            sessionId: input.normalizedSessionId,
+            sourceMessageId: null,
+            idempotencyKey: `mood-${input.userId}-${input.normalizedSessionId}-${moodSide.moodId}`,
+            nextSessionMemory: {
+              moodId: moodSide.moodId,
+              moodLabel: moodSide.moodLabel,
+            } as SessionMemoryPayload,
+          }).catch((error) => {
+            console.warn("mood webhook dispatch failed", error);
+          });
+        }
+        return {
+          assistantMessage: shortcut.assistantMessage,
+          workflowMemoryPayload: shortcut.workflowMemoryPayload,
+        };
+      }
+
+      const result = await baseMobileResponder(input);
+      const payload = result.workflowMemoryPayload;
+      const priorStage = input.promptContext?.sessionMemory?.stage ?? null;
+      if (payload) {
+        const next = payload.nextSessionMemory as
+          | (SessionMemoryPayload & {
+              currentAttachmentQuestionId?: string | null;
+              answeredQuestionIds?: string[];
+            })
+          | undefined;
+        if (next && progress.currentAttachmentQuestionId) {
+          if (Number(next.stage) === 0 || (next.stage as unknown) === "0") {
+            next.stage = 2;
+            next.stageName = "choice_conversation";
+            if (!next.compactSummary?.includes("질문")) {
+              next.compactSummary = "현재 단계: 질문 답변 중";
+            }
+          }
+          if (!next.currentAttachmentQuestionId) {
+            (next as Record<string, unknown>).currentAttachmentQuestionId =
+              progress.currentAttachmentQuestionId;
+          }
+          if (!Array.isArray(next.answeredQuestionIds)) {
+            (next as Record<string, unknown>).answeredQuestionIds =
+              progress.answeredQuestionIds;
+          }
+        }
+        if (next && priorStage === "free_chat" && next.stage !== "ended") {
+          next.stage = "free_chat";
+          next.stageName = "free_chat";
+          if (!next.compactSummary?.includes("자유 대화")) {
+            next.compactSummary = "현재 단계: 자유 대화";
+          }
+        }
+        const scenarioOut =
+          (payload.scenario as string | undefined) ??
+          (next?.lastScenario as string | undefined);
+        const stageNumOrStr = (next?.stage as unknown) ?? null;
+        if (
+          next &&
+          scenarioOut === "baby_info" &&
+          (Number(stageNumOrStr) === 0 ||
+            stageNumOrStr === null ||
+            stageNumOrStr === undefined)
+        ) {
+          next.stage = 1;
+          next.stageName = "today_question";
+          if (!next.compactSummary?.includes("주차 정보 안내")) {
+            next.compactSummary = "현재 단계: 주차 정보 안내 완료";
+          }
+        }
+        const priorScenario =
+          input.promptContext?.sessionMemory?.lastScenario ?? null;
+        if (
+          next &&
+          scenarioOut === "baby_info_offer" &&
+          priorScenario === "baby_info_offer" &&
+          Number(stageNumOrStr) === 0
+        ) {
+          next.stage = 1;
+          next.stageName = "today_question";
+          next.compactSummary = "현재 단계: 오늘의 질문 준비";
+        }
+      }
+      const scenarioFinal =
+        (payload?.scenario as string | undefined) ??
+        ((payload?.nextSessionMemory as any)?.lastScenario as
+          | string
+          | undefined);
+      if (
+        scenarioFinal === "letter_reflection" ||
+        scenarioFinal === "daily_followup" ||
+        scenarioFinal === "empathy_chat"
+      ) {
+        rewriteLetterReflectionQuickReplies(payload as any, progress);
+      }
+      return result;
+    };
 
     const orchestrateChat = buildChatOrchestrator({
       ensureSession: ensureChatSession,
@@ -351,6 +588,103 @@ app.post("/", async (c) => {
       imageDataUris,
       hardGuardrailReason,
     });
+
+    if (selectedQuestionId) {
+      try {
+        await recordQuestionSent({
+          prisma: prisma as unknown as Parameters<
+            typeof recordQuestionSent
+          >[0]["prisma"],
+          userId,
+          sessionId: result.sessionId,
+          questionId: selectedQuestionId,
+        });
+      } catch (error) {
+        console.warn("recordQuestionSent failed", error);
+      }
+    }
+
+    const nextMem = (result.workflowMemoryPayload?.nextSessionMemory ??
+      null) as
+      | (SessionMemoryPayload & {
+          currentAttachmentQuestionId?: string | null;
+        })
+      | null;
+    const priorCurrent = ((
+      result as unknown as {
+        priorSessionMemory?: { currentAttachmentQuestionId?: string | null };
+      }
+    ).priorSessionMemory?.currentAttachmentQuestionId ?? null) as string | null;
+    const nextCurrent = nextMem?.currentAttachmentQuestionId ?? null;
+    const justClosedQuestionId =
+      priorCurrent && priorCurrent !== nextCurrent ? priorCurrent : null;
+    if (justClosedQuestionId) {
+      try {
+        const answerText = text.trim();
+        await markQuestionAnswered({
+          prisma: prisma as unknown as Parameters<
+            typeof markQuestionAnswered
+          >[0]["prisma"],
+          userId,
+          sessionId: result.sessionId,
+          questionId: justClosedQuestionId,
+          answerText,
+        });
+      } catch (error) {
+        console.warn("markQuestionAnswered failed", error);
+      }
+    }
+
+    const stageForSummary = nextMem?.stage;
+    const assistantAnswer = result.assistantMessages
+      .flatMap((message) =>
+        message.parts.flatMap((part) =>
+          part.type === "text" && part.text.trim() ? [part.text.trim()] : [],
+        ),
+      )
+      .join("\n\n")
+      .trim();
+    if (
+      shouldSaveQuestionSummary({
+        workflowStage: stageForSummary,
+        selectedQuestionId,
+        alreadyPersistedQuestionIds: new Set(),
+      })
+    ) {
+      try {
+        const dateKey = getKstDateKey();
+        const questionRow = await prisma.content_week_questions.findFirst({
+          where: { id: selectedQuestionId! },
+          select: { question_text: true },
+        });
+        const record = buildQuestionSummaryRecord({
+          userId,
+          sessionId: result.sessionId,
+          dateKey,
+          questionId: selectedQuestionId!,
+          questionText: questionRow?.question_text ?? null,
+          userAnswer: text.trim(),
+          assistantAnswer,
+          compactSummary: nextMem?.compactSummary ?? null,
+          emotionTone: nextMem?.lastEmotionTone ?? null,
+          moodId: nextMem?.moodId ?? null,
+          moodLabel: nextMem?.moodLabel ?? null,
+        });
+        await prisma.calendar_logs.create({
+          data: {
+            user_id: record.userId,
+            session_id: record.sessionId,
+            date: parseDateOnly(record.date),
+            entry_type: record.entryType,
+            title: record.title,
+            summary: record.summary,
+            payload: record.payload as Prisma.InputJsonValue,
+          },
+        });
+      } catch (error) {
+        console.warn("question_summary calendar save failed", error);
+      }
+    }
 
     try {
       const todayDate = getKstDateKey();
