@@ -39,5 +39,6 @@ test("buildTabsScreenOptions returns tab bar colors and spacing from a provided 
   assert.equal(options.tabBarInactiveTintColor, "#222222");
   assert.equal(options.tabBarStyle.backgroundColor, "#333333");
   assert.equal(options.tabBarStyle.borderTopColor, "transparent");
-  assert.equal(options.tabBarStyle.height, 68);
+  assert.equal(options.tabBarStyle.height, space.xxxl * 2 + space.xs);
+  assert.equal(options.tabBarStyle.paddingBottom, space.md);
 });
