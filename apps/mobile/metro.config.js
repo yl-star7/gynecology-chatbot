@@ -21,6 +21,19 @@ config.resolver.nodeModulesPaths = [
 
 config.resolver.disableHierarchicalLookup = true;
 
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  const mobileReactPath = resolveMobileReactRequest(moduleName);
+
+  if (mobileReactPath) {
+    return {
+      type: "sourceFile",
+      filePath: mobileReactPath,
+    };
+  }
+
+  return context.resolveRequest(context, moduleName, platform);
+};
+
 config.resolver.extraNodeModules = {
   ...(config.resolver.extraNodeModules ?? {}),
   react: path.dirname(resolveMobileReactRequest("react")),

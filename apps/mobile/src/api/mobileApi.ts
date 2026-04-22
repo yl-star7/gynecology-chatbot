@@ -515,9 +515,17 @@ export async function fetchCurrentMobileSession() {
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  const response = await fetch(`${apiBaseUrl}/api/mobile/auth/session`, {
-    method: "GET",
-    headers,
-  });
-  return parseJson<{ user: AuthenticatedUser }>(response);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8_000);
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/mobile/auth/session`, {
+      method: "GET",
+      headers,
+      signal: controller.signal,
+    });
+    return parseJson<{ user: AuthenticatedUser }>(response);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }

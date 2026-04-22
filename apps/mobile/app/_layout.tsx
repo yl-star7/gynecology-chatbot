@@ -72,11 +72,14 @@ function BootstrapGate({ children }: { children: React.ReactNode }) {
   const services = useMobileServices();
 
   useEffect(() => {
+    void SplashScreen.hideAsync().catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     if (isRestoringSession) {
       return;
     }
 
-    void SplashScreen.hideAsync().catch(() => undefined);
     void preloadPatientAppData({
       currentUser,
       services,
