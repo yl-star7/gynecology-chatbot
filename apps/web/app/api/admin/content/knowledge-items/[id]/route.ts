@@ -1,71 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { createAdminServices } from "@/lib/admin/create-admin-services";
-import type { AdminKnowledgeItemInput } from "@gynecology-chatbot/app-core";
+import { proxyAdminApiRequest } from "@/lib/admin/api-server";
 import { revalidateAdminKnowledgeCache } from "@/lib/admin/admin-cache";
 
-function parseImageUrl(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  try {
-    const url = new URL(trimmed);
-    if (url.protocol !== "https:") return null;
-    return trimmed;
-  } catch {
-    return null;
-  }
-}
-
-function parseKnowledgeItemInput(
-  body: unknown,
-): AdminKnowledgeItemInput | null {
-  if (!body || typeof body !== "object") {
-    return null;
-  }
-
-  const record = body as Record<string, unknown>;
-  const slug = typeof record.slug === "string" ? record.slug.trim() : "";
-  const section = record.section;
-  const title = typeof record.title === "string" ? record.title.trim() : "";
-  const bodyText = typeof record.body === "string" ? record.body.trim() : "";
-  const status = record.status;
-  const imageUrl =
-    record.imageUrl === null || record.imageUrl === undefined
-      ? null
-      : parseImageUrl(record.imageUrl);
-
-  // If imageUrl was provided as a non-empty string but failed validation, reject
-  if (
-    typeof record.imageUrl === "string" &&
-    record.imageUrl.trim() !== "" &&
-    imageUrl === null
-  ) {
-    return null;
-  }
-
-  if (
-    !slug ||
-    !title ||
-    !bodyText ||
-    (section !== "knowledge" && section !== "notebook") ||
-    (status !== "draft" && status !== "published" && status !== "archived")
-  ) {
-    return null;
-  }
-
-  return {
-    slug,
-    section,
-    title,
-    body: bodyText,
-    imageUrl,
-    status,
-  };
-}
-
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -73,38 +13,16 @@ export async function PATCH(
     if (!admin) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
-
     const { id } = await context.params;
-    if (!id) {
-      return NextResponse.json({ error: "id is required" }, { status: 400 });
-    }
-
-    const payload = parseKnowledgeItemInput(await request.json());
-    if (!payload) {
-      return NextResponse.json(
-        { error: "invalid knowledge item payload" },
-        { status: 400 },
-      );
-    }
-
-    const services = createAdminServices();
-    const knowledgeItem = await services.adminContentPort.updateKnowledgeItem(
-      id,
-      payload,
-      admin.id,
+    if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+    const response = await proxyAdminApiRequest(
+      `content/knowledge-items/${encodeURIComponent(id)}`,
+      { admin, request, method: "PATCH" },
     );
-    if (!knowledgeItem) {
-      return NextResponse.json(
-        { error: "knowledge item not found" },
-        { status: 404 },
-      );
-    }
-
-    revalidateAdminKnowledgeCache();
-
-    return NextResponse.json({ knowledgeItem });
+    if (response.ok) revalidateAdminKnowledgeCache();
+    return response;
   } catch (error) {
-    console.error("admin knowledge items patch route error", error);
+    console.error("admin knowledge items PATCH proxy error", error);
     return NextResponse.json(
       {
         error:
@@ -126,18 +44,16 @@ export async function DELETE(
     if (!admin) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
-
     const { id } = await context.params;
-    if (!id) {
-      return NextResponse.json({ error: "id is required" }, { status: 400 });
-    }
-
-    const services = createAdminServices();
-    await services.adminContentPort.deleteKnowledgeItem(id, admin.id);
-    revalidateAdminKnowledgeCache();
-    return NextResponse.json({ ok: true });
+    if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
+    const response = await proxyAdminApiRequest(
+      `content/knowledge-items/${encodeURIComponent(id)}`,
+      { admin, method: "DELETE" },
+    );
+    if (response.ok) revalidateAdminKnowledgeCache();
+    return response;
   } catch (error) {
-    console.error("admin knowledge items delete route error", error);
+    console.error("admin knowledge items DELETE proxy error", error);
     return NextResponse.json(
       {
         error:

@@ -1,9 +1,12 @@
 import { requireAdminSession } from "@/lib/admin/auth";
-import { loadCachedAdminDashboard } from "@/lib/admin/admin-cache";
+import { fetchAdminApiJson } from "@/lib/admin/api-server";
+import type { AdminDashboardData } from "@gynecology-chatbot/app-core";
 
 export async function loadAdminPageData() {
   const admin = await requireAdminSession();
-  const dashboard = await loadCachedAdminDashboard();
+  const { dashboard } = await fetchAdminApiJson<{
+    dashboard: AdminDashboardData;
+  }>("dashboard", { admin });
 
   return {
     admin,

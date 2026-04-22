@@ -1,44 +1,8 @@
 import { NextResponse } from "next/server";
+
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { createAdminServices } from "@/lib/admin/create-admin-services";
-import type { AdminWorkflowRuleInput } from "@gynecology-chatbot/app-core";
+import { proxyAdminApiRequest } from "@/lib/admin/api-server";
 import { revalidateAdminWorkflowCache } from "@/lib/admin/admin-cache";
-
-function parseWorkflowRuleInput(body: unknown): AdminWorkflowRuleInput | null {
-  if (!body || typeof body !== "object") {
-    return null;
-  }
-
-  const record = body as Record<string, unknown>;
-  const name = typeof record.name === "string" ? record.name.trim() : "";
-  const trigger =
-    typeof record.trigger === "string" ? record.trigger.trim() : "";
-  const retrievalScope =
-    typeof record.retrievalScope === "string"
-      ? record.retrievalScope.trim()
-      : "";
-  const modelName =
-    typeof record.modelName === "string" ? record.modelName.trim() : "";
-  const status = record.status;
-
-  if (
-    !name ||
-    !trigger ||
-    !retrievalScope ||
-    !modelName ||
-    (status !== "active" && status !== "review")
-  ) {
-    return null;
-  }
-
-  return {
-    name,
-    trigger,
-    retrievalScope,
-    modelName,
-    status,
-  };
-}
 
 export async function PATCH(
   request: Request,
@@ -49,41 +13,18 @@ export async function PATCH(
     if (!admin) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
-
     const { ruleId } = await context.params;
     if (!ruleId) {
-      return NextResponse.json(
-        { error: "ruleId is required" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "ruleId is required" }, { status: 400 });
     }
-
-    const payload = parseWorkflowRuleInput(await request.json());
-    if (!payload) {
-      return NextResponse.json(
-        { error: "invalid workflow payload" },
-        { status: 400 },
-      );
-    }
-
-    const services = createAdminServices();
-    const workflowRule = await services.adminContentPort.updateWorkflowRule(
-      ruleId,
-      payload,
-      admin.id,
+    const response = await proxyAdminApiRequest(
+      `workflow-rules/${encodeURIComponent(ruleId)}`,
+      { admin, request, method: "PATCH" },
     );
-    if (!workflowRule) {
-      return NextResponse.json(
-        { error: "workflow rule not found" },
-        { status: 404 },
-      );
-    }
-
-    revalidateAdminWorkflowCache();
-
-    return NextResponse.json({ workflowRule });
+    if (response.ok) revalidateAdminWorkflowCache();
+    return response;
   } catch (error) {
-    console.error("admin workflow rule patch route error", error);
+    console.error("admin workflow rule PATCH proxy error", error);
     return NextResponse.json(
       {
         error:

@@ -2,111 +2,55 @@ jest.mock("@/lib/admin/auth", () => ({
   readAdminSessionUser: jest.fn(),
 }));
 
-jest.mock("@/lib/admin/create-admin-services", () => ({
-  createAdminServices: jest.fn(),
-}));
-
 jest.mock("@/lib/admin/admin-cache", () => ({
   revalidateAdminDocumentsCache: jest.fn(),
 }));
 
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { createAdminServices } from "@/lib/admin/create-admin-services";
+import { revalidateAdminDocumentsCache } from "@/lib/admin/admin-cache";
 import { POST } from "./route";
 
 const mockedReadAdminSessionUser = readAdminSessionUser as jest.MockedFunction<
   typeof readAdminSessionUser
 >;
-const mockedCreateAdminServices = createAdminServices as jest.MockedFunction<
-  typeof createAdminServices
->;
 
-describe("POST /api/admin/rag/upload", () => {
+describe("POST /api/admin/rag/upload proxy", () => {
+  const originalFetch = global.fetch;
+  const originalAdminApiBaseUrl = process.env.ADMIN_API_BASE_URL;
+  const originalAdminApiProxySecret = process.env.ADMIN_API_PROXY_SECRET;
+
   beforeEach(() => {
     mockedReadAdminSessionUser.mockReset();
-    mockedCreateAdminServices.mockReset();
+    mockedReadAdminSessionUser.mockResolvedValue({ id: "admin-1" } as never);
+    process.env.ADMIN_API_BASE_URL = "http://api.example.test";
+    process.env.ADMIN_API_PROXY_SECRET = "proxy-secret";
+    global.fetch = jest.fn(async () =>
+      new Response(JSON.stringify({ id: "doc-1", ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    ) as typeof fetch;
   });
 
-  test("rejects requests without an admin session", async () => {
-    mockedReadAdminSessionUser.mockResolvedValue(null);
-
-    const response = await POST(
-      new Request("http://localhost:3000/api/admin/rag/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: "문서",
-          content: "본문",
-          category: "guide",
-        }),
-      }) as never,
-    );
-
-    expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: "unauthorized" });
+  afterEach(() => {
+    global.fetch = originalFetch;
+    process.env.ADMIN_API_BASE_URL = originalAdminApiBaseUrl;
+    process.env.ADMIN_API_PROXY_SECRET = originalAdminApiProxySecret;
   });
 
-  test("creates a document through the admin content port", async () => {
-    mockedReadAdminSessionUser.mockResolvedValue({
-      id: "admin-1",
-      displayName: "운영자",
-      phoneNumber: "010",
-      role: "admin",
-    });
-    const createDocument = jest.fn().mockResolvedValue({
-      id: "doc-1",
-      title: "문서",
-      pregnancyWeekLabel: "공통",
-      pregnancyWeek: null,
-      category: "guide",
-      chunkCount: 1,
-      updatedAt: "2026-03-18T00:00:00.000Z",
-      status: "ready",
-      content: "본문",
-    });
-    mockedCreateAdminServices.mockReturnValue({
-      adminDashboardPort: {} as never,
-      adminUserPort: {} as never,
-      adminContentPort: {
-        createDocument,
-        getDocument: jest.fn(),
-        updateDocument: jest.fn(),
-        deleteDocument: jest.fn(),
-        updateWorkflowRule: jest.fn(),
-        listKnowledgeItems: jest.fn(),
-        createKnowledgeItem: jest.fn(),
-        updateKnowledgeItem: jest.fn(),
-        deleteKnowledgeItem: jest.fn(),
-        listWeeks: jest.fn(),
-        getWeek: jest.fn(),
-        saveWeek: jest.fn(),
-      },
-    });
-
+  test("forwards upload requests and revalidates documents", async () => {
     const response = await POST(
-      new Request("http://localhost:3000/api/admin/rag/upload", {
+      new Request("http://localhost/api/admin/rag/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: "문서",
-          content: "본문",
-          category: "guide",
-          pregnancyWeek: null,
-        }),
+        body: JSON.stringify({ title: "문서", content: "본문", category: "guide" }),
       }) as never,
-    );
-
-    expect(createDocument).toHaveBeenCalledWith(
-      {
-        title: "문서",
-        content: "본문",
-        category: "guide",
-        pregnancyWeek: null,
-        imageUrl: null,
-      },
-      "admin-1",
     );
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ id: "doc-1", ok: true });
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://api.example.test/api/admin/rag/upload",
+      expect.objectContaining({ method: "POST", body: expect.any(Buffer) }),
+    );
+    expect(revalidateAdminDocumentsCache).toHaveBeenCalled();
   });
 });

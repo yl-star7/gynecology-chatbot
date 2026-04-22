@@ -1,60 +1,28 @@
 import { NextResponse } from "next/server";
+
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { createAdminServices } from "@/lib/admin/create-admin-services";
-import type { AdminRagDocumentInput } from "@gynecology-chatbot/app-core";
+import { proxyAdminApiRequest } from "@/lib/admin/api-server";
 import { revalidateAdminDocumentsCache } from "@/lib/admin/admin-cache";
 
-function parseImageUrl(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  try {
-    const url = new URL(trimmed);
-    if (url.protocol !== "https:") return null;
-    return trimmed;
-  } catch {
-    return null;
+async function proxyDocument(
+  request: Request | null,
+  params: Promise<{ documentId: string }>,
+  method: string,
+) {
+  const admin = await readAdminSessionUser();
+  if (!admin) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-}
-
-function parseDocumentInput(body: unknown): AdminRagDocumentInput | null {
-  if (!body || typeof body !== "object") {
-    return null;
+  const { documentId } = await params;
+  if (!documentId) {
+    return NextResponse.json({ error: "documentId is required" }, { status: 400 });
   }
-
-  const record = body as Record<string, unknown>;
-  const title = typeof record.title === "string" ? record.title.trim() : "";
-  const category =
-    typeof record.category === "string" ? record.category.trim() : "";
-  const content =
-    typeof record.content === "string" ? record.content.trim() : "";
-  const pregnancyWeek =
-    typeof record.pregnancyWeek === "number" ? record.pregnancyWeek : null;
-  const imageUrl =
-    record.imageUrl === null || record.imageUrl === undefined
-      ? null
-      : parseImageUrl(record.imageUrl);
-
-  // If imageUrl was provided as a non-empty string but failed validation, reject
-  if (
-    typeof record.imageUrl === "string" &&
-    record.imageUrl.trim() !== "" &&
-    imageUrl === null
-  ) {
-    return null;
-  }
-
-  if (!title || !category || !content) {
-    return null;
-  }
-
-  return {
-    title,
-    category,
-    content,
-    pregnancyWeek,
-    imageUrl,
-  };
+  const response = await proxyAdminApiRequest(
+    `rag/documents/${encodeURIComponent(documentId)}`,
+    { admin, request, method },
+  );
+  if (response.ok && method !== "GET") revalidateAdminDocumentsCache();
+  return response;
 }
 
 export async function GET(
@@ -62,38 +30,11 @@ export async function GET(
   context: { params: Promise<{ documentId: string }> },
 ) {
   try {
-    const admin = await readAdminSessionUser();
-    if (!admin) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-
-    const { documentId } = await context.params;
-    if (!documentId) {
-      return NextResponse.json(
-        { error: "documentId is required" },
-        { status: 400 },
-      );
-    }
-
-    const services = createAdminServices();
-    const document = await services.adminContentPort.getDocument(documentId);
-    if (!document) {
-      return NextResponse.json(
-        { error: "document not found" },
-        { status: 404 },
-      );
-    }
-
-    revalidateAdminDocumentsCache();
-
-    return NextResponse.json({ document });
+    return proxyDocument(null, context.params, "GET");
   } catch (error) {
-    console.error("admin rag document get route error", error);
+    console.error("admin rag document GET proxy error", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "failed to load document",
-      },
+      { error: error instanceof Error ? error.message : "failed to load document" },
       { status: 400 },
     );
   }
@@ -104,48 +45,11 @@ export async function PATCH(
   context: { params: Promise<{ documentId: string }> },
 ) {
   try {
-    const admin = await readAdminSessionUser();
-    if (!admin) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-
-    const { documentId } = await context.params;
-    if (!documentId) {
-      return NextResponse.json(
-        { error: "documentId is required" },
-        { status: 400 },
-      );
-    }
-
-    const payload = parseDocumentInput(await request.json());
-    if (!payload) {
-      return NextResponse.json(
-        { error: "invalid document payload" },
-        { status: 400 },
-      );
-    }
-
-    const services = createAdminServices();
-    const document = await services.adminContentPort.updateDocument(
-      documentId,
-      payload,
-      admin.id,
-    );
-    if (!document) {
-      return NextResponse.json(
-        { error: "document not found" },
-        { status: 404 },
-      );
-    }
-
-    return NextResponse.json({ document });
+    return proxyDocument(request, context.params, "PATCH");
   } catch (error) {
-    console.error("admin rag document patch route error", error);
+    console.error("admin rag document PATCH proxy error", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "failed to update document",
-      },
+      { error: error instanceof Error ? error.message : "failed to update document" },
       { status: 400 },
     );
   }
@@ -156,30 +60,11 @@ export async function DELETE(
   context: { params: Promise<{ documentId: string }> },
 ) {
   try {
-    const admin = await readAdminSessionUser();
-    if (!admin) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-
-    const { documentId } = await context.params;
-    if (!documentId) {
-      return NextResponse.json(
-        { error: "documentId is required" },
-        { status: 400 },
-      );
-    }
-
-    const services = createAdminServices();
-    await services.adminContentPort.deleteDocument(documentId, admin.id);
-    revalidateAdminDocumentsCache();
-    return NextResponse.json({ ok: true });
+    return proxyDocument(null, context.params, "DELETE");
   } catch (error) {
-    console.error("admin rag document delete route error", error);
+    console.error("admin rag document DELETE proxy error", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "failed to delete document",
-      },
+      { error: error instanceof Error ? error.message : "failed to delete document" },
       { status: 400 },
     );
   }

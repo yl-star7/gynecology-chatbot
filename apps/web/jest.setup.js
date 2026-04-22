@@ -335,9 +335,15 @@ if (typeof global.Request === "undefined") {
   const { ReadableStream, TransformStream } = require("stream/web");
   global.ReadableStream = ReadableStream;
   global.TransformStream = TransformStream;
-  const { fetch, Headers, Request, Response } = require("undici");
-  global.fetch = fetch;
+  const { Headers, Request, Response } = require("undici");
   global.Headers = Headers;
   global.Request = Request;
   global.Response = Response;
 }
+
+global.fetch = jest.fn(async () =>
+  new global.Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  }),
+);

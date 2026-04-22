@@ -1,71 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import { readAdminSessionUser } from "@/lib/admin/auth";
-import { createAdminServices } from "@/lib/admin/create-admin-services";
-import type { AdminKnowledgeItemInput } from "@gynecology-chatbot/app-core";
-import {
-  loadCachedAdminKnowledgeItems,
-  revalidateAdminKnowledgeCache,
-} from "@/lib/admin/admin-cache";
-
-function parseImageUrl(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  try {
-    const url = new URL(trimmed);
-    if (url.protocol !== "https:") return null;
-    return trimmed;
-  } catch {
-    return null;
-  }
-}
-
-function parseKnowledgeItemInput(
-  body: unknown,
-): AdminKnowledgeItemInput | null {
-  if (!body || typeof body !== "object") {
-    return null;
-  }
-
-  const record = body as Record<string, unknown>;
-  const slug = typeof record.slug === "string" ? record.slug.trim() : "";
-  const section = record.section;
-  const title = typeof record.title === "string" ? record.title.trim() : "";
-  const bodyText = typeof record.body === "string" ? record.body.trim() : "";
-  const status = record.status;
-  const imageUrl =
-    record.imageUrl === null || record.imageUrl === undefined
-      ? null
-      : parseImageUrl(record.imageUrl);
-
-  // If imageUrl was provided as a non-empty string but failed validation, reject
-  if (
-    typeof record.imageUrl === "string" &&
-    record.imageUrl.trim() !== "" &&
-    imageUrl === null
-  ) {
-    return null;
-  }
-
-  if (
-    !slug ||
-    !title ||
-    !bodyText ||
-    (section !== "knowledge" && section !== "notebook") ||
-    (status !== "draft" && status !== "published" && status !== "archived")
-  ) {
-    return null;
-  }
-
-  return {
-    slug,
-    section,
-    title,
-    body: bodyText,
-    imageUrl,
-    status,
-  };
-}
+import { proxyAdminApiRequest } from "@/lib/admin/api-server";
+import { revalidateAdminKnowledgeCache } from "@/lib/admin/admin-cache";
 
 export async function GET() {
   try {
@@ -74,10 +11,12 @@ export async function GET() {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const knowledgeItems = await loadCachedAdminKnowledgeItems();
-    return NextResponse.json({ knowledgeItems });
+    return proxyAdminApiRequest("content/knowledge-items", {
+      admin,
+      method: "GET",
+    });
   } catch (error) {
-    console.error("admin knowledge items get route error", error);
+    console.error("admin knowledge items GET proxy error", error);
     return NextResponse.json(
       {
         error:
@@ -97,23 +36,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const payload = parseKnowledgeItemInput(await request.json());
-    if (!payload) {
-      return NextResponse.json(
-        { error: "invalid knowledge item payload" },
-        { status: 400 },
-      );
-    }
-
-    const services = createAdminServices();
-    const knowledgeItem = await services.adminContentPort.createKnowledgeItem(
-      payload,
-      admin.id,
-    );
-    revalidateAdminKnowledgeCache();
-    return NextResponse.json({ knowledgeItem });
+    const response = await proxyAdminApiRequest("content/knowledge-items", {
+      admin,
+      request,
+    });
+    if (response.ok) revalidateAdminKnowledgeCache();
+    return response;
   } catch (error) {
-    console.error("admin knowledge items post route error", error);
+    console.error("admin knowledge items POST proxy error", error);
     return NextResponse.json(
       {
         error:

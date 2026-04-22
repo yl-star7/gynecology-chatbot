@@ -85,3 +85,29 @@ export async function proxyAdminApiRequest(
     headers: buildResponseHeaders(response),
   });
 }
+
+export async function fetchAdminApiJson<T>(
+  path: string,
+  input: {
+    admin: AdminProxyUser;
+    method?: string;
+    body?: BodyInit | null;
+    headers?: HeadersInit;
+  },
+) {
+  const headers = new Headers(input.headers);
+  headers.set("x-admin-user-id", input.admin.id);
+  headers.set("x-admin-proxy-secret", getAdminApiProxySecret());
+
+  const response = await fetch(`${getAdminApiBaseUrl()}/api/admin/${path}`, {
+    method: input.method ?? "GET",
+    headers,
+    body: input.body,
+    cache: "no-store",
+  });
+  const payload = (await response.json()) as T & { error?: string };
+  if (!response.ok) {
+    throw new Error(payload.error ?? `Admin API request failed: ${response.status}`);
+  }
+  return payload;
+}
