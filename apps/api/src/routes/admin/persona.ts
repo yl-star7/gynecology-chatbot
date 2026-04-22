@@ -42,27 +42,24 @@ app.get("/users/persona", async (c) => {
       return c.json({ error: "userId is required" }, 400);
     }
 
-    const [profileRows, signalRows] = await Promise.all([
-      prisma.v_user_persona_profiles.findMany({
-        where: { user_id: userId },
-        orderBy: {},
-        take: 1,
-      }),
-      prisma.user_persona_signals.findMany({
-        where: { user_id: userId },
-        orderBy: { observed_at: "desc" },
-        take: 20,
-      }),
-    ]);
+    const signalRows = await prisma.user_persona_signals.findMany({
+      where: { user_id: userId },
+      orderBy: { observed_at: "desc" },
+      take: 20,
+    });
 
-    const profile = profileRows[0]
+    const latestSignal = signalRows[0];
+    const weightedScore =
+      signalRows.reduce((sum, signal) => sum + Number(signal.weight), 0) /
+      Math.max(1, signalRows.length);
+    const profile = latestSignal
       ? {
-          userId: profileRows[0].user_id,
-          personaHint: profileRows[0].persona_hint,
-          confidence: profileRows[0].confidence,
-          evidenceSummary: profileRows[0].evidence_summary,
-          weightedScore: Number(profileRows[0].weighted_score),
-          lastObservedAt: profileRows[0].last_observed_at?.toISOString() ?? null,
+          userId: latestSignal.user_id,
+          personaHint: latestSignal.persona_hint,
+          confidence: latestSignal.confidence,
+          evidenceSummary: latestSignal.evidence,
+          weightedScore,
+          lastObservedAt: latestSignal.observed_at.toISOString(),
         }
       : null;
 
