@@ -196,11 +196,13 @@ export class ApiMobileChatAdapter implements MobileChatPort {
     text: string;
     imageUris: string[];
     pregnancyWeek?: number;
+    selectedQuestionId?: string;
   }) {
     const payload = await this.client.sendChatMessage({
       sessionId: input.sessionId,
       text: input.text,
       pregnancyWeek: input.pregnancyWeek,
+      selectedQuestionId: input.selectedQuestionId,
       imageDataUris: input.imageUris,
     });
     const userId = this.getUserId();

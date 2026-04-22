@@ -32,7 +32,13 @@ export class RateLimitError extends Error {
 }
 
 type MobileFetch = typeof fetch;
-type NurseImageTone = "neutral" | "calm" | "joyful" | "anxious" | "tired" | "sad";
+type NurseImageTone =
+  | "neutral"
+  | "calm"
+  | "joyful"
+  | "anxious"
+  | "tired"
+  | "sad";
 type CharacterImagesManifest = {
   version: string;
   images: Record<NurseImageTone, string>;
@@ -103,6 +109,7 @@ export interface MobileApiClient {
     sessionId: string;
     text: string;
     pregnancyWeek?: number;
+    selectedQuestionId?: string;
     imageDataUris: string[];
   }): Promise<{
     assistantMessage: ChatMessage;
@@ -460,6 +467,7 @@ export function createMobileApiClient(
             sessionId: input.sessionId,
             text: input.text,
             pregnancyWeek: input.pregnancyWeek,
+            selectedQuestionId: input.selectedQuestionId,
             imageDataUris: input.imageDataUris,
           }),
           signal: controller.signal,
