@@ -963,6 +963,20 @@ export function createMobileChatResponder<
           workflowText === "답변: workflow 출력이 없어요.";
 
         if (isEmptyWorkflowOutput || !structuredWorkflowMessage) {
+          const shouldRecoverStageZeroMood =
+            input.promptContext?.sessionMemory?.stage === 0 &&
+            input.promptContext?.sessionMemory?.lastScenario !==
+              "baby_info_offer" &&
+            !/알려|볼래|궁금|확인|주차|아기|태아|엄마|산모|질문|이어/.test(
+              input.text.trim(),
+            );
+          if (shouldRecoverStageZeroMood) {
+            return buildLocalFallbackResponse({
+              currentWeek: input.currentWeek,
+              promptContext: input.promptContext,
+              text: input.text,
+            });
+          }
           throw new Error(
             isEmptyWorkflowOutput
               ? "Schift workflow returned empty output"
