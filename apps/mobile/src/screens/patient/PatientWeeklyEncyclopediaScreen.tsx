@@ -31,6 +31,7 @@ import {
   space,
   typo,
 } from "../../theme";
+import { useMobileTheme } from "../../theme-provider";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { resolvePatientContentLoadError } from "./patientErrorCopy.model";
 import { getWeekBabyImageSource } from "./week-baby-images";
@@ -38,6 +39,7 @@ import { buildWeeklyEncyclopediaViewModel } from "./PatientWeeklyEncyclopediaScr
 
 export function PatientWeeklyEncyclopediaScreen() {
   const insets = useSafeAreaInsets();
+  const { palette: activePalette } = useMobileTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string; week?: string }>();
   const entryMode = params.mode === "browse" ? "browse" : "current";
@@ -151,7 +153,7 @@ export function PatientWeeklyEncyclopediaScreen() {
               await fetchContent().catch(() => undefined);
               setRefreshing(false);
             }}
-            tintColor={palette.accent}
+            tintColor={activePalette.accent}
           />
         }
       >

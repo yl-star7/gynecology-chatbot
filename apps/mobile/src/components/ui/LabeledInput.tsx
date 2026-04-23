@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import type { KeyboardTypeOptions } from "react-native";
-import { palette, patientSurfacePalette as surface, typo } from "../../theme";
+import { patientSurfacePalette as surface, typo } from "../../theme";
+import { useMobileTheme } from "../../theme-provider";
 import { LABELED_INPUT_LAYOUT } from "./LabeledInput.model";
 
 export function LabeledInput({
@@ -25,6 +26,8 @@ export function LabeledInput({
   onSubmitEditing?: () => void;
   accessibilityLabel?: string;
 }) {
+  const { palette: activePalette } = useMobileTheme();
+
   return (
     <View style={styles.field}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
@@ -32,7 +35,7 @@ export function LabeledInput({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={palette.subInk}
+        placeholderTextColor={activePalette.subInk}
         style={[styles.input, multiline ? styles.multiline : null]}
         keyboardType={keyboardType}
         multiline={multiline}

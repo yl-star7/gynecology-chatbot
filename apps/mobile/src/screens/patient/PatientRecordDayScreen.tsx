@@ -297,7 +297,7 @@ export function PatientRecordDayScreen({
                   <Text style={styles.recordTitle}>{item.question}</Text>
                   <Text style={styles.recordSummary}>
                     {item.answerSummary ??
-                      "아직 답변 요약이 준비되지 않았어요."}
+                      "오늘 자정에 요약이 준비됩니다."}
                   </Text>
                 </View>
               ))

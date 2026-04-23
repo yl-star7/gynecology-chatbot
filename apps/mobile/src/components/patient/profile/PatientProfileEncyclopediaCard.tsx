@@ -9,6 +9,7 @@ import {
   space,
   typo,
 } from "../../../theme";
+import { useMobileTheme } from "../../../theme-provider";
 import type { ProfileEncyclopediaEntry } from "../../../screens/patient/PatientProfileScreen.model";
 
 const ChevronIcon = Ionicons as unknown as ComponentType<{
@@ -28,6 +29,8 @@ function EntryRow({
   description: string;
   onPress: () => void;
 }) {
+  const { surface: activeSurface } = useMobileTheme();
+
   return (
     <Pressable
       style={styles.entryRow}
@@ -44,7 +47,7 @@ function EntryRow({
       <ChevronIcon
         name="chevron-forward"
         size={space.lg + space.xs}
-        color={surface.textSecondary}
+        color={activeSurface.textSecondary}
       />
     </Pressable>
   );

@@ -1,5 +1,6 @@
-import type { ComponentType } from "react";
+import { useMemo, useState, type ComponentType } from "react";
 import {
+  PanResponder,
   StyleSheet,
   Text,
   TextInput,
@@ -16,12 +17,15 @@ import {
   space,
   typo,
 } from "../../../theme";
+import { useMobileTheme } from "../../../theme-provider";
 
 const Ionicon = Ionicons as unknown as ComponentType<{
   name: "arrow-up";
   size: number;
   color: string;
 }>;
+const MIN_INPUT_HEIGHT = 44;
+const MAX_INPUT_HEIGHT = space.xxxl * 5;
 
 export function PatientConversationComposer({
   text,
@@ -50,11 +54,29 @@ export function PatientConversationComposer({
   onLayout: (event: LayoutChangeEvent) => void;
   bottomPadding: number;
 }) {
+  const { surface: activeSurface } = useMobileTheme();
+  const isSendDisabled = isSending;
+  const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
+  const resizeResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          Math.abs(gestureState.dy) > 4,
+        onPanResponderMove: (_, gestureState) => {
+          setInputHeight((currentHeight) =>
+            Math.max(
+              MIN_INPUT_HEIGHT,
+              Math.min(MAX_INPUT_HEIGHT, currentHeight - gestureState.dy),
+            ),
+          );
+        },
+      }),
+    [],
+  );
+
   if (isReadOnly) {
     return null;
   }
-
-  const isSendDisabled = isSending;
 
   return (
     <View
@@ -79,15 +101,23 @@ export function PatientConversationComposer({
       ) : null}
 
       <View style={styles.composerBar}>
+        <View
+          style={styles.resizeHandleHitbox}
+          {...resizeResponder.panHandlers}
+          accessibilityRole="adjustable"
+          accessibilityLabel="입력창 크기 조절"
+        >
+          <View style={styles.resizeHandle} />
+        </View>
         <View style={styles.composerRow}>
           <ChatImagePicker
             onImageSelected={onImageSelected}
             disabled={isSendDisabled}
           />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { height: inputHeight }]}
             placeholder="아기에게 하고 싶은 말을 적어보세요..."
-            placeholderTextColor={surface.textSecondary}
+            placeholderTextColor={activeSurface.textSecondary}
             value={text}
             onChangeText={onChangeText}
             multiline
@@ -103,7 +133,7 @@ export function PatientConversationComposer({
             disabled={isSendDisabled}
             accessibilityLabel="메시지 보내기"
           >
-            <Ionicon name="arrow-up" size={20} color={surface.surfacePrimary} />
+            <Ionicon name="arrow-up" size={20} color={activeSurface.surfacePrimary} />
           </Pressable>
         </View>
       </View>
@@ -125,6 +155,19 @@ const styles = StyleSheet.create({
   composerBar: {
     paddingVertical: space.xs,
   },
+  resizeHandleHitbox: {
+    alignSelf: "center",
+    width: space.xxxl * 2,
+    height: space.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  resizeHandle: {
+    width: space.xxxl,
+    height: 4,
+    borderRadius: radii.full,
+    backgroundColor: surface.strokeSubtle,
+  },
   composerRow: {
     flexDirection: "row",
     gap: space.sm,
@@ -132,8 +175,8 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: 44,
-    maxHeight: space.xxxl * 3,
+    minHeight: MIN_INPUT_HEIGHT,
+    maxHeight: MAX_INPUT_HEIGHT,
     borderRadius: radii.lg,
     backgroundColor: surface.fieldSurface,
     paddingHorizontal: space.md,

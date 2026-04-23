@@ -28,9 +28,11 @@ import {
   hasFreshCachedRecentChats,
   hasFreshCachedRecordDayView,
   hasFreshCachedTodayView,
+  readCachedProfileView,
 } from "../src/core/patientViewCache";
 import { BrandMark } from "../src/components/ui";
 import { patientSurfacePalette as surface, space, typo } from "../src/theme";
+import { MobileThemeProvider, useMobileTheme } from "../src/theme-provider";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -70,6 +72,7 @@ function BootstrapFallback() {
 function BootstrapGate({ children }: { children: React.ReactNode }) {
   const { currentUser, isRestoringSession } = useMobileAppSession();
   const services = useMobileServices();
+  const { applyThemeKey, restoreThemeKeyForUser } = useMobileTheme();
 
   useEffect(() => {
     void SplashScreen.hideAsync().catch(() => undefined);
@@ -94,6 +97,45 @@ function BootstrapGate({ children }: { children: React.ReactNode }) {
     });
   }, [currentUser, isRestoringSession, services]);
 
+  useEffect(() => {
+    if (isRestoringSession) {
+      return;
+    }
+
+    if (!currentUser) {
+      void applyThemeKey(null);
+      return;
+    }
+
+    let cancelled = false;
+    const cachedProfile = readCachedProfileView(currentUser.id);
+
+    void restoreThemeKeyForUser(currentUser.id, cachedProfile?.themeKey).catch(
+      () => undefined,
+    );
+
+    if (!cachedProfile?.themeKey) {
+      void services.profilePort
+        .getProfile()
+        .then((profile) => {
+          if (!cancelled) {
+            void applyThemeKey(profile.themeKey, currentUser.id);
+          }
+        })
+        .catch(() => undefined);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    applyThemeKey,
+    currentUser,
+    isRestoringSession,
+    restoreThemeKeyForUser,
+    services.profilePort,
+  ]);
+
   if (isRestoringSession) {
     return <BootstrapFallback />;
   }
@@ -104,15 +146,17 @@ function BootstrapGate({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <MobileServicesProvider>
-        <MobileAppSessionProvider>
-          <BootstrapGate>
-            <DailyLocalNotificationRegistrar />
-            <PushTokenRegistrar />
-            <SessionScopedStack />
-          </BootstrapGate>
-        </MobileAppSessionProvider>
-      </MobileServicesProvider>
+      <MobileThemeProvider>
+        <MobileServicesProvider>
+          <MobileAppSessionProvider>
+            <BootstrapGate>
+              <DailyLocalNotificationRegistrar />
+              <PushTokenRegistrar />
+              <SessionScopedStack />
+            </BootstrapGate>
+          </MobileAppSessionProvider>
+        </MobileServicesProvider>
+      </MobileThemeProvider>
     </SafeAreaProvider>
   );
 }

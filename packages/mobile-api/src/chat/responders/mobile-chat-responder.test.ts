@@ -483,17 +483,7 @@ describe("mobile chat responder", () => {
     const quickReplies = result.assistantMessage.parts.find(
       (part) => part.type === "quickReplies",
     );
-    expect(quickReplies?.type).toBe("quickReplies");
-    if (quickReplies?.type === "quickReplies") {
-      expect(quickReplies.choices.map((choice) => choice.label)).toEqual([
-        "네, 볼래요",
-        "이따가요",
-      ]);
-      expect(quickReplies.choices.map((choice) => choice.message)).toEqual([
-        "네, 오늘 주차 정보 볼래요.",
-        "아니요, 이따가 확인할래요.",
-      ]);
-    }
+    expect(quickReplies).toBeUndefined();
     const textPart = result.assistantMessage.parts.find(
       (part) => part.type === "text",
     );

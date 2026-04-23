@@ -63,11 +63,14 @@ export function PatientProfileSettingsScreen() {
               void model.handleSave();
             }}
             onSelectNotificationTime={model.selectNotificationTime}
+            onSelectThemeKey={model.selectThemeKey}
             onSelectTonePreference={model.selectTonePreference}
             onToggleTimePicker={model.toggleTimePicker}
             onToggleToneDropdown={model.toggleToneDropdown}
             toneOptions={model.toneOptions}
             tonePreference={model.tonePreference}
+            themeKey={model.themeKey}
+            themeOptions={model.themeOptions}
           />
         </ScrollView>
       </KeyboardAvoidingView>

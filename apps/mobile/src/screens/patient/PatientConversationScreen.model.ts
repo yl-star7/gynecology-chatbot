@@ -88,15 +88,21 @@ export function usePatientConversationScreenModel({
     scrollViewRef.current = instance;
   }
   const { getSession, replaceSession, appendMessage } = useChatSessions();
-  const resolvedSessionId = useMemo(
-    () => (isNewConversationSession(sessionId) ? createSessionId() : sessionId),
-    [sessionId],
-  );
+  const [newSessionId] = useState(() => createSessionId());
+  const resolvedSessionId = isNewConversationSession(sessionId)
+    ? newSessionId
+    : sessionId;
   const session = getSession(resolvedSessionId);
   const [text, setText] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [imageDataUri, setImageDataUri] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lastSelectedChoiceId, setLastSelectedChoiceId] = useState<
+    string | null
+  >(null);
+  const [lastSelectedChoiceText, setLastSelectedChoiceText] = useState<
+    string | null
+  >(null);
   const [isLoadingSessionDetail, setIsLoadingSessionDetail] = useState(false);
   const [sessionLoadErrorMessage, setSessionLoadErrorMessage] = useState<
     string | null
@@ -141,7 +147,7 @@ export function usePatientConversationScreenModel({
   }, []);
 
   const loadSessionDetail = useCallback(async () => {
-    if (isNewConversationSession(sessionId) || !currentUser) {
+    if (!currentUser) {
       return;
     }
 
@@ -159,7 +165,7 @@ export function usePatientConversationScreenModel({
   }, [currentUser, replaceSession, resolvedSessionId, services, sessionId]);
 
   useEffect(() => {
-    if (isNewConversationSession(sessionId) || !currentUser) {
+    if (!currentUser) {
       setIsLoadingSessionDetail(false);
       setSessionLoadErrorMessage(null);
       return;
@@ -168,7 +174,7 @@ export function usePatientConversationScreenModel({
     void loadSessionDetail();
 
     const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState !== "active" || isNewConversationSession(sessionId)) {
+      if (nextState !== "active") {
         return;
       }
 
@@ -221,6 +227,8 @@ export function usePatientConversationScreenModel({
     }
 
     const capturedImage = imageDataUri;
+    setLastSelectedChoiceId(selectedQuestionId ?? null);
+    setLastSelectedChoiceText(overrideText ?? null);
     appendMessage(
       resolvedSessionId,
       "아기와 대화",
@@ -236,6 +244,12 @@ export function usePatientConversationScreenModel({
         sessionId: resolvedSessionId,
         text: nextText,
         selectedQuestionId,
+        clientWorkflowStage:
+          debugSnapshot.inferredFlow === "mood_intake" ? 0 : null,
+        clientWorkflowStageName:
+          debugSnapshot.inferredFlow === "mood_intake"
+            ? "mood_intake"
+            : null,
         imageUris: capturedImage ? [capturedImage] : [],
       });
       const [firstMessage, ...followUpMessages] = assistantMessages;
@@ -257,8 +271,83 @@ export function usePatientConversationScreenModel({
   }
 
   function handleQuickReply(replyMessage: string, choiceId?: string) {
-    void handleSend(replyMessage, choiceId);
+    const initialMoodMessageByChoiceId: Record<string, string> = {
+      "initial-workflow-good": "오늘 기분이 좋아요.",
+      "initial-workflow-down": "기분이 울적해요.",
+      "initial-workflow-sad": "오늘은 마음이 슬퍼요.",
+      "initial-workflow-angry": "오늘은 조금 짜증이 나요.",
+    };
+    void handleSend(
+      choiceId ? (initialMoodMessageByChoiceId[choiceId] ?? replyMessage) : replyMessage,
+      choiceId,
+    );
   }
+
+  const debugSnapshot = useMemo(() => {
+    const assistantMessages = session.messages.filter(
+      (message) => message.role === "assistant",
+    );
+    const latestAssistant = assistantMessages.at(-1) ?? null;
+    const latestQuickReplies = latestAssistant?.parts.find(
+      (part) => part.type === "quickReplies",
+    );
+    const latestText = latestAssistant?.parts.find(
+      (part) => part.type === "text",
+    );
+    const inferFlow = () => {
+      if (latestQuickReplies?.type === "quickReplies") {
+        const ids = latestQuickReplies.choices.map((choice) => choice.id);
+        if (ids.some((id) => id.startsWith("initial-workflow-"))) {
+          return "mood_intake";
+        }
+        if (ids.includes("week-info-yes") || ids.includes("week-info-no")) {
+          return "week_info_opt_in";
+        }
+        if (ids.some((id) => id.includes("mood"))) {
+          return "mood_intake";
+        }
+        return "quick_reply";
+      }
+      return latestAssistant ? "assistant_response" : "empty";
+    };
+
+    return {
+      routeSessionId: sessionId,
+      resolvedSessionId,
+      isNewSessionAlias: isNewConversationSession(sessionId),
+      inferredFlow: inferFlow(),
+      latestAssistantId: latestAssistant?.id ?? null,
+      latestAssistantPartTypes:
+        latestAssistant?.parts.map((part) => part.type) ?? [],
+      latestAssistantText:
+        latestText?.type === "text" ? latestText.text.slice(0, 80) : null,
+      latestQuickReplyCount:
+        latestQuickReplies?.type === "quickReplies"
+          ? latestQuickReplies.choices.length
+          : 0,
+      latestQuickReplyLabels:
+        latestQuickReplies?.type === "quickReplies"
+          ? latestQuickReplies.choices.map((choice) => choice.label)
+          : [],
+      latestQuickReplyIds:
+        latestQuickReplies?.type === "quickReplies"
+          ? latestQuickReplies.choices.map((choice) => choice.id)
+          : [],
+      lastSelectedChoiceId,
+      lastSelectedChoiceText,
+      messageCount: session.messages.length,
+      currentUserId: currentUser?.id ?? null,
+      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:3005",
+      mobileDataProvider: process.env.EXPO_PUBLIC_MOBILE_DATA_PROVIDER ?? "api",
+    };
+  }, [
+    currentUser?.id,
+    lastSelectedChoiceId,
+    lastSelectedChoiceText,
+    resolvedSessionId,
+    session.messages,
+    sessionId,
+  ]);
 
   async function handleSurveyAnswer(surveyId: string, choiceId: string) {
     try {
@@ -360,6 +449,7 @@ export function usePatientConversationScreenModel({
   return {
     session,
     resolvedSessionId,
+    debugSnapshot,
     isReadOnly,
     scrollViewRef,
     handleScrollViewRef,

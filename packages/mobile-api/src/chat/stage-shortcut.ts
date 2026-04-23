@@ -24,6 +24,7 @@ export const DAILY_ATTACHMENT_QUESTION_QUOTA = 3;
 const CLOSING_SIGNAL =
   /다음 질문|오늘은 여기까지|이만 마칠|마칠게요|여기까지 할|여기까지만|그만할게요|그만 할게요/;
 const POSITIVE_ACK = /^(네|응|예|좋아|보여|볼래|알려|확인할래요)/;
+const DEFER_TODAY_QUESTION_MESSAGE = "이따가 함께 질문에 답해봐요.";
 
 export type StageShortcutInput = {
   userText: string;
@@ -33,6 +34,8 @@ export type StageShortcutInput = {
    * null 이면 텍스트 입력 또는 다른 UI 액션.
    */
   selectedQuestionId: string | null;
+  clientWorkflowStage?: number | string | null;
+  clientWorkflowStageName?: string | null;
   currentWeek: number | null;
   promptContext: PromptContext | null;
   moodPool: Array<{ label: string; message: string; tone: CharacterTone }>;
@@ -154,13 +157,13 @@ function buildWeekInfoOptInTurn(
       makeQuickReplies([
         {
           id: "week-info-yes",
-          label: "네, 볼래요",
+          label: "네",
           message: "네, 오늘 주차 정보 볼래요.",
         },
         {
           id: "week-info-no",
           label: "이따가요",
-          message: "아니요, 이따가 확인할래요.",
+          message: DEFER_TODAY_QUESTION_MESSAGE,
         },
       ]),
     ]),
@@ -191,7 +194,7 @@ function buildWeekInfoOptInTurn(
 }
 
 // ────────────────────────────────────────────────────────────
-// stage=1 today_question 제시 (quickReplies 2개)
+// stage=1 today_question 제시
 // ────────────────────────────────────────────────────────────
 function buildTodayQuestionTurn(
   input: StageShortcutInput,
@@ -201,7 +204,7 @@ function buildTodayQuestionTurn(
   const candidates = input.todayQuestionCandidates.filter(
     (q) => !answered.has(q.id),
   );
-  const remaining = candidates.slice(0, 2);
+  const remaining = candidates;
 
   if (remaining.length === 0) {
     return buildExhaustedChoiceTurn(progress);
@@ -251,19 +254,7 @@ function buildExhaustedChoiceTurn(
 ): StageShortcutResult {
   return {
     assistantMessage: assistantMessage([
-      makeText("오늘 준비된 질문은 다 함께 봤어요. 조금 더 이야기 나눠볼까요?"),
-      makeQuickReplies([
-        {
-          id: "free-chat",
-          label: "자유롭게 대화할래요",
-          message: "자유롭게 대화하고 싶어요.",
-        },
-        {
-          id: "end-session",
-          label: "여기까지 할래요",
-          message: "오늘은 여기까지 할게요.",
-        },
-      ]),
+      makeText("오늘의 질문은 다 함께 해봤어요. 이제 편하게 자유롭게 이야기해드릴게요."),
     ]),
     workflowMemoryPayload: {
       scenario: "general",
@@ -273,13 +264,40 @@ function buildExhaustedChoiceTurn(
       currentAttachmentQuestionId: null,
       nextSessionMemory: {
         workflowVersion: 2,
-        stage: 2,
-        stageName: "exhausted_choice",
-        compactSummary: "현재 단계: 자유대화/종료 선택",
+        stage: "free_chat",
+        stageName: "free_chat",
+        compactSummary: "현재 단계: 자유 대화",
         lastScenario: "general",
         lastCharacterTone: "calm",
         answeredQuestionIds: progress.answeredQuestionIds,
         currentAttachmentQuestionId: null,
+      } as Record<string, unknown>,
+    } as WorkflowAssistantPayload,
+  };
+}
+
+function buildDeferredTodayQuestionTurn(
+  progress: QuestionProgress,
+): StageShortcutResult {
+  return {
+    assistantMessage: assistantMessage([
+      makeText(`좋아요. ${DEFER_TODAY_QUESTION_MESSAGE}`),
+    ]),
+    workflowMemoryPayload: {
+      scenario: "general",
+      characterTone: "calm",
+      guardrailStatus: "safe",
+      selectedQuestionIds: progress.answeredQuestionIds,
+      currentAttachmentQuestionId: progress.currentAttachmentQuestionId,
+      nextSessionMemory: {
+        workflowVersion: 2,
+        stage: "ended",
+        stageName: "today_question_deferred",
+        compactSummary: "현재 단계: 오늘의 질문 나중에 진행",
+        lastScenario: "general",
+        lastCharacterTone: "calm",
+        answeredQuestionIds: progress.answeredQuestionIds,
+        currentAttachmentQuestionId: progress.currentAttachmentQuestionId,
       } as Record<string, unknown>,
     } as WorkflowAssistantPayload,
   };
@@ -316,9 +334,9 @@ export function maybeShortCircuitStaticTurn(
   input: StageShortcutInput,
 ): StageShortcutResult | null {
   const memory = input.promptContext?.sessionMemory ?? null;
-  const rawStage = memory?.stage ?? null;
+  const rawStage = memory?.stage ?? input.clientWorkflowStage ?? null;
   const compactSummary = memory?.compactSummary ?? "";
-  const lastScenario = memory?.lastScenario ?? "";
+  const lastScenario = memory?.lastScenario ?? input.clientWorkflowStageName ?? "";
   const progress: QuestionProgress = input.progress ?? {
     answeredQuestionIds: [],
     currentAttachmentQuestionId: null,
@@ -330,14 +348,15 @@ export function maybeShortCircuitStaticTurn(
       ? 2
       : rawStage;
 
-  // ── 공통 우선 규칙: 사용자가 "아니요/이따가/나중/싫어요" 로 거절하거나
-  //    "오늘의 질문" 으로 이어가고 싶다고 하면 stage 무관 바로 stage=1 today_question 제시.
+  // ── 공통 우선 규칙: 사용자가 "아니요/이따가/나중/싫어요" 로 거절하면
+  //    오늘의 질문을 바로 띄우지 않고 짧게 마무리한다.
+  //    "오늘의 질문" 으로 이어가고 싶다고 하면 stage=1 today_question 제시.
   //    이전 상태가 baby_info_offer/week_info_opt_in 이면 특히 중요 (loop 방지).
   const isRefusal = /이따가|아니요|나중|안 볼래|안볼래|싫어요|됐어요|패스/.test(
     input.userText,
   );
   const wantsQuestion =
-    /오늘의 질문|질문으로 이어|질문 볼래|질문 할래|질문 해볼래/.test(
+    /오늘의 질문|질문으로 이어|질문 보기|질문 볼래|질문 할래|질문 해볼래|질문에 답|함께 질문/.test(
       input.userText,
     );
   const isInfoContext =
@@ -349,8 +368,22 @@ export function maybeShortCircuitStaticTurn(
   if (
     !input.selectedQuestionId &&
     !progress.currentAttachmentQuestionId &&
-    (isRefusal || wantsQuestion) &&
+    isRefusal &&
     (isInfoContext || stage === 0 || stage === 1 || stage === null)
+  ) {
+    return buildDeferredTodayQuestionTurn(progress);
+  }
+
+  if (
+    !input.selectedQuestionId &&
+    !progress.currentAttachmentQuestionId &&
+    wantsQuestion &&
+    (isInfoContext ||
+      stage === 0 ||
+      stage === 1 ||
+      stage === null ||
+      stage === "ended" ||
+      stage === "free_chat")
   ) {
     return buildTodayQuestionTurn(input, progress);
   }
@@ -366,13 +399,13 @@ export function maybeShortCircuitStaticTurn(
     if (input.selectedMood && !compactSummary.includes("태아 발달 확인 제안")) {
       return buildWeekInfoOptInTurn(input);
     }
-    // "N" (이따가요) → stage=1 today_question으로
+    // "N" (이따가요) → 오늘의 질문을 바로 띄우지 않고 마무리
     if (/이따가|아니요|나중|안 볼래|안볼래/.test(input.userText)) {
-      return buildTodayQuestionTurn(input, progress);
+      return buildDeferredTodayQuestionTurn(progress);
     }
     // "오늘의 질문으로 이어갈래요" / "질문으로 이어" / "질문 볼래요" → stage=1
     // (Y path 주차 정보 응답 이후 사용자가 질문으로 가고 싶을 때)
-    if (/오늘의 질문|질문으로 이어|질문 볼래|질문 할래/.test(input.userText)) {
+    if (/오늘의 질문|질문으로 이어|질문 보기|질문 볼래|질문 할래|질문에 답|함께 질문/.test(input.userText)) {
       return buildTodayQuestionTurn(input, progress);
     }
     // "Y" (네, 볼래요) → 주차 정보는 Schift LLM 경로로 넘기거나 별도 deep link 로직

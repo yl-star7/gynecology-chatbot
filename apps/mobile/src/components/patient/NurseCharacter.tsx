@@ -24,18 +24,26 @@ function resolveNurseImage(tone?: EmotionTone | null): ImageSourcePropType {
 }
 
 function useNurseImageSource(emotionTone?: EmotionTone | null) {
+  const [didRemoteFail, setDidRemoteFail] = useState(false);
   const [remoteSource, setRemoteSource] = useState(() =>
     getCachedNurseImageSource(emotionTone),
   );
 
   useEffect(() => {
+    setDidRemoteFail(false);
     setRemoteSource(getCachedNurseImageSource(emotionTone));
     return subscribeNurseImageCache(() => {
+      setDidRemoteFail(false);
       setRemoteSource(getCachedNurseImageSource(emotionTone));
     });
   }, [emotionTone]);
 
-  return remoteSource ?? resolveNurseImage(emotionTone);
+  return {
+    source: didRemoteFail
+      ? resolveNurseImage(emotionTone)
+      : (remoteSource ?? resolveNurseImage(emotionTone)),
+    handleError: () => setDidRemoteFail(true),
+  };
 }
 
 interface NurseCharacterProps {
@@ -55,7 +63,7 @@ export function NurseCharacter({
 }: NurseCharacterProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const { imageSize, wrapperSize } = SIZE_CONFIG[size];
-  const imageSource = useNurseImageSource(emotionTone);
+  const { source: imageSource, handleError } = useNurseImageSource(emotionTone);
 
   // 감정 변경 시 통통 튀는 애니메이션
   useEffect(() => {
@@ -96,6 +104,7 @@ export function NurseCharacter({
           style={{ width: imageSize, height: imageSize }}
           resizeMode="contain"
           accessibilityLabel="간호사 캐릭터"
+          onError={handleError}
         />
       </Animated.View>
     </View>
@@ -112,7 +121,7 @@ export function NurseAvatar({
 }) {
   const avatarStyle = size === "sm" ? styles.avatarWrapSm : styles.avatarWrap;
   const imageStyle = size === "sm" ? styles.avatarImageSm : styles.avatarImage;
-  const imageSource = useNurseImageSource(emotionTone);
+  const { source: imageSource, handleError } = useNurseImageSource(emotionTone);
 
   return (
     <View style={avatarStyle}>
@@ -121,6 +130,7 @@ export function NurseAvatar({
         style={imageStyle}
         resizeMode="contain"
         accessibilityLabel="간호사 캐릭터"
+        onError={handleError}
       />
     </View>
   );

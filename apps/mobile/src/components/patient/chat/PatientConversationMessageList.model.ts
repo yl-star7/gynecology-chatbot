@@ -53,7 +53,7 @@ export function isRenderableConversationPart({
 }) {
   if (part.type === "text") {
     const visibleText = part.text
-      .replace(/[\s\u200B-\u200D\uFEFF.·…⋯]+/g, "")
+      .replace(/[\s\u200B-\u200D\uFEFF.·…⋯"'“”‘’,，]+/g, "")
       .trim();
     return visibleText.length > 0;
   }
@@ -71,11 +71,7 @@ export function isRenderableConversationPart({
 
   const isQuickReplies = part.type === "quickReplies";
   const isSurvey = part.type === "survey";
-  const isInteractivePart = isQuickReplies || isSurvey;
-  if (
-    isInteractivePart &&
-    assistantMessageIdsWithLaterUserMessage.has(messageId)
-  ) {
+  if (isSurvey && assistantMessageIdsWithLaterUserMessage.has(messageId)) {
     return false;
   }
   if (isQuickReplies && messageId !== latestQuickRepliesMessageId) {
@@ -132,7 +128,6 @@ export function resolveAssistantMessageIdsWithLaterUserMessage(
 
 export function resolveLatestVisibleQuickRepliesMessageId({
   messages,
-  assistantMessageIdsWithLaterUserMessage,
 }: {
   messages: Pick<ChatMessage, "id" | "role" | "parts">[];
   assistantMessageIdsWithLaterUserMessage: Set<string>;
@@ -142,7 +137,6 @@ export function resolveLatestVisibleQuickRepliesMessageId({
     .find(
       (message) =>
         message.role === "assistant" &&
-        !assistantMessageIdsWithLaterUserMessage.has(message.id) &&
         message.parts.some((part) => part.type === "quickReplies"),
     )?.id;
 }

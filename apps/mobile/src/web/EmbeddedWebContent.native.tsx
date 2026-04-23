@@ -2,7 +2,8 @@
 import * as Linking from "expo-linking";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
-import { palette, patientSurfacePalette as surface } from "../theme";
+import { patientSurfacePalette as surface } from "../theme";
+import { useMobileTheme } from "../theme-provider";
 
 export function EmbeddedWebContent(props: {
   hasError: boolean;
@@ -12,9 +13,10 @@ export function EmbeddedWebContent(props: {
   onWebViewError: () => void;
   reloadKey: number;
 }) {
+  const { palette: activePalette } = useMobileTheme();
   const renderLoading = () => (
     <View style={styles.loadingState}>
-      <ActivityIndicator size="small" color={palette.accent} />
+      <ActivityIndicator size="small" color={activePalette.accent} />
       <Text style={styles.loadingTitle}>잠시만요</Text>
       <Text style={styles.loadingCopy}>
         화면을 준비하고 있어요.

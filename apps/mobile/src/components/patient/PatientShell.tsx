@@ -14,6 +14,7 @@ import {
   space,
   typo,
 } from "../../theme";
+import { useMobileTheme } from "../../theme-provider";
 import { resolvePatientShellHeaderLayout } from "./PatientShell.model";
 import type { PatientTabKey } from "./PatientTabBar.model";
 
@@ -43,6 +44,7 @@ export function PatientShell({
 }) {
   const router = useRouter();
   const { currentUser } = useMobileAppSession();
+  const { surface: activeSurface } = useMobileTheme();
   const avatarLabel = currentUser?.displayName?.slice(0, 1) ?? "나";
   const useMainTone = pageTone === "main";
   const headerLayout = resolvePatientShellHeaderLayout({
@@ -90,7 +92,7 @@ export function PatientShell({
                 <Ionicons
                   name="chevron-back"
                   size={space.lg + space.sm}
-                  color={surface.textPrimary}
+                  color={activeSurface.textPrimary}
                 />
               </Pressable>
             ) : null}

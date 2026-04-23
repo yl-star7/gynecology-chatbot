@@ -211,6 +211,8 @@ export interface ChatComposerInput {
   imageUris: string[];
   pregnancyWeek?: number;
   selectedQuestionId?: string;
+  clientWorkflowStage?: number | string | null;
+  clientWorkflowStageName?: string | null;
 }
 
 export interface LinkTargetContent {

@@ -19,22 +19,22 @@ export function createInitialConversationMessage(): ChatMessage {
           {
             id: "initial-workflow-good",
             label: "좋아요",
-            message: "오늘은 좋아요.",
+            message: "오늘 기분이 좋아요.",
           },
           {
             id: "initial-workflow-down",
             label: "우울해요",
-            message: "오늘은 우울해요.",
+            message: "기분이 울적해요.",
           },
           {
             id: "initial-workflow-sad",
             label: "슬퍼요",
-            message: "오늘은 슬퍼요.",
+            message: "오늘은 마음이 슬퍼요.",
           },
           {
             id: "initial-workflow-angry",
             label: "화나요",
-            message: "오늘은 화나요.",
+            message: "오늘은 조금 짜증이 나요.",
           },
           {
             id: "initial-workflow-direct",

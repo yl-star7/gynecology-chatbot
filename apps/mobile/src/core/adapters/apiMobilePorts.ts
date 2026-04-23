@@ -1,5 +1,6 @@
 import type {
   AuthPort,
+  ChatComposerInput,
   KnowledgePort,
   MobileContentListItem,
   MobilePregnancyWeekSummary,
@@ -191,18 +192,14 @@ export class ApiMobileChatAdapter implements MobileChatPort {
     return payload.session;
   }
 
-  async sendMessage(input: {
-    sessionId: string;
-    text: string;
-    imageUris: string[];
-    pregnancyWeek?: number;
-    selectedQuestionId?: string;
-  }) {
+  async sendMessage(input: ChatComposerInput) {
     const payload = await this.client.sendChatMessage({
       sessionId: input.sessionId,
       text: input.text,
       pregnancyWeek: input.pregnancyWeek,
       selectedQuestionId: input.selectedQuestionId,
+      clientWorkflowStage: input.clientWorkflowStage,
+      clientWorkflowStageName: input.clientWorkflowStageName,
       imageDataUris: input.imageUris,
     });
     const userId = this.getUserId();

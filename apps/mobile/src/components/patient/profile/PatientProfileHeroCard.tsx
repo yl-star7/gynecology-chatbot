@@ -9,6 +9,7 @@ import {
   space,
   typo,
 } from "../../../theme";
+import { useMobileTheme } from "../../../theme-provider";
 
 const SettingsIcon = Ionicons as unknown as ComponentType<{
   name: "settings-outline";
@@ -29,6 +30,8 @@ export function PatientProfileHeroCard({
   dueDateText: string;
   onPressSettings: () => void;
 }) {
+  const { surface: activeSurface } = useMobileTheme();
+
   return (
     <Card style={styles.heroCard}>
       <Pressable
@@ -39,7 +42,7 @@ export function PatientProfileHeroCard({
         <SettingsIcon
           name="settings-outline"
           size={space.lg + space.sm}
-          color={surface.textPrimary}
+          color={activeSurface.textPrimary}
         />
       </Pressable>
       <View style={styles.heroRow}>

@@ -4,6 +4,7 @@ function parsePromptJson(prompt: string | undefined) {
   expect(prompt).toBeDefined();
   return JSON.parse(prompt ?? "{}") as {
     scenario?: string;
+    quickReplies?: unknown[];
     answerVariations?: string[];
     moodPrompts?: Array<{ label: string; message: string; tone: string }>;
   };
@@ -88,6 +89,17 @@ describe("maternal nursing workflow YAML", () => {
     expect(
       new Set(moodIntake.moodPrompts?.map((prompt) => prompt.label)),
     ).toHaveProperty("size", 20);
+    expect(moodIntake.moodPrompts?.slice(0, 5)).toEqual([
+      { label: "좋아요", message: "오늘 기분이 좋아요.", tone: "joyful" },
+      { label: "울적해요", message: "기분이 울적해요.", tone: "sad" },
+      { label: "슬퍼요", message: "오늘은 마음이 슬퍼요.", tone: "sad" },
+      {
+        label: "짜증나요",
+        message: "오늘은 조금 짜증이 나요.",
+        tone: "anxious",
+      },
+      { label: "직접 입력", message: "직접 말하고 싶어요.", tone: "calm" },
+    ]);
     expect(moodIntake.moodPrompts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ label: "좋아요", tone: "joyful" }),
@@ -109,6 +121,16 @@ describe("maternal nursing workflow YAML", () => {
     expect(weekInfoOptIn.answerVariations?.join("\n")).toEqual(
       expect.stringContaining("태아"),
     );
+  });
+
+  it("keeps mood follow-up as text only without an extra quick reply bubble", () => {
+    const workflow = loadMaternalNursingWorkflow();
+    const babyInfoOffer = parsePromptJson(
+      workflow.prompts.static_baby_info_offer,
+    );
+
+    expect(babyInfoOffer.scenario).toBe("baby_info_offer");
+    expect(babyInfoOffer.quickReplies).toBeUndefined();
   });
 
   it("keeps the executable Schift graph simple and stable", () => {
@@ -203,7 +225,7 @@ describe("maternal nursing workflow YAML", () => {
     const tmpl = workflow.graph.blocks.find((block) => block.id === "rag");
 
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("두 번째 질문"),
+      expect.stringContaining("다음 질문 목록"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining("자유 대화"),
@@ -216,6 +238,12 @@ describe("maternal nursing workflow YAML", () => {
     );
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining("end는 summary를 트리거"),
+    );
+    expect(tmpl?.config?.system_prompt).toEqual(
+      expect.stringContaining("약 2번 정도 assistant-user 왕복 대화"),
+    );
+    expect(tmpl?.config?.system_prompt).toEqual(
+      expect.stringContaining("다음 질문으로 넘어가기"),
     );
   });
 });

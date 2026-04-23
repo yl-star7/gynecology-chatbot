@@ -21,6 +21,7 @@ import {
   space,
   typo,
 } from "../../theme";
+import { useMobileTheme } from "../../theme-provider";
 import { DEFAULT_CONTENT_EMPTY } from "./view-models/patient-copy";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { resolvePatientContentLoadError } from "./patientErrorCopy.model";
@@ -34,6 +35,7 @@ export function PatientContentScreen({
 }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { palette: activePalette } = useMobileTheme();
   const services = useMobileServices();
   const contentInsets = buildPatientTabContentInsets({
     bottomInset: insets.bottom,
@@ -79,7 +81,7 @@ export function PatientContentScreen({
               await fetchItems().catch(() => undefined);
               setRefreshing(false);
             }}
-            tintColor={palette.accent}
+            tintColor={activePalette.accent}
           />
         }
       >

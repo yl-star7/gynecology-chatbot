@@ -69,6 +69,14 @@ function normalizeSessionId(value: string) {
     : crypto.randomUUID();
 }
 
+function isUuid(value: string | null) {
+  return Boolean(
+    value?.match(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    ),
+  );
+}
+
 function getKstDateKey() {
   return createKoreanDateKey();
 }
@@ -249,6 +257,15 @@ app.post("/", async (c) => {
       typeof body.selectedQuestionId === "string"
         ? body.selectedQuestionId
         : null;
+    const clientWorkflowStage =
+      typeof body.clientWorkflowStage === "number" ||
+      typeof body.clientWorkflowStage === "string"
+        ? body.clientWorkflowStage
+        : null;
+    const clientWorkflowStageName =
+      typeof body.clientWorkflowStageName === "string"
+        ? body.clientWorkflowStageName
+        : null;
     const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
     const pregnancyWeek =
       typeof body.pregnancyWeek === "number" ? body.pregnancyWeek : null;
@@ -409,12 +426,31 @@ app.post("/", async (c) => {
       }));
 
       const selectedMood =
-        moodPool.find((m) => m.message === input.text)?.message ?? null;
+        moodPool.find((m) => m.message === input.text)?.message ??
+        (() => {
+          const initialMoodLabelByChoiceId: Record<string, string> = {
+            "initial-workflow-good": "좋아요",
+            "initial-workflow-down": "울적해요",
+            "initial-workflow-sad": "슬퍼요",
+            "initial-workflow-angry": "짜증나요",
+          };
+          const selectedLabel = input.selectedQuestionId
+            ? initialMoodLabelByChoiceId[input.selectedQuestionId]
+            : null;
+          return selectedLabel
+            ? (moodPool.find((m) => m.label === selectedLabel)?.message ??
+                null)
+            : null;
+        })();
 
       const shortcut = maybeShortCircuitStaticTurn({
         userText: input.text,
         selectedMood,
-        selectedQuestionId: input.selectedQuestionId ?? null,
+        selectedQuestionId: isUuid(input.selectedQuestionId ?? null)
+          ? (input.selectedQuestionId ?? null)
+          : null,
+        clientWorkflowStage,
+        clientWorkflowStageName,
         currentWeek: input.currentWeek,
         promptContext: input.promptContext,
         moodPool,
@@ -521,6 +557,52 @@ app.post("/", async (c) => {
         scenarioFinal === "empathy_chat"
       ) {
         rewriteLetterReflectionQuickReplies(payload as any, progress);
+        const quickReplies = Array.isArray((payload as any)?.quickReplies)
+          ? ((payload as any).quickReplies as Array<{
+              label?: unknown;
+              message?: unknown;
+            }>)
+          : [];
+        if (quickReplies.length > 0) {
+          const quickRepliesId = `workflow-quick-${Date.now()}`;
+          result.assistantMessage.parts = [
+            ...result.assistantMessage.parts.filter(
+              (part) => part.type !== "quickReplies",
+            ),
+            {
+              type: "quickReplies",
+              id: quickRepliesId,
+              choices: quickReplies
+                .map((choice, index) => {
+                  const label =
+                    typeof choice.label === "string"
+                      ? choice.label.trim()
+                      : "";
+                  const message =
+                    typeof choice.message === "string" &&
+                    choice.message.trim()
+                      ? choice.message.trim()
+                      : label;
+                  return label
+                    ? {
+                        id: `${quickRepliesId}-choice-${index + 1}`,
+                        label,
+                        message,
+                      }
+                    : null;
+                })
+                .filter(
+                  (
+                    choice,
+                  ): choice is {
+                    id: string;
+                    label: string;
+                    message: string;
+                  } => Boolean(choice),
+                ),
+            },
+          ];
+        }
       }
       return result;
     };
@@ -589,7 +671,7 @@ app.post("/", async (c) => {
       hardGuardrailReason,
     });
 
-    if (selectedQuestionId) {
+    if (isUuid(selectedQuestionId)) {
       try {
         await recordQuestionSent({
           prisma: prisma as unknown as Parameters<

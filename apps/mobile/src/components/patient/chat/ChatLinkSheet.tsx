@@ -20,6 +20,7 @@ import {
   space,
   typo,
 } from "../../../theme";
+import { useMobileTheme } from "../../../theme-provider";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const EXPANDED_HEIGHT = Math.round(SCREEN_HEIGHT * 0.9);
@@ -49,6 +50,7 @@ export function ChatLinkSheet({
   onClose: () => void;
   onOpenFullView?: (target: string, entityId?: string) => void;
 }) {
+  const { surface: activeSurface } = useMobileTheme();
   const [content, setContent] = useState<LinkTargetContent | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -193,7 +195,7 @@ export function ChatLinkSheet({
                 <Ionicons
                   name="close"
                   size={22}
-                  color={surface.textSecondary}
+                  color={activeSurface.textSecondary}
                 />
               </Pressable>
             </View>

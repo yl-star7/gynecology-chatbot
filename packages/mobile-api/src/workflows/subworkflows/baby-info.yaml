@@ -1,6 +1,6 @@
 version: 1
 name: 모성간호 baby_info (주차 정보 요약)
-description: stage=0 Y path. 주차 정보 120자 + deepLinks 1개.
+description: stage=0 Y path. 아기/엄마 정보 불릿 말풍선 + 사전 deepLink 1개.
 
 admin_metadata:
   stage: "0"
@@ -19,10 +19,17 @@ prompts:
          "scenario": "baby_info",
          "guardrailStatus": "safe",
          "characterTone": "calm",
-         "deepLinks": [{ "target": "knowledge", "entityId": string, "title": string, "description": string }],
+         "deepLinks": [
+           {
+             "target": "knowledge",
+             "entityId": "{{weekKnowledgeEntityId}}",
+             "title": "임신백과 →",
+             "description": "자세히 보기"
+           }
+         ],
          "quickReplies": [
-           { "label": "오늘의 질문", "message": "오늘의 질문으로 이어갈래요." },
-           { "label": "이따가요", "message": "아니요, 이따가 확인할래요." }
+           { "label": "오늘의 질문 보기", "message": "오늘 함께 질문에 답해볼까요?" },
+           { "label": "이따가요", "message": "이따가 함께 질문에 답해봐요." }
          ],
          "nextSessionMemory": {
            "stage": 1,
@@ -32,15 +39,24 @@ prompts:
            "lastCharacterTone": "calm"
          }
        }
-    3) answer 본문은 **120자 이내 2문장**. 첫 문장: 아기 핵심 1가지. 둘째 문장: "여기서 더 자세히 볼 수 있어요." 류 자연어 안내.
-    4) "딥링크", "카드", "링크" 같은 UI 용어 금지. 자연어만.
+    3) answer 본문은 반드시 아래 형식만 사용. 제목과 불릿을 그대로 지키고, 다른 머리말/마무리 문장 금지.
+       JSON 문자열 안에서도 줄바꿈을 반드시 유지하세요. 특히 두 섹션 사이에는 반드시 빈 줄 하나(`\n\n`)를 넣고, `엄마 정보`는 앞 불릿 끝에 붙이지 마세요.
+       아기 발달 정보
+       - 아기 핵심 발달 1가지
+       - 아기 상태를 산모가 이해하기 쉬운 표현 1가지
+
+       엄마 정보
+       - 엄마 몸 변화 핵심 1가지
+       - 오늘 가볍게 챙길 수 있는 생활 힌트 1가지
+    4) "딥링크", "카드", "링크", "사전", "임신백과" 같은 UI 용어는 answer 본문에 쓰지 말 것.
     5) 의학 수치/진료 간격 본문에 쓰지 말 것.
-    6) deepLinks 배열 1개:
+    6) deepLinks 배열은 반드시 정확히 1개 넣으세요. 절대 생략하지 마세요.
        - target: "knowledge"
        - entityId: 사용자 입력의 weekKnowledgeEntityId 값을 그대로 복사
-       - title: "{주차}주차 산모·태아 정보"
-       - description: "지금 주차의 아기 발달과 엄마 변화를 자세히 볼 수 있어요"
-    7) 주차 값은 사용자 입력의 currentWeek 숫자를 사용.
+       - title: "임신백과 →"
+       - description: "자세히 보기"
+    7) deepLinks가 없으면 잘못된 출력입니다. answer와 quickReplies만 출력하지 마세요.
+    8) 주차 값은 사용자 입력의 currentWeek 숫자를 사용.
 
   template: |
     currentWeek={{currentWeek}}

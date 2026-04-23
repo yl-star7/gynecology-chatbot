@@ -3,18 +3,23 @@ import type { PromptContext } from "./chat-repository";
 
 const moodPool = [
   { label: "좋아요", message: "오늘 기분이 좋아요.", tone: "joyful" as const },
+  { label: "울적해요", message: "기분이 울적해요.", tone: "sad" as const },
+  { label: "슬퍼요", message: "오늘은 마음이 슬퍼요.", tone: "sad" as const },
+  {
+    label: "짜증나요",
+    message: "오늘은 조금 짜증이 나요.",
+    tone: "anxious" as const,
+  },
+  {
+    label: "직접 입력",
+    message: "직접 말하고 싶어요.",
+    tone: "calm" as const,
+  },
   {
     label: "편안해요",
     message: "오늘은 마음이 편안해요.",
     tone: "calm" as const,
   },
-  {
-    label: "걱정돼요",
-    message: "오늘은 조금 걱정돼요.",
-    tone: "anxious" as const,
-  },
-  { label: "피곤해요", message: "몸이 많이 피곤해요.", tone: "tired" as const },
-  { label: "슬퍼요", message: "오늘은 마음이 슬퍼요.", tone: "sad" as const },
 ];
 
 const optInVariations = [
@@ -93,6 +98,9 @@ describe("maybeShortCircuitStaticTurn", () => {
     if (text?.type === "text") {
       expect(text.text).toContain(optInVariations[0]);
     }
+    expect(
+      r!.assistantMessage.parts.some((part) => part.type === "quickReplies"),
+    ).toBe(true);
   });
 
   it("falls through when free text resembles a mood but was not an exact option tap", () => {
@@ -115,9 +123,9 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(r).toBeNull();
   });
 
-  it("returns today_question when user answered N to opt-in", () => {
+  it("defers today_question when user answered N to opt-in", () => {
     const r = maybeShortCircuitStaticTurn({
-      userText: "아니요, 이따가 확인할래요.",
+      userText: "이따가 함께 질문에 답해봐요.",
       selectedMood: null,
       selectedQuestionId: null,
       currentWeek: 27,
@@ -133,9 +141,40 @@ describe("maybeShortCircuitStaticTurn", () => {
       todayQuestionCandidates: questions,
     });
     expect(r).not.toBeNull();
+    expect(r!.workflowMemoryPayload.scenario).toBe("general");
+    expect(r!.workflowMemoryPayload.nextSessionMemory?.stage).toBe("ended");
+    const text = r!.assistantMessage.parts.find((p) => p.type === "text");
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toContain("이따가 함께 질문에 답해봐요.");
+    }
+    expect(
+      r!.assistantMessage.parts.some((part) => part.type === "quickReplies"),
+    ).toBe(false);
+  });
+
+  it("returns today_question when user chooses the today question path", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "오늘 함께 질문에 답해볼까요?",
+      selectedMood: null,
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 0,
+          stageName: "week_info_opt_in",
+          compactSummary: "현재 단계: 주차 정보 안내 완료",
+          lastScenario: "baby_info",
+        } as PromptContext["sessionMemory"],
+      }),
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+    });
+    expect(r).not.toBeNull();
     expect(r!.workflowMemoryPayload.scenario).toBe("attachment_question");
     const payload = r!.workflowMemoryPayload as Record<string, unknown>;
-    expect(payload.offeredQuestionIds).toHaveLength(2);
+    expect(payload.offeredQuestionIds).toHaveLength(3);
   });
 
   it("falls through (null) when stage=0 Y path — needs LLM", () => {
@@ -199,7 +238,7 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(r).toBeNull();
   });
 
-  it("offers exhausted choice when closing signal + all questions answered (includes current)", () => {
+  it("moves to free chat when closing signal exhausts all questions", () => {
     const r = maybeShortCircuitStaticTurn({
       userText: "오늘은 여기까지 할래요",
       selectedMood: null,
@@ -224,18 +263,14 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(r).not.toBeNull();
     const text = r!.assistantMessage.parts.find((p) => p.type === "text");
     if (text?.type === "text") {
-      expect(text.text).toContain("조금 더 이야기");
+      expect(text.text).toContain("자유롭게");
     }
-    const quick = r!.assistantMessage.parts.find(
-      (p) => p.type === "quickReplies",
-    );
-    if (quick?.type === "quickReplies") {
-      expect(quick.choices.map((c) => c.id)).toEqual(
-        expect.arrayContaining(["free-chat", "end-session"]),
-      );
-    }
+    expect(
+      r!.assistantMessage.parts.some((part) => part.type === "quickReplies"),
+    ).toBe(false);
     const payload = r!.workflowMemoryPayload as Record<string, unknown>;
     expect(payload.selectedQuestionIds).toEqual(["q1", "q2", "q3"]);
+    expect(r!.workflowMemoryPayload.nextSessionMemory?.stage).toBe("free_chat");
   });
 
   it("keeps stage=2 on short gratitude (not explicit closing)", () => {

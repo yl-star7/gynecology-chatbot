@@ -10,6 +10,7 @@ import {
   space,
   typo,
 } from "../../../theme";
+import { useMobileTheme } from "../../../theme-provider";
 
 const ChecklistIcon = Ionicons as unknown as ComponentType<{
   name: "checkmark-circle-outline" | "checkmark";
@@ -30,6 +31,8 @@ export function PatientTodayChecklistSection({
   progressPercent: number;
   onToggleChecklistItem: (checklistId: string, completed: boolean) => void;
 }) {
+  const { palette: activePalette } = useMobileTheme();
+
   return (
     <Card style={styles.segmentCard}>
       <View style={styles.segmentSection}>
@@ -38,7 +41,7 @@ export function PatientTodayChecklistSection({
             <ChecklistIcon
               name="checkmark-circle-outline"
               size={space.lg + space.xs}
-              color={palette.successText}
+              color={activePalette.successText}
             />
           </View>
           <Text style={styles.sectionTitle}>{title}</Text>
@@ -64,7 +67,7 @@ export function PatientTodayChecklistSection({
                     <ChecklistIcon
                       name="checkmark"
                       size={space.md + space.xs}
-                      color={palette.successText}
+                      color={activePalette.successText}
                     />
                   ) : null}
                 </View>

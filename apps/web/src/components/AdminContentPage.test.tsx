@@ -258,6 +258,23 @@ describe("AdminContentPage", () => {
     global.fetch = originalFetch;
   });
 
+  it("shows a placeholder when the selected week has no static baby image", async () => {
+    render(
+      <AdminContentPage
+        adminDisplayName="운영자"
+        dashboard={dashboard}
+        currentPath="/admin/content/weeks"
+        title="주차 데이터"
+        view="weeks"
+      />,
+    );
+
+    await screen.findByText("1주차 개요");
+
+    expect(screen.getByText("이미지 없음")).toBeInTheDocument();
+    expect(screen.queryByAltText("1주 아기 일러스트")).not.toBeInTheDocument();
+  });
+
   it("uploads and saves week cover images through signed URLs", async () => {
     render(
       <AdminContentPage

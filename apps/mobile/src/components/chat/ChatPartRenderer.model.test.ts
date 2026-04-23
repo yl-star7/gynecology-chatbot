@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   normalizeChatMarkdownLines,
+  normalizeStandaloneQuotedLine,
   resolveQuickReplyDisplayLabel,
 } from "./ChatPartRenderer.model.ts";
 
@@ -46,6 +47,24 @@ test("chat markdown keeps inline hyphens as text when they are not followed by a
   assert.deepEqual(
     normalizeChatMarkdownLines("몸무게 50 - 60kg 정도로 기록해요."),
     ["몸무게 50 - 60kg 정도로 기록해요."],
+  );
+});
+
+test("chat markdown normalizes repeated standalone quote marks into one bold quoted line", () => {
+  assert.equal(
+    normalizeStandaloneQuotedLine(
+      '"""최근에 있으면 안되는 중요한 사건이나 사실을 잠시 잊었던 적이 있었나요?"""',
+    ),
+    '**"최근에 있으면 안되는 중요한 사건이나 사실을 잠시 잊었던 적이 있었나요?"**',
+  );
+  assert.deepEqual(
+    normalizeChatMarkdownLines(
+      '"""최근에 있으면 안되는 중요한 사건이나 사실을 잠시 잊었던 적이 있었나요?""",\n이 질문에 답해주세요.',
+    ),
+    [
+      '**"최근에 있으면 안되는 중요한 사건이나 사실을 잠시 잊었던 적이 있었나요?"**',
+      "이 질문에 답해주세요.",
+    ],
   );
 });
 

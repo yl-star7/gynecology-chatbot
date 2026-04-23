@@ -177,8 +177,8 @@ function resolveQuickReplies(input: {
 
   if (input.scenario === "baby_info") {
     return [
-      { label: "엄마 변화도 볼래요", message: "엄마 변화도 알려주세요." },
-      { label: "오늘은 여기까지", message: "오늘은 여기까지 할게요." },
+      { label: "오늘의 질문", message: "오늘 함께 질문에 답해볼까요?" },
+      { label: "이따가요", message: "이따가 함께 질문에 답해봐요." },
     ];
   }
 

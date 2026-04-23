@@ -4,6 +4,8 @@
 # VCS
 .git
 .gitignore
+.claude
+.cursor
 
 # Secrets and local env
 .gcp
@@ -32,10 +34,12 @@ packages/**/.turbo
 out
 build
 dist
+data
 apps/**/dist
 packages/**/dist
 
 # Mobile native build outputs
+apps/mobile
 apps/mobile/ios/build
 apps/mobile/ios/build-*
 apps/mobile/ios/Pods
@@ -48,6 +52,8 @@ apps/mobile/dist
 apps/mobile/.expo
 
 # Web artifacts
+apps/**/.vercel
+.vercel
 apps/web/.next
 apps/web/playwright-report
 apps/web/test-results

@@ -5,7 +5,8 @@ export function sanitizeInlineCitationMarkers(text: string) {
     .replace(/\s*\[\d+\]/g, "")
     .replace(/(?:\s*\(\d+\))+/g, "")
     .replace(/\s*\((?:\d+\s*,\s*)+\d+\)/g, "")
-    .replace(/\s{2,}/g, " ")
+    .replace(/[^\S\n]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 

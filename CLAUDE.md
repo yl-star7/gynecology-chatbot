@@ -136,6 +136,19 @@ pnpm --filter @gynecology-chatbot/app-core type-check
 4. **타입 체크** — `pnpm type-check`
 5. **테스트** — `pnpm test`
 
+### 테스트 작성 규칙
+
+테스트를 새로 작성하거나 수정할 때는 `AGENTS.md`의 **AI 테스트 작성 규칙**을 따른다. 요약하면 다음과 같다.
+
+- 구현 세부사항이 아니라 관찰 가능한 동작을 테스트한다.
+- 모킹은 Database/ORM, 서드파티 HTTP API, 파일시스템, 시간, 난수, 네트워크처럼 시스템 경계를 넘는 대상에만 사용한다.
+- 같은 코드베이스 안의 값 객체, 엔티티, 순수 함수, 유틸리티, 내부 서비스/모듈, 테스트 대상 자체는 모킹하지 않는다.
+- `toHaveBeenCalledWith(...)`, `verify(...)`, spy 호출 여부를 주된 assertion으로 삼지 않는다. 반환값과 관찰 가능한 상태를 검증한다.
+- LLM 응답, timestamp, network output처럼 비결정적인 출력은 snapshot으로 고정하지 않는다.
+- 새 테스트는 Classist/Chicago 스타일을 기본값으로 하고, 기존 Mockist 테스트는 수정하는 파일부터 점진적으로 경계 mock 또는 실제 구현 기반으로 바꾼다.
+- flaky test는 retry, `sleep()`, timeout 증가로 덮지 말고 원인을 고친다. 격리가 필요하면 linked issue, owner, deadline을 남긴다.
+- 테스트가 보호하는 행동을 한 문장으로 말할 수 없으면 테스트를 쓰지 않는다.
+
 ### CI 파이프라인
 
 `.github/workflows/ci.yml` — push(main, develop) / PR(main) 시 자동 실행:

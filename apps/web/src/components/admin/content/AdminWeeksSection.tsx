@@ -59,6 +59,29 @@ function buildParaphrasePreview(item: AdminParaphraseItem) {
   return item.summary || item.body || item.title || "내용 없음";
 }
 
+function getStaticWeekBabyImagePath(weekNumber: number) {
+  if (weekNumber < 5 || weekNumber > 40) {
+    return null;
+  }
+
+  return `/week-baby/week-baby-w${String(weekNumber).padStart(2, "0")}.png`;
+}
+
+function WeekBabyImage({ weekNumber }: { weekNumber: number }) {
+  const imagePath = getStaticWeekBabyImagePath(weekNumber);
+
+  return (
+    <div className={styles.weekBabyImageWrap}>
+      {imagePath ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imagePath} alt={`${weekNumber}주 아기 일러스트`} />
+      ) : (
+        <span className={styles.weekBabyPlaceholder}>이미지 없음</span>
+      )}
+    </div>
+  );
+}
+
 function ParaphraseCard({
   item,
   activatingParaphraseId,
@@ -492,24 +515,7 @@ export function AdminWeeksSection({
                 </div>
 
                 <div className={styles.weekHeroGrid}>
-                  <div className={styles.weekBabyImageWrap}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/week-baby/week-baby-w${String(selectedWeekDetail.weekNumber).padStart(2, "0")}.png`}
-                      alt={`${selectedWeekDetail.weekNumber}주 아기 일러스트`}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                        const parent = (e.target as HTMLImageElement)
-                          .parentElement;
-                        if (parent) {
-                          const placeholder = document.createElement("span");
-                          placeholder.className = styles.weekBabyPlaceholder;
-                          placeholder.textContent = "이미지 없음";
-                          parent.appendChild(placeholder);
-                        }
-                      }}
-                    />
-                  </div>
+                  <WeekBabyImage weekNumber={selectedWeekDetail.weekNumber} />
                   <div className={styles.weekHeroPrimary}>
                     <div className={styles.weekHeroHeading}>
                       <span className={styles.metaLabel}>선택 주차</span>

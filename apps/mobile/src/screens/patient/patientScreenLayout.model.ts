@@ -1,6 +1,6 @@
 import { space } from "../../tokens.ts";
 
-const DEFAULT_PATIENT_TAB_BAR_HEIGHT = space.xxxl * 2 + space.md;
+const DEFAULT_PATIENT_TAB_BAR_HEIGHT = space.xxxl + space.xxl;
 const DEFAULT_PATIENT_TAB_BOTTOM_SPACING = space.lg;
 
 export function buildPatientScrollContentInsets({

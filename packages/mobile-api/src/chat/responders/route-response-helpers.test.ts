@@ -141,10 +141,11 @@ describe("route response helpers", () => {
     expect(quickReplies).toEqual(
       expect.objectContaining({
         choices: [
-          expect.objectContaining({ label: "엄마 변화도 볼래요" }),
-          expect.objectContaining({ label: "오늘은 여기까지" }),
+          expect.objectContaining({ label: "오늘의 질문" }),
+          expect.objectContaining({ label: "이따가요" }),
         ],
       }),
     );
   });
+
 });

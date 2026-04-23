@@ -87,7 +87,7 @@ export type ChatMessage = {
 
 export interface ChatPartRendererProps {
   message: ChatMessage;
-  onQuickReplySelect?: (message: string) => void;
+  onQuickReplySelect?: (message: string, choiceId?: string) => void;
   onSurveyAnswer?: (surveyId: string, choiceId: string) => Promise<boolean>;
   surveySaveErrorText?: string;
   onDeepLinkPress?: (
@@ -352,7 +352,7 @@ function QuickRepliesPartView({
   onQuickReplySelect,
 }: {
   part: QuickRepliesPart;
-  onQuickReplySelect?: (message: string) => void;
+  onQuickReplySelect?: (message: string, choiceId?: string) => void;
 }) {
   const [didChoose, setDidChoose] = useState(false);
 
@@ -375,7 +375,7 @@ function QuickRepliesPartView({
             ]}
             onPress={() => {
               setDidChoose(true);
-              onQuickReplySelect?.(choice.message);
+              onQuickReplySelect?.(choice.message, choice.id);
             }}
             accessibilityRole="button"
             accessibilityLabel={choice.label}
@@ -418,13 +418,7 @@ function DeepLinkPartView({
         <Text style={styles.deepLinkTitle} numberOfLines={2}>
           {title}
         </Text>
-        {part.description ? (
-          <Text style={styles.deepLinkDesc} numberOfLines={2}>
-            {part.description}
-          </Text>
-        ) : null}
       </View>
-      <Ionicons name="arrow-forward" size={16} color={palette.accent} />
     </Pressable>
   );
 }
@@ -492,6 +486,8 @@ const styles = StyleSheet.create({
   // Container
   container: {
     gap: space.sm,
+    alignSelf: "stretch",
+    width: "100%",
   },
 
   // TextPart (Markdown)
@@ -501,6 +497,7 @@ const styles = StyleSheet.create({
   },
   mdRoot: {
     gap: space.xs,
+    width: "100%",
   },
   mdParagraph: {
     ...typo.body,
@@ -537,6 +534,7 @@ const styles = StyleSheet.create({
   mdList: {
     gap: 2,
     paddingLeft: space.xs,
+    width: "100%",
   },
   mdListItem: {
     flexDirection: "row",
@@ -686,8 +684,8 @@ const styles = StyleSheet.create({
   quickReplyPill: {
     borderRadius: radii.full,
     backgroundColor: surface.surfacePrimary,
-    paddingVertical: space.xs,
-    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.lg,
     maxWidth: "100%",
     minWidth: 0,
     flexShrink: 1,
@@ -708,21 +706,19 @@ const styles = StyleSheet.create({
   deepLinkCard: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: radii.lg,
+    borderRadius: radii.full,
     backgroundColor: surface.surfaceAccent,
-    paddingVertical: space.sm,
-    paddingHorizontal: space.md,
-    gap: space.sm,
-    minWidth: space.xxxl * 7,
+    paddingVertical: space.xs,
+    paddingHorizontal: space.lg,
+    alignSelf: "flex-start",
     maxWidth: "100%",
   },
   deepLinkCardPressed: {
     opacity: 0.75,
   },
   deepLinkContent: {
-    flex: 1,
+    flexShrink: 1,
     minWidth: 0,
-    gap: space.xs,
   },
   deepLinkTitle: {
     ...typo.label,

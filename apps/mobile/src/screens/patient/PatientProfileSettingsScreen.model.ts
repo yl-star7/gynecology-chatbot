@@ -9,6 +9,8 @@ import {
   addCalendarDays,
   createKoreanDateKey,
   PREGNANCY_TERM_DAYS,
+  resolveMobileThemeKey,
+  type MobileThemeKey,
 } from "@gynecology-chatbot/app-core";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import {
@@ -19,6 +21,7 @@ import {
   readCachedProfileView,
 } from "../../core/patientViewCache";
 import { useMobileServices } from "../../core/MobileServicesProvider";
+import { useMobileTheme } from "../../theme-provider";
 import { scheduleDailyLocalNotification } from "../../notifications/dailyLocalNotification";
 import {
   resolvePatientProfileLoadError,
@@ -36,6 +39,7 @@ import {
   getPregnancyWeekDisplayLabel,
 } from "./pregnancyWeek.model";
 import { buildPatientHomeViewModel } from "./view-models";
+import { PATIENT_THEME_OPTIONS } from "./patientThemeSettings.model";
 
 export const TONE_OPTIONS = ["차분하게", "친근하게", "전문적으로", "다정하게"];
 export { DEFAULT_NOTIFICATION_TIME, normalizePatientNotificationTimeInput };
@@ -48,6 +52,10 @@ export function usePatientProfileSettingsScreenModel() {
   const router = useRouter();
   const { currentUser, isRestoringSession } = useMobileAppSession();
   const { profilePort, homePort } = useMobileServices();
+  const {
+    applyThemeKey,
+    key: activeThemeKey,
+  } = useMobileTheme();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [home, setHome] = useState<HomeViewData | null>(null);
   const [dueDate, setDueDate] = useState("");
@@ -59,6 +67,7 @@ export function usePatientProfileSettingsScreenModel() {
   const [notificationTime, setNotificationTime] = useState(
     DEFAULT_NOTIFICATION_TIME,
   );
+  const [themeKey, setThemeKey] = useState<MobileThemeKey>(activeThemeKey);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -79,6 +88,9 @@ export function usePatientProfileSettingsScreenModel() {
       setNotificationTime(
         cachedProfile.notificationTime ?? DEFAULT_NOTIFICATION_TIME,
       );
+      const cachedThemeKey = resolveMobileThemeKey(cachedProfile.themeKey);
+      setThemeKey(cachedThemeKey);
+      void applyThemeKey(cachedThemeKey, currentUser.id);
       publishPatientProfileSyncProfile(cachedProfile);
       cacheProfileView(currentUser.id, cachedProfile);
     }
@@ -86,7 +98,7 @@ export function usePatientProfileSettingsScreenModel() {
     if (cachedHome) {
       setHome(cachedHome);
     }
-  }, [currentUser]);
+  }, [applyThemeKey, currentUser]);
 
   const homeViewModel = useMemo(
     () => buildPatientHomeViewModel({ home, profile }),
@@ -121,6 +133,9 @@ export function usePatientProfileSettingsScreenModel() {
         setNotificationTime(
           nextProfile.notificationTime ?? DEFAULT_NOTIFICATION_TIME,
         );
+        const nextThemeKey = resolveMobileThemeKey(nextProfile.themeKey);
+        setThemeKey(nextThemeKey);
+        void applyThemeKey(nextThemeKey, currentUser.id);
         publishPatientProfileSyncProfile(nextProfile);
       })
       .catch((nextError) => {
@@ -131,7 +146,14 @@ export function usePatientProfileSettingsScreenModel() {
         }
         setError(message);
       });
-  }, [currentUser, homePort, isRestoringSession, profilePort, router]);
+  }, [
+    currentUser,
+    applyThemeKey,
+    homePort,
+    isRestoringSession,
+    profilePort,
+    router,
+  ]);
 
   function toggleToneDropdown() {
     Keyboard.dismiss();
@@ -156,6 +178,13 @@ export function usePatientProfileSettingsScreenModel() {
   function selectTonePreference(nextTone: string) {
     setTonePreference(nextTone);
     setIsToneDropdownOpen(false);
+    setError(null);
+  }
+
+  function selectThemeKey(nextThemeKey: MobileThemeKey) {
+    setThemeKey(nextThemeKey);
+    setIsToneDropdownOpen(false);
+    setIsTimePickerOpen(false);
     setError(null);
   }
 
@@ -190,6 +219,7 @@ export function usePatientProfileSettingsScreenModel() {
           babyNickname: trimmedBabyNickname,
           hospitalName: trimmedHospitalName,
           notificationTime: normalizedNotificationTime,
+          themeKey,
         }
       : profile;
 
@@ -212,6 +242,7 @@ export function usePatientProfileSettingsScreenModel() {
         babyNickname: trimmedBabyNickname,
         hospitalName: trimmedHospitalName,
         notificationTime: normalizedNotificationTime,
+        themeKey,
       };
       await profilePort.updateProfile(saveInput);
       void scheduleDailyLocalNotification({
@@ -279,6 +310,9 @@ export function usePatientProfileSettingsScreenModel() {
       setHome(nextHome);
       if (nextProfile) {
         cacheProfileView(currentUser.id, nextProfile);
+        const refreshedThemeKey = resolveMobileThemeKey(nextProfile.themeKey);
+        setThemeKey(refreshedThemeKey);
+        void applyThemeKey(refreshedThemeKey, currentUser.id);
       }
       publishPatientProfileSyncProfile(nextProfile);
       router.replace("/(tabs)/profile");
@@ -334,12 +368,16 @@ export function usePatientProfileSettingsScreenModel() {
     setDueDate,
     setHospitalName,
     setNotificationTime,
+    setThemeKey,
     toneOptions: TONE_OPTIONS,
     tonePreference,
     toggleTimePicker,
     toggleToneDropdown,
     selectNotificationTime,
+    selectThemeKey,
     selectTonePreference,
+    themeKey,
+    themeOptions: PATIENT_THEME_OPTIONS,
     handleSave,
     summaryPregnancyWeekLabel,
   };

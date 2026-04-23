@@ -6,7 +6,8 @@ import { Image, StyleSheet, Text, View } from "react-native";
 import { Pressable } from "./ui";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useMobileAppSession } from "../core/MobileAppSessionProvider";
-import { palette, patientSurfacePalette as surface, shadows, space, typo } from "../theme";
+import { palette, patientSurfacePalette as surface, space, typo } from "../theme";
+import { useMobileTheme } from "../theme-provider";
 import { resolveBackNavigation } from "./MobileScreenFrame.model";
 
 const FAB_NURSE_SOURCE = require("../../assets/branding/penguin-nurse/neutral.png");
@@ -26,11 +27,12 @@ export function MobileScreenFrame({
 }) {
   const router = useRouter();
   const { currentUser } = useMobileAppSession();
+  const { palette: activePalette, shadows: activeShadows } = useMobileTheme();
   const avatarLabel = currentUser?.displayName?.slice(0, 1) ?? "나";
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={[styles.header, shadows.header]}>
+      <View style={[styles.header, activeShadows.header]}>
         <View style={styles.leading}>
           {backHref ? (
             <Pressable
@@ -45,7 +47,7 @@ export function MobileScreenFrame({
               accessibilityLabel="뒤로 이동"
               style={styles.iconButton}
             >
-              <Ionicons name="chevron-back" size={22} color={palette.ink} />
+              <Ionicons name="chevron-back" size={22} color={activePalette.ink} />
             </Pressable>
           ) : null}
           <Text style={styles.title}>{title}</Text>
@@ -68,7 +70,7 @@ export function MobileScreenFrame({
 
       {showChatFab ? (
         <Pressable
-          style={[styles.fab, shadows.fab]}
+          style={[styles.fab, activeShadows.fab]}
           onPress={() => router.push("/chat/new")}
           accessibilityLabel="상담하기"
         >

@@ -35,7 +35,7 @@
 
 - **공용 도메인 로직** (`packages/mobile-api/src/*`): 11 파일
 - **apps/api** (Cloud Run, Hono): 11 파일
-- **apps/web** (Vercel, Next.js): 25 파일 (mobile API 미러 + admin API + repositories)
+- **apps/web** (Cloud Run, Next.js): 25 파일 (mobile API 미러 + admin API + repositories)
 
 ### 1.3 특수 처리 필요 포인트
 
@@ -217,7 +217,7 @@ const rows = await prisma.$queryRaw<
 16. **E1** B1의 admin-client shim 삭제. 모든 파일이 Prisma direct 사용 확인 (grep `supabaseSelect` = 0 hit)
 17. **E2** `@supabase/supabase-js`, `@supabase/ssr` 의존성 — DB 관련 부분 제거. Storage 관련만 유지 (`apps/web` 어드민 이미지 업로드)
 18. **E3** Cloud Run 재배포 + 스모크 테스트 (`/api/mobile/chat`, `/api/mobile/today`, `/api/mobile/auth/login` 등)
-19. **E4** `apps/web` Vercel 쪽 mobile route도 동시 동작 확인 (`SERVER_DATA_PROVIDER` 은 unused로 전환)
+19. **E4** `apps/web` Cloud Run 쪽 mobile route도 동시 동작 확인 (`SERVER_DATA_PROVIDER` 은 unused로 전환)
 20. **E5** EAS `EXPO_PUBLIC_API_BASE_URL`을 Cloud Run URL로 교체 → 새 TestFlight 빌드 배포
 21. **E6** 관찰 3일 → Supabase 프로젝트 pause (DB 쪽만. Storage는 유지)
 
@@ -282,7 +282,7 @@ const rows = await prisma.$queryRaw<
 - [ ] E1 shim 삭제
 - [ ] E2 @supabase/supabase-js DB import 제거
 - [ ] E3 Cloud Run 재배포 + 스모크
-- [ ] E4 Vercel 미러 검증
+- [ ] E4 Cloud Run web 미러 검증
 - [ ] E5 EAS 재빌드 + TestFlight
 - [ ] E6 Supabase DB pause
 - [ ] F Storage 이관 (별도)

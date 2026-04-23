@@ -48,6 +48,6 @@ test("patient tab content insets replace fixed 140 bottom padding across screens
 
   assert.deepEqual(insets, {
     paddingTop: 4,
-    paddingBottom: 104,
+    paddingBottom: 84,
   });
 });

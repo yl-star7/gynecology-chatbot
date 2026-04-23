@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
-import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+import { patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+import { useMobileTheme } from "../../theme-provider";
 
 export function EmptyState({
   icon = "chatbubbles-outline",
@@ -12,10 +13,12 @@ export function EmptyState({
   title: string;
   description: string;
 }) {
+  const { palette: activePalette } = useMobileTheme();
+
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
-        <Ionicons name={icon} size={space.xxxl} color={palette.accent} />
+        <Ionicons name={icon} size={space.xxxl} color={activePalette.accent} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.description}>{description}</Text>

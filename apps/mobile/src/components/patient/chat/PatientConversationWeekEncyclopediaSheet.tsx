@@ -20,6 +20,7 @@ import {
   space,
   typo,
 } from "../../../theme";
+import { useMobileTheme } from "../../../theme-provider";
 import type { ConversationWeekEncyclopediaSheetModel } from "../../../screens/patient/PatientConversationWeekEncyclopediaSheet.model";
 
 const SheetIcon = Ionicons as unknown as ComponentType<{
@@ -41,6 +42,7 @@ export function PatientConversationWeekEncyclopediaSheet({
   model: ConversationWeekEncyclopediaSheetModel;
   onClose: () => void;
 }) {
+  const { surface: activeSurface } = useMobileTheme();
   const { height } = useWindowDimensions();
   const isCompact = model.sections.length === 0;
   const defaultSheetHeight = Math.round(height * (isCompact ? 0.42 : 0.64));
@@ -140,7 +142,7 @@ export function PatientConversationWeekEncyclopediaSheet({
               <SheetIcon
                 name="close"
                 size={space.lg + space.xs}
-                color={surface.textSecondary}
+                color={activeSurface.textSecondary}
               />
             </Pressable>
           </View>

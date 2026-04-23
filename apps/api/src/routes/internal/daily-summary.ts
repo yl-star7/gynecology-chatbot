@@ -243,8 +243,8 @@ app.post("/", async (c) => {
 
     let aiSummaryCount = 0;
     let questionSummaryCount = 0;
+    let updatedQuestionSummary = 0;
     let skippedAiSummary = 0;
-    let skippedQuestionSummary = 0;
 
     const [existingAiRows, existingQuestionRows] = await Promise.all([
       prisma.calendar_logs.findMany({
@@ -259,7 +259,7 @@ app.post("/", async (c) => {
           date: parseDateOnly(targetDate),
           entry_type: "question_summary",
         },
-        select: { user_id: true, payload: true },
+        select: { id: true, user_id: true, payload: true },
       }),
     ]);
 
@@ -272,17 +272,17 @@ app.post("/", async (c) => {
         )
         .map((row) => row.user_id),
     );
-    const existingQuestionKeys = new Set(
-      existingQuestionRows
-        .filter(
-          (row) =>
-            asObject<{ source?: string }>(row.payload)?.source ===
-            "daily_question_summary",
-        )
-        .map((row) => {
-          const payload = asObject<{ question?: string }>(row.payload);
-          return `${row.user_id}:${payload?.question ?? ""}`;
-        }),
+    const existingQuestionRowsByKey = new Map(
+      existingQuestionRows.map((row) => {
+        const payload = asObject<{
+          question?: string;
+          questionId?: string;
+        }>(row.payload);
+        return [
+          `${row.user_id}:${payload?.questionId ?? payload?.question ?? ""}`,
+          row,
+        ] as const;
+      }),
     );
 
     const errors: string[] = [];
@@ -334,28 +334,48 @@ app.post("/", async (c) => {
       );
       for (const q of answeredQuestions) {
         const key = `${userData.userId}:${q.question}`;
-        if (existingQuestionKeys.has(key)) {
-          skippedQuestionSummary++;
-          continue;
-        }
+        const existingQuestionRow = existingQuestionRowsByKey.get(key);
 
         try {
-          await prisma.calendar_logs.create({
-            data: {
+          const payload = {
+            source: "daily_question_summary",
+            question: q.question,
+            answer: q.answer,
+            generatedAt: new Date().toISOString(),
+          } as Prisma.InputJsonValue;
+          if (existingQuestionRow) {
+            await prisma.calendar_logs.update({
+              where: { id: existingQuestionRow.id },
+              data: {
+                title: q.question,
+                summary: q.answer!,
+                payload,
+              },
+            });
+            updatedQuestionSummary++;
+          } else {
+            await prisma.calendar_logs.create({
+              data: {
+                user_id: userData.userId,
+                date: parseDateOnly(targetDate),
+                entry_type: "question_summary",
+                title: q.question,
+                summary: q.answer!,
+                payload,
+              },
+            });
+            existingQuestionRowsByKey.set(key, {
+              id: "",
               user_id: userData.userId,
-              date: parseDateOnly(targetDate),
-              entry_type: "question_summary",
-              title: q.question,
-              summary: q.answer!,
-              payload: {
-                source: "daily_question_summary",
-                question: q.question,
-                answer: q.answer,
-                generatedAt: new Date().toISOString(),
-              } as Prisma.InputJsonValue,
-            },
-          });
-          questionSummaryCount++;
+              payload: payload as Prisma.JsonValue,
+            });
+            existingQuestionRowsByKey.set(`${userData.userId}:${q.question}`, {
+              id: "",
+              user_id: userData.userId,
+              payload: payload as Prisma.JsonValue,
+            });
+            questionSummaryCount++;
+          }
         } catch (error) {
           const msg = `question_summary: ${error instanceof Error ? error.message : String(error)}`;
           errors.push(msg);
@@ -368,8 +388,8 @@ app.post("/", async (c) => {
       processedUsers: users.length,
       aiSummaries: aiSummaryCount,
       questionSummaries: questionSummaryCount,
+      updatedQuestionSummaries: updatedQuestionSummary,
       skippedAiSummary,
-      skippedQuestionSummary,
       ...(errors.length > 0 ? { errors } : {}),
     });
   } catch (error) {

@@ -7,7 +7,9 @@ import {
   typo,
 } from "../../../theme";
 import { PatientNotificationTimeField } from "./PatientNotificationTimeField";
+import { PatientThemePreferenceField } from "./PatientThemePreferenceField";
 import { PatientTonePreferenceField } from "./PatientTonePreferenceField";
+import type { MobileThemeKey } from "@gynecology-chatbot/app-core";
 
 export function PatientProfileSettingsForm({
   babyNickname,
@@ -23,12 +25,15 @@ export function PatientProfileSettingsForm({
   onChangeDueDate,
   onChangeHospitalName,
   onSave,
+  onSelectThemeKey,
   onSelectTonePreference,
   onToggleTimePicker,
   onSelectNotificationTime,
   onToggleToneDropdown,
   toneOptions,
   tonePreference,
+  themeKey,
+  themeOptions,
 }: {
   babyNickname: string;
   dueDate: string;
@@ -44,11 +49,18 @@ export function PatientProfileSettingsForm({
   onChangeHospitalName: (value: string) => void;
   onSave: () => void;
   onSelectNotificationTime: (value: string) => void;
+  onSelectThemeKey: (value: MobileThemeKey) => void;
   onSelectTonePreference: (value: string) => void;
   onToggleTimePicker: () => void;
   onToggleToneDropdown: () => void;
   toneOptions: string[];
   tonePreference: string;
+  themeKey: MobileThemeKey;
+  themeOptions: {
+    key: MobileThemeKey;
+    label: string;
+    description: string;
+  }[];
 }) {
   return (
     <Card variant="muted">
@@ -88,6 +100,11 @@ export function PatientProfileSettingsForm({
           options={toneOptions}
           onToggle={onToggleToneDropdown}
           onSelect={onSelectTonePreference}
+        />
+        <PatientThemePreferenceField
+          value={themeKey}
+          options={themeOptions}
+          onSelect={onSelectThemeKey}
         />
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <Button

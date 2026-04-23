@@ -4,19 +4,19 @@ import { useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useMobileAppSession } from "../../src/core/MobileAppSessionProvider";
 import { PATIENT_TABS } from "../../src/components/patient/PatientTabBar.model";
-import { palette, patientSurfacePalette as surface } from "../../src/theme";
+import { useMobileTheme } from "../../src/theme-provider";
 import { buildTabsScreenOptions } from "../routeOptions.model";
-
-const TABS_SCREEN_OPTIONS = buildTabsScreenOptions({
-  accent: palette.accent,
-  subInk: surface.textSecondary,
-  card: surface.pageBackground,
-  line: surface.strokeSubtle,
-});
 
 export default function TabsLayout() {
   const { currentUser, isRestoringSession } = useMobileAppSession();
+  const { palette, surface } = useMobileTheme();
   const router = useRouter();
+  const tabsScreenOptions = buildTabsScreenOptions({
+    accent: palette.accent,
+    subInk: surface.textSecondary,
+    card: surface.pageBackground,
+    line: surface.strokeSubtle,
+  });
 
   useEffect(() => {
     if (isRestoringSession) {
@@ -33,7 +33,7 @@ export default function TabsLayout() {
   if (isRestoringSession || !currentUser) return null;
 
   return (
-    <Tabs screenOptions={TABS_SCREEN_OPTIONS}>
+    <Tabs screenOptions={tabsScreenOptions}>
       {PATIENT_TABS.map((tab) => (
         <Tabs.Screen
           key={tab.key}

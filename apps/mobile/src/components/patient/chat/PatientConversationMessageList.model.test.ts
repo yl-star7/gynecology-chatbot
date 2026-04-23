@@ -99,6 +99,10 @@ test("conversation message list hides placeholder-only assistant text bubbles", 
     "⋯",
     " · · · ",
     "\u200B...\u200B",
+    '""',
+    '"""',
+    '""",',
+    "“”",
   ];
 
   for (const text of hiddenTexts) {

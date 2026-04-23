@@ -12,12 +12,8 @@ import {
   View,
 } from "react-native";
 
-import {
-  palette,
-  patientSurfacePalette as surface,
-  radii,
-  space,
-} from "../../theme";
+import { patientSurfacePalette as surface, radii, space } from "../../theme";
+import { useMobileTheme } from "../../theme-provider";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -154,6 +150,7 @@ export function ChatImagePicker(props: ChatImagePickerProps): JSX.Element {
 
 export function ChatImagePreview(props: ChatImagePreviewProps): JSX.Element {
   const { dataUri, onRemove } = props;
+  const { palette: activePalette } = useMobileTheme();
 
   return (
     <View style={styles.previewContainer}>
@@ -173,7 +170,7 @@ export function ChatImagePreview(props: ChatImagePreviewProps): JSX.Element {
         accessibilityLabel="이미지 제거"
         hitSlop={space.xs}
       >
-        <Ionicons name="close-circle" size={18} color={palette.ink} />
+        <Ionicons name="close-circle" size={18} color={activePalette.ink} />
       </Pressable>
     </View>
   );

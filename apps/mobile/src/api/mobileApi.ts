@@ -110,6 +110,8 @@ export interface MobileApiClient {
     text: string;
     pregnancyWeek?: number;
     selectedQuestionId?: string;
+    clientWorkflowStage?: number | string | null;
+    clientWorkflowStageName?: string | null;
     imageDataUris: string[];
   }): Promise<{
     assistantMessage: ChatMessage;
@@ -468,6 +470,8 @@ export function createMobileApiClient(
             text: input.text,
             pregnancyWeek: input.pregnancyWeek,
             selectedQuestionId: input.selectedQuestionId,
+            clientWorkflowStage: input.clientWorkflowStage,
+            clientWorkflowStageName: input.clientWorkflowStageName,
             imageDataUris: input.imageDataUris,
           }),
           signal: controller.signal,

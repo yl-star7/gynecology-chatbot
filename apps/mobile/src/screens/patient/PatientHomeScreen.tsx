@@ -14,7 +14,7 @@ import type {
   HomeViewData,
   MobileProfileViewData,
 } from "@gynecology-chatbot/app-core";
-import { Card, Pressable } from "../../components/ui";
+import { Card } from "../../components/ui";
 import { PatientHeroBubble } from "../../components/patient/PatientHeroBubble";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
@@ -36,12 +36,14 @@ import {
   space,
   typo,
 } from "../../theme";
+import { useMobileTheme } from "../../theme-provider";
 import { buildPatientHomeViewModel } from "./view-models";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { prefetchWeekBabyImages } from "./prefetchWeekBabyImages";
 
 export function PatientHomeScreen() {
   const insets = useSafeAreaInsets();
+  const { palette: activePalette } = useMobileTheme();
   const services = useMobileServices();
   const { currentUser, isRestoringSession } = useMobileAppSession();
   const syncSnapshot = usePatientProfileSyncSnapshot();
@@ -155,7 +157,7 @@ export function PatientHomeScreen() {
               await fetchData().catch(() => undefined);
               setRefreshing(false);
             }}
-            tintColor={palette.accent}
+            tintColor={activePalette.accent}
           />
         }
       >

@@ -1,0 +1,24 @@
+---
+description: Behavior-focused testing rules for AI agents
+alwaysApply: true
+---
+
+# AI Testing Rules
+
+When writing or modifying tests, follow the full **AI 테스트 작성 규칙** section in `AGENTS.md`.
+
+Summary:
+
+- Test observable behavior, not implementation details.
+- Mock only system boundaries: Database/ORM, third-party HTTP APIs, filesystem, clock, randomness, network, and process-boundary dependencies.
+- Do not mock owned value objects, DTOs, entities, pure functions, utilities, internal services/modules, or the unit under test.
+- Prefer Classist/Chicago TDD. Avoid Mockist/London tests that break on pure refactors.
+- Assert on return values and observable state. Do not make `toHaveBeenCalledWith(...)`, `verify(...)`, or spy calls the primary assertion.
+- Do not snapshot non-deterministic output such as LLM text, timestamps, unordered sets, or network output.
+- Name tests by behavior, using `<subject>_<expected_behavior>_when_<condition>` when practical.
+- Write unit tests for non-trivial pure logic, entities, and utilities. Use integration tests for critical module boundaries and a small number of E2E tests for core journeys.
+- Gate expensive or live tests behind explicit env flags such as `LIVE_TEST=true` or `RUN_EXPENSIVE=1`.
+- If the fourth example test for the same function appears necessary, consider property-based testing first.
+- Never commit flaky tests. Fix the root cause instead of adding retries, sleeps, or larger timeouts.
+- Apply these rules fully to new tests and incrementally to touched existing tests.
+- Do not write a test unless you can state the protected behavior in one sentence.

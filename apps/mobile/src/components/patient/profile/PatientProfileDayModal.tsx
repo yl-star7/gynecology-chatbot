@@ -13,6 +13,7 @@ import {
   space,
   typo,
 } from "../../../theme";
+import { useMobileTheme } from "../../../theme-provider";
 import type {
   ProfileHeartShareItem,
   ProfileInfoCard,
@@ -113,6 +114,7 @@ export function PatientProfileDayModal({
   onOpenToday: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { surface: activeSurface } = useMobileTheme();
 
   return (
     <Modal
@@ -133,7 +135,7 @@ export function PatientProfileDayModal({
             <CloseIcon
               name="close"
               size={space.lg + space.sm}
-              color={surface.textPrimary}
+              color={activeSurface.textPrimary}
             />
           </Pressable>
         </View>
@@ -277,7 +279,7 @@ export function PatientProfileDayModal({
                           <CheckboxMarkIcon
                             name="checkmark"
                             size={space.lg}
-                            color={surface.surfacePrimary}
+                            color={activeSurface.surfacePrimary}
                           />
                         ) : null}
                       </View>
@@ -359,7 +361,7 @@ export function PatientProfileDayModal({
                         <Text style={styles.modalAiTitle}>답변 요약</Text>
                         <Text style={styles.modalAiBody}>
                           {item.answerSummary ??
-                            "아직 답변 요약이 준비되지 않았어요."}
+                            "오늘 자정에 요약이 준비됩니다."}
                         </Text>
                       </View>
                     </View>

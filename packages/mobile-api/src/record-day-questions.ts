@@ -11,9 +11,11 @@ export type RecordDayQuestionRecordRow = {
   summary: string | null;
   entry_type: string;
   payload: {
+    source?: string;
     questionId?: string;
     question?: string;
     answer?: string;
+    compactSummary?: string | null;
   } | null;
 };
 
@@ -44,6 +46,14 @@ function findQuestionAnswerSummary(
         record.title === question.question_text),
   );
   if (questionSummary?.summary) {
+    const summaryText =
+      questionSummary.payload?.compactSummary ?? questionSummary.summary;
+    if (
+      questionSummary.payload?.source === "attachment_question_followup" ||
+      /질문 답변 대기\s*\([^)]+\)/.test(summaryText)
+    ) {
+      return "오늘 자정에 요약이 준비됩니다.";
+    }
     return questionSummary.summary;
   }
 

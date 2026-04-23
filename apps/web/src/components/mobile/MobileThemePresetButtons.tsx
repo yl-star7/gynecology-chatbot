@@ -6,9 +6,10 @@ import {
 } from "@gynecology-chatbot/app-core";
 
 const THEME_BUTTON_LABELS: Record<MobileThemeKey, string> = {
-  "rose-sand": "벚꽃",
+  "rose-sand": "핑크",
   "soft-peach": "피치",
-  "mint-neutral": "민트",
+  "mint-neutral": "연두",
+  "sky-blue": "하늘색",
 };
 
 export function MobileThemePresetButtons({

@@ -13,6 +13,141 @@
 
 ---
 
+## AI 테스트 작성 규칙
+
+테스트를 새로 작성하거나 수정할 때는
+[Atipico1/ai-testing-rules](https://github.com/Atipico1/ai-testing-rules)의
+방향을 이 프로젝트 규칙으로 적용합니다.
+
+### 핵심 원칙
+
+1. 구현이 아니라 **관찰 가능한 동작**을 테스트합니다. 순수 리팩터링만으로 테스트가 깨지면 테스트가 구현을 너무 많이 알고 있는 것입니다.
+2. 모킹은 시스템 경계에서만 사용합니다. 같은 코드베이스 안의 값 객체, 엔티티, 순수 함수, 내부 서비스/모듈은 실제 구현을 사용합니다.
+3. 기본값은 Classist/Chicago 스타일 TDD입니다. London/Mockist 스타일은 AI 주도 리팩터링에서 쉽게 부서지는 테스트를 만들기 쉽습니다.
+4. 의미 있는 적은 수의 테스트가 구현에 묶인 많은 테스트보다 낫습니다.
+
+### 모킹 경계
+
+모킹해도 되는 대상은 아래처럼 프로세스나 외부 시스템 경계를 넘는 것뿐입니다.
+
+- Database / ORM
+- 서드파티 HTTP API
+- 파일시스템, 시간, 난수, 네트워크
+- 프로세스 경계를 넘는 의존성
+
+아래 대상은 모킹하지 않습니다.
+
+- 우리가 소유한 값 객체, DTO, 엔티티
+- 순수 함수와 유틸리티
+- 같은 코드베이스 안의 내부 collaborator
+- 테스트 대상 자체
+
+HTTP 의존성은 가능하면 인터페이스/trait mock보다 `msw`, `nock`, 테스트용 HTTP fake처럼 경계에 가까운 fake를 사용합니다. 파일시스템은 mock보다 실제 임시 디렉터리를 우선합니다.
+
+### Assertion 규칙
+
+- 반환값과 관찰 가능한 상태를 검증합니다.
+- `toHaveBeenCalledWith(...)`, `verify(...)`, spy 호출 여부를 주된 검증 수단으로 삼지 않습니다.
+- 필드별 나열보다 전체 객체 비교를 우선합니다. 예: `expect(result).toEqual(expected)`
+- LLM 응답 텍스트, timestamp, 순서 없는 set처럼 비결정적인 출력은 snapshot으로 고정하지 않습니다.
+
+### 테스트 이름
+
+테스트 이름은 메서드명이나 내부 호출 순서가 아니라 동작을 설명해야 합니다.
+
+```ts
+// Bad - implementation-flavored
+test_findUnique_called_once()
+test_calls_upsert_then_emits_event()
+should_work()
+
+// Good - behavior
+returns_cached_result_when_fetched_within_ttl()
+rejects_login_when_password_is_expired()
+charges_full_price_for_non_vip_users()
+```
+
+기본 템플릿은 `<subject>_<expected_behavior>_when_<condition>`입니다.
+
+### 테스트 구조
+
+| Layer | Purpose | Budget |
+| --- | --- | --- |
+| Unit | 순수 로직, 엔티티, 유틸 | 많이 작성해도 됨. in-memory, milliseconds |
+| Integration | 모듈 + 실제 DB/queue 등 | 핵심 도메인별로 적당히 |
+| E2E | 중요한 사용자 여정 | 여정당 소수 |
+| Regression | 과거 버그 재발 방지 | 버그가 생길 때마다 1개 |
+
+- 중요한 사용자 여정마다 E2E는 소수만 둡니다.
+- 도메인별 핵심 흐름에는 통합 테스트를 둡니다.
+- Unit test는 로직이 있는 곳에만 작성합니다. getter, DI wiring, framework glue, 단순 config/constant에는 억지로 만들지 않습니다.
+- Unit spec은 소스 옆에 두고, integration/E2E는 별도 트리에 둡니다.
+- 비싸거나 live 의존성이 있는 테스트는 `LIVE_TEST=true`, `RUN_EXPENSIVE=1` 같은 명시적 env flag 뒤에 둡니다.
+
+### 도메인 엔티티 추출 기준
+
+아래 중 하나라도 맞으면 DB row에 흩어진 로직을 도메인 엔티티로 끌어올리는 것을 우선 검토합니다.
+
+- 같은 데이터에 대한 비즈니스 로직이 2개 이상의 서비스에 흩어져 있습니다.
+- 서비스가 plain DB row 위에서 산술 계산이나 상태 전이를 직접 수행합니다.
+- 사실상 순수 로직인데 테스트하려고 DB를 띄워야 합니다.
+
+이 경우 서비스는 저장/조회 orchestration을 맡고, 상태 변화 규칙은 순수 in-memory 엔티티 메서드로 옮겨 테스트합니다.
+
+### Property-Based Testing
+
+parser, encoder, sorter, validator, state machine처럼 넓은 입력 공간에 명확한 invariant가 있으면 example test에 property-based test를 더합니다. TypeScript에서는 `fast-check`를 우선 고려합니다.
+
+같은 함수에 네 번째 example test를 추가하려는 상황이면 property test로 바꿀 수 있는지 먼저 검토합니다.
+
+### Flaky 테스트
+
+1. flaky test는 커밋하지 않습니다.
+2. 이미 들어간 flaky test는 24시간 안에 격리합니다.
+3. 격리할 때는 linked issue, owner, deadline을 남깁니다. owner가 없으면 삭제합니다.
+4. retry loop, `sleep()`, timeout 증가로 덮지 말고 shared global state, real clock, test ordering, unseeded randomness, network 같은 원인을 고칩니다.
+
+### 기존 Mockist 테스트 마이그레이션
+
+기존 테스트를 재미로 갈아엎지 않습니다. 점진적으로 적용합니다.
+
+1. 새 테스트는 지금부터 이 규칙을 따릅니다.
+2. 기존 테스트 파일을 수정할 때는 내부 collaborator mock을 경계 mock 또는 실제 구현으로 바꾸는 방향을 우선합니다.
+3. `toHaveBeenCalledWith`가 많은 최악의 파일 3-5개를 먼저 찾아 도메인 단위로 천천히 바꿉니다.
+4. 고위험 도메인 하나에 실제 DB 기반 테스트 패턴을 먼저 만들고, 검증된 뒤 확장합니다.
+5. 비결정적 출력 snapshot은 구조적 assertion으로 바꾸거나 삭제합니다.
+
+### 작업 흐름
+
+- 스펙에서 실패하는 테스트를 먼저 작성하고, 그 테스트를 통과시키는 구현을 합니다.
+- 구현을 먼저 만든 뒤 "이 파일 테스트 써줘" 방식으로 요청하지 않습니다. 그런 테스트는 현재 구현에 붙은 coverage theater가 되기 쉽습니다.
+- 한 테스트는 한 행동만 보호합니다. 하나의 행동을 설명하는 데 여러 `expect()`가 필요한 것은 괜찮지만, 서로 다른 행동이면 테스트를 나눕니다.
+
+### PR Red Flags
+
+아래 신호가 보이면 반려하거나 재작업합니다.
+
+- 실제 assertion보다 `mock.*` 호출이 더 많습니다.
+- `toHaveBeenCalledWith` / `verify()`가 유일한 assertion입니다.
+- `_internal/` 또는 private module path를 import합니다.
+- LLM 출력, timestamp, network output을 snapshot으로 고정합니다.
+- linked issue와 owner 없는 `it.skip`이 있습니다.
+- 함수명 변경 때마다 테스트 이름도 같이 바뀝니다.
+- public 함수 하나짜리 파일의 테스트가 원본 파일보다 훨씬 깁니다.
+- boundary mock이나 실제 DB 대신 full-prisma-mock 같은 전면 mock dependency를 새로 추가합니다.
+
+### 테스트를 쓰지 않아야 할 때
+
+- 로직 없는 plain CRUD는 핵심 E2E 하나로 충분합니다.
+- DI, routing, framework wiring은 프레임워크가 이미 검증합니다.
+- config/constant는 타입 시스템이나 schema validator에 맡깁니다.
+- 버릴 스크립트는 production data를 만지지 않는 한 테스트하지 않습니다.
+- 곧 삭제할 코드는 테스트하지 않습니다.
+
+테스트가 보호하는 행동을 한 문장으로 말할 수 없다면 그 테스트는 쓰지 않습니다.
+
+---
+
 ## 모바일 앱 디자인 시스템
 
 모바일 앱(`apps/mobile/`)의 UI를 수정할 때는 반드시 기존 디자인 시스템을 사용하세요.

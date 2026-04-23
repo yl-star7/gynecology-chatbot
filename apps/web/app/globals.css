@@ -159,6 +159,27 @@
   --shadow: none;
 }
 
+[data-theme="sky-blue"] {
+  --bg: #f3f9ff;
+  --panel: #fbfdff;
+  --panel-strong: #ffffff;
+  --panel-muted: #edf6ff;
+  --field-surface: #ffffff;
+  --text: #1c2f42;
+  --text-soft: #62798d;
+  --line: #d2e5f5;
+  --accent: #4f8fc7;
+  --accent-dark: #39719f;
+  --accent-soft: #dff0ff;
+  --success: #3f775f;
+  --success-soft: #ecf7f1;
+  --success-text: #3f775f;
+  --warning: #89753d;
+  --error-soft: #f7eef2;
+  --error-text: #855f6f;
+  --shadow: none;
+}
+
 html {
   color-scheme: light;
 }

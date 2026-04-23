@@ -14,6 +14,9 @@ describe("ensureLocalPostgresReady", () => {
   };
 
   beforeEach(() => {
+    jest.useFakeTimers({
+      now: new Date("2026-04-15T00:00:00+09:00"),
+    });
     jest.resetModules();
     process.env.DATABASE_URL = "postgresql://test";
     process.env.LOCAL_DB_SCHEMA = "gynecology_local";
@@ -28,6 +31,7 @@ describe("ensureLocalPostgresReady", () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     Object.entries(originalEnv).forEach(([key, value]) => {
       if (value === undefined) {
         delete process.env[key as keyof NodeJS.ProcessEnv];

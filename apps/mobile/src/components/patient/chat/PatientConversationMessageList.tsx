@@ -346,8 +346,8 @@ const styles = StyleSheet.create({
   quickReplyPill: {
     borderRadius: radii.full,
     backgroundColor: surface.surfacePrimary,
-    paddingVertical: space.sm,
-    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    paddingHorizontal: space.xl,
     maxWidth: "100%",
     minWidth: 0,
     flexShrink: 1,
@@ -360,8 +360,6 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   threadedContent: {
-    flexGrow: 1,
-    justifyContent: "flex-end",
     paddingTop: space.lg,
   },
   messageList: {
@@ -440,6 +438,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingVertical: space.sm,
     maxWidth: "100%",
+    width: "100%",
   },
   typingIndicatorWrapper: {
     minWidth: space.xxxl,

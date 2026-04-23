@@ -567,25 +567,24 @@ export async function getPromptContext(
 
   const [
     dayContentRow,
-    datedQuestionRow,
-    genericQuestionRow,
+    datedQuestionRows,
+    genericQuestionRows,
   ] = await Promise.all([
     dbSelect<DayContentRow[]>(
       `content_pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
     ).then((rows) => rows[0] ?? null),
     dbSelect<QuestionRow[]>(
-      `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
-    ).then((rows) => rows[0] ?? null),
+      `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+    ),
     dbSelect<QuestionRow[]>(
-      `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,
-    ).then((rows) => rows[0] ?? null),
+      `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
+    ),
   ]);
 
-  const questions = datedQuestionRow
-    ? [mapQuestionRow(datedQuestionRow)]
-    : genericQuestionRow
-      ? [mapQuestionRow(genericQuestionRow)]
-      : [];
+  const questions =
+    datedQuestionRows.length > 0
+      ? datedQuestionRows.map(mapQuestionRow)
+      : genericQuestionRows.map(mapQuestionRow);
 
   const personaProfile = mapPersonaProfileRow(personaProfileRow);
   const profileMemory = {

@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store";
+import { createNativeThemeStorageKey } from "./nativeThemeStorage.model";
 
 const MOBILE_SESSION_TOKEN_KEY = "phedy-mobile-session-token";
 const MOBILE_USER_ID_KEY = "phedy-mobile-user-id";
@@ -136,4 +137,19 @@ export async function persistNativeUserId(userId: string) {
 
 export async function clearNativeUserId() {
   await clearNativeStorageValue(MOBILE_USER_ID_KEY);
+}
+
+export async function readNativeThemeKeyForUser(userId: string) {
+  return readNativeStorageValue(createNativeThemeStorageKey(userId));
+}
+
+export async function persistNativeThemeKeyForUser(
+  userId: string,
+  themeKey: string,
+) {
+  await persistNativeStorageValue(createNativeThemeStorageKey(userId), themeKey);
+}
+
+export async function clearNativeThemeKeyForUser(userId: string) {
+  await clearNativeStorageValue(createNativeThemeStorageKey(userId));
 }

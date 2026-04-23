@@ -3,12 +3,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 import { Card } from "../../ui";
 import {
-  palette,
   patientSurfacePalette as surface,
   radii,
   space,
   typo,
 } from "../../../theme";
+import { useMobileTheme } from "../../../theme-provider";
 
 const SectionIcon = Ionicons as unknown as ComponentType<{
   name: "happy-outline" | "heart-outline";
@@ -23,6 +23,8 @@ export function PatientTodayInfoSection({
   babyCard: { title: string; body: string };
   momCard: { title: string; body: string };
 }) {
+  const { palette: activePalette } = useMobileTheme();
+
   return (
     <Card style={styles.segmentCard}>
       <View style={styles.segmentSection}>
@@ -31,7 +33,7 @@ export function PatientTodayInfoSection({
             <SectionIcon
               name="happy-outline"
               size={space.lg + space.xs}
-              color={palette.accent}
+              color={activePalette.accent}
             />
           </View>
           <Text style={styles.sectionTitle}>{babyCard.title}</Text>
@@ -47,7 +49,7 @@ export function PatientTodayInfoSection({
             <SectionIcon
               name="heart-outline"
               size={space.lg + space.xs}
-              color={palette.accent}
+              color={activePalette.accent}
             />
           </View>
           <Text style={styles.sectionTitle}>{momCard.title}</Text>

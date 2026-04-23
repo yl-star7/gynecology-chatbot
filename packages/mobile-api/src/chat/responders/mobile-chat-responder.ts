@@ -138,12 +138,12 @@ function normalizeStageContractFlow(input: {
             {
               id: "weekly-info-question-yes",
               label: "오늘의 질문",
-              message: "오늘의 질문으로 이어갈래요.",
+              message: "오늘 함께 질문에 답해볼까요?",
             },
             {
               id: "weekly-info-question-later",
               label: "이따가요",
-              message: "아니요, 이따가 확인할래요.",
+              message: "이따가 함께 질문에 답해봐요.",
             },
           ],
         },
@@ -165,22 +165,6 @@ function normalizeStageContractFlow(input: {
         type: "text",
         id: `workflow-baby-info-offer-${Date.now()}`,
         text: `좋은 기분을 나눠줘서 고마워요.\n\n${weekLabel}에 맞는 아기 발달 정보를 짧게 확인해볼까요?`,
-      },
-      {
-        type: "quickReplies",
-        id: `workflow-baby-info-offer-quick-${Date.now()}`,
-        choices: [
-          {
-            id: "baby-info-offer-yes",
-            label: "네",
-            message: "아기 발달 정보를 볼래요.",
-          },
-          {
-            id: "baby-info-offer-later",
-            label: "이따가요",
-            message: "아니요, 이따가 확인할래요.",
-          },
-        ],
       },
     ];
     input.workflowMemoryPayload!.scenario = "baby_info_offer";
@@ -502,12 +486,12 @@ function buildLocalFallbackResponse(input: {
             {
               id: "local-question",
               label: "오늘의 질문",
-              message: "오늘의 질문으로 이어갈래요.",
+              message: "오늘 함께 질문에 답해볼까요?",
             },
             {
               id: "local-later",
               label: "이따가요",
-              message: "아니요, 이따가 확인할래요.",
+              message: "이따가 함께 질문에 답해봐요.",
             },
           ]),
         ],
@@ -603,18 +587,6 @@ function buildLocalFallbackResponse(input: {
       createdAtLabel: "방금 전",
       parts: [
         makeTextPart(infoOfferText),
-        makeQuickReplies([
-          {
-            id: "local-info",
-            label: "네, 볼래요",
-            message: "네, 오늘 주차 정보 볼래요.",
-          },
-          {
-            id: "local-later",
-            label: "이따가요",
-            message: "아니요, 이따가 확인할래요.",
-          },
-        ]),
       ],
     },
     workflowMemoryPayload: {

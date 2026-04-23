@@ -1,6 +1,15 @@
 // @ts-nocheck
 import { Ionicons } from "@expo/vector-icons";
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
+import {
+  NativeModules,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientConversationMessageList } from "../../components/patient/chat/PatientConversationMessageList";
 import { PatientConversationComposer } from "../../components/patient/chat/PatientConversationComposer";
@@ -13,7 +22,9 @@ import {
   radii,
   shadows,
   space,
+  typo,
 } from "../../theme";
+import { useMobileTheme } from "../../theme-provider";
 import { usePatientConversationScreenModel } from "./PatientConversationScreen.model";
 import { resolvePatientSurveySaveError } from "./patientErrorCopy.model";
 
@@ -23,7 +34,29 @@ export function PatientConversationScreen({
   sessionId: string;
 }) {
   const insets = useSafeAreaInsets();
+  const { surface: activeSurface } = useMobileTheme();
   const model = usePatientConversationScreenModel({ sessionId });
+  const [isDebugSheetVisible, setIsDebugSheetVisible] = useState(false);
+  const [debugCopyStatus, setDebugCopyStatus] = useState<
+    "idle" | "copied" | "failed"
+  >("idle");
+
+  function handleCopyDebugSnapshot() {
+    const payload = JSON.stringify(model.debugSnapshot, null, 2);
+    const clipboard = NativeModules.Clipboard;
+
+    try {
+      if (clipboard?.setString) {
+        clipboard.setString(payload);
+        setDebugCopyStatus("copied");
+        return;
+      }
+    } catch {
+      // Fall through to failed state.
+    }
+
+    setDebugCopyStatus("failed");
+  }
 
   return (
     <PatientShell
@@ -46,17 +79,31 @@ export function PatientConversationScreen({
           <Ionicons
             name="book-outline"
             size={space.lg + space.xs}
-            color={surface.accentSolid}
+            color={activeSurface.accentSolid}
           />
         </Pressable>
       }
     >
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={insets.top + space.xxxl + space.lg}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={
+          Platform.OS === "ios" ? insets.top + space.xxxl + space.lg : 0
+        }
       >
         <View style={styles.screen}>
+          {__DEV__ ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="채팅 디버그 상태 열기"
+              style={styles.debugBadge}
+              onPress={() => setIsDebugSheetVisible(true)}
+            >
+              <Text style={styles.debugBadgeText}>
+                {model.debugSnapshot.inferredFlow}
+              </Text>
+            </Pressable>
+          ) : null}
           <PatientConversationMessageList
             scrollViewRef={model.handleScrollViewRef}
             messages={model.session.messages}
@@ -86,7 +133,11 @@ export function PatientConversationScreen({
             }}
             onLayout={model.handleComposerLayout}
             bottomPadding={
-              model.isKeyboardVisible ? space.xs : insets.bottom + space.xs
+              model.isKeyboardVisible
+                ? Platform.OS === "android"
+                  ? space.lg
+                  : space.xs
+                : insets.bottom + space.xs
             }
           />
         </View>
@@ -104,6 +155,51 @@ export function PatientConversationScreen({
         model={model.weekEncyclopediaSheetModel}
         onClose={model.handleDismissWeekEncyclopediaSheet}
       />
+      {__DEV__ ? (
+        <Modal
+          visible={isDebugSheetVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsDebugSheetVisible(false)}
+        >
+          <Pressable
+            style={styles.debugBackdrop}
+            onPress={() => setIsDebugSheetVisible(false)}
+          >
+            <Pressable style={styles.debugSheet}>
+              <View style={styles.debugHeader}>
+                <Text style={styles.debugTitle}>채팅 디버그 상태</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="채팅 디버그 상태 복사"
+                  style={styles.debugCopyButton}
+                  onPress={handleCopyDebugSnapshot}
+                >
+                  <Text style={styles.debugCopyButtonText}>
+                    {debugCopyStatus === "copied"
+                      ? "Copied"
+                      : debugCopyStatus === "failed"
+                        ? "Failed"
+                        : "Copy"}
+                  </Text>
+                </Pressable>
+              </View>
+              {Object.entries(model.debugSnapshot).map(([key, value]) => (
+                <View key={key} style={styles.debugRow}>
+                  <Text style={styles.debugKey}>{key}</Text>
+                  <Text style={styles.debugValue}>
+                    {Array.isArray(value)
+                      ? value.join(", ") || "-"
+                      : value === null || value === undefined
+                        ? "-"
+                        : String(value)}
+                  </Text>
+                </View>
+              ))}
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
     </PatientShell>
   );
 }
@@ -115,6 +211,69 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: surface.surfaceSecondary,
+  },
+  debugBadge: {
+    position: "absolute",
+    zIndex: 10,
+    top: space.sm,
+    right: space.md,
+    borderRadius: radii.full,
+    backgroundColor: surface.surfaceAccent,
+    paddingVertical: space.xs,
+    paddingHorizontal: space.sm,
+    ...shadows.card,
+  },
+  debugBadgeText: {
+    ...typo.caption,
+    color: surface.accentSolid,
+    fontWeight: "700",
+  },
+  debugBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.24)",
+  },
+  debugSheet: {
+    margin: space.md,
+    borderRadius: radii.xl,
+    backgroundColor: surface.surfacePrimary,
+    padding: space.lg,
+    gap: space.sm,
+    ...shadows.card,
+  },
+  debugTitle: {
+    ...typo.titleSm,
+    color: surface.textPrimary,
+  },
+  debugHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: space.md,
+    marginBottom: space.xs,
+  },
+  debugCopyButton: {
+    borderRadius: radii.full,
+    backgroundColor: surface.surfaceAccent,
+    paddingVertical: space.xs,
+    paddingHorizontal: space.md,
+  },
+  debugCopyButtonText: {
+    ...typo.caption,
+    color: surface.accentSolid,
+    fontWeight: "700",
+  },
+  debugRow: {
+    gap: space.xs,
+  },
+  debugKey: {
+    ...typo.caption,
+    color: surface.textSecondary,
+    fontWeight: "700",
+  },
+  debugValue: {
+    ...typo.caption,
+    color: surface.textPrimary,
   },
   toolbarButton: {
     width: space.xxxl + space.md,

@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { space } from "../src/tokens.ts";
 
 export const HIDDEN_HEADER_SCREEN_OPTIONS = {
@@ -31,9 +32,12 @@ export function buildTabsScreenOptions(colors: {
       backgroundColor: colors.card,
       borderTopWidth: 0,
       borderTopColor: "transparent",
-      height: space.xxxl * 2 + space.xs,
+      height:
+        Platform.OS === "android"
+          ? space.xxxl + space.xxxl + space.lg
+          : space.xxxl + space.xxxl,
       paddingTop: space.xs,
-      paddingBottom: space.md,
+      paddingBottom: Platform.OS === "android" ? space.xxxl : space.xl,
       elevation: 0,
       shadowOpacity: 0,
       shadowColor: "transparent",

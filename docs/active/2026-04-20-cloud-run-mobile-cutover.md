@@ -1,11 +1,11 @@
 # Cloud Run Mobile Cutover Checklist
 
-**Target**: Migrate mobile app API base from `https://gynecology-chatbot.vercel.app` to `https://agaya-api-yvdnhntt7a-du.a.run.app` (Cloud Run).
-**Scope**: `apps/mobile` uses Cloud Run and Cloud SQL.
+**Target**: Migrate mobile app API base from `https://gynecology-chatbot.vercel.app` to `https://agaya-api-yvdnhntt7a-du.a.run.app` and hosted web/admin pages to `https://agaya-web-yvdnhntt7a-du.a.run.app` (Cloud Run).
+**Scope**: `apps/mobile` uses Cloud Run API/web services backed by Cloud SQL.
 
 ## 1. Files holding API/web base URLs
 
-Update both `EXPO_PUBLIC_API_BASE_URL` and `EXPO_PUBLIC_WEB_URL` to Cloud Run.
+Update both `EXPO_PUBLIC_API_BASE_URL` and `EXPO_PUBLIC_WEB_URL` to Cloud Run. Keep them split by responsibility: API requests go to `agaya-api`, WebView/admin pages go to `agaya-web`.
 
 - [x] `apps/mobile/eas.json:20` — preview `EXPO_PUBLIC_API_BASE_URL`
 - [x] `apps/mobile/eas.json:21` — preview `EXPO_PUBLIC_WEB_URL`
@@ -27,6 +27,9 @@ Non-API URLs (do NOT touch):
 ## 2. Preview vs Production envs
 
 Both `preview` and `production` profiles in `eas.json` point to Cloud Run and must stay aligned.
+
+- `EXPO_PUBLIC_API_BASE_URL`: `https://agaya-api-yvdnhntt7a-du.a.run.app`
+- `EXPO_PUBLIC_WEB_URL`: `https://agaya-web-yvdnhntt7a-du.a.run.app`
 
 ## 3. WebViews and hosted pages
 
@@ -53,4 +56,4 @@ Both `preview` and `production` profiles in `eas.json` point to Cloud Run and mu
 - Day 0-1: TestFlight review (~24h typical), Play internal is near-instant.
 - Day 1-3: internal testers verify core flows (login, today, records, chat, push register, survey WebView).
 - Day 3-7: promote to production track; users update over ~1-2 weeks.
-- Keep Vercel mobile endpoints live for 4+ weeks after production rollout to cover slow updaters.
+- Vercel is no longer the target runtime. Keep any legacy endpoint only as an explicit rollback fallback, not as a documented primary path.

@@ -1,4 +1,8 @@
-export type MobileThemeKey = "rose-sand" | "soft-peach" | "mint-neutral";
+export type MobileThemeKey =
+  | "rose-sand"
+  | "soft-peach"
+  | "mint-neutral"
+  | "sky-blue";
 
 export interface MobileThemePreset {
   key: MobileThemeKey;
@@ -46,8 +50,8 @@ export interface MobileThemePreset {
 export const MOBILE_THEME_PRESETS: Record<MobileThemeKey, MobileThemePreset> = {
   "rose-sand": {
     key: "rose-sand",
-    label: "Cherry Blossom",
-    description: "벚꽃 잎과 라이트 샌드 계열의 기본 테마",
+    label: "핑크",
+    description: "포근한 핑크 계열",
     web: {
       bg: "#fffafc",
       panel: "rgba(255, 253, 254, 0.9)",
@@ -130,8 +134,8 @@ export const MOBILE_THEME_PRESETS: Record<MobileThemeKey, MobileThemePreset> = {
   },
   "mint-neutral": {
     key: "mint-neutral",
-    label: "Mint Neutral",
-    description: "뉴트럴 그린과 민트 그라데이션 기반 테마",
+    label: "연두",
+    description: "차분한 연두 계열",
     web: {
       bg: "#edf4ef",
       panel: "rgba(249, 252, 250, 0.82)",
@@ -170,9 +174,55 @@ export const MOBILE_THEME_PRESETS: Record<MobileThemeKey, MobileThemePreset> = {
       errorText: "#7c5b54",
     },
   },
+  "sky-blue": {
+    key: "sky-blue",
+    label: "하늘색",
+    description: "맑은 하늘색 계열",
+    web: {
+      bg: "#f3f9ff",
+      panel: "rgba(251, 253, 255, 0.86)",
+      panelStrong: "#ffffff",
+      panelMuted: "#edf6ff",
+      field: "#ffffff",
+      text: "#1c2f42",
+      textSoft: "#62798d",
+      line: "rgba(64, 111, 153, 0.15)",
+      accent: "#4f8fc7",
+      accentDark: "#39719f",
+      accentSoft: "#dff0ff",
+      success: "#3f775f",
+      successSoft: "#ecf7f1",
+      successText: "#3f775f",
+      warning: "#89753d",
+      errorSoft: "#f7eef2",
+      errorText: "#855f6f",
+      shadow: "0 22px 60px rgba(58, 102, 144, 0.14)",
+    },
+    native: {
+      background: "#f3f9ff",
+      card: "#ffffff",
+      cardMuted: "#edf6ff",
+      field: "#ffffff",
+      ink: "#1c2f42",
+      subInk: "#62798d",
+      accent: "#4f8fc7",
+      accentSoft: "#dff0ff",
+      warm: "#d6ebff",
+      line: "#d2e5f5",
+      dot: "#82add2",
+      successBackground: "#ecf7f1",
+      successText: "#3f775f",
+      errorBackground: "#f7eef2",
+      errorText: "#855f6f",
+    },
+  },
 };
 
-export const MOBILE_THEME_OPTIONS = Object.values(MOBILE_THEME_PRESETS);
+export const MOBILE_THEME_OPTIONS = [
+  MOBILE_THEME_PRESETS["rose-sand"],
+  MOBILE_THEME_PRESETS["mint-neutral"],
+  MOBILE_THEME_PRESETS["sky-blue"],
+];
 
 export const DEFAULT_MOBILE_THEME_KEY: MobileThemeKey = "rose-sand";
 

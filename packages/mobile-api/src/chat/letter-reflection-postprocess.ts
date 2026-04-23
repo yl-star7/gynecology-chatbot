@@ -1,10 +1,10 @@
 /**
  * letter_reflection subworkflow 응답 후처리.
  *
- * - quickReplies 의 "다음 질문으로" 라벨에 **남은 질문 개수** 표시
- *   예: "다음 질문으로 (2개 남음)"
+ * - quickReplies 의 "다른 질문 살펴볼래요" 라벨에 **남은 질문 개수** 표시
+ *   예: "다른 질문 살펴볼래요 (2개)"
  * - 남은 질문이 0개면 라벨을 "자유대화로" 로 대체 (stage 자동 전환)
- * - "하나 더 나누기" 라벨은 그대로 유지
+ * - "조금 더 말할래요" 라벨은 그대로 유지
  *
  * 입력: LLM 이 반환한 parsed JSON payload + 현재 진행 상태
  * 출력: 수정된 payload (in-place 가능, 반환도 함)
@@ -45,33 +45,45 @@ export function rewriteLetterReflectionQuickReplies(
     ? (payload.quickReplies as QuickReply[])
     : [];
 
-  // 기본 2개 quickReplies 강제 (LLM 이 누락해도 서버가 채움)
-  const hasContinue = qr.some((q) => /하나 더|더 나누/.test(q.label));
-  const hasNext = qr.some((q) => /다음 질문|자유대화|여기까지/.test(q.label));
+  // 기본 3개 quickReplies 강제 (LLM 이 누락해도 서버가 채움)
+  const hasContinue = qr.some((q) => q.message === "하나 더 이야기하고 싶어요.");
+  const hasReframe = qr.some((q) => q.message === "다른 방향으로 물어봐주세요.");
+  const hasNext = qr.some((q) =>
+    /다른 질문|질문 살펴|다음 질문|자유대화|여기까지/.test(q.label),
+  );
 
   const ensured: QuickReply[] = [];
   if (hasContinue) {
-    ensured.push(qr.find((q) => /하나 더|더 나누/.test(q.label))!);
+    ensured.push(qr.find((q) => q.message === "하나 더 이야기하고 싶어요.")!);
   } else {
     ensured.push({
       id: "continue",
-      label: "하나 더 나누기",
+      label: "조금 더 이야기할래요",
       message: "하나 더 이야기하고 싶어요.",
     });
   }
+  if (hasReframe) {
+    ensured.push(qr.find((q) => q.message === "다른 방향으로 물어봐주세요.")!);
+  } else {
+    ensured.push({
+      id: "reframe",
+      label: "다른 쪽으로 물어봐줘요",
+      message: "다른 방향으로 물어봐주세요.",
+    });
+  }
   if (hasNext) {
-    ensured.push(qr.find((q) => /다음 질문|자유대화|여기까지/.test(q.label))!);
+    ensured.push(qr.find((q) => /다른 질문|질문 살펴|다음 질문|자유대화|여기까지/.test(q.label))!);
   } else {
     ensured.push({
       id: "next",
-      label: "다음 질문으로",
+      label: "다른 질문도 볼래요",
       message: "다음 질문으로 이어갈래요.",
     });
   }
 
-  // "다음 질문" 라벨에 남은 개수 표시 or "자유대화로" 대체
+  // 다른 질문 라벨에 남은 개수 표시 or "자유대화로" 대체
   const nextIdx = ensured.findIndex((q) =>
-    /다음 질문|자유대화|여기까지/.test(q.label),
+    /다른 질문|질문 살펴|다음 질문|자유대화|여기까지/.test(q.label),
   );
   if (nextIdx >= 0) {
     if (remainingAfterClose === 0) {
@@ -80,11 +92,11 @@ export function rewriteLetterReflectionQuickReplies(
         label: "자유대화로",
         message: "자유롭게 대화하고 싶어요.",
       };
-    } else if (/다음 질문/.test(ensured[nextIdx].label)) {
+    } else if (/다른 질문|질문 살펴|다음 질문/.test(ensured[nextIdx].label)) {
       ensured[nextIdx] = {
         ...ensured[nextIdx],
         id: ensured[nextIdx].id ?? "next",
-        label: `다음 질문으로 (${remainingAfterClose}개 남음)`,
+        label: `다른 질문도 볼래요 (${remainingAfterClose}개)`,
         message: "다음 질문으로 이어갈래요.",
       };
     }
