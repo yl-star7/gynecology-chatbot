@@ -594,6 +594,16 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: surface.textPrimary,
   },
+  mdQuoteBold: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: surface.textPrimary,
+    lineHeight: 26,
+  },
+  mdQuoteMark: {
+    color: palette.accent,
+    fontWeight: "700",
+  },
   mdH1: {
     ...typo.titleSm,
     fontSize: 20,
@@ -691,8 +701,8 @@ const styles = StyleSheet.create({
   surveyChoice: {
     borderRadius: radii.md,
     backgroundColor: surface.surfacePrimary,
-    paddingVertical: space.sm,
-    paddingHorizontal: space.md,
+    paddingVertical: space.md,
+    paddingHorizontal: space.lg,
     alignItems: "center",
   },
   surveyChoiceSelected: {
@@ -704,8 +714,23 @@ const styles = StyleSheet.create({
   surveyChoiceLabel: {
     ...typo.body,
     color: surface.textPrimary,
+    textAlign: "center",
+    flexWrap: "wrap",
   },
   surveyChoiceLabelSelected: {
+    color: palette.accent,
+    fontWeight: "600",
+  },
+  surveyMoreButton: {
+    borderStyle: "dashed",
+    borderWidth: 1,
+    borderColor: palette.accent,
+    borderRadius: radii.md,
+    paddingVertical: space.sm,
+    alignItems: "center",
+  },
+  surveyMoreLabel: {
+    ...typo.body,
     color: palette.accent,
     fontWeight: "600",
   },
@@ -768,7 +793,18 @@ const styles = StyleSheet.create({
   quickReplyPill: {
     borderRadius: radii.full,
     backgroundColor: surface.surfacePrimary,
-    paddingVertical: space.sm,
+    paddingVertical: space.md,
+    paddingHorizontal: space.lg,
+    maxWidth: "100%",
+    minWidth: 0,
+    flexShrink: 1,
+  },
+  quickReplyMorePill: {
+    borderRadius: radii.full,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    borderColor: palette.accent,
+    paddingVertical: space.md,
     paddingHorizontal: space.lg,
     maxWidth: "100%",
     minWidth: 0,

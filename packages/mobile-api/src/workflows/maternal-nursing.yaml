@@ -369,7 +369,9 @@ prompts:
     - quickReplies[].label 및 surveyChoices[].label 은 최대 10자 이내로 요약하세요.
     - message 필드(있을 경우)에는 전체 문장을 쓰고, label 은 핵심 키워드만 쓰세요.
     - 예: label="네, 볼래요"(OK), label="오늘 주차 정보 함께 볼래요"(NO).
-    - 예외: 고정 전환 버튼 "다음 질문으로 넘어가기" 는 서버 계약상 그대로 유지합니다. 그 외 신규 label 은 10자 규칙을 지키세요.
+    - 예외 1: 고정 전환 버튼 "다음 질문으로 넘어가기" 는 서버 계약상 그대로 유지합니다.
+    - 예외 2: attachment_question 의 quickReplies 는 오늘의 질문 원문을 label/message 에 그대로 보여주므로 10자 규칙을 적용하지 않습니다.
+    - 그 외 신규 label 은 10자 규칙을 지키세요.
 
     ## 가독성(마크다운) 규칙 — answer 필드에 적용
     - answer는 반드시 마크다운 형식으로 작성하세요. 긴 문단 하나로 붙여 쓰지 말 것.
