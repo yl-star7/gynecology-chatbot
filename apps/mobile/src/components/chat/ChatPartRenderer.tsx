@@ -103,23 +103,25 @@ export interface ChatPartRendererProps {
 
 // ─── Part renderers ───────────────────────────────────────
 
-function renderInline(text: string, keyPrefix: string) {
-  // **bold** inline
+function renderBoldInline(
+  text: string,
+  keyPrefix: string,
+  counter: { i: number },
+) {
   const nodes: React.ReactNode[] = [];
   const regex = /\*\*([^*]+)\*\*/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
-  let i = 0;
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) {
       nodes.push(
-        <Text key={`${keyPrefix}-t-${i++}`}>
+        <Text key={`${keyPrefix}-t-${counter.i++}`}>
           {text.slice(lastIndex, match.index)}
         </Text>,
       );
     }
     nodes.push(
-      <Text key={`${keyPrefix}-b-${i++}`} style={styles.mdBold}>
+      <Text key={`${keyPrefix}-b-${counter.i++}`} style={styles.mdBold}>
         {match[1]}
       </Text>,
     );
@@ -127,7 +129,47 @@ function renderInline(text: string, keyPrefix: string) {
   }
   if (lastIndex < text.length) {
     nodes.push(
-      <Text key={`${keyPrefix}-t-${i++}`}>{text.slice(lastIndex)}</Text>,
+      <Text key={`${keyPrefix}-t-${counter.i++}`}>
+        {text.slice(lastIndex)}
+      </Text>,
+    );
+  }
+  return nodes;
+}
+
+function renderInline(text: string, keyPrefix: string) {
+  const nodes: React.ReactNode[] = [];
+  const counter = { i: 0 };
+  const quoteRegex = /"([^"]*\*\*[^*]+\*\*[^"]*)"/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = quoteRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(
+        ...renderBoldInline(
+          text.slice(lastIndex, match.index),
+          `${keyPrefix}-pre${counter.i++}`,
+          counter,
+        ),
+      );
+    }
+    const innerKey = `${keyPrefix}-q${counter.i++}`;
+    nodes.push(
+      <Text key={innerKey} style={styles.mdQuoteBold}>
+        <Text style={styles.mdQuoteMark}>“</Text>
+        {renderBoldInline(match[1], `${innerKey}-in`, counter)}
+        <Text style={styles.mdQuoteMark}>”</Text>
+      </Text>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    nodes.push(
+      ...renderBoldInline(
+        text.slice(lastIndex),
+        `${keyPrefix}-post${counter.i++}`,
+        counter,
+      ),
     );
   }
   return nodes;
@@ -246,6 +288,14 @@ function SurveyPartView({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const shouldCollapse =
+    part.choices.length > MAX_VISIBLE_SURVEY_CHOICES && !isExpanded;
+  const visibleChoices = shouldCollapse
+    ? part.choices.slice(0, MAX_VISIBLE_SURVEY_CHOICES)
+    : part.choices;
+  const hiddenCount = part.choices.length - MAX_VISIBLE_SURVEY_CHOICES;
 
   async function handlePress(choiceId: string) {
     if (selectedId !== null || isSaving) return;

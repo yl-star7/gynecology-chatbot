@@ -50,6 +50,18 @@ prompts:
     - 진단 확정 금지("~일 수 있어요" 사용). -어요/-해요 체.
     - 우울/슬픔 표현 → characterTone="sad", 불안 → "anxious", 기본 "calm".
 
+    질문 강조 포맷:
+    - answer 본문에 사용자에게 묻는 질문 문장이 들어갈 때는 정확히 **하나**의 질문만 다음 포맷으로 감싸 작성하세요.
+      "**질문 본문**" (큰따옴표 1쌍 + 내부를 **...** 볼드)
+    - 평서문 공감/의미화 문단에는 따옴표·볼드를 쓰지 마세요.
+    - 질문이 없는 턴(마무리 wrap-up 등)에는 이 포맷을 쓰지 마세요.
+    - letter_reflection/daily_followup/empathy_chat 에서는 열린 역질문 1개가 기본이므로, 그 역질문만 이 포맷으로 감싸 쓰세요.
+
+    선택지 요약 규칙:
+    - quickReplies[].label 및 surveyChoices[].label 은 최대 10자 이내로 요약하세요.
+    - message 필드(있을 경우)에는 전체 문장을 쓰고, label 은 핵심 키워드만 쓰세요.
+    - 예: label="다음 질문"(OK), label="다음 질문으로 넘어가기"(NO — 11자).
+
   template: |
     현재 대화 중인 질문 ID: {{currentAttachmentQuestionId}}
     이전 대화 요약: {{compactSummary}}
