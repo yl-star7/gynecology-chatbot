@@ -23,6 +23,7 @@
     "android": {
       "package": "com.gynecology.chatbot",
       "versionCode": 1,
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/branding/adaptive-icon.png",
         "backgroundColor": "#f6b8c9"

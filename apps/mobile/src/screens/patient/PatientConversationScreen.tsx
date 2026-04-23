@@ -88,7 +88,9 @@ export function PatientConversationScreen({
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={
-          Platform.OS === "ios" ? insets.top + space.xxxl + space.lg : 0
+          Platform.OS === "ios"
+            ? insets.top + space.xxxl + space.lg
+            : insets.top + space.xxxl
         }
       >
         <View style={styles.screen}>

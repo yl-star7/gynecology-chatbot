@@ -326,7 +326,7 @@ function SurveyPartView({
       <Text style={styles.surveyTitle}>{part.title}</Text>
       <Text style={styles.surveyBody}>{part.body}</Text>
       <View style={styles.surveyChoices}>
-        {part.choices.map((choice) => {
+        {visibleChoices.map((choice) => {
           const isSelected = choice.id === selectedId;
           return (
             <Pressable
@@ -346,6 +346,7 @@ function SurveyPartView({
               disabled={isSaving}
             >
               <Text
+                numberOfLines={2}
                 style={[
                   styles.surveyChoiceLabel,
                   isSelected && styles.surveyChoiceLabelSelected,
@@ -356,6 +357,18 @@ function SurveyPartView({
             </Pressable>
           );
         })}
+        {shouldCollapse ? (
+          <Pressable
+            style={styles.surveyMoreButton}
+            onPress={() => setIsExpanded(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`더보기 (+${hiddenCount})`}
+          >
+            <Text
+              style={styles.surveyMoreLabel}
+            >{`더보기 (+${hiddenCount})`}</Text>
+          </Pressable>
+        ) : null}
       </View>
       {errorText ? (
         <Text style={styles.surveyErrorText}>{errorText}</Text>
@@ -405,10 +418,17 @@ function QuickRepliesPartView({
   onQuickReplySelect?: (message: string, choiceId?: string) => void;
 }) {
   const [didChoose, setDidChoose] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   if (didChoose) {
     return null;
   }
+
+  const shouldCollapse = part.choices.length > MAX_VISIBLE_QUICK && !isExpanded;
+  const visibleChoices = shouldCollapse
+    ? part.choices.slice(0, MAX_VISIBLE_QUICK)
+    : part.choices;
+  const hiddenCount = part.choices.length - MAX_VISIBLE_QUICK;
 
   return (
     <View style={styles.quickRepliesWrapper}>
@@ -416,7 +436,7 @@ function QuickRepliesPartView({
         <Text style={styles.quickRepliesTitle}>{part.title}</Text>
       ) : null}
       <View style={styles.quickRepliesRow}>
-        {part.choices.map((choice) => (
+        {visibleChoices.map((choice) => (
           <Pressable
             key={choice.id}
             style={({ pressed }) => [
@@ -430,11 +450,23 @@ function QuickRepliesPartView({
             accessibilityRole="button"
             accessibilityLabel={choice.label}
           >
-            <Text style={styles.quickReplyLabel}>
+            <Text numberOfLines={2} style={styles.quickReplyLabel}>
               {resolveQuickReplyDisplayLabel(choice.label)}
             </Text>
           </Pressable>
         ))}
+        {shouldCollapse ? (
+          <Pressable
+            style={styles.quickReplyMorePill}
+            onPress={() => setIsExpanded(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`더보기 (+${hiddenCount})`}
+          >
+            <Text style={styles.quickReplyLabel}>
+              {`더보기 (+${hiddenCount})`}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -529,6 +561,8 @@ export function ChatPartRenderer({
 
 const CAROUSEL_CARD_WIDTH = 240;
 const CHAT_IMAGE_WIDTH = space.xxxl * 5;
+const MAX_VISIBLE_SURVEY_CHOICES = 3;
+const MAX_VISIBLE_QUICK = 4;
 
 // ─── Styles ───────────────────────────────────────────────
 

@@ -45,7 +45,7 @@ export default function TabsLayout() {
   if (isRestoringSession || !currentUser) return null;
 
   return (
-    <Tabs screenOptions={tabsScreenOptions}>
+    <Tabs screenOptions={{ ...tabsScreenOptions, ...androidTabBarStyle }}>
       {PATIENT_TABS.map((tab) => (
         <Tabs.Screen
           key={tab.key}

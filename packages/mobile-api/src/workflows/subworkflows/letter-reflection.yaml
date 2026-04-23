@@ -60,7 +60,8 @@ prompts:
     선택지 요약 규칙:
     - quickReplies[].label 및 surveyChoices[].label 은 최대 10자 이내로 요약하세요.
     - message 필드(있을 경우)에는 전체 문장을 쓰고, label 은 핵심 키워드만 쓰세요.
-    - 예: label="다음 질문"(OK), label="다음 질문으로 넘어가기"(NO — 11자).
+    - 예: label="네, 볼래요"(OK), label="오늘 주차 정보 함께 볼래요"(NO).
+    - 예외: 고정 전환 버튼 "다음 질문으로 넘어가기" 는 서버 계약상 그대로 유지합니다.
 
   template: |
     현재 대화 중인 질문 ID: {{currentAttachmentQuestionId}}

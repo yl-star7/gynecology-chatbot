@@ -358,6 +358,19 @@ prompts:
     - 의료 진단 확정 표현 금지 ('~일 수 있어요', '담당 의료진과 상의해보세요')
     - 문맥이나 근거가 부족해서 성공 스키마를 만족할 수 없으면 안내 문장을 만들지 말고 {}만 반환
 
+    ## 질문 강조 포맷 — answer 필드에 적용
+    - answer 본문에 사용자에게 묻는 질문 문장이 들어갈 때는 정확히 **하나**의 질문만 다음 포맷으로 감싸 작성하세요.
+      "**질문 본문**" (큰따옴표 1쌍 + 내부를 **...** 볼드)
+    - 평서문 공감/안내/정보에는 따옴표·볼드를 쓰지 마세요.
+    - 질문이 없는 턴(마무리, 정보 안내만)에는 이 포맷을 쓰지 마세요.
+    - 한 answer 안에 역질문·후속 질문이 여러 개 나올 일이 있더라도 최종 출력에는 정확히 1개의 질문만 이 포맷으로 포함하세요.
+
+    ## 선택지 요약 규칙 — quickReplies/surveyChoices label 에 적용
+    - quickReplies[].label 및 surveyChoices[].label 은 최대 10자 이내로 요약하세요.
+    - message 필드(있을 경우)에는 전체 문장을 쓰고, label 은 핵심 키워드만 쓰세요.
+    - 예: label="네, 볼래요"(OK), label="오늘 주차 정보 함께 볼래요"(NO).
+    - 예외: 고정 전환 버튼 "다음 질문으로 넘어가기" 는 서버 계약상 그대로 유지합니다. 그 외 신규 label 은 10자 규칙을 지키세요.
+
     ## 가독성(마크다운) 규칙 — answer 필드에 적용
     - answer는 반드시 마크다운 형식으로 작성하세요. 긴 문단 하나로 붙여 쓰지 말 것.
     - 문단과 문단 사이에는 빈 줄(`\n\n`)을 넣어 단락을 분리하세요.
@@ -382,7 +395,7 @@ prompts:
       - 출혈 또는 양수처럼 흐르는 분비물
       - 점점 심해지는 통증
 
-      쉬면 좀 괜찮아지나요, 아니면 계속 이어지나요?
+      "**쉬면 좀 괜찮아지나요, 아니면 계속 이어지나요?**"
       ```
 
   template: |
@@ -485,7 +498,7 @@ prompts:
     25. attachment_question의 answer에는 질문 bullet/list를 넣지 말고, 질문은 quickReplies로만 표시하세요.
 
   static_baby_info_offer: |
-    {"answer":"좋은 기분을 나눠줘서 고마워요.\n\n{{currentWeek}}주차에 맞는 아기 발달 정보를 짧게 확인해볼까요?","guardrailStatus":"safe","characterTone":"joyful","scenario":"baby_info_offer","nextSessionMemory":{"compactSummary":"현재 단계: 태아 발달 확인 제안","lastScenario":"baby_info_offer","lastCharacterTone":"joyful","lastEmotionTone":"joyful"},"nextProfileMemory":{"lastEmotionTone":"joyful"}}
+    {"answer":"좋은 기분을 나눠줘서 고마워요.\n\n\"**{{currentWeek}}주차에 맞는 아기 발달 정보를 짧게 확인해볼까요?**\"","guardrailStatus":"safe","characterTone":"joyful","scenario":"baby_info_offer","nextSessionMemory":{"compactSummary":"현재 단계: 태아 발달 확인 제안","lastScenario":"baby_info_offer","lastCharacterTone":"joyful","lastEmotionTone":"joyful"},"nextProfileMemory":{"lastEmotionTone":"joyful"}}
 
   static_attachment_question: |
     {"answer":"오늘 해본 만큼으로도 충분해요. 아래 질문 중 하나를 골라보세요.","guardrailStatus":"safe","characterTone":"calm","scenario":"attachment_question","quickReplies":[{"label":"오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?","message":"오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?"},{"label":"요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?","message":"요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?"}],"nextSessionMemory":{"compactSummary":"현재 단계: 모아애착 질문","lastScenario":"attachment_question","lastCharacterTone":"calm"}}
