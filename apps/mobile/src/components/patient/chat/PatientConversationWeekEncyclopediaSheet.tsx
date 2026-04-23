@@ -11,6 +11,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card, Pressable } from "../../ui";
 import {
   palette,
@@ -44,10 +45,14 @@ export function PatientConversationWeekEncyclopediaSheet({
 }) {
   const { surface: activeSurface } = useMobileTheme();
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isCompact = model.sections.length === 0;
-  const defaultSheetHeight = Math.round(height * (isCompact ? 0.42 : 0.64));
-  const minSheetHeight = Math.round(height * (isCompact ? 0.32 : 0.42));
-  const maxSheetHeight = Math.round(height * 0.86);
+  const usableHeight = height - insets.top;
+  const defaultSheetHeight = Math.round(
+    usableHeight * (isCompact ? 0.42 : 0.64),
+  );
+  const minSheetHeight = Math.round(usableHeight * (isCompact ? 0.32 : 0.42));
+  const maxSheetHeight = Math.round(usableHeight * 0.86);
   const [sheetHeight, setSheetHeight] = useState(defaultSheetHeight);
   const sheetHeightRef = useRef(defaultSheetHeight);
   const dragStartHeightRef = useRef(defaultSheetHeight);
@@ -115,6 +120,7 @@ export function PatientConversationWeekEncyclopediaSheet({
             styles.sheet,
             {
               height: sheetHeight,
+              paddingBottom: Math.max(insets.bottom, space.md),
             },
           ]}
         >

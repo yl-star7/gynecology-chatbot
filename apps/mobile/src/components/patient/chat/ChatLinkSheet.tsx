@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { LinkTargetContent } from "@gynecology-chatbot/app-core";
 import {
   palette,
@@ -51,6 +52,7 @@ export function ChatLinkSheet({
   onOpenFullView?: (target: string, entityId?: string) => void;
 }) {
   const { surface: activeSurface } = useMobileTheme();
+  const insets = useSafeAreaInsets();
   const [content, setContent] = useState<LinkTargetContent | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -179,7 +181,13 @@ export function ChatLinkSheet({
           onPress={onClose}
         />
         <Animated.View
-          style={[styles.sheet, { transform: [{ translateY }] }]}
+          style={[
+            styles.sheet,
+            {
+              transform: [{ translateY }],
+              paddingBottom: Math.max(insets.bottom, space.lg),
+            },
+          ]}
         >
           <View style={styles.dragZone} {...panResponder.panHandlers}>
             <View style={styles.handle} />
