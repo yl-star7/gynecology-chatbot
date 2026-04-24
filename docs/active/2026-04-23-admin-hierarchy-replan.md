@@ -18,7 +18,9 @@
 
 본 문서는 **구현을 수행하지 않고** 현재 상태 진단, 새 IA 제안, 단계별 마이그레이션 절차, 남은 결정 사항, 회귀 위험만 정리합니다. 승인 후 별도 task로 구현합니다.
 
-**2026-04-24 개정 요지**: 콘텐츠 분류를 "라벨 다른 탭 4개"에서 **단일 `content_items` 버킷 + 네임스페이스 태그**로 전환합니다. 주차·지식·RAG·사전·기분 변주 등 모든 정적 콘텐츠가 하나의 테이블을 공유하고, 기존 탭은 태그 프리셋 필터 뷰로 재해석합니다. §2.4가 새로 추가된 핵심 섹션입니다.
+**2026-04-24 개정 요지 (v1)**: 콘텐츠 분류를 "라벨 다른 탭 4개"에서 **단일 `content_items` 버킷 + 네임스페이스 태그**로 전환합니다.
+
+**2026-04-24 개정 요지 (v2, 후속 정정)**: §2.4의 단일 버킷 설계를 **DB 스키마 신설**이 아닌 **Schift 벡터스토어 metadata 태그 일원화**로 재해석합니다. 기존 Postgres 테이블(`content_pregnancy_documents`, `content_knowledge_items`, `content_pregnancy_week_data` 등)은 **그대로 유지**합니다. Admin UI의 "통합 필터" 경험은 Schift 질의 또는 기존 테이블 union-view로 합성하며, DB 마이그레이션은 본 계획에서 제외합니다. §2.4 및 §3 Step 2.5가 이 방향으로 재작성 대상입니다 (v1 DB 설계는 §부록 C로 보존).
 
 ---
 
@@ -274,9 +276,64 @@ Admin UI에서의 노출: `AdminWorkflowEditorAdapter.tsx`에서 **별도 편집
 | 스토리지 일원화 | #7 | `/admin/assets/settings` | 스토리지는 바이너리 저장소 관심사. 독립 섹션으로 분리해야 버킷/권한/quota 감사가 가능. |
 | 이미지 설정 분리 | #2 (관련) | `/admin/assets/images` (목록) + 주차별 overlay(편집) 유지 | 주차별 컨텍스트에서 이미지를 교체하는 플로우는 유지하되, "어떤 이미지가 어디 버킷에 있는지"는 자산 섹션에서 본다. 이중 진입을 허용해야 자산 감사가 가능. |
 
-### 2.4 단일 콘텐츠 버킷 + 태그 모델 (핵심)
+### 2.4 Schift 컬렉션 일원화 + metadata 태그 (핵심, v2 정정)
 
-현재 `content_pregnancy_documents` / `content_knowledge_items` / `content_pregnancy_week_data` / `system_config(home_copy)` 가 각각 별도 테이블입니다. 본 개정에서는 이들을 **단일 `content_items` 테이블**로 통합하고, 분류·필터링·프리셋 뷰는 전부 **네임스페이스 태그**로 표현합니다.
+**v2 정정**: 당초 v1은 Postgres에 `content_items`/`tags`/`content_tags` 3 테이블을 신설해 DB 레벨 통합을 제안했습니다. 실제 유저 의도는 **Schift 벡터스토어 내부 단일 컬렉션 + metadata tag**이며, 관계형 DB는 건드리지 않습니다. 아래는 v2 기준 재설계입니다.
+
+현재 Schift는 RAG/지식/주차 등 소스별로 **여러 컬렉션** 또는 혼재된 metadata로 ingest되어 있어, Admin이 "전체 콘텐츠 통합 필터" 뷰를 제공하기 어렵습니다. 이를 다음과 같이 정리합니다.
+
+#### 2.4.1 단일 Schift 컬렉션
+
+- 컬렉션 명(제안): `gynecology_content`
+- 소스(기존 Postgres 테이블)는 그대로 유지하되, **ingestion 파이프라인에서 단일 컬렉션으로 upsert**.
+- 각 document에 **metadata tags 배열** 부여.
+
+예시 metadata:
+```json
+{
+  "source_table": "content_pregnancy_documents",
+  "source_id": "...",
+  "tags": ["surface:rag", "week:18", "topic:nutrition", "lang:ko"]
+}
+```
+
+#### 2.4.2 네임스페이스 표준 (그대로 유효)
+
+`week` / `surface` / `topic` / `mood` / `scenario` / `lang` 6종은 그대로 유지합니다. 상세 value 집합은 별도 문서 `docs/active/2026-04-24-tag-namespaces-proposal.md`에 정리되어 있으며, v2에서는 **해당 값이 Schift metadata의 문자열 tag로 부여됨**을 전제로 재해석합니다. DB 테이블은 없습니다.
+
+#### 2.4.3 기존 Postgres 테이블 역할
+
+| 테이블 | 역할 | Schift 태그 |
+|---|---|---|
+| `content_pregnancy_documents` | RAG 원본 저장 (유지) | `surface:rag` + `week:N?` + `topic:?` |
+| `content_knowledge_items` | 안내문 원본 (유지) | `surface:note` + `week:N` + `topic:?` |
+| `content_pregnancy_week_data` + `day_contents` + `week_checklists` + `week_questions` + `week_media` | 주차 콘텐츠 원본 (유지, 관계형 유지 중요 — `docs/active/2026-04-24-week-structure-decision.md` 참조) | `surface:week*` + `week:N` |
+| `system_config.home_copy` | 홈 문구 (유지, 비 RAG — Schift ingest 불필요할 수 있음) | — |
+
+→ **DB 마이그레이션 없음**. Postgres는 source-of-truth 유지, Schift는 검색 인덱스 + metadata filter.
+
+#### 2.4.4 Admin UI에서의 "통합 필터" 구현 두 옵션
+
+Admin이 "전체 콘텐츠 중 week=18 + topic=nutrition" 같이 조회하려면 Admin API가 데이터를 합성해야 합니다.
+
+**옵션 ①: Schift 질의 기반** — Schift에 tag filter로 질의하고, 반환된 `source_id`를 기반으로 Postgres에서 상세 행을 fetch. 장점: 단일 질의. 단점: Schift가 source-of-truth가 아님에도 "읽기 경로"가 Schift에 의존. Schift 장애 시 Admin도 영향.
+
+**옵션 ②: Postgres union-view** — Admin 전용 view `admin.v_content_all`을 만들어 기존 테이블을 UNION ALL + 공통 컬럼(title/body/status/virtual_tags)으로 프로젝션. 장점: Schift 독립. 단점: 각 테이블 변경 시 view 유지 비용.
+
+**권장**: **옵션 ②**. Admin UI는 기존 테이블에 직접 의존해야 장애 내성과 감사 편의가 좋습니다. Schift는 RAG 검색 경로에만 쓰이고, Admin 관리 화면은 Postgres union-view 기반.
+
+#### 2.4.5 신규 기능이 가는 곳
+
+| 신규 기능 | 저장 위치 | Schift 반영 |
+|---|---|---|
+| 기분별 변주 (#2) | 기존 `workflow_definitions.metadata.mood_variants` 또는 신규 작은 테이블 `content_mood_variants` | 필요 시 ingest (`surface:mood_variation`) |
+| 자유 검색 사전 (#6) | 신규 작은 테이블 `content_lexicon_entries` 또는 `system_config.lexicon` | ingest (`surface:lexicon`) |
+| 벡터스토어 일원화 (#7) | 본 §2.4 전체가 이 작업 | Schift 컬렉션 통합 |
+| 이미지/자산 | `content_pregnancy_week_media` 유지 (비 RAG) | ingest 제외 |
+
+#### 2.4.6 v1 DB 설계는 폐기
+
+§부록 C에 v1 설계(`content.content_items` / `content.tags` / `content.content_tags`)를 **폐기된 설계**로 보존합니다. 재검토 시 참고용.
 
 #### 2.4.1 테이블 스키마 (제안)
 
@@ -442,9 +499,32 @@ apps/web/src/components/admin/
 
 **리스크**: 중간. props drilling 경로가 바뀌므로 `useAdminContentState.ts`, `useAdminDashboardState.ts`의 상태 분배도 부분 재조정 필요.
 
-### Step 2.5. 단일 콘텐츠 버킷으로 데이터 모델 전환 (§2.4 기반)
+### Step 2.5. Schift 컬렉션 일원화 + metadata 태그 (§2.4 v2 기반)
 
-Step 1/2가 **UI 재배치만**이라면, 본 단계는 **DB 스키마 전환**입니다. UI는 건드리지 않고 내부 데이터 경로만 먼저 통합합니다.
+**v2 정정**: 본 단계는 **DB 스키마 전환이 아닙니다**. Postgres 테이블은 그대로 두고, **Schift 벡터스토어 ingestion 파이프라인만** 단일 컬렉션 + metadata 태그로 정리합니다.
+
+세부 절차:
+
+1. **Schift 컬렉션 생성**: `gynecology_content` (또는 기존 컬렉션 사용).
+2. **Ingestion 파이프라인 일원화**:
+   - 기존 ingest 스크립트/경로(`scripts/schift-*`, `scripts/sync-workflow-to-schift.ts` 등) 조사 후 단일 경로로 합류.
+   - 각 소스 테이블을 읽어 Schift에 upsert 시 **tags 배열 + source_table + source_id** metadata 추가.
+   - 네임스페이스 값 집합은 `docs/active/2026-04-24-tag-namespaces-proposal.md` 준수.
+3. **재인덱싱 런**: 기존 ingest된 document들을 신규 metadata로 덮어쓰기. Schift SDK의 upsert-by-id 활용.
+4. **Admin 통합 뷰** (§2.4.4 옵션 ② 권장):
+   - Postgres `admin.v_content_all` view 생성 — 기존 4개 소스를 UNION ALL + 공통 컬럼 투영.
+   - view에 virtual_tags 컬럼(파생): source_table + week_number + topic 등으로 계산.
+   - Admin UI 필터는 이 view를 쿼리.
+5. **모바일 런타임 무변경**: 기존 RAG 경로는 Schift 질의 시 metadata filter로 `surface:rag` 등을 조건 추가하는 정도의 소폭 변경만.
+
+완료 판정:
+- Schift 컬렉션이 통합 metadata로 재ingest됨.
+- Admin UI에서 `admin.v_content_all` 기반 필터링 동작.
+- 모바일 API / 앱은 변경 없이 기존대로 동작.
+
+리스크: 중간. DB는 view 추가만. Schift 재인덱싱이 시간·비용 소요(기존 임베딩 재사용 가능하면 낮음). 롤백은 신규 metadata만 제거하면 됨.
+
+**v1 DB 설계는 폐기** — §부록 C 참조.
 
 **세부 절차**:
 
@@ -703,3 +783,25 @@ Step 4.3 (assets) — Step 2 이후 아무때나
 ## 부록 B — Task 상태
 
 TaskList #4 "ADMIN 쪽에서 시각화(hierarchy)가 안맞는 것 재구성 계획 수립" — **완료** (본 문서로 산출).
+
+## 부록 C — 폐기된 v1 DB 설계 (참고용)
+
+v1(2026-04-24 오전)에 제안했던 `content.content_items` + `content.tags` + `content.content_tags` 3 테이블 설계는 **유저 의도와 다름**(유저는 Schift 내부 tag를 의미)으로 폐기됐습니다. 본 설계는 재검토가 필요할 경우(예: 장기적으로 Postgres 레벨 통합이 필요해질 때)의 참고 자료로만 보존합니다.
+
+설계 요지:
+- `content.content_items (id, title, body_md, status, metadata jsonb, embedding, search_tokens)`
+- `content.tags (id, namespace, value, display_label)` — 네임스페이스 6종
+- `content.content_tags (content_id, tag_id)` — N:M
+- 기존 4개 테이블 → 단일 버킷 매핑, 호환 view로 모바일 API 인터페이스 유지
+- Step 2.5 5단계 마이그레이션 (스키마 → 덤프 → view 교체 → 어댑터 전환 → freeze)
+
+폐기 사유:
+- 유저 명시: "tag는 schift 내부의 tag를 말한건데" (2026-04-24 세션 대화)
+- DB 마이그레이션은 회귀 위험이 크고, Schift metadata로 해결 가능한 문제에 과한 변경.
+
+v2 재설계는 §2.4 본문 참조.
+
+## 부록 D — 파생 문서 상태
+
+- `docs/active/2026-04-24-tag-namespaces-proposal.md` — **여전히 유효**. v2에서는 Schift metadata tag 값 집합으로 재해석.
+- `docs/active/2026-04-24-week-structure-decision.md` — **대부분 무효**. DB 마이그레이션이 없으므로 "주차 jsonb 저장 vs 테이블 분해" 논의는 사라짐. 단, 문서에 나온 "checklist/question row 기반 편집 경로" 분석은 현 Postgres 유지를 뒷받침하는 근거로 여전히 가치 있음.

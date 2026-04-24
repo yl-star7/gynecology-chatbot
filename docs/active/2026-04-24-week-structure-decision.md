@@ -1,9 +1,11 @@
 # 주차 콘텐츠 저장 구조 결정안
 
 작성일: 2026-04-24
-상태: 제안 (승인 대기)
-상위 문서: `docs/active/2026-04-23-admin-hierarchy-replan.md` §2.4.3, §4.8
+상태: **대부분 폐기 (v2 재해석)**
+상위 문서: `docs/active/2026-04-23-admin-hierarchy-replan.md` §2.4 (v2), §4.8
 결정 사항: `content_items.metadata` 에 Day/Section jsonb 트리로 저장(A) vs 별도 테이블 분해 유지(B) vs 하이브리드(C) 중 택일
+
+> **v2 정정 (2026-04-24 후반)**: DB 마이그레이션(`content_items` 신설)이 전제에서 빠졌으므로 본 문서의 A/B/C 비교는 의미가 없어졌습니다. **현 Postgres 주차 스키마는 그대로 유지**합니다. 본 문서에서 수집된 "checklist/question row 기반 편집 경로 분석"은 현 구조 유지의 근거로 유효하며, 후속 결정(Schift ingest 단위 등)에 참고만 하세요.
 
 ---
 

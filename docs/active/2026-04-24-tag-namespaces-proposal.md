@@ -1,9 +1,11 @@
 # 태그 네임스페이스 초안
 
 작성일: 2026-04-24
-상태: 제안 (승인 대기)
-상위 문서: `docs/active/2026-04-23-admin-hierarchy-replan.md` §2.4.2, §4.7
+상태: 제안 (승인 대기) — **v2 재해석 적용**
+상위 문서: `docs/active/2026-04-23-admin-hierarchy-replan.md` §2.4 (v2), §4.7
 관련 TaskList: #5 — 태그 네임스페이스 확정
+
+> **v2 정정 (2026-04-24 후반)**: 본 문서의 네임스페이스·value 집합은 유효합니다. 단, **Postgres `content.tags` 테이블 시드**가 아니라 **Schift 벡터스토어 document metadata의 tag 문자열**로 쓰입니다. 예: `["surface:rag", "week:18", "topic:nutrition"]`. 문서 하단 시드 SQL 섹션은 폐기 상태이며, 네임스페이스 value 집합만 참고하세요.
 
 ---
 
