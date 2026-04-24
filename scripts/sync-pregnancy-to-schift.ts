@@ -21,7 +21,7 @@ import { Schift } from "@schift-io/sdk";
 
 const SCHIFT_API_KEY = process.env.SCHIFT_API_KEY;
 const DATABASE_URL = process.env.DATABASE_URL;
-const BUCKET_RAW = "pregnancy-raw";
+// 단일 버킷 운영 — 원본 docx 는 surface=archive 태그로 구분, 검색 경로에선 필터.
 const BUCKET_KNOWLEDGE = "pregnancy-knowledge";
 const DRY_RUN = process.env.DRY_RUN === "1";
 const RAW_DOCX_PATH =
@@ -265,7 +265,7 @@ async function main() {
         active_job_count?: number;
       }>;
       console.log("\n[pre-upload bucket state]");
-      for (const name of [BUCKET_RAW, BUCKET_KNOWLEDGE]) {
+      for (const name of [BUCKET_KNOWLEDGE]) {
         const b = buckets.find((x) => x.name === name);
         if (b) {
           console.log(
@@ -298,7 +298,7 @@ async function main() {
     return;
   }
 
-  // --- 1) Upload raw docx to pregnancy-raw bucket ---
+  // --- 1) Upload raw docx into the unified pregnancy-knowledge bucket with archive tag ---
   try {
     const fs = await import("fs");
     if (fs.existsSync(RAW_DOCX_PATH)) {
@@ -314,12 +314,15 @@ async function main() {
           type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         },
       );
-      console.log(`\nUploading raw docx to "${BUCKET_RAW}"...`);
-      const rawResult = await schift.db.upload(BUCKET_RAW, {
+      console.log(
+        `\nUploading raw docx to "${BUCKET_KNOWLEDGE}" (surface=archive)...`,
+      );
+      const rawResult = await schift.db.upload(BUCKET_KNOWLEDGE, {
         files: [rawFile],
+        metadata: { surface: "archive", lang: "ko" },
       });
       console.log(
-        `  ✓ Raw bucket: ${rawResult.bucket_name}, uploaded: ${(rawResult.uploaded as unknown[]).length}`,
+        `  ✓ Archive uploaded: ${rawResult.bucket_name}, files: ${(rawResult.uploaded as unknown[]).length}`,
       );
     } else {
       console.log(

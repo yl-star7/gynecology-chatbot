@@ -109,7 +109,10 @@ async function searchViaSchift(
   ]);
 
   const results = normalizeSchiftSearchResults(response);
-  const enabledResults = results.filter(
+  const searchableResults = results.filter(
+    (result) => result.metadata?.surface !== "archive",
+  );
+  const enabledResults = searchableResults.filter(
     (result) => !isResultFromDisabledFile(result, disabledIds),
   );
   const weekFilteredResults = enabledResults.filter((result) =>
@@ -234,8 +237,11 @@ export async function searchFileRag(input: {
     ]);
 
     const results = normalizeSchiftSearchResults(response);
+    const searchableResults = results.filter(
+      (r) => r.metadata?.surface !== "archive",
+    );
 
-    const enabledResults = results.filter(
+    const enabledResults = searchableResults.filter(
       (r) => !isResultFromDisabledFile(r, disabledIds),
     );
     const weekFilteredResults = enabledResults.filter((r) =>
