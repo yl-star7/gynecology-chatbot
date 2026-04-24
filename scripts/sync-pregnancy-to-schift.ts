@@ -189,31 +189,65 @@ async function main() {
     `  Weeks: ${weeks.length}, Days: ${days.length}, Checklists: ${checklists.length}, Questions: ${questions.length}`,
   );
 
-  // Build structured text files for knowledge bucket
-  const knowledgeFiles: File[] = [];
+  // Build structured text files for knowledge bucket — grouped per week
+  // so each upload call can share a single metadata payload.
+  type UploadGroup = {
+    files: File[];
+    metadata: Record<string, string>;
+  };
+  const uploadGroups: UploadGroup[] = [];
 
   for (const week of weeks) {
     const content = buildWeekDocument(week);
     const blob = new Blob([content], { type: "text/plain" });
-    knowledgeFiles.push(
-      new File([blob], `week-${week.week_number}-overview.txt`, {
-        type: "text/plain",
-      }),
-    );
+    uploadGroups.push({
+      files: [
+        new File([blob], `week-${week.week_number}-overview.txt`, {
+          type: "text/plain",
+        }),
+      ],
+      metadata: {
+        surface: "week_overview",
+        week: String(week.week_number),
+        lang: "ko",
+      },
+    });
   }
 
+  // Day contents: one group per week (days 1..7 share week metadata).
+  const daysByWeek = new Map<number, DayRow[]>();
   for (const day of days) {
-    const content = buildDayDocument(day, checklists, questions);
-    const blob = new Blob([content], { type: "text/plain" });
-    knowledgeFiles.push(
-      new File([blob], `week-${day.week_number}-day-${day.day_number}.txt`, {
-        type: "text/plain",
-      }),
-    );
+    const list = daysByWeek.get(day.week_number) ?? [];
+    list.push(day);
+    daysByWeek.set(day.week_number, list);
+  }
+  for (const [weekNumber, weekDays] of daysByWeek) {
+    const files: File[] = [];
+    for (const day of weekDays) {
+      const content = buildDayDocument(day, checklists, questions);
+      const blob = new Blob([content], { type: "text/plain" });
+      files.push(
+        new File([blob], `week-${weekNumber}-day-${day.day_number}.txt`, {
+          type: "text/plain",
+        }),
+      );
+    }
+    uploadGroups.push({
+      files,
+      metadata: {
+        surface: "week_day",
+        week: String(weekNumber),
+        lang: "ko",
+      },
+    });
   }
 
+  const knowledgeFileCount = uploadGroups.reduce(
+    (sum, group) => sum + group.files.length,
+    0,
+  );
   console.log(
-    `Built ${knowledgeFiles.length} text documents for knowledge bucket`,
+    `Built ${knowledgeFileCount} text documents in ${uploadGroups.length} metadata groups for knowledge bucket`,
   );
 
   const schift = new Schift({ apiKey: SCHIFT_API_KEY });
@@ -253,8 +287,13 @@ async function main() {
 
   if (DRY_RUN) {
     console.log(
-      `\nDRY_RUN=1 — 업로드 생략. raw docx=${RAW_DOCX_PATH} (exists=${(await import("fs")).existsSync(RAW_DOCX_PATH)}), knowledge 문서=${knowledgeFiles.length}개 준비됨.`,
+      `\nDRY_RUN=1 — 업로드 생략. raw docx=${RAW_DOCX_PATH} (exists=${(await import("fs")).existsSync(RAW_DOCX_PATH)}), knowledge 문서=${knowledgeFileCount}개 (${uploadGroups.length} groups) 준비됨.`,
     );
+    for (const group of uploadGroups.slice(0, 3)) {
+      console.log(
+        `  sample metadata: ${JSON.stringify(group.metadata)} × ${group.files.length} files`,
+      );
+    }
     await pool.end();
     return;
   }
@@ -293,28 +332,28 @@ async function main() {
   }
 
   // --- 2) Upload structured documents to pregnancy-knowledge bucket ---
+  // 각 group 은 metadata 를 공유하므로 group 단위로 upload 호출.
   console.log(
-    `\nUploading ${knowledgeFiles.length} documents to "${BUCKET_KNOWLEDGE}"...`,
+    `\nUploading ${knowledgeFileCount} documents (${uploadGroups.length} groups) to "${BUCKET_KNOWLEDGE}"...`,
   );
-  const BATCH_SIZE = 10;
   let uploaded = 0;
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-  for (let i = 0; i < knowledgeFiles.length; i += BATCH_SIZE) {
-    const batch = knowledgeFiles.slice(i, i + BATCH_SIZE);
-    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-    const totalBatches = Math.ceil(knowledgeFiles.length / BATCH_SIZE);
+  for (let idx = 0; idx < uploadGroups.length; idx++) {
+    const group = uploadGroups[idx];
+    const label = `${group.metadata.surface}:week=${group.metadata.week}`;
     console.log(
-      `  Batch ${batchNum}/${totalBatches} (${batch.length} files)...`,
+      `  Group ${idx + 1}/${uploadGroups.length} [${label}] (${group.files.length} files)...`,
     );
 
     let retries = 3;
     while (retries > 0) {
       try {
         const result = await schift.db.upload(BUCKET_KNOWLEDGE, {
-          files: batch,
+          files: group.files,
+          metadata: group.metadata,
         });
-        uploaded += batch.length;
+        uploaded += group.files.length;
         console.log(`    ✓ uploaded: ${(result.uploaded as unknown[]).length}`);
         break;
       } catch (e) {
@@ -326,20 +365,20 @@ async function main() {
           );
           await sleep(10000);
         } else {
-          console.error(`    ✗ Batch upload failed:`, msg);
+          console.error(`    ✗ Group upload failed:`, msg);
           break;
         }
       }
     }
 
-    // Pause between batches to avoid rate limits
-    if (i + BATCH_SIZE < knowledgeFiles.length) {
+    // Pause between groups to avoid rate limits
+    if (idx + 1 < uploadGroups.length) {
       await sleep(3000);
     }
   }
 
   console.log(
-    `\nDone! Uploaded ${uploaded}/${knowledgeFiles.length} documents to "${BUCKET_KNOWLEDGE}"`,
+    `\nDone! Uploaded ${uploaded}/${knowledgeFileCount} documents to "${BUCKET_KNOWLEDGE}"`,
   );
 
   await pool.end();

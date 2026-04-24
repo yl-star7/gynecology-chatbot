@@ -47,10 +47,25 @@ async function main() {
       type: MIME,
     });
 
+    // 파일명 앞부분 숫자를 주차로 해석 (예: "18주차.docx" → week=18).
+    const weekMatch = /^(\d{1,2})/.exec(filename);
+    const metadata: Record<string, string> = {
+      surface: "rag",
+      lang: "ko",
+    };
+    if (weekMatch) {
+      metadata.week = weekMatch[1];
+    }
+
     try {
-      const result = await schift.db.upload(COLLECTION, { files: [file] });
+      const result = await schift.db.upload(COLLECTION, {
+        files: [file],
+        metadata,
+      });
       uploaded++;
-      console.log(`  ✓ ${filename} (${(buf.length / 1024).toFixed(1)}KB)`);
+      console.log(
+        `  ✓ ${filename} (${(buf.length / 1024).toFixed(1)}KB) tags=${JSON.stringify(metadata)}`,
+      );
       // Rate limit 방지: 파일 간 3초 대기
       await new Promise((r) => setTimeout(r, 3000));
     } catch (e: any) {
@@ -59,7 +74,10 @@ async function main() {
         await new Promise((r) => setTimeout(r, 30000));
         // 재시도
         try {
-          const retry = await schift.db.upload(COLLECTION, { files: [file] });
+          const retry = await schift.db.upload(COLLECTION, {
+            files: [file],
+            metadata,
+          });
           uploaded++;
           console.log(`  ✓ ${filename} (retry OK)`);
         } catch (e2: any) {
