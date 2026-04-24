@@ -1,6 +1,7 @@
 # Admin 콘솔 계층 재구성 계획
 
 작성일: 2026-04-23
+개정: 2026-04-24 (§2.1, §2.2, §2.4, §3 — 단일 콘텐츠 버킷 + 태그 모델 반영)
 상태: 제안 (구현 전)
 작성자: architect-reviewer
 관련 이슈: TaskList #4 — "ADMIN 쪽에서 시각화(hierarchy)가 안맞는 것 재구성"
@@ -16,6 +17,8 @@
 3. 유저가 요청한 신규 기능(기분별 응답 변주, 자유 검색 사전, 스토리지 일원화, 이미지 설정 분리)은 현재 IA에서 자연스럽게 들어갈 자리가 없습니다.
 
 본 문서는 **구현을 수행하지 않고** 현재 상태 진단, 새 IA 제안, 단계별 마이그레이션 절차, 남은 결정 사항, 회귀 위험만 정리합니다. 승인 후 별도 task로 구현합니다.
+
+**2026-04-24 개정 요지**: 콘텐츠 분류를 "라벨 다른 탭 4개"에서 **단일 `content_items` 버킷 + 네임스페이스 태그**로 전환합니다. 주차·지식·RAG·사전·기분 변주 등 모든 정적 콘텐츠가 하나의 테이블을 공유하고, 기존 탭은 태그 프리셋 필터 뷰로 재해석합니다. §2.4가 새로 추가된 핵심 섹션입니다.
 
 ---
 
@@ -179,20 +182,21 @@ Admin UI에서의 노출: `AdminWorkflowEditorAdapter.tsx`에서 **별도 편집
 
 ### 2.1 최상위 구조 (추천)
 
-현재 5개 최상위에서 **6개**로 확장합니다. "콘텐츠"를 분해하여 관심사(편집 대상의 성격)별로 나눕니다.
+현재 5개 최상위에서 **6개**로 확장합니다. "콘텐츠"를 분해하되, **§2.4 단일 버킷 + 태그 모델**을 전제로 하여 하위 탭은 별도 라우트가 아니라 **태그 프리셋 필터 뷰**로 구현합니다.
 
 ```
-대시보드            /admin/dashboard       (현 "운영 상태"의 대시보드 부분)
-사용자 관리         /admin/users           (현 "계정")
-콘텐츠              /admin/content         (순수 콘텐츠 CMS만 남김)
-  ├─ 주차별         /admin/content/weeks
-  ├─ 지식 안내문    /admin/content/notes    (현 static에서 홈카피 분리 후)
-  ├─ RAG 참조 문서  /admin/content/rag      (현 documents)
-  └─ 자유 검색 사전 /admin/content/lexicon  (신규, 유저 #6)
+대시보드            /admin/dashboard        (현 "운영 상태"의 대시보드 부분)
+사용자 관리         /admin/users            (현 "계정")
+콘텐츠              /admin/content          (단일 테이블 + 태그 필터)
+  ├─ 전체           /admin/content           (태그 필터 없음)
+  ├─ 주차별         /admin/content?tag=week  (namespace=week 프리셋)
+  ├─ 지식 안내문    /admin/content?tag=note  (namespace=surface, value=note)
+  ├─ RAG 참조       /admin/content?tag=rag   (namespace=surface, value=rag)
+  └─ 자유 검색 사전 /admin/content?tag=lexicon (namespace=surface, value=lexicon)
 대화 엔진           /admin/engine           (신규 대분류)
-  ├─ 워크플로우     /admin/engine/workflows (현 policies)
-  ├─ 기분별 변주    /admin/engine/moods     (신규, 유저 #2)
-  └─ 홈/프롬프트 문구 /admin/engine/copy    (현 static의 홈카피)
+  ├─ 워크플로우     /admin/engine/workflows  (현 policies)
+  ├─ 기분별 변주    /admin/engine/moods      (namespace=mood 태그 관리 + content 링크)
+  └─ 홈/프롬프트 문구 /admin/engine/copy     (namespace=surface, value=home_copy)
 자산                /admin/assets           (신규 대분류, 유저 #7)
   ├─ 이미지         /admin/assets/images
   ├─ 업로드 원본    /admin/assets/uploads
@@ -201,6 +205,8 @@ Admin UI에서의 노출: `AdminWorkflowEditorAdapter.tsx`에서 **별도 편집
   ├─ 모니터링       /admin/ops/monitoring
   └─ 감사 로그      /admin/ops/audit
 ```
+
+**핵심 변화**: `/admin/content` 하위는 **별도 페이지가 아니라 동일 페이지의 필터 프리셋**입니다. 북마크 URL은 쿼리스트링으로 인코딩되어 운영자가 "내가 주로 보는 필터"를 저장할 수 있습니다. 탭 UI는 사이드바 서브 항목 또는 본문 상단의 칩 필터로 구현합니다.
 
 #### 묶음 근거
 
@@ -225,12 +231,20 @@ Admin UI에서의 노출: `AdminWorkflowEditorAdapter.tsx`에서 **별도 편집
 
 #### 콘텐츠 (`/admin/content`)
 
-순수 콘텐츠 CMS. 편집 대상은 "사람이 읽는 정적 자료".
+순수 콘텐츠 CMS. 단일 `content_items` 테이블 + 태그 필터(§2.4).
 
-- **주차별** (`/admin/content/weeks`): 현재 `AdminWeeksSection.tsx` + `AdminWeekOverlay.tsx` 유지. 담당 데이터: `content_pregnancy_week_data`, `content_pregnancy_day_contents`, `content_week_checklists`, `content_week_questions`.
-- **지식 안내문** (`/admin/content/notes`): 현재 `AdminStaticSection.tsx`에서 **홈카피 부분을 제거**한 버전. 담당 데이터: `content_knowledge_items`만.
-- **RAG 참조 문서** (`/admin/content/rag`): 현재 `AdminDocumentsSection.tsx` 유지. 담당 데이터: `content_pregnancy_documents` (임베딩 포함).
-- **자유 검색 사전** (`/admin/content/lexicon`, 신규): 유저 요구 #6. 검색어 동의어/오타 매핑을 편집하는 CRUD. 초기에는 `system_config` JSON blob으로 저장 후 필요 시 별도 테이블 추출.
+- **메인 뷰**: 테이블 상단에 태그 칩 필터(`namespace:value` 형식). 좌측 사이드바에는 자주 쓰는 프리셋 링크.
+- **편집 오버레이**: row 클릭 시 wide overlay. 공통 필드(`title/body/status/metadata`) + **태그 멀티 셀렉트** + 타입별 확장 폼(namespace에 따라 다른 sub-form — 예: `surface=week`인 경우 Day/Section 입력, `surface=rag`인 경우 파일 업로드).
+- **프리셋 필터 뷰**:
+  - 주차별 (`?tag=week`): `namespace=week` 태그가 붙은 item만. 우측 overlay는 기존 `AdminWeekOverlay.tsx`의 Day × Section × Media 편집 폼을 재사용.
+  - 지식 안내문 (`?tag=note`): `surface=note` 태그. 기존 `content_knowledge_items` 데이터.
+  - RAG 참조 (`?tag=rag`): `surface=rag` 태그. 임베딩 소유 여부를 컬럼으로 노출.
+  - 자유 검색 사전 (`?tag=lexicon`): `surface=lexicon` 태그. 검색 동의어/오타 매핑을 각 row의 `metadata.aliases[]`로 저장.
+
+**이점**:
+- 공통 검색창 하나로 모든 콘텐츠 검색 가능 (현재는 탭마다 별도 검색).
+- 한 item에 여러 태그 부여 가능 (예: `week=18` + `topic=nutrition` + `mood=anxious`).
+- 신규 콘텐츠 타입(기분별 변주, 사전) 추가 시 새 네임스페이스 등록만으로 가능. UI/라우트 추가 불필요.
 
 #### 대화 엔진 (`/admin/engine`, 신규)
 
@@ -260,11 +274,127 @@ Admin UI에서의 노출: `AdminWorkflowEditorAdapter.tsx`에서 **별도 편집
 | 스토리지 일원화 | #7 | `/admin/assets/settings` | 스토리지는 바이너리 저장소 관심사. 독립 섹션으로 분리해야 버킷/권한/quota 감사가 가능. |
 | 이미지 설정 분리 | #2 (관련) | `/admin/assets/images` (목록) + 주차별 overlay(편집) 유지 | 주차별 컨텍스트에서 이미지를 교체하는 플로우는 유지하되, "어떤 이미지가 어디 버킷에 있는지"는 자산 섹션에서 본다. 이중 진입을 허용해야 자산 감사가 가능. |
 
+### 2.4 단일 콘텐츠 버킷 + 태그 모델 (핵심)
+
+현재 `content_pregnancy_documents` / `content_knowledge_items` / `content_pregnancy_week_data` / `system_config(home_copy)` 가 각각 별도 테이블입니다. 본 개정에서는 이들을 **단일 `content_items` 테이블**로 통합하고, 분류·필터링·프리셋 뷰는 전부 **네임스페이스 태그**로 표현합니다.
+
+#### 2.4.1 테이블 스키마 (제안)
+
+```sql
+-- 콘텐츠 단일 버킷
+create table content.content_items (
+  id               uuid primary key default gen_random_uuid(),
+  title            text not null,
+  body_md          text,
+  status           text not null default 'draft', -- draft | published | archived
+  metadata         jsonb not null default '{}',   -- 타입별 확장 필드 (Day/Section, 파일 URL, aliases 등)
+  embedding        vector(1536),                   -- RAG 대상만 채움 (null 허용)
+  search_tokens    tsvector,                       -- 전체 텍스트 검색
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now(),
+  created_by       uuid references public.users(id),
+  updated_by       uuid references public.users(id)
+);
+
+-- 태그 마스터 (네임스페이스 + value)
+create table content.tags (
+  id            uuid primary key default gen_random_uuid(),
+  namespace     text not null, -- 'week' | 'surface' | 'topic' | 'mood' | 'scenario' | 'lang' | ...
+  value         text not null, -- '18', 'rag', 'nutrition', 'anxious', 'baby_info_offer', 'ko', ...
+  display_label text,            -- 관리자 UI에 보이는 한글 라벨 (예: "18주차", "불안")
+  description   text,
+  unique (namespace, value)
+);
+
+-- N:M 연결
+create table content.content_tags (
+  content_id  uuid references content.content_items(id) on delete cascade,
+  tag_id      uuid references content.tags(id) on delete cascade,
+  primary key (content_id, tag_id)
+);
+
+create index on content.content_items using gin (metadata);
+create index on content.content_items using gin (search_tokens);
+create index on content.content_tags (tag_id);
+```
+
+#### 2.4.2 네임스페이스 표준 (초안)
+
+| namespace | 의미 | 예시 value | 적용 대상 |
+|---|---|---|---|
+| `week` | 임신 주차 | `1` ~ `40` | 주차별 콘텐츠 |
+| `surface` | 어느 화면/기능에서 쓰이는가 | `rag`, `note`, `home_copy`, `lexicon`, `week`, `mood_variation` | 전 콘텐츠 |
+| `topic` | 주제 분류 | `nutrition`, `symptom`, `attachment`, `mental` | 지식/RAG/사전 |
+| `mood` | 사용자 감정 | `calm`, `joyful`, `anxious`, `tired`, `sad` | 기분별 변주 |
+| `scenario` | 대화 시나리오 | `baby_info_offer`, `letter_reflection`, `attachment_question`, `general` | 변주/템플릿 |
+| `lang` | 언어 | `ko`, `en` (현재 전부 `ko`) | 전 콘텐츠 |
+
+한 row는 여러 태그를 가질 수 있습니다. 예: 18주차 RAG 문서는 `week=18 + surface=rag + topic=nutrition`. 불안한 산모를 위한 아기 정보 제안 변주는 `surface=mood_variation + mood=anxious + scenario=baby_info_offer`.
+
+#### 2.4.3 기존 테이블 매핑
+
+| 현재 테이블 | 단일 버킷 편입 시 태그 | `metadata` 구조 |
+|---|---|---|
+| `content_pregnancy_documents` | `surface=rag` (+ `week=N` if applicable) | `{ source_url, file_name, mime, image_url, chunk_index }` |
+| `content_knowledge_items` | `surface=note` + `week=N` + `topic=?` | `{ section, slug, image_url, cta_label }` |
+| `content_pregnancy_week_data` + `content_pregnancy_day_contents` | `surface=week` + `week=N` | `{ day_number, sections: [...], hero_image_path, compare_image_path }` (Day/Section 트리를 통째로 JSON) |
+| `content_week_checklists` | `surface=week_checklist` + `week=N` | `{ items: [{ label, required }] }` |
+| `content_week_questions` | `surface=week_question` + `week=N` | `{ question, options: [...], ordering }` |
+| `system_config.home_copy` | `surface=home_copy` | `{ placement, variant }` |
+| (신규) 기분별 변주 | `surface=mood_variation` + `mood=X` + `scenario=Y` | `{ prompt_suffix, tone }` |
+| (신규) 자유 검색 사전 | `surface=lexicon` | `{ term, aliases: [], misspellings: [] }` |
+
+주차별 콘텐츠의 Day × Section × Asset 3중 계층은 **row 분해 대신 `metadata` jsonb 트리**로 통째 저장 권장. 이유:
+- 편집이 "한 주차 단위"로 이루어지고, Day 단위로 검색/필터링할 실질적 수요가 적음
+- row 분해 시 UI 편집 경험이 현재보다 복잡해짐
+- 필요 시 나중에 별도 `content_week_days` 테이블로 추출 가능 (확장 가능)
+
+단, 첨부 미디어(`content_pregnancy_week_media`)는 **별도 테이블 유지**. 이미지 자산 감사(§2.2 자산 섹션)가 본질적으로 binary-oriented 조회이므로 통합 대상에서 제외.
+
+#### 2.4.4 벡터스토어 일원화 (유저 #7)
+
+- **단일 Schift 컬렉션** (예: `gynecology_content`)만 사용.
+- `content_items.embedding` 채워진 row를 Schift에 metadata 포함 업서트: `{ id, title, body_md, tags: ["surface:rag", "week:18", "topic:nutrition"] }`.
+- RAG 검색 시 Schift의 metadata filter로 태그 조합 전달:
+  - **자유 검색 사전(#6)**: 필터 없이 전체 대상.
+  - **주차별 사전**: `tags contains "week:18"` 필터.
+  - **기분 반영 응답**: `tags contains "mood:anxious"` boost.
+- 기존 두 벡터 경로(`rag_documents` 용 + `knowledge_items` 용 분리된 로직)는 단일 경로로 수렴.
+
+#### 2.4.5 호환성 유지 (점진 마이그레이션)
+
+기존 모바일 API / 백오피스 쿼리가 기존 테이블 이름으로 직접 읽는 곳이 있으므로, `content.content_items`를 소스로 하는 **호환 뷰**를 유지합니다:
+
+```sql
+create view public.published_knowledge_items as
+  select i.id, i.title, i.body_md as body, i.metadata->>'slug' as slug,
+         (select t.value::int from content.content_tags ct
+          join content.tags t on t.id = ct.tag_id
+          where ct.content_id = i.id and t.namespace = 'week' limit 1) as week_number,
+         i.metadata->>'section' as section
+  from content.content_items i
+  join content.content_tags ct on ct.content_id = i.id
+  join content.tags t on t.id = ct.tag_id
+  where t.namespace = 'surface' and t.value = 'note'
+    and i.status = 'published';
+```
+
+기존 `published_pregnancy_weeks`, `published_knowledge_items`, `v_pregnancy_day_contents` 등 CLAUDE.md에 명시된 뷰들을 전부 이 방식으로 재정의. **모바일 API는 바뀌지 않음** — 뷰 인터페이스가 동일하게 유지되기 때문.
+
+#### 2.4.6 Admin UI 이점 정리
+
+- **검색 일원화**: 상단 글로벌 검색이 모든 콘텐츠를 커버.
+- **크로스 태그 분석**: "18주차 + 불안 감정 변주"를 한 쿼리로 조회.
+- **신규 콘텐츠 타입 추가가 DB-free**: 네임스페이스 등록 → UI에서 자동 나열. 테이블/라우트 추가 없음.
+- **태그 네임스페이스는 뷰의 단위**: 운영자가 자기 워크플로우에 맞는 프리셋(태그 조합 + 컬럼 구성)을 저장할 수 있음.
+
 ---
 
 ## 3. 마이그레이션 절차 (단계별)
 
-구현을 네 단계로 쪼갭니다. 각 단계는 독립적으로 배포 가능하며, 앞 단계가 롤백되어도 뒤 단계에 영향을 주지 않도록 설계합니다.
+구현을 **다섯 단계**로 쪼갭니다. 각 단계는 독립적으로 배포 가능하며, 앞 단계가 롤백되어도 뒤 단계에 영향을 주지 않도록 설계합니다.
+
+개정: §2.4 단일 버킷 도입으로 기존 Step 2와 Step 4 사이에 **Step 2.5 데이터 모델 전환**이 추가됩니다. Step 4의 "신규 섹션" 구현은 단일 버킷 위에서 네임스페이스만 확장하는 형태로 단순해집니다.
 
 ### Step 1. 네비 재배치 (shell 변경 only)
 
@@ -312,6 +442,49 @@ apps/web/src/components/admin/
 
 **리스크**: 중간. props drilling 경로가 바뀌므로 `useAdminContentState.ts`, `useAdminDashboardState.ts`의 상태 분배도 부분 재조정 필요.
 
+### Step 2.5. 단일 콘텐츠 버킷으로 데이터 모델 전환 (§2.4 기반)
+
+Step 1/2가 **UI 재배치만**이라면, 본 단계는 **DB 스키마 전환**입니다. UI는 건드리지 않고 내부 데이터 경로만 먼저 통합합니다.
+
+**세부 절차**:
+
+1. **신규 스키마 생성** (`supabase/migrations/YYYYMMDD_content_items_bucket.sql`)
+   - `content.content_items`, `content.tags`, `content.content_tags` 신설 (§2.4.1)
+   - 표준 태그 시드 (namespace `week`/`surface`/`topic`/`mood`/`scenario`/`lang`)
+   - RLS 정책: admin write, public read only through view (CLAUDE.md content 스키마 규칙 준수)
+
+2. **데이터 덤프 스크립트** (`scripts/migrate-to-content-items.ts`)
+   - `content_pregnancy_documents` → `content_items (surface=rag [+ week=N if metadata.week])` 변환
+   - `content_knowledge_items` → `content_items (surface=note + week=N + topic=metadata.topic)` 변환
+   - `content_pregnancy_week_data` + `day_contents` + `week_checklists` + `week_questions` → 주차 단위로 각각 `surface=week*` + `week=N` 편입 (metadata에 트리 저장)
+   - `system_config.home_copy` → `content_items (surface=home_copy)` 변환
+   - 임베딩은 `content_items.embedding`으로 복사. 재생성 불필요.
+   - dry-run 모드 + diff 리포트로 검증
+
+3. **호환 뷰 교체** (§2.4.5)
+   - `published_knowledge_items`, `published_pregnancy_weeks`, `v_pregnancy_week_data`, `v_pregnancy_day_contents`, `v_week_checklists`, `v_week_questions` 을 `content_items` 기반으로 재정의
+   - 뷰의 column 시그니처는 기존과 완전 동일하게 유지 (모바일 API 무변경 보장)
+   - 뷰만 교체하는 트랜잭션 (`drop view ... cascade` + `create view`)
+
+4. **내부 어댑터 전환** (admin용)
+   - `cloud-sql-admin-content-port.ts`의 `knowledge_items` / `pregnancy_documents` / 주차 관련 쿼리를 모두 `content_items` + 태그 필터로 치환
+   - `mapKnowledgeItem` / `mapRagDocument` 등은 태그를 읽어 legacy shape로 합성해 반환 (Admin UI는 Step 2.5에서 변경 없음)
+
+5. **기존 테이블 유지 (read-only freeze)**
+   - 덤프 완료 후 원본 테이블은 **drop하지 않고** read-only freeze. 모든 write는 `content_items`로 감.
+   - 최소 1회 release cycle 뒤 `archive.content_pregnancy_documents_v1` 등으로 rename 후 drop 후보에 올림.
+
+**완료 판정**:
+- 모바일 앱이 기존과 동일하게 동작 (뷰 호환성).
+- Admin 콘솔이 기존과 동일하게 동작 (어댑터 호환성).
+- `content_items` 테이블 row 수 = (원본 4개 테이블 의미 단위 row 수 합) 검증.
+- Schift 컬렉션이 새 metadata 스키마(`tags: ["surface:rag", ...]`)로 재업서트 완료.
+
+**리스크**: **매우 높음**. 데이터 이관은 destructive가 아니어도 미스매치 시 회귀가 크다. 반드시:
+- 스테이징 전수 검증 + 프로덕션 snapshot 선행
+- 뷰 교체 직후 **smoke 쿼리** (모바일 API 주요 경로 전수 호출) 자동화
+- 롤백 플랜: 뷰 재정의 revert SQL + `content_items` drop 스크립트 별도 준비
+
 ### Step 3. 3중 워크플로우 정리 (어느 레이어를 버릴지 결정)
 
 **결정 필요 (4장 참조)**: 파일 YAML과 Schift 중 어느 쪽을 영구 source-of-truth로 둘 것인가.
@@ -342,24 +515,26 @@ apps/web/src/components/admin/
 
 ### Step 4. 신규 섹션 추가 (변주 / 사전 / 자산)
 
-각 기능은 서로 독립이므로 병렬로 진행 가능합니다.
+Step 2.5 이후 각 기능은 **네임스페이스 + `content_items` row 추가**로 환원됩니다. 각 기능은 서로 독립이므로 병렬로 진행 가능합니다.
 
 **4.1 기분별 응답 변주 (`/admin/engine/moods`)**
-- 데이터: `workflow_definitions.metadata.mood_variants: { [mood: string]: { prompt_suffix: string; tone: string } }`
-- UI: 감정 목록(한글 라벨 "평온", "불안", "지침" 등) + 각 감정별 프롬프트 suffix 편집
-- 저장은 Step 3에서 결정된 source-of-truth에 따름
+- 데이터: `content_items` 신규 row — 태그 `surface=mood_variation + mood=X + scenario=Y`, `metadata = { prompt_suffix, tone }`.
+- UI: 감정 × 시나리오 매트릭스(행=감정, 열=시나리오). 셀 클릭 시 해당 변주 row 편집 오버레이.
+- 저장은 `content_items` 기본 CRUD. Schift가 런타임에 `tags` 메타필터로 적합 변주를 조회하는 경로 추가 (§2.4.4).
+- Step 3의 workflow SoT 결정과 독립적. 변주는 콘텐츠로 관리.
 
-**4.2 자유 검색 사전 (`/admin/content/lexicon`)**
-- 데이터: `system_config.key = "search_lexicon"` JSON blob (초기). 규모 커지면 별도 테이블 마이그레이션.
-- 스키마: `{ synonyms: [{ term, aliases: [] }], misspellings: [{ wrong, right }] }`
-- UI: CRUD 테이블 + CSV export/import
+**4.2 자유 검색 사전 (`/admin/content?tag=lexicon`)**
+- 데이터: `content_items (surface=lexicon)` row. `metadata = { term, aliases: [], misspellings: [] }`.
+- UI: 콘텐츠 메인 페이지에서 `surface=lexicon` 프리셋. 별도 라우트 불필요.
+- CSV export/import는 `metadata` jsonb 기준 일괄 upsert.
+- 모바일 "무엇이든 물어보세요" 경로(§유저 #6)는 Schift 질의 시 `tags contains "surface:lexicon"` 부스트로 활용.
 
 **4.3 자산 섹션 (`/admin/assets/*`)**
-- 이미지 목록: `content_pregnancy_week_media` + `knowledge_items.image_url` + `pregnancy_documents.image_url`을 UNION 조회해 버킷별로 집계
-- 스토리지 설정: `gcs-storage.ts`, `supabase-storage.ts` 중 `process.env.STORAGE_PROVIDER` 값을 표시 (read-only 우선)
-- 업로드 원본: `chat_messages.image_attachments` JSONB를 flatten하여 최근 N건 표시
+- `content_items.metadata`에 image_url이 들어간 row를 flatten 조회 + `content_pregnancy_week_media`(유지) UNION. 이미지 자산은 §2.4에서 통합 대상 제외이므로 기존 테이블 경로 유지.
+- 스토리지 설정: `gcs-storage.ts`, `supabase-storage.ts` 중 `process.env.STORAGE_PROVIDER` 값을 표시 (read-only 우선).
+- 업로드 원본: `chat_messages.image_attachments` JSONB를 flatten하여 최근 N건 표시.
 
-**리스크**: 중간. 신규 API 엔드포인트 필요(`/api/admin/engine/moods`, `/api/admin/content/lexicon`, `/api/admin/assets/*`). 인증 패턴은 `readAdminSessionUser() + null 체크 → 401` 기존 규칙을 그대로 따른다 (CLAUDE.md 인증 패턴 규칙).
+**리스크**: 낮음~중간. 신규 API 엔드포인트는 대부분 `content_items` 공통 CRUD로 수렴. 자산 섹션만 독자 쿼리 필요. 인증 패턴은 `readAdminSessionUser() + null 체크 → 401` 기존 규칙을 그대로 따른다 (CLAUDE.md 인증 패턴 규칙).
 
 ---
 
@@ -390,6 +565,23 @@ read-only로 시작할지, 버킷 변경까지 허용할지 결정 필요. 버�
 ### 4.6 `/admin/operations` → `/admin/dashboard` 리네이밍 필요성
 
 "운영 상태"라는 기존 라벨을 유지하며 경로만 `/admin/dashboard`로 바꿀지, 라벨도 "대시보드"로 바꿀지 확인 필요. UX 일관성 관점에서 라벨도 "대시보드"로 통일 권장.
+
+### 4.7 태그 네임스페이스 확정 범위
+
+§2.4.2의 네임스페이스 6종(`week`/`surface`/`topic`/`mood`/`scenario`/`lang`)으로 충분한지 확인 필요. 운영 중 누락 발견 시 추가는 쉽지만, 초기 합의로 운영자 멘탈 모델을 고정하는 것이 중요. 특히 `topic`의 허용 value 집합을 어느 시점에 닫을지(open-ended vs 화이트리스트)는 별도 결정 사항.
+
+### 4.8 주차 콘텐츠의 Day/Section 분해 여부
+
+§2.4.3에서 **metadata jsonb 트리 저장**을 권장했지만, Day 단위로 독립 편집/검색 요구가 강하다면 `content_week_days`를 별도 테이블로 추출하는 안도 있음. 현재 편집 플로우는 주차 단위 overlay이므로 기본값은 jsonb 유지.
+
+### 4.9 `content_items.metadata` 스키마 검증
+
+네임스페이스별로 `metadata`의 허용 키가 달라집니다. 검증을 어느 층에서 할지 결정 필요:
+- **DB 층** (Postgres check constraint + JSON schema): 강제력 강함, 스키마 진화가 느림.
+- **App 층** (Zod/TypeScript): 유연하지만 우회 가능.
+- **하이브리드**: DB는 최소 필수키만 검증, App에서 풀 검증.
+
+권장: **하이브리드**. DB는 `surface` 태그 존재 확인 정도만, 상세 스키마는 App 계층.
 
 ---
 
@@ -461,13 +653,31 @@ CLAUDE.md 문구 톤 규칙: 어드민 대상은 "-습니다" 체 허용. 개발
 
 ## 6. 다음 액션
 
-1. 본 문서 유저 승인 (특히 4장 열린 질문 6개)
-2. 승인 후 Step 1 PR 생성 (네비 재배치만, 라우트 유지)
-3. Step 2 PR (컴포넌트 이동 + redirect)
-4. Step 3 결정 및 반영 (source-of-truth 합의)
-5. Step 4 신규 섹션 3종 병렬 구현
+1. 본 문서 유저 승인 (특히 4장 열린 질문 9개, 그중 **4.7 태그 네임스페이스**와 **4.8 주차 분해**는 Step 2.5 착수 전 반드시 결정).
+2. 승인 후 Step 1 PR 생성 (네비 재배치만, 라우트 유지).
+3. Step 2 PR (컴포넌트 이동 + redirect).
+4. **Step 2.5 PR 세트 (데이터 모델 전환, 별도 branch + staging 선행 검증)**
+   - 스키마 마이그레이션 PR
+   - 데이터 덤프 스크립트 PR (dry-run 리포트 포함)
+   - 호환 뷰 교체 PR
+   - 어댑터 전환 PR
+5. Step 3 결정 및 반영 (workflow source-of-truth 합의).
+6. Step 4 신규 섹션 3종 병렬 구현 (네임스페이스 + `content_items` row 추가).
 
 구현은 본 문서 승인 전까지 착수하지 않습니다.
+
+### 의존 순서 요약
+
+```
+Step 1 (nav)
+  └─> Step 2 (component move)
+        └─> Step 2.5 (data model) ◀── 🔑 핵심 전환점
+              ├─> Step 4.1 mood variations
+              ├─> Step 4.2 lexicon
+              └─> (Step 3 workflow SoT와 병렬 가능)
+        └─> Step 3 (workflow SoT) ◀── Step 2.5와 독립
+Step 4.3 (assets) — Step 2 이후 아무때나
+```
 
 ---
 
