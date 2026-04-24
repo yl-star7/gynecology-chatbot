@@ -401,12 +401,11 @@ describe("AdminDashboard", () => {
       screen.getByRole("navigation", { name: "관리자 탐색" }),
     ).toBeInTheDocument();
     expect(screen.getByText("운영자")).toBeInTheDocument();
-    expect(screen.getByText("주차별 아기는요?")).toBeInTheDocument();
-    expect(screen.getByText("응답 워크플로우")).toBeInTheDocument();
+    expect(screen.getByText("주차별")).toBeInTheDocument();
+    expect(screen.getByText("워크플로우")).toBeInTheDocument();
     expect(await screen.findByText("오늘 로그인")).toBeInTheDocument();
     expect(screen.getByText("주간 로그인")).toBeInTheDocument();
     expect(screen.getByText("19")).toBeInTheDocument();
     expect(screen.getByText("77")).toBeInTheDocument();
   });
-
 });

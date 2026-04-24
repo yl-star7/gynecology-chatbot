@@ -11,19 +11,45 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/admin/operations", label: "운영 상태" },
-  { href: "/admin/accounts", label: "계정" },
+  { href: "/admin/dashboard", label: "대시보드" },
+  { href: "/admin/users", label: "사용자 관리" },
   {
     href: "/admin/content",
     label: "콘텐츠",
     children: [
-      { href: "/admin/content/documents", label: "참조 파일" },
-      { href: "/admin/content/static", label: "지식 콘텐츠" },
-      { href: "/admin/content/weeks", label: "주차별 아기는요?" },
-      { href: "/admin/content/policies", label: "응답 워크플로우" },
+      { href: "/admin/content", label: "전체" },
+      { href: "/admin/content?tag=week", label: "주차별" },
+      { href: "/admin/content?tag=note", label: "지식 안내문" },
+      { href: "/admin/content?tag=rag", label: "RAG 참조" },
+      { href: "/admin/content?tag=lexicon", label: "자유 검색 사전" },
     ],
   },
-  { href: "/admin/monitoring", label: "모니터링" },
+  {
+    href: "/admin/engine",
+    label: "대화 엔진",
+    children: [
+      { href: "/admin/engine/workflows", label: "워크플로우" },
+      { href: "/admin/engine/moods", label: "기분별 변주" },
+      { href: "/admin/engine/copy", label: "홈/프롬프트 문구" },
+    ],
+  },
+  {
+    href: "/admin/assets",
+    label: "자산",
+    children: [
+      { href: "/admin/assets/images", label: "이미지" },
+      { href: "/admin/assets/uploads", label: "업로드 원본" },
+      { href: "/admin/assets/settings", label: "스토리지 설정" },
+    ],
+  },
+  {
+    href: "/admin/ops",
+    label: "운영",
+    children: [
+      { href: "/admin/ops/monitoring", label: "모니터링" },
+      { href: "/admin/ops/audit", label: "감사 로그" },
+    ],
+  },
 ];
 
 interface AdminConsoleShellProps {
@@ -34,8 +60,25 @@ interface AdminConsoleShellProps {
   children: ReactNode;
 }
 
+function splitHref(href: string): { path: string; query: string } {
+  const idx = href.indexOf("?");
+  if (idx === -1) return { path: href, query: "" };
+  return { path: href.slice(0, idx), query: href.slice(idx) };
+}
+
 function isActivePath(currentPath: string, href: string) {
-  return currentPath === href || currentPath.startsWith(`${href}/`);
+  const { path } = splitHref(href);
+  return currentPath === path || currentPath.startsWith(`${path}/`);
+}
+
+function isActiveSubPath(currentPath: string, href: string) {
+  const { path, query } = splitHref(href);
+  if (query) {
+    // Query-string sub-items are decorative for now; active only when currentPath
+    // contains the exact query literal (e.g. "/admin/content?tag=week").
+    return currentPath === `${path}${query}` || currentPath.includes(query);
+  }
+  return currentPath === path;
 }
 
 export function AdminConsoleShell({
@@ -101,7 +144,7 @@ export function AdminConsoleShell({
                       <a
                         key={child.href}
                         className={`${styles.subnavItem} ${
-                          currentPath === child.href
+                          isActiveSubPath(currentPath, child.href)
                             ? styles.subnavItemActive
                             : ""
                         }`}
