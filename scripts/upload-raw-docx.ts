@@ -3,6 +3,7 @@ import fs from "fs";
 
 async function main() {
   const schift = new Schift({ apiKey: process.env.SCHIFT_API_KEY! });
+  const bucket = process.env.BUCKET ?? "pregnancy-knowledge";
   const buf = fs.readFileSync(
     "/Users/jskang/Downloads/임신 주수 별 발달정보(0320_room).docx",
   );
@@ -17,8 +18,8 @@ async function main() {
       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     },
   );
-  console.log("Uploading raw docx to pregnancy-knowledge (surface=archive)...");
-  const result = await schift.db.upload("pregnancy-knowledge", {
+  console.log(`Uploading raw docx to ${bucket} (surface=archive)...`);
+  const result = await schift.db.upload(bucket, {
     files: [rawFile],
     metadata: { surface: "archive", lang: "ko" },
   });

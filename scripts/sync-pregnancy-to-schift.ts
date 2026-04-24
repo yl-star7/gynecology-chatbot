@@ -22,7 +22,8 @@ import { Schift } from "@schift-io/sdk";
 const SCHIFT_API_KEY = process.env.SCHIFT_API_KEY;
 const DATABASE_URL = process.env.DATABASE_URL;
 // 단일 버킷 운영 — 원본 docx 는 surface=archive 태그로 구분, 검색 경로에선 필터.
-const BUCKET_KNOWLEDGE = "pregnancy-knowledge";
+// BUCKET 환경변수로 런타임에 타겟 버킷 교체 가능 (cutover 용).
+const BUCKET_KNOWLEDGE = process.env.BUCKET ?? "pregnancy-knowledge";
 const DRY_RUN = process.env.DRY_RUN === "1";
 const RAW_DOCX_PATH =
   process.env.PREGNANCY_RAW_DOCX ??

@@ -10,7 +10,8 @@ import { Schift } from "@schift-io/sdk";
 import fs from "fs";
 import path from "path";
 
-const COLLECTION = "pregnancy-knowledge";
+// BUCKET 환경변수로 타겟 버킷 교체 가능 (cutover 용).
+const COLLECTION = process.env.BUCKET ?? "pregnancy-knowledge";
 const MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
