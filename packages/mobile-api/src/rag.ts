@@ -3,6 +3,44 @@ import { getSchiftClient } from "./schift-client";
 
 type DisabledFileRow = { id: string };
 
+/**
+ * 텍스트북 챕터 PDF의 active 버전. v1(ODL spaceless), v2(pdftotext column 깨짐)
+ * 는 모두 동일 chapter 의 노이즈 사본이라 검색에서 제외하고 v3(Gemini OCR)만 사용한다.
+ */
+const ACTIVE_TEXTBOOK_SOURCE = "catholic_si_textbook_v3";
+
+/**
+ * Query rewriting 활성화 여부. RAG_QUERY_REWRITE=1 로 켜면 사용자 query 를 임상/학술
+ * 용어로 확장한 뒤 retrieval. 비용은 호출당 약 $0.0001 (gemini-2.5-flash-lite).
+ * GEMINI_API_KEY 가 없거나 호출 실패시 원본 query 그대로 사용 (graceful fallback).
+ */
+const QUERY_REWRITE_ENABLED = process.env.RAG_QUERY_REWRITE === "1";
+const QUERY_REWRITE_TIMEOUT_MS = 1500;
+const QUERY_REWRITE_MODEL = "gemini-2.5-flash-lite";
+
+/**
+ * v3 OCR(Gemini Flash Lite) 단계에서 발생한 의학용어 오인식의 클라이언트사이드 보정.
+ * 검색 결과 chunk text 가 LLM 컨텍스트로 들어가기 전에 적용 — embedding 자체는 오인식을
+ * 그대로 보유하지만, 매칭이 의미적으로 정상 작동하므로 출력 텍스트만 후처리한다.
+ *
+ * 패턴 추가 절차:
+ * 1) 의학용어 사전 또는 corpus 검수로 확인
+ * 2) 한 단어가 오타로 100% 명확할 때만 추가 (false-positive 위험 큰 단어는 제외)
+ */
+const OCR_TYPO_FIXES: Array<{ pattern: RegExp; replacement: string }> = [
+  // 06_Ⅳ_01 chapter — Apgar 신생아 평가에서 "즉각적인" → "촉각적인" 오인식 (3 occurrences)
+  { pattern: /촉각적인 평가/g, replacement: "즉각적인 평가" },
+  { pattern: /촉각적인 간호/g, replacement: "즉각적인 간호" },
+];
+
+function applyOcrTypoFixes(text: string): string {
+  let out = text;
+  for (const { pattern, replacement } of OCR_TYPO_FIXES) {
+    out = out.replace(pattern, replacement);
+  }
+  return out;
+}
+
 type RagDocumentRow = {
   id: string;
   title: string;
@@ -66,6 +104,30 @@ function normalizeSchiftSearchResults(response: unknown): SchiftSearchResult[] {
   return [];
 }
 
+function parseWeekFromFilename(name: string | undefined): number | null {
+  if (!name) return null;
+  // 우리 ingest 패턴들:
+  //   week-18-overview.txt / week-18-day-3.txt    → group 1
+  //   18주차.docx / 18주차_anything.docx           → group 2
+  //   임신_18주_...                                → group 3
+  const m = name.match(
+    /(?:^|[\/_-])week[-_](\d{1,2})\b|^(\d{1,2})주차\b|임신[_\s]?(\d{1,2})주\b/i,
+  );
+  if (!m) return null;
+  const raw = m[1] ?? m[2] ?? m[3];
+  const n = Number.parseInt(raw ?? "", 10);
+  return Number.isFinite(n) && n >= 1 && n <= 42 ? n : null;
+}
+
+function parseSurfaceFromFilename(name: string | undefined): string | null {
+  if (!name) return null;
+  if (/^week-\d+-overview\.txt$/i.test(name)) return "week_overview";
+  if (/^week-\d+-day-\d+\.txt$/i.test(name)) return "week_day";
+  if (/임신_주수별_발달정보\.docx$/i.test(name)) return "archive";
+  if (/\.docx$/i.test(name)) return "rag";
+  return null;
+}
+
 function readPregnancyWeekFromMetadata(
   metadata: Record<string, unknown> | undefined,
 ) {
@@ -74,9 +136,24 @@ function readPregnancyWeekFromMetadata(
   if (typeof rawWeek === "number") return rawWeek;
   if (typeof rawWeek === "string") {
     const parsed = Number.parseInt(rawWeek, 10);
-    return Number.isFinite(parsed) ? parsed : null;
+    if (Number.isFinite(parsed)) return parsed;
   }
-  return null;
+  // metadata 가 비어있는 기존 문서: file_name 으로 fallback 추론.
+  const fileName = metadata?.file_name ?? metadata?.filename;
+  return parseWeekFromFilename(
+    typeof fileName === "string" ? fileName : undefined,
+  );
+}
+
+function readSurfaceFromMetadata(
+  metadata: Record<string, unknown> | undefined,
+): string | null {
+  const surface = metadata?.surface;
+  if (typeof surface === "string" && surface.trim()) return surface;
+  const fileName = metadata?.file_name ?? metadata?.filename;
+  return parseSurfaceFromFilename(
+    typeof fileName === "string" ? fileName : undefined,
+  );
 }
 
 function isWeekInRange(week: number | null, currentWeek: number | null) {
@@ -87,6 +164,59 @@ function isWeekInRange(week: number | null, currentWeek: number | null) {
   return Math.abs(week - currentWeek) <= 1;
 }
 
+/**
+ * 사용자 query 를 임상/학술 용어로 확장한다.
+ *
+ * 예시:
+ *   "32주차에 조기진통 같은 느낌이 있어요"
+ *     → "임신 32주 preterm labor 조기진통 자궁수축 임상 관리 증상 처치"
+ *
+ * Gemini API 가 비활성화/실패하면 원본 query 그대로 반환 (graceful degrade).
+ */
+async function rewriteQueryForRetrieval(
+  query: string,
+  currentWeek: number | null,
+): Promise<string> {
+  if (!QUERY_REWRITE_ENABLED) return query;
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return query;
+
+  const weekHint =
+    currentWeek != null ? `\n현재 임신 주차: ${currentWeek}주차.` : "";
+  const prompt = `다음 한국어 임산부 발화를 한국어 임상/학술 용어로 확장한 검색 쿼리로 변환하세요. 원래 의도를 보존하며 전문 의학 용어와 영문 약어(있다면)를 함께 포함합니다. 설명 없이 확장된 검색 쿼리 한 줄만 반환하세요.${weekHint}
+
+발화: ${query}
+검색 쿼리:`;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${QUERY_REWRITE_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 120,
+          },
+        }),
+        signal: AbortSignal.timeout(QUERY_REWRITE_TIMEOUT_MS),
+      },
+    );
+    if (!response.ok) return query;
+    const json = (await response.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    const text = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!text) return query;
+    // 원본 query 의 단어를 함께 보존해서 기존 매칭도 유지.
+    return `${query} ${text}`;
+  } catch {
+    return query;
+  }
+}
+
 async function searchViaSchift(
   query: string,
   currentWeek: number | null,
@@ -95,55 +225,91 @@ async function searchViaSchift(
   const schift = getSchiftClient();
   if (!schift) throw new Error("Schift client not configured");
 
-  const [response, disabledIds] = await Promise.all([
+  // Step 1: query rewriting (optional, env-gated).
+  const expandedQuery = await rewriteQueryForRetrieval(query, currentWeek);
+
+  // Step 2: dual-channel retrieval — week-specific + common reference.
+  // Server-side filter 로 v1/v2 노이즈 + archive 사전 차단.
+  const halfCount = Math.max(3, Math.ceil(matchCount / 2) + 2);
+  const channels: Promise<unknown>[] = [];
+
+  if (currentWeek != null) {
+    channels.push(
+      withTimeout(
+        schift.search({
+          query: expandedQuery,
+          collection: "pregnancy-knowledge",
+          topK: halfCount,
+          filter: { week: String(currentWeek) },
+        }),
+        FILE_RAG_TIMEOUT_MS,
+        "Schift weekly search",
+      ),
+    );
+  }
+
+  channels.push(
     withTimeout(
       schift.search({
-        query,
+        query: expandedQuery,
         collection: "pregnancy-knowledge",
-        topK: matchCount + 10,
+        topK: halfCount,
+        filter: { surface: "common", source: ACTIVE_TEXTBOOK_SOURCE },
       }),
       FILE_RAG_TIMEOUT_MS,
-      "Schift RAG search",
+      "Schift common search",
     ),
+  );
+
+  const [responses, disabledIds] = await Promise.all([
+    Promise.all(channels),
     getDisabledFileIds(),
   ]);
 
-  const results = normalizeSchiftSearchResults(response);
-  const searchableResults = results.filter(
-    (result) => result.metadata?.surface !== "archive",
-  );
-  const enabledResults = searchableResults.filter(
+  // Step 3: merge channels, dedupe, score-sort.
+  const merged: SchiftSearchResult[] = [];
+  const seen = new Set<string>();
+  for (const response of responses) {
+    for (const item of normalizeSchiftSearchResults(response)) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      merged.push(item);
+    }
+  }
+  merged.sort((a, b) => b.score - a.score);
+
+  const enabledResults = merged.filter(
     (result) => !isResultFromDisabledFile(result, disabledIds),
   );
-  const weekFilteredResults = enabledResults.filter((result) =>
-    isWeekInRange(readPregnancyWeekFromMetadata(result.metadata), currentWeek),
-  );
-  const selectedResults =
-    weekFilteredResults.length > 0 ? weekFilteredResults : enabledResults;
 
-  return selectedResults.slice(0, matchCount).map((result) => ({
-    id: result.id,
-    title:
-      typeof result.metadata?.title === "string"
-        ? result.metadata.title
-        : result.id,
-    content:
+  return enabledResults.slice(0, matchCount).map((result) => {
+    const rawContent =
       typeof result.metadata?.content === "string"
         ? result.metadata.content
         : typeof result.metadata?.text === "string"
           ? result.metadata.text
-          : "",
-    pregnancy_week:
-      typeof result.metadata?.pregnancy_week === "number"
-        ? result.metadata.pregnancy_week
-        : null,
-    category:
-      typeof result.metadata?.category === "string"
-        ? result.metadata.category
-        : "schift",
-    metadata: result.metadata ?? null,
-    similarity: result.score,
-  }));
+          : "";
+    return {
+      id: result.id,
+      title:
+        typeof result.metadata?.title === "string"
+          ? result.metadata.title
+          : result.id,
+      content: applyOcrTypoFixes(rawContent),
+      pregnancy_week:
+        typeof result.metadata?.pregnancy_week === "number"
+          ? result.metadata.pregnancy_week
+          : readPregnancyWeekFromMetadata(result.metadata),
+      category:
+        typeof result.metadata?.category === "string"
+          ? result.metadata.category
+          : readSurfaceFromMetadata(result.metadata) === "common"
+            ? "textbook"
+            : "schift",
+      metadata: result.metadata ?? null,
+      similarity: result.score,
+    };
+  });
 }
 
 export async function retrievePregnancyContext(input: {
@@ -221,38 +387,67 @@ export async function searchFileRag(input: {
   if (!schift) return { context: "", sources: [] };
 
   const count = input.matchCount ?? 7;
+  const currentWeek = input.currentWeek ?? null;
 
   try {
-    const [response, disabledIds] = await Promise.all([
+    // Step 1: query rewriting (env-gated).
+    const expandedQuery = await rewriteQueryForRetrieval(
+      input.query,
+      currentWeek,
+    );
+
+    // Step 2: dual-channel retrieval — week + common(v3 only).
+    const halfCount = Math.max(3, Math.ceil(count / 2) + 2);
+    const channels: Promise<unknown>[] = [];
+
+    if (currentWeek != null) {
+      channels.push(
+        withTimeout(
+          schift.search({
+            query: expandedQuery,
+            collection: "pregnancy-knowledge",
+            topK: halfCount,
+            filter: { week: String(currentWeek) },
+          }),
+          FILE_RAG_TIMEOUT_MS,
+          "File RAG weekly search",
+        ),
+      );
+    }
+
+    channels.push(
       withTimeout(
         schift.search({
-          query: input.query,
+          query: expandedQuery,
           collection: "pregnancy-knowledge",
-          topK: count + 10,
+          topK: halfCount,
+          filter: { surface: "common", source: ACTIVE_TEXTBOOK_SOURCE },
         }),
         FILE_RAG_TIMEOUT_MS,
-        "File RAG search",
+        "File RAG common search",
       ),
+    );
+
+    const [responses, disabledIds] = await Promise.all([
+      Promise.all(channels),
       getDisabledFileIds(),
     ]);
 
-    const results = normalizeSchiftSearchResults(response);
-    const searchableResults = results.filter(
-      (r) => r.metadata?.surface !== "archive",
-    );
+    // Step 3: merge channels, dedupe, score-sort.
+    const merged: SchiftSearchResult[] = [];
+    const seen = new Set<string>();
+    for (const response of responses) {
+      for (const item of normalizeSchiftSearchResults(response)) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        merged.push(item);
+      }
+    }
+    merged.sort((a, b) => b.score - a.score);
 
-    const enabledResults = searchableResults.filter(
-      (r) => !isResultFromDisabledFile(r, disabledIds),
-    );
-    const weekFilteredResults = enabledResults.filter((r) =>
-      isWeekInRange(
-        readPregnancyWeekFromMetadata(r.metadata),
-        input.currentWeek ?? null,
-      ),
-    );
-    const filtered = (
-      weekFilteredResults.length > 0 ? weekFilteredResults : enabledResults
-    ).slice(0, count);
+    const filtered = merged
+      .filter((r) => !isResultFromDisabledFile(r, disabledIds))
+      .slice(0, count);
 
     if (filtered.length === 0) return { context: "", sources: [] };
 
@@ -275,12 +470,13 @@ export async function searchFileRag(input: {
       .map((r, i) => {
         const title =
           typeof r.metadata?.title === "string" ? r.metadata.title : r.id;
-        const content =
+        const rawContent =
           typeof r.metadata?.content === "string"
             ? r.metadata.content
             : typeof r.metadata?.text === "string"
               ? r.metadata.text
               : "";
+        const content = applyOcrTypoFixes(rawContent);
         const filename =
           typeof r.metadata?.filename === "string"
             ? r.metadata.filename
