@@ -149,6 +149,14 @@ if [[ "$DEPLOY" == "1" ]]; then
     SET_SECRETS_ARG=(--set-secrets="${SET_SECRETS}")
   fi
 
+  # Env vars set on every deploy. Use --update-env-vars semantics (only these
+  # keys touched, other env preserved) so we don't accidentally drop existing
+  # env that was set via the console.
+  RUNTIME_ENV_VARS="RAG_QUERY_REWRITE=1"
+  if [[ -n "${EXTRA_ENV_VARS:-}" ]]; then
+    RUNTIME_ENV_VARS="${RUNTIME_ENV_VARS},${EXTRA_ENV_VARS}"
+  fi
+
   gcloud run deploy "${SERVICE}" \
     --project "${PROJECT_ID}" \
     --region "${REGION}" \
@@ -164,6 +172,7 @@ if [[ "$DEPLOY" == "1" ]]; then
     --timeout 60s \
     --add-cloudsql-instances "${CLOUDSQL_INSTANCE}" \
     --allow-unauthenticated \
+    --update-env-vars "${RUNTIME_ENV_VARS}" \
     "${SET_SECRETS_ARG[@]}"
 
   URL="$(gcloud run services describe "${SERVICE}" \
