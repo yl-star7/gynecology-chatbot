@@ -21,7 +21,7 @@ import {
 } from "./patientViewCacheFreshness.model";
 
 const VIEW_CACHE_TTL_MS = 5 * 60 * 1000;
-const PATIENT_VIEW_CACHE_VERSION = 2;
+const PATIENT_VIEW_CACHE_VERSION = 3;
 const PATIENT_VIEW_CACHE_STORAGE_PREFIX = "phedy-mobile-patient-view-cache";
 const PATIENT_VIEW_CACHE_USERS_KEY = `${PATIENT_VIEW_CACHE_STORAGE_PREFIX}-users`;
 
@@ -409,7 +409,7 @@ export async function clearPersistedPatientViewCaches(userId?: string | null) {
 }
 
 export function readCachedProfileView(userId?: string | null) {
-  return readCacheValue(profileCache, userId);
+  return readTodayScopedCacheValue(profileCache, userId);
 }
 
 export function hasFreshCachedProfileView(userId?: string | null) {

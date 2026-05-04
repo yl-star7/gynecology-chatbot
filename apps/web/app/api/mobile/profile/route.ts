@@ -1,4 +1,5 @@
 import {
+  calculatePregnancyPositionFromDueDate,
   DEFAULT_MOBILE_THEME_KEY,
   createKoreanDateKey,
   resolveMobileThemeKey,
@@ -153,6 +154,37 @@ function getKstDateKey() {
   return createKoreanDateKey();
 }
 
+function resolveCurrentPregnancyPosition(profile: ProfileRow | null) {
+  if (!profile) {
+    return null;
+  }
+
+  if (profile.due_date) {
+    const position = calculatePregnancyPositionFromDueDate(
+      profile.due_date,
+      getKstDateKey(),
+    );
+    return {
+      week: position.weekNumber,
+      dayInWeek: position.dayNumber - 1,
+    };
+  }
+
+  if (!profile.pregnancy_week) {
+    return null;
+  }
+
+  return {
+    week: profile.pregnancy_week,
+    dayInWeek: profile.pregnancy_day_in_week ?? 0,
+  };
+}
+
+function formatPregnancyWeekLabel(profile: ProfileRow | null) {
+  const position = resolveCurrentPregnancyPosition(profile);
+  return position ? `${position.week}주 ${position.dayInWeek}일` : "정보 없음";
+}
+
 function parseDateOnly(isoDate: string) {
   return new Date(`${isoDate}T00:00:00.000Z`);
 }
@@ -222,12 +254,14 @@ export async function GET(request: NextRequest) {
       answered: boolean;
     }> = [];
 
-    if (profile?.pregnancy_week) {
+    const currentPregnancyPosition = resolveCurrentPregnancyPosition(profile);
+
+    if (currentPregnancyPosition) {
       try {
-        const dayNumber = ((profile.pregnancy_day_in_week ?? 0) % 7) + 1;
+        const dayNumber = (currentPregnancyPosition.dayInWeek % 7) + 1;
         const weekRecord = await prisma.content_pregnancy_week_data.findFirst({
           where: {
-            week_number: profile.pregnancy_week,
+            week_number: currentPregnancyPosition.week,
             status: "published",
           },
           select: { id: true },
@@ -332,9 +366,7 @@ export async function GET(request: NextRequest) {
         userId: user.id,
         displayName: profile?.display_name ?? "사용자",
         phoneNumber: decryptPhoneNumber(user.phone_number_encrypted),
-        pregnancyWeekLabel: profile?.pregnancy_week
-          ? `${profile.pregnancy_week}주 ${profile.pregnancy_day_in_week ?? 0}일`
-          : "정보 없음",
+        pregnancyWeekLabel: formatPregnancyWeekLabel(profile),
         pregnancyDayCount: profile?.pregnancy_day_count ?? 0,
         accountStatus: user.account_status,
         hasCompletedOnboarding: hasCompletedProfileOnboarding(profile),

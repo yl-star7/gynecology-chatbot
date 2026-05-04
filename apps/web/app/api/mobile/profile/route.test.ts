@@ -46,6 +46,10 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
 import { updateMobileProfile } from "@/lib/mobile/auth";
 import { requireMobileSession } from "@/lib/mobile/session-auth";
 import { dbSelect } from "@/lib/db/admin-client";
+import {
+  addCalendarDays,
+  createKoreanDateKey,
+} from "@gynecology-chatbot/app-core";
 import { GET, PATCH } from "./route";
 
 const mockedUpdateMobileProfile = updateMobileProfile as jest.MockedFunction<
@@ -54,23 +58,23 @@ const mockedUpdateMobileProfile = updateMobileProfile as jest.MockedFunction<
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
   typeof requireMobileSession
 >;
-const mockedSupabaseSelect = dbSelect as jest.MockedFunction<
-  typeof dbSelect
->;
+const mockedDbSelect = dbSelect as jest.MockedFunction<typeof dbSelect>;
 
 describe("GET /api/mobile/profile", () => {
   beforeEach(() => {
     mockedUpdateMobileProfile.mockReset();
     mockedRequireMobileSession.mockReset();
-    mockedSupabaseSelect.mockReset();
+    mockedDbSelect.mockReset();
+    jest.useRealTimers();
   });
 
   it("does not treat an incomplete pregnancy profile row as completed onboarding", async () => {
     mockedRequireMobileSession.mockResolvedValue({
       sessionId: "session-1",
       userId: "user-1",
+      accountStatus: "active",
     });
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         {
           id: "user-1",
@@ -113,9 +117,10 @@ describe("GET /api/mobile/profile", () => {
     mockedRequireMobileSession.mockResolvedValue({
       sessionId: "session-1",
       userId: "user-1",
+      accountStatus: "active",
     });
 
-    mockedSupabaseSelect.mockImplementation((path: string) => {
+    mockedDbSelect.mockImplementation((path: string) => {
       if (path.startsWith("users?")) {
         return Promise.resolve([
           {
@@ -133,7 +138,7 @@ describe("GET /api/mobile/profile", () => {
             pregnancy_day_count: 128,
             pregnancy_week: 19,
             pregnancy_day_in_week: 1,
-            due_date: "2026-08-01",
+            due_date: null,
             onboarding_payload: {
               tonePreference: "calm",
               pregnancyWeekOrDueDate: "19주 1일",
@@ -229,13 +234,111 @@ describe("GET /api/mobile/profile", () => {
     });
   });
 
+  it("uses due date as the profile week source of truth", async () => {
+    const dueDateForWeek27Day3 = addCalendarDays(createKoreanDateKey(), 88);
+
+    mockedRequireMobileSession.mockResolvedValue({
+      sessionId: "session-1",
+      userId: "user-1",
+      accountStatus: "active",
+    });
+
+    mockedDbSelect.mockImplementation((path: string) => {
+      if (path.startsWith("users?")) {
+        return Promise.resolve([
+          {
+            id: "user-1",
+            phone_number_encrypted: "enc:01012345678",
+            account_status: "active",
+          },
+        ] as never);
+      }
+
+      if (path.startsWith("pregnancy_profiles?")) {
+        return Promise.resolve([
+          {
+            display_name: "김수연",
+            pregnancy_day_count: 99,
+            pregnancy_week: 14,
+            pregnancy_day_in_week: 1,
+            due_date: dueDateForWeek27Day3,
+            onboarding_payload: {
+              tonePreference: "calm",
+              pregnancyWeekOrDueDate: dueDateForWeek27Day3,
+            },
+            baby_nickname: null,
+            notification_time: null,
+            theme_key: null,
+          },
+        ] as never);
+      }
+
+      if (
+        path.includes("content_pregnancy_week_data?") &&
+        path.includes("week_number=eq.27")
+      ) {
+        return Promise.resolve([{ id: "week-27" }] as never);
+      }
+
+      if (
+        path.includes("content_week_questions?") &&
+        path.includes("week_data_id=eq.week-27") &&
+        path.includes("day_number=eq.4")
+      ) {
+        return Promise.resolve([
+          {
+            id: "question-27",
+            code: "week-27-checkin",
+            question_text: "오늘 몸 상태는 어떤가요?",
+            question_type: "text",
+            help_text: null,
+            question_payload: null,
+            display_order: 1,
+            is_required: true,
+          },
+        ] as never);
+      }
+
+      if (path.startsWith("content_week_questions?")) {
+        return Promise.resolve([] as never);
+      }
+
+      if (path.startsWith("user_question_events?")) {
+        return Promise.resolve([] as never);
+      }
+
+      return Promise.resolve([] as never);
+    });
+
+    const response = await GET({
+      nextUrl: new URL(
+        "http://localhost:3000/api/mobile/profile?userId=user-1",
+      ),
+    } as never);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      profile: {
+        userId: "user-1",
+        pregnancyWeekLabel: "27주 3일",
+        pendingSurveys: [
+          {
+            id: "question-27",
+            code: "week-27-checkin",
+          },
+        ],
+      },
+    });
+  });
+
   it("still returns profile data when pending survey lookup fails", async () => {
     mockedRequireMobileSession.mockResolvedValue({
       sessionId: "session-1",
       userId: "user-1",
+      accountStatus: "active",
     });
 
-    mockedSupabaseSelect.mockImplementation((path: string) => {
+    mockedDbSelect.mockImplementation((path: string) => {
       if (path.startsWith("users?")) {
         return Promise.resolve([
           {
@@ -271,7 +374,7 @@ describe("GET /api/mobile/profile", () => {
 
       if (path.startsWith("content_pregnancy_week_data?")) {
         throw new Error(
-          "Supabase select failed: relation content.week_questions does not exist",
+          "DB select failed: relation content.week_questions does not exist",
         );
       }
 
@@ -309,11 +412,13 @@ describe("PATCH /api/mobile/profile", () => {
     mockedRequireMobileSession.mockResolvedValue({
       sessionId: "session-1",
       userId: "user-1",
+      accountStatus: "active",
     });
     mockedUpdateMobileProfile.mockResolvedValue({
       id: "user-1",
       displayName: "김수연",
       phoneNumber: "01012345678",
+      accountStatus: "active",
       hasCompletedOnboarding: true,
     });
 
