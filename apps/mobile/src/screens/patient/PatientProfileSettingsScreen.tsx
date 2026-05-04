@@ -1,5 +1,6 @@
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -9,9 +10,13 @@ import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientProfileSettingsForm } from "../../components/patient/profile-settings/PatientProfileSettingsForm";
 import { PatientShell } from "../../components/patient/PatientShell";
+import { Button } from "../../components/ui";
 import { patientSurfacePalette as surface, space, typo } from "../../theme";
 import { buildPatientScrollContentInsets } from "./patientScreenLayout.model";
 import { usePatientProfileSettingsScreenModel } from "./PatientProfileSettingsScreen.model";
+
+const USER_GUIDE_URL =
+  "https://fluoridated-hunter-34f.notion.site/35610b1324b880c4b572dfc9a7cb57e7?source=copy_link";
 
 function resolveAppVersionLabel() {
   const appVersion =
@@ -92,6 +97,13 @@ export function PatientProfileSettingsScreen() {
             tonePreference={model.tonePreference}
             themeKey={model.themeKey}
             themeOptions={model.themeOptions}
+          />
+          <Button
+            label="사용설명서 보기"
+            variant="secondary"
+            onPress={() => {
+              void Linking.openURL(USER_GUIDE_URL);
+            }}
           />
           <Text style={styles.versionText}>{appVersionLabel}</Text>
         </ScrollView>

@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +15,7 @@ import { normalizeSurveyFormUrl } from "./patientSurveyFormUrl.model";
 export function PatientSurveyFormScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams<{ surveyId?: string }>();
   const { currentUser, isRestoringSession } = useMobileAppSession();
   const { profilePort } = useMobileServices();
   const contentInsets = buildPatientTabContentInsets({
@@ -34,7 +35,16 @@ export function PatientSurveyFormScreen() {
 
     try {
       const branding = await profilePort.getBranding();
-      const nextSurveyFormUrl = normalizeSurveyFormUrl(branding.surveyFormUrl);
+      const visibleSurveys = Array.isArray(branding.externalSurveys)
+        ? branding.externalSurveys.filter((survey) => survey.visible)
+        : [];
+      const selectedSurvey =
+        visibleSurveys.find((survey) => survey.id === params.surveyId) ??
+        visibleSurveys[0] ??
+        null;
+      const nextSurveyFormUrl =
+        normalizeSurveyFormUrl(selectedSurvey?.url) ??
+        normalizeSurveyFormUrl(branding.surveyFormUrl);
 
       setSurveyFormUrl(nextSurveyFormUrl);
       if (!nextSurveyFormUrl) {
@@ -45,7 +55,7 @@ export function PatientSurveyFormScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [profilePort]);
+  }, [params.surveyId, profilePort]);
 
   useFocusEffect(
     useCallback(() => {

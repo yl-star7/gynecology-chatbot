@@ -2,6 +2,27 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { AdminOperationsPanel } from "./AdminOperationsPanel";
 
+const externalSurveys = [
+  {
+    id: "survey-1",
+    label: "1차 설문지",
+    url: "https://forms.gle/ZoLxWPdwid1F94FE8",
+    visible: true,
+  },
+  {
+    id: "survey-2",
+    label: "2차 설문지",
+    url: "https://forms.gle/LvFmEZHkGM3MMLQ8A",
+    visible: true,
+  },
+  {
+    id: "survey-3",
+    label: "3차 설문지",
+    url: "https://forms.gle/fNUX6qDjXR5wXoGt7",
+    visible: true,
+  },
+];
+
 describe("AdminOperationsPanel", () => {
   const originalFetch = global.fetch;
 
@@ -42,6 +63,7 @@ describe("AdminOperationsPanel", () => {
             mascotSourceFileName: null,
             mascotAltText: "마스코트",
             surveyFormUrl: null,
+            externalSurveys,
           }),
           {
             status: 200,
@@ -173,7 +195,8 @@ describe("AdminOperationsPanel", () => {
           mascotObjectPath: "weeks/00/123-mascot.png",
           mascotSourceFileName: "mascot.png",
           mascotAltText: "마스코트",
-          surveyFormUrl: null,
+          surveyFormUrl: "https://forms.gle/ZoLxWPdwid1F94FE8",
+          externalSurveys,
         }),
       }),
     );
@@ -200,6 +223,7 @@ describe("AdminOperationsPanel", () => {
             mascotSourceFileName: null,
             mascotAltText: "마스코트",
             surveyFormUrl: "https://docs.google.com/forms/d/e/example/viewform",
+            externalSurveys,
           }),
         }),
       );

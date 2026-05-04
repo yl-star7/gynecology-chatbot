@@ -32,14 +32,44 @@ type BrandingConfig = {
   mascotSourceFileName: string | null;
   mascotAltText: string | null;
   surveyFormUrl: string | null;
+  externalSurveys: ExternalSurveyConfig[];
 };
+
+type ExternalSurveyConfig = {
+  id: string;
+  label: string;
+  url: string | null;
+  visible: boolean;
+};
+
+const DEFAULT_EXTERNAL_SURVEYS: ExternalSurveyConfig[] = [
+  {
+    id: "survey-1",
+    label: "1차 설문지",
+    url: "https://forms.gle/ZoLxWPdwid1F94FE8",
+    visible: true,
+  },
+  {
+    id: "survey-2",
+    label: "2차 설문지",
+    url: "https://forms.gle/LvFmEZHkGM3MMLQ8A",
+    visible: true,
+  },
+  {
+    id: "survey-3",
+    label: "3차 설문지",
+    url: "https://forms.gle/fNUX6qDjXR5wXoGt7",
+    visible: true,
+  },
+];
 
 const DEFAULT_BRANDING: BrandingConfig = {
   mascotBucketId: null,
   mascotObjectPath: "assets/penguin-nurse/app/neutral.png",
   mascotSourceFileName: "neutral.png",
   mascotAltText: "펭귄 간호사",
-  surveyFormUrl: null,
+  surveyFormUrl: DEFAULT_EXTERNAL_SURVEYS[0]?.url ?? null,
+  externalSurveys: DEFAULT_EXTERNAL_SURVEYS,
 };
 
 type CharacterImagesConfig = {
@@ -87,9 +117,21 @@ function asRagProviderConfig(value: Prisma.JsonValue | null | undefined) {
 }
 
 function asBrandingConfig(value: Prisma.JsonValue | null | undefined) {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as BrandingConfig)
-    : null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Partial<BrandingConfig>;
+  const externalSurveys = normalizeExternalSurveys(record.externalSurveys);
+  return {
+    ...DEFAULT_BRANDING,
+    ...record,
+    surveyFormUrl:
+      normalizeSurveyFormUrl(record.surveyFormUrl) ??
+      externalSurveys.find((survey) => survey.visible && survey.url)?.url ??
+      null,
+    externalSurveys,
+  };
 }
 
 function asCharacterImagesConfig(value: Prisma.JsonValue | null | undefined) {
@@ -164,6 +206,35 @@ function normalizeSurveyFormUrl(input: unknown) {
   } catch {
     return null;
   }
+}
+
+function normalizeExternalSurveys(input: unknown): ExternalSurveyConfig[] {
+  const inputById = new Map<string, Partial<ExternalSurveyConfig>>();
+  if (Array.isArray(input)) {
+    for (const item of input) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+      const record = item as Partial<ExternalSurveyConfig>;
+      if (typeof record.id === "string") {
+        inputById.set(record.id, record);
+      }
+    }
+  }
+
+  return DEFAULT_EXTERNAL_SURVEYS.map((fallback) => {
+    const record = inputById.get(fallback.id);
+    const label =
+      typeof record?.label === "string" && record.label.trim()
+        ? record.label.trim()
+        : fallback.label;
+    const url = normalizeSurveyFormUrl(record?.url) ?? fallback.url;
+    return {
+      id: fallback.id,
+      label,
+      url,
+      visible:
+        typeof record?.visible === "boolean" ? record.visible : fallback.visible,
+    };
+  });
 }
 
 function validateSchedule(body: Partial<ScheduleConfig>) {
@@ -265,7 +336,21 @@ app.put("/branding", async (c) => {
   try {
     const body = (await c.req.json()) as Partial<BrandingConfig>;
     const normalizedSurveyFormUrl = normalizeSurveyFormUrl(body.surveyFormUrl);
-    if (body.surveyFormUrl && !normalizedSurveyFormUrl) {
+    const externalSurveys = normalizeExternalSurveys(body.externalSurveys);
+    const hasInvalidExternalSurvey = Array.isArray(body.externalSurveys)
+      ? body.externalSurveys.some((item) => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) {
+            return false;
+          }
+          const url = (item as { url?: unknown }).url;
+          return Boolean(url) && !normalizeSurveyFormUrl(url);
+        })
+      : false;
+
+    if (
+      (body.surveyFormUrl && !normalizedSurveyFormUrl) ||
+      hasInvalidExternalSurvey
+    ) {
       return c.json(
         { error: "survey form url must be a valid Google Forms https URL" },
         400,
@@ -275,7 +360,11 @@ app.put("/branding", async (c) => {
     const branding: BrandingConfig = {
       ...DEFAULT_BRANDING,
       ...body,
-      surveyFormUrl: normalizedSurveyFormUrl,
+      surveyFormUrl:
+        normalizedSurveyFormUrl ??
+        externalSurveys.find((survey) => survey.visible && survey.url)?.url ??
+        null,
+      externalSurveys,
     };
 
     await upsertSystemConfig(BRANDING_KEY, branding as Prisma.InputJsonValue);

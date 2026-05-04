@@ -59,6 +59,7 @@ import { buildPatientHomeViewModel } from "./view-models";
 
 type ModalSection = "conversation" | "checklist" | "info";
 type ConversationSection = "summary" | "heart";
+type ExternalSurvey = { id: string; label: string; url: string };
 
 export function PatientProfileScreen() {
   const router = useRouter();
@@ -71,7 +72,7 @@ export function PatientProfileScreen() {
   const [home, setHome] = useState<HomeViewData | null>(null);
   const [today, setToday] = useState<TodayViewData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [surveyFormUrl, setSurveyFormUrl] = useState<string | null>(null);
+  const [externalSurveys, setExternalSurveys] = useState<ExternalSurvey[]>([]);
   const [selectedIsoDate, setSelectedIsoDate] = useState<string | null>(null);
   const [selectedRecordDay, setSelectedRecordDay] =
     useState<RecordDayView | null>(null);
@@ -213,13 +214,28 @@ export function PatientProfileScreen() {
         if (!isMounted) {
           return;
         }
-        setSurveyFormUrl(normalizeSurveyFormUrl(branding.surveyFormUrl));
+        const surveys = Array.isArray(branding.externalSurveys)
+          ? branding.externalSurveys.flatMap((survey) => {
+              const url = normalizeSurveyFormUrl(survey.url);
+              return survey.visible && url
+                ? [{ id: survey.id, label: survey.label, url }]
+                : [];
+            })
+          : [];
+        const fallbackUrl = normalizeSurveyFormUrl(branding.surveyFormUrl);
+        setExternalSurveys(
+          surveys.length > 0
+            ? surveys
+            : fallbackUrl
+              ? [{ id: "legacy", label: "설문", url: fallbackUrl }]
+              : [],
+        );
       })
       .catch(() => {
         if (!isMounted) {
           return;
         }
-        setSurveyFormUrl(null);
+        setExternalSurveys([]);
       });
 
     return () => {
@@ -416,8 +432,10 @@ export function PatientProfileScreen() {
           />
 
           <PatientExternalSurveyCard
-            hasSurveyFormUrl={Boolean(surveyFormUrl)}
-            onOpenSurvey={() => router.push("/profile-survey")}
+            surveys={externalSurveys}
+            onOpenSurvey={(surveyId) =>
+              router.push(`/profile-survey?surveyId=${encodeURIComponent(surveyId)}`)
+            }
           />
 
           <PatientProfileAccountCard

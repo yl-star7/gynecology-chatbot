@@ -20,7 +20,36 @@ interface BrandingData {
   mascotSourceFileName: string | null;
   mascotAltText: string | null;
   surveyFormUrl: string | null;
+  externalSurveys: ExternalSurveyData[];
 }
+
+interface ExternalSurveyData {
+  id: string;
+  label: string;
+  url: string | null;
+  visible: boolean;
+}
+
+const DEFAULT_EXTERNAL_SURVEYS: ExternalSurveyData[] = [
+  {
+    id: "survey-1",
+    label: "1차 설문지",
+    url: "https://forms.gle/ZoLxWPdwid1F94FE8",
+    visible: true,
+  },
+  {
+    id: "survey-2",
+    label: "2차 설문지",
+    url: "https://forms.gle/LvFmEZHkGM3MMLQ8A",
+    visible: true,
+  },
+  {
+    id: "survey-3",
+    label: "3차 설문지",
+    url: "https://forms.gle/fNUX6qDjXR5wXoGt7",
+    visible: true,
+  },
+];
 
 type CharacterImageTone =
   | "neutral"
@@ -83,8 +112,31 @@ const DEFAULT_BRANDING: BrandingData = {
   mascotObjectPath: "assets/penguin-nurse/app/neutral.png",
   mascotSourceFileName: "neutral.png",
   mascotAltText: "펭귄 간호사",
-  surveyFormUrl: null,
+  surveyFormUrl: DEFAULT_EXTERNAL_SURVEYS[0]?.url ?? null,
+  externalSurveys: DEFAULT_EXTERNAL_SURVEYS,
 };
+
+function normalizeBrandingData(data: Partial<BrandingData>): BrandingData {
+  const surveysById = new Map(
+    Array.isArray(data.externalSurveys)
+      ? data.externalSurveys.map((survey) => [survey.id, survey])
+      : [],
+  );
+  const externalSurveys = DEFAULT_EXTERNAL_SURVEYS.map((fallback) => ({
+    ...fallback,
+    ...(surveysById.get(fallback.id) ?? {}),
+  }));
+
+  return {
+    ...DEFAULT_BRANDING,
+    ...data,
+    surveyFormUrl:
+      data.surveyFormUrl ??
+      externalSurveys.find((survey) => survey.visible && survey.url)?.url ??
+      null,
+    externalSurveys,
+  };
+}
 
 const CHARACTER_IMAGE_TONES: Array<{
   key: CharacterImageTone;
@@ -197,8 +249,8 @@ export function AdminOperationsPanel() {
       try {
         const res = await fetch("/api/admin/branding");
         if (res.ok) {
-          const data: BrandingData = await res.json();
-          if (!cancelled) setBranding(data);
+          const data: Partial<BrandingData> = await res.json();
+          if (!cancelled) setBranding(normalizeBrandingData(data));
         }
       } catch {
       } finally {
@@ -340,6 +392,7 @@ export function AdminOperationsPanel() {
         mascotSourceFileName: uploadPayload.sourceFileName ?? file.name,
         mascotAltText: branding.mascotAltText ?? "마스코트",
         surveyFormUrl: branding.surveyFormUrl ?? null,
+        externalSurveys: branding.externalSurveys,
       };
 
       const saveRes = await fetch("/api/admin/branding", {
@@ -459,6 +512,11 @@ export function AdminOperationsPanel() {
         body: JSON.stringify({
           ...branding,
           surveyFormUrl: branding.surveyFormUrl?.trim() || null,
+          externalSurveys: branding.externalSurveys.map((survey) => ({
+            ...survey,
+            label: survey.label.trim(),
+            url: survey.url?.trim() || null,
+          })),
         }),
       });
       const savePayload = (await saveRes.json()) as { error?: string };
@@ -469,6 +527,11 @@ export function AdminOperationsPanel() {
       setBranding((current) => ({
         ...current,
         surveyFormUrl: current.surveyFormUrl?.trim() || null,
+        externalSurveys: current.externalSurveys.map((survey) => ({
+          ...survey,
+          label: survey.label.trim(),
+          url: survey.url?.trim() || null,
+        })),
       }));
       setBrandingResult("설문 링크를 저장했습니다.");
     } catch (error) {
@@ -655,6 +718,59 @@ export function AdminOperationsPanel() {
                 aria-label="설문 링크"
               />
             </label>
+            <div className={styles.fieldGroup}>
+              <span className={styles.fieldLabel}>외부 설문 노출</span>
+              {branding.externalSurveys.map((survey) => (
+                <div className={styles.actionRow} key={survey.id}>
+                  <input
+                    className={styles.fieldInput}
+                    aria-label={`${survey.label} 이름`}
+                    value={survey.label}
+                    onChange={(event) => {
+                      const label = event.target.value;
+                      setBranding((current) => ({
+                        ...current,
+                        externalSurveys: current.externalSurveys.map((item) =>
+                          item.id === survey.id ? { ...item, label } : item,
+                        ),
+                      }));
+                    }}
+                  />
+                  <input
+                    className={styles.fieldInput}
+                    aria-label={`${survey.label} 링크`}
+                    type="url"
+                    inputMode="url"
+                    value={survey.url ?? ""}
+                    onChange={(event) => {
+                      const url = event.target.value;
+                      setBranding((current) => ({
+                        ...current,
+                        externalSurveys: current.externalSurveys.map((item) =>
+                          item.id === survey.id ? { ...item, url } : item,
+                        ),
+                      }));
+                    }}
+                  />
+                  <label className={styles.fieldLabel}>
+                    <input
+                      type="checkbox"
+                      checked={survey.visible}
+                      onChange={(event) => {
+                        const visible = event.target.checked;
+                        setBranding((current) => ({
+                          ...current,
+                          externalSurveys: current.externalSurveys.map((item) =>
+                            item.id === survey.id ? { ...item, visible } : item,
+                          ),
+                        }));
+                      }}
+                    />
+                    보임
+                  </label>
+                </div>
+              ))}
+            </div>
             <div className={styles.actionRow}>
               <button
                 type="button"

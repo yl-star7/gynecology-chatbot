@@ -72,6 +72,12 @@ export interface MobileApiClient {
     mascotImageUrl: string | null;
     mascotAltText: string | null;
     surveyFormUrl: string | null;
+    externalSurveys?: Array<{
+      id: string;
+      label: string;
+      url: string | null;
+      visible: boolean;
+    }>;
     characterImages?: CharacterImagesManifest;
   }>;
   fetchTodayView(): Promise<{ today: TodayViewData }>;
@@ -303,6 +309,12 @@ export function createMobileApiClient(
         mascotImageUrl: string | null;
         mascotAltText: string | null;
         surveyFormUrl: string | null;
+        externalSurveys?: Array<{
+          id: string;
+          label: string;
+          url: string | null;
+          visible: boolean;
+        }>;
         characterImages?: CharacterImagesManifest;
       }>(response);
     },

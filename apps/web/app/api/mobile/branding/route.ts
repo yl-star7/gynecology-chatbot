@@ -22,7 +22,36 @@ type BrandingConfig = {
   mascotSourceFileName: string | null;
   mascotAltText: string | null;
   surveyFormUrl: string | null;
+  externalSurveys?: ExternalSurveyConfig[];
 };
+
+type ExternalSurveyConfig = {
+  id: string;
+  label: string;
+  url: string | null;
+  visible: boolean;
+};
+
+const DEFAULT_EXTERNAL_SURVEYS: ExternalSurveyConfig[] = [
+  {
+    id: "survey-1",
+    label: "1차 설문지",
+    url: "https://forms.gle/ZoLxWPdwid1F94FE8",
+    visible: true,
+  },
+  {
+    id: "survey-2",
+    label: "2차 설문지",
+    url: "https://forms.gle/LvFmEZHkGM3MMLQ8A",
+    visible: true,
+  },
+  {
+    id: "survey-3",
+    label: "3차 설문지",
+    url: "https://forms.gle/fNUX6qDjXR5wXoGt7",
+    visible: true,
+  },
+];
 
 type CharacterImagesConfig = {
   version: string;
@@ -49,6 +78,13 @@ function asBrandingConfig(value: Prisma.JsonValue | null | undefined) {
   }
 
   return value as BrandingConfig;
+}
+
+function visibleExternalSurveys(branding: BrandingConfig | null) {
+  const surveys = Array.isArray(branding?.externalSurveys)
+    ? branding.externalSurveys
+    : DEFAULT_EXTERNAL_SURVEYS;
+  return surveys.filter((survey) => survey.visible && survey.url);
 }
 
 function isValidHttpsUrl(input: unknown) {
@@ -109,12 +145,16 @@ export async function GET() {
     ]);
     const branding = asBrandingConfig(brandingRow?.value);
     const characterImages = asCharacterImagesConfig(characterImagesRow?.value);
+    const externalSurveys = visibleExternalSurveys(branding);
+    const surveyFormUrl =
+      externalSurveys[0]?.url ?? branding?.surveyFormUrl ?? null;
 
     if (!branding?.mascotBucketId || !branding?.mascotObjectPath) {
       return NextResponse.json({
         mascotImageUrl: null,
         mascotAltText: null,
-        surveyFormUrl: branding?.surveyFormUrl ?? null,
+        surveyFormUrl,
+        externalSurveys,
         characterImages,
       });
     }
@@ -128,7 +168,8 @@ export async function GET() {
     return NextResponse.json({
       mascotImageUrl: signedUrl,
       mascotAltText: branding.mascotAltText ?? "마스코트",
-      surveyFormUrl: branding.surveyFormUrl ?? null,
+      surveyFormUrl,
+      externalSurveys,
       characterImages,
     });
   } catch (error) {
@@ -138,6 +179,7 @@ export async function GET() {
         mascotImageUrl: null,
         mascotAltText: null,
         surveyFormUrl: null,
+        externalSurveys: [],
         characterImages: DEFAULT_CHARACTER_IMAGES,
       },
       { status: 200 },

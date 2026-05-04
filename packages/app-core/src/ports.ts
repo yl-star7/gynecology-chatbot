@@ -88,6 +88,12 @@ export interface MobileProfilePort {
   getProfile(): Promise<MobileProfileViewData>;
   getBranding(): Promise<{
     surveyFormUrl: string | null;
+    externalSurveys?: Array<{
+      id: string;
+      label: string;
+      url: string | null;
+      visible: boolean;
+    }>;
     characterImages?: {
       version: string;
       images: Record<

@@ -9,12 +9,14 @@ import {
 } from "../../../theme";
 
 export function PatientExternalSurveyCard({
-  hasSurveyFormUrl,
+  surveys,
   onOpenSurvey,
 }: {
-  hasSurveyFormUrl: boolean;
-  onOpenSurvey: () => void;
+  surveys: Array<{ id: string; label: string; url: string }>;
+  onOpenSurvey: (surveyId: string) => void;
 }) {
+  const hasSurveys = surveys.length > 0;
+
   return (
     <Card variant="muted">
       <Text style={styles.sectionTitle}>외부 설문</Text>
@@ -24,16 +26,27 @@ export function PatientExternalSurveyCard({
       <View style={styles.externalSurveyCard}>
         <Text style={styles.externalSurveyTitle}>설문으로 의견 들려주세요</Text>
         <Text style={styles.externalSurveyBody}>
-          {hasSurveyFormUrl
+          {hasSurveys
             ? "새 창 없이 앱 안에서 바로 설문에 답할 수 있어요."
             : "아직 열 수 있는 설문이 없어요. 준비되면 여기에서 안내해드릴게요."}
         </Text>
-        <Button
-          label="설문 열기"
-          variant="secondary"
-          onPress={onOpenSurvey}
-          disabled={!hasSurveyFormUrl}
-        />
+        {hasSurveys ? (
+          surveys.map((survey) => (
+            <Button
+              key={survey.id}
+              label={`${survey.label} 열기`}
+              variant="secondary"
+              onPress={() => onOpenSurvey(survey.id)}
+            />
+          ))
+        ) : (
+          <Button
+            label="설문 열기"
+            variant="secondary"
+            onPress={() => undefined}
+            disabled
+          />
+        )}
       </View>
     </Card>
   );

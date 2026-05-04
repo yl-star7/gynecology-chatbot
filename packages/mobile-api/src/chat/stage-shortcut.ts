@@ -40,7 +40,9 @@ export function summarizeQuestionForChip(text: string): string {
 // 명시적 종료/다음 질문 전환 신호만. "고마워요" 같은 짧은 감사 표현은 제외 —
 // 질문 하나당 2~3턴 공감 대화가 이어지도록.
 const CLOSING_SIGNAL =
-  /다음 질문|오늘은 여기까지|이만 마칠|마칠게요|여기까지 할|여기까지만|그만할게요|그만 할게요/;
+  /다음 질문/;
+const STOP_SIGNAL =
+  /오늘은 여기까지|이만 마칠|마칠게요|여기까지 할|여기까지만|그만할게요|그만 할게요/;
 const POSITIVE_ACK = /^(네|응|예|좋아|보여|볼래|알려|확인할래요)/;
 const DEFER_TODAY_QUESTION_MESSAGE = "나중에 볼게요.";
 
@@ -312,6 +314,24 @@ function buildTodayQuestionTurn(
   };
 }
 
+function getRemainingQuestions(
+  input: StageShortcutInput,
+  progress: QuestionProgress,
+) {
+  const answered = new Set(progress.answeredQuestionIds);
+  return input.todayQuestionCandidates.filter((q) => !answered.has(q.id));
+}
+
+function hasRemainingRequiredQuestions(
+  input: StageShortcutInput,
+  progress: QuestionProgress,
+) {
+  return (
+    progress.answeredQuestionIds.length < DAILY_ATTACHMENT_QUESTION_QUOTA &&
+    getRemainingQuestions(input, progress).length > 0
+  );
+}
+
 // ────────────────────────────────────────────────────────────
 // 하루치 질문 소진 → 자유대화 / 종료 선택
 // ────────────────────────────────────────────────────────────
@@ -342,30 +362,45 @@ function buildExhaustedChoiceTurn(
   };
 }
 
-function buildDeferredTodayQuestionTurn(
+function buildBlockedTodayQuestionTurn(
+  input: StageShortcutInput,
   progress: QuestionProgress,
 ): StageShortcutResult {
+  if (!hasRemainingRequiredQuestions(input, progress)) {
+    return buildExhaustedChoiceTurn(progress);
+  }
+
   return {
     assistantMessage: assistantMessage([
       makeText(
-        "질문은 그럼 나중에 하고, 자유롭게 물어보고 싶은 사항 얘기해도 좋아요.",
+        "오늘의 질문이 아직 남아 있어요. 아래 질문 중 하나를 먼저 골라주세요.",
+      ),
+      makeQuickReplies(
+        getRemainingQuestions(input, progress).map((q) => ({
+          id: q.id,
+          label: summarizeQuestionForChip(q.text),
+          message: q.text,
+        })),
       ),
     ]),
     workflowMemoryPayload: {
-      scenario: "general",
+      scenario: "attachment_question",
       characterTone: "calm",
       guardrailStatus: "safe",
+      offeredQuestionIds: getRemainingQuestions(input, progress).map(
+        (q) => q.id,
+      ),
       selectedQuestionIds: progress.answeredQuestionIds,
-      currentAttachmentQuestionId: progress.currentAttachmentQuestionId,
+      currentAttachmentQuestionId: null,
       nextSessionMemory: {
         workflowVersion: 2,
-        stage: "free_chat",
-        stageName: "today_question_deferred",
-        compactSummary: "현재 단계: 오늘의 질문 나중에 진행",
-        lastScenario: "general",
+        stage: 1,
+        stageName: "today_question",
+        compactSummary: `현재 단계: 모아애착 질문 (${progress.answeredQuestionIds.length}/${DAILY_ATTACHMENT_QUESTION_QUOTA} 답변 완료)`,
+        lastScenario: "attachment_question",
         lastCharacterTone: "calm",
         answeredQuestionIds: progress.answeredQuestionIds,
-        currentAttachmentQuestionId: progress.currentAttachmentQuestionId,
+        currentAttachmentQuestionId: null,
       } as Record<string, unknown>,
     } as WorkflowAssistantPayload,
   };
@@ -416,30 +451,42 @@ function buildDeferredWeekInfoQuestionTurn(
   };
 }
 
-function buildQuestionSessionFreeChatTurn(
+function buildActiveQuestionRequiredTurn(
+  input: StageShortcutInput,
   progress: QuestionProgress,
 ): StageShortcutResult {
+  const currentQuestion = input.todayQuestionCandidates.find(
+    (q) => q.id === progress.currentAttachmentQuestionId,
+  );
+  const questionText = currentQuestion?.text ?? "선택한 오늘의 질문";
+
   return {
     assistantMessage: assistantMessage([
       makeText(
-        "좋아요. 이 질문은 잠깐 내려놓고, 이제 자유질문으로 넘어갈게요.",
+        [
+          "오늘의 질문이 아직 진행 중이에요. 자유질문은 오늘의 질문을 모두 답한 뒤에 열려요.",
+          "",
+          formatAttachmentQuestionPrompt(questionText),
+          "",
+          "짧은 한 문장이어도 괜찮으니 먼저 답해주세요.",
+        ].join("\n"),
       ),
     ]),
     workflowMemoryPayload: {
-      scenario: "general",
+      scenario: "attachment_question",
       characterTone: "calm",
       guardrailStatus: "safe",
       selectedQuestionIds: progress.answeredQuestionIds,
-      currentAttachmentQuestionId: null,
+      currentAttachmentQuestionId: progress.currentAttachmentQuestionId,
       nextSessionMemory: {
         workflowVersion: 2,
-        stage: "free_chat",
-        stageName: "question_session_deferred",
-        compactSummary: "현재 단계: 질문을 미루고 자유질문",
-        lastScenario: "general",
+        stage: 2,
+        stageName: "choice_conversation",
+        compactSummary: "현재 단계: 질문 답변 대기",
+        lastScenario: "attachment_question",
         lastCharacterTone: "calm",
         answeredQuestionIds: progress.answeredQuestionIds,
-        currentAttachmentQuestionId: null,
+        currentAttachmentQuestionId: progress.currentAttachmentQuestionId,
       } as Record<string, unknown>,
     } as WorkflowAssistantPayload,
   };
@@ -514,7 +561,7 @@ export function maybeShortCircuitStaticTurn(
     progress.currentAttachmentQuestionId &&
     isRefusal
   ) {
-    return buildQuestionSessionFreeChatTurn(progress);
+    return buildActiveQuestionRequiredTurn(input, progress);
   }
   if (
     !input.selectedQuestionId &&
@@ -536,7 +583,7 @@ export function maybeShortCircuitStaticTurn(
       stage === 1 ||
       stage === null)
   ) {
-    return buildDeferredTodayQuestionTurn(progress);
+    return buildBlockedTodayQuestionTurn(input, progress);
   }
 
   if (
@@ -585,7 +632,7 @@ export function maybeShortCircuitStaticTurn(
     // 사용자가 질문 선택 안 했고 attachment_question 턴 재진입
     if (!input.selectedQuestionId) {
       if (input.userText.trim()) {
-        return null;
+        return buildBlockedTodayQuestionTurn(input, progress);
       }
       return buildTodayQuestionTurn(input, progress);
     }
@@ -634,6 +681,14 @@ export function maybeShortCircuitStaticTurn(
     ) {
       return buildEndedTurn();
     }
+    if (STOP_SIGNAL.test(input.userText)) {
+      if (hasRemainingRequiredQuestions(input, progress)) {
+        return progress.currentAttachmentQuestionId
+          ? buildActiveQuestionRequiredTurn(input, progress)
+          : buildBlockedTodayQuestionTurn(input, progress);
+      }
+      return buildExhaustedChoiceTurn(progress);
+    }
     // 마무리 신호 → 현재 질문을 answered 에 push, 소진 여부 판단
     if (CLOSING_SIGNAL.test(input.userText)) {
       const updated: QuestionProgress = {
@@ -658,6 +713,11 @@ export function maybeShortCircuitStaticTurn(
     }
     // "자유대화" 선택 → free_chat 전환 (종료 escape hatch 포함)
     if (/자유롭게/.test(input.userText)) {
+      if (hasRemainingRequiredQuestions(input, progress)) {
+        return progress.currentAttachmentQuestionId
+          ? buildActiveQuestionRequiredTurn(input, progress)
+          : buildBlockedTodayQuestionTurn(input, progress);
+      }
       return {
         assistantMessage: assistantMessage([
           makeText(
@@ -701,6 +761,12 @@ export function maybeShortCircuitStaticTurn(
   }
 
   if (stage === "free_chat") {
+    if (
+      !input.selectedQuestionId &&
+      hasRemainingRequiredQuestions(input, progress)
+    ) {
+      return buildTodayQuestionTurn(input, progress);
+    }
     // 자유대화 중 명시적 종료 신호만 가로채고, 나머지는 LLM
     if (
       /오늘은 여기까지|여기까지 할래요|이만 마칠|마칠게요/.test(input.userText)
