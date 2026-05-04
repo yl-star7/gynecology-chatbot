@@ -19,12 +19,58 @@ import type {
 /** 하루에 제공하는 오늘의 질문(attachment_question) 수. 소진 시 자유대화/종료 선택 */
 export const DAILY_ATTACHMENT_QUESTION_QUOTA = 3;
 
+/**
+ * 질문 본문에서 chip 표시용 짧은 의문문만 추출.
+ * 마지막 ?로 끝나는 문장이 있으면 그것만, 없으면 마지막 sentence 사용.
+ */
+export function summarizeQuestionForChip(text: string): string {
+  const trimmed = (text ?? "").trim();
+  if (!trimmed) return text;
+  const sentences = trimmed.match(/[^.!?。！？\n]+[.!?。！？]/g);
+  if (sentences && sentences.length > 0) {
+    for (let i = sentences.length - 1; i >= 0; i -= 1) {
+      const s = sentences[i]!.trim();
+      if (/[?？]$/.test(s)) return s;
+    }
+    return sentences[sentences.length - 1]!.trim();
+  }
+  return trimmed;
+}
+
 // 명시적 종료/다음 질문 전환 신호만. "고마워요" 같은 짧은 감사 표현은 제외 —
 // 질문 하나당 2~3턴 공감 대화가 이어지도록.
 const CLOSING_SIGNAL =
   /다음 질문|오늘은 여기까지|이만 마칠|마칠게요|여기까지 할|여기까지만|그만할게요|그만 할게요/;
 const POSITIVE_ACK = /^(네|응|예|좋아|보여|볼래|알려|확인할래요)/;
-const DEFER_TODAY_QUESTION_MESSAGE = "이따가 함께 질문에 답해봐요.";
+const DEFER_TODAY_QUESTION_MESSAGE = "나중에 볼게요.";
+
+const MOOD_ACKNOWLEDGEMENTS: Record<CharacterTone, string[]> = {
+  joyful: [
+    "좋은 마음이 느껴져서 저도 반가워요.",
+    "그 밝은 기분을 오늘 안에서 잘 간직해봐요.",
+    "좋아요, 지금의 따뜻한 마음을 함께 기억해둘게요.",
+  ],
+  sad: [
+    "울적한 마음을 꺼내줘서 고마워요.",
+    "슬픈 마음이 올라온 하루였군요.",
+    "그 마음이 혼자만의 일이 되지 않게 여기서 함께 볼게요.",
+  ],
+  anxious: [
+    "마음이 조금 긴장되어 있었군요.",
+    "걱정되는 마음을 말해줘서 고마워요.",
+    "답답하고 예민한 마음이 올라올 수 있어요.",
+  ],
+  tired: [
+    "몸과 마음이 많이 지친 날이군요.",
+    "피곤한 마음을 알아차리고 말해줘서 고마워요.",
+    "오늘은 속도를 조금 늦춰도 괜찮아요.",
+  ],
+  calm: [
+    "차분하게 지금 마음을 살펴보고 계시군요.",
+    "편안한 마음을 그대로 잘 이어가봐요.",
+    "좋아요, 지금의 마음을 조용히 함께 기억해둘게요.",
+  ],
+};
 
 export type StageShortcutInput = {
   userText: string;
@@ -39,6 +85,7 @@ export type StageShortcutInput = {
   currentWeek: number | null;
   promptContext: PromptContext | null;
   moodPool: Array<{ label: string; message: string; tone: CharacterTone }>;
+  moodAcknowledgementPool?: string[];
   weekInfoOptInVariations: string[];
   todayQuestionCandidates: Array<{ id: string; text: string }>;
   /**
@@ -91,6 +138,19 @@ function pickRandom<T>(items: T[], seed?: number): T {
 
 function makeText(text: string): ChatMessage["parts"][number] {
   return { type: "text", id: `text-${now()}`, text };
+}
+
+function stripWrappingQuoteMarks(value: string) {
+  return value
+    .trim()
+    .replace(/^["“”]+/, "")
+    .replace(/["“”]+$/, "")
+    .trim();
+}
+
+function formatAttachmentQuestionPrompt(questionText: string) {
+  const content = stripWrappingQuoteMarks(questionText) || "오늘의 질문";
+  return `**"${content}"**`;
 }
 
 function makeQuickReplies(
@@ -150,10 +210,18 @@ function buildWeekInfoOptInTurn(
   const mood = input.selectedMood!;
   const moodEntry = input.moodPool.find((m) => m.message === mood) ?? null;
   const moodTone: CharacterTone = moodEntry?.tone ?? "calm";
+  const acknowledgementPool =
+    input.moodAcknowledgementPool && input.moodAcknowledgementPool.length > 0
+      ? input.moodAcknowledgementPool
+      : MOOD_ACKNOWLEDGEMENTS[moodTone];
+  const acknowledgement = pickRandom(
+    acknowledgementPool,
+    input.rngSeed === undefined ? undefined : input.rngSeed + 1,
+  );
 
   return {
     assistantMessage: assistantMessage([
-      makeText(`그 마음 기억해둘게요.\n\n${prompt}`),
+      makeText(`${acknowledgement}\n\n${prompt}`),
       makeQuickReplies([
         {
           id: "week-info-yes",
@@ -162,7 +230,7 @@ function buildWeekInfoOptInTurn(
         },
         {
           id: "week-info-no",
-          label: "이따가요",
+          label: "나중에요",
           message: DEFER_TODAY_QUESTION_MESSAGE,
         },
       ]),
@@ -212,13 +280,11 @@ function buildTodayQuestionTurn(
 
   return {
     assistantMessage: assistantMessage([
-      makeText(
-        "오늘 해본 만큼으로도 충분해요. 아래 질문 중 하나를 골라보세요.",
-      ),
+      makeText("아래 질문 중 하나를 골라 이어가요."),
       makeQuickReplies(
         remaining.map((q) => ({
           id: q.id,
-          label: q.text,
+          label: summarizeQuestionForChip(q.text),
           message: q.text,
         })),
       ),
@@ -254,7 +320,7 @@ function buildExhaustedChoiceTurn(
 ): StageShortcutResult {
   return {
     assistantMessage: assistantMessage([
-      makeText("오늘의 질문은 다 함께 해봤어요. 이제 편하게 자유롭게 이야기해드릴게요."),
+      makeText("오늘의 질문을 모두 답변하셨어요. 이제 자유롭게 얘기해보아요."),
     ]),
     workflowMemoryPayload: {
       scenario: "general",
@@ -281,7 +347,9 @@ function buildDeferredTodayQuestionTurn(
 ): StageShortcutResult {
   return {
     assistantMessage: assistantMessage([
-      makeText(`좋아요. ${DEFER_TODAY_QUESTION_MESSAGE}`),
+      makeText(
+        "질문은 그럼 나중에 하고, 자유롭게 물어보고 싶은 사항 얘기해도 좋아요.",
+      ),
     ]),
     workflowMemoryPayload: {
       scenario: "general",
@@ -291,13 +359,87 @@ function buildDeferredTodayQuestionTurn(
       currentAttachmentQuestionId: progress.currentAttachmentQuestionId,
       nextSessionMemory: {
         workflowVersion: 2,
-        stage: "ended",
+        stage: "free_chat",
         stageName: "today_question_deferred",
         compactSummary: "현재 단계: 오늘의 질문 나중에 진행",
         lastScenario: "general",
         lastCharacterTone: "calm",
         answeredQuestionIds: progress.answeredQuestionIds,
         currentAttachmentQuestionId: progress.currentAttachmentQuestionId,
+      } as Record<string, unknown>,
+    } as WorkflowAssistantPayload,
+  };
+}
+
+function buildDeferredWeekInfoQuestionTurn(
+  input: StageShortcutInput,
+  progress: QuestionProgress,
+): StageShortcutResult {
+  const answered = new Set(progress.answeredQuestionIds);
+  const remaining = input.todayQuestionCandidates.filter(
+    (q) => !answered.has(q.id),
+  );
+
+  if (remaining.length === 0) {
+    return buildExhaustedChoiceTurn(progress);
+  }
+
+  return {
+    assistantMessage: assistantMessage([
+      makeText("사전은 나중에 봐도 좋아요. 아래 질문 중 하나를 골라 이어가요."),
+      makeQuickReplies(
+        remaining.map((q) => ({
+          id: q.id,
+          label: summarizeQuestionForChip(q.text),
+          message: q.text,
+        })),
+      ),
+    ]),
+    workflowMemoryPayload: {
+      scenario: "attachment_question",
+      characterTone: "calm",
+      guardrailStatus: "safe",
+      offeredQuestionIds: remaining.map((q) => q.id),
+      selectedQuestionIds: progress.answeredQuestionIds,
+      currentAttachmentQuestionId: null,
+      nextSessionMemory: {
+        workflowVersion: 2,
+        stage: 1,
+        stageName: "today_question",
+        compactSummary: `현재 단계: 모아애착 질문 (${progress.answeredQuestionIds.length}/${DAILY_ATTACHMENT_QUESTION_QUOTA} 답변 완료)`,
+        lastScenario: "attachment_question",
+        lastCharacterTone: "calm",
+        answeredQuestionIds: progress.answeredQuestionIds,
+        currentAttachmentQuestionId: null,
+      } as Record<string, unknown>,
+    } as WorkflowAssistantPayload,
+  };
+}
+
+function buildQuestionSessionFreeChatTurn(
+  progress: QuestionProgress,
+): StageShortcutResult {
+  return {
+    assistantMessage: assistantMessage([
+      makeText(
+        "좋아요. 이 질문은 잠깐 내려놓고, 이제 자유질문으로 넘어갈게요.",
+      ),
+    ]),
+    workflowMemoryPayload: {
+      scenario: "general",
+      characterTone: "calm",
+      guardrailStatus: "safe",
+      selectedQuestionIds: progress.answeredQuestionIds,
+      currentAttachmentQuestionId: null,
+      nextSessionMemory: {
+        workflowVersion: 2,
+        stage: "free_chat",
+        stageName: "question_session_deferred",
+        compactSummary: "현재 단계: 질문을 미루고 자유질문",
+        lastScenario: "general",
+        lastCharacterTone: "calm",
+        answeredQuestionIds: progress.answeredQuestionIds,
+        currentAttachmentQuestionId: null,
       } as Record<string, unknown>,
     } as WorkflowAssistantPayload,
   };
@@ -336,7 +478,8 @@ export function maybeShortCircuitStaticTurn(
   const memory = input.promptContext?.sessionMemory ?? null;
   const rawStage = memory?.stage ?? input.clientWorkflowStage ?? null;
   const compactSummary = memory?.compactSummary ?? "";
-  const lastScenario = memory?.lastScenario ?? input.clientWorkflowStageName ?? "";
+  const lastScenario =
+    memory?.lastScenario ?? input.clientWorkflowStageName ?? "";
   const progress: QuestionProgress = input.progress ?? {
     answeredQuestionIds: [],
     currentAttachmentQuestionId: null,
@@ -352,11 +495,12 @@ export function maybeShortCircuitStaticTurn(
   //    오늘의 질문을 바로 띄우지 않고 짧게 마무리한다.
   //    "오늘의 질문" 으로 이어가고 싶다고 하면 stage=1 today_question 제시.
   //    이전 상태가 baby_info_offer/week_info_opt_in 이면 특히 중요 (loop 방지).
-  const isRefusal = /이따가|아니요|나중|안 볼래|안볼래|싫어요|됐어요|패스/.test(
-    input.userText,
-  );
+  const isRefusal =
+    /이따가|아니요|나중|안 볼래|안볼래|싫어요|됐어요|패스|싶지 않|안 하고 싶|말하기 싫|얘기하기 싫|이야기하기 싫/.test(
+      input.userText,
+    );
   const wantsQuestion =
-    /오늘의 질문|질문으로 이어|질문 보기|질문 볼래|질문 할래|질문 해볼래|질문에 답|함께 질문/.test(
+    /오늘의 질문|오늘 질문|질문으로 이어|질문 보기|질문 볼래|질문 할래|질문 해볼래|질문에 답|함께 질문|질문을 하나|질문 고르/.test(
       input.userText,
     );
   const isInfoContext =
@@ -367,9 +511,30 @@ export function maybeShortCircuitStaticTurn(
     compactSummary.includes("주차 정보 안내");
   if (
     !input.selectedQuestionId &&
+    progress.currentAttachmentQuestionId &&
+    isRefusal
+  ) {
+    return buildQuestionSessionFreeChatTurn(progress);
+  }
+  if (
+    !input.selectedQuestionId &&
     !progress.currentAttachmentQuestionId &&
     isRefusal &&
-    (isInfoContext || stage === 0 || stage === 1 || stage === null)
+    (lastScenario === "baby_info_offer" ||
+      (lastScenario as string) === "week_info_opt_in" ||
+      compactSummary.includes("태아 발달 확인 제안") ||
+      stage === 0)
+  ) {
+    return buildDeferredWeekInfoQuestionTurn(input, progress);
+  }
+  if (
+    !input.selectedQuestionId &&
+    !progress.currentAttachmentQuestionId &&
+    isRefusal &&
+    (lastScenario === "baby_info" ||
+      compactSummary.includes("주차 정보 안내") ||
+      stage === 1 ||
+      stage === null)
   ) {
     return buildDeferredTodayQuestionTurn(progress);
   }
@@ -401,11 +566,15 @@ export function maybeShortCircuitStaticTurn(
     }
     // "N" (이따가요) → 오늘의 질문을 바로 띄우지 않고 마무리
     if (/이따가|아니요|나중|안 볼래|안볼래/.test(input.userText)) {
-      return buildDeferredTodayQuestionTurn(progress);
+      return buildDeferredWeekInfoQuestionTurn(input, progress);
     }
     // "오늘의 질문으로 이어갈래요" / "질문으로 이어" / "질문 볼래요" → stage=1
     // (Y path 주차 정보 응답 이후 사용자가 질문으로 가고 싶을 때)
-    if (/오늘의 질문|질문으로 이어|질문 보기|질문 볼래|질문 할래|질문에 답|함께 질문/.test(input.userText)) {
+    if (
+      /오늘의 질문|오늘 질문|질문으로 이어|질문 보기|질문 볼래|질문 할래|질문에 답|함께 질문|질문을 하나|질문 고르/.test(
+        input.userText,
+      )
+    ) {
       return buildTodayQuestionTurn(input, progress);
     }
     // "Y" (네, 볼래요) → 주차 정보는 Schift LLM 경로로 넘기거나 별도 deep link 로직
@@ -415,6 +584,9 @@ export function maybeShortCircuitStaticTurn(
   if (stage === 1) {
     // 사용자가 질문 선택 안 했고 attachment_question 턴 재진입
     if (!input.selectedQuestionId) {
+      if (input.userText.trim()) {
+        return null;
+      }
       return buildTodayQuestionTurn(input, progress);
     }
     // 질문 선택됨 → "이 질문에 대해 편지 써볼까요?" 전환 턴 (LLM 없이 즉시 응답)
@@ -428,7 +600,7 @@ export function maybeShortCircuitStaticTurn(
       assistantMessage: assistantMessage([
         makeText(
           [
-            `"${questionText}"`,
+            formatAttachmentQuestionPrompt(questionText),
             "",
             "이 질문에 대해 편안하게 답해주세요. 아기에게 들려주는 편지처럼 써도 좋고, 떠오르는 한 문장이어도 괜찮아요.",
           ].join("\n"),

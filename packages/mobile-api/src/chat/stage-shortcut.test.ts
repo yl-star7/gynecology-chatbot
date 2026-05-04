@@ -20,6 +20,11 @@ const moodPool = [
     message: "오늘은 마음이 편안해요.",
     tone: "calm" as const,
   },
+  {
+    label: "피곤해요",
+    message: "몸이 많이 피곤해요.",
+    tone: "tired" as const,
+  },
 ];
 
 const optInVariations = [
@@ -97,10 +102,69 @@ describe("maybeShortCircuitStaticTurn", () => {
     const text = r!.assistantMessage.parts.find((p) => p.type === "text");
     if (text?.type === "text") {
       expect(text.text).toContain(optInVariations[0]);
+      expect(text.text).toContain("그 밝은 기분");
     }
     expect(
       r!.assistantMessage.parts.some((part) => part.type === "quickReplies"),
     ).toBe(true);
+  });
+
+  it("varies the mood acknowledgement by selected mood tone", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "몸이 많이 피곤해요.",
+      selectedMood: "몸이 많이 피곤해요.",
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 0,
+          stageName: "mood_intake",
+          compactSummary: "현재 단계: 감정 확인",
+        } as PromptContext["sessionMemory"],
+      }),
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+      rngSeed: 0,
+    });
+
+    expect(r).not.toBeNull();
+    const text = r!.assistantMessage.parts.find((p) => p.type === "text");
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toContain("피곤한 마음");
+      expect(text.text).not.toContain("그 마음 기억해둘게요");
+    }
+  });
+
+  it("uses an admin-managed mood acknowledgement pool when provided", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "오늘 기분이 좋아요.",
+      selectedMood: "오늘 기분이 좋아요.",
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 0,
+          stageName: "mood_intake",
+          compactSummary: "현재 단계: 감정 확인",
+        } as PromptContext["sessionMemory"],
+      }),
+      moodPool,
+      moodAcknowledgementPool: [
+        "관리자가 정한 첫 문장",
+        "관리자가 정한 둘째 문장",
+      ],
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+      rngSeed: 0,
+    });
+
+    const text = r!.assistantMessage.parts.find((p) => p.type === "text");
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toContain("관리자가 정한 둘째 문장");
+    }
   });
 
   it("falls through when free text resembles a mood but was not an exact option tap", () => {
@@ -123,9 +187,9 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(r).toBeNull();
   });
 
-  it("defers today_question when user answered N to opt-in", () => {
+  it("shows today questions when user defers week info and questions remain", () => {
     const r = maybeShortCircuitStaticTurn({
-      userText: "이따가 함께 질문에 답해봐요.",
+      userText: "나중에 볼게요.",
       selectedMood: null,
       selectedQuestionId: null,
       currentWeek: 27,
@@ -141,21 +205,157 @@ describe("maybeShortCircuitStaticTurn", () => {
       todayQuestionCandidates: questions,
     });
     expect(r).not.toBeNull();
-    expect(r!.workflowMemoryPayload.scenario).toBe("general");
-    expect(r!.workflowMemoryPayload.nextSessionMemory?.stage).toBe("ended");
+    expect(r!.workflowMemoryPayload.scenario).toBe("attachment_question");
+    expect(r!.workflowMemoryPayload.nextSessionMemory?.stage).toBe(1);
     const text = r!.assistantMessage.parts.find((p) => p.type === "text");
     expect(text?.type).toBe("text");
     if (text?.type === "text") {
-      expect(text.text).toContain("이따가 함께 질문에 답해봐요.");
+      expect(text.text).toContain("사전은 나중에 봐도 좋아요.");
+    }
+    const quick = r!.assistantMessage.parts.find(
+      (part) => part.type === "quickReplies",
+    );
+    expect(quick?.type).toBe("quickReplies");
+    if (quick?.type === "quickReplies") {
+      expect(quick.choices).toHaveLength(3);
+    }
+  });
+
+  it("moves to free chat when user defers today questions after week info", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "나중에 볼게요.",
+      selectedMood: null,
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 1,
+          stageName: "today_question",
+          compactSummary: "현재 단계: 주차 정보 안내 완료",
+          lastScenario: "baby_info",
+        } as PromptContext["sessionMemory"],
+      }),
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+    });
+    expect(r).not.toBeNull();
+    expect(r!.workflowMemoryPayload.scenario).toBe("general");
+    expect(r!.workflowMemoryPayload.nextSessionMemory?.stage).toBe("free_chat");
+    const text = r!.assistantMessage.parts.find((p) => p.type === "text");
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toContain(
+        "질문은 그럼 나중에 하고, 자유롭게 물어보고 싶은 사항 얘기해도 좋아요.",
+      );
     }
     expect(
       r!.assistantMessage.parts.some((part) => part.type === "quickReplies"),
     ).toBe(false);
   });
 
+  it("moves to free chat when week info is deferred after all questions are answered", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "나중에 볼게요.",
+      selectedMood: null,
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 0,
+          stageName: "week_info_opt_in",
+          compactSummary: "현재 단계: 태아 발달 확인 제안",
+        } as PromptContext["sessionMemory"],
+      }),
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+      progress: {
+        answeredQuestionIds: ["q1", "q2", "q3"],
+        currentAttachmentQuestionId: null,
+      },
+    });
+    expect(r).not.toBeNull();
+    expect(r!.workflowMemoryPayload.nextSessionMemory?.stage).toBe("free_chat");
+    const text = r!.assistantMessage.parts.find((p) => p.type === "text");
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toBe(
+        "오늘의 질문을 모두 답변하셨어요. 이제 자유롭게 얘기해보아요.",
+      );
+    }
+    expect(
+      r!.assistantMessage.parts.some((part) => part.type === "quickReplies"),
+    ).toBe(false);
+  });
+
+  it("closes the active question session and moves to free chat when user defers", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "이따가 함께 질문에 답해봐요.",
+      selectedMood: null,
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 2,
+          stageName: "choice_conversation",
+          compactSummary: "현재 단계: 질문 답변 대기 (q1)",
+        } as PromptContext["sessionMemory"],
+      }),
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+      progress: {
+        answeredQuestionIds: [],
+        currentAttachmentQuestionId: "q1",
+      },
+    });
+
+    expect(r).not.toBeNull();
+    expect(r!.workflowMemoryPayload.nextSessionMemory?.stage).toBe("free_chat");
+    expect(r!.workflowMemoryPayload.nextSessionMemory?.stageName).toBe(
+      "question_session_deferred",
+    );
+    expect(
+      r!.workflowMemoryPayload.nextSessionMemory?.answeredQuestionIds,
+    ).toEqual([]);
+    expect(r!.workflowMemoryPayload.selectedQuestionIds).toEqual(
+      [],
+    );
+    expect(
+      r!.workflowMemoryPayload.nextSessionMemory?.currentAttachmentQuestionId,
+    ).toBeNull();
+    const text = r!.assistantMessage.parts.find((p) => p.type === "text");
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toContain("이제 자유질문으로 넘어갈게요.");
+    }
+  });
+
+  it("lets later free text use the LLM after deferring the daily question", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "혹시 커피 마셔도 되나요?",
+      selectedMood: null,
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: "free_chat",
+          stageName: "today_question_deferred",
+          compactSummary: "현재 단계: 오늘의 질문 나중에 진행",
+        } as PromptContext["sessionMemory"],
+      }),
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+    });
+
+    expect(r).toBeNull();
+  });
+
   it("returns today_question when user chooses the today question path", () => {
     const r = maybeShortCircuitStaticTurn({
-      userText: "오늘 함께 질문에 답해볼까요?",
+      userText: "오늘 질문을 하나 골라볼게요.",
       selectedMood: null,
       selectedQuestionId: null,
       currentWeek: 27,
@@ -173,6 +373,11 @@ describe("maybeShortCircuitStaticTurn", () => {
     });
     expect(r).not.toBeNull();
     expect(r!.workflowMemoryPayload.scenario).toBe("attachment_question");
+    const text = r!.assistantMessage.parts.find((p) => p.type === "text");
+    expect(text?.type).toBe("text");
+    if (text?.type === "text") {
+      expect(text.text).toBe("아래 질문 중 하나를 골라 이어가요.");
+    }
     const payload = r!.workflowMemoryPayload as Record<string, unknown>;
     expect(payload.offeredQuestionIds).toHaveLength(3);
   });
@@ -216,6 +421,60 @@ describe("maybeShortCircuitStaticTurn", () => {
     });
     expect(r).not.toBeNull();
     expect(r!.workflowMemoryPayload.scenario).toBe("attachment_question");
+  });
+
+  it("falls through at stage=1 when the user writes a free emotion message", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "우울해요",
+      selectedMood: null,
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 1,
+          stageName: "today_question",
+          compactSummary: "현재 단계: 오늘의 질문 준비",
+        } as PromptContext["sessionMemory"],
+      }),
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+    });
+
+    expect(r).toBeNull();
+  });
+
+  it("formats the selected attachment question as one bold quoted line", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "“오늘 아기에게 들려주고 싶은 말은?”",
+      selectedMood: null,
+      selectedQuestionId: "q1",
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 1,
+          stageName: "today_question",
+          compactSummary: "현재 단계: 오늘의 질문 준비",
+        } as PromptContext["sessionMemory"],
+      }),
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: [
+        { id: "q1", text: "“오늘 아기에게 들려주고 싶은 말은?”" },
+      ],
+    });
+
+    const textPart = r!.assistantMessage.parts.find(
+      (part) => part.type === "text",
+    );
+    expect(textPart?.type).toBe("text");
+    if (textPart?.type === "text") {
+      expect(textPart.text.split("\n")[0]).toBe(
+        '**"오늘 아기에게 들려주고 싶은 말은?"**',
+      );
+      expect(textPart.text).not.toContain('""오늘 아기에게');
+      expect(textPart.text).not.toContain('**"“');
+    }
   });
 
   it("falls through at stage=2 with selectedQuestionId (LLM needed)", () => {
@@ -297,6 +556,66 @@ describe("maybeShortCircuitStaticTurn", () => {
     });
     // stage=2 유지: shortcut 이 가로채지 않고 null 반환 → LLM empathy 응답 예상
     expect(r).toBeNull();
+  });
+
+  it("keeps the current question active on contextual continuation", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "기대감 하나 더 얘기하고 싶어요.",
+      selectedMood: null,
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 2,
+          stageName: "choice_conversation",
+          compactSummary: "현재 단계: 질문 답변 중",
+        } as PromptContext["sessionMemory"],
+      }),
+      progress: {
+        answeredQuestionIds: [],
+        currentAttachmentQuestionId: "q1",
+      },
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+    });
+    expect(r).toBeNull();
+  });
+
+  it("moves to free chat without answering the current question when user defers it", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "음... 얘기하고 싶지 않아요. 나중에 하고 싶어요.",
+      selectedMood: null,
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 2,
+          stageName: "choice_conversation",
+          compactSummary: "현재 단계: 질문 답변 중",
+        } as PromptContext["sessionMemory"],
+      }),
+      progress: {
+        answeredQuestionIds: ["q1"],
+        currentAttachmentQuestionId: "q2",
+      },
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+    });
+    expect(r).not.toBeNull();
+    expect(r!.workflowMemoryPayload.nextSessionMemory?.stage).toBe(
+      "free_chat",
+    );
+    expect(r!.workflowMemoryPayload.nextSessionMemory?.stageName).toBe(
+      "question_session_deferred",
+    );
+    expect(r!.workflowMemoryPayload.nextSessionMemory?.answeredQuestionIds).toEqual(
+      ["q1"],
+    );
+    expect(
+      r!.workflowMemoryPayload.nextSessionMemory?.currentAttachmentQuestionId,
+    ).toBeNull();
   });
 
   it("returns to stage=1 on explicit '다음 질문으로' signal", () => {

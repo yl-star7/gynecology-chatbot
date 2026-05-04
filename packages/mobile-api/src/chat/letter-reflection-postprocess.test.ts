@@ -1,7 +1,7 @@
 import { rewriteLetterReflectionQuickReplies } from "./letter-reflection-postprocess";
 
 describe("rewriteLetterReflectionQuickReplies", () => {
-  it("appends remaining count to '다른 질문도 볼래요' label", () => {
+  it("hides buttons before the reflection turn threshold", () => {
     const payload = {
       quickReplies: [
         { label: "조금 더 말할래요", message: "하나 더 이야기하고 싶어요." },
@@ -12,11 +12,35 @@ describe("rewriteLetterReflectionQuickReplies", () => {
       answeredQuestionIds: ["q1"],
       currentAttachmentQuestionId: "q2",
     });
-    const next = out.quickReplies!.find((q) => q.label.includes("다른 질문"));
-    expect(next?.label).toBe("다른 질문도 볼래요 (1개)");
+    expect(out.quickReplies).toBeUndefined();
   });
 
-  it("shows 2 remaining when first question is in progress", () => {
+  it("keeps assistive buttons before the threshold when the option is enabled", () => {
+    const payload = { quickReplies: [] };
+    const out = rewriteLetterReflectionQuickReplies(
+      payload,
+      {
+        answeredQuestionIds: [],
+        currentAttachmentQuestionId: "q1",
+      },
+      { mode: "assistive" },
+    );
+
+    expect(out.quickReplies).toEqual([
+      {
+        id: "continue",
+        label: "조금 더 이야기할래요",
+        message: "하나 더 이야기하고 싶어요.",
+      },
+      {
+        id: "reframe",
+        label: "다른 쪽으로 물어봐줘요",
+        message: "다른 방향으로 물어봐주세요.",
+      },
+    ]);
+  });
+
+  it("appends remaining count to the single next-question button after threshold", () => {
     const payload = {
       quickReplies: [
         { label: "조금 더 말할래요", message: "." },
@@ -26,33 +50,76 @@ describe("rewriteLetterReflectionQuickReplies", () => {
     const out = rewriteLetterReflectionQuickReplies(payload, {
       answeredQuestionIds: [],
       currentAttachmentQuestionId: "q1",
+      currentQuestionTurnCount: 3,
     });
-    expect(out.quickReplies![2].label).toBe("다른 질문도 볼래요 (2개)");
+    expect(out.quickReplies).toEqual([
+      {
+        label: "다른 질문도 볼래요 (2개)",
+        message: "다음 질문으로 이어갈래요.",
+        id: "next",
+      },
+    ]);
   });
 
-  it("replaces with 자유대화 when quota exhausted", () => {
+  it("moves to free chat without quick replies when quota is exhausted", () => {
     const payload = {
+      answer: "마무리 답변",
       quickReplies: [
         { label: "조금 더 말할래요", message: "." },
         { label: "다른 질문도 볼래요", message: "." },
       ],
+      nextSessionMemory: {
+        stage: 2,
+        stageName: "choice_conversation",
+        currentAttachmentQuestionId: "q3",
+      },
     };
     const out = rewriteLetterReflectionQuickReplies(payload, {
       answeredQuestionIds: ["q1", "q2"],
       currentAttachmentQuestionId: "q3",
     });
-    const next = out.quickReplies![2];
-    expect(next.label).toBe("자유대화로");
-    expect(next.message).toContain("자유롭게");
+    expect(out.quickReplies).toBeUndefined();
+    expect(out.answer).toBe(
+      "오늘의 질문을 모두 답변하셨어요. 이제 자유롭게 얘기해보아요.",
+    );
+    expect(out.scenario).toBe("general");
+    expect(out.nextSessionMemory).toMatchObject({
+      stage: "free_chat",
+      stageName: "free_chat",
+      compactSummary: "현재 단계: 자유 대화",
+      lastScenario: "general",
+      answeredQuestionIds: ["q1", "q2", "q3"],
+      currentAttachmentQuestionId: null,
+    });
   });
 
-  it("ensures all buttons exist even if LLM drops them", () => {
+  it("keeps assistive buttons and adds the next button after threshold", () => {
+    const payload = { quickReplies: [] };
+    const out = rewriteLetterReflectionQuickReplies(
+      payload,
+      {
+        answeredQuestionIds: [],
+        currentAttachmentQuestionId: "q1",
+        currentQuestionTurnCount: 3,
+      },
+      { mode: "assistive" },
+    );
+
+    expect(out.quickReplies?.map((choice) => choice.label)).toEqual([
+      "조금 더 이야기할래요",
+      "다른 쪽으로 물어봐줘요",
+      "다른 질문도 볼래요 (2개)",
+    ]);
+  });
+
+  it("adds only the next-question button once the reflection turn threshold is reached", () => {
     const payload = { quickReplies: [] };
     const out = rewriteLetterReflectionQuickReplies(payload, {
       answeredQuestionIds: [],
       currentAttachmentQuestionId: "q1",
+      currentQuestionTurnCount: 3,
     });
-    expect(out.quickReplies).toHaveLength(3);
-    expect(out.quickReplies![0].label).toBe("조금 더 이야기할래요");
+    expect(out.quickReplies).toHaveLength(1);
+    expect(out.quickReplies![0].label).toBe("다른 질문도 볼래요 (2개)");
   });
 });

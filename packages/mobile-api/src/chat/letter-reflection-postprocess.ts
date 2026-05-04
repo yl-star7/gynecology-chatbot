@@ -1,13 +1,9 @@
 /**
  * letter_reflection subworkflow 응답 후처리.
  *
- * - quickReplies 의 "다른 질문 살펴볼래요" 라벨에 **남은 질문 개수** 표시
- *   예: "다른 질문 살펴볼래요 (2개)"
- * - 남은 질문이 0개면 라벨을 "자유대화로" 로 대체 (stage 자동 전환)
- * - "조금 더 말할래요" 라벨은 그대로 유지
- *
- * 입력: LLM 이 반환한 parsed JSON payload + 현재 진행 상태
- * 출력: 수정된 payload (in-place 가능, 반환도 함)
+ * 질문 답변 직후에는 사용자가 자연스럽게 직접 입력을 이어갈 수 있게
+ * quickReplies 를 숨긴다. 충분히 머문 뒤에만 다음 질문/자유대화 전환 버튼을
+ * 하나 노출한다.
  */
 
 export type QuickReply = {
@@ -24,15 +20,55 @@ export type LetterReflectionPayload = {
   [key: string]: unknown;
 };
 
+export type LetterReflectionQuickReplyMode = "hidden" | "assistive";
+
+/**
+ * 같은 attachment 질문에 대해 letter_reflection turn 이 몇 번 이어졌는지 임계값.
+ * 이 값 미만이면 "다른 질문도 볼래요" chip 을 노출하지 않는다.
+ */
+export const LETTER_REFLECTION_NEXT_CHIP_MIN_TURNS = 3;
+export const QUESTION_EXHAUSTED_FREE_CHAT_MESSAGE =
+  "오늘의 질문을 모두 답변하셨어요. 이제 자유롭게 얘기해보아요.";
+
+function transitionToFreeChat(
+  payload: LetterReflectionPayload,
+  answeredIds: string[],
+) {
+  delete payload.quickReplies;
+  payload.scenario = "general";
+  payload.answer = QUESTION_EXHAUSTED_FREE_CHAT_MESSAGE;
+  payload.nextSessionMemory = {
+    ...(payload.nextSessionMemory ?? {}),
+    workflowVersion: 2,
+    stage: "free_chat",
+    stageName: "free_chat",
+    compactSummary: "현재 단계: 자유 대화",
+    lastScenario: "general",
+    lastCharacterTone:
+      typeof payload.nextSessionMemory?.lastCharacterTone === "string"
+        ? payload.nextSessionMemory.lastCharacterTone
+        : "calm",
+    answeredQuestionIds: answeredIds,
+    currentAttachmentQuestionId: null,
+  };
+}
+
 export function rewriteLetterReflectionQuickReplies(
   payload: LetterReflectionPayload,
   progress: {
     answeredQuestionIds: string[];
     currentAttachmentQuestionId: string | null;
+    /** 같은 currentAttachmentQuestionId 로 이어진 letter_reflection turn 수(이번 턴 포함) */
+    currentQuestionTurnCount?: number;
   },
-  quota = 3,
+  options: {
+    mode?: LetterReflectionQuickReplyMode;
+    quota?: number;
+  } = {},
 ): LetterReflectionPayload {
   if (!payload) return payload;
+  const quota = options.quota ?? 3;
+  const mode = options.mode ?? "hidden";
   const current = progress.currentAttachmentQuestionId;
   // 이 질문이 종결되면 answered 에 더해지므로 "종결 후" 남은 개수 기준
   const answeredAfterClose =
@@ -40,68 +76,72 @@ export function rewriteLetterReflectionQuickReplies(
       ? progress.answeredQuestionIds.length + 1
       : progress.answeredQuestionIds.length;
   const remainingAfterClose = Math.max(0, quota - answeredAfterClose);
+  const answeredIdsAfterClose =
+    current && !progress.answeredQuestionIds.includes(current)
+      ? [...progress.answeredQuestionIds, current]
+      : progress.answeredQuestionIds;
 
-  const qr: QuickReply[] = Array.isArray(payload.quickReplies)
+  if (remainingAfterClose === 0) {
+    transitionToFreeChat(payload, answeredIdsAfterClose);
+    return payload;
+  }
+
+  const turnCount = progress.currentQuestionTurnCount ?? 0;
+  const allowNextChip = turnCount >= LETTER_REFLECTION_NEXT_CHIP_MIN_TURNS;
+
+  if (!allowNextChip && mode === "hidden") {
+    delete payload.quickReplies;
+    return payload;
+  }
+
+  const existingReplies: QuickReply[] = Array.isArray(payload.quickReplies)
     ? (payload.quickReplies as QuickReply[])
     : [];
 
-  // 기본 3개 quickReplies 강제 (LLM 이 누락해도 서버가 채움)
-  const hasContinue = qr.some((q) => q.message === "하나 더 이야기하고 싶어요.");
-  const hasReframe = qr.some((q) => q.message === "다른 방향으로 물어봐주세요.");
-  const hasNext = qr.some((q) =>
+  const assistiveButtons: QuickReply[] =
+    mode === "assistive"
+      ? [
+          existingReplies.find(
+            (q) => q.message === "하나 더 이야기하고 싶어요.",
+          ) ?? {
+            id: "continue",
+            label: "조금 더 이야기할래요",
+            message: "하나 더 이야기하고 싶어요.",
+          },
+          existingReplies.find(
+            (q) => q.message === "다른 방향으로 물어봐주세요.",
+          ) ?? {
+            id: "reframe",
+            label: "다른 쪽으로 물어봐줘요",
+            message: "다른 방향으로 물어봐주세요.",
+          },
+        ]
+      : [];
+
+  const nextButton = {
+    id: "next",
+    label: `다른 질문도 볼래요 (${remainingAfterClose}개)`,
+    message: "다음 질문으로 이어갈래요.",
+  };
+
+  const existingNext = existingReplies.find((q) =>
     /다른 질문|질문 살펴|다음 질문|자유대화|여기까지/.test(q.label),
   );
 
-  const ensured: QuickReply[] = [];
-  if (hasContinue) {
-    ensured.push(qr.find((q) => q.message === "하나 더 이야기하고 싶어요.")!);
-  } else {
-    ensured.push({
-      id: "continue",
-      label: "조금 더 이야기할래요",
-      message: "하나 더 이야기하고 싶어요.",
-    });
-  }
-  if (hasReframe) {
-    ensured.push(qr.find((q) => q.message === "다른 방향으로 물어봐주세요.")!);
-  } else {
-    ensured.push({
-      id: "reframe",
-      label: "다른 쪽으로 물어봐줘요",
-      message: "다른 방향으로 물어봐주세요.",
-    });
-  }
-  if (hasNext) {
-    ensured.push(qr.find((q) => /다른 질문|질문 살펴|다음 질문|자유대화|여기까지/.test(q.label))!);
-  } else {
-    ensured.push({
-      id: "next",
-      label: "다른 질문도 볼래요",
-      message: "다음 질문으로 이어갈래요.",
-    });
-  }
-
-  // 다른 질문 라벨에 남은 개수 표시 or "자유대화로" 대체
-  const nextIdx = ensured.findIndex((q) =>
-    /다른 질문|질문 살펴|다음 질문|자유대화|여기까지/.test(q.label),
-  );
-  if (nextIdx >= 0) {
-    if (remainingAfterClose === 0) {
-      ensured[nextIdx] = {
-        id: "to-free-chat",
-        label: "자유대화로",
-        message: "자유롭게 대화하고 싶어요.",
-      };
-    } else if (/다른 질문|질문 살펴|다음 질문/.test(ensured[nextIdx].label)) {
-      ensured[nextIdx] = {
-        ...ensured[nextIdx],
-        id: ensured[nextIdx].id ?? "next",
-        label: `다른 질문도 볼래요 (${remainingAfterClose}개)`,
-        message: "다음 질문으로 이어갈래요.",
-      };
-    }
-  }
-
-  payload.quickReplies = ensured;
+  payload.quickReplies = [
+    ...assistiveButtons,
+    ...(allowNextChip
+      ? [
+          existingNext && remainingAfterClose > 0
+            ? {
+                ...existingNext,
+                id: existingNext.id ?? "next",
+                label: `다른 질문도 볼래요 (${remainingAfterClose}개)`,
+                message: "다음 질문으로 이어갈래요.",
+              }
+            : nextButton,
+        ]
+      : []),
+  ];
   return payload;
 }

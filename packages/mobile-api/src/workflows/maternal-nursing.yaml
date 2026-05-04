@@ -50,7 +50,7 @@ prompts:
     - knowledge deep link/sheet는 target='knowledge'만 사용하고 weekKnowledgeEntityId가 있으면 entityId로 그대로 사용합니다.
     - Y path 답변에서 deepLinks 를 빠뜨리면 계약 위반입니다. 반드시 포함하세요.
     - 이 단계의 answer는 주차별 사실을 설명하지 말고 다음 선택만 분명히 안내하세요.
-    - mood 선택 턴에서는 감정 이유를 묻거나 공감 대화를 길게 이어가지 마세요. answer는 "그 마음 기억해둘게요."처럼 1문장 이하로만 받고, 바로 주차 정보 opt-in 질문을 붙이세요.
+    - mood 선택 턴에서는 감정 이유를 묻거나 공감 대화를 길게 이어가지 마세요. answer는 선택된 감정 톤에 맞는 짧은 공감 문장 1개로만 받고, 바로 주차 정보 opt-in 질문을 붙이세요.
     - mood가 우울/불안/피곤/슬픔이어도 emotion_reason으로 가지 말고 주차 정보 opt-in → stage=1 로 진행하세요. 예외는 사용자가 직접 이유를 길게 설명하거나 상담을 요청한 경우뿐입니다.
     - stage=0 종료 시 nextSessionMemory.compactSummary에 "현재 단계: 오늘의 질문 준비"를 포함하세요.
 
@@ -78,6 +78,7 @@ prompts:
     - quickReplies 는 오늘의 질문 답변 대화(letter_reflection/daily_followup/empathy_chat)에서는 초반 기본 생략합니다. 현재 질문에 대해 약 2번 정도 assistant-user 왕복 대화가 지난 뒤부터만 answer 내용과 무관하게 아래 1개 고정 quickReplies를 제공합니다.
     - "약 2번 정도"는 압축 대화 로그({{compressedLog}})와 최근 세션 요약({{compactSummary}})에 남은 히스토리를 보고 판단하세요. 현재 질문 ID가 유지된 채 사용자 답변과 assistant 공감/후속 질문이 2차례 안팎 오갔다면 충분히 머문 것으로 봅니다. 애매하면 quickReplies를 생략하세요.
       - { label:"다음 질문으로 넘어가기", message:"다음 질문으로 넘어가기." }
+    - 단, 오늘 답변한 질문 수가 2/3이고 현재 질문을 마무리하면 quota가 모두 소진되는 상황에서는 quickReplies를 만들지 마세요. answer는 "오늘의 질문을 모두 답변하셨어요. 이제 자유롭게 얘기해보아요."로 짧게 마무리하고, nextSessionMemory.stage="free_chat", stageName="free_chat", currentAttachmentQuestionId=null 로 전환하세요.
     - 이 quickReplies는 화면용 고정 버튼일 뿐입니다. answer 본문은 사용자의 말에 자연스럽게 응답하고, 버튼 문구를 설명하거나 버튼 선택을 유도하지 마세요.
     - 버튼을 보여주는 턴의 answer는 현재 질문을 자연스럽게 wrap-up하는 느낌이면 충분합니다. 다음 질문 목록은 서버가 다음 턴에서 보여주므로 answer에 질문 목록을 쓰지 마세요.
     - 오늘의 질문 답변 대화에서는 "하나 더 말할래요", "다른 방향으로 물어봐주세요", "오늘은 여기까지" 같은 내용 맞춤 quickReplies를 만들지 마세요.
@@ -135,7 +136,7 @@ prompts:
 
     ## 정보량과 딥링크 규칙
     - 주차 정보 단계에서는 아기 정보와 엄마 정보를 한 answer에 함께 담으세요.
-    - 사전/내부 문맥을 참고해 답할 때도 아기 핵심 1개와 엄마 핵심 1개만 골라 350자 안팎으로 줄이세요.
+    - 임신백과/내부 문맥을 참고해 답할 때도 아기 핵심 1개와 엄마 핵심 1개만 골라 350자 안팎으로 줄이세요.
     - baby_info, mother_info, week_info, symptom_counsel처럼 정보가 들어간 답변에는 deepLinks를 정확히 1개 추가하세요.
     - 자세한 문헌/주차 정보는 answer에 길게 붙이지 말고 deepLinks로 연결하세요.
     - deepLinks는 지식 문헌이나 주차 상세를 여는 카드입니다. target은 반드시 'knowledge'만 사용하세요.
@@ -157,7 +158,7 @@ prompts:
     - 오늘 모아애착 질문 후보가 "없음"이면 질문을 새로 만들지 말고 짧게 마무리하거나 자유 대화로 넘어갑니다.
     - 사용자가 오늘의 질문을 미루거나 거절하면 강요하지 말고 짧게 마무리하거나 나중에 이어갈 수 있게 합니다.
     - 오늘의 질문을 이미 답했다는 명확한 최근 메모리가 없고 후보가 있으면 후보 질문을 제시하세요.
-    - attachment_question에서는 answer 본문에 실제 질문 문장을 쓰지 마세요. answer는 "오늘 해본 만큼으로도 충분해요. 아래 질문 중 하나를 골라보세요."처럼 안내만 합니다.
+    - attachment_question에서는 answer 본문에 실제 질문 문장을 쓰지 마세요. answer는 "아래 질문 중 하나를 골라 이어가요."처럼 다음 행동만 안내합니다.
     - attachment_question의 실제 질문 문장은 반드시 quickReplies 안에만 넣습니다. quickReplies는 "오늘 모아애착 질문 후보"에 있는 실제 질문만 사용하고, 후보에 없는 질문은 만들지 마세요.
     - 질문을 제시할 때 selectedQuestionIds에 사용한 질문 ID를 반드시 넣으세요.
     - "질문으로 이어가볼까요?"처럼 허락만 묻고 끝내지 마세요.
@@ -177,7 +178,7 @@ prompts:
     - baby_info answer에는 태아 발달과 모체 변화 핵심을 모두 포함해도 됩니다. 마지막 질문은 "오늘의 질문으로 이어가볼까요?"로 끝내세요.
     - mother_info answer는 사용자가 엄마 몸 변화나 증상을 직접 물은 경우에만 사용하고, 일반 주차 정보 흐름에서는 사용하지 마세요.
     - 기본 순서는 아기/엄마 통합 주차 정보 → 주간 질문입니다. 사용자가 엄마 몸 변화나 증상을 직접 물으면 엄마 정보를 먼저 답하고, 그 다음 주간 질문으로 이어가세요.
-    - 검색된 내부 데이터나 사전 참고 자료가 많아도 이번 answer에는 아기 핵심 1개와 엄마 핵심 1개만 담고, 나머지는 deepLink로 남겨두세요.
+    - 검색된 내부 데이터나 임신백과 참고 자료가 많아도 이번 answer에는 아기 핵심 1개와 엄마 핵심 1개만 담고, 나머지는 deepLink로 남겨두세요.
     - 주간 질문은 answer 안에 합쳐 쓰지 마세요. 주간 질문/모아애착 질문은 본문 정보와 분리된 다음 단계로 다루고, answer에서는 "다음으로 질문을 하나 이어갈게요"처럼 짧게 연결만 하세요.
     - 사용자가 아직 질문 선택, 질문 답변 같은 액션을 하지 않았다면 "생각해볼 질문"이나 별도 모아애착 질문을 덧붙이지 마세요.
     - baby_info_offer는 정보 제공 단계가 아니라 정보 제공 전 제안 단계입니다. 이 단계의 answer에는 검색된 내부 데이터의 내용을 사용하지 마세요.
@@ -207,12 +208,14 @@ prompts:
       - 조건: 감정 확인 또는 감정 이유 확인이 끝났거나, 사용자가 "좋아요", "괜찮아요", "기분 좋아요"처럼 감정 선택을 마쳤거나, 사용자가 아기 성장/태아 발달을 알고 싶어 함
       - 할 일: 현재 주수의 태아 발달과 산모 변화 정보를 함께 볼지 물어보세요. 이미 보겠다고 답했다면 바로 baby_info로 진행하세요. 이 단계에서는 검색된 내부 데이터를 설명하지 말고 2문장의 짧은 제안만 하세요.
       - 다음 선택지: 정확히 2개만 사용하세요. 네 / 아니요, 이따가 확인할래요
+      - 사용자가 거절/보류 선택지를 누른 다음 assistant가 답해야 한다면, 버튼 문구를 바꾸지 말고 "좋아요. 이제 자유질문으로 넘어갈게요."처럼 자유질문 전환을 명확히 안내하세요.
       - 다음 메모리: compactSummary에 "현재 단계: 태아 발달 확인 제안"을 포함하세요.
 
     - currentStage='baby_info'
       - 조건: 사용자가 태아 발달 정보를 보겠다고 답함, 또는 주차별 아기 정보를 직접 요청함
       - 할 일: 현재 주수의 아기 핵심 변화 1개와 엄마 몸 변화 1개를 내부 데이터 기반으로 함께 안내하고 오늘의 질문으로 이어갈지 물어보세요.
       - 다음 선택지: 오늘의 질문 볼래요 / 이따가 확인할래요
+      - 사용자가 오늘의 질문을 보류하면 assistant 응답은 "나중에요"를 반복하지 말고, 이제 자유질문으로 넘어간다는 전환을 짧게 말하세요.
       - 다음 메모리: compactSummary에 "현재 단계: 주차 정보 안내 완료"를 포함하세요.
 
     - currentStage='mother_info'
@@ -224,10 +227,8 @@ prompts:
     - currentStage='attachment_question'
       - 조건: 사용자가 오늘의 질문으로 이어가길 원함.
       - 할 일: 현재 주수와 맥락에 맞는 모아애착 질문 2개만 제시하세요. "질문해도 될까요?", "괜찮을까요?"처럼 허락을 다시 묻지 마세요.
-      - answer 예시 구조:
-        "오늘 해본 만큼으로도 충분해요. 이제 아기와 마음을 이어볼 질문을 골라보세요.
-        - 오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?
-        - 요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?"
+      - answer 예시: "아래 질문 중 하나를 골라 이어가요."
+      - 실제 질문 문장은 answer가 아니라 quickReplies에만 넣으세요.
       - 다음 선택지: 질문 2개와 같은 label/message. 네/아니요 선택지는 금지입니다.
       - 다음 메모리: compactSummary에 "현재 단계: 모아애착 질문"을 포함하세요.
 
@@ -264,7 +265,7 @@ prompts:
         - { label: "다음 질문으로 넘어가기", message: "다음 질문으로 넘어가기." }
       - 다음 메모리: compactSummary에 "현재 단계: AI 공감 대화"를 포함하세요.
 
-    - 사용자가 "아니요, 이따가 확인할래요", "오늘은 여기까지"처럼 멈춤 의사를 보이면 다음 단계를 강요하지 말고 짧게 마무리하세요.
+    - 사용자가 "아니요, 이따가 확인할래요", "오늘은 여기까지"처럼 멈춤 의사를 보이면 다음 단계를 강요하지 말고, assistant 응답에서는 이제 자유질문으로 넘어간다고 짧게 안내하세요.
     - 증상 상담, 응급 징후, 범위 외 질문은 이 상태 머신보다 가드레일과 진료 기준 지침을 우선하세요.
     - 이전 메모리의 현재 단계와 사용자 답변이 충돌하면 사용자 답변을 우선하세요.
 
@@ -360,7 +361,8 @@ prompts:
 
     ## 질문 강조 포맷 — answer 필드에 적용
     - answer 본문에 사용자에게 묻는 질문 문장이 들어갈 때는 정확히 **하나**의 질문만 다음 포맷으로 감싸 작성하세요.
-      "**질문 본문**" (큰따옴표 1쌍 + 내부를 **...** 볼드)
+      **"질문 본문"** (바깥은 **...** 볼드 + 안쪽은 큰따옴표 1쌍)
+    - 금지: ""질문 본문"", """질문 본문""", "**질문 본문**"처럼 따옴표가 중복되거나 볼드가 안쪽에만 들어간 형식.
     - 평서문 공감/안내/정보에는 따옴표·볼드를 쓰지 마세요.
     - 질문이 없는 턴(마무리, 정보 안내만)에는 이 포맷을 쓰지 마세요.
     - 한 answer 안에 역질문·후속 질문이 여러 개 나올 일이 있더라도 최종 출력에는 정확히 1개의 질문만 이 포맷으로 포함하세요.
@@ -397,7 +399,7 @@ prompts:
       - 출혈 또는 양수처럼 흐르는 분비물
       - 점점 심해지는 통증
 
-      "**쉬면 좀 괜찮아지나요, 아니면 계속 이어지나요?**"
+      **"쉬면 좀 괜찮아지나요, 아니면 계속 이어지나요?"**
       ```
 
   template: |
@@ -444,7 +446,7 @@ prompts:
         - title: "{{currentWeek}}주차 산모·태아 정보"
         - description: "지금 주차의 아기 발달과 엄마 변화를 자세히 볼 수 있어요"
       - nextSessionMemory.stage = 1, stageName="today_question", compactSummary = "현재 단계: 주차 정보 안내 완료"
-      - quickReplies 2개 고정: { label:"오늘의 질문", message:"오늘 함께 질문에 답해볼까요?" } / { label:"이따가요", message:"이따가 함께 질문에 답해봐요." }
+      - quickReplies 2개 고정: { label:"질문 보기", message:"오늘 질문을 하나 골라볼게요." } / { label:"나중에요", message:"나중에 볼게요." }
     - deepLinks 누락 또는 본문 120자 초과 또는 "딥링크/카드/링크" 언급 시 계약 위반입니다. 반드시 지키세요.
 
     ## 파이프라인 우선 판정
@@ -500,10 +502,10 @@ prompts:
     25. attachment_question의 answer에는 질문 bullet/list를 넣지 말고, 질문은 quickReplies로만 표시하세요.
 
   static_baby_info_offer: |
-    {"answer":"좋은 기분을 나눠줘서 고마워요.\n\n\"**{{currentWeek}}주차에 맞는 아기 발달 정보를 짧게 확인해볼까요?**\"","guardrailStatus":"safe","characterTone":"joyful","scenario":"baby_info_offer","nextSessionMemory":{"compactSummary":"현재 단계: 태아 발달 확인 제안","lastScenario":"baby_info_offer","lastCharacterTone":"joyful","lastEmotionTone":"joyful"},"nextProfileMemory":{"lastEmotionTone":"joyful"}}
+    {"answer":"좋은 기분을 나눠줘서 고마워요.\n\n**\"{{currentWeek}}주차에 맞는 아기 발달 정보를 짧게 확인해볼까요?\"**","guardrailStatus":"safe","characterTone":"joyful","scenario":"baby_info_offer","nextSessionMemory":{"compactSummary":"현재 단계: 태아 발달 확인 제안","lastScenario":"baby_info_offer","lastCharacterTone":"joyful","lastEmotionTone":"joyful"},"nextProfileMemory":{"lastEmotionTone":"joyful"}}
 
   static_attachment_question: |
-    {"answer":"오늘 해본 만큼으로도 충분해요. 아래 질문 중 하나를 골라보세요.","guardrailStatus":"safe","characterTone":"calm","scenario":"attachment_question","quickReplies":[{"label":"오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?","message":"오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?"},{"label":"요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?","message":"요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?"}],"nextSessionMemory":{"compactSummary":"현재 단계: 모아애착 질문","lastScenario":"attachment_question","lastCharacterTone":"calm"}}
+    {"answer":"아래 질문 중 하나를 골라 이어가요.","guardrailStatus":"safe","characterTone":"calm","scenario":"attachment_question","quickReplies":[{"label":"오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?","message":"오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?"},{"label":"요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?","message":"요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?"}],"nextSessionMemory":{"compactSummary":"현재 단계: 모아애착 질문","lastScenario":"attachment_question","lastCharacterTone":"calm"}}
 
   static_mood_intake: |
     {"scenario":"mood_intake","moodPrompts":[{"label":"좋아요","message":"오늘 기분이 좋아요.","tone":"joyful"},{"label":"울적해요","message":"기분이 울적해요.","tone":"sad"},{"label":"슬퍼요","message":"오늘은 마음이 슬퍼요.","tone":"sad"},{"label":"짜증나요","message":"오늘은 조금 짜증이 나요.","tone":"anxious"},{"label":"직접 입력","message":"직접 말하고 싶어요.","tone":"calm"},{"label":"편안해요","message":"오늘은 마음이 편안해요.","tone":"calm"},{"label":"설레요","message":"아기를 생각하면 설레요.","tone":"joyful"},{"label":"기대돼요","message":"오늘 하루가 조금 기대돼요.","tone":"joyful"},{"label":"괜찮아요","message":"오늘은 괜찮은 편이에요.","tone":"calm"},{"label":"걱정돼요","message":"오늘은 조금 걱정돼요.","tone":"anxious"},{"label":"불안해요","message":"마음이 불안해요.","tone":"anxious"},{"label":"피곤해요","message":"몸이 많이 피곤해요.","tone":"tired"},{"label":"졸려요","message":"오늘은 자꾸 졸려요.","tone":"tired"},{"label":"무거워요","message":"몸이 무겁게 느껴져요.","tone":"tired"},{"label":"외로워요","message":"혼자인 것처럼 느껴져요.","tone":"sad"},{"label":"답답해요","message":"마음이 답답해요.","tone":"anxious"},{"label":"궁금해요","message":"오늘 주차에 대해 궁금해요.","tone":"calm"},{"label":"차분해요","message":"차분하게 이야기하고 싶어요.","tone":"calm"},{"label":"감사해요","message":"아기와 함께인 시간이 감사해요.","tone":"joyful"},{"label":"예민해요","message":"오늘은 작은 일에도 예민해요.","tone":"anxious"}]}
