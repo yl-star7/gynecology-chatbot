@@ -16,11 +16,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { userId } = await requireMobileSession(request, "");
+    const { userId } = await requireMobileSession(request, "", {
+      requireApproved: false,
+    });
 
-    await prisma.pregnancy_profiles.updateMany({
+    await prisma.pregnancy_profiles.upsert({
       where: { user_id: userId },
-      data: {
+      update: {
+        push_token: pushToken,
+        updated_at: new Date(),
+      },
+      create: {
+        user_id: userId,
+        pregnancy_status: "pregnant",
+        pregnancy_day_count: 0,
+        onboarding_payload: {},
         push_token: pushToken,
         updated_at: new Date(),
       },

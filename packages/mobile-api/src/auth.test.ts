@@ -159,20 +159,20 @@ import {
 } from "@/lib/db/admin-client";
 import { checkSmsVerification } from "@/lib/mobile/solapi-sms";
 
-const mockedSupabaseInsert = jest.mocked(dbInsert);
-const mockedSupabaseSelect = jest.mocked(dbSelect);
-const mockedSupabaseUpdate = jest.mocked(dbUpdate);
+const mockedDbInsert = jest.mocked(dbInsert);
+const mockedDbSelect = jest.mocked(dbSelect);
+const mockedDbUpdate = jest.mocked(dbUpdate);
 const mockedCheckSmsVerification = jest.mocked(checkSmsVerification);
 
 describe("completePhoneSignIn", () => {
   beforeEach(() => {
-    mockedSupabaseInsert.mockReset();
-    mockedSupabaseSelect.mockReset();
-    mockedSupabaseUpdate.mockReset();
+    mockedDbInsert.mockReset();
+    mockedDbSelect.mockReset();
+    mockedDbUpdate.mockReset();
     mockedCheckSmsVerification.mockReset();
-    mockedSupabaseSelect.mockResolvedValue([]);
-    mockedSupabaseInsert.mockResolvedValue([]);
-    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedDbSelect.mockResolvedValue([]);
+    mockedDbInsert.mockResolvedValue([]);
+    mockedDbUpdate.mockResolvedValue([]);
   });
 
   test('creates a new user and falls back to "사용자" display name', async () => {
@@ -181,7 +181,7 @@ describe("completePhoneSignIn", () => {
       status: "approved",
       to: "+821012345678",
     });
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
@@ -206,7 +206,7 @@ describe("completePhoneSignIn", () => {
       ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
-    mockedSupabaseInsert.mockResolvedValue([]);
+    mockedDbInsert.mockResolvedValue([]);
 
     const result = await completePhoneSignIn("01012345678", "1234");
 
@@ -219,7 +219,7 @@ describe("completePhoneSignIn", () => {
       status: "approved",
       to: "+821055566677",
     });
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
@@ -244,11 +244,47 @@ describe("completePhoneSignIn", () => {
       ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
-    mockedSupabaseInsert.mockResolvedValue([]);
+    mockedDbInsert.mockResolvedValue([]);
 
     const result = await completePhoneSignIn("01055566677", "1234");
 
     expect(result.user.displayName).toBe("사용자");
+  });
+
+  test("creates new users as pending approval when approval policy is enabled", async () => {
+    mockedCheckSmsVerification.mockResolvedValue({
+      sid: "check-pending",
+      status: "approved",
+      to: "+821066677788",
+    });
+    mockedDbSelect
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ value: { requireApproval: true } }])
+      .mockResolvedValueOnce([
+        {
+          id: "user-pending",
+          phone_number_encrypted: "enc:+821066677788",
+          phone_number_last4: "7788",
+          account_status: "pending_approval",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const result = await completePhoneSignIn("01066677788", "1234");
+
+    const userInsert = mockedDbInsert.mock.calls.find(
+      ([table]) => table === "users",
+    );
+    expect(userInsert?.[1]).toMatchObject({
+      account_status: "pending_approval",
+      phone_number_blind_index: "idx:+821066677788",
+    });
+    expect(result.user.accountStatus).toBe("pending_approval");
   });
 
   test("queries blocked numbers and users by blind index instead of plaintext phone number", async () => {
@@ -257,7 +293,7 @@ describe("completePhoneSignIn", () => {
       status: "approved",
       to: "+821099998888",
     });
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
@@ -282,15 +318,15 @@ describe("completePhoneSignIn", () => {
       ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
-    mockedSupabaseInsert.mockResolvedValue([]);
+    mockedDbInsert.mockResolvedValue([]);
 
     await completePhoneSignIn("01099998888", "1234");
 
-    expect(mockedSupabaseSelect).toHaveBeenNthCalledWith(
+    expect(mockedDbSelect).toHaveBeenNthCalledWith(
       1,
       expect.stringContaining("phone_number_blind_index=eq.idx:+821099998888"),
     );
-    expect(mockedSupabaseSelect).toHaveBeenNthCalledWith(
+    expect(mockedDbSelect).toHaveBeenNthCalledWith(
       3,
       expect.stringContaining("phone_number_blind_index=eq.idx:+821099998888"),
     );
@@ -299,15 +335,15 @@ describe("completePhoneSignIn", () => {
 
 describe("completeUserOnboarding", () => {
   beforeEach(() => {
-    mockedSupabaseInsert.mockReset();
-    mockedSupabaseSelect.mockReset();
-    mockedSupabaseUpdate.mockReset();
+    mockedDbInsert.mockReset();
+    mockedDbSelect.mockReset();
+    mockedDbUpdate.mockReset();
     mockedCheckSmsVerification.mockReset();
   });
 
   test("uses wrapper-backed profile queries in docker mode", async () => {
     process.env.SERVER_DATA_PROVIDER = "docker";
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         {
           id: "user-onboarding-1",
@@ -347,8 +383,8 @@ describe("completeUserOnboarding", () => {
         },
       ] as never);
 
-    mockedSupabaseInsert.mockResolvedValue([]);
-    mockedSupabaseUpdate.mockResolvedValue([]);
+    mockedDbInsert.mockResolvedValue([]);
+    mockedDbUpdate.mockResolvedValue([]);
 
     await expect(
       completeUserOnboarding({
@@ -365,7 +401,7 @@ describe("completeUserOnboarding", () => {
   });
 
   test("stores babyNickname in first-class column and onboarding_payload", async () => {
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         {
           id: "user-onboarding-1",
@@ -405,8 +441,8 @@ describe("completeUserOnboarding", () => {
         },
       ] as never);
 
-    mockedSupabaseUpdate.mockResolvedValue([]);
-    mockedSupabaseInsert.mockResolvedValue([]);
+    mockedDbUpdate.mockResolvedValue([]);
+    mockedDbInsert.mockResolvedValue([]);
 
     await completeUserOnboarding({
       userId: "user-onboarding-1",
@@ -416,7 +452,7 @@ describe("completeUserOnboarding", () => {
       babyNickname: "콩이",
     });
 
-    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+    expect(mockedDbInsert).toHaveBeenCalledWith(
       "pregnancy_profiles",
       expect.objectContaining({
         user_id: "user-onboarding-1",

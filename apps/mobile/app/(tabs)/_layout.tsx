@@ -7,7 +7,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMobileAppSession } from "../../src/core/MobileAppSessionProvider";
 import { PATIENT_TABS } from "../../src/components/patient/PatientTabBar.model";
 import { useMobileTheme } from "../../src/theme-provider";
-import { buildTabsScreenOptions } from "../routeOptions.model";
+import {
+  PATIENT_TAB_BAR_BODY_HEIGHT,
+  buildTabBarSafeAreaStyle,
+  buildTabsScreenOptions,
+} from "../routeOptions.model";
 
 export default function TabsLayout() {
   const { currentUser, isRestoringSession } = useMobileAppSession();
@@ -19,16 +23,35 @@ export default function TabsLayout() {
     subInk: surface.textSecondary,
     card: surface.pageBackground,
     line: surface.strokeSubtle,
+    platformOS: Platform.OS,
   });
-  const androidTabBarStyle =
-    Platform.OS === "android"
-      ? {
-          tabBarStyle: {
-            paddingBottom: Math.max(insets.bottom, 8),
-            height: 56 + insets.bottom,
-          },
-        }
-      : {};
+  const tabBarSafeAreaStyle = buildTabBarSafeAreaStyle({
+    bottomInset: insets.bottom,
+  });
+  const mergedScreenOptions = {
+    ...tabsScreenOptions,
+    tabBarStyle: {
+      ...tabsScreenOptions.tabBarStyle,
+      ...tabBarSafeAreaStyle,
+      paddingTop: 0,
+      alignItems: "center",
+      justifyContent: "flex-start",
+    },
+    tabBarItemStyle: {
+      ...tabsScreenOptions.tabBarItemStyle,
+      height: PATIENT_TAB_BAR_BODY_HEIGHT,
+      paddingVertical: 0,
+      paddingTop: 0,
+      justifyContent: "center",
+      transform: tabsScreenOptions.tabBarItemStyle.transform,
+    },
+    tabBarIconStyle: { ...tabsScreenOptions.tabBarIconStyle, marginTop: 0 },
+    tabBarLabelStyle: {
+      ...tabsScreenOptions.tabBarLabelStyle,
+      marginTop: 0,
+      marginBottom: 0,
+    },
+  };
 
   useEffect(() => {
     if (isRestoringSession) {
@@ -37,15 +60,23 @@ export default function TabsLayout() {
 
     if (!currentUser) {
       router.replace("/auth/login");
+    } else if (currentUser.accountStatus === "pending_approval") {
+      router.replace("/approval-pending");
     } else if (!currentUser.hasCompletedOnboarding) {
       router.replace("/onboarding");
     }
   }, [currentUser, isRestoringSession, router]);
 
-  if (isRestoringSession || !currentUser) return null;
+  if (
+    isRestoringSession ||
+    !currentUser ||
+    currentUser.accountStatus === "pending_approval"
+  ) {
+    return null;
+  }
 
   return (
-    <Tabs screenOptions={{ ...tabsScreenOptions, ...androidTabBarStyle }}>
+    <Tabs screenOptions={mergedScreenOptions}>
       {PATIENT_TABS.map((tab) => (
         <Tabs.Screen
           key={tab.key}

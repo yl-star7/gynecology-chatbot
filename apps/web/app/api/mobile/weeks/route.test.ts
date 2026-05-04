@@ -144,6 +144,7 @@ describe("GET /api/mobile/weeks", () => {
       }),
     );
     expect(response.status).toBe(200);
+    expect(response.headers.get("Server-Timing")).toContain("total;dur=");
     await expect(response.json()).resolves.toEqual({
       weeks: [
         {
@@ -267,6 +268,56 @@ describe("GET /api/mobile/weeks", () => {
           babySizeLabel: "바나나",
           babySummary: "원본 20주 아기 요약",
           motherSummary: "원본 20주 엄마 요약",
+        }),
+      ],
+    });
+  });
+
+  test("limits source and encyclopedia queries when week param is provided", async () => {
+    mockedPrisma.v_weekly_encyclopedia.findMany.mockResolvedValue([]);
+    mockedPrisma.content_pregnancy_week_data.findMany.mockResolvedValue([
+      {
+        week_number: 20,
+        title: "20주차 발달 정보",
+        baby_size_label: "바나나",
+        baby_summary: "원본 아기 요약",
+        mother_summary: "원본 엄마 요약",
+      },
+    ]);
+    mockedPrisma.content_pregnancy_documents.findMany.mockResolvedValue([
+      {
+        id: "550e8400-e29b-41d4-a716-446655440020",
+        pregnancy_week: 20,
+      },
+    ]);
+
+    const response = await GET(
+      new Request("http://localhost/api/mobile/weeks?week=20") as never,
+    );
+
+    expect(mockedPrisma.v_weekly_encyclopedia.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { week_number: 20 },
+      }),
+    );
+    expect(
+      mockedPrisma.content_pregnancy_week_data.findMany,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { status: "published", week_number: 20 },
+      }),
+    );
+    expect(mockedPrisma.content_pregnancy_documents.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { pregnancy_week: 20 },
+      }),
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      weeks: [
+        expect.objectContaining({
+          weekNumber: 20,
+          linkEntityId: "550e8400-e29b-41d4-a716-446655440020",
         }),
       ],
     });

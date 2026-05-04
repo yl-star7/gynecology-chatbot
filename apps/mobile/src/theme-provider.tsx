@@ -2,12 +2,10 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { View } from "react-native";
 import type { MobileThemeKey } from "@gynecology-chatbot/app-core";
 import {
   DEFAULT_MOBILE_THEME_KEY,
@@ -16,7 +14,6 @@ import {
 import {
   createPatientSurfacePalette,
   createThemeShadows,
-  installMobileThemeColorPreprocessors,
   readActiveMobileThemeKey,
   resolveNativePalette,
   setActiveMobileThemeKey,
@@ -53,24 +50,22 @@ function buildPatientTheme(themeKey?: string | null): PatientTheme {
   };
 }
 
-export function MobileThemeProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function MobileThemeProvider({ children }: { children: ReactNode }) {
   const [themeKey, setThemeKey] = useState<MobileThemeKey>(() =>
-    resolveMobileThemeKey(readActiveMobileThemeKey() ?? DEFAULT_MOBILE_THEME_KEY),
+    resolveMobileThemeKey(
+      readActiveMobileThemeKey() ?? DEFAULT_MOBILE_THEME_KEY,
+    ),
   );
-
-  useEffect(() => {
-    installMobileThemeColorPreprocessors();
-  }, []);
 
   const applyThemeKey = useCallback(
     async (nextThemeKey?: string | null, userId?: string | null) => {
       const resolvedThemeKey = resolveMobileThemeKey(nextThemeKey);
       setActiveMobileThemeKey(resolvedThemeKey);
-      setThemeKey(resolvedThemeKey);
+      setThemeKey((currentThemeKey) =>
+        currentThemeKey === resolvedThemeKey
+          ? currentThemeKey
+          : resolvedThemeKey,
+      );
       if (userId) {
         await persistNativeThemeKeyForUser(userId, resolvedThemeKey);
       }
@@ -99,9 +94,7 @@ export function MobileThemeProvider({
 
   return (
     <MobileThemeContext.Provider value={value}>
-      <View key={themeKey} style={{ flex: 1 }}>
-        {children}
-      </View>
+      {children}
     </MobileThemeContext.Provider>
   );
 }

@@ -7,6 +7,10 @@ import {
   fetchSession,
   sendChatMessage,
 } from "@/lib/mobile/web-mobile-api";
+import {
+  resolvePendingQuickReplyQuestionIdForSend,
+  resolveQuickReplyComposerText,
+} from "./mobile-chat-quick-replies";
 import { MobileRichMessageParts } from "./MobileRichMessageParts";
 import { MobileShell } from "./MobileShell";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
@@ -51,6 +55,10 @@ export function MobileConversationView({
   );
   const [session, setSession] = useState<ChatSession | null>(null);
   const [text, setText] = useState("");
+  const [pendingQuickReplyChoice, setPendingQuickReplyChoice] = useState<{
+    id: string;
+    text: string;
+  } | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,7 +75,7 @@ export function MobileConversationView({
       });
   }, [initialSessionId, resolvedSessionId, resolvedUserId]);
 
-  const sendMessage = useCallback(async (messageText: string) => {
+  const sendMessage = useCallback(async (messageText: string, selectedQuestionId?: string) => {
     if (!resolvedUserId || !messageText || isSending) {
       return;
     }
@@ -86,6 +94,7 @@ export function MobileConversationView({
         userId: resolvedUserId,
         sessionId: resolvedSessionId,
         text: messageText,
+        ...(selectedQuestionId ? { selectedQuestionId } : {}),
         imageDataUris: [],
       });
       setResolvedSessionId(payload.sessionId ?? resolvedSessionId);
@@ -107,12 +116,35 @@ export function MobileConversationView({
 
   async function handleSend(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await sendMessage(text.trim());
+    const nextText = text.trim();
+    await sendMessage(
+      nextText,
+      resolvePendingQuickReplyQuestionIdForSend({
+        currentText: nextText,
+        pendingChoiceId: pendingQuickReplyChoice?.id ?? null,
+        pendingChoiceText: pendingQuickReplyChoice?.text ?? null,
+      }),
+    );
+    setPendingQuickReplyChoice(null);
   }
 
-  const handleQuickReply = useCallback((message: string) => {
-    sendMessage(message);
-  }, [sendMessage]);
+  const handleQuickReply = useCallback(
+    (message: string, choiceId?: string, label?: string) => {
+      if (isSending) {
+        return;
+      }
+      const nextText = resolveQuickReplyComposerText({
+        choiceId,
+        label: label ?? message,
+        message,
+      });
+      setPendingQuickReplyChoice(
+        choiceId ? { id: choiceId, text: nextText } : null,
+      );
+      setText(nextText);
+    },
+    [isSending],
+  );
 
   const messages = useMemo(() => session?.messages ?? [], [session]);
 
@@ -165,7 +197,10 @@ export function MobileConversationView({
           <div className="flex gap-3">
             <textarea
               value={text}
-              onChange={(event) => setText(event.target.value)}
+              onChange={(event) => {
+                setPendingQuickReplyChoice(null);
+                setText(event.target.value);
+              }}
               placeholder="아기에게 하고 싶은 말을 적어보세요..."
               className="min-h-[88px] flex-1 resize-none rounded-[22px] bg-[var(--panel-muted)] px-4 py-4 text-sm text-[var(--text)] outline-none"
             />

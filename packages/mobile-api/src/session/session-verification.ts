@@ -13,6 +13,10 @@ type SessionUserRow = {
   account_status: string;
 };
 
+type VerifyMobileSessionOptions = {
+  requireApproved?: boolean;
+};
+
 const MOBILE_SESSION_FAILURE_MESSAGES = new Set([
   "mobile session token is required",
   "invalid mobile session",
@@ -20,6 +24,7 @@ const MOBILE_SESSION_FAILURE_MESSAGES = new Set([
   "mobile session has expired",
   "mobile session user mismatch",
   "mobile session user is not active",
+  "mobile session user is awaiting approval",
 ]);
 
 function hashSessionToken(value: string) {
@@ -50,7 +55,8 @@ export function isMobileSessionError(error: unknown): error is Error {
 export async function verifyMobileSessionToken(
   sessionToken: string | null | undefined,
   expectedUserId?: string | null,
-): Promise<{ sessionId: string; userId: string }> {
+  options: VerifyMobileSessionOptions = {},
+): Promise<{ sessionId: string; userId: string; accountStatus: string }> {
   if (!sessionToken) {
     throw new Error("mobile session token is required");
   }
@@ -119,6 +125,10 @@ export async function verifyMobileSessionToken(
     throw new Error("mobile session user is not active");
   }
 
+  if (options.requireApproved && user.account_status === "pending_approval") {
+    throw new Error("mobile session user is awaiting approval");
+  }
+
   await dbUpdate(`auth_sessions?id=eq.${session.id}`, {
     last_used_at: new Date().toISOString(),
   });
@@ -126,5 +136,6 @@ export async function verifyMobileSessionToken(
   return {
     sessionId: session.id,
     userId: session.user_id,
+    accountStatus: user.account_status,
   };
 }

@@ -1,5 +1,6 @@
 import type { CalendarDay, RecordDayView } from "@gynecology-chatbot/app-core";
 import { createKoreanDateKey } from "@gynecology-chatbot/app-core";
+import { resolveQuestionAnswerSummary } from "./patientQuestionSummary.model";
 
 type RecordDayWithInfoCards = RecordDayView & {
   infoCards?: ProfileInfoCard[] | null;
@@ -133,7 +134,7 @@ function buildHeartShareItems(
     return (recordDay?.dailyQuestions ?? []).map((item) => ({
       id: item.id,
       question: item.question,
-      answerSummary: item.answerSummary,
+      answerSummary: resolveQuestionAnswerSummary(item.answerSummary),
     }));
   }
 
@@ -142,8 +143,9 @@ function buildHeartShareItems(
       {
         id: "question",
         question: recordDay.dailyQuestion.question,
-        answerSummary:
+        answerSummary: resolveQuestionAnswerSummary(
           recordDay.dailyQuestion.aiSummary ?? recordDay.dailyQuestion.answer,
+        ),
       },
     ];
   }
@@ -161,7 +163,9 @@ function buildHeartShareItems(
     {
       id: "question",
       question: "하루 질문",
-      answerSummary: aiSummary?.summary ?? linkedSession?.preview ?? null,
+      answerSummary: resolveQuestionAnswerSummary(
+        aiSummary?.summary ?? linkedSession?.preview ?? null,
+      ),
     },
   ];
 }
@@ -175,11 +179,18 @@ function hasConversation(recordDay: RecordDayView | null) {
     return true;
   }
 
-  if (recordDay.dailyQuestion?.answer || recordDay.dailyQuestion?.aiSummary) {
+  if (
+    resolveQuestionAnswerSummary(recordDay.dailyQuestion?.answer) ||
+    resolveQuestionAnswerSummary(recordDay.dailyQuestion?.aiSummary)
+  ) {
     return true;
   }
 
-  if (recordDay.dailyQuestions?.some((item) => item.answerSummary)) {
+  if (
+    recordDay.dailyQuestions?.some((item) =>
+      resolveQuestionAnswerSummary(item.answerSummary),
+    )
+  ) {
     return true;
   }
 

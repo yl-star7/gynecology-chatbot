@@ -10,19 +10,40 @@ const monorepoRoot = path.resolve(projectRoot, "../..");
 const config = getDefaultConfig(projectRoot);
 const escapePath = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const vendorReactRoot = path.join(projectRoot, "src", "vendor", "react");
-const vendorSchedulerRoot = path.join(projectRoot, "src", "vendor", "scheduler");
+const vendorSchedulerRoot = path.join(
+  projectRoot,
+  "src",
+  "vendor",
+  "scheduler",
+);
+const appCoreRoot = path.resolve(monorepoRoot, "packages", "app-core", "src");
 const mobileReactPackageRoots = [
   path.dirname(resolveMobileReactRequest("react")),
   path.dirname(resolveMobileReactRequest("react-dom")),
   path.dirname(resolveMobileReactRequest("scheduler")),
 ];
+const appCoreRuntimeFiles = {
+  "@gynecology-chatbot/app-core": path.join(appCoreRoot, "index.ts"),
+  "@gynecology-chatbot/app-core/domain": path.join(appCoreRoot, "domain.ts"),
+  "@gynecology-chatbot/app-core/ports": path.join(appCoreRoot, "ports.ts"),
+  "@gynecology-chatbot/app-core/theme": path.join(appCoreRoot, "theme.ts"),
+  "@gynecology-chatbot/app-core/time": path.join(appCoreRoot, "time.ts"),
+  "@gynecology-chatbot/app-core/testing": path.join(appCoreRoot, "testing.ts"),
+};
 const mobileRuntimeShims = {
   react: path.join(vendorReactRoot, "index.js"),
   "react/jsx-runtime": path.join(vendorReactRoot, "jsx-runtime.js"),
   "react/jsx-dev-runtime": path.join(vendorReactRoot, "jsx-dev-runtime.js"),
+  "react-dom": resolveMobileReactRequest("react-dom"),
+  "react-dom/client": resolveMobileReactRequest("react-dom/client"),
+  "react-dom/server": resolveMobileReactRequest("react-dom/server"),
+  "react-dom/server.node": resolveMobileReactRequest("react-dom/server.node"),
   scheduler: path.join(vendorSchedulerRoot, "index.js"),
   "scheduler/unstable_mock": path.join(vendorSchedulerRoot, "unstable_mock.js"),
-  "scheduler/unstable_post_task": path.join(vendorSchedulerRoot, "unstable_post_task.js"),
+  "scheduler/unstable_post_task": path.join(
+    vendorSchedulerRoot,
+    "unstable_post_task.js",
+  ),
 };
 
 config.watchFolders = [
@@ -44,6 +65,15 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     return {
       type: "sourceFile",
       filePath: mobileReactPath,
+    };
+  }
+
+  const appCorePath = appCoreRuntimeFiles[moduleName];
+
+  if (appCorePath) {
+    return {
+      type: "sourceFile",
+      filePath: appCorePath,
     };
   }
 
@@ -71,9 +101,15 @@ const excludedRoots = [
 
 config.resolver.blockList = exclusionList([
   ...excludedRoots.map((root) => new RegExp(`^${escapePath(root)}(/.*)?$`)),
-  new RegExp(`^${escapePath(path.join(monorepoRoot, "node_modules", "react"))}(/.*)?$`),
-  new RegExp(`^${escapePath(path.join(monorepoRoot, "node_modules", "react-dom"))}(/.*)?$`),
-  new RegExp(`^${escapePath(path.join(monorepoRoot, "node_modules", "scheduler"))}(/.*)?$`),
+  new RegExp(
+    `^${escapePath(path.join(monorepoRoot, "node_modules", "react"))}(/.*)?$`,
+  ),
+  new RegExp(
+    `^${escapePath(path.join(monorepoRoot, "node_modules", "react-dom"))}(/.*)?$`,
+  ),
+  new RegExp(
+    `^${escapePath(path.join(monorepoRoot, "node_modules", "scheduler"))}(/.*)?$`,
+  ),
   /node_modules\/.*\/(android|ios|apple|macos|windows|gradle|ReactAndroid|ReactApple|ReactCommon|third-party-podspecs|e2e|test|tests|__tests__|flow)\/.*/,
 ]);
 

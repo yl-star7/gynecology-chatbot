@@ -23,14 +23,14 @@ jest.mock("@/lib/db/admin-client", () => ({
   dbUpdate: jest.fn(),
 }));
 
-var adminSupabaseSelectMock: jest.Mock;
-var adminSupabaseInsertMock: jest.Mock;
-var adminSupabaseUpdateMock: jest.Mock;
+var adminDbSelectMock: jest.Mock;
+var adminDbInsertMock: jest.Mock;
+var adminDbUpdateMock: jest.Mock;
 
 jest.mock("@/lib/db/admin-client", () => {
-  adminSupabaseSelectMock = jest.fn();
-  adminSupabaseInsertMock = jest.fn();
-  adminSupabaseUpdateMock = jest.fn();
+  adminDbSelectMock = jest.fn();
+  adminDbInsertMock = jest.fn();
+  adminDbUpdateMock = jest.fn();
   class QueryBuilder {
     private readonly schema?: string;
     private readonly table: string;
@@ -123,10 +123,10 @@ jest.mock("@/lib/db/admin-client", () => {
         params.length > 0 ? `${relation}?${params.join("&")}` : relation;
       const source =
         this.mode === "select"
-          ? adminSupabaseSelectMock(path)
+          ? adminDbSelectMock(path)
           : this.mode === "insert"
-            ? adminSupabaseInsertMock(relation, this.payload)
-            : adminSupabaseUpdateMock(path, this.payload);
+            ? adminDbInsertMock(relation, this.payload)
+            : adminDbUpdateMock(path, this.payload);
       return Promise.resolve(source).then((data) =>
         resolve({ data, error: null }),
       );
@@ -134,10 +134,10 @@ jest.mock("@/lib/db/admin-client", () => {
   }
 
   return {
-    dbSelect: adminSupabaseSelectMock,
-    dbInsert: adminSupabaseInsertMock,
-    dbUpdate: adminSupabaseUpdateMock,
-    getSupabaseAdminClient: () => ({
+    dbSelect: adminDbSelectMock,
+    dbInsert: adminDbInsertMock,
+    dbUpdate: adminDbUpdateMock,
+    getDbAdminClient: () => ({
       from: (table: string) =>
         new QueryBuilder({ table, mode: "select", schema: undefined }),
       schema: (schema: string) => ({
@@ -159,32 +159,32 @@ import { POST } from "./route";
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
   typeof requireMobileSession
 >;
-const mockedSupabaseSelect = dbSelect as jest.MockedFunction<
+const mockedDbSelect = dbSelect as jest.MockedFunction<
   typeof dbSelect
 >;
-const mockedSupabaseInsert = dbInsert as jest.MockedFunction<
+const mockedDbInsert = dbInsert as jest.MockedFunction<
   typeof dbInsert
 >;
-const mockedSupabaseUpdate = dbUpdate as jest.MockedFunction<
+const mockedDbUpdate = dbUpdate as jest.MockedFunction<
   typeof dbUpdate
 >;
 
 describe("POST /api/mobile/profile/surveys", () => {
   beforeEach(() => {
     mockedRequireMobileSession.mockReset();
-    mockedSupabaseSelect.mockReset();
-    mockedSupabaseInsert.mockReset();
-    mockedSupabaseUpdate.mockReset();
-    adminSupabaseSelectMock.mockImplementation((path: string) =>
-      mockedSupabaseSelect(path),
+    mockedDbSelect.mockReset();
+    mockedDbInsert.mockReset();
+    mockedDbUpdate.mockReset();
+    adminDbSelectMock.mockImplementation((path: string) =>
+      mockedDbSelect(path),
     );
-    adminSupabaseInsertMock.mockImplementation(
+    adminDbInsertMock.mockImplementation(
       (table: string, payload: unknown) =>
-        mockedSupabaseInsert(table, payload as never),
+        mockedDbInsert(table, payload as never),
     );
-    adminSupabaseUpdateMock.mockImplementation(
+    adminDbUpdateMock.mockImplementation(
       (path: string, payload: unknown) =>
-        mockedSupabaseUpdate(path, payload as never),
+        mockedDbUpdate(path, payload as never),
     );
   });
 
@@ -194,7 +194,7 @@ describe("POST /api/mobile/profile/surveys", () => {
       userId: "user-1",
     } as never);
 
-    mockedSupabaseSelect.mockImplementation((path: string) => {
+    mockedDbSelect.mockImplementation((path: string) => {
       if (path.startsWith("content_week_questions?")) {
         return Promise.resolve([
           {
@@ -226,8 +226,8 @@ describe("POST /api/mobile/profile/surveys", () => {
       return Promise.resolve([] as never);
     });
 
-    mockedSupabaseInsert.mockResolvedValue([] as never);
-    mockedSupabaseUpdate.mockResolvedValue([] as never);
+    mockedDbInsert.mockResolvedValue([] as never);
+    mockedDbUpdate.mockResolvedValue([] as never);
 
     const response = await POST(
       new Request(
@@ -245,7 +245,7 @@ describe("POST /api/mobile/profile/surveys", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+    expect(mockedDbInsert).toHaveBeenCalledWith(
       "calendar_logs",
       expect.objectContaining({
         user_id: "user-1",
@@ -254,7 +254,7 @@ describe("POST /api/mobile/profile/surveys", () => {
         summary: "네",
       }),
     );
-    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+    expect(mockedDbUpdate).toHaveBeenCalledWith(
       "user_question_events?id=eq.event-1",
       expect.objectContaining({
         status: "answered",

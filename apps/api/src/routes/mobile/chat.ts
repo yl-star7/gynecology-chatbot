@@ -32,11 +32,20 @@ import {
 } from "@gynecology-chatbot/mobile-api/chat/stage-shortcut";
 import { fetchAttachmentQuestionProgress } from "@gynecology-chatbot/mobile-api/chat/attachment-question-progress";
 import {
+  classifyMoodToneWithLlm,
+  createMoodVariantSeed,
+  resolveMoodVariantTextPool,
+} from "@gynecology-chatbot/mobile-api/mood-variants";
+import {
   markQuestionAnswered,
+  markQuestionSkipped,
   recordQuestionSent,
 } from "@gynecology-chatbot/mobile-api/chat/question-event-sync";
 import {
   buildQuestionSummaryRecord,
+  isQuestionAnswerText,
+  isQuestionSummaryPendingText,
+  resolveQuestionSummaryQuestionId,
   shouldSaveQuestionSummary,
 } from "@gynecology-chatbot/mobile-api/chat/question-summary";
 import {
@@ -60,6 +69,28 @@ import {
 import { noStoreJson } from "../../lib/responses.js";
 
 const app = new Hono();
+const CHAT_FLOW_OPTIONS_KEY = "chat_flow_options";
+
+type ChatFlowOptions = {
+  letterReflectionQuickReplies: "hidden" | "assistive";
+};
+
+const DEFAULT_CHAT_FLOW_OPTIONS: ChatFlowOptions = {
+  letterReflectionQuickReplies: "hidden",
+};
+
+function normalizeChatFlowOptions(value: unknown): ChatFlowOptions {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return DEFAULT_CHAT_FLOW_OPTIONS;
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    letterReflectionQuickReplies:
+      record.letterReflectionQuickReplies === "assistive"
+        ? "assistive"
+        : "hidden",
+  };
+}
 
 function normalizeSessionId(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -75,6 +106,16 @@ function isUuid(value: string | null) {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     ),
   );
+}
+
+function normalizeMoodTone(value: unknown): CharacterTone | null {
+  return value === "calm" ||
+    value === "joyful" ||
+    value === "anxious" ||
+    value === "tired" ||
+    value === "sad"
+    ? value
+    : null;
 }
 
 function getKstDateKey() {
@@ -257,6 +298,7 @@ app.post("/", async (c) => {
       typeof body.selectedQuestionId === "string"
         ? body.selectedQuestionId
         : null;
+    const selectedMoodTone = normalizeMoodTone(body.selectedMoodTone);
     const clientWorkflowStage =
       typeof body.clientWorkflowStage === "number" ||
       typeof body.clientWorkflowStage === "string"
@@ -339,6 +381,17 @@ app.post("/", async (c) => {
         free_chat: process.env.SCHIFT_WF_FREE_CHAT ?? null,
         general: process.env.SCHIFT_WF_GENERAL ?? null,
       };
+    })();
+    const chatFlowOptions: ChatFlowOptions = await (async () => {
+      try {
+        const row = await prisma.system_config.findUnique({
+          where: { key: CHAT_FLOW_OPTIONS_KEY },
+          select: { value: true },
+        });
+        return normalizeChatFlowOptions(row?.value ?? null);
+      } catch {
+        return DEFAULT_CHAT_FLOW_OPTIONS;
+      }
     })();
 
     const baseMobileResponder = createMobileChatResponder({
@@ -425,23 +478,53 @@ app.post("/", async (c) => {
           q.id,
       }));
 
-      const selectedMood =
-        moodPool.find((m) => m.message === input.text)?.message ??
-        (() => {
-          const initialMoodLabelByChoiceId: Record<string, string> = {
-            "initial-workflow-good": "좋아요",
-            "initial-workflow-down": "울적해요",
-            "initial-workflow-sad": "슬퍼요",
-            "initial-workflow-angry": "짜증나요",
-          };
-          const selectedLabel = input.selectedQuestionId
-            ? initialMoodLabelByChoiceId[input.selectedQuestionId]
-            : null;
-          return selectedLabel
-            ? (moodPool.find((m) => m.label === selectedLabel)?.message ??
-                null)
-            : null;
-        })();
+      const moodVariantSeed = createMoodVariantSeed([
+        input.userId,
+        input.normalizedSessionId,
+        input.text,
+      ]);
+      const memory = input.promptContext?.sessionMemory ?? null;
+      const rawStage = memory?.stage ?? clientWorkflowStage ?? null;
+      const compactSummary = memory?.compactSummary ?? "";
+      const canInferFreeTextMood =
+        !progress.currentAttachmentQuestionId &&
+        (rawStage === 0 || rawStage === null) &&
+        !compactSummary.includes("태아 발달 확인 제안") &&
+        !compactSummary.includes("주차 정보 안내");
+      const matchedMoodEntry = moodPool.find((m) => m.message === input.text);
+      const shouldInferFreeTextMood =
+        !selectedMoodTone && !matchedMoodEntry && canInferFreeTextMood;
+      const inferredFreeTextMood = shouldInferFreeTextMood
+        ? await classifyMoodToneWithLlm({ text: input.text })
+        : "unknown";
+      const selectedMoodEntry =
+        selectedMoodTone
+          ? {
+              label: matchedMoodEntry?.label ?? input.text,
+              message: input.text,
+              tone: selectedMoodTone,
+            }
+          : (matchedMoodEntry ??
+            (inferredFreeTextMood !== "unknown"
+              ? {
+                  label: "직접 입력",
+                  message: input.text,
+                  tone: inferredFreeTextMood,
+                }
+              : null));
+      const effectiveMoodPool =
+        selectedMoodEntry &&
+        !moodPool.some((m) => m.message === selectedMoodEntry.message)
+          ? [selectedMoodEntry, ...moodPool]
+          : moodPool;
+      const selectedMood = selectedMoodEntry?.message ?? null;
+      const moodAcknowledgementPool = selectedMoodEntry
+        ? await resolveMoodVariantTextPool({
+            scenario: "mood_intake",
+            mood: selectedMoodEntry.tone,
+            rngSeed: moodVariantSeed,
+          })
+        : [];
 
       const shortcut = maybeShortCircuitStaticTurn({
         userText: input.text,
@@ -449,14 +532,17 @@ app.post("/", async (c) => {
         selectedQuestionId: isUuid(input.selectedQuestionId ?? null)
           ? (input.selectedQuestionId ?? null)
           : null,
-        clientWorkflowStage,
+        clientWorkflowStage:
+          selectedMoodEntry && rawStage === null ? 0 : clientWorkflowStage,
         clientWorkflowStageName,
         currentWeek: input.currentWeek,
         promptContext: input.promptContext,
-        moodPool,
+        moodPool: effectiveMoodPool,
+        moodAcknowledgementPool,
         weekInfoOptInVariations,
         todayQuestionCandidates,
         progress,
+        rngSeed: moodVariantSeed,
       });
 
       if (shortcut) {
@@ -556,7 +642,43 @@ app.post("/", async (c) => {
         scenarioFinal === "daily_followup" ||
         scenarioFinal === "empathy_chat"
       ) {
-        rewriteLetterReflectionQuickReplies(payload as any, progress);
+        const priorMemory = input.promptContext?.sessionMemory as
+          | (SessionMemoryPayload & {
+              currentQuestionTurnCount?: number;
+              currentAttachmentQuestionId?: string | null;
+            })
+          | null
+          | undefined;
+        const priorTurnCount = priorMemory?.currentQuestionTurnCount ?? 0;
+        const priorQuestionId =
+          priorMemory?.currentAttachmentQuestionId ?? null;
+        const nextMem = payload?.nextSessionMemory as
+          | (SessionMemoryPayload & {
+              currentAttachmentQuestionId?: string | null;
+              currentQuestionTurnCount?: number;
+            })
+          | undefined;
+        const nextQuestionId =
+          nextMem?.currentAttachmentQuestionId ??
+          progress.currentAttachmentQuestionId;
+        const currentQuestionTurnCount =
+          priorQuestionId && priorQuestionId === nextQuestionId
+            ? priorTurnCount + 1
+            : 1;
+        if (nextMem) {
+          (nextMem as Record<string, unknown>).currentQuestionTurnCount =
+            currentQuestionTurnCount;
+        }
+        rewriteLetterReflectionQuickReplies(
+          payload as any,
+          {
+            ...progress,
+            currentQuestionTurnCount,
+          },
+          {
+            mode: chatFlowOptions.letterReflectionQuickReplies,
+          },
+        );
         const quickReplies = Array.isArray((payload as any)?.quickReplies)
           ? ((payload as any).quickReplies as Array<{
               label?: unknown;
@@ -575,12 +697,9 @@ app.post("/", async (c) => {
               choices: quickReplies
                 .map((choice, index) => {
                   const label =
-                    typeof choice.label === "string"
-                      ? choice.label.trim()
-                      : "";
+                    typeof choice.label === "string" ? choice.label.trim() : "";
                   const message =
-                    typeof choice.message === "string" &&
-                    choice.message.trim()
+                    typeof choice.message === "string" && choice.message.trim()
                       ? choice.message.trim()
                       : label;
                   return label
@@ -602,6 +721,10 @@ app.post("/", async (c) => {
                 ),
             },
           ];
+        } else {
+          result.assistantMessage.parts = result.assistantMessage.parts.filter(
+            (part) => part.type !== "quickReplies",
+          );
         }
       }
       return result;
@@ -692,28 +815,69 @@ app.post("/", async (c) => {
           currentAttachmentQuestionId?: string | null;
         })
       | null;
-    const priorCurrent = ((
-      result as unknown as {
-        priorSessionMemory?: { currentAttachmentQuestionId?: string | null };
-      }
-    ).priorSessionMemory?.currentAttachmentQuestionId ?? null) as string | null;
+    const priorCurrent =
+      (
+        result.promptContext?.sessionMemory as {
+          currentAttachmentQuestionId?: string | null;
+        } | null
+      )?.currentAttachmentQuestionId ?? null;
     const nextCurrent = nextMem?.currentAttachmentQuestionId ?? null;
+    const priorCurrentQuestionId = isUuid(priorCurrent) ? priorCurrent : null;
+    const nextCurrentQuestionId = isUuid(nextCurrent) ? nextCurrent : null;
     const justClosedQuestionId =
-      priorCurrent && priorCurrent !== nextCurrent ? priorCurrent : null;
-    if (justClosedQuestionId) {
+      priorCurrentQuestionId && priorCurrentQuestionId !== nextCurrentQuestionId
+        ? priorCurrentQuestionId
+        : null;
+    const selectedQuestionIdForSummary = isUuid(selectedQuestionId)
+      ? selectedQuestionId
+      : null;
+    const activeQuestionId = resolveQuestionSummaryQuestionId({
+      selectedQuestionId: selectedQuestionIdForSummary,
+      currentAttachmentQuestionId: priorCurrentQuestionId,
+      nextAttachmentQuestionId: nextCurrentQuestionId,
+    });
+    const answerText = text.trim();
+    const answerQuestionId =
+      !selectedQuestionIdForSummary &&
+      isQuestionAnswerText({ userAnswer: answerText })
+        ? activeQuestionId
+        : justClosedQuestionId &&
+            isQuestionAnswerText({ userAnswer: answerText })
+          ? justClosedQuestionId
+          : null;
+    if (answerQuestionId) {
       try {
-        const answerText = text.trim();
         await markQuestionAnswered({
           prisma: prisma as unknown as Parameters<
             typeof markQuestionAnswered
           >[0]["prisma"],
           userId,
           sessionId: result.sessionId,
-          questionId: justClosedQuestionId,
+          questionId: answerQuestionId,
           answerText,
         });
       } catch (error) {
         console.warn("markQuestionAnswered failed", error);
+      }
+    }
+    if (
+      justClosedQuestionId &&
+      nextMem?.stage === "free_chat" &&
+      nextMem.stageName === "question_session_deferred" &&
+      !isQuestionAnswerText({ userAnswer: answerText })
+    ) {
+      try {
+        await markQuestionSkipped({
+          prisma: prisma as unknown as Parameters<
+            typeof markQuestionSkipped
+          >[0]["prisma"],
+          userId,
+          sessionId: result.sessionId,
+          questionId: justClosedQuestionId,
+          reasonText: answerText,
+        });
+      } catch (error) {
+        console.warn("markQuestionSkipped failed", error);
       }
     }
 
@@ -726,24 +890,77 @@ app.post("/", async (c) => {
       )
       .join("\n\n")
       .trim();
-    if (
-      shouldSaveQuestionSummary({
-        workflowStage: stageForSummary,
-        selectedQuestionId,
-        alreadyPersistedQuestionIds: new Set(),
-      })
-    ) {
+    if (activeQuestionId && isQuestionAnswerText({ userAnswer: text })) {
       try {
         const dateKey = getKstDateKey();
+        const existingQuestionRows = await prisma.calendar_logs.findMany({
+          where: {
+            user_id: userId,
+            date: parseDateOnly(dateKey),
+            entry_type: "question_summary",
+          },
+          select: { id: true, summary: true, payload: true },
+        });
+        const existingQuestionRowById = new Map<
+          string,
+          (typeof existingQuestionRows)[number]
+        >();
+        const alreadyPersistedQuestionIds = new Set<string>();
+        for (const row of existingQuestionRows) {
+          const payload =
+            row.payload &&
+            typeof row.payload === "object" &&
+            !Array.isArray(row.payload)
+              ? (row.payload as {
+                  questionId?: unknown;
+                  answer?: unknown;
+                  compactSummary?: unknown;
+                })
+              : null;
+          const questionId =
+            typeof payload?.questionId === "string" ? payload.questionId : null;
+          if (!questionId) continue;
+          existingQuestionRowById.set(questionId, row);
+          const storedAnswer =
+            typeof payload?.answer === "string" ? payload.answer : row.summary;
+          const storedSummary =
+            typeof payload?.compactSummary === "string"
+              ? payload.compactSummary
+              : row.summary;
+          if (
+            isQuestionAnswerText({ userAnswer: storedAnswer }) &&
+            !isQuestionSummaryPendingText(storedSummary)
+          ) {
+            alreadyPersistedQuestionIds.add(questionId);
+          }
+        }
+        if (
+          !shouldSaveQuestionSummary({
+            workflowStage: stageForSummary,
+            selectedQuestionId: activeQuestionId,
+            alreadyPersistedQuestionIds,
+            compactSummary: nextMem?.compactSummary ?? null,
+          })
+        ) {
+          throw new Error("skip_question_summary");
+        }
         const questionRow = await prisma.content_week_questions.findFirst({
-          where: { id: selectedQuestionId! },
+          where: { id: activeQuestionId },
           select: { question_text: true },
         });
+        if (
+          !isQuestionAnswerText({
+            userAnswer: text,
+            questionText: questionRow?.question_text ?? null,
+          })
+        ) {
+          throw new Error("skip_question_summary");
+        }
         const record = buildQuestionSummaryRecord({
           userId,
           sessionId: result.sessionId,
           dateKey,
-          questionId: selectedQuestionId!,
+          questionId: activeQuestionId,
           questionText: questionRow?.question_text ?? null,
           userAnswer: text.trim(),
           assistantAnswer,
@@ -752,19 +969,31 @@ app.post("/", async (c) => {
           moodId: nextMem?.moodId ?? null,
           moodLabel: nextMem?.moodLabel ?? null,
         });
-        await prisma.calendar_logs.create({
-          data: {
-            user_id: record.userId,
-            session_id: record.sessionId,
-            date: parseDateOnly(record.date),
-            entry_type: record.entryType,
-            title: record.title,
-            summary: record.summary,
-            payload: record.payload as Prisma.InputJsonValue,
-          },
-        });
+        const data = {
+          user_id: record.userId,
+          session_id: record.sessionId,
+          date: parseDateOnly(record.date),
+          entry_type: record.entryType,
+          title: record.title,
+          summary: record.summary,
+          payload: record.payload as Prisma.InputJsonValue,
+        };
+        const existingQuestionRow =
+          existingQuestionRowById.get(activeQuestionId);
+        if (existingQuestionRow) {
+          await prisma.calendar_logs.update({
+            where: { id: existingQuestionRow.id },
+            data,
+          });
+        } else {
+          await prisma.calendar_logs.create({
+            data,
+          });
+        }
       } catch (error) {
-        console.warn("question_summary calendar save failed", error);
+        if ((error as Error).message !== "skip_question_summary") {
+          console.warn("question_summary calendar save failed", error);
+        }
       }
     }
 

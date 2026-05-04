@@ -26,7 +26,7 @@ export function LabeledInput({
   onSubmitEditing?: () => void;
   accessibilityLabel?: string;
 }) {
-  const { palette: activePalette } = useMobileTheme();
+  const { surface: activeSurface } = useMobileTheme();
 
   return (
     <View style={styles.field}>
@@ -35,8 +35,17 @@ export function LabeledInput({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={activePalette.subInk}
-        style={[styles.input, multiline ? styles.multiline : null]}
+        placeholderTextColor={activeSurface.textSecondary}
+        style={[
+          styles.input,
+          {
+            backgroundColor: activeSurface.fieldSurface,
+            color: activeSurface.textPrimary,
+          },
+          multiline ? styles.multiline : null,
+        ]}
+        selectionColor={activeSurface.accentSolid}
+        underlineColorAndroid="transparent"
         keyboardType={keyboardType}
         multiline={multiline}
         returnKeyType={returnKeyType}

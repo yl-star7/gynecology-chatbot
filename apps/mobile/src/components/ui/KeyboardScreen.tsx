@@ -20,10 +20,14 @@ export function KeyboardScreen({
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "android" ? 24 : 0}
       >
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, centered ? styles.centered : null]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            centered ? styles.centered : null,
+          ]}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}

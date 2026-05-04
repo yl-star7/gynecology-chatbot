@@ -1,7 +1,7 @@
 import type {
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
-import { DEFAULT_TODAY_GUIDE } from "./patient-copy";
+import { DEFAULT_TODAY_GUIDE } from "./patient-copy.ts";
 
 export function buildPatientTodayViewModel({
   today,

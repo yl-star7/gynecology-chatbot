@@ -10,8 +10,6 @@ dist/**
 .expo/**
 .turbo/
 .turbo/**
-.vercel/
-.vercel/**
 node_modules/
 node_modules/**
 coverage/

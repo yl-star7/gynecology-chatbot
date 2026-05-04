@@ -92,18 +92,45 @@ describe("response pipeline", () => {
     );
   });
 
+  it("does not use local fallback for workflow failures", async () => {
+    const workflowError = new Error("File RAG search failed: Bucket search failed");
+    const fallbackResponse = jest.fn().mockResolvedValue({
+      assistantMessage: {
+        id: "assistant-fallback",
+        role: "assistant",
+        createdAtLabel: "방금 전",
+        parts: [{ type: "text", id: "p1", text: "로컬 fallback" }],
+      } satisfies ChatMessage,
+      workflowMemoryPayload: null,
+    });
+
+    await expect(
+      resolveAssistantResponse({
+        hardGuardrailReason: null,
+        workflowEnabled: true,
+        runWorkflow: jest.fn().mockRejectedValue(workflowError),
+        fallbackResponse,
+      }),
+    ).rejects.toThrow("Bucket search failed");
+
+    expect(fallbackResponse).not.toHaveBeenCalled();
+  });
+
   it("throws when workflow is disabled", async () => {
     const runWorkflow = jest.fn();
+    const fallbackResponse = jest.fn();
 
     await expect(
       resolveAssistantResponse({
         hardGuardrailReason: null,
         workflowEnabled: false,
         runWorkflow,
+        fallbackResponse,
       }),
     ).rejects.toThrow("Mobile chat workflow is unavailable");
 
     expect(runWorkflow).not.toHaveBeenCalled();
+    expect(fallbackResponse).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
       "mobile chat response: workflow unavailable",
       expect.objectContaining({

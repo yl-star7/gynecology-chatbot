@@ -17,6 +17,10 @@ import { readStoredMobileProfile } from "@/lib/mobile/mobile-session";
 import { MobileChatComposer } from "./MobileChatComposer";
 import { MobileChatMenu } from "./MobileChatMenu";
 import { groupChatSessionsByDate } from "./mobile-chat-session-groups";
+import {
+  resolvePendingQuickReplyQuestionIdForSend,
+  resolveQuickReplyComposerText,
+} from "./mobile-chat-quick-replies";
 import { useMobileSessionGuard } from "./useMobileSessionGuard";
 
 function createDraftMessage(text: string, imageDataUrl?: string): ChatMessage {
@@ -47,7 +51,11 @@ function createDraftMessage(text: string, imageDataUrl?: string): ChatMessage {
 function renderMessagePart(
   part: ChatMessage["parts"][number],
   userId: string | null,
-  onQuickReplySelect: (message: string) => void,
+  onQuickReplySelect: (
+    message: string,
+    choiceId?: string,
+    label?: string,
+  ) => void,
 ) {
   if (part.type === "text") {
     return (
@@ -145,7 +153,9 @@ function renderMessagePart(
             <button
               key={choice.id}
               type="button"
-              onClick={() => onQuickReplySelect(choice.message)}
+              onClick={() =>
+                onQuickReplySelect(choice.message, choice.id, choice.label)
+              }
               className="max-w-full whitespace-normal break-keep rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
             >
               {choice.label}
@@ -240,6 +250,10 @@ export function MobileChatView({
   const [recentSessions, setRecentSessions] = useState<RecentChatSummary[]>([]);
   const [text, setText] = useState("");
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [pendingQuickReplyChoice, setPendingQuickReplyChoice] = useState<{
+    id: string;
+    text: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -350,6 +364,11 @@ export function MobileChatView({
         return;
       }
 
+      const selectedQuestionId = resolvePendingQuickReplyQuestionIdForSend({
+        currentText: nextText,
+        pendingChoiceId: pendingQuickReplyChoice?.id ?? null,
+        pendingChoiceText: pendingQuickReplyChoice?.text ?? null,
+      });
       const draftMessage = createDraftMessage(
         nextText,
         imageDataUrl ?? undefined,
@@ -367,6 +386,7 @@ export function MobileChatView({
           userId: resolvedUserId,
           sessionId: resolvedSessionId,
           text: nextText,
+          ...(selectedQuestionId ? { selectedQuestionId } : {}),
           imageDataUris: imageDataUrl ? [imageDataUrl] : [],
         });
 
@@ -386,6 +406,7 @@ export function MobileChatView({
           ...(payload.assistantMessages ?? [payload.assistantMessage]),
         ]);
         setText("");
+        setPendingQuickReplyChoice(null);
         setImageDataUrl(null);
         const nextSessions = await fetchSessions(resolvedUserId);
         setRecentSessions(nextSessions.sessions.slice(0, 12));
@@ -406,22 +427,38 @@ export function MobileChatView({
         setIsSending(false);
       }
     },
-    [imageDataUrl, resolvedSessionId, resolvedUserId, text],
+    [
+      imageDataUrl,
+      pendingQuickReplyChoice,
+      resolvedSessionId,
+      resolvedUserId,
+      text,
+    ],
   );
 
   const handlePromptSelect = useCallback((prompt: string) => {
+    setPendingQuickReplyChoice(null);
     setText((current) => (current.trim() ? `${current}\n${prompt}` : prompt));
     composerRef.current?.focus();
   }, []);
 
   const handleQuickReplySelect = useCallback(
-    (message: string) => {
+    (message: string, choiceId?: string, label?: string) => {
       if (isSending) {
         return;
       }
-      void handleSend(message);
+      const nextText = resolveQuickReplyComposerText({
+        choiceId,
+        label: label ?? message,
+        message,
+      });
+      setPendingQuickReplyChoice(
+        choiceId ? { id: choiceId, text: nextText } : null,
+      );
+      setText(nextText);
+      composerRef.current?.focus();
     },
-    [handleSend, isSending],
+    [isSending],
   );
 
   return (
@@ -499,7 +536,10 @@ export function MobileChatView({
           onFileChange={handleFileChange}
           onPromptSelect={handlePromptSelect}
           onSend={handleSend}
-          onTextChange={setText}
+          onTextChange={(nextText) => {
+            setPendingQuickReplyChoice(null);
+            setText(nextText);
+          }}
           showQuickPrompts={showQuickPrompts}
           textareaRef={composerRef}
           text={text}

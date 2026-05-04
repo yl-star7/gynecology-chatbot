@@ -21,6 +21,7 @@ import type {
   ProfileStatusTone,
 } from "../../../screens/patient/PatientProfileScreen.model";
 import { buildProfileChecklistItemState } from "../../../screens/patient/PatientProfileScreen.model";
+import { formatQuestionAnswerSummary } from "../../../screens/patient/patientQuestionSummary.model";
 
 const CloseIcon = Ionicons as unknown as ComponentType<{
   name: "close";
@@ -360,8 +361,7 @@ export function PatientProfileDayModal({
                       <View style={styles.modalAiResponse}>
                         <Text style={styles.modalAiTitle}>답변 요약</Text>
                         <Text style={styles.modalAiBody}>
-                          {item.answerSummary ??
-                            "오늘 자정에 요약이 준비됩니다."}
+                          {formatQuestionAnswerSummary(item.answerSummary)}
                         </Text>
                       </View>
                     </View>

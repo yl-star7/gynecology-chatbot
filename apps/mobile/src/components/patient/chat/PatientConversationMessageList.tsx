@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
-import type { ChatMessage } from "@gynecology-chatbot/app-core";
+import type { ChatMessage, EmotionTone } from "@gynecology-chatbot/app-core";
 import { ChatPartRenderer, TypingIndicator } from "../../chat";
 import { resolveQuickReplyDisplayLabel } from "../../chat/ChatPartRenderer.model";
 import { NurseAvatar, NurseCharacter } from "../NurseCharacter";
@@ -61,7 +61,12 @@ export function PatientConversationMessageList({
   isLoadingSessionDetail: boolean;
   sessionLoadErrorMessage: string | null;
   scrollBottomPadding: number;
-  onQuickReplySelect: (message: string, choiceId?: string) => void;
+  onQuickReplySelect: (
+    message: string,
+    choiceId?: string,
+    label?: string,
+    moodTone?: EmotionTone,
+  ) => void;
   onRetrySessionLoad: () => void;
   onSurveyAnswer: (surveyId: string, choiceId: string) => Promise<boolean>;
   surveySaveErrorText: string;
@@ -108,6 +113,7 @@ export function PatientConversationMessageList({
       ]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
     >
       {listState === "loading" ? (
         <View style={styles.stateContent}>
@@ -157,7 +163,11 @@ export function PatientConversationMessageList({
                         style={styles.quickReplyPill}
                         onPress={() => {
                           setDidChooseEmptyReply(true);
-                          onQuickReplySelect(choice.message, choice.id);
+                          onQuickReplySelect(
+                            choice.message,
+                            choice.id,
+                            choice.label,
+                          );
                         }}
                         accessibilityRole="button"
                         accessibilityLabel={choice.label}

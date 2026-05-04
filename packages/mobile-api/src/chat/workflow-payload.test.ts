@@ -151,6 +151,45 @@ describe("workflow payload", () => {
     expect(payload?.nextSessionMemory?.lastScenario).toBe("letter_reflection");
   });
 
+  it("extracts the structured payload when a workflow prepends plain prose", () => {
+    const payload = parseWorkflowAssistantPayload({
+      result: {
+        answer: [
+          "엄마의 계획이 비 때문에 틀어져서 속상하셨군요.",
+          "",
+          '**"아기에게 어떤 말을 해주고 싶으신가요?"**',
+          "",
+          JSON.stringify({
+            answer:
+              "엄마의 계획이 비 때문에 틀어져서 속상하셨군요. 아기 덕분에 마음이 풀렸다는 말도 따뜻해요.",
+            scenario: "letter_reflection",
+            characterTone: "calm",
+            guardrailStatus: "safe",
+            nextSessionMemory: {
+              stage: 2,
+              stageName: "choice_conversation",
+              compactSummary: "현재 단계: 편지 공감 대화",
+              currentAttachmentQuestionId: "q1",
+            },
+          }),
+        ].join("\n"),
+      },
+    });
+
+    expect(payload).toEqual(
+      expect.objectContaining({
+        answer:
+          "엄마의 계획이 비 때문에 틀어져서 속상하셨군요. 아기 덕분에 마음이 풀렸다는 말도 따뜻해요.",
+        scenario: "letter_reflection",
+        characterTone: "calm",
+      }),
+    );
+    expect(payload?.nextSessionMemory).toMatchObject({
+      stage: 2,
+      currentAttachmentQuestionId: "q1",
+    });
+  });
+
   it("parses workflow v2 stage and mood fields into session memory", () => {
     const payload = parseWorkflowAssistantPayload({
       answer: JSON.stringify({

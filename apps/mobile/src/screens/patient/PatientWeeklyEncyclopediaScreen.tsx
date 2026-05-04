@@ -56,13 +56,17 @@ export function PatientWeeklyEncyclopediaScreen() {
   const contentInsets = buildPatientTabContentInsets({
     bottomInset: insets.bottom,
     topSpacing: space.xs,
-    extraBottomSpacing: space.lg,
+    extraBottomSpacing: 0,
   });
 
   const fetchContent = useCallback(async () => {
     try {
+      const requestedWeek =
+        Number.isInteger(selectedWeekFromParams) && selectedWeekFromParams > 0
+          ? selectedWeekFromParams
+          : null;
       const [nextWeeks, nextProfile] = await Promise.all([
-        knowledgePort.listPregnancyWeeks(),
+        knowledgePort.listPregnancyWeeks({ week: requestedWeek }),
         profilePort.getProfile(),
       ]);
       setWeeks((current) => {
@@ -79,7 +83,7 @@ export function PatientWeeklyEncyclopediaScreen() {
     } catch (nextError) {
       setError(resolvePatientContentLoadError(nextError));
     }
-  }, [knowledgePort, profilePort]);
+  }, [knowledgePort, profilePort, selectedWeekFromParams]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -164,6 +168,20 @@ export function PatientWeeklyEncyclopediaScreen() {
           </Card>
         ) : null}
 
+        <Pressable
+          onPress={() => router.push("/lexicon" as never)}
+          accessibilityRole="button"
+          accessibilityLabel="임신백과 둘러보기 열기"
+        >
+          <Card style={styles.askCta}>
+            <Text style={styles.askCtaEyebrow}>주차별 자료</Text>
+            <Text style={styles.askCtaTitle}>📖 임신백과 둘러보기</Text>
+            <Text style={styles.bodyText}>
+              주차별로 정리된 임신백과를 천천히 둘러볼 수 있어요.
+            </Text>
+          </Card>
+        </Pressable>
+
         {shouldShowWeekContent && selectedWeek ? (
           <>
             <Card style={styles.heroCard}>
@@ -198,7 +216,7 @@ export function PatientWeeklyEncyclopediaScreen() {
             </Card>
 
             <Card>
-              <Text style={styles.eyebrow}>주차별 사전</Text>
+              <Text style={styles.eyebrow}>임신백과</Text>
               <View style={styles.contentBlock}>
                 <Text style={styles.sectionTitle}>태아 발달</Text>
                 <Text style={styles.bodyText}>
@@ -348,6 +366,17 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     paddingVertical: space.xl,
+  },
+  askCta: {
+    gap: space.xs,
+  },
+  askCtaEyebrow: {
+    ...typo.eyebrow,
+    color: palette.accent,
+  },
+  askCtaTitle: {
+    ...typo.titleSm,
+    color: surface.textPrimary,
   },
   heroRow: {
     flexDirection: "row",

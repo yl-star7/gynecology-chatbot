@@ -8,8 +8,6 @@ const DEVELOPMENT_AUTO_VERIFIED_LOGIN = {
   verificationCode: "000000",
 } as const;
 
-const LOCAL_API_HOSTS = new Set(["localhost", "127.0.0.1", "10.0.2.2"]);
-
 export function isDevelopmentAutoVerifiedPhoneNumber(phoneNumber: string) {
   return DEVELOPMENT_AUTO_VERIFIED_PHONE_NUMBERS.has(phoneNumber.trim());
 }
@@ -41,6 +39,13 @@ export function buildInitialLoginFormState(allowDevelopmentBypass: boolean) {
   };
 }
 
-export function resolvePostLoginHref(hasCompletedOnboarding: boolean) {
-  return hasCompletedOnboarding ? "/(tabs)/home" : "/onboarding";
+export function resolvePostLoginHref(user: {
+  accountStatus?: string;
+  hasCompletedOnboarding: boolean;
+}) {
+  if (user.accountStatus === "pending_approval") {
+    return "/approval-pending";
+  }
+
+  return user.hasCompletedOnboarding ? "/(tabs)/home" : "/onboarding";
 }

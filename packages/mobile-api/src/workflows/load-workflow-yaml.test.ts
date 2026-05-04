@@ -1,8 +1,11 @@
+import fs from "node:fs";
+import path from "node:path";
 import { loadMaternalNursingWorkflow } from "./load-workflow-yaml";
 
 function parsePromptJson(prompt: string | undefined) {
   expect(prompt).toBeDefined();
   return JSON.parse(prompt ?? "{}") as {
+    answer?: string;
     scenario?: string;
     quickReplies?: unknown[];
     answerVariations?: string[];
@@ -20,8 +23,6 @@ function restoreEnv(name: string, value: string | undefined) {
 }
 
 describe("maternal nursing workflow YAML", () => {
-  const originalSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const originalServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const originalGcsWorkflowBucket = process.env.GCS_WORKFLOW_BUCKET;
   const originalGcsProjectId = process.env.GCS_PROJECT_ID;
   const originalGoogleCloudProject = process.env.GOOGLE_CLOUD_PROJECT;
@@ -29,8 +30,6 @@ describe("maternal nursing workflow YAML", () => {
     process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
   beforeEach(() => {
-    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     delete process.env.GCS_WORKFLOW_BUCKET;
     delete process.env.GCS_PROJECT_ID;
     delete process.env.GOOGLE_CLOUD_PROJECT;
@@ -38,8 +37,6 @@ describe("maternal nursing workflow YAML", () => {
   });
 
   afterAll(() => {
-    restoreEnv("NEXT_PUBLIC_SUPABASE_URL", originalSupabaseUrl);
-    restoreEnv("SUPABASE_SERVICE_ROLE_KEY", originalServiceRole);
     restoreEnv("GCS_WORKFLOW_BUCKET", originalGcsWorkflowBucket);
     restoreEnv("GCS_PROJECT_ID", originalGcsProjectId);
     restoreEnv("GOOGLE_CLOUD_PROJECT", originalGoogleCloudProject);
@@ -133,6 +130,34 @@ describe("maternal nursing workflow YAML", () => {
     expect(babyInfoOffer.quickReplies).toBeUndefined();
   });
 
+  it("keeps question emphasis format aligned with the mobile renderer", () => {
+    const workflow = loadMaternalNursingWorkflow();
+    const rag = workflow.graph.blocks.find((block) => block.id === "rag");
+    const babyInfoOffer = parsePromptJson(
+      workflow.prompts.static_baby_info_offer,
+    );
+    const workflowFiles = [
+      "maternal-nursing.yaml",
+      "subworkflows/baby-info.yaml",
+      "subworkflows/free-chat.yaml",
+      "subworkflows/general.yaml",
+      "subworkflows/letter-reflection.yaml",
+    ].map((file) => fs.readFileSync(path.join(__dirname, file), "utf8"));
+
+    expect(rag?.config?.system_prompt).toEqual(
+      expect.stringContaining('**"질문 본문"**'),
+    );
+    expect(babyInfoOffer.answer).toEqual(
+      expect.stringContaining('**"{{currentWeek}}주차'),
+    );
+    for (const source of workflowFiles) {
+      expect(source).toEqual(expect.stringContaining('**"질문 본문"**'));
+      expect(source).not.toEqual(
+        expect.stringContaining('"**질문 본문**" (큰따옴표'),
+      );
+    }
+  });
+
   it("keeps the executable Schift graph simple and stable", () => {
     const workflow = loadMaternalNursingWorkflow();
 
@@ -213,7 +238,10 @@ describe("maternal nursing workflow YAML", () => {
       expect.stringContaining("25주차 정보 요청"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("검색된 내부 데이터나 사전 참고 자료"),
+      expect.stringContaining("검색된 내부 데이터나 임신백과 참고 자료"),
+    );
+    expect(tmpl?.config?.system_prompt).not.toContain(
+      "오늘 해본 만큼으로도 충분해요",
     );
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining("주간 질문은 answer 안에 합쳐 쓰지 마세요"),

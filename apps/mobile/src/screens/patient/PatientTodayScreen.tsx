@@ -10,6 +10,7 @@ import { Card, Pressable } from "../../components/ui";
 import { PatientTodayConversationSection } from "../../components/patient/today/PatientTodayConversationSection";
 import { PatientTodayChecklistSection } from "../../components/patient/today/PatientTodayChecklistSection";
 import { PatientTodayInfoSection } from "../../components/patient/today/PatientTodayInfoSection";
+import { PatientProfileEncyclopediaCard } from "../../components/patient/profile/PatientProfileEncyclopediaCard";
 import { PatientShell } from "../../components/patient/PatientShell";
 import { PatientTodayTabs } from "../../components/patient/PatientTodayTabs";
 import {
@@ -28,7 +29,7 @@ export function PatientTodayScreen() {
   const contentInsets = buildPatientTabContentInsets({
     bottomInset: insets.bottom,
     extraBottomSpacing:
-      model.activeSection === "conversation" ? space.xxxl : space.lg,
+      model.activeSection === "conversation" ? space.lg : 0,
     topSpacing: space.xs,
   });
 
@@ -61,10 +62,34 @@ export function PatientTodayScreen() {
           />
 
           {model.activeSection === "info" ? (
-            <PatientTodayInfoSection
-              babyCard={model.viewModel.babyCard}
-              momCard={model.viewModel.momCard}
-            />
+            <>
+              <PatientTodayInfoSection
+                babyCard={model.viewModel.babyCard}
+                momCard={model.viewModel.momCard}
+              />
+
+              <PatientProfileEncyclopediaCard
+                entry={model.encyclopediaEntry}
+                onOpenCurrentWeek={() =>
+                  model.openWeeklyEncyclopedia("current")
+                }
+                onBrowseWeeks={() => model.openWeeklyEncyclopedia("browse")}
+              />
+
+              <Pressable
+                onPress={model.openAskFreeSearch}
+                accessibilityRole="button"
+                accessibilityLabel="무엇이든 물어보세요 자유 검색 열기"
+              >
+                <Card variant="accent" style={styles.askCta}>
+                  <Text style={styles.askCtaEyebrow}>자유 검색 사전</Text>
+                  <Text style={styles.askCtaTitle}>무엇이든 물어보세요</Text>
+                  <Text style={styles.askCtaBody}>
+                    궁금한 점을 자유롭게 물어보면 전문 자료로 답해드려요.
+                  </Text>
+                </Card>
+              </Pressable>
+            </>
           ) : null}
 
           {model.activeSection === "checklist" ? (
@@ -114,7 +139,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: space.lg,
     gap: space.sm,
-    flexGrow: 1,
   },
   conversationComposerCard: {
     marginTop: "auto",
@@ -132,5 +156,21 @@ const styles = StyleSheet.create({
     ...typo.caption,
     color: palette.accent,
     textAlign: "center",
+  },
+  askCta: {
+    gap: space.xs,
+  },
+  askCtaEyebrow: {
+    ...typo.eyebrow,
+    color: palette.accent,
+  },
+  askCtaTitle: {
+    ...typo.titleSm,
+    color: surface.textPrimary,
+  },
+  askCtaBody: {
+    marginTop: space.sm,
+    ...typo.body,
+    color: surface.textSecondary,
   },
 });

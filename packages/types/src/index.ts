@@ -180,7 +180,7 @@ export interface PregnancyDocument {
   pregnancy_week?: number;
   category: string;
   source_file?: string;
-  embedding?: number[]; // 1536 dimensions
+  embedding?: number[]; // 1024 dimensions
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;

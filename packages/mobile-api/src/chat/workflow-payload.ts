@@ -144,6 +144,42 @@ function normalizeIdList(value: unknown): string[] | undefined {
   return ids.length > 0 ? ids : undefined;
 }
 
+function findLastJsonObjectCandidate(value: string): string | null {
+  for (let end = value.length - 1; end >= 0; end -= 1) {
+    if (value[end] !== "}") continue;
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let start = end; start >= 0; start -= 1) {
+      const char = value[start]!;
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+      if (char === "}") depth += 1;
+      if (char === "{") {
+        depth -= 1;
+        if (depth === 0) {
+          const candidate = value.slice(start, end + 1).trim();
+          if (/"answer"\s*:/.test(candidate)) return candidate;
+          break;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export function parseWorkflowAssistantPayload(
   outputs: Record<string, unknown> | undefined,
 ): WorkflowAssistantPayload | null {
@@ -241,8 +277,8 @@ export function parseWorkflowAssistantPayload(
     .replace(/\n?```\s*$/i, "")
     .trim();
 
-  try {
-    const parsed = JSON.parse(stripped) as WorkflowAssistantPayload & {
+  const parseStructuredPayload = (source: string) => {
+    const parsed = JSON.parse(source) as WorkflowAssistantPayload & {
       text?: unknown;
       answer?: unknown;
       quickReplies?: unknown;
@@ -277,6 +313,26 @@ export function parseWorkflowAssistantPayload(
         selectedQuestionIds: normalizeIdList(parsed.selectedQuestionIds),
       };
     }
+    return null;
+  };
+
+  try {
+    const payload = parseStructuredPayload(stripped);
+    if (payload) return payload;
+  } catch {
+    const embeddedJson = findLastJsonObjectCandidate(stripped);
+    if (embeddedJson) {
+      try {
+        const payload = parseStructuredPayload(embeddedJson);
+        if (payload) return payload;
+      } catch {
+        // fall through to plain-answer handling below
+      }
+    }
+  }
+
+  try {
+    return parseStructuredPayload(stripped);
   } catch {
     const isPlainAnswerOutput =
       typeof outputs.answer === "string" ||

@@ -1,3 +1,9 @@
+jest.mock("@gynecology-chatbot/mobile-api/baby-comfort-pool", () => ({
+  pickBabyComfortMessage: jest.fn(
+    async (params: { fallback: string | null }) => params.fallback,
+  ),
+}));
+
 jest.mock("@/lib/mobile/session-auth", () => ({
   requireMobileSession: jest.fn(),
   mobileNoStoreJson: jest.fn((payload: unknown, init?: ResponseInit) =>
@@ -35,14 +41,14 @@ jest.mock("@/lib/db/admin-client", () => ({
   dbUpdate: jest.fn(),
 }));
 
-var adminSupabaseSelectMock: jest.Mock;
-var adminSupabaseInsertMock: jest.Mock;
-var adminSupabaseUpdateMock: jest.Mock;
+var adminDbSelectMock: jest.Mock;
+var adminDbInsertMock: jest.Mock;
+var adminDbUpdateMock: jest.Mock;
 
 jest.mock("@/lib/db/admin-client", () => {
-  adminSupabaseSelectMock = jest.fn();
-  adminSupabaseInsertMock = jest.fn();
-  adminSupabaseUpdateMock = jest.fn();
+  adminDbSelectMock = jest.fn();
+  adminDbInsertMock = jest.fn();
+  adminDbUpdateMock = jest.fn();
   class QueryBuilder {
     private readonly schema?: string;
     private readonly table: string;
@@ -153,10 +159,10 @@ jest.mock("@/lib/db/admin-client", () => {
         params.length > 0 ? `${relation}?${params.join("&")}` : relation;
       const source =
         this.mode === "select"
-          ? adminSupabaseSelectMock(path)
+          ? adminDbSelectMock(path)
           : this.mode === "insert"
-            ? adminSupabaseInsertMock(relation, this.payload)
-            : adminSupabaseUpdateMock(path, this.payload);
+            ? adminDbInsertMock(relation, this.payload)
+            : adminDbUpdateMock(path, this.payload);
       return Promise.resolve(source).then((data) =>
         resolve({ data, error: null }),
       );
@@ -164,10 +170,10 @@ jest.mock("@/lib/db/admin-client", () => {
   }
 
   return {
-    dbSelect: adminSupabaseSelectMock,
-    dbInsert: adminSupabaseInsertMock,
-    dbUpdate: adminSupabaseUpdateMock,
-    getSupabaseAdminClient: () => ({
+    dbSelect: adminDbSelectMock,
+    dbInsert: adminDbInsertMock,
+    dbUpdate: adminDbUpdateMock,
+    getDbAdminClient: () => ({
       from: (table: string) =>
         new QueryBuilder({ table, mode: "select", schema: undefined }),
       schema: (schema: string) => ({
@@ -179,44 +185,32 @@ jest.mock("@/lib/db/admin-client", () => {
 });
 
 import { requireMobileSession } from "@/lib/mobile/session-auth";
-import {
-  dbInsert,
-  dbSelect,
-  dbUpdate,
-} from "@/lib/db/admin-client";
+import { dbInsert, dbSelect, dbUpdate } from "@/lib/db/admin-client";
 import { GET, PATCH } from "./route";
 
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
   typeof requireMobileSession
 >;
-const mockedSupabaseSelect = dbSelect as jest.MockedFunction<
-  typeof dbSelect
->;
-const mockedSupabaseInsert = dbInsert as jest.MockedFunction<
-  typeof dbInsert
->;
-const mockedSupabaseUpdate = dbUpdate as jest.MockedFunction<
-  typeof dbUpdate
->;
+const mockedDbSelect = dbSelect as jest.MockedFunction<typeof dbSelect>;
+const mockedDbInsert = dbInsert as jest.MockedFunction<typeof dbInsert>;
+const mockedDbUpdate = dbUpdate as jest.MockedFunction<typeof dbUpdate>;
 
 describe("GET /api/mobile/today", () => {
   let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     mockedRequireMobileSession.mockReset();
-    mockedSupabaseSelect.mockReset();
-    mockedSupabaseInsert.mockReset();
-    mockedSupabaseUpdate.mockReset();
-    adminSupabaseSelectMock.mockImplementation((path: string) =>
-      mockedSupabaseSelect(path),
+    mockedDbSelect.mockReset();
+    mockedDbInsert.mockReset();
+    mockedDbUpdate.mockReset();
+    adminDbSelectMock.mockImplementation((path: string) =>
+      mockedDbSelect(path),
     );
-    adminSupabaseInsertMock.mockImplementation(
-      (table: string, payload: unknown) =>
-        mockedSupabaseInsert(table, payload as never),
+    adminDbInsertMock.mockImplementation((table: string, payload: unknown) =>
+      mockedDbInsert(table, payload as never),
     );
-    adminSupabaseUpdateMock.mockImplementation(
-      (path: string, payload: unknown) =>
-        mockedSupabaseUpdate(path, payload as never),
+    adminDbUpdateMock.mockImplementation((path: string, payload: unknown) =>
+      mockedDbUpdate(path, payload as never),
     );
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
   });
@@ -227,7 +221,7 @@ describe("GET /api/mobile/today", () => {
 
   it("returns today info cards and checklist completion from DB-backed rows", async () => {
     mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         { pregnancy_week: 1, pregnancy_day_in_week: 0, due_date: null },
       ] as never)
@@ -282,7 +276,7 @@ describe("GET /api/mobile/today", () => {
 
   it("체크리스트 라벨에서 괄호 참고표기를 제거한다", async () => {
     mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         { pregnancy_week: 1, pregnancy_day_in_week: 0, due_date: null },
       ] as never)
@@ -353,7 +347,7 @@ describe("GET /api/mobile/today", () => {
     const expectedDayNumber = (pregnancyDayCount % 7) + 1;
 
     mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         {
           pregnancy_week: 14,
@@ -396,12 +390,12 @@ describe("GET /api/mobile/today", () => {
     } as never);
 
     expect(response.status).toBe(200);
-    expect(mockedSupabaseSelect).toHaveBeenCalledWith(
+    expect(mockedDbSelect).toHaveBeenCalledWith(
       expect.stringContaining(
         `content_pregnancy_week_data?select=id,baby_summary,mother_summary&week_number=eq.${expectedWeek}&status=eq.published&limit=1`,
       ),
     );
-    expect(mockedSupabaseSelect).toHaveBeenCalledWith(
+    expect(mockedDbSelect).toHaveBeenCalledWith(
       expect.stringContaining(
         `content_pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.week-${expectedWeek}&day_number=eq.${expectedDayNumber}&limit=1`,
       ),
@@ -410,7 +404,7 @@ describe("GET /api/mobile/today", () => {
 
   it("due_date가 과거(출산 후)인 프로필에서 postDue=true 반환", async () => {
     mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         {
           pregnancy_week: null,
@@ -447,7 +441,7 @@ describe("GET /api/mobile/today", () => {
 
   it("due_date 없이 DB 주차값 1 미만이면 1로 clamp됨", async () => {
     mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         { pregnancy_week: -5, pregnancy_day_in_week: 0, due_date: null },
       ] as never)
@@ -475,7 +469,7 @@ describe("GET /api/mobile/today", () => {
     } as never);
 
     expect(response.status).toBe(200);
-    const weekQueryCall = mockedSupabaseSelect.mock.calls.find(
+    const weekQueryCall = mockedDbSelect.mock.calls.find(
       ([path]: [string, unknown?]) =>
         path.includes("content_pregnancy_week_data") &&
         path.includes("week_number=eq.1") &&
@@ -486,7 +480,7 @@ describe("GET /api/mobile/today", () => {
 
   it("due_date 없이 DB 주차값 42 초과이면 42로 clamp됨", async () => {
     mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         { pregnancy_week: 99, pregnancy_day_in_week: 0, due_date: null },
       ] as never)
@@ -514,7 +508,7 @@ describe("GET /api/mobile/today", () => {
     } as never);
 
     expect(response.status).toBe(200);
-    const weekQueryCall = mockedSupabaseSelect.mock.calls.find(
+    const weekQueryCall = mockedDbSelect.mock.calls.find(
       ([path]: [string, unknown?]) =>
         path.includes("content_pregnancy_week_data") &&
         path.includes("week_number=eq.42") &&
@@ -525,8 +519,8 @@ describe("GET /api/mobile/today", () => {
 
   it("stores an info view event when the today info section is opened", async () => {
     mockedRequireMobileSession.mockResolvedValue({ userId: "user-1" } as never);
-    mockedSupabaseSelect.mockResolvedValueOnce([] as never);
-    mockedSupabaseInsert.mockResolvedValue({} as never);
+    mockedDbSelect.mockResolvedValueOnce([] as never);
+    mockedDbInsert.mockResolvedValue({} as never);
 
     const response = await PATCH({
       nextUrl: new URL("http://localhost:3000/api/mobile/today?userId=user-1"),
@@ -534,7 +528,7 @@ describe("GET /api/mobile/today", () => {
     } as never);
 
     await expect(response.json()).resolves.toEqual({ ok: true });
-    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+    expect(mockedDbInsert).toHaveBeenCalledWith(
       "calendar_logs",
       expect.objectContaining({
         user_id: "user-1",

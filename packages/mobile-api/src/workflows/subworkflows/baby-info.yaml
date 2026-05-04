@@ -1,6 +1,6 @@
 version: 1
 name: 모성간호 baby_info (주차 정보 요약)
-description: stage=0 Y path. 아기/엄마 정보 불릿 말풍선 + 사전 deepLink 1개.
+description: stage=0 Y path. 아기/엄마 정보 불릿 말풍선 + 임신백과 deepLink 1개.
 
 admin_metadata:
   stage: "0"
@@ -28,8 +28,8 @@ prompts:
            }
          ],
          "quickReplies": [
-           { "label": "오늘의 질문 보기", "message": "오늘 함께 질문에 답해볼까요?" },
-           { "label": "이따가요", "message": "이따가 함께 질문에 답해봐요." }
+           { "label": "질문 보기", "message": "오늘 질문을 하나 골라볼게요." },
+           { "label": "나중에요", "message": "나중에 볼게요." }
          ],
          "nextSessionMemory": {
            "stage": 1,
@@ -60,7 +60,8 @@ prompts:
 
     질문 강조 포맷:
     - answer 본문에 사용자에게 묻는 질문 문장이 들어갈 때는 정확히 **하나**의 질문만 다음 포맷으로 감싸 작성하세요.
-      "**질문 본문**" (큰따옴표 1쌍 + 내부를 **...** 볼드)
+      **"질문 본문"** (바깥은 **...** 볼드 + 안쪽은 큰따옴표 1쌍)
+    - 금지: ""질문 본문"", """질문 본문""", "**질문 본문**"처럼 따옴표가 중복되거나 볼드가 안쪽에만 들어간 형식.
     - 평서문 공감/안내에는 따옴표·볼드를 쓰지 마세요.
     - 질문이 없는 턴에는 이 포맷을 쓰지 마세요. 본 baby_info answer는 기본적으로 불릿 안내이므로 질문 포맷을 쓰지 않습니다.
 
@@ -90,7 +91,7 @@ blocks:
     config:
       model: gemini-2.5-flash-lite
       temperature: 0.1
-      max_tokens: 400
+      max_tokens: 900
       thinking_budget: 0
   - id: answer
     type: answer

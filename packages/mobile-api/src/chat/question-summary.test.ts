@@ -1,7 +1,12 @@
 import {
+  buildFallbackQuestionAnswerSummary,
+  buildQuestionSummaryTitle,
   buildQuestionSummaryRecord,
   buildSummaryText,
   buildTitle,
+  isQuestionAnswerText,
+  isQuestionSummaryPendingText,
+  resolveQuestionSummaryQuestionId,
   shouldSaveQuestionSummary,
 } from "./question-summary";
 
@@ -25,12 +30,100 @@ describe("buildSummaryText", () => {
     ).toContain("사용자 답변이 길게");
   });
 
+  it("falls back to userAnswer when compactSummary is only workflow state", () => {
+    expect(
+      buildSummaryText({
+        compactSummary:
+          "현재 단계: 질문 답변 대기 (a5d93e8b-02e8-428d-8ea8-c5ef9569691c)",
+        userAnswer: "오늘은 아기에게 고맙다고 말하고 싶어요.",
+      }),
+    ).toBe("오늘은 아기에게 고맙다고 말하고 싶어요.");
+  });
+
+  it("falls back to userAnswer when compactSummary only says answer is in progress", () => {
+    expect(
+      buildSummaryText({
+        compactSummary: "현재 단계: 질문 답변 중",
+        userAnswer:
+          "갑자기 마음이 아플 때는 숨을 고르고 괜찮다고 말해주고 싶어요.",
+      }),
+    ).toBe("갑자기 마음이 아플 때는 숨을 고르고 괜찮다고 말해주고 싶어요.");
+  });
+
   it("truncates to 220 chars", () => {
     const summary = buildSummaryText({
       compactSummary: "현재 단계: " + "긴내용".repeat(100),
       userAnswer: "x",
     });
     expect(summary.length).toBeLessThanOrEqual(220);
+  });
+});
+
+describe("isQuestionSummaryPendingText", () => {
+  it("detects workflow lifecycle labels that are not answer summaries", () => {
+    expect(
+      isQuestionSummaryPendingText(
+        "현재 단계: 질문 답변 대기 (a5d93e8b-02e8-428d-8ea8-c5ef9569691c)",
+      ),
+    ).toBe(true);
+    expect(isQuestionSummaryPendingText("오늘 자정에 요약이 준비됩니다.")).toBe(
+      true,
+    );
+    expect(
+      isQuestionSummaryPendingText("편지 후속 질문. 아기에게 따뜻한 마음 전함"),
+    ).toBe(false);
+  });
+});
+
+describe("isQuestionAnswerText", () => {
+  it("accepts a real free-text answer", () => {
+    expect(
+      isQuestionAnswerText({
+        userAnswer: "갑자기 마음이 아플 때는 스스로 괜찮다고 말해주고 싶어요.",
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects control replies and selected question text", () => {
+    expect(
+      isQuestionAnswerText({ userAnswer: "다음 질문으로 이어갈래요." }),
+    ).toBe(false);
+    expect(
+      isQuestionAnswerText({
+        userAnswer: "기대감 하나 더 얘기하고 싶어요.",
+      }),
+    ).toBe(false);
+    expect(
+      isQuestionAnswerText({ userAnswer: "자유롭게 대화하고 싶어요." }),
+    ).toBe(false);
+    expect(
+      isQuestionAnswerText({
+        userAnswer: "오늘 아기에게 들려주고 싶은 말은?",
+        questionText: "오늘 아기에게 들려주고 싶은 말은?",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("resolveQuestionSummaryQuestionId", () => {
+  it("uses the current question when an answer turn has no selectedQuestionId", () => {
+    expect(
+      resolveQuestionSummaryQuestionId({
+        selectedQuestionId: null,
+        currentAttachmentQuestionId: "q1",
+        nextAttachmentQuestionId: "q1",
+      }),
+    ).toBe("q1");
+  });
+
+  it("uses selectedQuestionId on the question selection turn", () => {
+    expect(
+      resolveQuestionSummaryQuestionId({
+        selectedQuestionId: "q2",
+        currentAttachmentQuestionId: null,
+        nextAttachmentQuestionId: "q2",
+      }),
+    ).toBe("q2");
   });
 });
 
@@ -42,7 +135,40 @@ describe("buildTitle", () => {
   });
 
   it("falls back when null", () => {
-    expect(buildTitle(null)).toBe("오늘의 질문");
+    expect(buildTitle(null)).toBe("오늘의 질문 기록");
+  });
+
+  it("creates a concise title for body preparation questions", () => {
+    expect(
+      buildQuestionSummaryTitle(
+        "그동안 우리 몸은 아기를 위해 태반을 만들고,초유를 준비하고 있대요. 엄마가 될 준비를 하고 있는 몸을 보며 어떤 마음이 드나요?",
+      ),
+    ).toBe("몸의 준비를 바라본 마음");
+  });
+});
+
+describe("buildFallbackQuestionAnswerSummary", () => {
+  it("expands a short repeated answer into a contextual summary", () => {
+    const summary = buildFallbackQuestionAnswerSummary({
+      questionText:
+        "그동안 우리 몸은 아기를 위해 태반을 만들고,초유를 준비하고 있대요. 엄마가 될 준비를 하고 있는 몸을 보며 어떤 마음이 드나요?",
+      userAnswer: "고생하는구나 고생하는구나",
+    });
+
+    expect(summary).toBe(
+      "태반과 초유를 준비해 온 몸을 보며, 몸이 참 고생하고 있다는 마음을 표현했어요. 엄마가 될 준비를 해내는 몸을 다정하게 바라본 기록이에요.",
+    );
+  });
+
+  it("uses contextual summaries for short answers", () => {
+    expect(
+      buildFallbackQuestionAnswerSummary({
+        questionText: "아기가 태어나면 같이 하고싶은 운동이 있나요?",
+        userAnswer: "수영",
+      }),
+    ).toBe(
+      "아기가 태어나면 함께 수영을 해보고 싶다는 바람을 남겼어요. 물속에서 같이 움직이는 시간을 기대한 기록이에요.",
+    );
   });
 });
 
@@ -85,6 +211,43 @@ describe("shouldSaveQuestionSummary", () => {
         alreadyPersistedQuestionIds: new Set(),
       }),
     ).toBe(false);
+  });
+
+  it("returns false while the user has only selected a question and has not answered it", () => {
+    expect(
+      shouldSaveQuestionSummary({
+        workflowStage: 2,
+        selectedQuestionId: "q1",
+        alreadyPersistedQuestionIds: new Set(),
+        compactSummary: "현재 단계: 질문 답변 대기 (q1)",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true when the user answered while compactSummary only says the answer is in progress", () => {
+    expect(
+      shouldSaveQuestionSummary({
+        workflowStage: 2,
+        selectedQuestionId: "q1",
+        alreadyPersistedQuestionIds: new Set(),
+        compactSummary: "현재 단계: 질문 답변 중",
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("isQuestionAnswerText", () => {
+  it("rejects navigation quick replies", () => {
+    expect(isQuestionAnswerText({ userAnswer: "더 확인하고 싶어요" })).toBe(
+      false,
+    );
+    expect(
+      isQuestionAnswerText({ userAnswer: "오늘 실천할 일도 볼게요." }),
+    ).toBe(false);
+  });
+
+  it("rejects greeting-only messages", () => {
+    expect(isQuestionAnswerText({ userAnswer: "안녕" })).toBe(false);
   });
 });
 

@@ -36,11 +36,16 @@ export function mobileNoStoreJson<T>(payload: T, init?: ResponseInit) {
   });
 }
 
+type RequireMobileSessionOptions = {
+  requireApproved?: boolean;
+};
+
 export async function requireMobileSession(
   request: NextRequest | Request,
   expectedUserId?: string | null,
+  options: RequireMobileSessionOptions = { requireApproved: true },
 ) {
   const authorization = request.headers.get("authorization");
   const token = extractBearerTokenFromAuthorization(authorization);
-  return verifyMobileSessionToken(token, expectedUserId);
+  return verifyMobileSessionToken(token, expectedUserId, options);
 }

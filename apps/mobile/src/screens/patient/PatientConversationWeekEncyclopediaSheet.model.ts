@@ -18,7 +18,7 @@ export function buildConversationWeekEncyclopediaSheetModel(input: {
     (!input.profilePregnancyWeekLabel || input.weeks.length === 0)
   ) {
     return {
-      title: "주차 사전을 불러오는 중이에요",
+      title: "임신백과를 불러오는 중이에요",
       subtitle: "잠시만 기다려주세요.",
       selectedWeekNumber: null,
       emptyTitle: null,
@@ -29,7 +29,7 @@ export function buildConversationWeekEncyclopediaSheetModel(input: {
 
   if (input.errorMessage && input.weeks.length === 0) {
     return {
-      title: "주차 사전을 불러오지 못했어요",
+      title: "임신백과를 불러오지 못했어요",
       subtitle: input.errorMessage,
       selectedWeekNumber: null,
       emptyTitle: "다시 시도해주세요.",

@@ -994,7 +994,7 @@ export async function ensureLocalPostgresReady() {
 function splitPath(path: string) {
   const [rawTable, search = ""] = path.split("?");
   if (!rawTable) {
-    throw new Error(`Invalid Supabase path: ${path}`);
+    throw new Error(`Invalid DB path: ${path}`);
   }
 
   const table = rawTable.includes(".")
@@ -1175,7 +1175,7 @@ async function syncSessionTimestamp(
   }
 }
 
-export async function localSupabaseSelect<T>(path: string) {
+export async function localDbSelect<T>(path: string) {
   await ensureLocalPostgresReady();
   const db = getPool();
   const { table, searchParams } = splitPath(path);
@@ -1190,7 +1190,7 @@ export async function localSupabaseSelect<T>(path: string) {
   return result.rows as T;
 }
 
-export async function localSupabaseInsert<T>(
+export async function localDbInsert<T>(
   table: string,
   payload: object | object[],
 ) {
@@ -1220,7 +1220,7 @@ export async function localSupabaseInsert<T>(
   return result.rows as T;
 }
 
-export async function localSupabaseUpdate<T>(path: string, payload: object) {
+export async function localDbUpdate<T>(path: string, payload: object) {
   await ensureLocalPostgresReady();
   const db = getPool();
   const { table, searchParams } = splitPath(path);
@@ -1247,7 +1247,7 @@ export async function localSupabaseUpdate<T>(path: string, payload: object) {
   return result.rows as T;
 }
 
-export async function localSupabaseDelete<T>(path: string) {
+export async function localDbDelete<T>(path: string) {
   await ensureLocalPostgresReady();
   const db = getPool();
   const { table, searchParams } = splitPath(path);
@@ -1257,7 +1257,7 @@ export async function localSupabaseDelete<T>(path: string) {
   return result.rows as T;
 }
 
-export async function localSupabaseRpc<T>(
+export async function localDbRpc<T>(
   fn: string,
   payload: Record<string, unknown>,
 ) {

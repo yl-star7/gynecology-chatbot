@@ -8,7 +8,7 @@ import { useEffect } from "react";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { ChatSessionsProvider } from "../src/chat/store";
 import {
   MobileAppSessionProvider,
@@ -19,6 +19,7 @@ import {
   useMobileServices,
 } from "../src/core/MobileServicesProvider";
 import { DailyLocalNotificationRegistrar } from "../src/components/DailyLocalNotificationRegistrar";
+import { MobileUpdateReloader } from "../src/components/MobileUpdateReloader";
 import { PushTokenRegistrar } from "../src/components/PushTokenRegistrar";
 import { preloadPatientAppData } from "../src/core/mobileBootstrap.model";
 import {
@@ -31,7 +32,7 @@ import {
   readCachedProfileView,
 } from "../src/core/patientViewCache";
 import { BrandMark } from "../src/components/ui";
-import { patientSurfacePalette as surface, space, typo } from "../src/theme";
+import { patientSurfacePalette as surface, space } from "../src/theme";
 import { MobileThemeProvider, useMobileTheme } from "../src/theme-provider";
 
 SplashScreen.preventAutoHideAsync();
@@ -62,9 +63,6 @@ function BootstrapFallback() {
   return (
     <View style={styles.bootstrapFallback}>
       <BrandMark subtitle="잠깐만 기다려 주세요" centered size={60} />
-      <Text style={styles.bootstrapDescription}>
-        오늘의 기록을 정리하고 있어요.
-      </Text>
     </View>
   );
 }
@@ -150,8 +148,9 @@ export default function RootLayout() {
         <MobileServicesProvider>
           <MobileAppSessionProvider>
             <BootstrapGate>
-              <DailyLocalNotificationRegistrar />
-              <PushTokenRegistrar />
+              <MobileUpdateReloader />
+              {!__DEV__ ? <DailyLocalNotificationRegistrar /> : null}
+              {!__DEV__ ? <PushTokenRegistrar /> : null}
               <SessionScopedStack />
             </BootstrapGate>
           </MobileAppSessionProvider>
@@ -169,10 +168,5 @@ const styles = StyleSheet.create({
     backgroundColor: surface.pageBackground,
     paddingHorizontal: space.xl,
     gap: space.md,
-  },
-  bootstrapDescription: {
-    ...typo.body,
-    color: surface.textSecondary,
-    textAlign: "center",
   },
 });

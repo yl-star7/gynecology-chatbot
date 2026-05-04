@@ -2,6 +2,7 @@ import type {
   AuthenticatedUser,
   ChatMessage,
   ChatSession,
+  EmotionTone,
   HomeViewData,
   LinkTargetContent,
   MobileContentListItem,
@@ -85,7 +86,9 @@ export interface MobileApiClient {
   fetchContentItems(
     section: "knowledge" | "notebook",
   ): Promise<{ items: MobileContentListItem[] }>;
-  fetchPregnancyWeeks(): Promise<{ weeks: MobilePregnancyWeekSummary[] }>;
+  fetchPregnancyWeeks(input?: {
+    week?: number | null;
+  }): Promise<{ weeks: MobilePregnancyWeekSummary[] }>;
   fetchLinkTarget(
     target: string,
     entityId?: string,
@@ -110,6 +113,7 @@ export interface MobileApiClient {
     text: string;
     pregnancyWeek?: number;
     selectedQuestionId?: string;
+    selectedMoodTone?: EmotionTone;
     clientWorkflowStage?: number | string | null;
     clientWorkflowStageName?: string | null;
     imageDataUris: string[];
@@ -123,7 +127,9 @@ export interface MobileApiClient {
 }
 
 function getEnvApiBaseUrl() {
-  const url = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:3005";
+  const url =
+    process.env.EXPO_PUBLIC_API_BASE_URL ??
+    "https://agaya-api-yvdnhntt7a-du.a.run.app";
 
   return url.replace(/\/$/, "");
 }
@@ -400,10 +406,18 @@ export function createMobileApiClient(
       return parseJson<{ items: MobileContentListItem[] }>(response);
     },
 
-    async fetchPregnancyWeeks() {
-      const response = await fetchImpl(`${getApiBaseUrl()}/api/mobile/weeks`, {
-        headers: buildMobileSessionHeaders(),
-      });
+    async fetchPregnancyWeeks(input) {
+      const searchParams = new URLSearchParams();
+      if (typeof input?.week === "number") {
+        searchParams.set("week", String(input.week));
+      }
+      const qs = searchParams.toString();
+      const response = await fetchImpl(
+        `${getApiBaseUrl()}/api/mobile/weeks${qs ? `?${qs}` : ""}`,
+        {
+          headers: buildMobileSessionHeaders(),
+        },
+      );
       return parseJson<{ weeks: MobilePregnancyWeekSummary[] }>(response);
     },
 
@@ -470,6 +484,7 @@ export function createMobileApiClient(
             text: input.text,
             pregnancyWeek: input.pregnancyWeek,
             selectedQuestionId: input.selectedQuestionId,
+            selectedMoodTone: input.selectedMoodTone,
             clientWorkflowStage: input.clientWorkflowStage,
             clientWorkflowStageName: input.clientWorkflowStageName,
             imageDataUris: input.imageDataUris,

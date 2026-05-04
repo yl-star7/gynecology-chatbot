@@ -43,7 +43,7 @@ import { prefetchWeekBabyImages } from "./prefetchWeekBabyImages";
 
 export function PatientHomeScreen() {
   const insets = useSafeAreaInsets();
-  const { palette: activePalette } = useMobileTheme();
+  const { palette: activePalette, surface: activeSurface } = useMobileTheme();
   const services = useMobileServices();
   const { currentUser, isRestoringSession } = useMobileAppSession();
   const syncSnapshot = usePatientProfileSyncSnapshot();
@@ -163,9 +163,16 @@ export function PatientHomeScreen() {
       >
         <View>
           <Text
-            style={styles.monthLabel}
+            style={[
+              styles.monthLabel,
+              { color: activeSurface.textSecondary },
+            ]}
           >{`${viewModel.monthLabel} ${viewModel.dayLabel}일`}</Text>
-          <Text style={styles.heroName}>{viewModel.heroName}</Text>
+          <Text
+            style={[styles.heroName, { color: activeSurface.textPrimary }]}
+          >
+            {viewModel.heroName}
+          </Text>
         </View>
 
         <PatientHeroBubble
@@ -174,8 +181,18 @@ export function PatientHomeScreen() {
         />
 
         <View style={styles.heroImageWrap}>
-          <View style={styles.heroImageOuter}>
-            <View style={styles.heroImageInner}>
+          <View
+            style={[
+              styles.heroImageOuter,
+              { backgroundColor: activeSurface.fieldSurface },
+            ]}
+          >
+            <View
+              style={[
+                styles.heroImageInner,
+                { backgroundColor: activeSurface.surfaceSecondary },
+              ]}
+            >
               <Image
                 source={viewModel.babyImageSource}
                 style={styles.heroImage}
@@ -187,21 +204,52 @@ export function PatientHomeScreen() {
 
         <Card style={styles.metricCard}>
           <View style={styles.metricHeaderRow}>
-            <Text style={styles.metricWeek}>
+            <Text
+              style={[styles.metricWeek, { color: activePalette.accent }]}
+            >
               {viewModel.pregnancyWeekLabel}
             </Text>
             <View style={styles.metricHeaderSpacer} />
-            <Text style={styles.metricDayText}>
+            <Text
+              style={[
+                styles.metricDayText,
+                { color: activeSurface.textSecondary },
+              ]}
+            >
               {viewModel.pregnancyDayText}
             </Text>
           </View>
           <View style={styles.metricMeetingRow}>
-            <Text style={styles.metricCaption}>{viewModel.meetingLabel}</Text>
-            <Text style={styles.metricValue}>{viewModel.meetingValue}</Text>
+            <Text
+              style={[
+                styles.metricCaption,
+                { color: activeSurface.textSecondary },
+              ]}
+            >
+              {viewModel.meetingLabel}
+            </Text>
+            <Text
+              style={[styles.metricValue, { color: activeSurface.textPrimary }]}
+            >
+              {viewModel.meetingValue}
+            </Text>
           </View>
-          <View style={styles.noteSection}>
-            <Text style={styles.noteTitle}>{viewModel.noteTitle}</Text>
-            <Text style={styles.noteBody}>{viewModel.noteBody}</Text>
+          <View
+            style={[
+              styles.noteSection,
+              { backgroundColor: activeSurface.surfaceSecondary },
+            ]}
+          >
+            <Text
+              style={[styles.noteTitle, { color: activeSurface.textPrimary }]}
+            >
+              {viewModel.noteTitle}
+            </Text>
+            <Text
+              style={[styles.noteBody, { color: activeSurface.textSecondary }]}
+            >
+              {viewModel.noteBody}
+            </Text>
           </View>
         </Card>
       </ScrollView>

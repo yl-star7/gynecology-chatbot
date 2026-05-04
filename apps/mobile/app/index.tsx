@@ -13,6 +13,10 @@ export default function IndexRoute() {
     return <Redirect href="/auth/login" />;
   }
 
+  if (currentUser.accountStatus === "pending_approval") {
+    return <Redirect href="/approval-pending" />;
+  }
+
   return (
     <Redirect
       href={currentUser.hasCompletedOnboarding ? "/(tabs)/home" : "/onboarding"}

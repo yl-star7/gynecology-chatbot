@@ -1,13 +1,25 @@
 // @ts-nocheck
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import { PatientConversationMessageList } from "../../src/components/patient/chat/PatientConversationMessageList";
 import { PatientConversationComposer } from "../../src/components/patient/chat/PatientConversationComposer";
 import { PatientShell } from "../../src/components/patient/PatientShell";
 import { patientSurfacePalette as surface, space } from "../../src/theme";
+import {
+  resolveAndroidKeyboardBottomOffset,
+  resolveConversationKeyboardAvoidingBehavior,
+  resolveKeyboardHeightFromCoordinates,
+} from "../../src/screens/patient/patientScreenLayout.model";
 
 const MOCK_MESSAGES: ChatMessage[] = [
   {
@@ -137,10 +149,53 @@ const MOCK_MESSAGES: ChatMessage[] = [
 
 export default function ChatMockRoute() {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const params = useLocalSearchParams<{ sending?: string }>();
   const scrollRef = useRef(null);
+  const baselineWindowHeightRef = useRef(windowHeight);
   const [text, setText] = useState("");
+  const [keyboardState, setKeyboardState] = useState({
+    isVisible: false,
+    height: 0,
+  });
   const isSending = params.sending === "1";
+
+  useEffect(() => {
+    const showEvent =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardState({
+        isVisible: true,
+        height: resolveKeyboardHeightFromCoordinates({
+          reportedHeight: event.endCoordinates.height,
+          keyboardScreenY: event.endCoordinates.screenY,
+          viewportHeight: windowHeight,
+        }),
+      });
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardState({ isVisible: false, height: 0 });
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [windowHeight]);
+
+  if (!keyboardState.isVisible) {
+    baselineWindowHeightRef.current = windowHeight;
+  }
+
+  const keyboardBottomOffset = resolveAndroidKeyboardBottomOffset({
+    platformOs: Platform.OS,
+    isKeyboardVisible: keyboardState.isVisible,
+    keyboardHeight: keyboardState.height,
+    baselineWindowHeight: baselineWindowHeightRef.current,
+    currentWindowHeight: windowHeight,
+  });
 
   if (!__DEV__) {
     return null;
@@ -157,7 +212,7 @@ export default function ChatMockRoute() {
     >
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={resolveConversationKeyboardAvoidingBehavior(Platform.OS)}
         keyboardVerticalOffset={insets.top + space.xxxl + space.lg}
       >
         <View style={styles.screen}>
@@ -169,7 +224,7 @@ export default function ChatMockRoute() {
             isSending={isSending}
             isLoadingSessionDetail={false}
             sessionLoadErrorMessage={null}
-            scrollBottomPadding={space.xxxl * 4}
+            scrollBottomPadding={space.xxxl * 4 + keyboardBottomOffset}
             onQuickReplySelect={setText}
             onRetrySessionLoad={() => {}}
             onSurveyAnswer={async () => true}
@@ -181,14 +236,16 @@ export default function ChatMockRoute() {
             onChangeText={setText}
             isSending={isSending}
             isReadOnly={false}
-            imageDataUri={null}
-            onImageSelected={() => {}}
-            onRemoveImage={() => {}}
             errorMessage={null}
             onDismissError={() => {}}
             onSend={() => {}}
             onLayout={() => {}}
-            bottomPadding={insets.bottom + space.xs}
+            keyboardBottomOffset={keyboardBottomOffset}
+            bottomPadding={
+              keyboardState.isVisible && Platform.OS === "android"
+                ? space.lg
+                : insets.bottom + space.xs
+            }
           />
         </View>
       </KeyboardAvoidingView>

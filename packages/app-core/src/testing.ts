@@ -64,6 +64,7 @@ const mockAuthState: {
     id: "mock-user-1",
     phoneNumber: "010-2345-6789",
     displayName: "김수연",
+    accountStatus: "active",
     hasCompletedOnboarding: false,
   },
   onboardingInput: {
@@ -638,6 +639,7 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
           name: "김수연",
           phoneNumber: "010-2345-6789",
           status: "attention",
+          accountStatus: "pending_recovery",
           latestIssue: "전화번호 변경 요청",
         },
         {
@@ -645,6 +647,7 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
           name: "박지안",
           phoneNumber: "010-9999-1111",
           status: "active",
+          accountStatus: "active",
           latestIssue: "최근 로그인 정상",
         },
         {
@@ -652,6 +655,7 @@ export class MockAdminDashboardAdapter implements AdminDashboardPort {
           name: "이하은",
           phoneNumber: "010-2222-4444",
           status: "paused",
+          accountStatus: "paused",
           latestIssue: "세션 초기화 필요",
         },
       ],

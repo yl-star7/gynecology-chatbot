@@ -4,6 +4,7 @@ import type {
   AuthenticatedUser,
   ChatMessage,
   ChatSession,
+  EmotionTone,
   HomeViewData,
   LinkTargetContent,
   MobileContentListItem,
@@ -251,6 +252,8 @@ export async function sendChatMessage(input: {
   sessionId: string;
   text: string;
   pregnancyWeek?: number;
+  selectedQuestionId?: string;
+  selectedMoodTone?: EmotionTone;
   imageDataUris: string[];
 }) {
   const response = await fetch("/api/mobile/chat", {

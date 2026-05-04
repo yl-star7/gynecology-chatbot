@@ -2,10 +2,12 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ChatMessage,
+  EmotionTone,
   MobilePregnancyWeekSummary,
 } from "@gynecology-chatbot/app-core";
 import {
   AppState,
+  Dimensions,
   Keyboard,
   Platform,
   type LayoutChangeEvent,
@@ -14,6 +16,7 @@ import {
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
+import { resolveQuickReplyComposerText } from "../../components/chat/ChatPartRenderer.model";
 import {
   hasFreshCachedPregnancyWeeks,
   hasFreshCachedProfileView,
@@ -33,6 +36,8 @@ import {
   resolveConversationDeepLinkAction,
   type ConversationDeepLinkMeta,
 } from "./PatientConversationDeepLink.model";
+import { shouldKeepQuickReplyInComposer } from "./PatientConversationQuickReply.model";
+import { resolveKeyboardHeightFromCoordinates } from "./patientScreenLayout.model";
 
 function createSessionId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
@@ -45,22 +50,10 @@ function createSessionId() {
   );
 }
 
-function createUserMessage(
-  text: string,
-  imageDataUri?: string | null,
-): ChatMessage {
+function createUserMessage(text: string): ChatMessage {
   const parts: ChatMessage["parts"] = [
     { type: "text", id: `text-${Date.now()}`, text },
   ];
-
-  if (imageDataUri) {
-    parts.push({
-      type: "image",
-      id: `img-${Date.now()}`,
-      imageUrl: imageDataUri,
-      alt: "첨부 이미지",
-    });
-  }
 
   return {
     id: `user-${Date.now()}`,
@@ -95,20 +88,14 @@ export function usePatientConversationScreenModel({
   const session = getSession(resolvedSessionId);
   const [text, setText] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [imageDataUri, setImageDataUri] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [lastSelectedChoiceId, setLastSelectedChoiceId] = useState<
-    string | null
-  >(null);
-  const [lastSelectedChoiceText, setLastSelectedChoiceText] = useState<
-    string | null
-  >(null);
   const [isLoadingSessionDetail, setIsLoadingSessionDetail] = useState(false);
   const [sessionLoadErrorMessage, setSessionLoadErrorMessage] = useState<
     string | null
   >(null);
   const [composerHeight, setComposerHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [linkSheet, setLinkSheet] = useState<{
     target: string;
     entityId?: string;
@@ -133,12 +120,20 @@ export function usePatientConversationScreenModel({
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent =
       Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, () =>
-      setIsKeyboardVisible(true),
-    );
-    const hideSub = Keyboard.addListener(hideEvent, () =>
-      setIsKeyboardVisible(false),
-    );
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      setIsKeyboardVisible(true);
+      setKeyboardHeight(
+        resolveKeyboardHeightFromCoordinates({
+          reportedHeight: event.endCoordinates.height,
+          keyboardScreenY: event.endCoordinates.screenY,
+          viewportHeight: Dimensions.get("window").height,
+        }),
+      );
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+      setKeyboardHeight(0);
+    });
 
     return () => {
       showSub.remove();
@@ -162,7 +157,7 @@ export function usePatientConversationScreenModel({
     } finally {
       setIsLoadingSessionDetail(false);
     }
-  }, [currentUser, replaceSession, resolvedSessionId, services, sessionId]);
+  }, [currentUser, replaceSession, resolvedSessionId, services]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -220,22 +215,19 @@ export function usePatientConversationScreenModel({
   async function handleSend(
     overrideText?: string,
     selectedQuestionId?: string,
+    selectedMoodTone?: EmotionTone,
   ) {
     const nextText = (overrideText ?? text).trim();
     if (!nextText || isSending || isReadOnly) {
       return;
     }
 
-    const capturedImage = imageDataUri;
-    setLastSelectedChoiceId(selectedQuestionId ?? null);
-    setLastSelectedChoiceText(overrideText ?? null);
     appendMessage(
       resolvedSessionId,
       "아기와 대화",
-      createUserMessage(nextText, capturedImage),
+      createUserMessage(nextText),
     );
     setText("");
-    setImageDataUri(null);
     setErrorMessage(null);
     setIsSending(true);
 
@@ -244,13 +236,11 @@ export function usePatientConversationScreenModel({
         sessionId: resolvedSessionId,
         text: nextText,
         selectedQuestionId,
+        selectedMoodTone,
         clientWorkflowStage:
           debugSnapshot.inferredFlow === "mood_intake" ? 0 : null,
         clientWorkflowStageName:
-          debugSnapshot.inferredFlow === "mood_intake"
-            ? "mood_intake"
-            : null,
-        imageUris: capturedImage ? [capturedImage] : [],
+          debugSnapshot.inferredFlow === "mood_intake" ? "mood_intake" : null,
       });
       const [firstMessage, ...followUpMessages] = assistantMessages;
       if (firstMessage) {
@@ -270,17 +260,32 @@ export function usePatientConversationScreenModel({
     }
   }
 
-  function handleQuickReply(replyMessage: string, choiceId?: string) {
-    const initialMoodMessageByChoiceId: Record<string, string> = {
-      "initial-workflow-good": "오늘 기분이 좋아요.",
-      "initial-workflow-down": "기분이 울적해요.",
-      "initial-workflow-sad": "오늘은 마음이 슬퍼요.",
-      "initial-workflow-angry": "오늘은 조금 짜증이 나요.",
-    };
-    void handleSend(
-      choiceId ? (initialMoodMessageByChoiceId[choiceId] ?? replyMessage) : replyMessage,
+  function handleComposerTextChange(value: string) {
+    setText(value);
+  }
+
+  function handleQuickReply(
+    replyMessage: string,
+    choiceId?: string,
+    label?: string,
+    moodTone?: EmotionTone,
+  ) {
+    if (isSending || isReadOnly) {
+      return;
+    }
+
+    const nextText = resolveQuickReplyComposerText({
       choiceId,
-    );
+      label: label ?? replyMessage,
+      message: replyMessage,
+    });
+    setErrorMessage(null);
+    if (shouldKeepQuickReplyInComposer({ choiceId })) {
+      setText(nextText);
+      return;
+    }
+
+    void handleSend(nextText, choiceId, moodTone);
   }
 
   const debugSnapshot = useMemo(() => {
@@ -333,21 +338,14 @@ export function usePatientConversationScreenModel({
         latestQuickReplies?.type === "quickReplies"
           ? latestQuickReplies.choices.map((choice) => choice.id)
           : [],
-      lastSelectedChoiceId,
-      lastSelectedChoiceText,
       messageCount: session.messages.length,
       currentUserId: currentUser?.id ?? null,
-      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:3005",
+      apiBaseUrl:
+        process.env.EXPO_PUBLIC_API_BASE_URL ??
+        "https://agaya-api-yvdnhntt7a-du.a.run.app",
       mobileDataProvider: process.env.EXPO_PUBLIC_MOBILE_DATA_PROVIDER ?? "api",
     };
-  }, [
-    currentUser?.id,
-    lastSelectedChoiceId,
-    lastSelectedChoiceText,
-    resolvedSessionId,
-    session.messages,
-    sessionId,
-  ]);
+  }, [currentUser?.id, resolvedSessionId, session.messages, sessionId]);
 
   async function handleSurveyAnswer(surveyId: string, choiceId: string) {
     try {
@@ -454,15 +452,14 @@ export function usePatientConversationScreenModel({
     scrollViewRef,
     handleScrollViewRef,
     text,
-    setText,
+    setText: handleComposerTextChange,
     isSending,
     isLoadingSessionDetail,
     sessionLoadErrorMessage,
-    imageDataUri,
-    setImageDataUri,
     errorMessage,
     setErrorMessage,
     isKeyboardVisible,
+    keyboardHeight,
     scrollBottomPadding: composerHeight + space.md,
     handleSend,
     handleRetrySessionLoad: loadSessionDetail,

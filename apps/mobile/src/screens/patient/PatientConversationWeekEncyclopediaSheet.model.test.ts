@@ -84,7 +84,7 @@ test("conversation week sheet exposes a loading state before encyclopedia conten
     errorMessage: null,
   });
 
-  assert.equal(model.title, "주차 사전을 불러오는 중이에요");
+  assert.equal(model.title, "임신백과를 불러오는 중이에요");
   assert.equal(model.emptyTitle, null);
   assert.deepEqual(model.sections, []);
 });
@@ -97,7 +97,7 @@ test("conversation week sheet keeps loading when weeks arrive before the profile
     errorMessage: null,
   });
 
-  assert.equal(model.title, "주차 사전을 불러오는 중이에요");
+  assert.equal(model.title, "임신백과를 불러오는 중이에요");
   assert.equal(model.selectedWeekNumber, null);
   assert.deepEqual(model.sections, []);
 });

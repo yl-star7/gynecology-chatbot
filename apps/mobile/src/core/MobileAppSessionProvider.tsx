@@ -33,6 +33,7 @@ interface MobileAppSessionValue {
     phoneNumber: string;
     verificationCode: string;
   }): Promise<AuthenticatedUser>;
+  refreshCurrentUser(): Promise<AuthenticatedUser>;
   completeOnboarding(input: OnboardingProfileInput): Promise<AuthenticatedUser>;
   signOut(): Promise<void>;
 }
@@ -81,27 +82,29 @@ export function MobileAppSessionProvider({
 
       try {
         const payload = await fetchCurrentMobileSession();
-        const brandingSync = services.profilePort
-          .getBranding()
-          .then((branding) => syncNurseImageCache(branding.characterImages))
-          .catch(() => undefined);
-        if (payload.user.id === nativeUserId) {
-          await nativeCacheHydration;
-        } else {
-          await Promise.all([
-            nativeCacheHydration,
-            hydratePatientViewCaches(payload.user.id),
-          ]);
-        }
         if (!cancelled) {
           storeCurrentMobileUserId(payload.user.id);
           setCurrentUser(payload.user);
+          setIsRestoringSession(false);
         }
+
+        const backgroundTasks: Promise<unknown>[] = [
+          nativeCacheHydration,
+          persistNativeUserId(payload.user.id),
+          services.profilePort
+            .getBranding()
+            .then((branding) => syncNurseImageCache(branding.characterImages)),
+        ];
+
+        if (payload.user.id !== nativeUserId) {
+          backgroundTasks.push(hydratePatientViewCaches(payload.user.id));
+        }
+
         if (shouldPersistRestoredToken) {
-          await persistNativeSessionToken(persistedToken);
+          backgroundTasks.push(persistNativeSessionToken(persistedToken));
         }
-        await persistNativeUserId(payload.user.id);
-        await brandingSync;
+
+        void Promise.allSettled(backgroundTasks);
       } catch {
         if (cancelled) {
           return;
@@ -154,6 +157,14 @@ export function MobileAppSessionProvider({
           .catch(() => undefined);
 
         return nextUser;
+      },
+      async refreshCurrentUser() {
+        const payload = await fetchCurrentMobileSession();
+        storeCurrentMobileUserId(payload.user.id);
+        setCurrentUser(payload.user);
+        setIsRestoringSession(false);
+        void persistNativeUserId(payload.user.id);
+        return payload.user;
       },
       async completeOnboarding(input) {
         const nextUser = await services.onboardingPort.completeProfile(input);

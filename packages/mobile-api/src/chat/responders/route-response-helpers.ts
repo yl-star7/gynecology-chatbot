@@ -127,7 +127,7 @@ function stripQuestionChoicesFromAnswer(input: {
     .map((value) => value.trim())
     .filter(Boolean);
 
-  return input.text
+  const stripped = input.text
     .split("\n")
     .filter((line) => {
       const normalized = line.replace(/^[-*•]\s*/, "").trim();
@@ -141,6 +141,12 @@ function stripQuestionChoicesFromAnswer(input: {
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+  if (/^오늘\s*해본\s*만큼으로도\s*충분해요[.!]?$/u.test(stripped)) {
+    return "아래 질문 중 하나를 골라 이어가요.";
+  }
+
+  return stripped;
 }
 
 function extractQuestionChoicesFromAnswer(text: string) {
@@ -177,8 +183,8 @@ function resolveQuickReplies(input: {
 
   if (input.scenario === "baby_info") {
     return [
-      { label: "오늘의 질문", message: "오늘 함께 질문에 답해볼까요?" },
-      { label: "이따가요", message: "이따가 함께 질문에 답해봐요." },
+      { label: "질문 보기", message: "오늘 질문을 하나 골라볼게요." },
+      { label: "나중에요", message: "나중에 볼게요." },
     ];
   }
 
@@ -246,6 +252,29 @@ function extractWeekFromLinkCopy(
   }
 
   return null;
+}
+
+function normalizeDeepLinkTitle(
+  rawTitle: string,
+  target: string,
+  weekNumber?: number | null,
+): string {
+  const trimmed = (rawTitle ?? "").trim();
+  if (target === "knowledge") {
+    const normalized = trimmed
+      .replace(/주차별\s*사전/g, "임신백과")
+      .replace(/주차\s*사전/g, "주차 임신백과")
+      .replace(/사전/g, "임신백과")
+      .trim();
+    if (!normalized || /^임신백과\s*→?$/u.test(normalized)) {
+      return weekNumber ? `${weekNumber}주차 임신백과 →` : "임신백과 →";
+    }
+    if (!/→\s*$/.test(normalized)) {
+      return `${normalized} →`;
+    }
+    return normalized;
+  }
+  return trimmed || "임신백과 →";
 }
 
 function resolveDeepLinkWeekNumber(input: {
@@ -324,7 +353,7 @@ export async function buildWorkflowAssistantMessage<
       const part: ChatMessage["parts"][number] = {
         type: "deepLink",
         id: `${deepLinkId}-${index + 1}`,
-        title: link.title,
+        title: normalizeDeepLinkTitle(link.title, link.target, weekNumber),
         description: link.description,
         target: link.target,
         entityId: link.entityId,

@@ -8,12 +8,34 @@ import {
   shouldAllowDevelopmentLoginBypass,
 } from "./LoginScreen.model.ts";
 
+test("resolvePostLoginHref sends pending users to approval pending", () => {
+  assert.equal(
+    resolvePostLoginHref({
+      accountStatus: "pending_approval",
+      hasCompletedOnboarding: true,
+    }),
+    "/approval-pending",
+  );
+});
+
 test("resolvePostLoginHref sends onboarded users to tabs home", () => {
-  assert.equal(resolvePostLoginHref(true), "/(tabs)/home");
+  assert.equal(
+    resolvePostLoginHref({
+      accountStatus: "active",
+      hasCompletedOnboarding: true,
+    }),
+    "/(tabs)/home",
+  );
 });
 
 test("resolvePostLoginHref sends incomplete users to onboarding", () => {
-  assert.equal(resolvePostLoginHref(false), "/onboarding");
+  assert.equal(
+    resolvePostLoginHref({
+      accountStatus: "active",
+      hasCompletedOnboarding: false,
+    }),
+    "/onboarding",
+  );
 });
 
 test("isDevelopmentAutoVerifiedPhoneNumber includes the local dev login number", () => {
@@ -41,7 +63,7 @@ test("shouldAllowDevelopmentLoginBypass is enabled in any development build", ()
   assert.equal(
     shouldAllowDevelopmentLoginBypass(
       true,
-      "https://gynecology-chatbot.vercel.app",
+      "https://agaya-api-yvdnhntt7a-du.a.run.app",
     ),
     true,
   );

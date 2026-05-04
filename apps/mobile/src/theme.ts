@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from "react-native";
+import { Platform, processColor, StyleSheet } from "react-native";
 import {
   DEFAULT_MOBILE_THEME_KEY,
   type MobileThemeKey,
@@ -131,7 +131,8 @@ function resolveThemeStyleColor(value: unknown) {
   }
 
   const resolver = defaultColorResolvers.get(normalizeColorValue(value));
-  return resolver ? resolver(activeNativePalette) : value;
+  const resolvedColor = resolver ? resolver(activeNativePalette) : value;
+  return processColor(resolvedColor) ?? value;
 }
 
 export function installMobileThemeColorPreprocessors() {
@@ -209,3 +210,5 @@ export type PatientTheme = {
   surface: ReturnType<typeof createPatientSurfacePalette>;
   shadows: ReturnType<typeof createThemeShadows>;
 };
+
+installMobileThemeColorPreprocessors();

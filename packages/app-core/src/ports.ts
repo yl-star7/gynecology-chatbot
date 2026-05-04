@@ -38,7 +38,7 @@ export interface OnboardingPort {
 }
 
 export interface MobileHomePort {
-  getHomeView(): Promise<HomeViewData>;
+  getHomeView(month?: string): Promise<HomeViewData>;
   getRecordDay(isoDate: string): Promise<RecordDayView>;
 }
 
@@ -68,7 +68,9 @@ export interface KnowledgePort {
   listContentItems(
     section: "knowledge" | "notebook",
   ): Promise<MobileContentListItem[]>;
-  listPregnancyWeeks(): Promise<MobilePregnancyWeekSummary[]>;
+  listPregnancyWeeks(input?: {
+    week?: number | null;
+  }): Promise<MobilePregnancyWeekSummary[]>;
   getLinkTarget(target: string, entityId?: string): Promise<LinkTargetContent>;
 }
 

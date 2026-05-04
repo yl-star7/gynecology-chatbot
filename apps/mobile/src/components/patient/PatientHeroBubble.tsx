@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { StyleSheet, Text, View } from "react-native";
 import { Card } from "../ui";
-import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+import { radii, space, typo } from "../../theme";
+import { useMobileTheme } from "../../theme-provider";
 
 export function PatientHeroBubble({
   message,
@@ -10,11 +11,17 @@ export function PatientHeroBubble({
   message: string;
   name: string;
 }) {
+  const { palette, surface } = useMobileTheme();
+
   return (
     <View style={styles.wrapper}>
-      <Card style={styles.bubble}>
-        <Text style={styles.bubbleLabel}>{name}의 한마디</Text>
-        <Text style={styles.message}>{message}</Text>
+      <Card style={[styles.bubble, { backgroundColor: palette.accent }]}>
+        <Text style={[styles.bubbleLabel, { color: surface.surfacePrimary }]}>
+          {name}의 한마디
+        </Text>
+        <Text style={[styles.message, { color: surface.surfacePrimary }]}>
+          {message}
+        </Text>
       </Card>
     </View>
   );
@@ -26,18 +33,15 @@ const styles = StyleSheet.create({
   },
   bubble: {
     width: "90%",
-    backgroundColor: palette.accent,
     borderRadius: radii.xxl,
     paddingVertical: space.lg,
   },
   bubbleLabel: {
     ...typo.caption,
-    color: surface.surfacePrimary,
     opacity: 0.85,
   },
   message: {
     marginTop: space.sm,
     ...typo.body,
-    color: surface.surfacePrimary,
   },
 });

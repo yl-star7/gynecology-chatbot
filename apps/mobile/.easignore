@@ -7,7 +7,6 @@ builds/
 dist/
 .expo/
 .turbo/
-.vercel/
 node_modules/
 coverage/
 test-results/

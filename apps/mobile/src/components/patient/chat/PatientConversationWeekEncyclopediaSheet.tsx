@@ -135,7 +135,7 @@ export function PatientConversationWeekEncyclopediaSheet({
           </Pressable>
           <View style={styles.header}>
             <View style={styles.headerCopy}>
-              <Text style={styles.eyebrow}>주차별 사전</Text>
+              <Text style={styles.eyebrow}>임신백과</Text>
               <Text style={styles.title}>{model.title}</Text>
               <Text style={styles.subtitle}>{model.subtitle}</Text>
             </View>

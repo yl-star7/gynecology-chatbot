@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import { InteractionManager } from "react-native";
 import type {
+  MobileProfileViewData,
   RecentChatSummary,
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
@@ -14,9 +15,12 @@ import {
   clearCachedHomeView,
   clearCachedRecentChats,
   clearCachedRecordDayView,
+  cacheProfileView,
   hasFreshCachedChatSession,
+  hasFreshCachedProfileView,
   hasFreshCachedRecordDayView,
   hasFreshCachedTodayView,
+  readCachedProfileView,
   readCachedRecordDayView,
   readCachedTodayView,
 } from "../../core/patientViewCache";
@@ -33,6 +37,7 @@ import {
   type ChecklistSyncTracker,
 } from "./PatientTodayScreen.helpers";
 import { buildPatientTodayViewModel } from "./view-models";
+import { buildProfileEncyclopediaEntry } from "./PatientProfileScreen.model";
 
 const EMPTY_BABY_BODY = "오늘 아기의 변화를 준비 중이에요.";
 
@@ -42,6 +47,7 @@ export function usePatientTodayScreenModel() {
   const services = useMobileServices();
   const { replaceSession } = useChatSessions();
   const [today, setToday] = useState<TodayViewData | null>(null);
+  const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [recentSessions, setRecentSessions] = useState<RecentChatSummary[]>([]);
   const [activeSection, setActiveSection] = useState("info");
   const [pendingChecklistIds, setPendingChecklistIds] = useState<string[]>([]);
@@ -105,17 +111,20 @@ export function usePatientTodayScreenModel() {
   useEffect(() => {
     if (!currentUser) {
       setToday(null);
+      setProfile(null);
       setRecentSessions([]);
       return;
     }
 
     const cachedToday = readCachedTodayView(currentUser.id);
+    const cachedProfile = readCachedProfileView(currentUser.id);
     const cachedRecordDay = readCachedRecordDayView(
       currentUser.id,
       todayIsoDate,
     );
 
     setToday(cachedToday);
+    setProfile(cachedProfile);
     hydrateChecklistSyncTracker(
       checklistSyncRef.current,
       cachedToday?.checklistItems ?? [],
@@ -144,6 +153,18 @@ export function usePatientTodayScreenModel() {
           checklistSyncRef.current,
           cachedToday?.checklistItems ?? [],
         );
+      }
+
+      if (hasFreshCachedProfileView(currentUser.id)) {
+        setProfile(readCachedProfileView(currentUser.id));
+      } else {
+        void services.profilePort
+          .getProfile()
+          .then((nextProfile) => {
+            setProfile(nextProfile);
+            cacheProfileView(currentUser.id, nextProfile);
+          })
+          .catch(() => undefined);
       }
 
       setHasAttemptedInfoViewed(false);
@@ -382,6 +403,14 @@ export function usePatientTodayScreenModel() {
     router.push("/onboarding");
   }
 
+  function openWeeklyEncyclopedia(mode: "current" | "browse") {
+    router.push(`/encyclopedia?mode=${mode}` as never);
+  }
+
+  function openAskFreeSearch() {
+    router.push("/ask" as never);
+  }
+
   return {
     activeSection,
     setActiveSection,
@@ -391,6 +420,9 @@ export function usePatientTodayScreenModel() {
     isLoadingConversationSessions,
     today,
     viewModel: buildPatientTodayViewModel({ today }),
+    encyclopediaEntry: buildProfileEncyclopediaEntry({
+      pregnancyWeekLabel: profile?.pregnancyWeekLabel ?? null,
+    }),
     shouldShowOnboardingNudge:
       activeSection === "conversation" &&
       (!today || today.babyBody === EMPTY_BABY_BODY),
@@ -398,5 +430,7 @@ export function usePatientTodayScreenModel() {
     openNewChat,
     openRecentSession,
     openOnboarding,
+    openWeeklyEncyclopedia,
+    openAskFreeSearch,
   };
 }

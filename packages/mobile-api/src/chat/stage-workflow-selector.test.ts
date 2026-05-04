@@ -54,7 +54,7 @@ describe("selectStageWorkflow", () => {
     expect(sel?.key).toBe("baby_info");
   });
 
-  it("falls back to general when no specific match", () => {
+  it("uses the default general route when no specific match exists", () => {
     const sel = selectStageWorkflow(
       {
         query: "몸이 아파요",
@@ -66,6 +66,7 @@ describe("selectStageWorkflow", () => {
       mapping,
     );
     expect(sel?.key).toBe("general");
+    expect(sel?.reason).toBe("default_general");
   });
 
   it("does not pick baby_info if no Y-path context", () => {

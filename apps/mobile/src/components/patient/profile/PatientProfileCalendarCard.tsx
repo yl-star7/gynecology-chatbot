@@ -1,3 +1,5 @@
+import { Ionicons } from "@expo/vector-icons";
+import type { ComponentType } from "react";
 import type { DimensionValue } from "react-native";
 import { StyleSheet, Text, View } from "react-native";
 import { Card, Pressable } from "../../ui";
@@ -10,6 +12,11 @@ import {
 } from "../../../theme";
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+const MonthIcon = Ionicons as unknown as ComponentType<{
+  name: "chevron-back" | "chevron-forward";
+  size: number;
+  color: string;
+}>;
 
 export function PatientProfileCalendarCard({
   columnWidth,
@@ -18,6 +25,9 @@ export function PatientProfileCalendarCard({
   activeDays,
   isoDateByDay,
   onSelectDay,
+  onPreviousMonth,
+  onNextMonth,
+  canGoNextMonth = true,
 }: {
   columnWidth: DimensionValue;
   currentMonthLabel: string | null | undefined;
@@ -25,10 +35,48 @@ export function PatientProfileCalendarCard({
   activeDays: Set<number>;
   isoDateByDay: Map<number, string>;
   onSelectDay: (isoDate: string) => void;
+  onPreviousMonth: () => void;
+  onNextMonth: () => void;
+  canGoNextMonth?: boolean;
 }) {
   return (
     <Card style={styles.calendarCard}>
-      <Text style={styles.sectionTitle}>활동 캘린더</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.sectionTitle}>활동 캘린더</Text>
+        <View style={styles.monthControls}>
+          <Pressable
+            style={styles.monthButton}
+            onPress={onPreviousMonth}
+            accessibilityRole="button"
+            accessibilityLabel="이전 달 기록 보기"
+          >
+            <MonthIcon
+              name="chevron-back"
+              size={space.xl}
+              color={surface.textSecondary}
+            />
+          </Pressable>
+          <Pressable
+            style={
+              canGoNextMonth
+                ? styles.monthButton
+                : [styles.monthButton, styles.monthButtonDisabled]
+            }
+            onPress={onNextMonth}
+            disabled={!canGoNextMonth}
+            accessibilityRole="button"
+            accessibilityLabel="다음 달 기록 보기"
+          >
+            <MonthIcon
+              name="chevron-forward"
+              size={space.xl}
+              color={
+                canGoNextMonth ? surface.textSecondary : surface.strokeSubtle
+              }
+            />
+          </Pressable>
+        </View>
+      </View>
       <Text style={styles.sectionDescription}>
         {currentMonthLabel
           ? `${currentMonthLabel}에 활동이 있었던 날을 눌러 하루 기록을 볼 수 있어요.`
@@ -95,9 +143,31 @@ const styles = StyleSheet.create({
   calendarCard: {
     paddingTop: space.xl,
   },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: space.md,
+  },
   sectionTitle: {
     ...typo.titleSm,
     color: surface.textPrimary,
+  },
+  monthControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.xs,
+  },
+  monthButton: {
+    width: space.xxxl,
+    height: space.xxxl,
+    borderRadius: radii.full,
+    backgroundColor: surface.fieldSurface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  monthButtonDisabled: {
+    opacity: 0.5,
   },
   sectionDescription: {
     marginTop: space.xs,

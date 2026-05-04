@@ -30,6 +30,10 @@ import {
 } from "./patientErrorCopy.model";
 import { publishPatientProfileSyncProfile } from "./patientProfileSyncStore";
 import {
+  isThemeOnlyProfileSettingsSave,
+  shouldRescheduleProfileNotification,
+} from "./patientProfileSettingsSave.model";
+import {
   DEFAULT_NOTIFICATION_TIME,
   INVALID_NOTIFICATION_TIME_ERROR,
   normalizePatientNotificationTimeInput,
@@ -52,10 +56,7 @@ export function usePatientProfileSettingsScreenModel() {
   const router = useRouter();
   const { currentUser, isRestoringSession } = useMobileAppSession();
   const { profilePort, homePort } = useMobileServices();
-  const {
-    applyThemeKey,
-    key: activeThemeKey,
-  } = useMobileTheme();
+  const { applyThemeKey, key: activeThemeKey } = useMobileTheme();
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [home, setHome] = useState<HomeViewData | null>(null);
   const [dueDate, setDueDate] = useState("");
@@ -68,6 +69,7 @@ export function usePatientProfileSettingsScreenModel() {
     DEFAULT_NOTIFICATION_TIME,
   );
   const [themeKey, setThemeKey] = useState<MobileThemeKey>(activeThemeKey);
+  const [hasProfileFieldEdits, setHasProfileFieldEdits] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -88,17 +90,14 @@ export function usePatientProfileSettingsScreenModel() {
       setNotificationTime(
         cachedProfile.notificationTime ?? DEFAULT_NOTIFICATION_TIME,
       );
-      const cachedThemeKey = resolveMobileThemeKey(cachedProfile.themeKey);
-      setThemeKey(cachedThemeKey);
-      void applyThemeKey(cachedThemeKey, currentUser.id);
+      setHasProfileFieldEdits(false);
       publishPatientProfileSyncProfile(cachedProfile);
-      cacheProfileView(currentUser.id, cachedProfile);
     }
 
     if (cachedHome) {
       setHome(cachedHome);
     }
-  }, [applyThemeKey, currentUser]);
+  }, [currentUser]);
 
   const homeViewModel = useMemo(
     () => buildPatientHomeViewModel({ home, profile }),
@@ -133,9 +132,7 @@ export function usePatientProfileSettingsScreenModel() {
         setNotificationTime(
           nextProfile.notificationTime ?? DEFAULT_NOTIFICATION_TIME,
         );
-        const nextThemeKey = resolveMobileThemeKey(nextProfile.themeKey);
-        setThemeKey(nextThemeKey);
-        void applyThemeKey(nextThemeKey, currentUser.id);
+        setHasProfileFieldEdits(false);
         publishPatientProfileSyncProfile(nextProfile);
       })
       .catch((nextError) => {
@@ -146,14 +143,11 @@ export function usePatientProfileSettingsScreenModel() {
         }
         setError(message);
       });
-  }, [
-    currentUser,
-    applyThemeKey,
-    homePort,
-    isRestoringSession,
-    profilePort,
-    router,
-  ]);
+  }, [currentUser, homePort, isRestoringSession, profilePort, router]);
+
+  useEffect(() => {
+    setThemeKey(activeThemeKey);
+  }, [activeThemeKey]);
 
   function toggleToneDropdown() {
     Keyboard.dismiss();
@@ -170,14 +164,44 @@ export function usePatientProfileSettingsScreenModel() {
   }
 
   function selectNotificationTime(nextTime: string) {
+    if (notificationTime !== nextTime) {
+      setHasProfileFieldEdits(true);
+    }
     setNotificationTime(nextTime);
     setIsToneDropdownOpen(false);
     setError(null);
   }
 
   function selectTonePreference(nextTone: string) {
+    if (tonePreference !== nextTone) {
+      setHasProfileFieldEdits(true);
+    }
     setTonePreference(nextTone);
     setIsToneDropdownOpen(false);
+    setError(null);
+  }
+
+  function changeBabyNickname(nextBabyNickname: string) {
+    if (babyNickname !== nextBabyNickname) {
+      setHasProfileFieldEdits(true);
+    }
+    setBabyNickname(nextBabyNickname);
+    setError(null);
+  }
+
+  function changeDueDate(nextDueDate: string) {
+    if (dueDate !== nextDueDate) {
+      setHasProfileFieldEdits(true);
+    }
+    setDueDate(nextDueDate);
+    setError(null);
+  }
+
+  function changeHospitalName(nextHospitalName: string) {
+    if (hospitalName !== nextHospitalName) {
+      setHasProfileFieldEdits(true);
+    }
+    setHospitalName(nextHospitalName);
     setError(null);
   }
 
@@ -210,6 +234,27 @@ export function usePatientProfileSettingsScreenModel() {
     const trimmedHospitalName = hospitalName.trim() || null;
     const previousProfile = profile;
     const previousHome = home;
+    const previousThemeKey = resolveMobileThemeKey(
+      previousProfile?.themeKey ?? activeThemeKey,
+    );
+    const saveDraft = {
+      babyNickname: trimmedBabyNickname,
+      dueDate: dueDate || null,
+      hospitalName: trimmedHospitalName,
+      notificationTime: normalizedNotificationTime,
+      themeKey,
+      tonePreference: trimmedTonePreference,
+    };
+    const isThemeOnlyChange = isThemeOnlyProfileSettingsSave({
+      draft: saveDraft,
+      hasProfileFieldEdits,
+      previousProfile,
+      previousThemeKey,
+    });
+    const shouldRescheduleNotification = shouldRescheduleProfileNotification(
+      previousProfile,
+      saveDraft,
+    );
     const optimisticProfile: MobileProfileViewData | null = profile
       ? {
           ...profile,
@@ -222,8 +267,17 @@ export function usePatientProfileSettingsScreenModel() {
           themeKey,
         }
       : profile;
+    const saveInput = {
+      userId: currentUser.id,
+      displayName: profile?.displayName ?? "",
+      dueDate: dueDate || null,
+      tonePreference: trimmedTonePreference,
+      babyNickname: trimmedBabyNickname,
+      hospitalName: trimmedHospitalName,
+      notificationTime: normalizedNotificationTime,
+      themeKey,
+    };
 
-    setIsSaving(true);
     setError(null);
     setIsTimePickerOpen(false);
     setNotificationTime(normalizedNotificationTime);
@@ -232,33 +286,49 @@ export function usePatientProfileSettingsScreenModel() {
       cacheProfileView(currentUser.id, optimisticProfile);
     }
     publishPatientProfileSyncProfile(optimisticProfile);
+    if (isThemeOnlyChange) {
+      if (themeKey !== previousThemeKey) {
+        void applyThemeKey(themeKey, currentUser.id).catch((themeError) => {
+          console.error("patient theme persist error", themeError);
+        });
+      }
+      router.replace("/(tabs)/profile");
+      void profilePort.updateProfile(saveInput).catch((saveError) => {
+        const saveMessage = resolvePatientProfileSaveError(saveError);
+        if (saveMessage.includes("세션이 만료되었어요")) {
+          router.replace("/auth/login");
+          return;
+        }
+        console.error("patient theme background save error", saveError);
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    if (themeKey !== previousThemeKey) {
+      void applyThemeKey(themeKey).catch((themeError) => {
+        console.error("patient theme apply error", themeError);
+      });
+    }
 
     try {
-      const saveInput = {
-        userId: currentUser.id,
-        displayName: profile?.displayName ?? "",
-        dueDate: dueDate || null,
-        tonePreference: trimmedTonePreference,
-        babyNickname: trimmedBabyNickname,
-        hospitalName: trimmedHospitalName,
-        notificationTime: normalizedNotificationTime,
-        themeKey,
-      };
       await profilePort.updateProfile(saveInput);
-      void scheduleDailyLocalNotification({
-        notificationTime: normalizedNotificationTime,
-        pregnancyWeekLabel:
-          optimisticProfile?.pregnancyWeekLabel ??
-          homeViewModel.pregnancyWeekLabel,
-        pregnancyDayCount:
-          optimisticProfile?.pregnancyDayCount ??
-          homeViewModel.pregnancyDayCount,
-      }).catch((notificationError) => {
-        console.error(
-          "daily local notification schedule error",
-          notificationError,
-        );
-      });
+      if (shouldRescheduleNotification) {
+        void scheduleDailyLocalNotification({
+          notificationTime: normalizedNotificationTime,
+          pregnancyWeekLabel:
+            optimisticProfile?.pregnancyWeekLabel ??
+            homeViewModel.pregnancyWeekLabel,
+          pregnancyDayCount:
+            optimisticProfile?.pregnancyDayCount ??
+            homeViewModel.pregnancyDayCount,
+        }).catch((notificationError) => {
+          console.error(
+            "daily local notification schedule error",
+            notificationError,
+          );
+        });
+      }
 
       const [profileRefreshResult, homeRefreshResult] =
         await Promise.allSettled([
@@ -317,6 +387,11 @@ export function usePatientProfileSettingsScreenModel() {
       publishPatientProfileSyncProfile(nextProfile);
       router.replace("/(tabs)/profile");
     } catch (saveError) {
+      if (themeKey !== previousThemeKey) {
+        void applyThemeKey(previousThemeKey).catch((themeError) => {
+          console.error("patient theme rollback error", themeError);
+        });
+      }
       setProfile(previousProfile);
       setHome(previousHome);
       if (previousProfile) {
@@ -364,9 +439,9 @@ export function usePatientProfileSettingsScreenModel() {
     isToneDropdownOpen,
     notificationTime,
     profile,
-    setBabyNickname,
-    setDueDate,
-    setHospitalName,
+    setBabyNickname: changeBabyNickname,
+    setDueDate: changeDueDate,
+    setHospitalName: changeHospitalName,
     setNotificationTime,
     setThemeKey,
     toneOptions: TONE_OPTIONS,

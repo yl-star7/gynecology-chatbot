@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { TodayChecklistItem } from "@gynecology-chatbot/app-core";
 import {
+  addCalendarDays,
   createKoreanDateKey,
+  createKoreanDateTime,
   resolvePregnancyPositionFromProfile,
 } from "@gynecology-chatbot/app-core/time";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
@@ -11,7 +13,10 @@ import {
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
 import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
-import { buildDailyQuestionSummaries } from "@gynecology-chatbot/mobile-api/record-day-questions";
+import {
+  buildDailyQuestionSummaries,
+  groupDailyQuestionSummariesBySession,
+} from "@gynecology-chatbot/mobile-api/record-day-questions";
 import {
   resolveRecentChatPreview,
   toRecordDayView,
@@ -118,6 +123,13 @@ function getKstDateKey() {
 
 function parseDateOnly(isoDate: string) {
   return new Date(`${isoDate}T00:00:00.000Z`);
+}
+
+function createKstDayRange(isoDate: string) {
+  return {
+    start: createKoreanDateTime({ isoDate }),
+    end: createKoreanDateTime({ isoDate: addCalendarDays(isoDate, 1) }),
+  };
 }
 
 function formatDateOnly(value: Date | null | undefined) {
@@ -328,6 +340,7 @@ async function loadDailyQuestions(
   userId: string,
   isoDate: string,
   records: CalendarRecordRow[],
+  options: { deferUnfinalizedToToday?: boolean } = {},
 ) {
   const profileRow = await prisma.pregnancy_profiles.findUnique({
     where: { user_id: userId },
@@ -395,11 +408,53 @@ async function loadDailyQuestions(
       },
     }),
   ]);
+  const questionRows = [...datedQuestionRows, ...genericQuestionRows];
+  const questionIds = questionRows.map((question) => question.id);
+  const dayRange = createKstDayRange(isoDate);
+  const answeredQuestionRecords = questionIds.length
+    ? (
+        await prisma.user_question_events.findMany({
+          where: {
+            user_id: userId,
+            question_id: { in: questionIds },
+            status: "answered",
+            answered_at: {
+              gte: dayRange.start,
+              lt: dayRange.end,
+            },
+            answer_text: { not: null },
+          },
+          orderBy: { answered_at: "desc" },
+          select: {
+            question_id: true,
+            answer_text: true,
+            content_week_questions: {
+              select: { question_text: true },
+            },
+          },
+        })
+      ).map(
+        (row): CalendarRecordRow => ({
+          id: `question-event-${row.question_id}`,
+          title: row.content_week_questions?.question_text ?? "오늘의 질문",
+          summary: row.answer_text,
+          entry_type: "survey_response",
+          session_id: null,
+          payload: {
+            source: "user_question_events",
+            questionId: row.question_id,
+            question: row.content_week_questions?.question_text,
+            answer: row.answer_text ?? undefined,
+          },
+        }),
+      )
+    : [];
 
   return buildDailyQuestionSummaries({
     datedQuestionRows: datedQuestionRows as QuestionRow[],
     genericQuestionRows: genericQuestionRows as QuestionRow[],
-    records,
+    records: [...answeredQuestionRecords, ...records],
+    deferUnfinalizedToToday: options.deferUnfinalizedToToday,
   });
 }
 
@@ -569,7 +624,13 @@ export async function GET(request: NextRequest) {
         deferUnsummarizedSessionSummary: isoDate === getKstDateKey(),
       },
     );
-    const dailyQuestions = await loadDailyQuestions(userId, isoDate, records);
+    const dailyQuestions = await loadDailyQuestions(userId, isoDate, records, {
+      deferUnfinalizedToToday: isoDate === getKstDateKey(),
+    });
+    const groupedDailyQuestions = groupDailyQuestionSummariesBySession({
+      dailyQuestions,
+      records,
+    });
 
     return NextResponse.json({
       recordDay: toRecordDayView({
@@ -578,7 +639,7 @@ export async function GET(request: NextRequest) {
         emotionTone: resolvedEmotionTone,
         checklistItems,
         conversationSummary,
-        dailyQuestions,
+        dailyQuestions: groupedDailyQuestions,
         records,
         relatedSessions: orderedRelatedSessions,
       }),

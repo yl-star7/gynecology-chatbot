@@ -5,7 +5,7 @@
  *   1. stage='free_chat' → free_chat workflow
  *   2. stage=2 + currentAttachmentQuestionId → letter_reflection
  *   3. stage=0 + 사용자가 주차 정보 긍정 답변 ("네, 볼래요" etc.) → baby_info
- *   4. 그 외 → general (폴백)
+ *   4. 그 외 → general (기본 라우트)
  *
  * 매핑은 DB system_config('workflow_stage_mapping') 또는 env 변수.
  * 라우트가 이 값을 전달.
@@ -78,10 +78,10 @@ export function selectStageWorkflow(
     }
   }
 
-  // 4) 폴백
+  // 4) 기본 라우트
   const id = mapping.general;
   if (id) {
-    return { key: "general", workflowId: id, reason: "fallback" };
+    return { key: "general", workflowId: id, reason: "default_general" };
   }
   return null;
 }

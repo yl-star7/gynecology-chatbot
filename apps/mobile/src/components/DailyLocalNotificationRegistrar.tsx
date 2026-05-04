@@ -16,7 +16,7 @@ export function DailyLocalNotificationRegistrar() {
   useEffect(() => {
     let cancelled = false;
 
-    if (!currentUser) {
+    if (!currentUser || currentUser.accountStatus === "pending_approval") {
       scheduledKeyRef.current = null;
       void cancelDailyLocalNotification();
       return;

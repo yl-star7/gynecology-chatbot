@@ -4,6 +4,7 @@ import {
   createKoreanDateKey,
   diffCalendarDays,
   type AuthenticatedUser,
+  type UserAccountStatus,
   resolveMobileThemeKey,
 } from "@gynecology-chatbot/app-core";
 import { createHash, randomBytes, randomUUID } from "crypto";
@@ -24,7 +25,7 @@ type UserRow = {
   id: string;
   phone_number_encrypted: string;
   phone_number_last4: string;
-  account_status: "active" | "paused" | "deleted" | "pending_recovery";
+  account_status: UserAccountStatus;
   phone_verified_at: string | null;
   last_login_at: string | null;
 };
@@ -79,6 +80,37 @@ type BlockedPhoneNumberSelectRow = {
 };
 
 type AuthFlow = "sign_in" | "signup";
+
+type SystemConfigSelectRow = {
+  value: unknown;
+};
+
+const APPROVAL_POLICY_KEY = "mobile_approval_policy";
+const DEFAULT_APPROVAL_POLICY = {
+  requireApproval: true,
+};
+
+function asApprovalPolicyConfig(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? {
+        requireApproval:
+          typeof (value as { requireApproval?: unknown }).requireApproval ===
+          "boolean"
+            ? (value as { requireApproval: boolean }).requireApproval
+            : DEFAULT_APPROVAL_POLICY.requireApproval,
+      }
+    : DEFAULT_APPROVAL_POLICY;
+}
+
+async function readApprovalPolicy() {
+  const row = (
+    await dbSelect<SystemConfigSelectRow[]>(
+      `system_config?select=value&key=eq.${APPROVAL_POLICY_KEY}&limit=1`,
+    )
+  )[0];
+
+  return asApprovalPolicyConfig(row?.value);
+}
 
 function calculatePregnancyMetrics(input: {
   pregnancyWeekOrDueDate?: string;
@@ -394,6 +426,7 @@ function toAuthenticatedUser(
     id: user.id,
     phoneNumber: user.phone_number,
     displayName: profile?.display_name?.trim() || "사용자",
+    accountStatus: user.account_status,
     hasCompletedOnboarding: hasCompletedProfileOnboarding(profile),
   };
 }
@@ -498,7 +531,6 @@ async function upsertPhoneUser(
     const storage = createPhoneNumberStorage(phoneNumber);
 
     await dbUpdate(`users?id=eq.${existingUser.id}`, {
-      account_status: "active",
       phone_number_encrypted: storage.phoneNumberEncrypted,
       phone_number_blind_index: storage.phoneNumberBlindIndex,
       phone_number_last4: storage.phoneNumberLast4,
@@ -512,6 +544,7 @@ async function upsertPhoneUser(
 
   const userId = randomUUID();
   const storage = createPhoneNumberStorage(phoneNumber);
+  const approvalPolicy = await readApprovalPolicy();
   const payload = {
     id: userId,
     phone_number: storage.phoneNumberLast4 + "_" + userId.slice(0, 14),
@@ -519,7 +552,9 @@ async function upsertPhoneUser(
     phone_number_blind_index: storage.phoneNumberBlindIndex,
     phone_number_last4: storage.phoneNumberLast4,
     role: "user",
-    account_status: "active",
+    account_status: approvalPolicy.requireApproval
+      ? "pending_approval"
+      : "active",
     phone_verified_at: nextTimestamp,
     last_login_at: nextTimestamp,
     updated_at: nextTimestamp,

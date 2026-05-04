@@ -1,4 +1,4 @@
-describe("localSupabaseSelect filter support", () => {
+describe("localDbSelect filter support", () => {
   const originalEnv = {
     DATABASE_URL: process.env.DATABASE_URL,
     LOCAL_DB_SCHEMA: process.env.LOCAL_DB_SCHEMA,
@@ -49,9 +49,9 @@ describe("localSupabaseSelect filter support", () => {
       },
     }));
 
-    const { localSupabaseSelect } = await import("./local-postgres");
+    const { localDbSelect } = await import("./local-postgres");
 
-    await localSupabaseSelect(
+    await localDbSelect(
       "calendar_logs?select=date,summary,entry_type&user_id=eq.local-user-demo&date=gte.2026-04-01&date=lte.2026-04-31",
     );
 
@@ -71,9 +71,9 @@ describe("localSupabaseSelect filter support", () => {
       },
     }));
 
-    const { localSupabaseSelect } = await import("./local-postgres");
+    const { localDbSelect } = await import("./local-postgres");
 
-    await localSupabaseSelect(
+    await localDbSelect(
       "content_week_checklists?select=id,title&week_data_id=eq.week-29&day_number=is.null&is_active=eq.true&order=display_order.asc",
     );
 
@@ -93,9 +93,9 @@ describe("localSupabaseSelect filter support", () => {
       },
     }));
 
-    const { localSupabaseSelect } = await import("./local-postgres");
+    const { localDbSelect } = await import("./local-postgres");
 
-    await localSupabaseSelect(
+    await localDbSelect(
       "user_checklist_events?select=checklist_id,status&user_id=eq.local-user-demo&checklist_id=in.(week-checklist-29-4-hydration-rest,week-checklist-29-general-symptom-log)",
     );
 

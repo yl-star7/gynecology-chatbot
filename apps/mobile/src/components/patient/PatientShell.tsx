@@ -10,7 +10,6 @@ import {
   palette,
   patientSurfacePalette as surface,
   radii,
-  shadows,
   space,
   typo,
 } from "../../theme";
@@ -44,7 +43,11 @@ export function PatientShell({
 }) {
   const router = useRouter();
   const { currentUser } = useMobileAppSession();
-  const { surface: activeSurface } = useMobileTheme();
+  const {
+    palette: activePalette,
+    surface: activeSurface,
+    shadows: activeShadows,
+  } = useMobileTheme();
   const avatarLabel = currentUser?.displayName?.slice(0, 1) ?? "나";
   const useMainTone = pageTone === "main";
   const headerLayout = resolvePatientShellHeaderLayout({
@@ -59,6 +62,7 @@ export function PatientShell({
       style={[
         styles.safeArea,
         useMainTone ? styles.safeAreaMain : styles.safeAreaPlain,
+        { backgroundColor: activeSurface.pageBackground },
       ]}
     >
       {hideHeader ? null : (
@@ -66,6 +70,7 @@ export function PatientShell({
           style={[
             styles.header,
             useMainTone ? styles.headerMain : styles.headerPlain,
+            { backgroundColor: activeSurface.pageBackground },
             headerLayout.usesCompactTopInset
               ? styles.headerWithBackButton
               : null,
@@ -86,7 +91,11 @@ export function PatientShell({
                   router.replace(backHref!);
                 }}
                 accessibilityLabel="뒤로가기"
-                style={styles.iconButton}
+                style={[
+                  styles.iconButton,
+                  { backgroundColor: activeSurface.surfacePrimary },
+                  activeShadows.card,
+                ]}
                 hitSlop={12}
               >
                 <Ionicons
@@ -96,7 +105,16 @@ export function PatientShell({
                 />
               </Pressable>
             ) : null}
-            {title ? <Text style={styles.headerTitle}>{title}</Text> : null}
+            {title ? (
+              <Text
+                style={[
+                  styles.headerTitle,
+                  { color: activeSurface.textPrimary },
+                ]}
+              >
+                {title}
+              </Text>
+            ) : null}
           </View>
           {headerLayout.rightSlot === "action" ? (
             <View style={styles.trailingAction}>{trailingAction}</View>
@@ -105,9 +123,19 @@ export function PatientShell({
             <Pressable
               onPress={() => router.navigate("/(tabs)/profile")}
               accessibilityLabel="마이페이지 열기"
-              style={styles.profileButton}
+              style={[
+                styles.profileButton,
+                { backgroundColor: activeSurface.surfaceAccent },
+              ]}
             >
-              <Text style={styles.profileButtonLabel}>{avatarLabel}</Text>
+              <Text
+                style={[
+                  styles.profileButtonLabel,
+                  { color: activePalette.accent },
+                ]}
+              >
+                {avatarLabel}
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -184,7 +212,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: surface.surfacePrimary,
-    ...shadows.card,
   },
   profileButtonLabel: {
     ...typo.label,

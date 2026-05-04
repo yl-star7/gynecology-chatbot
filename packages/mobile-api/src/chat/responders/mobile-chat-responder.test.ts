@@ -52,6 +52,18 @@ describe("mobile chat responder", () => {
           moodId: "tired",
           moodLabel: "피곤해요",
         },
+        recentMessages: [
+          {
+            role: "assistant",
+            text: "몸 상태에서 어떤 점이 가장 불편한가요?",
+            createdAt: "2026-05-03T14:56:40.000Z",
+          },
+          {
+            role: "user",
+            text: "가만히 있기?",
+            createdAt: "2026-05-03T14:56:59.000Z",
+          },
+        ],
         onboardingPayload: null,
         missingFields: [],
       },
@@ -77,6 +89,8 @@ describe("mobile chat responder", () => {
         workflowStageName: "question_inference",
         sessionMoodId: "tired",
         sessionMoodLabel: "피곤해요",
+        compressedLog:
+          "Assistant: 몸 상태에서 어떤 점이 가장 불편한가요?\nUser: 가만히 있기?",
       }),
     });
   });
@@ -222,7 +236,7 @@ describe("mobile chat responder", () => {
           stageName: "question_inference",
           compactSummary: "이미 오늘 질문과 주차 정보를 문맥에 넣었어요.",
           lastScenario: "letter_reflection",
-          ragContext: "28주차 사전 주입 RAG 문맥",
+          ragContext: "28주차 임신백과 주입 RAG 문맥",
           ragContextWeek: 28,
         },
         onboardingPayload: null,
@@ -239,7 +253,7 @@ describe("mobile chat responder", () => {
     expect(runWorkflow).toHaveBeenCalledWith({
       schift: expect.any(Object),
       inputs: expect.objectContaining({
-        results: "28주차 사전 주입 RAG 문맥",
+        results: "28주차 임신백과 주입 RAG 문맥",
         stageContext: expect.stringContaining("workflow_version=2"),
       }),
     });
@@ -423,7 +437,7 @@ describe("mobile chat responder", () => {
     );
   });
 
-  it("uses stage=0 local fallback for free-form mood input and varies the opt-in wording", async () => {
+  it("reports workflow errors instead of using stage=0 local fallback", async () => {
     const responder = createMobileChatResponder({
       getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
       runSchiftWorkflow: jest
@@ -434,16 +448,87 @@ describe("mobile chat responder", () => {
       loadCharacterImages: async () => ({}),
     });
 
+    await expect(
+      responder({
+        promptContext: {
+          pregnancyWeek: 27,
+          dayNumber: 1,
+          week: {
+            id: "week-27",
+            week_number: 27,
+            title: "27주차",
+            baby_summary: null,
+            mother_summary: null,
+            warning_signs: null,
+            recommended_actions: null,
+            checklist_intro: null,
+            question_intro: null,
+            status: "published",
+          },
+          dayContent: null,
+          checklists: [],
+          questions: [],
+          tonePreference: null,
+          profileMemory: null,
+          sessionMemory: {
+            workflowVersion: 2,
+            stage: 0,
+            stageName: "mood_intake",
+            compactSummary: "현재 단계: 감정 확인",
+            lastScenario: "emotion_checkin",
+          },
+          onboardingPayload: null,
+          missingFields: [],
+        },
+        currentWeek: 27,
+        normalizedSessionId: "session-1",
+        text: "오늘은 몸이 많이 피곤해요",
+        imageDataUris: [],
+        hardGuardrailReason: null,
+      }),
+    ).rejects.toThrow("should not run");
+  });
+
+  it("routes active question answers to letter workflow even when local fallback is enabled", async () => {
+    const runWorkflow = jest.fn().mockResolvedValue({
+      run: {
+        status: "completed",
+        outputs: {
+          answer: JSON.stringify({
+            answer: "아기에게 전한 마음을 잘 받았어요.",
+            scenario: "letter_reflection",
+            nextSessionMemory: {
+              stage: 2,
+              stageName: "choice_conversation",
+              compactSummary: "현재 단계: 편지 후속 질문",
+              lastScenario: "letter_reflection",
+              currentAttachmentQuestionId: "question-1",
+            },
+          }),
+        },
+      },
+    });
+    const selectWorkflowId = jest.fn().mockReturnValue("letter-workflow");
+    const responder = createMobileChatResponder({
+      getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
+      runSchiftWorkflow: runWorkflow,
+      extractSchiftWorkflowOutputs: (run) => run.outputs ?? {},
+      formatSchiftWorkflowRun: () => "답변: ok",
+      loadCharacterImages: async () => ({}),
+      preferLocalFallback: true,
+      selectWorkflowId,
+    });
+
     const result = await responder({
       promptContext: {
-        pregnancyWeek: 27,
+        pregnancyWeek: 24,
         dayNumber: 1,
         week: {
-          id: "week-27",
-          week_number: 27,
-          title: "27주차",
-          baby_summary: null,
-          mother_summary: null,
+          id: "week-24",
+          week_number: 24,
+          title: "24주차",
+          baby_summary: "아기는 빠르게 자라고 있어요.",
+          mother_summary: "엄마 몸도 변화를 느낄 수 있어요.",
           warning_signs: null,
           recommended_actions: null,
           checklist_intro: null,
@@ -452,46 +537,116 @@ describe("mobile chat responder", () => {
         },
         dayContent: null,
         checklists: [],
-        questions: [],
+        questions: [
+          {
+            id: "question-1",
+            code: "attachment",
+            question_text: "오늘 아기에게 어떤 말을 해주고 싶나요?",
+            question_type: "text",
+            help_text: null,
+            question_payload: {},
+            display_order: 1,
+            is_required: true,
+          },
+        ],
         tonePreference: null,
         profileMemory: null,
         sessionMemory: {
           workflowVersion: 2,
-          stage: 0,
-          stageName: "mood_intake",
-          compactSummary: "현재 단계: 감정 확인",
-          lastScenario: "emotion_checkin",
-        },
+          stage: 2,
+          stageName: "choice_conversation",
+          compactSummary: "현재 단계: 질문 답변 대기 (question-1)",
+          lastScenario: "attachment_question",
+          currentAttachmentQuestionId: "question-1",
+          answeredQuestionIds: [],
+        } as never,
         onboardingPayload: null,
         missingFields: [],
       },
-      currentWeek: 27,
+      currentWeek: 24,
       normalizedSessionId: "session-1",
-      text: "오늘은 몸이 많이 피곤해요",
+      text: "아기에게 고맙고 사랑한다고 말해주고 싶어요.",
       imageDataUris: [],
       hardGuardrailReason: null,
     });
 
-    expect(result.workflowMemoryPayload?.scenario).toBe("baby_info_offer");
-    expect(result.workflowMemoryPayload?.nextSessionMemory?.stage).toBe(0);
-    expect(result.workflowMemoryPayload?.nextSessionMemory?.stageName).toBe(
-      "week_info_opt_in",
+    expect(selectWorkflowId).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflowStage: 2,
+        currentAttachmentQuestionId: "question-1",
+      }),
     );
-    expect(
-      result.workflowMemoryPayload?.nextSessionMemory?.compactSummary,
-    ).toBe("현재 단계: 태아 발달 확인 제안");
-    const quickReplies = result.assistantMessage.parts.find(
-      (part) => part.type === "quickReplies",
-    );
-    expect(quickReplies).toBeUndefined();
+    expect(runWorkflow).toHaveBeenCalledWith({
+      schift: expect.any(Object),
+      workflowId: "letter-workflow",
+      inputs: expect.objectContaining({
+        workflowStage: 2,
+        currentAttachmentQuestionId: "question-1",
+      }),
+    });
+    expect(result.workflowMemoryPayload?.scenario).toBe("letter_reflection");
     const textPart = result.assistantMessage.parts.find(
       (part) => part.type === "text",
     );
     expect(textPart?.type).toBe("text");
     if (textPart?.type === "text") {
-      expect(textPart.text).toContain("피곤");
-      expect(textPart.text).toMatch(/주차|산모|태아|엄마|아기/);
+      expect(textPart.text).not.toContain("주차 정보를 같이 볼게요");
     }
+  });
+
+  it("reports workflow errors instead of using a letter fallback", async () => {
+    const responder = createMobileChatResponder({
+      getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
+      runSchiftWorkflow: jest
+        .fn()
+        .mockRejectedValue(new Error("workflow unavailable")),
+      extractSchiftWorkflowOutputs: (run) => run.outputs ?? {},
+      formatSchiftWorkflowRun: () => "답변: workflow 출력이 없어요.",
+      loadCharacterImages: async () => ({}),
+      preferLocalFallback: true,
+    });
+
+    await expect(
+      responder({
+        promptContext: {
+          pregnancyWeek: 24,
+          dayNumber: 1,
+          week: {
+            id: "week-24",
+            week_number: 24,
+            title: "24주차",
+            baby_summary: "아기는 빠르게 자라고 있어요.",
+            mother_summary: "엄마 몸도 변화를 느낄 수 있어요.",
+            warning_signs: null,
+            recommended_actions: null,
+            checklist_intro: null,
+            question_intro: null,
+            status: "published",
+          },
+          dayContent: null,
+          checklists: [],
+          questions: [],
+          tonePreference: null,
+          profileMemory: null,
+          sessionMemory: {
+            workflowVersion: 2,
+            stage: 2,
+            stageName: "choice_conversation",
+            compactSummary: "현재 단계: 질문 답변 대기 (question-1)",
+            lastScenario: "attachment_question",
+            currentAttachmentQuestionId: "question-1",
+            answeredQuestionIds: [],
+          } as never,
+          onboardingPayload: null,
+          missingFields: [],
+        },
+        currentWeek: 24,
+        normalizedSessionId: "session-1",
+        text: "아기에게 고맙고 사랑한다고 말해주고 싶어요.",
+        imageDataUris: [],
+        hardGuardrailReason: null,
+      }),
+    ).rejects.toThrow("workflow unavailable");
   });
 
   it("throws when workflow output is empty", async () => {
@@ -638,6 +793,103 @@ describe("mobile chat responder", () => {
     expect(textPart?.type).toBe("text");
     if (textPart?.type === "text") {
       expect(textPart.text).toContain("가장 크게 남은 마음은 무엇이었나요?");
+    }
+  });
+
+  it("keeps attachment question quick reply ids tied to the visible question", async () => {
+    const questionId = "550e8400-e29b-41d4-a716-446655440025";
+    const questionText =
+      "오늘은 감사에 대해 엄마의 생각을 들려주세요. 살아오면서 엄마에게 가장 감사했던 사람은 누구였나요?";
+    const responder = createMobileChatResponder({
+      getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
+      runSchiftWorkflow: jest.fn().mockResolvedValue({
+        run: {
+          status: "completed",
+          outputs: {
+            answer: JSON.stringify({
+              answer: "아래 질문 중 하나를 골라 이어가요.",
+              scenario: "attachment_question",
+              quickReplies: [
+                {
+                  label: questionText,
+                  message: questionText,
+                },
+              ],
+              selectedQuestionIds: [questionId],
+              nextSessionMemory: {
+                compactSummary: "현재 단계: 모아애착 질문",
+                lastScenario: "attachment_question",
+              },
+            }),
+          },
+        },
+      }),
+      extractSchiftWorkflowOutputs: (run) => run.outputs ?? {},
+      formatSchiftWorkflowRun: () => "답변: ok",
+      loadCharacterImages: async () => ({}),
+    });
+
+    const result = await responder({
+      promptContext: {
+        pregnancyWeek: 24,
+        dayNumber: 1,
+        week: {
+          id: "week-24",
+          week_number: 24,
+          title: "24주차",
+          baby_summary: null,
+          mother_summary: null,
+          warning_signs: null,
+          recommended_actions: null,
+          checklist_intro: null,
+          question_intro: null,
+          status: "published",
+        },
+        dayContent: null,
+        checklists: [],
+        questions: [
+          {
+            id: questionId,
+            code: "attachment",
+            question_text: questionText,
+            question_type: "text",
+            help_text: null,
+            question_payload: {},
+            display_order: 1,
+            is_required: true,
+          },
+        ],
+        tonePreference: null,
+        profileMemory: null,
+        sessionMemory: {
+          workflowVersion: 2,
+          stage: 1,
+          stageName: "today_question",
+          compactSummary: "현재 단계: 모아애착 질문",
+          lastScenario: "attachment_question",
+        },
+        onboardingPayload: null,
+        missingFields: [],
+      },
+      currentWeek: 24,
+      normalizedSessionId: "session-1",
+      text: "질문 보기",
+      imageDataUris: [],
+      hardGuardrailReason: null,
+    });
+
+    const quickReplies = result.assistantMessage.parts.find(
+      (part) => part.type === "quickReplies",
+    );
+    expect(quickReplies?.type).toBe("quickReplies");
+    if (quickReplies?.type === "quickReplies") {
+      expect(quickReplies.choices).toEqual([
+        expect.objectContaining({
+          id: questionId,
+          label: questionText,
+          message: questionText,
+        }),
+      ]);
     }
   });
 

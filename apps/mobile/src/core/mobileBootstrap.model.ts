@@ -35,12 +35,18 @@ export async function preloadPatientAppData({
   cacheState = EMPTY_PATIENT_PRELOAD_CACHE_STATE,
   todayIsoDate = createTodayIsoDate(),
 }: {
-  currentUser: Pick<AuthenticatedUser, "hasCompletedOnboarding" | "id"> | null;
+  currentUser: Pick<
+    AuthenticatedUser,
+    "accountStatus" | "hasCompletedOnboarding" | "id"
+  > | null;
   services: BootstrapServices;
   cacheState?: PatientPreloadCacheState;
   todayIsoDate?: string;
 }) {
-  if (!currentUser?.hasCompletedOnboarding) {
+  if (
+    !currentUser?.hasCompletedOnboarding ||
+    currentUser.accountStatus === "pending_approval"
+  ) {
     return;
   }
 

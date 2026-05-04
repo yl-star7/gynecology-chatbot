@@ -17,14 +17,21 @@ const ChevronIcon = Ionicons as unknown as ComponentType<{
   size: number;
   color: string;
 }>;
+const EntryIcon = Ionicons as unknown as ComponentType<{
+  name: "book-outline";
+  size: number;
+  color: string;
+}>;
 
 function EntryRow({
   badge,
+  iconName,
   title,
   description,
   onPress,
 }: {
   badge: string;
+  iconName?: "book-outline";
   title: string;
   description: string;
   onPress: () => void;
@@ -38,7 +45,15 @@ function EntryRow({
       accessibilityLabel={`${title} 열기`}
     >
       <View style={styles.entryBadge}>
-        <Text style={styles.entryBadgeText}>{badge}</Text>
+        {iconName ? (
+          <EntryIcon
+            name={iconName}
+            size={space.xl}
+            color={palette.accent}
+          />
+        ) : (
+          <Text style={styles.entryBadgeText}>{badge}</Text>
+        )}
       </View>
       <View style={styles.entryText}>
         <Text style={styles.entryTitle}>{title}</Text>
@@ -79,6 +94,7 @@ export function PatientProfileEncyclopediaCard({
         ) : null}
         <EntryRow
           badge="주"
+          iconName="book-outline"
           title={entry.browseActionLabel}
           description={entry.browseDescription}
           onPress={onBrowseWeeks}

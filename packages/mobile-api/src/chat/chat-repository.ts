@@ -103,6 +103,18 @@ type CalendarQuestionResponseRow = {
   } | null;
 };
 
+type RecentChatMessageRow = {
+  role: "user" | "assistant" | "system";
+  plain_text: string | null;
+  created_at: string;
+};
+
+export type RecentPromptMessage = {
+  role: "user" | "assistant" | "system";
+  text: string;
+  createdAt: string;
+};
+
 type UserPersonaProfileRow = {
   user_id: string;
   persona_hint: PersonaHint;
@@ -122,6 +134,7 @@ export type PromptContext = {
   tonePreference: string | null;
   profileMemory: ProfileMemoryPayload | null;
   sessionMemory: SessionMemoryPayload | null;
+  recentMessages: RecentPromptMessage[];
   onboardingPayload: PregnancyProfilePromptRow["onboarding_payload"];
   missingFields: string[];
 };
@@ -569,6 +582,7 @@ export async function getPromptContext(
     dayContentRow,
     datedQuestionRows,
     genericQuestionRows,
+    recentMessageRows,
   ] = await Promise.all([
     dbSelect<DayContentRow[]>(
       `content_pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
@@ -579,6 +593,11 @@ export async function getPromptContext(
     dbSelect<QuestionRow[]>(
       `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
     ),
+    sessionId
+      ? dbSelect<RecentChatMessageRow[]>(
+          `chat_messages?select=role,plain_text,created_at&session_id=eq.${sessionId}&order=created_at.desc&limit=8`,
+        )
+      : Promise.resolve([]),
   ]);
 
   const questions =
@@ -614,6 +633,15 @@ export async function getPromptContext(
     tonePreference: profile?.onboarding_payload?.tonePreference ?? null,
     profileMemory: Object.keys(profileMemory).length > 0 ? profileMemory : null,
     sessionMemory: asObject<SessionMemoryPayload>(sessionRow?.memory_payload),
+    recentMessages: recentMessageRows
+      .slice()
+      .reverse()
+      .map((message) => ({
+        role: message.role,
+        text: (message.plain_text ?? "").trim(),
+        createdAt: message.created_at,
+      }))
+      .filter((message) => message.text.length > 0),
     onboardingPayload: profile?.onboarding_payload ?? null,
     missingFields,
   };

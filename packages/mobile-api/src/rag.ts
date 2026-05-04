@@ -17,6 +17,8 @@ const ACTIVE_TEXTBOOK_SOURCE = "catholic_si_textbook_v3";
 const QUERY_REWRITE_ENABLED = process.env.RAG_QUERY_REWRITE === "1";
 const QUERY_REWRITE_TIMEOUT_MS = 1500;
 const QUERY_REWRITE_MODEL = "gemini-2.5-flash-lite";
+const SCHIFT_EMBEDDINGS_URL =
+  process.env.SCHIFT_EMBEDDINGS_URL ?? "https://embed.schift.io/embeddings";
 
 /**
  * v3 OCR(Gemini Flash Lite) 단계에서 발생한 의학용어 오인식의 클라이언트사이드 보정.
@@ -57,11 +59,56 @@ type SchiftSearchResult = {
   metadata?: Record<string, unknown>;
 };
 
-const PGVECTOR_DIMENSION = 1536;
+export class RagSearchError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message);
+    this.name = "RagSearchError";
+    this.cause = options?.cause;
+  }
+}
+
+const PGVECTOR_DIMENSION = 1024;
 const FILE_RAG_TIMEOUT_MS = 5000;
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
 
 function normalizeEmbeddingLength(values: number[]) {
   return values.slice(0, PGVECTOR_DIMENSION);
+}
+
+type SchiftEmbeddingResponse = {
+  data?: Array<{
+    embedding?: number[];
+  }>;
+};
+
+async function embedViaSchiftEndpoint(content: string): Promise<number[]> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (process.env.SCHIFT_API_KEY) {
+    headers.Authorization = `Bearer ${process.env.SCHIFT_API_KEY}`;
+  }
+
+  const response = await fetch(SCHIFT_EMBEDDINGS_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ input: [content], dimensions: PGVECTOR_DIMENSION }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Schift embeddings failed: HTTP ${response.status}`);
+  }
+
+  const payload = (await response.json()) as SchiftEmbeddingResponse;
+  const embedding = payload.data?.[0]?.embedding;
+  if (!Array.isArray(embedding) || embedding.length === 0) {
+    throw new Error("Schift embeddings response did not include an embedding");
+  }
+
+  return normalizeEmbeddingLength(embedding);
 }
 
 async function getDisabledFileIds(): Promise<Set<string>> {
@@ -238,7 +285,7 @@ async function searchViaSchift(
       withTimeout(
         schift.search({
           query: expandedQuery,
-          collection: "pregnancy-knowledge",
+          bucket: "pregnancy-knowledge",
           topK: halfCount,
           filter: { week: String(currentWeek) },
         }),
@@ -252,7 +299,7 @@ async function searchViaSchift(
     withTimeout(
       schift.search({
         query: expandedQuery,
-        collection: "pregnancy-knowledge",
+        bucket: "pregnancy-knowledge",
         topK: halfCount,
         filter: { surface: "common", source: ACTIVE_TEXTBOOK_SOURCE },
       }),
@@ -325,7 +372,10 @@ export async function retrievePregnancyContext(input: {
     return await searchViaSchift(input.query, input.currentWeek, count);
   } catch (error) {
     console.warn("Schift RAG search failed:", error);
-    return [];
+    throw new RagSearchError(
+      `Schift RAG search failed: ${getErrorMessage(error)}`,
+      { cause: error },
+    );
   }
 }
 
@@ -334,11 +384,15 @@ export async function embedPregnancyDocument(
 ): Promise<number[]> {
   if (!content.trim()) throw new Error("Content is empty");
 
-  const schift = getSchiftClient();
-  if (!schift) throw new Error("Schift client not configured");
+  try {
+    return await embedViaSchiftEndpoint(content);
+  } catch (endpointError) {
+    const schift = getSchiftClient();
+    if (!schift) throw endpointError;
 
-  const result = await schift.embed({ text: content });
-  return normalizeEmbeddingLength(result.embedding);
+    const result = await schift.embed({ text: content });
+    return normalizeEmbeddingLength(result.embedding);
+  }
 }
 
 export type RagSource = {
@@ -384,7 +438,7 @@ export async function searchFileRag(input: {
   if (!input.query.trim()) return { context: "", sources: [] };
 
   const schift = getSchiftClient();
-  if (!schift) return { context: "", sources: [] };
+  if (!schift) throw new Error("Schift client not configured");
 
   const count = input.matchCount ?? 7;
   const currentWeek = input.currentWeek ?? null;
@@ -405,7 +459,7 @@ export async function searchFileRag(input: {
         withTimeout(
           schift.search({
             query: expandedQuery,
-            collection: "pregnancy-knowledge",
+            bucket: "pregnancy-knowledge",
             topK: halfCount,
             filter: { week: String(currentWeek) },
           }),
@@ -419,7 +473,7 @@ export async function searchFileRag(input: {
       withTimeout(
         schift.search({
           query: expandedQuery,
-          collection: "pregnancy-knowledge",
+          bucket: "pregnancy-knowledge",
           topK: halfCount,
           filter: { surface: "common", source: ACTIVE_TEXTBOOK_SOURCE },
         }),
@@ -495,7 +549,10 @@ export async function searchFileRag(input: {
     return { context, sources };
   } catch (error) {
     console.warn("File RAG search failed:", error);
-    return { context: "", sources: [] };
+    throw new RagSearchError(
+      `File RAG search failed: ${getErrorMessage(error)}`,
+      { cause: error },
+    );
   }
 }
 

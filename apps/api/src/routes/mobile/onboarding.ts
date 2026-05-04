@@ -62,7 +62,9 @@ app.post("/", async (c) => {
     const themeKey =
       typeof body.themeKey === "string" ? body.themeKey.trim() : "";
 
-    const { userId } = await requireMobileSession(c, hintedUserId);
+    const { userId } = await requireMobileSession(c, hintedUserId, {
+      requireApproved: false,
+    });
 
     if (!pregnancyWeekOrDueDate || !tonePreference) {
       return c.json(

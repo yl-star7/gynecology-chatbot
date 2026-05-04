@@ -16,7 +16,9 @@ function getClientIp(c: import("hono").Context) {
 // GET /api/mobile/auth/session
 app.get("/session", async (c) => {
   try {
-    const { userId } = await requireMobileSession(c);
+    const { userId } = await requireMobileSession(c, null, {
+      requireApproved: false,
+    });
     const user = await getAuthenticatedUser(userId);
 
     if (!user) {

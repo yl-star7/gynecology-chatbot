@@ -17,19 +17,19 @@ jest.mock("@/lib/mobile/session-auth", () => ({
   ),
 }));
 
-var adminSupabaseInsertMock: jest.Mock;
-var adminSupabaseSelectMock: jest.Mock;
-var adminSupabaseUpdateMock: jest.Mock;
+var adminDbInsertMock: jest.Mock;
+var adminDbSelectMock: jest.Mock;
+var adminDbUpdateMock: jest.Mock;
 
 jest.mock("@/lib/db/admin-client", () => {
-  adminSupabaseInsertMock = jest.fn();
-  adminSupabaseSelectMock = jest.fn();
-  adminSupabaseUpdateMock = jest.fn();
+  adminDbInsertMock = jest.fn();
+  adminDbSelectMock = jest.fn();
+  adminDbUpdateMock = jest.fn();
 
   return {
-    dbInsert: adminSupabaseInsertMock,
-    dbSelect: adminSupabaseSelectMock,
-    dbUpdate: adminSupabaseUpdateMock,
+    dbInsert: adminDbInsertMock,
+    dbSelect: adminDbSelectMock,
+    dbUpdate: adminDbUpdateMock,
   };
 });
 
@@ -44,22 +44,22 @@ import { GET, POST } from "./route";
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
   typeof requireMobileSession
 >;
-const mockedSupabaseInsert = dbInsert as jest.MockedFunction<
+const mockedDbInsert = dbInsert as jest.MockedFunction<
   typeof dbInsert
 >;
-const mockedSupabaseSelect = dbSelect as jest.MockedFunction<
+const mockedDbSelect = dbSelect as jest.MockedFunction<
   typeof dbSelect
 >;
-const mockedSupabaseUpdate = dbUpdate as jest.MockedFunction<
+const mockedDbUpdate = dbUpdate as jest.MockedFunction<
   typeof dbUpdate
 >;
 
 describe("GET /api/mobile/records", () => {
   beforeEach(() => {
     mockedRequireMobileSession.mockReset();
-    mockedSupabaseInsert.mockReset();
-    mockedSupabaseSelect.mockReset();
-    mockedSupabaseUpdate.mockReset();
+    mockedDbInsert.mockReset();
+    mockedDbSelect.mockReset();
+    mockedDbUpdate.mockReset();
   });
 
   it("체크리스트 라벨에서 괄호 참고표기를 제거한다", async () => {
@@ -67,7 +67,7 @@ describe("GET /api/mobile/records", () => {
       userId: "user-1",
       sessionToken: "token-1",
     } as never);
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         {
           pregnancy_day_count: 165,
@@ -123,7 +123,7 @@ describe("GET /api/mobile/records", () => {
       userId: "user-1",
       sessionToken: "token-1",
     } as never);
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         {
           pregnancy_day_count: 165,
@@ -203,7 +203,7 @@ describe("GET /api/mobile/records", () => {
       userId: "user-1",
       sessionToken: "token-1",
     } as never);
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         {
           pregnancy_day_count: 165,
@@ -269,7 +269,7 @@ describe("GET /api/mobile/records", () => {
       userId: "user-1",
       sessionToken: "token-1",
     } as never);
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         {
           pregnancy_day_count: 165,
@@ -311,7 +311,7 @@ describe("GET /api/mobile/records", () => {
 
     const response = await GET(request as never);
 
-    expect(mockedSupabaseSelect).toHaveBeenCalledWith(
+    expect(mockedDbSelect).toHaveBeenCalledWith(
       expect.stringContaining(
         "content_pregnancy_week_data?select=id&week_number=eq.28&status=eq.published&limit=1",
       ),
@@ -333,9 +333,9 @@ describe("GET /api/mobile/records", () => {
 describe("POST /api/mobile/records", () => {
   beforeEach(() => {
     mockedRequireMobileSession.mockReset();
-    mockedSupabaseInsert.mockReset();
-    mockedSupabaseSelect.mockReset();
-    mockedSupabaseUpdate.mockReset();
+    mockedDbInsert.mockReset();
+    mockedDbSelect.mockReset();
+    mockedDbUpdate.mockReset();
   });
 
   it("updates profileMemory.lastEmotionTone when emotion check-in is saved", async () => {
@@ -343,9 +343,9 @@ describe("POST /api/mobile/records", () => {
       userId: "user-1",
       sessionToken: "token-1",
     } as never);
-    mockedSupabaseInsert.mockResolvedValue([] as never);
-    mockedSupabaseSelect.mockResolvedValue([] as never);
-    mockedSupabaseUpdate.mockResolvedValue([] as never);
+    mockedDbInsert.mockResolvedValue([] as never);
+    mockedDbSelect.mockResolvedValue([] as never);
+    mockedDbUpdate.mockResolvedValue([] as never);
 
     const request = new Request(
       "http://localhost:3000/api/mobile/records?userId=user-1",
@@ -364,7 +364,7 @@ describe("POST /api/mobile/records", () => {
     const response = await POST(request as never);
 
     expect(response.status).toBe(200);
-    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+    expect(mockedDbUpdate).toHaveBeenCalledWith(
       "pregnancy_profiles?user_id=eq.user-1",
       expect.objectContaining({
         onboarding_payload: expect.objectContaining({
@@ -381,8 +381,8 @@ describe("POST /api/mobile/records", () => {
       userId: "user-1",
       sessionToken: "token-1",
     } as never);
-    mockedSupabaseInsert.mockResolvedValue([] as never);
-    mockedSupabaseSelect.mockResolvedValueOnce([
+    mockedDbInsert.mockResolvedValue([] as never);
+    mockedDbSelect.mockResolvedValueOnce([
       {
         onboarding_payload: {
           tonePreference: "차분하게",
@@ -393,7 +393,7 @@ describe("POST /api/mobile/records", () => {
         },
       },
     ] as never);
-    mockedSupabaseUpdate.mockResolvedValue([] as never);
+    mockedDbUpdate.mockResolvedValue([] as never);
 
     const request = new Request(
       "http://localhost:3000/api/mobile/records?userId=user-1",
@@ -412,7 +412,7 @@ describe("POST /api/mobile/records", () => {
     const response = await POST(request as never);
 
     expect(response.status).toBe(200);
-    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+    expect(mockedDbUpdate).toHaveBeenCalledWith(
       "pregnancy_profiles?user_id=eq.user-1",
       expect.objectContaining({
         onboarding_payload: expect.objectContaining({

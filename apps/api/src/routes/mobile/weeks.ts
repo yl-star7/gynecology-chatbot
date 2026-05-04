@@ -55,6 +55,39 @@ type MobileWeek = {
   } | null;
 };
 
+type TimingEntry = {
+  name: string;
+  durationMs: number;
+};
+
+function serializeServerTiming(entries: TimingEntry[]) {
+  return entries
+    .map((entry) => `${entry.name};dur=${entry.durationMs.toFixed(1)}`)
+    .join(", ");
+}
+
+async function timeAsync<T>(
+  entries: TimingEntry[],
+  name: string,
+  run: () => Promise<T>,
+) {
+  const startedAt = performance.now();
+  try {
+    return await run();
+  } finally {
+    entries.push({ name, durationMs: performance.now() - startedAt });
+  }
+}
+
+function timeSync<T>(entries: TimingEntry[], name: string, run: () => T) {
+  const startedAt = performance.now();
+  try {
+    return run();
+  } finally {
+    entries.push({ name, durationMs: performance.now() - startedAt });
+  }
+}
+
 function mapSourceWeeks(rows: WeekRow[]) {
   return rows.map((row) => ({
     weekNumber: row.week_number,
@@ -188,8 +221,17 @@ function asUnknownArray(value: Prisma.JsonValue | null | undefined) {
   return Array.isArray(value) ? value : [];
 }
 
-async function loadWeeklyEncyclopediaRows() {
+function parseWeekParam(raw: string | null): number | null {
+  if (!raw) return null;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 42) return null;
+  return parsed;
+}
+
+async function loadWeeklyEncyclopediaRows(weekFilter: number | null) {
   const rows = await prisma.v_weekly_encyclopedia.findMany({
+    where:
+      typeof weekFilter === "number" ? { week_number: weekFilter } : undefined,
     select: {
       week_number: true,
       content_scope: true,
@@ -231,33 +273,50 @@ async function loadWeeklyEncyclopediaRows() {
 }
 
 app.get("/", async (c) => {
+  const timings: TimingEntry[] = [];
+  const requestStartedAt = performance.now();
   try {
-    await requireMobileSession(c);
+    await timeAsync(timings, "auth", () => requireMobileSession(c));
+    const weekFilter = parseWeekParam(c.req.query("week") ?? null);
 
     const [encyclopediaRows, rows, documentLinkRows] = await Promise.all([
-      loadWeeklyEncyclopediaRows(),
-      prisma.content_pregnancy_week_data.findMany({
-        where: { status: "published" },
-        orderBy: { week_number: "asc" },
-        select: {
-          week_number: true,
-          title: true,
-          baby_size_label: true,
-          baby_summary: true,
-          mother_summary: true,
-        },
-      }),
-      prisma.content_pregnancy_documents.findMany({
-        where: { pregnancy_week: { not: null } },
-        orderBy: [{ pregnancy_week: "asc" }, { updated_at: "desc" }],
-        select: {
-          id: true,
-          pregnancy_week: true,
-        },
-      }),
+      timeAsync(timings, "db_encyclopedia", () =>
+        loadWeeklyEncyclopediaRows(weekFilter),
+      ),
+      timeAsync(timings, "db_source_weeks", () =>
+        prisma.content_pregnancy_week_data.findMany({
+          where: {
+            status: "published",
+            ...(typeof weekFilter === "number"
+              ? { week_number: weekFilter }
+              : {}),
+          },
+          orderBy: { week_number: "asc" },
+          select: {
+            week_number: true,
+            title: true,
+            baby_size_label: true,
+            baby_summary: true,
+            mother_summary: true,
+          },
+        }),
+      ),
+      timeAsync(timings, "db_documents", () =>
+        prisma.content_pregnancy_documents.findMany({
+          where:
+            typeof weekFilter === "number"
+              ? { pregnancy_week: weekFilter }
+              : { pregnancy_week: { not: null } },
+          orderBy: [{ pregnancy_week: "asc" }, { updated_at: "desc" }],
+          select: {
+            id: true,
+            pregnancy_week: true,
+          },
+        }),
+      ),
     ]);
 
-    return c.json({
+    const payload = timeSync(timings, "build", () => ({
       weeks: attachLinkEntityIds(
         mergeWeeks(
           mapSourceWeeks(
@@ -273,7 +332,13 @@ app.get("/", async (c) => {
         ),
         documentLinkRows,
       ),
+    }));
+    timings.push({
+      name: "total",
+      durationMs: performance.now() - requestStartedAt,
     });
+    c.header("Server-Timing", serializeServerTiming(timings));
+    return c.json(payload);
   } catch (error) {
     console.error("mobile weeks route error", error);
     return mobileRouteErrorResponse(c, error, "failed to load weeks");

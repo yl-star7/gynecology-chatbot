@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { StyleSheet, Text } from "react-native";
 import { Pressable } from "./Pressable";
-import { palette, patientSurfacePalette as surface, radii, space, typo } from "../../theme";
+import { radii, space, typo } from "../../theme";
+import { useMobileTheme } from "../../theme-provider";
 
 export function Button({
   label,
@@ -14,13 +15,27 @@ export function Button({
   variant?: "primary" | "secondary" | "text";
   disabled?: boolean;
 }) {
+  const { palette, surface } = useMobileTheme();
+  const buttonStyle =
+    variant === "primary"
+      ? { backgroundColor: surface.accentSolid }
+      : variant === "secondary"
+        ? { backgroundColor: surface.surfaceAccent }
+        : { backgroundColor: "transparent", paddingVertical: space.md };
+  const labelStyle =
+    variant === "primary"
+      ? { color: surface.surfacePrimary }
+      : variant === "secondary"
+        ? { color: palette.accent }
+        : { color: palette.accent, fontSize: 14, fontWeight: "500" };
+
   return (
     <Pressable
-      style={[styles.base, variantStyles[variant], disabled ? styles.disabled : null]}
+      style={[styles.base, buttonStyle, disabled ? styles.disabled : null]}
       onPress={onPress}
       disabled={disabled}
     >
-      <Text style={[styles.label, labelVariants[variant]]}>{label}</Text>
+      <Text style={[styles.label, labelStyle]}>{label}</Text>
     </Pressable>
   );
 }
@@ -37,32 +52,5 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.45,
-  },
-});
-
-const variantStyles = StyleSheet.create({
-  primary: {
-    backgroundColor: surface.accentSolid,
-  },
-  secondary: {
-    backgroundColor: surface.surfaceAccent,
-  },
-  text: {
-    backgroundColor: "transparent",
-    paddingVertical: space.md,
-  },
-});
-
-const labelVariants = StyleSheet.create({
-  primary: {
-    color: surface.surfacePrimary,
-  },
-  secondary: {
-    color: palette.accent,
-  },
-  text: {
-    color: palette.accent,
-    fontSize: 14,
-    fontWeight: "500",
   },
 });

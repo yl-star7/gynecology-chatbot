@@ -18,9 +18,6 @@
       "@expo/vector-icons": [
         "./node_modules/@expo/vector-icons"
       ],
-      "expo-image-picker": [
-        "./node_modules/expo-image-picker"
-      ],
       "@/*": [
         "./*"
       ]

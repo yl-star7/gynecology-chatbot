@@ -84,9 +84,11 @@ export class ApiMobileHomeAdapter implements MobileHomePort {
     this.getUserId = getUserId;
   }
 
-  async getHomeView() {
-    const payload = await this.client.fetchHome();
-    cacheHomeView(this.getUserId(), payload.home);
+  async getHomeView(month?: string) {
+    const payload = await this.client.fetchHome(month);
+    if (!month) {
+      cacheHomeView(this.getUserId(), payload.home);
+    }
     return payload.home;
   }
 
@@ -198,9 +200,10 @@ export class ApiMobileChatAdapter implements MobileChatPort {
       text: input.text,
       pregnancyWeek: input.pregnancyWeek,
       selectedQuestionId: input.selectedQuestionId,
+      selectedMoodTone: input.selectedMoodTone,
       clientWorkflowStage: input.clientWorkflowStage,
       clientWorkflowStageName: input.clientWorkflowStageName,
-      imageDataUris: input.imageUris,
+      imageDataUris: [],
     });
     const userId = this.getUserId();
 
@@ -244,10 +247,14 @@ export class ApiKnowledgeAdapter implements KnowledgePort {
     return payload.items;
   }
 
-  async listPregnancyWeeks(): Promise<MobilePregnancyWeekSummary[]> {
+  async listPregnancyWeeks(input?: {
+    week?: number | null;
+  }): Promise<MobilePregnancyWeekSummary[]> {
     const userId = this.getUserId();
-    const payload = await this.client.fetchPregnancyWeeks();
-    cachePregnancyWeeks(userId, payload.weeks);
+    const payload = await this.client.fetchPregnancyWeeks(input);
+    if (typeof input?.week !== "number") {
+      cachePregnancyWeeks(userId, payload.weeks);
+    }
     return payload.weeks;
   }
 

@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import {
   palette,
   patientSurfacePalette as surface,
@@ -18,6 +17,7 @@ import {
 } from "../../theme";
 import {
   normalizeChatMarkdownLines,
+  resolveDeepLinkDisplayTitle,
   resolveQuickReplyDisplayLabel,
 } from "./ChatPartRenderer.model";
 
@@ -51,7 +51,12 @@ type CarouselPart = {
   title: string;
   cards: CarouselCardItem[];
 };
-type QuickReplyChoice = { id: string; label: string; message: string };
+type QuickReplyChoice = {
+  id: string;
+  label: string;
+  message: string;
+  moodTone?: "calm" | "joyful" | "anxious" | "tired" | "sad";
+};
 type QuickRepliesPart = {
   type: "quickReplies";
   id: string;
@@ -87,7 +92,12 @@ export type ChatMessage = {
 
 export interface ChatPartRendererProps {
   message: ChatMessage;
-  onQuickReplySelect?: (message: string, choiceId?: string) => void;
+  onQuickReplySelect?: (
+    message: string,
+    choiceId?: string,
+    label?: string,
+    moodTone?: "calm" | "joyful" | "anxious" | "tired" | "sad",
+  ) => void;
   onSurveyAnswer?: (surveyId: string, choiceId: string) => Promise<boolean>;
   surveySaveErrorText?: string;
   onDeepLinkPress?: (
@@ -288,14 +298,9 @@ function SurveyPartView({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
 
-  const shouldCollapse =
-    part.choices.length > MAX_VISIBLE_SURVEY_CHOICES && !isExpanded;
-  const visibleChoices = shouldCollapse
-    ? part.choices.slice(0, MAX_VISIBLE_SURVEY_CHOICES)
-    : part.choices;
-  const hiddenCount = part.choices.length - MAX_VISIBLE_SURVEY_CHOICES;
+  const visibleChoices = part.choices;
+  const hasChoices = visibleChoices.length > 0;
 
   async function handlePress(choiceId: string) {
     if (selectedId !== null || isSaving) return;
@@ -325,51 +330,44 @@ function SurveyPartView({
     <View style={styles.surveyCard}>
       <Text style={styles.surveyTitle}>{part.title}</Text>
       <Text style={styles.surveyBody}>{part.body}</Text>
-      <View style={styles.surveyChoices}>
-        {visibleChoices.map((choice) => {
-          const isSelected = choice.id === selectedId;
-          return (
-            <Pressable
-              key={choice.id}
-              style={({ pressed }) => [
-                styles.surveyChoice,
-                isSelected && styles.surveyChoiceSelected,
-                pressed &&
-                  !selectedId &&
-                  !isSaving &&
-                  styles.surveyChoicePressed,
-              ]}
-              onPress={() => handlePress(choice.id)}
-              accessibilityRole="button"
-              accessibilityLabel={choice.label}
-              accessibilityState={{ selected: isSelected, disabled: isSaving }}
-              disabled={isSaving}
-            >
-              <Text
-                numberOfLines={2}
-                style={[
-                  styles.surveyChoiceLabel,
-                  isSelected && styles.surveyChoiceLabelSelected,
+      {hasChoices ? (
+        <View style={styles.surveyChoices}>
+          {visibleChoices.map((choice) => {
+            const isSelected = choice.id === selectedId;
+            return (
+              <Pressable
+                key={choice.id}
+                style={({ pressed }) => [
+                  styles.surveyChoice,
+                  isSelected && styles.surveyChoiceSelected,
+                  pressed &&
+                    !selectedId &&
+                    !isSaving &&
+                    styles.surveyChoicePressed,
                 ]}
+                onPress={() => handlePress(choice.id)}
+                accessibilityRole="button"
+                accessibilityLabel={choice.label}
+                accessibilityState={{
+                  selected: isSelected,
+                  disabled: isSaving,
+                }}
+                disabled={isSaving}
               >
-                {choice.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-        {shouldCollapse ? (
-          <Pressable
-            style={styles.surveyMoreButton}
-            onPress={() => setIsExpanded(true)}
-            accessibilityRole="button"
-            accessibilityLabel={`더보기 (+${hiddenCount})`}
-          >
-            <Text
-              style={styles.surveyMoreLabel}
-            >{`더보기 (+${hiddenCount})`}</Text>
-          </Pressable>
-        ) : null}
-      </View>
+                <Text
+                  numberOfLines={2}
+                  style={[
+                    styles.surveyChoiceLabel,
+                    isSelected && styles.surveyChoiceLabelSelected,
+                  ]}
+                >
+                  {choice.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
       {errorText ? (
         <Text style={styles.surveyErrorText}>{errorText}</Text>
       ) : null}
@@ -415,20 +413,22 @@ function QuickRepliesPartView({
   onQuickReplySelect,
 }: {
   part: QuickRepliesPart;
-  onQuickReplySelect?: (message: string, choiceId?: string) => void;
+  onQuickReplySelect?: (
+    message: string,
+    choiceId?: string,
+    label?: string,
+    moodTone?: "calm" | "joyful" | "anxious" | "tired" | "sad",
+  ) => void;
 }) {
   const [didChoose, setDidChoose] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
 
   if (didChoose) {
     return null;
   }
 
-  const shouldCollapse = part.choices.length > MAX_VISIBLE_QUICK && !isExpanded;
-  const visibleChoices = shouldCollapse
-    ? part.choices.slice(0, MAX_VISIBLE_QUICK)
-    : part.choices;
-  const hiddenCount = part.choices.length - MAX_VISIBLE_QUICK;
+  if (!part.choices || part.choices.length === 0) {
+    return null;
+  }
 
   return (
     <View style={styles.quickRepliesWrapper}>
@@ -436,7 +436,7 @@ function QuickRepliesPartView({
         <Text style={styles.quickRepliesTitle}>{part.title}</Text>
       ) : null}
       <View style={styles.quickRepliesRow}>
-        {visibleChoices.map((choice) => (
+        {part.choices.map((choice) => (
           <Pressable
             key={choice.id}
             style={({ pressed }) => [
@@ -445,7 +445,12 @@ function QuickRepliesPartView({
             ]}
             onPress={() => {
               setDidChoose(true);
-              onQuickReplySelect?.(choice.message, choice.id);
+              onQuickReplySelect?.(
+                choice.message,
+                choice.id,
+                choice.label,
+                choice.moodTone,
+              );
             }}
             accessibilityRole="button"
             accessibilityLabel={choice.label}
@@ -455,18 +460,6 @@ function QuickRepliesPartView({
             </Text>
           </Pressable>
         ))}
-        {shouldCollapse ? (
-          <Pressable
-            style={styles.quickReplyMorePill}
-            onPress={() => setIsExpanded(true)}
-            accessibilityRole="button"
-            accessibilityLabel={`더보기 (+${hiddenCount})`}
-          >
-            <Text style={styles.quickReplyLabel}>
-              {`더보기 (+${hiddenCount})`}
-            </Text>
-          </Pressable>
-        ) : null}
       </View>
     </View>
   );
@@ -479,7 +472,11 @@ function DeepLinkPartView({
   part: DeepLinkPart;
   onDeepLinkPress?: ChatPartRendererProps["onDeepLinkPress"];
 }) {
-  const title = part.title?.trim() || "연결된 정보";
+  const title = resolveDeepLinkDisplayTitle({
+    title: part.title,
+    target: part.target,
+    weekNumber: part.weekNumber ?? null,
+  });
   return (
     <Pressable
       style={({ pressed }) => [
@@ -561,8 +558,6 @@ export function ChatPartRenderer({
 
 const CAROUSEL_CARD_WIDTH = 240;
 const CHAT_IMAGE_WIDTH = space.xxxl * 5;
-const MAX_VISIBLE_SURVEY_CHOICES = 3;
-const MAX_VISIBLE_QUICK = 4;
 
 // ─── Styles ───────────────────────────────────────────────
 
@@ -791,21 +786,21 @@ const styles = StyleSheet.create({
     gap: space.xs,
   },
   quickReplyPill: {
-    borderRadius: radii.full,
+    borderRadius: radii.lg,
     backgroundColor: surface.surfacePrimary,
-    paddingVertical: space.md,
-    paddingHorizontal: space.lg,
+    paddingVertical: space.lg,
+    paddingHorizontal: space.xl,
     maxWidth: "100%",
     minWidth: 0,
     flexShrink: 1,
   },
   quickReplyMorePill: {
-    borderRadius: radii.full,
+    borderRadius: radii.lg,
     borderStyle: "dashed",
     borderWidth: 1,
     borderColor: palette.accent,
-    paddingVertical: space.md,
-    paddingHorizontal: space.lg,
+    paddingVertical: space.lg,
+    paddingHorizontal: space.xl,
     maxWidth: "100%",
     minWidth: 0,
     flexShrink: 1,

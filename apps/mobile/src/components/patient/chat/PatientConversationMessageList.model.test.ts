@@ -194,6 +194,37 @@ test("conversation message list filters placeholder-only assistant messages from
   );
 });
 
+test("conversation message list hides unsupported assistant parts from the rendered thread", () => {
+  const messages = [
+    {
+      id: "internal-sources",
+      role: "assistant",
+      createdAtLabel: "방금 전",
+      parts: [
+        {
+          id: "rag-sources",
+          type: "_rag_sources",
+          sources: [{ title: "32주차 문서" }],
+        } as never,
+      ],
+    },
+    {
+      id: "real-assistant",
+      role: "assistant",
+      createdAtLabel: "방금 전",
+      parts: [{ id: "text", type: "text", text: "확인했어요." }],
+    },
+  ] as const;
+
+  assert.deepEqual(
+    resolveRenderableConversationMessages({
+      messages,
+      assistantMessageIdsWithLaterUserMessage: new Set(),
+    }).map((message) => message.id),
+    ["real-assistant"],
+  );
+});
+
 test("assistant message id is marked when a later user message exists", () => {
   const result = resolveAssistantMessageIdsWithLaterUserMessage([
     { id: "a1", role: "assistant" },

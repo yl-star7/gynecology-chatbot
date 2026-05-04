@@ -3,7 +3,7 @@ jest.mock("@/lib/db/admin-client", () => {
   return {
     dbSelect: mockSelect,
     dbUpdate: jest.fn(),
-    getSupabaseAdminClient: jest.fn(() => {
+    getDbAdminClient: jest.fn(() => {
       const mockResult = { data: [], error: null };
       const createBuilder = () => ({
         select: createBuilder,
@@ -28,23 +28,23 @@ jest.mock("@/lib/db/admin-client", () => {
 import { dbSelect, dbUpdate } from "@/lib/db/admin-client";
 import { requireMobileSession } from "./session-auth";
 
-const mockedSupabaseSelect = dbSelect as jest.MockedFunction<
+const mockedDbSelect = dbSelect as jest.MockedFunction<
   typeof dbSelect
 >;
-const mockedSupabaseUpdate = dbUpdate as jest.MockedFunction<
+const mockedDbUpdate = dbUpdate as jest.MockedFunction<
   typeof dbUpdate
 >;
 
 describe("requireMobileSession", () => {
   beforeEach(() => {
-    mockedSupabaseSelect.mockReset();
-    mockedSupabaseUpdate.mockReset();
+    mockedDbSelect.mockReset();
+    mockedDbUpdate.mockReset();
   });
 
   it("uses wrapper-backed queries in docker mode so local auth sessions remain valid", async () => {
     process.env.SERVER_DATA_PROVIDER = "docker";
 
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         {
           id: "session-1",
@@ -71,22 +71,22 @@ describe("requireMobileSession", () => {
       userId: "user-1",
     });
 
-    expect(mockedSupabaseSelect).toHaveBeenNthCalledWith(
+    expect(mockedDbSelect).toHaveBeenNthCalledWith(
       1,
       expect.stringContaining("auth_sessions?select=id,user_id,expires_at,revoked_at"),
     );
-    expect(mockedSupabaseSelect).toHaveBeenNthCalledWith(
+    expect(mockedDbSelect).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining("users?select=id,account_status&id=eq.user-1"),
     );
-    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+    expect(mockedDbUpdate).toHaveBeenCalledWith(
       "auth_sessions?id=eq.session-1",
       expect.objectContaining({ last_used_at: expect.any(String) }),
     );
   });
 
   it("blocks paused users even when the auth session is valid", async () => {
-    mockedSupabaseSelect
+    mockedDbSelect
       .mockResolvedValueOnce([
         {
           id: "session-1",

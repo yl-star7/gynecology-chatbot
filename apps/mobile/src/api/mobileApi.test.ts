@@ -99,6 +99,85 @@ test("fetchMobileProfile targets the mobile profile endpoint with the resolved u
   assert.equal(response.profile.displayName, "김수연");
 });
 
+test("fetchHome forwards the requested calendar month", async () => {
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  const client = createMobileApiClient({
+    getApiBaseUrl: () => "http://example.com",
+    getUserId: () => "user-1",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, init });
+      return Response.json({
+        home: {
+          userName: "수연",
+          pregnancyDayCount: 132,
+          pregnancyWeekLabel: "18주 6일",
+          currentMonthLabel: "2026년 4월",
+          calendarDays: [],
+          notebookCard: {
+            id: "notebook",
+            title: "임신수첩",
+            description: "기록을 정리해요.",
+            href: "/records",
+          },
+          knowledgeCard: {
+            id: "knowledge",
+            title: "임신 지식",
+            description: "주차별 정보를 읽어요.",
+            href: "/knowledge",
+          },
+        },
+      });
+    },
+  });
+
+  const response = await client.fetchHome("2026-04");
+
+  assert.equal(
+    calls[0]?.input,
+    "http://example.com/api/mobile/home?userId=user-1&month=2026-04",
+  );
+  assert.equal(response.home.currentMonthLabel, "2026년 4월");
+});
+
+test("fetchHome omits the month query when the current month is requested", async () => {
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  const client = createMobileApiClient({
+    getApiBaseUrl: () => "http://example.com",
+    getUserId: () => "user-1",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, init });
+      return Response.json({
+        home: {
+          userName: "수연",
+          pregnancyDayCount: 132,
+          pregnancyWeekLabel: "18주 6일",
+          currentMonthLabel: "2026년 5월",
+          calendarDays: [],
+          notebookCard: {
+            id: "notebook",
+            title: "임신수첩",
+            description: "기록을 정리해요.",
+            href: "/records",
+          },
+          knowledgeCard: {
+            id: "knowledge",
+            title: "임신 지식",
+            description: "주차별 정보를 읽어요.",
+            href: "/knowledge",
+          },
+        },
+      });
+    },
+  });
+
+  await client.fetchHome();
+
+  assert.equal(
+    calls[0]?.input,
+    "http://example.com/api/mobile/home?userId=user-1",
+  );
+});
+
 test("updateMobileProfile uses PATCH and forwards the editable fields", async () => {
   const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
   const client = createMobileApiClient({
@@ -349,6 +428,7 @@ test("sendChatMessage restores token and user id from native storage before send
   const response = await client.sendChatMessage({
     sessionId: "session-1",
     text: "안녕",
+    selectedMoodTone: "sad",
     imageDataUris: [],
   });
 
@@ -361,6 +441,7 @@ test("sendChatMessage restores token and user id from native storage before send
     userId: "native-user",
     sessionId: "session-1",
     text: "안녕",
+    selectedMoodTone: "sad",
     pregnancyWeek: undefined,
     imageDataUris: [],
   });

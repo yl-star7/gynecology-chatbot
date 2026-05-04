@@ -1,12 +1,30 @@
+/* global URL */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 
 const packageJson = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 const appJson = JSON.parse(readFileSync(new URL("./app.json", import.meta.url), "utf8"));
 const rootPackageJson = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
 const envExample = readFileSync(new URL("../../.env.example", import.meta.url), "utf8");
 const dependencies = packageJson.dependencies ?? {};
+const sourceFilePattern = /\.(?:cjs|js|jsx|mjs|ts|tsx)$/;
+
+function collectSourceFiles(directoryUrl) {
+  const files = [];
+  for (const entry of readdirSync(directoryUrl, { withFileTypes: true })) {
+    const entryUrl = new URL(
+      `${entry.name}${entry.isDirectory() ? "/" : ""}`,
+      directoryUrl,
+    );
+    if (entry.isDirectory()) {
+      files.push(...collectSourceFiles(entryUrl));
+    } else if (sourceFilePattern.test(entry.name)) {
+      files.push(entryUrl);
+    }
+  }
+  return files;
+}
 
 test("mobile package declares Expo web runtime dependencies", () => {
   assert.equal(
@@ -108,7 +126,7 @@ test("env example documents local mobile auth bypass configuration", () => {
   );
 });
 
-test("mobile start script provides Expo public env defaults for local simulator runs", () => {
+test("mobile start script defaults to deployed API server, never localhost", () => {
   const startScript = packageJson.scripts?.start ?? "";
 
   assert.match(
@@ -119,19 +137,72 @@ test("mobile start script provides Expo public env defaults for local simulator 
 
   assert.match(
     startScript,
-    /EXPO_PUBLIC_API_BASE_URL=\$\{EXPO_PUBLIC_API_BASE_URL:-http:\/\/localhost:3005\}/,
-    "apps/mobile start should default EXPO_PUBLIC_API_BASE_URL for local runs",
+    /EXPO_PUBLIC_API_BASE_URL=\$\{EXPO_PUBLIC_API_BASE_URL:-https:\/\/[^}]+\}/,
+    "apps/mobile start should default EXPO_PUBLIC_API_BASE_URL to a deployed https URL (never localhost)",
+  );
+
+  assert.doesNotMatch(
+    startScript,
+    /EXPO_PUBLIC_API_BASE_URL=\$\{EXPO_PUBLIC_API_BASE_URL:-http:\/\/localhost/,
+    "apps/mobile start must NOT fall back to localhost — see feedback_no_localhost_for_mobile.md",
   );
 
   assert.match(
     startScript,
-    /EXPO_PUBLIC_WEB_URL=\$\{EXPO_PUBLIC_WEB_URL:-http:\/\/localhost:3005\}/,
-    "apps/mobile start should default EXPO_PUBLIC_WEB_URL for local runs",
+    /EXPO_PUBLIC_WEB_URL=\$\{EXPO_PUBLIC_WEB_URL:-https:\/\/[^}]+\}/,
+    "apps/mobile start should default EXPO_PUBLIC_WEB_URL to a deployed https URL",
   );
 
   assert.match(
     startScript,
     /EXPO_PUBLIC_DEV_USER_ID=\$\{EXPO_PUBLIC_DEV_USER_ID:-local-user-demo\}/,
     "apps/mobile start should default EXPO_PUBLIC_DEV_USER_ID for local runs",
+  );
+});
+
+test("native mobile source keeps admin shadcn and Tailwind patterns out", () => {
+  const bannedPatterns = [
+    {
+      label: "JSX className",
+      pattern: /\bclassName\s*=/,
+    },
+    {
+      label: "web shadcn ui import",
+      pattern: /from\s+["']@\/components\/ui/,
+    },
+    {
+      label: "shadcn keyword",
+      pattern: /\bshadcn\b/i,
+    },
+    {
+      label: "Tailwind keyword",
+      pattern: /\btailwind\b/i,
+    },
+    {
+      label: "shadcn utility token",
+      pattern:
+        /\b(?:bg-background|bg-card|border-border|rounded-\[|text-foreground|text-muted-foreground)\b/,
+    },
+  ];
+
+  const sourceFiles = [
+    ...collectSourceFiles(new URL("./app/", import.meta.url)),
+    ...collectSourceFiles(new URL("./src/", import.meta.url)),
+  ];
+  const violations = [];
+
+  for (const fileUrl of sourceFiles) {
+    const source = readFileSync(fileUrl, "utf8");
+    for (const { label, pattern } of bannedPatterns) {
+      if (pattern.test(source)) {
+        violations.push(`${fileUrl.pathname}: ${label}`);
+      }
+    }
+  }
+
+  assert.deepEqual(
+    violations,
+    [],
+    "apps/mobile must keep the native RN design system separate from admin shadcn/Tailwind UI",
   );
 });

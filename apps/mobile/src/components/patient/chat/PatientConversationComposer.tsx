@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable } from "../../ui";
-import { ChatImagePicker, ChatImagePreview } from "../../chat";
 import {
   palette,
   patientSurfacePalette as surface,
@@ -32,27 +31,23 @@ export function PatientConversationComposer({
   onChangeText,
   isSending,
   isReadOnly = false,
-  imageDataUri,
-  onImageSelected,
-  onRemoveImage,
   errorMessage,
   onDismissError,
   onSend,
   onLayout,
   bottomPadding,
+  keyboardBottomOffset = 0,
 }: {
   text: string;
   onChangeText: (value: string) => void;
   isSending: boolean;
   isReadOnly?: boolean;
-  imageDataUri: string | null;
-  onImageSelected: (value: string | null) => void;
-  onRemoveImage: () => void;
   errorMessage: string | null;
   onDismissError: () => void;
   onSend: () => void;
   onLayout: (event: LayoutChangeEvent) => void;
   bottomPadding: number;
+  keyboardBottomOffset?: number;
 }) {
   const { surface: activeSurface } = useMobileTheme();
   const isSendDisabled = isSending;
@@ -83,17 +78,12 @@ export function PatientConversationComposer({
       style={[
         styles.footerDock,
         {
+          bottom: keyboardBottomOffset,
           paddingBottom: bottomPadding,
         },
       ]}
       onLayout={onLayout}
     >
-      {imageDataUri ? (
-        <View style={styles.imagePreviewRow}>
-          <ChatImagePreview dataUri={imageDataUri} onRemove={onRemoveImage} />
-        </View>
-      ) : null}
-
       {errorMessage ? (
         <Pressable onPress={onDismissError}>
           <Text style={styles.errorMessageText}>{errorMessage}</Text>
@@ -110,14 +100,19 @@ export function PatientConversationComposer({
           <View style={styles.resizeHandle} />
         </View>
         <View style={styles.composerRow}>
-          <ChatImagePicker
-            onImageSelected={onImageSelected}
-            disabled={isSendDisabled}
-          />
           <TextInput
-            style={[styles.input, { height: inputHeight }]}
+            style={[
+              styles.input,
+              {
+                height: inputHeight,
+                backgroundColor: activeSurface.fieldSurface,
+                color: activeSurface.textPrimary,
+              },
+            ]}
             placeholder="아기에게 하고 싶은 말을 적어보세요..."
             placeholderTextColor={activeSurface.textSecondary}
+            selectionColor={activeSurface.accentSolid}
+            underlineColorAndroid="transparent"
             value={text}
             onChangeText={onChangeText}
             multiline
@@ -143,14 +138,14 @@ export function PatientConversationComposer({
 
 const styles = StyleSheet.create({
   footerDock: {
+    position: "absolute",
+    left: 0,
+    right: 0,
     gap: space.xs,
     paddingTop: space.sm,
     paddingHorizontal: space.md,
     backgroundColor: surface.surfacePrimary,
-  },
-  imagePreviewRow: {
-    alignItems: "flex-start",
-    paddingHorizontal: space.xs,
+    zIndex: 20,
   },
   composerBar: {
     paddingVertical: space.xs,

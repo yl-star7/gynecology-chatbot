@@ -34,7 +34,7 @@ test("createRecordDayActions loads the record day through the injected home port
 });
 
 test("createRecordDayActions toggles checklist items through the injected today port", async () => {
-  const calls: Array<{ checklistId: string; completed: boolean }> = [];
+  const calls: { checklistId: string; completed: boolean }[] = [];
   const actions = createRecordDayActions({
     homePort: {
       async getRecordDay() {

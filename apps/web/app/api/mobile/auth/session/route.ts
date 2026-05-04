@@ -4,7 +4,9 @@ import { requireMobileSession } from "@/lib/mobile/session-auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await requireMobileSession(request);
+    const { userId } = await requireMobileSession(request, null, {
+      requireApproved: false,
+    });
     const user = await getAuthenticatedUser(userId);
 
     if (!user) {

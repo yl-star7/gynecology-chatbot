@@ -19,7 +19,6 @@ import { PatientExternalSurveyCard } from "../../components/patient/profile/Pati
 import { PatientProfileAccountCard } from "../../components/patient/profile/PatientProfileAccountCard";
 import { PatientProfileCalendarCard } from "../../components/patient/profile/PatientProfileCalendarCard";
 import { PatientProfileDayModal } from "../../components/patient/profile/PatientProfileDayModal";
-import { PatientProfileEncyclopediaCard } from "../../components/patient/profile/PatientProfileEncyclopediaCard";
 import { PatientProfileHeroCard } from "../../components/patient/profile/PatientProfileHeroCard";
 import { useMobileAppSession } from "../../core/MobileAppSessionProvider";
 import { useMobileServices } from "../../core/MobileServicesProvider";
@@ -31,17 +30,23 @@ import {
   readCachedHomeView,
   readCachedProfileView,
   readCachedTodayView,
+  clearCachedRecordDayView,
 } from "../../core/patientViewCache";
 import {
   mergePatientProfileSyncSnapshot,
   usePatientProfileSyncSnapshot,
 } from "./patientProfileSyncStore";
 import { space } from "../../theme";
-import { buildProfileCalendarModel } from "./patientProfileCalendar";
+import {
+  addProfileCalendarMonths,
+  buildProfileCalendarModel,
+  createProfileCalendarMonthKey,
+  formatProfileCalendarMonthLabel,
+  resolveProfileCalendarMonthKey,
+} from "./patientProfileCalendar";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { normalizeSurveyFormUrl } from "./patientSurveyFormUrl.model";
 import {
-  buildProfileEncyclopediaEntry,
   buildProfileDayState,
   buildProfileInfoCards,
 } from "./PatientProfileScreen.model";
@@ -70,6 +75,7 @@ export function PatientProfileScreen() {
   const [selectedIsoDate, setSelectedIsoDate] = useState<string | null>(null);
   const [selectedRecordDay, setSelectedRecordDay] =
     useState<RecordDayView | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState<string | null>(null);
   const [recordDayError, setRecordDayError] = useState<string | null>(null);
   const [modalSection, setModalSection] =
     useState<ModalSection>("conversation");
@@ -129,9 +135,9 @@ export function PatientProfileScreen() {
           hasFreshProfile && cachedProfile
             ? Promise.resolve(cachedProfile)
             : profilePort.getProfile(),
-          hasFreshHome && cachedHome
+          hasFreshHome && cachedHome && !calendarMonth
             ? Promise.resolve(cachedHome)
-            : homePort.getHomeView(),
+            : homePort.getHomeView(calendarMonth ?? undefined),
         ])
           .then(([nextProfile, nextHome]) => {
             setProfile(nextProfile);
@@ -153,6 +159,7 @@ export function PatientProfileScreen() {
       }
     }, [
       currentUser,
+      calendarMonth,
       homePort,
       isRestoringSession,
       profilePort,
@@ -160,6 +167,32 @@ export function PatientProfileScreen() {
       todayPort,
     ]),
   );
+
+  useEffect(() => {
+    if (!calendarMonth || !currentUser || isRestoringSession) {
+      return;
+    }
+
+    let cancelled = false;
+
+    homePort
+      .getHomeView(calendarMonth)
+      .then((nextHome) => {
+        if (!cancelled) {
+          setHome(nextHome);
+          setError(null);
+        }
+      })
+      .catch((nextError) => {
+        if (!cancelled) {
+          setError(resolvePatientProfileLoadError(nextError));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [calendarMonth, currentUser, homePort, isRestoringSession]);
 
   useEffect(() => {
     setProfile((current) =>
@@ -233,6 +266,7 @@ export function PatientProfileScreen() {
   }
 
   function openCalendarDay(isoDate: string) {
+    clearCachedRecordDayView(currentUser?.id, isoDate);
     setSelectedIsoDate(isoDate);
     setModalSection("conversation");
     setConversationSection("heart");
@@ -244,13 +278,15 @@ export function PatientProfileScreen() {
     setRecordDayError(null);
   }
 
+  function moveCalendarMonth(offset: number) {
+    const visibleMonth = resolveProfileCalendarMonthKey(home?.calendarDays);
+    setCalendarMonth(addProfileCalendarMonths(visibleMonth, offset));
+    closeCalendarDayModal();
+  }
+
   function openTodayTab() {
     closeCalendarDayModal();
     router.navigate("/(tabs)/today");
-  }
-
-  function openWeeklyEncyclopedia(mode: "current" | "browse") {
-    router.push(`/encyclopedia?mode=${mode}` as never);
   }
 
   function openConversationSession(sessionId: string) {
@@ -287,6 +323,15 @@ export function PatientProfileScreen() {
     () => buildProfileCalendarModel(home?.calendarDays),
     [home?.calendarDays],
   );
+  const visibleCalendarMonth = useMemo(
+    () => resolveProfileCalendarMonthKey(home?.calendarDays),
+    [home?.calendarDays],
+  );
+  const currentCalendarMonth = useMemo(() => createProfileCalendarMonthKey(), []);
+  const calendarMonthLabel =
+    home?.currentMonthLabel ??
+    formatProfileCalendarMonthLabel(visibleCalendarMonth);
+  const canGoNextCalendarMonth = visibleCalendarMonth < currentCalendarMonth;
   const homeViewModel = useMemo(
     () => buildPatientHomeViewModel({ home, profile }),
     [home, profile],
@@ -316,14 +361,6 @@ export function PatientProfileScreen() {
         recordDay: selectedRecordDay,
       }),
     [selectedRecordDay, today],
-  );
-  const encyclopediaEntry = useMemo(
-    () =>
-      buildProfileEncyclopediaEntry({
-        pregnancyWeekLabel:
-          home?.pregnancyWeekLabel ?? profile?.pregnancyWeekLabel ?? null,
-      }),
-    [home?.pregnancyWeekLabel, profile?.pregnancyWeekLabel],
   );
   const contentInsets = buildPatientTabContentInsets({
     bottomInset: insets.bottom,
@@ -366,19 +403,16 @@ export function PatientProfileScreen() {
             onPressSettings={() => router.push("/profile-settings")}
           />
 
-          <PatientProfileEncyclopediaCard
-            entry={encyclopediaEntry}
-            onOpenCurrentWeek={() => openWeeklyEncyclopedia("current")}
-            onBrowseWeeks={() => openWeeklyEncyclopedia("browse")}
-          />
-
           <PatientProfileCalendarCard
             columnWidth={calendarModel.columnWidth}
-            currentMonthLabel={home?.currentMonthLabel}
+            currentMonthLabel={calendarMonthLabel}
             gridDays={calendarModel.gridDays}
             activeDays={calendarModel.activeDays}
             isoDateByDay={calendarModel.isoDateByDay}
             onSelectDay={openCalendarDay}
+            onPreviousMonth={() => moveCalendarMonth(-1)}
+            onNextMonth={() => moveCalendarMonth(1)}
+            canGoNextMonth={canGoNextCalendarMonth}
           />
 
           <PatientExternalSurveyCard

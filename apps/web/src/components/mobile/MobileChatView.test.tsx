@@ -87,7 +87,10 @@ describe("MobileChatView", () => {
     expect(createSessionId).toHaveBeenCalled();
   });
 
-  test("sends a quick reply button as a user chat message immediately", async () => {
+  test("fills the composer with a quick reply and sends its question id only after submit", async () => {
+    const questionId = "550e8400-e29b-41d4-a716-446655440025";
+    const visibleQuestion = "아기에게 오늘 들려주고 싶은 말은 무엇인가요?";
+    const staleMessage = "다른 방향으로 물어봐주세요.";
     (sendChatMessage as jest.Mock).mockResolvedValueOnce({
       assistantMessage: {
         id: "assistant-1",
@@ -100,9 +103,9 @@ describe("MobileChatView", () => {
             title: "빠르게 답해보세요",
             choices: [
               {
-                id: "choice-1",
-                label: "괜찮아요",
-                message: "괜찮아요",
+                id: questionId,
+                label: visibleQuestion,
+                message: staleMessage,
               },
             ],
           },
@@ -120,9 +123,9 @@ describe("MobileChatView", () => {
               title: "빠르게 답해보세요",
               choices: [
                 {
-                  id: "choice-1",
-                  label: "괜찮아요",
-                  message: "괜찮아요",
+                  id: questionId,
+                  label: visibleQuestion,
+                  message: staleMessage,
                 },
               ],
             },
@@ -140,7 +143,9 @@ describe("MobileChatView", () => {
     fireEvent.click(screen.getByRole("button", { name: "메시지 보내기" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "괜찮아요" })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("button", { name: visibleQuestion }),
+      ).toBeInTheDocument(),
     );
 
     (sendChatMessage as jest.Mock).mockResolvedValueOnce({
@@ -161,13 +166,21 @@ describe("MobileChatView", () => {
       sessionId: "session-new-1",
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "괜찮아요" }));
+    fireEvent.click(screen.getByRole("button", { name: visibleQuestion }));
+
+    expect(screen.getByPlaceholderText("증상이나 검사 결과를 입력하세요.")).toHaveValue(
+      visibleQuestion,
+    );
+    expect(sendChatMessage).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "메시지 보내기" }));
 
     await waitFor(() =>
       expect(sendChatMessage).toHaveBeenLastCalledWith({
         userId: "user-1",
         sessionId: "session-new-1",
-        text: "괜찮아요",
+        text: visibleQuestion,
+        selectedQuestionId: questionId,
         imageDataUris: [],
       }),
     );

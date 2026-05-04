@@ -5,6 +5,7 @@ import {
   resolveConversationDeepLinkAction,
   resolvePregnancyWeekFromDeepLink,
 } from "./PatientConversationDeepLink.model.ts";
+import { shouldKeepQuickReplyInComposer } from "./PatientConversationQuickReply.model.ts";
 
 test("initial conversation message starts the workflow with emotion choices", () => {
   const message = createInitialConversationMessage();
@@ -24,6 +25,12 @@ test("initial conversation message starts the workflow with emotion choices", ()
       ? quickReplies.choices.map((choice) => choice.label)
       : [],
     ["좋아요", "우울해요", "슬퍼요", "화나요", "직접 입력"],
+  );
+  assert.deepEqual(
+    quickReplies?.type === "quickReplies"
+      ? quickReplies.choices.map((choice) => choice.moodTone ?? null)
+      : [],
+    ["joyful", "sad", "sad", "anxious", null],
   );
 });
 
@@ -70,4 +77,22 @@ test("non-week deep links keep the existing sheet behavior", () => {
       entityId: "550e8400-e29b-41d4-a716-446655440025",
     },
   );
+});
+
+test("quick replies send immediately except direct input", () => {
+  assert.equal(
+    shouldKeepQuickReplyInComposer({ choiceId: "initial-workflow-direct" }),
+    true,
+  );
+  assert.equal(
+    shouldKeepQuickReplyInComposer({ choiceId: "initial-workflow-good" }),
+    false,
+  );
+  assert.equal(
+    shouldKeepQuickReplyInComposer({
+      choiceId: "550e8400-e29b-41d4-a716-446655440025",
+    }),
+    false,
+  );
+  assert.equal(shouldKeepQuickReplyInComposer({ choiceId: undefined }), false);
 });

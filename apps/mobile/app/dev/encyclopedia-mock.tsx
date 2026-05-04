@@ -83,7 +83,7 @@ export default function EncyclopediaMockRoute() {
         </Card>
 
         <Card>
-          <Text style={styles.eyebrow}>주차별 사전</Text>
+          <Text style={styles.eyebrow}>주차별 임신백과</Text>
           <View style={styles.contentBlock}>
             <Text style={styles.sectionTitle}>태아 발달</Text>
             <Text style={styles.bodyText}>
@@ -133,7 +133,7 @@ export default function EncyclopediaMockRoute() {
 
         <Card>
           <Text style={styles.sectionTitle}>주차 선택</Text>
-          <Text style={styles.bodyText}>다른 주차도 사전처럼 확인할 수 있어요.</Text>
+          <Text style={styles.bodyText}>다른 주차도 임신백과처럼 확인할 수 있어요.</Text>
           <View style={styles.weekGrid}>
             {[17, 18, 19, 20, 21, 22, 23, 24].map((week) => (
               <Pressable

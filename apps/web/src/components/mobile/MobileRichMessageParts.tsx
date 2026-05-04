@@ -6,7 +6,7 @@ import Link from "next/link";
 function renderPart(
   part: ChatMessage["parts"][number],
   userId: string | null,
-  onQuickReply?: (message: string) => void,
+  onQuickReply?: (message: string, choiceId?: string, label?: string) => void,
 ) {
   if (part.type === "text") {
     return (
@@ -75,7 +75,9 @@ function renderPart(
             <button
               key={choice.id}
               type="button"
-              onClick={() => onQuickReply?.(choice.message)}
+              onClick={() =>
+                onQuickReply?.(choice.message, choice.id, choice.label)
+              }
               className="max-w-full whitespace-normal break-keep rounded-full border border-[var(--line)] bg-[var(--panel-strong)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
             >
               {choice.label}
@@ -142,7 +144,7 @@ export function MobileRichMessageParts({
 }: {
   message: ChatMessage;
   userId: string | null;
-  onQuickReply?: (message: string) => void;
+  onQuickReply?: (message: string, choiceId?: string, label?: string) => void;
 }) {
   return (
     <div className="grid gap-3">

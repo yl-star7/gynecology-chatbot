@@ -93,7 +93,7 @@ export function LoginScreen() {
 
     try {
       const user = await signIn({ phoneNumber, verificationCode });
-      router.replace(resolvePostLoginHref(user.hasCompletedOnboarding));
+      router.replace(resolvePostLoginHref(user));
     } catch (nextError) {
       setError(
         nextError instanceof Error ? nextError.message : "로그인에 실패했어요.",
@@ -162,9 +162,7 @@ export function LoginScreen() {
                     phoneNumber: "01012345678",
                     verificationCode: "000000",
                   });
-                  router.replace(
-                    resolvePostLoginHref(user.hasCompletedOnboarding),
-                  );
+                  router.replace(resolvePostLoginHref(user));
                 } catch (nextError) {
                   setStatusMessage(null);
                   setError(

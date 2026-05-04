@@ -12,6 +12,7 @@ import {
   type WorkflowAssistantPayload,
   type WorkflowScenario,
 } from "../workflow-payload";
+import { resolveMoodVariantSuffix } from "../../mood-variants";
 
 function normalizeLetterFollowUpFlow(input: {
   assistantMessage: ChatMessage;
@@ -53,12 +54,15 @@ function normalizeLetterFollowUpFlow(input: {
     (part) => part.type === "text",
   );
   if (textPart?.type === "text") {
-    if (isLetterFlow && !/[?？]$/.test(textPart.text.trim())) {
+    const hasTerminalQuestion = /[?？](?:["”']?\*\*)?\s*$/.test(
+      textPart.text.trim(),
+    );
+    if (isLetterFlow && !hasTerminalQuestion) {
       textPart.text = `${textPart.text.trim()}\n\n지금 편지를 쓰면서 가장 크게 남은 마음은 무엇이었나요?`;
     }
     if (
       isDailyFollowup &&
-      !/(태동|몸|하루).*[?？]$/.test(textPart.text.trim())
+      !/(태동|몸|하루).*[?？](?:["”']?\*\*)?\s*$/.test(textPart.text.trim())
     ) {
       textPart.text = `${textPart.text.trim()}\n\n오늘은 태동이나 몸 상태가 평소와 비교해 어땠나요?`;
     }
@@ -137,13 +141,13 @@ function normalizeStageContractFlow(input: {
           choices: [
             {
               id: "weekly-info-question-yes",
-              label: "오늘의 질문",
-              message: "오늘 함께 질문에 답해볼까요?",
+              label: "질문 보기",
+              message: "오늘 질문을 하나 골라볼게요.",
             },
             {
               id: "weekly-info-question-later",
-              label: "이따가요",
-              message: "이따가 함께 질문에 답해봐요.",
+              label: "나중에요",
+              message: "나중에 볼게요.",
             },
           ],
         },
@@ -176,6 +180,27 @@ function normalizeStageContractFlow(input: {
   }
 
   if (scenario === "attachment_question") {
+    const promptQuestions = input.promptContext?.questions ?? [];
+    const normalizeQuestionText = (value: string) =>
+      value.replace(/\s+/g, " ").trim();
+    const findPromptQuestion = (
+      choice: { label: string; message: string },
+      index: number,
+    ) => {
+      const selectedId =
+        input.workflowMemoryPayload?.selectedQuestionIds?.[index] ?? null;
+      const bySelectedId = selectedId
+        ? promptQuestions.find((question) => question.id === selectedId)
+        : null;
+      if (bySelectedId) return bySelectedId;
+
+      const labelText = normalizeQuestionText(choice.label);
+      const messageText = normalizeQuestionText(choice.message);
+      return promptQuestions.find((question) => {
+        const questionText = normalizeQuestionText(question.question_text);
+        return questionText === labelText || questionText === messageText;
+      });
+    };
     const questionCount =
       input.assistantMessage.parts
         .flatMap((part) => (part.type === "text" ? [part.text] : []))
@@ -194,31 +219,59 @@ function normalizeStageContractFlow(input: {
       );
 
     if (shouldNormalize) {
-      const questions = [
-        "오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?",
-        "요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?",
-      ];
+      const selectedPromptQuestions =
+        input.workflowMemoryPayload?.selectedQuestionIds
+          ?.map((id) => promptQuestions.find((question) => question.id === id))
+          .filter((question): question is (typeof promptQuestions)[number] =>
+            Boolean(question),
+          ) ?? [];
+      const normalizedPromptQuestions =
+        selectedPromptQuestions.length > 0
+          ? selectedPromptQuestions
+          : promptQuestions.slice(0, 2);
+      const questions =
+        normalizedPromptQuestions.length > 0
+          ? normalizedPromptQuestions.map((question) => ({
+              id: question.id,
+              label: question.question_text,
+              message: question.question_text,
+            }))
+          : [
+              {
+                id: "attachment-question-1",
+                label: "오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?",
+                message:
+                  "오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?",
+              },
+              {
+                id: "attachment-question-2",
+                label: "요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?",
+                message: "요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?",
+              },
+            ];
       input.assistantMessage.parts = [
         {
           type: "text",
           id: `workflow-attachment-question-${Date.now()}`,
-          text: [
-            "오늘 해본 만큼으로도 충분해요. 이제 아기와 마음을 이어볼 질문을 골라보세요.",
-            "",
-            `- ${questions[0]}`,
-            `- ${questions[1]}`,
-          ].join("\n"),
+          text: "아래 질문 중 하나를 골라 이어가요.",
         },
         {
           type: "quickReplies",
           id: `workflow-attachment-question-quick-${Date.now()}`,
-          choices: questions.map((question, index) => ({
-            id: `attachment-question-${index + 1}`,
-            label: question,
-            message: question,
-          })),
+          choices: questions,
         },
       ];
+    } else if (quickReplies?.type === "quickReplies") {
+      quickReplies.choices = quickReplies.choices.map((choice, index) => {
+        const promptQuestion = findPromptQuestion(choice, index);
+        if (!promptQuestion) return choice;
+        return {
+          ...choice,
+          id: promptQuestion.id,
+          label: promptQuestion.question_text,
+          message: promptQuestion.question_text,
+        };
+      });
     }
     input.workflowMemoryPayload!.scenario = "attachment_question";
     input.workflowMemoryPayload!.nextSessionMemory = {
@@ -330,6 +383,23 @@ function buildRequiredToneContext(input: {
   ].filter((value): value is string => Boolean(value));
 
   return lines.length > 0 ? lines.join("\n") : null;
+}
+
+function formatCompressedLogForWorkflow(promptContext: PromptContext | null) {
+  return (promptContext?.recentMessages ?? [])
+    .slice(-8)
+    .map((message) => {
+      const role =
+        message.role === "assistant"
+          ? "Assistant"
+          : message.role === "user"
+            ? "User"
+            : "System";
+      const text = message.text.replace(/\s+/g, " ").trim();
+      return text ? `${role}: ${text.slice(0, 500)}` : null;
+    })
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
 }
 
 const INFO_INTENT_PATTERN =
@@ -454,8 +524,28 @@ function buildLocalFallbackResponse(input: {
   workflowMemoryPayload: WorkflowAssistantPayload;
 } {
   const userText = input.text.trim();
-  const lastScenario = input.promptContext?.sessionMemory?.lastScenario ?? null;
-  const workflowStage = input.promptContext?.sessionMemory?.stage ?? null;
+  const sessionMemory = input.promptContext?.sessionMemory ?? null;
+  const lastScenario = sessionMemory?.lastScenario ?? null;
+  const workflowStage = sessionMemory?.stage ?? null;
+  const currentAttachmentQuestionId =
+    typeof (
+      sessionMemory as
+        | (Record<string, unknown> & {
+            currentAttachmentQuestionId?: unknown;
+          })
+        | null
+    )?.currentAttachmentQuestionId === "string"
+      ? (sessionMemory as Record<string, string>).currentAttachmentQuestionId
+      : null;
+  const answeredQuestionIds = Array.isArray(
+    (sessionMemory as Record<string, unknown> | null)?.answeredQuestionIds,
+  )
+    ? ((sessionMemory as Record<string, unknown>).answeredQuestionIds as string[])
+    : [];
+  const isQuestionAnswerTurn =
+    (workflowStage === 2 || String(workflowStage ?? "") === "2") &&
+    Boolean(currentAttachmentQuestionId) &&
+    Boolean(userText);
   const wantsInfo =
     /알려|볼래|궁금|확인|주차|아기|태아|엄마|산모/.test(userText) ||
     (/네|응|좋아/.test(userText) && lastScenario === "baby_info_offer");
@@ -468,6 +558,41 @@ function buildLocalFallbackResponse(input: {
     !wantsInfo &&
     !wantsQuestion &&
     userText.length > 0;
+
+  if (isQuestionAnswerTurn) {
+    return {
+      assistantMessage: {
+        id: `assistant-local-${Date.now()}`,
+        role: "assistant" as const,
+        createdAtLabel: "방금 전",
+        parts: [
+          makeTextPart(
+            [
+              "그 마음을 아기에게 아주 다정하게 전해주셨어요.",
+              "",
+              "조금 무섭다는 마음과 고맙고 사랑한다는 마음이 함께 있다는 것도 자연스러운 일이에요. 아기는 엄마가 이렇게 솔직하게 건네는 마음을 천천히 느끼고 있을 거예요.",
+              "",
+              "지금 이 말을 쓰고 나서 가장 크게 남은 마음은 무엇인가요?",
+            ].join("\n"),
+          ),
+        ],
+      },
+      workflowMemoryPayload: {
+        scenario: "letter_reflection" as const,
+        nextSessionMemory: {
+          ...(sessionMemory ?? {}),
+          workflowVersion: 2,
+          stage: 2,
+          stageName: "choice_conversation",
+          compactSummary: "현재 단계: 편지 후속 질문",
+          lastScenario: "letter_reflection",
+          lastCharacterTone: "calm",
+          currentAttachmentQuestionId,
+          answeredQuestionIds,
+        } as Record<string, unknown>,
+      },
+    };
+  }
 
   if (wantsInfo) {
     return {
@@ -485,13 +610,13 @@ function buildLocalFallbackResponse(input: {
           makeQuickReplies([
             {
               id: "local-question",
-              label: "오늘의 질문",
-              message: "오늘 함께 질문에 답해볼까요?",
+              label: "질문 보기",
+              message: "오늘 질문을 하나 골라볼게요.",
             },
             {
               id: "local-later",
-              label: "이따가요",
-              message: "이따가 함께 질문에 답해봐요.",
+              label: "나중에요",
+              message: "나중에 볼게요.",
             },
           ]),
         ],
@@ -569,7 +694,7 @@ function buildLocalFallbackResponse(input: {
         `${userText}고 말해줘서 고마워요.\n\n지금 주차의 엄마와 아기 이야기를 가볍게 볼까요?`,
       ]
     : [
-        "그 마음 기억해둘게요.\n\n오늘 주차의 산모와 태아 정보를 함께 볼까요?",
+        "좋은 마음이 느껴져서 저도 반가워요.\n\n오늘 주차의 산모와 태아 정보를 함께 볼까요?",
         "말해줘서 고마워요.\n\n이번 주 아기와 엄마 변화를 짧게 확인해볼까요?",
         "좋아요, 지금 마음을 기억해둘게요.\n\n오늘 주차 정보를 먼저 보고 이어가볼까요?",
       ];
@@ -585,9 +710,7 @@ function buildLocalFallbackResponse(input: {
       id: `assistant-local-${Date.now()}`,
       role: "assistant" as const,
       createdAtLabel: "방금 전",
-      parts: [
-        makeTextPart(infoOfferText),
-      ],
+      parts: [makeTextPart(infoOfferText)],
     },
     workflowMemoryPayload: {
       scenario: "baby_info_offer" as const,
@@ -625,6 +748,7 @@ export function createMobileChatResponder<
       compactSummary: string | null;
       currentStage: string | null;
       currentTurnStage: string | null;
+      compressedLog: string | null;
       stageContext: string | null;
       lastScenario: string | null;
       lastCharacterTone: string | null;
@@ -695,6 +819,7 @@ export function createMobileChatResponder<
       promptContext: input.promptContext,
       alreadyPromptedIds: input.alreadyPromptedIds ?? null,
     });
+    const compressedLog = formatCompressedLogForWorkflow(input.promptContext);
     const memoryContext = {
       compactSummary:
         input.promptContext?.sessionMemory?.compactSummary ?? null,
@@ -734,11 +859,19 @@ export function createMobileChatResponder<
       lastEmotionTone: memoryContext.lastEmotionTone,
       tonePreference: memoryContext.tonePreference,
     });
+    const moodVariantSuffix = await resolveMoodVariantSuffix({
+      scenario: memoryContext.lastScenario,
+      mood:
+        memoryContext.lastEmotionTone ??
+        memoryContext.lastCharacterTone ??
+        null,
+    });
     const requiredToneContext = [
       baseToneContext,
       memoryContext.sessionMoodLabel
         ? `세션 기분: ${memoryContext.sessionMoodLabel}`
         : null,
+      moodVariantSuffix ? `감정 맞춤 안내: ${moodVariantSuffix}` : null,
     ]
       .filter(Boolean)
       .join("\n");
@@ -768,33 +901,9 @@ export function createMobileChatResponder<
       .join("\n");
 
     const schift = deps.getSchiftClient();
-    if (deps.preferLocalFallback) {
-      console.info("mobile chat response: local fast path");
-      return buildLocalFallbackResponse({
-        currentWeek: input.currentWeek,
-        promptContext: input.promptContext,
-        text: input.text,
-      });
-    }
-
-    const shouldUseLocalFallback =
-      input.promptContext?.sessionMemory?.stage === 0 &&
-      input.promptContext?.sessionMemory?.lastScenario !== "baby_info_offer" &&
-      !/알려|볼래|궁금|확인|주차|아기|태아|엄마|산모|질문|이어/.test(
-        input.text.trim(),
-      );
-
     return resolveAssistantResponse({
       hardGuardrailReason: input.hardGuardrailReason,
       workflowEnabled: Boolean(schift),
-      fallbackResponse: shouldUseLocalFallback
-        ? async () =>
-            buildLocalFallbackResponse({
-              currentWeek: input.currentWeek,
-              promptContext: input.promptContext,
-              text: input.text,
-            })
-        : undefined,
       runWorkflow: async () => {
         if (!schift) {
           throw new Error("Schift client is unavailable");
@@ -848,6 +957,7 @@ export function createMobileChatResponder<
             compactSummary: memoryContext.compactSummary,
             currentStage,
             currentTurnStage,
+            compressedLog: compressedLog || null,
             stageContext: stageContext || null,
             lastScenario: memoryContext.lastScenario,
             lastCharacterTone: memoryContext.lastCharacterTone,
@@ -935,20 +1045,6 @@ export function createMobileChatResponder<
           workflowText === "답변: workflow 출력이 없어요.";
 
         if (isEmptyWorkflowOutput || !structuredWorkflowMessage) {
-          const shouldRecoverStageZeroMood =
-            input.promptContext?.sessionMemory?.stage === 0 &&
-            input.promptContext?.sessionMemory?.lastScenario !==
-              "baby_info_offer" &&
-            !/알려|볼래|궁금|확인|주차|아기|태아|엄마|산모|질문|이어/.test(
-              input.text.trim(),
-            );
-          if (shouldRecoverStageZeroMood) {
-            return buildLocalFallbackResponse({
-              currentWeek: input.currentWeek,
-              promptContext: input.promptContext,
-              text: input.text,
-            });
-          }
           throw new Error(
             isEmptyWorkflowOutput
               ? "Schift workflow returned empty output"

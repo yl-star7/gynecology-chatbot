@@ -1,4 +1,5 @@
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
+import { normalizeChatMarkdownLines } from "../../chat/ChatPartRenderer.model";
 
 export type ConversationMessageListState =
   | "messages"
@@ -53,9 +54,11 @@ export function isRenderableConversationPart({
 }) {
   if (part.type === "text") {
     const visibleText = part.text
-      .replace(/[\s\u200B-\u200D\uFEFF.·…⋯"'“”‘’,，]+/g, "")
+      .replace(/[\s\u200B-\u200D\uFEFF.·…⋯"'“”‘’,，\-*•·?!]+/g, "")
       .trim();
-    return visibleText.length > 0;
+    if (visibleText.length === 0) return false;
+    const normalized = normalizeChatMarkdownLines(part.text);
+    return normalized.some((line) => line.trim().length > 0);
   }
 
   if (part.type === "image") {
@@ -69,15 +72,29 @@ export function isRenderableConversationPart({
     );
   }
 
-  const isQuickReplies = part.type === "quickReplies";
-  const isSurvey = part.type === "survey";
-  if (isSurvey && assistantMessageIdsWithLaterUserMessage.has(messageId)) {
-    return false;
+  if (part.type === "survey") {
+    if (assistantMessageIdsWithLaterUserMessage.has(messageId)) {
+      return false;
+    }
+    const hasContent =
+      part.title.trim().length > 0 ||
+      part.body.trim().length > 0 ||
+      part.choices.length > 0;
+    return hasContent;
   }
-  if (isQuickReplies && messageId !== latestQuickRepliesMessageId) {
-    return false;
+
+  if (part.type === "carousel") {
+    return part.cards.length > 0;
   }
-  return true;
+
+  if (part.type === "quickReplies") {
+    if (messageId !== latestQuickRepliesMessageId) {
+      return false;
+    }
+    return part.choices.length > 0;
+  }
+
+  return false;
 }
 
 export function resolveRenderableConversationMessages({

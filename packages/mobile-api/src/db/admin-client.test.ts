@@ -1,9 +1,9 @@
 jest.mock("../local-postgres", () => ({
-  localSupabaseDelete: jest.fn(),
-  localSupabaseInsert: jest.fn(),
-  localSupabaseRpc: jest.fn(),
-  localSupabaseSelect: jest.fn(),
-  localSupabaseUpdate: jest.fn(),
+  localDbDelete: jest.fn(),
+  localDbInsert: jest.fn(),
+  localDbRpc: jest.fn(),
+  localDbSelect: jest.fn(),
+  localDbUpdate: jest.fn(),
 }));
 
 jest.mock("../server-data-provider", () => ({
@@ -11,15 +11,15 @@ jest.mock("../server-data-provider", () => ({
 }));
 
 import {
-  localSupabaseInsert,
-  localSupabaseSelect,
-  localSupabaseUpdate,
+  localDbInsert,
+  localDbSelect,
+  localDbUpdate,
 } from "../local-postgres";
 import { dbInsert, dbSelect, dbUpdate } from "./admin-client";
 
-const mockedLocalSelect = jest.mocked(localSupabaseSelect);
-const mockedLocalInsert = jest.mocked(localSupabaseInsert);
-const mockedLocalUpdate = jest.mocked(localSupabaseUpdate);
+const mockedLocalSelect = jest.mocked(localDbSelect);
+const mockedLocalInsert = jest.mocked(localDbInsert);
+const mockedLocalUpdate = jest.mocked(localDbUpdate);
 
 describe("db admin client helpers", () => {
   beforeEach(() => {

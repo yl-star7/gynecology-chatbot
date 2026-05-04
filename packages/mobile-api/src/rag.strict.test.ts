@@ -51,6 +51,11 @@ describe("retrievePregnancyContext strict configuration", () => {
         currentWeek: 10,
       }),
     ).resolves.toEqual([]);
+    expect(mockSearch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bucket: "pregnancy-knowledge",
+      }),
+    );
   });
 
   it("supports Schift object search responses", async () => {
@@ -117,5 +122,24 @@ describe("retrievePregnancyContext strict configuration", () => {
         }),
       ],
     });
+  });
+
+  it("surfaces Schift retrieval failures instead of returning empty context", async () => {
+    mockSearch.mockRejectedValue(new Error("Bucket search failed"));
+
+    await expect(
+      retrievePregnancyContext({
+        query: "입덧이 심해요",
+        currentWeek: 10,
+      }),
+    ).rejects.toThrow("Bucket search failed");
+  });
+
+  it("surfaces file RAG failures instead of falling back to empty context", async () => {
+    mockSearch.mockRejectedValue(new Error("Bucket search failed"));
+
+    await expect(searchFileRag({ query: "오심과 구토" })).rejects.toThrow(
+      "Bucket search failed",
+    );
   });
 });

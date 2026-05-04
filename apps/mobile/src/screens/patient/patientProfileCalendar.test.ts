@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { CalendarDay } from "@gynecology-chatbot/app-core";
-import { buildProfileCalendarModel } from "./patientProfileCalendar.ts";
+import {
+  addProfileCalendarMonths,
+  buildProfileCalendarModel,
+  formatProfileCalendarMonthLabel,
+  resolveProfileCalendarMonthKey,
+} from "./patientProfileCalendar.ts";
 
 const ACTIVE_ACTIVITY_DAYS = [18, 19] as const;
 const APRIL_DAY_COUNT = 30;
@@ -66,4 +71,33 @@ test("buildProfileCalendarModel builds full month dates even when activity data 
   assert.equal(visibleDays.length, 31);
   assert.equal(model.isoDateByDay.get(1), "2026-05-01");
   assert.equal(model.isoDateByDay.get(31), "2026-05-31");
+});
+
+test("resolveProfileCalendarMonthKey returns the API month before falling back to today", () => {
+  const calendarDays: CalendarDay[] = [
+    {
+      isoDate: "2026-04-01",
+      dayLabel: "1",
+      hasChat: false,
+      emotionTone: null,
+    },
+  ];
+
+  assert.equal(
+    resolveProfileCalendarMonthKey(calendarDays, new Date(2026, 4, 1)),
+    "2026-04",
+  );
+  assert.equal(
+    resolveProfileCalendarMonthKey([], new Date(2026, 4, 1)),
+    "2026-05",
+  );
+});
+
+test("addProfileCalendarMonths moves across year boundaries", () => {
+  assert.equal(addProfileCalendarMonths("2026-01", -1), "2025-12");
+  assert.equal(addProfileCalendarMonths("2026-12", 1), "2027-01");
+});
+
+test("formatProfileCalendarMonthLabel renders a Korean month label", () => {
+  assert.equal(formatProfileCalendarMonthLabel("2026-04"), "2026년 4월");
 });

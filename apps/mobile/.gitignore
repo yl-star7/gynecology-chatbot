@@ -19,7 +19,6 @@ android/
 *.apk
 *.aab
 *.ipa
-.vercel
 builds/
 dist/
 test-results/

@@ -32,6 +32,45 @@ function parseCalendarMonth(calendarDays: CalendarDay[] | null | undefined) {
   };
 }
 
+export function createProfileCalendarMonthKey(date = new Date()) {
+  const { year, month } = parseIsoDateKey(createKoreanDateKey(date));
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+export function resolveProfileCalendarMonthKey(
+  calendarDays: CalendarDay[] | null | undefined,
+  fallbackDate = new Date(),
+) {
+  const resolvedMonth = parseCalendarMonth(calendarDays);
+  if (resolvedMonth) {
+    return `${resolvedMonth.year}-${String(resolvedMonth.monthIndex + 1).padStart(
+      2,
+      "0",
+    )}`;
+  }
+
+  return createProfileCalendarMonthKey(fallbackDate);
+}
+
+export function addProfileCalendarMonths(monthKey: string, offset: number) {
+  const match = monthKey.match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return createProfileCalendarMonthKey();
+  }
+
+  const date = new Date(Number(match[1]), Number(match[2]) - 1 + offset, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function formatProfileCalendarMonthLabel(monthKey: string) {
+  const match = monthKey.match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return "";
+  }
+
+  return `${Number(match[1])}년 ${Number(match[2])}월`;
+}
+
 export function buildMonthGrid(date: Date) {
   const { year, month } = parseIsoDateKey(createKoreanDateKey(date));
   const monthIndex = month - 1;

@@ -104,7 +104,7 @@ describe("route response helpers", () => {
       (part) => part.type === "quickReplies",
     );
 
-    expect(text).toBe("오늘 해본 만큼으로도 충분해요.");
+    expect(text).toBe("아래 질문 중 하나를 골라 이어가요.");
     expect(quickReplies).toEqual(
       expect.objectContaining({
         choices: [
@@ -116,6 +116,72 @@ describe("route response helpers", () => {
           }),
         ],
       }),
+    );
+  });
+
+  it("normalizes weekly knowledge deep link titles to encyclopedia copy", async () => {
+    const message = await buildWorkflowAssistantMessage({
+      run: {
+        outputs: {
+          answer: JSON.stringify({
+            answer: "27주차 아기 소식을 짧게 볼게요.",
+            characterTone: "calm",
+            scenario: "baby_info",
+            deepLinks: [
+              {
+                title: "27주차 사전",
+                description: "더 자세히 볼 수 있어요.",
+                target: "knowledge",
+              },
+            ],
+          }),
+        },
+      },
+      currentWeek: 27,
+      loadCharacterImages: async () => ({}),
+      extractOutputs: (run) => run.outputs as Record<string, unknown>,
+    });
+
+    expect(message?.parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "deepLink",
+          title: "27주차 임신백과 →",
+        }),
+      ]),
+    );
+  });
+
+  it("fills generic knowledge deep link titles with the active week", async () => {
+    const message = await buildWorkflowAssistantMessage({
+      run: {
+        outputs: {
+          answer: JSON.stringify({
+            answer: "이번 주 정보를 짧게 볼게요.",
+            characterTone: "calm",
+            scenario: "baby_info",
+            deepLinks: [
+              {
+                title: "임신백과",
+                description: "자세히 보기",
+                target: "knowledge",
+              },
+            ],
+          }),
+        },
+      },
+      currentWeek: 32,
+      loadCharacterImages: async () => ({}),
+      extractOutputs: (run) => run.outputs as Record<string, unknown>,
+    });
+
+    expect(message?.parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "deepLink",
+          title: "32주차 임신백과 →",
+        }),
+      ]),
     );
   });
 
@@ -141,11 +207,16 @@ describe("route response helpers", () => {
     expect(quickReplies).toEqual(
       expect.objectContaining({
         choices: [
-          expect.objectContaining({ label: "오늘의 질문" }),
-          expect.objectContaining({ label: "이따가요" }),
+          expect.objectContaining({
+            label: "질문 보기",
+            message: "오늘 질문을 하나 골라볼게요.",
+          }),
+          expect.objectContaining({
+            label: "나중에요",
+            message: "나중에 볼게요.",
+          }),
         ],
       }),
     );
   });
-
 });

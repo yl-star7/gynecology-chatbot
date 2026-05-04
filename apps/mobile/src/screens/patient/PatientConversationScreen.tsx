@@ -8,8 +8,9 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientConversationMessageList } from "../../components/patient/chat/PatientConversationMessageList";
 import { PatientConversationComposer } from "../../components/patient/chat/PatientConversationComposer";
@@ -27,6 +28,10 @@ import {
 import { useMobileTheme } from "../../theme-provider";
 import { usePatientConversationScreenModel } from "./PatientConversationScreen.model";
 import { resolvePatientSurveySaveError } from "./patientErrorCopy.model";
+import {
+  resolveAndroidKeyboardBottomOffset,
+  resolveConversationKeyboardAvoidingBehavior,
+} from "./patientScreenLayout.model";
 
 export function PatientConversationScreen({
   sessionId,
@@ -34,8 +39,10 @@ export function PatientConversationScreen({
   sessionId: string;
 }) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const { surface: activeSurface } = useMobileTheme();
   const model = usePatientConversationScreenModel({ sessionId });
+  const baselineWindowHeightRef = useRef(windowHeight);
   const [isDebugSheetVisible, setIsDebugSheetVisible] = useState(false);
   const [debugCopyStatus, setDebugCopyStatus] = useState<
     "idle" | "copied" | "failed"
@@ -57,6 +64,18 @@ export function PatientConversationScreen({
 
     setDebugCopyStatus("failed");
   }
+
+  if (!model.isKeyboardVisible) {
+    baselineWindowHeightRef.current = windowHeight;
+  }
+
+  const keyboardBottomOffset = resolveAndroidKeyboardBottomOffset({
+    platformOs: Platform.OS,
+    isKeyboardVisible: model.isKeyboardVisible,
+    keyboardHeight: model.keyboardHeight,
+    baselineWindowHeight: baselineWindowHeightRef.current,
+    currentWindowHeight: windowHeight,
+  });
 
   return (
     <PatientShell
@@ -86,33 +105,21 @@ export function PatientConversationScreen({
     >
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={resolveConversationKeyboardAvoidingBehavior(Platform.OS)}
         keyboardVerticalOffset={
-          Platform.OS === "ios"
-            ? insets.top + space.xxxl + space.lg
-            : insets.top + space.xxxl
+          Platform.OS === "ios" ? insets.top + space.xxxl + space.md : 0
         }
       >
         <View style={styles.screen}>
-          {__DEV__ ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="채팅 디버그 상태 열기"
-              style={styles.debugBadge}
-              onPress={() => setIsDebugSheetVisible(true)}
-            >
-              <Text style={styles.debugBadgeText}>
-                {model.debugSnapshot.inferredFlow}
-              </Text>
-            </Pressable>
-          ) : null}
           <PatientConversationMessageList
             scrollViewRef={model.handleScrollViewRef}
             messages={model.session.messages}
             isSending={model.isSending}
             isLoadingSessionDetail={model.isLoadingSessionDetail}
             sessionLoadErrorMessage={model.sessionLoadErrorMessage}
-            scrollBottomPadding={model.scrollBottomPadding}
+            scrollBottomPadding={
+              model.scrollBottomPadding + keyboardBottomOffset
+            }
             onQuickReplySelect={model.handleQuickReply}
             onRetrySessionLoad={model.handleRetrySessionLoad}
             onSurveyAnswer={model.handleSurveyAnswer}
@@ -125,15 +132,13 @@ export function PatientConversationScreen({
             onChangeText={model.setText}
             isSending={model.isSending}
             isReadOnly={model.isReadOnly}
-            imageDataUri={model.imageDataUri}
-            onImageSelected={model.setImageDataUri}
-            onRemoveImage={() => model.setImageDataUri(null)}
             errorMessage={model.errorMessage}
             onDismissError={() => model.setErrorMessage(null)}
             onSend={() => {
               void model.handleSend();
             }}
             onLayout={model.handleComposerLayout}
+            keyboardBottomOffset={keyboardBottomOffset}
             bottomPadding={
               model.isKeyboardVisible
                 ? Platform.OS === "android"

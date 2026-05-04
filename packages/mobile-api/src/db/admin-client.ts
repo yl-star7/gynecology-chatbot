@@ -1,9 +1,9 @@
 import {
-  localSupabaseDelete,
-  localSupabaseInsert,
-  localSupabaseRpc,
-  localSupabaseSelect,
-  localSupabaseUpdate,
+  localDbDelete,
+  localDbInsert,
+  localDbRpc,
+  localDbSelect,
+  localDbUpdate,
 } from "../local-postgres";
 import {
   hasDockerConfig,
@@ -206,7 +206,7 @@ export async function dbSelect<T>(
   options: DbRequestOptions = {},
 ) {
   assertSelectedProviderConfig();
-  return localSupabaseSelect<T>(applySchema(path, options.schema));
+  return localDbSelect<T>(applySchema(path, options.schema));
 }
 
 export async function dbInsert<T>(
@@ -215,7 +215,7 @@ export async function dbInsert<T>(
   options: DbInsertOptions = {},
 ) {
   assertSelectedProviderConfig();
-  return localSupabaseInsert<T>(applySchema(table, options.schema), payload);
+  return localDbInsert<T>(applySchema(table, options.schema), payload);
 }
 
 export async function dbUpdate<T>(
@@ -224,7 +224,7 @@ export async function dbUpdate<T>(
   options: DbRequestOptions = {},
 ) {
   assertSelectedProviderConfig();
-  return localSupabaseUpdate<T>(applySchema(path, options.schema), payload);
+  return localDbUpdate<T>(applySchema(path, options.schema), payload);
 }
 
 export async function dbDelete<T>(
@@ -232,10 +232,10 @@ export async function dbDelete<T>(
   options: DbRequestOptions = {},
 ) {
   assertSelectedProviderConfig();
-  return localSupabaseDelete<T>(applySchema(path, options.schema));
+  return localDbDelete<T>(applySchema(path, options.schema));
 }
 
 export async function dbRpc<T>(fn: string, payload: object) {
   assertSelectedProviderConfig();
-  return localSupabaseRpc<T>(fn, payload as Record<string, unknown>);
+  return localDbRpc<T>(fn, payload as Record<string, unknown>);
 }

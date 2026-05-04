@@ -152,6 +152,7 @@ export interface QuickReplyChoice {
   id: string;
   label: string;
   message: string;
+  moodTone?: EmotionTone;
 }
 
 export interface QuickRepliesPart {
@@ -208,9 +209,9 @@ export interface ChatSession {
 export interface ChatComposerInput {
   sessionId: string;
   text: string;
-  imageUris: string[];
   pregnancyWeek?: number;
   selectedQuestionId?: string;
+  selectedMoodTone?: EmotionTone;
   clientWorkflowStage?: number | string | null;
   clientWorkflowStageName?: string | null;
 }
@@ -253,10 +254,18 @@ export interface MobilePregnancyWeekSummary {
   } | null;
 }
 
+export type UserAccountStatus =
+  | "active"
+  | "paused"
+  | "deleted"
+  | "pending_recovery"
+  | "pending_approval";
+
 export interface AuthenticatedUser {
   id: string;
   phoneNumber: string;
   displayName: string;
+  accountStatus: UserAccountStatus;
   hasCompletedOnboarding: boolean;
 }
 
@@ -307,6 +316,7 @@ export interface AdminManagedUser {
   name: string;
   phoneNumber: string;
   status: "active" | "attention" | "paused";
+  accountStatus: UserAccountStatus;
   latestIssue: string;
 }
 
@@ -335,6 +345,8 @@ export interface AdminRagDocument {
   chunkCount: number;
   updatedAt: string;
   status: "ready" | "draft";
+  sourceFileId?: string | null;
+  sourceFilename?: string | null;
 }
 
 export interface AdminRagDocumentDetail extends AdminRagDocument {
@@ -386,6 +398,12 @@ export interface AdminWorkflowRule {
   modelName: string;
   status: "active" | "review";
   blocks?: AdminWorkflowBlock[];
+  source?: "sql" | "schift" | "gcs-yaml";
+  workflowKind?: "router" | "subworkflow" | "monolith" | "managed";
+  storagePath?: string | null;
+  gcsBucket?: string | null;
+  gcsObject?: string | null;
+  sqlSlug?: string | null;
 }
 
 export interface AdminWorkflowRuleInput {
@@ -445,7 +463,8 @@ export type UserActionType =
   | "profile_updated"
   | "chat_message_sent"
   | "account_paused"
-  | "account_resumed";
+  | "account_resumed"
+  | "account_approved";
 
 export interface AdminUserAction {
   id: string;

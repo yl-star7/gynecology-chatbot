@@ -18,19 +18,19 @@ import {
 } from "./chat-repository";
 import { dbInsert, dbSelect, dbUpdate } from "@/lib/db/admin-client";
 
-const mockedSupabaseSelect = dbSelect as jest.MockedFunction<typeof dbSelect>;
-const mockedSupabaseInsert = dbInsert as jest.MockedFunction<typeof dbInsert>;
-const mockedSupabaseUpdate = dbUpdate as jest.MockedFunction<typeof dbUpdate>;
+const mockedDbSelect = dbSelect as jest.MockedFunction<typeof dbSelect>;
+const mockedDbInsert = dbInsert as jest.MockedFunction<typeof dbInsert>;
+const mockedDbUpdate = dbUpdate as jest.MockedFunction<typeof dbUpdate>;
 
 describe("chat repository", () => {
   beforeEach(() => {
-    mockedSupabaseSelect.mockReset();
-    mockedSupabaseInsert.mockReset();
-    mockedSupabaseUpdate.mockReset();
+    mockedDbSelect.mockReset();
+    mockedDbInsert.mockReset();
+    mockedDbUpdate.mockReset();
   });
 
   it("loads prompt context with session/profile memory and missing fields", async () => {
-    mockedSupabaseSelect.mockImplementation((path: string) => {
+    mockedDbSelect.mockImplementation((path: string) => {
       if (path.startsWith("pregnancy_profiles?")) {
         return Promise.resolve([
           {
@@ -202,7 +202,7 @@ describe("chat repository", () => {
 
   it("uses day 1 content for week-only profiles stored with dayInWeek zero", async () => {
     const selectedPaths: string[] = [];
-    mockedSupabaseSelect.mockImplementation((path: string) => {
+    mockedDbSelect.mockImplementation((path: string) => {
       selectedPaths.push(path);
 
       if (path.startsWith("pregnancy_profiles?")) {
@@ -315,7 +315,7 @@ describe("chat repository", () => {
   });
 
   it("does not store persona hints in pregnancy profile memory", async () => {
-    mockedSupabaseUpdate.mockResolvedValue([] as never);
+    mockedDbUpdate.mockResolvedValue([] as never);
 
     await updateProfileMemory({
       userId: "user-1",
@@ -330,7 +330,7 @@ describe("chat repository", () => {
       timestamp: "2026-04-17T10:01:00.000Z",
     });
 
-    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+    expect(mockedDbUpdate).toHaveBeenCalledWith(
       "pregnancy_profiles?user_id=eq.user-1",
       expect.objectContaining({
         onboarding_payload: expect.objectContaining({
@@ -344,7 +344,7 @@ describe("chat repository", () => {
   });
 
   it("marks outstanding prompt events answered or completed", async () => {
-    mockedSupabaseSelect.mockImplementation((path: string) => {
+    mockedDbSelect.mockImplementation((path: string) => {
       if (path.startsWith("user_question_events?")) {
         return Promise.resolve([
           { id: "event-question-1", question_id: "question-1", status: "sent" },
@@ -362,7 +362,7 @@ describe("chat repository", () => {
 
       return Promise.resolve([]);
     });
-    mockedSupabaseUpdate.mockResolvedValue([] as never);
+    mockedDbUpdate.mockResolvedValue([] as never);
 
     await markOutstandingPromptEventsAnswered({
       userId: "user-1",
@@ -371,14 +371,14 @@ describe("chat repository", () => {
       userMessageText: "오늘 가장 걱정되는 점은 무엇인가요?",
     });
 
-    expect(mockedSupabaseSelect).not.toHaveBeenCalledWith(
+    expect(mockedDbSelect).not.toHaveBeenCalledWith(
       expect.stringContaining("user_checklist_events?"),
     );
-    expect(mockedSupabaseUpdate).not.toHaveBeenCalledWith(
+    expect(mockedDbUpdate).not.toHaveBeenCalledWith(
       expect.stringContaining("user_checklist_events"),
       expect.anything(),
     );
-    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+    expect(mockedDbUpdate).toHaveBeenCalledWith(
       "user_question_events?id=eq.event-question-1",
       expect.objectContaining({
         status: "opened",
@@ -388,7 +388,7 @@ describe("chat repository", () => {
   });
 
   it("answers the opened daily question with free text", async () => {
-    mockedSupabaseSelect.mockImplementation((path: string) => {
+    mockedDbSelect.mockImplementation((path: string) => {
       if (path.startsWith("user_checklist_events?")) {
         return Promise.resolve([]);
       }
@@ -418,8 +418,8 @@ describe("chat repository", () => {
 
       return Promise.resolve([]);
     });
-    mockedSupabaseUpdate.mockResolvedValue([] as never);
-    mockedSupabaseInsert.mockResolvedValue([] as never);
+    mockedDbUpdate.mockResolvedValue([] as never);
+    mockedDbInsert.mockResolvedValue([] as never);
 
     await markOutstandingPromptEventsAnswered({
       userId: "user-1",
@@ -428,7 +428,7 @@ describe("chat repository", () => {
       userMessageText: "성실함이요.",
     });
 
-    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+    expect(mockedDbUpdate).toHaveBeenCalledWith(
       "user_question_events?id=eq.event-question-1",
       expect.objectContaining({
         status: "answered",
@@ -439,7 +439,7 @@ describe("chat repository", () => {
   });
 
   it("matches a free text answer to the closest sent question", async () => {
-    mockedSupabaseSelect.mockImplementation((path: string) => {
+    mockedDbSelect.mockImplementation((path: string) => {
       if (path.startsWith("user_checklist_events?")) {
         return Promise.resolve([]);
       }
@@ -479,8 +479,8 @@ describe("chat repository", () => {
 
       return Promise.resolve([]);
     });
-    mockedSupabaseUpdate.mockResolvedValue([] as never);
-    mockedSupabaseInsert.mockResolvedValue([] as never);
+    mockedDbUpdate.mockResolvedValue([] as never);
+    mockedDbInsert.mockResolvedValue([] as never);
 
     await markOutstandingPromptEventsAnswered({
       userId: "user-1",
@@ -489,14 +489,14 @@ describe("chat repository", () => {
       userMessageText: "성실함이요.",
     });
 
-    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+    expect(mockedDbUpdate).toHaveBeenCalledWith(
       "user_question_events?id=eq.event-question-1",
       expect.objectContaining({
         status: "answered",
         answer_text: "성실함이요.",
       }),
     );
-    expect(mockedSupabaseUpdate).not.toHaveBeenCalledWith(
+    expect(mockedDbUpdate).not.toHaveBeenCalledWith(
       "user_question_events?id=eq.event-question-2",
       expect.objectContaining({ status: "answered" }),
     );
@@ -504,7 +504,7 @@ describe("chat repository", () => {
 
   it("records answered daily questions in today's calendar history", async () => {
     jest.useFakeTimers().setSystemTime(new Date("2026-04-20T03:00:00.000Z"));
-    mockedSupabaseSelect.mockImplementation((path: string) => {
+    mockedDbSelect.mockImplementation((path: string) => {
       if (path.startsWith("user_checklist_events?")) {
         return Promise.resolve([]);
       }
@@ -534,8 +534,8 @@ describe("chat repository", () => {
 
       return Promise.resolve([]);
     });
-    mockedSupabaseUpdate.mockResolvedValue([] as never);
-    mockedSupabaseInsert.mockResolvedValue([] as never);
+    mockedDbUpdate.mockResolvedValue([] as never);
+    mockedDbInsert.mockResolvedValue([] as never);
 
     try {
       await markOutstandingPromptEventsAnswered({
@@ -548,7 +548,7 @@ describe("chat repository", () => {
       jest.useRealTimers();
     }
 
-    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+    expect(mockedDbInsert).toHaveBeenCalledWith(
       "calendar_logs",
       expect.objectContaining({
         user_id: "user-1",
@@ -569,8 +569,8 @@ describe("chat repository", () => {
   });
 
   it("creates prompt events and returns already prompted ids", async () => {
-    mockedSupabaseInsert.mockResolvedValue([] as never);
-    mockedSupabaseSelect.mockImplementation((path: string) => {
+    mockedDbInsert.mockResolvedValue([] as never);
+    mockedDbSelect.mockImplementation((path: string) => {
       if (path.startsWith("user_question_events?")) {
         return Promise.resolve([
           { id: "event-question-1", question_id: "question-1", status: "sent" },
@@ -609,11 +609,11 @@ describe("chat repository", () => {
       ],
     });
 
-    expect(mockedSupabaseInsert).not.toHaveBeenCalledWith(
+    expect(mockedDbInsert).not.toHaveBeenCalledWith(
       "user_checklist_events",
       expect.anything(),
     );
-    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+    expect(mockedDbInsert).toHaveBeenCalledWith(
       "user_question_events",
       expect.objectContaining({
         user_id: "user-1",
@@ -628,18 +628,18 @@ describe("chat repository", () => {
 
     expect([...prompted.checklistIds]).toEqual([]);
     expect([...prompted.questionIds]).toEqual(["question-1"]);
-    expect(mockedSupabaseSelect).not.toHaveBeenCalledWith(
+    expect(mockedDbSelect).not.toHaveBeenCalledWith(
       expect.stringContaining("user_checklist_events?"),
     );
   });
 
   it("ensures session, saves messages, and persists memory updates", async () => {
-    mockedSupabaseSelect.mockResolvedValue([] as never);
-    mockedSupabaseInsert
+    mockedDbSelect.mockResolvedValue([] as never);
+    mockedDbInsert
       .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([{ id: "user-message-1" }] as never)
       .mockResolvedValueOnce([{ id: "assistant-message-1" }] as never);
-    mockedSupabaseUpdate.mockResolvedValue([] as never);
+    mockedDbUpdate.mockResolvedValue([] as never);
 
     await ensureChatSession({
       userId: "user-1",
@@ -676,15 +676,15 @@ describe("chat repository", () => {
     });
 
     expect(userMessage.id).toBe("user-message-1");
-    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+    expect(mockedDbInsert).toHaveBeenCalledWith(
       "chat_sessions",
       expect.objectContaining({ id: "session-1", user_id: "user-1" }),
     );
-    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+    expect(mockedDbInsert).toHaveBeenCalledWith(
       "chat_messages",
       expect.objectContaining({ role: "user", session_id: "session-1" }),
     );
-    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+    expect(mockedDbInsert).toHaveBeenCalledWith(
       "chat_messages",
       expect.arrayContaining([
         expect.objectContaining({
@@ -693,17 +693,17 @@ describe("chat repository", () => {
         }),
       ]),
     );
-    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+    expect(mockedDbUpdate).toHaveBeenCalledWith(
       "chat_sessions?id=eq.session-1",
       expect.objectContaining({ last_message_at: "2026-04-07T10:00:00.000Z" }),
     );
-    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+    expect(mockedDbUpdate).toHaveBeenCalledWith(
       "chat_sessions?id=eq.session-1",
       expect.objectContaining({
         memory_payload: expect.objectContaining({ compactSummary: "요약" }),
       }),
     );
-    expect(mockedSupabaseUpdate).toHaveBeenCalledWith(
+    expect(mockedDbUpdate).toHaveBeenCalledWith(
       "pregnancy_profiles?user_id=eq.user-1",
       expect.objectContaining({
         onboarding_payload: expect.objectContaining({

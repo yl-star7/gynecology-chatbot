@@ -60,7 +60,9 @@ export async function POST(request: NextRequest) {
     const themeKey =
       typeof body.themeKey === "string" ? body.themeKey.trim() : "";
 
-    const { userId } = await requireMobileSession(request, hintedUserId);
+    const { userId } = await requireMobileSession(request, hintedUserId, {
+      requireApproved: false,
+    });
 
     if (!pregnancyWeekOrDueDate || !tonePreference) {
       return NextResponse.json(

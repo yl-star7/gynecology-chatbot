@@ -13,6 +13,7 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
       "android": {
         "buildType": "apk"
       },
@@ -24,6 +25,7 @@
     },
     "production": {
       "autoIncrement": true,
+      "channel": "production",
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2"
       },
@@ -38,7 +40,17 @@
     "production": {
       "android": {
         "track": "internal",
-        "releaseStatus": "draft",
+        "releaseStatus": "completed",
+        "serviceAccountKeyPath": "./play-submit-key.json"
+      },
+      "ios": {
+        "ascAppId": "6761976771"
+      }
+    },
+    "internal": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "completed",
         "serviceAccountKeyPath": "./play-submit-key.json"
       },
       "ios": {

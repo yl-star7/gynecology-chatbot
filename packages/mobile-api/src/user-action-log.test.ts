@@ -1,6 +1,6 @@
 jest.mock("@/lib/db/admin-client", () => ({
   dbInsert: jest.fn().mockResolvedValue([]),
-  getSupabaseAdminClient: jest.fn(() => ({
+  getDbAdminClient: jest.fn(() => ({
     from: jest.fn(() => ({
       insert: jest.fn().mockResolvedValue({ data: [], error: null }),
     })),
@@ -21,7 +21,7 @@ describe("recordUserAction", () => {
     jest.restoreAllMocks();
   });
 
-  it("writes user action rows to Supabase", async () => {
+  it("writes user action rows to DB", async () => {
     mockedInsert.mockResolvedValueOnce([]);
 
     await recordUserAction({

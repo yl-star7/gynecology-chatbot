@@ -4,6 +4,7 @@ set -euo pipefail
 PLATFORM="${1:-}"
 PROFILE="${2:-production}"
 SKIP_SUBMIT="${SKIP_SUBMIT:-}"
+ANDROID_INTERNAL_TESTER_LINK="${ANDROID_INTERNAL_TESTER_LINK:-https://play.google.com/apps/internaltest/4699518681312403500}"
 
 # ── Colors ──────────────────────────────────────────────
 RED='\033[0;31m'
@@ -154,11 +155,14 @@ echo ""
 log "로컬 빌드 시작... (${EAS_PLATFORM} / ${PROFILE})"
 BUILD_START=$(date +%s)
 
+set +e
 npx eas-cli build --local \
   --platform "$EAS_PLATFORM" \
   --profile "$PROFILE" \
   --output "$OUTPUT_FILE" \
   --non-interactive
+BUILD_STATUS=$?
+set -e
 
 BUILD_END=$(date +%s)
 BUILD_DURATION=$(( BUILD_END - BUILD_START ))
@@ -168,6 +172,10 @@ BUILD_SEC=$(( BUILD_DURATION % 60 ))
 if [[ ! -f "$OUTPUT_FILE" ]]; then
   err "빌드 실패: ${OUTPUT_FILE} 파일이 생성되지 않았습니다"
   exit 1
+fi
+
+if [[ "$BUILD_STATUS" -ne 0 ]]; then
+  warn "EAS local build가 종료 코드 ${BUILD_STATUS}를 반환했지만 산출물은 생성되어 제출을 계속합니다"
 fi
 
 FILE_SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
@@ -199,6 +207,7 @@ ok "업로드 완료!"
 
 if [[ "$PLATFORM" == "aos" ]]; then
   echo -e "   → Google Play Console (internal track)"
+  echo -e "   → 테스터 링크: ${ANDROID_INTERNAL_TESTER_LINK}"
 else
   echo -e "   → App Store Connect (TestFlight)"
 fi

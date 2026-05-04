@@ -20,21 +20,25 @@ export function createInitialConversationMessage(): ChatMessage {
             id: "initial-workflow-good",
             label: "좋아요",
             message: "오늘 기분이 좋아요.",
+            moodTone: "joyful",
           },
           {
             id: "initial-workflow-down",
             label: "우울해요",
             message: "기분이 울적해요.",
+            moodTone: "sad",
           },
           {
             id: "initial-workflow-sad",
             label: "슬퍼요",
             message: "오늘은 마음이 슬퍼요.",
+            moodTone: "sad",
           },
           {
             id: "initial-workflow-angry",
             label: "화나요",
             message: "오늘은 조금 짜증이 나요.",
+            moodTone: "anxious",
           },
           {
             id: "initial-workflow-direct",

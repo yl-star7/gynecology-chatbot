@@ -11,6 +11,7 @@ import {
   calculateCurrentPregnancyWeek,
   createKstDateKey,
 } from "./today-date.model";
+import { pickBabyComfortMessage } from "@gynecology-chatbot/mobile-api/baby-comfort-pool";
 
 type ProfileRow = {
   pregnancy_week: number | null;
@@ -233,10 +234,18 @@ export async function GET(request: NextRequest) {
       checklistEvents as ChecklistEventRow[],
     );
 
+    const comfortMessage = await pickBabyComfortMessage({
+      userId,
+      week: currentWeek,
+      day: dayNumber,
+      mood: null,
+      fallback: day?.baby_message ?? null,
+    });
+
     return mobileNoStoreJson({
       today: {
         babyBody: firstText(
-          day?.baby_message,
+          comfortMessage,
           day?.baby_development_payload?.items?.[0],
           week.baby_summary,
           "오늘 아기의 변화를 준비 중이에요.",

@@ -42,11 +42,13 @@ describe("PATCH /api/mobile/profile", () => {
     mockedRequireMobileSession.mockResolvedValue({
       sessionId: "session-1",
       userId: "user-1",
+      accountStatus: "active",
     });
     mockedUpdateMobileProfile.mockResolvedValue({
       id: "user-1",
       displayName: "사용자",
       phoneNumber: "01012345678",
+      accountStatus: "active",
       hasCompletedOnboarding: true,
     });
 

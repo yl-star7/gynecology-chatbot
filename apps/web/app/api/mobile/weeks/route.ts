@@ -60,6 +60,39 @@ type MobileWeek = {
   } | null;
 };
 
+type TimingEntry = {
+  name: string;
+  durationMs: number;
+};
+
+function serializeServerTiming(entries: TimingEntry[]) {
+  return entries
+    .map((entry) => `${entry.name};dur=${entry.durationMs.toFixed(1)}`)
+    .join(", ");
+}
+
+async function timeAsync<T>(
+  entries: TimingEntry[],
+  name: string,
+  run: () => Promise<T>,
+) {
+  const startedAt = performance.now();
+  try {
+    return await run();
+  } finally {
+    entries.push({ name, durationMs: performance.now() - startedAt });
+  }
+}
+
+function timeSync<T>(entries: TimingEntry[], name: string, run: () => T) {
+  const startedAt = performance.now();
+  try {
+    return run();
+  } finally {
+    entries.push({ name, durationMs: performance.now() - startedAt });
+  }
+}
+
 function combineSummaryAndBody(summary: string | null, body: string | null) {
   const parts = [summary, body]
     .map((part) => part?.trim())
@@ -218,8 +251,17 @@ function asUnknownArray(value: Prisma.JsonValue | null | undefined) {
   return Array.isArray(value) ? value : [];
 }
 
-async function loadWeeklyEncyclopediaRows() {
+function parseWeekParam(raw: string | null): number | null {
+  if (!raw) return null;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 42) return null;
+  return parsed;
+}
+
+async function loadWeeklyEncyclopediaRows(weekFilter: number | null) {
   const rows = await prisma.v_weekly_encyclopedia.findMany({
+    where:
+      typeof weekFilter === "number" ? { week_number: weekFilter } : undefined,
     select: {
       week_number: true,
       content_scope: true,
@@ -263,33 +305,51 @@ async function loadWeeklyEncyclopediaRows() {
 }
 
 export async function GET(request: NextRequest) {
+  const timings: TimingEntry[] = [];
+  const requestStartedAt = performance.now();
   try {
-    await requireMobileSession(request);
+    await timeAsync(timings, "auth", () => requireMobileSession(request));
+    const url = new URL(request.url);
+    const weekFilter = parseWeekParam(url.searchParams.get("week"));
 
     const [encyclopediaRows, rows, documentLinkRows] = await Promise.all([
-      loadWeeklyEncyclopediaRows(),
-      prisma.content_pregnancy_week_data.findMany({
-        where: { status: "published" },
-        orderBy: { week_number: "asc" },
-        select: {
-          week_number: true,
-          title: true,
-          baby_size_label: true,
-          baby_summary: true,
-          mother_summary: true,
-        },
-      }),
-      prisma.content_pregnancy_documents.findMany({
-        where: { pregnancy_week: { not: null } },
-        orderBy: [{ pregnancy_week: "asc" }, { updated_at: "desc" }],
-        select: {
-          id: true,
-          pregnancy_week: true,
-        },
-      }),
+      timeAsync(timings, "db_encyclopedia", () =>
+        loadWeeklyEncyclopediaRows(weekFilter),
+      ),
+      timeAsync(timings, "db_source_weeks", () =>
+        prisma.content_pregnancy_week_data.findMany({
+          where: {
+            status: "published",
+            ...(typeof weekFilter === "number"
+              ? { week_number: weekFilter }
+              : {}),
+          },
+          orderBy: { week_number: "asc" },
+          select: {
+            week_number: true,
+            title: true,
+            baby_size_label: true,
+            baby_summary: true,
+            mother_summary: true,
+          },
+        }),
+      ),
+      timeAsync(timings, "db_documents", () =>
+        prisma.content_pregnancy_documents.findMany({
+          where:
+            typeof weekFilter === "number"
+              ? { pregnancy_week: weekFilter }
+              : { pregnancy_week: { not: null } },
+          orderBy: [{ pregnancy_week: "asc" }, { updated_at: "desc" }],
+          select: {
+            id: true,
+            pregnancy_week: true,
+          },
+        }),
+      ),
     ]);
 
-    return NextResponse.json({
+    const payload = timeSync(timings, "build", () => ({
       weeks: attachLinkEntityIds(
         mergeWeeks(
           mapSourceWeeks(
@@ -307,6 +367,16 @@ export async function GET(request: NextRequest) {
         ),
         documentLinkRows,
       ),
+    }));
+    timings.push({
+      name: "total",
+      durationMs: performance.now() - requestStartedAt,
+    });
+
+    return NextResponse.json(payload, {
+      headers: {
+        "Server-Timing": serializeServerTiming(timings),
+      },
     });
   } catch (error) {
     console.error("mobile weeks route error", error);

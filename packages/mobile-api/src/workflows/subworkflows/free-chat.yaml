@@ -12,9 +12,23 @@ prompts:
     임산부와 편한 자유 대화 중.
 
     규칙:
+    - 응답은 유효한 JSON 객체 하나만 출력하세요. 앞뒤 평문/마크다운/코드블록 금지.
+    - JSON 스키마:
+      {
+        "answer": string,
+        "scenario": "general",
+        "guardrailStatus": "safe" | "medical_caution" | "redirect",
+        "characterTone": "calm",
+        "nextSessionMemory": {
+          "stage": "free_chat",
+          "stageName": "free_chat",
+          "compactSummary": "현재 단계: 자유 대화",
+          "lastScenario": "general",
+          "lastCharacterTone": "calm"
+        }
+      }
     - answer 는 자연스럽게 응답 (최대 500자). 필요 시 열린 질문 1개.
     - **stage=0/1/2 회귀 금지**. scenario="general" 만.
-    - nextSessionMemory = { stage:"free_chat", stageName:"free_chat", compactSummary:"현재 단계: 자유 대화", lastScenario:"general", lastCharacterTone:"calm" }
     - 명시적 종료("여기까지") 시 짧은 마무리 + stage 유지 (서버가 ended 처리).
 
     가드레일:
@@ -27,7 +41,8 @@ prompts:
 
     질문 강조 포맷:
     - answer 본문에 사용자에게 묻는 질문 문장이 들어갈 때는 정확히 **하나**의 질문만 다음 포맷으로 감싸 작성하세요.
-      "**질문 본문**" (큰따옴표 1쌍 + 내부를 **...** 볼드)
+      **"질문 본문"** (바깥은 **...** 볼드 + 안쪽은 큰따옴표 1쌍)
+    - 금지: ""질문 본문"", """질문 본문""", "**질문 본문**"처럼 따옴표가 중복되거나 볼드가 안쪽에만 들어간 형식.
     - 평서문 공감/안내에는 따옴표·볼드를 쓰지 마세요.
     - 질문이 없는 턴에는 이 포맷을 쓰지 마세요.
 
@@ -60,7 +75,7 @@ blocks:
     config:
       model: gemini-2.5-flash-lite
       temperature: 0.4
-      max_tokens: 600
+      max_tokens: 800
       thinking_budget: 0
   - id: answer
     type: answer

@@ -3,17 +3,38 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Text,
 } from "react-native";
+import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PatientProfileSettingsForm } from "../../components/patient/profile-settings/PatientProfileSettingsForm";
 import { PatientShell } from "../../components/patient/PatientShell";
-import { space } from "../../theme";
+import { patientSurfacePalette as surface, space, typo } from "../../theme";
 import { buildPatientScrollContentInsets } from "./patientScreenLayout.model";
 import { usePatientProfileSettingsScreenModel } from "./PatientProfileSettingsScreen.model";
+
+function resolveAppVersionLabel() {
+  const appVersion =
+    Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? null;
+  const buildVersion =
+    Constants.nativeBuildVersion ??
+    Constants.expoConfig?.ios?.buildNumber ??
+    Constants.expoConfig?.android?.versionCode ??
+    null;
+
+  if (!appVersion) {
+    return "최신 버전 확인 중";
+  }
+
+  return buildVersion
+    ? `최신 버전 v${appVersion} · 빌드 ${String(buildVersion)}`
+    : `최신 버전 v${appVersion}`;
+}
 
 export function PatientProfileSettingsScreen() {
   const insets = useSafeAreaInsets();
   const model = usePatientProfileSettingsScreenModel();
+  const appVersionLabel = resolveAppVersionLabel();
   const contentInsets = buildPatientScrollContentInsets({
     bottomInset: insets.bottom,
     tabBarHeight: 0,
@@ -72,6 +93,7 @@ export function PatientProfileSettingsScreen() {
             themeKey={model.themeKey}
             themeOptions={model.themeOptions}
           />
+          <Text style={styles.versionText}>{appVersionLabel}</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </PatientShell>
@@ -84,5 +106,12 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: space.lg,
+  },
+  versionText: {
+    ...typo.caption,
+    marginTop: space.md,
+    color: surface.textSecondary,
+    textAlign: "center",
+    fontWeight: "500",
   },
 });

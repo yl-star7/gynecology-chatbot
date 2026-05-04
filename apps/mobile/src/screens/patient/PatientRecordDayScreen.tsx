@@ -16,6 +16,7 @@ import { useMobileServices } from "../../core/MobileServicesProvider";
 import { useChatSessions } from "../../chat/store";
 import { createRecordDayActions } from "./PatientRecordDayScreen.model";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
+import { formatQuestionAnswerSummary } from "./patientQuestionSummary.model";
 import { resolvePatientRecordDayLoadError } from "./patientErrorCopy.model";
 import { prefetchConversationSession } from "./patientConversationNavigation.model";
 import {
@@ -296,8 +297,7 @@ export function PatientRecordDayScreen({
                   <Text style={styles.recordType}>날짜 질문</Text>
                   <Text style={styles.recordTitle}>{item.question}</Text>
                   <Text style={styles.recordSummary}>
-                    {item.answerSummary ??
-                      "오늘 자정에 요약이 준비됩니다."}
+                    {formatQuestionAnswerSummary(item.answerSummary)}
                   </Text>
                 </View>
               ))
