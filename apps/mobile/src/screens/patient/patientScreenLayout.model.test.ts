@@ -7,6 +7,7 @@ import {
   buildPatientTabBarHeight,
   buildTodayConversationLayout,
   PATIENT_TAB_BAR_BODY_HEIGHT,
+  resolvePatientBottomInset,
   resolveAnchoredKeyboardBottomOffset,
   resolveAndroidKeyboardBottomOffset,
   resolveConversationKeyboardAvoidingBehavior,
@@ -152,6 +153,32 @@ test("patient tab bar height follows the device bottom safe area", () => {
       bottomInset: 24,
     }),
     PATIENT_TAB_BAR_BODY_HEIGHT + 24,
+  );
+});
+
+test("patient bottom inset falls back to Android system navigation height", () => {
+  assert.equal(
+    resolvePatientBottomInset({
+      platformOs: "android",
+      safeAreaBottomInset: 0,
+      safeAreaTopInset: 24,
+      screenHeight: 840,
+      windowHeight: 768,
+    }),
+    48,
+  );
+});
+
+test("patient bottom inset keeps the safe area value when it is larger", () => {
+  assert.equal(
+    resolvePatientBottomInset({
+      platformOs: "android",
+      safeAreaBottomInset: 34,
+      safeAreaTopInset: 24,
+      screenHeight: 840,
+      windowHeight: 800,
+    }),
+    34,
   );
 });
 

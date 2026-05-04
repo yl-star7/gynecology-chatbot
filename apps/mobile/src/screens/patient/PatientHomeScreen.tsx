@@ -9,7 +9,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type {
   HomeViewData,
   MobileProfileViewData,
@@ -40,9 +39,10 @@ import { useMobileTheme } from "../../theme-provider";
 import { buildPatientHomeViewModel } from "./view-models";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { prefetchWeekBabyImages } from "./prefetchWeekBabyImages";
+import { usePatientBottomInset } from "./usePatientBottomInset";
 
 export function PatientHomeScreen() {
-  const insets = useSafeAreaInsets();
+  const bottomInset = usePatientBottomInset();
   const { palette: activePalette, surface: activeSurface } = useMobileTheme();
   const services = useMobileServices();
   const { currentUser, isRestoringSession } = useMobileAppSession();
@@ -51,7 +51,7 @@ export function PatientHomeScreen() {
   const [profile, setProfile] = useState<MobileProfileViewData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const contentInsets = buildPatientTabContentInsets({
-    bottomInset: insets.bottom,
+    bottomInset,
     topSpacing: space.xs,
   });
 

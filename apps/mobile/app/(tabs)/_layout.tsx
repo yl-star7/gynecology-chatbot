@@ -2,11 +2,11 @@
 import { Tabs, useRouter } from "expo-router";
 import { useEffect } from "react";
 import { Platform } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useMobileAppSession } from "../../src/core/MobileAppSessionProvider";
 import { PATIENT_TABS } from "../../src/components/patient/PatientTabBar.model";
 import { useMobileTheme } from "../../src/theme-provider";
+import { usePatientBottomInset } from "../../src/screens/patient/usePatientBottomInset";
 import {
   PATIENT_TAB_BAR_BODY_HEIGHT,
   buildTabBarSafeAreaStyle,
@@ -17,7 +17,7 @@ export default function TabsLayout() {
   const { currentUser, isRestoringSession } = useMobileAppSession();
   const { palette, surface } = useMobileTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const bottomInset = usePatientBottomInset();
   const tabsScreenOptions = buildTabsScreenOptions({
     accent: palette.accent,
     subInk: surface.textSecondary,
@@ -26,7 +26,7 @@ export default function TabsLayout() {
     platformOS: Platform.OS,
   });
   const tabBarSafeAreaStyle = buildTabBarSafeAreaStyle({
-    bottomInset: insets.bottom,
+    bottomInset,
   });
   const mergedScreenOptions = {
     ...tabsScreenOptions,

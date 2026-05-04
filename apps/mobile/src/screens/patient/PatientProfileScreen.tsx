@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type {
   HomeViewData,
   MobileProfileViewData,
@@ -45,6 +44,7 @@ import {
   resolveProfileCalendarMonthKey,
 } from "./patientProfileCalendar";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
+import { usePatientBottomInset } from "./usePatientBottomInset";
 import { normalizeSurveyFormUrl } from "./patientSurveyFormUrl.model";
 import {
   buildProfileDayState,
@@ -62,7 +62,7 @@ type ConversationSection = "summary" | "heart";
 
 export function PatientProfileScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const bottomInset = usePatientBottomInset();
   const { currentUser, isRestoringSession, signOut } = useMobileAppSession();
   const { profilePort, homePort, todayPort, chatPort } = useMobileServices();
   const { replaceSession } = useChatSessions();
@@ -363,7 +363,7 @@ export function PatientProfileScreen() {
     [selectedRecordDay, today],
   );
   const contentInsets = buildPatientTabContentInsets({
-    bottomInset: insets.bottom,
+    bottomInset,
     extraBottomSpacing: 0,
     topSpacing: space.xs,
   });

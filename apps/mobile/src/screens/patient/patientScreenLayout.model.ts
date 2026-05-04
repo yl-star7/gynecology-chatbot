@@ -125,6 +125,31 @@ export function buildPatientTabBarHeight({
   return PATIENT_TAB_BAR_BODY_HEIGHT + Math.max(bottomInset, minimumBottomPadding);
 }
 
+export function resolvePatientBottomInset({
+  platformOs,
+  safeAreaBottomInset,
+  safeAreaTopInset = 0,
+  screenHeight,
+  windowHeight,
+}: {
+  platformOs: string;
+  safeAreaBottomInset: number;
+  safeAreaTopInset?: number;
+  screenHeight: number;
+  windowHeight: number;
+}) {
+  if (platformOs !== "android") {
+    return safeAreaBottomInset;
+  }
+
+  const androidSystemBottomInset =
+    Number.isFinite(screenHeight) && Number.isFinite(windowHeight)
+      ? Math.max(0, screenHeight - windowHeight - safeAreaTopInset)
+      : 0;
+
+  return Math.max(safeAreaBottomInset, androidSystemBottomInset);
+}
+
 export function buildPatientTabContentInsets({
   bottomInset,
   topSpacing = space.sm,

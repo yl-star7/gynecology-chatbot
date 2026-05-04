@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Text,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card, Pressable } from "../../components/ui";
 import { PatientTodayConversationSection } from "../../components/patient/today/PatientTodayConversationSection";
 import { PatientTodayChecklistSection } from "../../components/patient/today/PatientTodayChecklistSection";
@@ -22,12 +21,13 @@ import {
 } from "../../theme";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { usePatientTodayScreenModel } from "./PatientTodayScreen.model";
+import { usePatientBottomInset } from "./usePatientBottomInset";
 
 export function PatientTodayScreen() {
-  const insets = useSafeAreaInsets();
+  const bottomInset = usePatientBottomInset();
   const model = usePatientTodayScreenModel();
   const contentInsets = buildPatientTabContentInsets({
-    bottomInset: insets.bottom,
+    bottomInset,
     extraBottomSpacing:
       model.activeSection === "conversation" ? space.lg : 0,
     topSpacing: space.xs,
