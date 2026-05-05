@@ -8,10 +8,7 @@ import {
 } from "@gynecology-chatbot/app-core/time";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import { sanitizeInlineCitationMarkers } from "@gynecology-chatbot/mobile-api/chat/sanitizers";
-import {
-  buildDailyQuestionSummaries,
-  groupDailyQuestionSummariesBySession,
-} from "@gynecology-chatbot/mobile-api/record-day-questions";
+import { buildDailyQuestionSummaries } from "@gynecology-chatbot/mobile-api/record-day-questions";
 import {
   resolveRecentChatPreview,
   toRecordDayView,
@@ -628,11 +625,6 @@ app.get("/", async (c) => {
     const dailyQuestions = await loadDailyQuestions(userId, isoDate, records, {
       deferUnfinalizedToToday: isoDate === getKstDateKey(),
     });
-    const groupedDailyQuestions = groupDailyQuestionSummariesBySession({
-      dailyQuestions,
-      records,
-    });
-
     return c.json({
       recordDay: toRecordDayView({
         isoDate,
@@ -640,7 +632,7 @@ app.get("/", async (c) => {
         emotionTone: resolvedEmotionTone,
         checklistItems,
         conversationSummary,
-        dailyQuestions: groupedDailyQuestions,
+        dailyQuestions,
         records,
         relatedSessions: orderedRelatedSessions,
       }),

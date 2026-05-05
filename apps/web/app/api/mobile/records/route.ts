@@ -13,10 +13,7 @@ import {
   requireMobileSession,
 } from "@/lib/mobile/session-auth";
 import { sanitizeInlineCitationMarkers } from "@/lib/mobile/chat/sanitizers";
-import {
-  buildDailyQuestionSummaries,
-  groupDailyQuestionSummariesBySession,
-} from "@gynecology-chatbot/mobile-api/record-day-questions";
+import { buildDailyQuestionSummaries } from "@gynecology-chatbot/mobile-api/record-day-questions";
 import {
   resolveRecentChatPreview,
   toRecordDayView,
@@ -627,11 +624,6 @@ export async function GET(request: NextRequest) {
     const dailyQuestions = await loadDailyQuestions(userId, isoDate, records, {
       deferUnfinalizedToToday: isoDate === getKstDateKey(),
     });
-    const groupedDailyQuestions = groupDailyQuestionSummariesBySession({
-      dailyQuestions,
-      records,
-    });
-
     return NextResponse.json({
       recordDay: toRecordDayView({
         isoDate,
@@ -639,7 +631,7 @@ export async function GET(request: NextRequest) {
         emotionTone: resolvedEmotionTone,
         checklistItems,
         conversationSummary,
-        dailyQuestions: groupedDailyQuestions,
+        dailyQuestions,
         records,
         relatedSessions: orderedRelatedSessions,
       }),

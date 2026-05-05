@@ -67,6 +67,15 @@ function modalTabTextStyle(tone: ProfileStatusTone) {
   return styles.modalTabTextIdle;
 }
 
+function buildCombinedSessionPreview(sessions: RecentChatSummary[]) {
+  return sessions
+    .map((session, index) => {
+      const preview = session.preview ? ` — ${session.preview}` : "";
+      return `${index + 1}. ${session.title}${preview}`;
+    })
+    .join("\n");
+}
+
 export function PatientProfileDayModal({
   visible,
   dateLabel,
@@ -328,26 +337,41 @@ export function PatientProfileDayModal({
                   <Text style={styles.modalSummaryText}>
                     {conversationSummary}
                   </Text>
-                  {relatedSessions.map((session) => (
-                    <Pressable
-                      key={session.id}
-                      style={styles.modalConversationCard}
-                      onPress={() => onOpenSession(session.id)}
-                      accessibilityLabel={`${session.title} 대화 다시 열기`}
-                    >
+                  {relatedSessions.length > 1 ? (
+                    <View style={styles.modalConversationCard}>
                       <Text style={styles.modalConversationMeta}>
-                        {session.updatedAtLabel}
+                        대화 {relatedSessions.length}개
                       </Text>
                       <Text style={styles.modalConversationTitle}>
-                        {session.title}
+                        이 날 나눈 대화
                       </Text>
-                      {session.preview ? (
-                        <Text style={styles.modalConversationBody}>
-                          {session.preview}
-                        </Text>
-                      ) : null}
-                    </Pressable>
-                  ))}
+                      <Text style={styles.modalConversationBody}>
+                        {buildCombinedSessionPreview(relatedSessions)}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {relatedSessions.length === 1
+                    ? relatedSessions.map((session) => (
+                        <Pressable
+                          key={session.id}
+                          style={styles.modalConversationCard}
+                          onPress={() => onOpenSession(session.id)}
+                          accessibilityLabel={`${session.title} 대화 다시 열기`}
+                        >
+                          <Text style={styles.modalConversationMeta}>
+                            {session.updatedAtLabel}
+                          </Text>
+                          <Text style={styles.modalConversationTitle}>
+                            {session.title}
+                          </Text>
+                          {session.preview ? (
+                            <Text style={styles.modalConversationBody}>
+                              {session.preview}
+                            </Text>
+                          ) : null}
+                        </Pressable>
+                      ))
+                    : null}
                 </View>
               ) : null}
 
@@ -561,6 +585,7 @@ const styles = StyleSheet.create({
   modalConversationBody: {
     ...typo.body,
     color: surface.textSecondary,
+    lineHeight: 26,
   },
   modalQnaCard: {
     borderRadius: radii.xl,
