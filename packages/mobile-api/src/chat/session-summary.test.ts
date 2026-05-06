@@ -107,6 +107,7 @@ describe("summarizeMobileChatSession", () => {
           summary: "배뭉침 걱정을 나누고 쉬는 자세를 안내받았어요.",
           payload: {
             source: "session_close",
+            summaryVersion: "session_topic_v2",
             messageCount: 2,
             generatedAt: expect.any(String),
           },
@@ -153,6 +154,7 @@ describe("summarizeMobileChatSession", () => {
         summary: "배뭉침 걱정을 나누고 쉬는 자세를 안내받았어요.",
         payload: {
           source: "session_close",
+          summaryVersion: "session_topic_v2",
           messageCount: 4,
           generatedAt: expect.any(String),
         },
@@ -171,6 +173,7 @@ describe("summarizeMobileChatSession", () => {
       id: "summary-1",
       payload: {
         source: "session_close",
+        summaryVersion: "session_topic_v2",
         messageCount: 2,
       },
     });
@@ -276,6 +279,7 @@ describe("summarizeMobileChatSession", () => {
           title: "채팅",
           payload: {
             source: "midnight_cron",
+            summaryVersion: "session_topic_v2",
             messageCount: 2,
             generatedAt: expect.any(String),
           },
@@ -321,7 +325,9 @@ describe("summarizeMobileChatSession", () => {
     });
     mockedPrisma.calendar_logs.findFirst.mockResolvedValue({
       id: "summary-1",
-      payload: null,
+      payload: {
+        summaryVersion: "session_topic_v2",
+      },
     });
     mockedPrisma.chat_messages.findMany.mockResolvedValue([
       buildMessage({ id: "m1", role: "user", text: "밤에 잠이 안 와요" }),

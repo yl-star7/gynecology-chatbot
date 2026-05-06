@@ -43,6 +43,7 @@ type SessionRow = {
   title: string;
   last_message_at: string | null;
   last_message_preview: string | null;
+  summary?: string | null;
 };
 
 type SessionActivityRow = {
@@ -68,6 +69,10 @@ type ProfileRow = {
 };
 
 type WeekRow = { id: string };
+
+const DAY_CONVERSATION_SUMMARY_SOURCE = "daily_conversation_summary";
+const DAY_CONVERSATION_SUMMARY_MAX_CHARS = 170;
+const SESSION_CONVERSATION_SUMMARY_MAX_CHARS = 300;
 
 type ChecklistRow = {
   id: string;
@@ -193,11 +198,30 @@ function buildConversationSummary(
   relatedSessions: SessionRow[],
   options: { deferUnsummarizedSessionSummary?: boolean } = {},
 ) {
-  const aiSummary = records.find(
-    (record) => record.entry_type === "ai_summary",
+  const dailySummary = records.find(
+    (record) =>
+      record.entry_type === "ai_summary" &&
+      !record.session_id &&
+      record.payload?.source === DAY_CONVERSATION_SUMMARY_SOURCE,
   );
-  if (aiSummary?.summary) {
-    return aiSummary.summary;
+  if (dailySummary?.summary) {
+    return limitSummaryText(
+      dailySummary.summary,
+      DAY_CONVERSATION_SUMMARY_MAX_CHARS,
+    );
+  }
+
+  const legacyDailySummary = records.find(
+    (record) =>
+      record.entry_type === "ai_summary" &&
+      !record.session_id &&
+      record.summary,
+  );
+  if (legacyDailySummary?.summary) {
+    return limitSummaryText(
+      legacyDailySummary.summary,
+      DAY_CONVERSATION_SUMMARY_MAX_CHARS,
+    );
   }
 
   if (options.deferUnsummarizedSessionSummary) {
@@ -216,16 +240,22 @@ function buildConversationSummary(
         record.summary),
   );
   if (chatSummary?.payload?.compactSummary) {
-    return String(chatSummary.payload.compactSummary).replace(
-      /^현재 단계:\s*/u,
-      "",
+    return limitSummaryText(
+      String(chatSummary.payload.compactSummary).replace(/^현재 단계:\s*/u, ""),
+      DAY_CONVERSATION_SUMMARY_MAX_CHARS,
     );
   }
   if (chatSummary?.summary) {
-    return chatSummary.summary;
+    return limitSummaryText(
+      chatSummary.summary,
+      DAY_CONVERSATION_SUMMARY_MAX_CHARS,
+    );
   }
   if (chatSummary?.payload?.assistantSummary) {
-    return String(chatSummary.payload.assistantSummary);
+    return limitSummaryText(
+      String(chatSummary.payload.assistantSummary),
+      DAY_CONVERSATION_SUMMARY_MAX_CHARS,
+    );
   }
 
   if (relatedSessions.length === 0) {
@@ -233,6 +263,38 @@ function buildConversationSummary(
   }
 
   return `${relatedSessions.length}개의 대화가 있었어요. 하루 요약은 다음날 정리해 보여드릴게요.`;
+}
+
+function limitSummaryText(value: string, maxLength: number) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return normalized.slice(0, maxLength).trimEnd();
+}
+
+function buildSessionSummaryById(records: CalendarRecordRow[]) {
+  const summaryBySessionId = new Map<string, string>();
+
+  for (const record of records) {
+    if (
+      record.entry_type !== "ai_summary" ||
+      !record.session_id ||
+      !record.summary ||
+      record.payload?.source === DAY_CONVERSATION_SUMMARY_SOURCE ||
+      summaryBySessionId.has(record.session_id)
+    ) {
+      continue;
+    }
+
+    summaryBySessionId.set(
+      record.session_id,
+      limitSummaryText(record.summary, SESSION_CONVERSATION_SUMMARY_MAX_CHARS),
+    );
+  }
+
+  return summaryBySessionId;
 }
 
 async function loadChecklistItems(
@@ -574,6 +636,7 @@ export async function GET(request: NextRequest) {
           )
         : [];
     const previewBySessionId = new Map<string, string>();
+    const summaryBySessionId = buildSessionSummaryById(records);
 
     for (const message of latestMessages) {
       if (previewBySessionId.has(message.session_id)) {
@@ -599,7 +662,11 @@ export async function GET(request: NextRequest) {
 
       orderedRelatedSessions.push({
         ...session,
-        last_message_preview: previewBySessionId.get(session.id) ?? null,
+        last_message_preview:
+          summaryBySessionId.get(session.id) ??
+          previewBySessionId.get(session.id) ??
+          null,
+        summary: summaryBySessionId.get(session.id) ?? null,
       });
     }
 

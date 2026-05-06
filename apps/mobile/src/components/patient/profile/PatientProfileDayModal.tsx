@@ -67,15 +67,6 @@ function modalTabTextStyle(tone: ProfileStatusTone) {
   return styles.modalTabTextIdle;
 }
 
-function buildCombinedSessionPreview(sessions: RecentChatSummary[]) {
-  return sessions
-    .map((session, index) => {
-      const preview = session.preview ? ` — ${session.preview}` : "";
-      return `${index + 1}. ${session.title}${preview}`;
-    })
-    .join("\n");
-}
-
 export function PatientProfileDayModal({
   visible,
   dateLabel,
@@ -334,44 +325,47 @@ export function PatientProfileDayModal({
 
               {conversationSection === "summary" ? (
                 <View style={styles.modalPanel}>
-                  <Text style={styles.modalSummaryText}>
-                    {conversationSummary}
-                  </Text>
-                  {relatedSessions.length > 1 ? (
-                    <View style={styles.modalConversationCard}>
-                      <Text style={styles.modalConversationMeta}>
-                        대화 {relatedSessions.length}개
+                  <View style={styles.modalConversationCard}>
+                    <Text style={styles.modalConversationMeta}>
+                      그날의 전체 요약
+                    </Text>
+                    <Text style={styles.modalSummaryText}>
+                      {conversationSummary}
+                    </Text>
+                  </View>
+
+                  {relatedSessions.length > 0 ? (
+                    <View style={styles.modalConversationList}>
+                      <Text style={styles.modalConversationListTitle}>
+                        이 날의 대화
                       </Text>
-                      <Text style={styles.modalConversationTitle}>
-                        이 날 나눈 대화
-                      </Text>
-                      <Text style={styles.modalConversationBody}>
-                        {buildCombinedSessionPreview(relatedSessions)}
-                      </Text>
+                      {relatedSessions.map((session) => {
+                        const sessionSummary =
+                          session.summary ?? session.preview;
+
+                        return (
+                          <Pressable
+                            key={session.id}
+                            style={styles.modalConversationCard}
+                            onPress={() => onOpenSession(session.id)}
+                            accessibilityLabel={`${session.title} 대화 다시 열기`}
+                          >
+                            <Text style={styles.modalConversationMeta}>
+                              {session.updatedAtLabel}
+                            </Text>
+                            <Text style={styles.modalConversationTitle}>
+                              {session.title}
+                            </Text>
+                            {sessionSummary ? (
+                              <Text style={styles.modalConversationBody}>
+                                {sessionSummary}
+                              </Text>
+                            ) : null}
+                          </Pressable>
+                        );
+                      })}
                     </View>
                   ) : null}
-                  {relatedSessions.length === 1
-                    ? relatedSessions.map((session) => (
-                        <Pressable
-                          key={session.id}
-                          style={styles.modalConversationCard}
-                          onPress={() => onOpenSession(session.id)}
-                          accessibilityLabel={`${session.title} 대화 다시 열기`}
-                        >
-                          <Text style={styles.modalConversationMeta}>
-                            {session.updatedAtLabel}
-                          </Text>
-                          <Text style={styles.modalConversationTitle}>
-                            {session.title}
-                          </Text>
-                          {session.preview ? (
-                            <Text style={styles.modalConversationBody}>
-                              {session.preview}
-                            </Text>
-                          ) : null}
-                        </Pressable>
-                      ))
-                    : null}
                 </View>
               ) : null}
 
@@ -573,6 +567,13 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm,
     gap: space.xs,
     ...shadows.card,
+  },
+  modalConversationList: {
+    gap: space.xs,
+  },
+  modalConversationListTitle: {
+    ...typo.label,
+    color: surface.textPrimary,
   },
   modalConversationMeta: {
     ...typo.caption,

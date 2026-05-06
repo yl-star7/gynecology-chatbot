@@ -285,7 +285,7 @@ export function PatientProfileScreen() {
     clearCachedRecordDayView(currentUser?.id, isoDate);
     setSelectedIsoDate(isoDate);
     setModalSection("conversation");
-    setConversationSection("heart");
+    setConversationSection("summary");
   }
 
   function closeCalendarDayModal() {
@@ -312,7 +312,7 @@ export function PatientProfileScreen() {
 
     isOpeningConversationRef.current = true;
     setRecordDayError(null);
-    const targetHref = `/chat/${sessionId}` as const;
+    const targetHref = `/chat/${sessionId}?readOnly=1` as const;
     const prefetch = prefetchConversationSession({
       sessionId,
       getSession: chatPort.getSession.bind(chatPort),

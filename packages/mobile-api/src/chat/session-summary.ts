@@ -54,6 +54,8 @@ type BulkSessionSummaryResult = {
   errors: Array<{ sessionId: string; message: string }>;
 };
 const BULK_SUMMARY_CONCURRENCY = 10;
+const SESSION_SUMMARY_VERSION = "session_topic_v2";
+const SESSION_SUMMARY_MAX_CHARS = 300;
 
 type SessionSummaryPrisma = {
   chat_sessions: {
@@ -151,6 +153,15 @@ function buildDialogueLines(messages: MessageRow[]) {
   return { dialogueLines, userTurnCount };
 }
 
+function limitSummaryText(value: string, maxLength: number) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return normalized.slice(0, maxLength).trimEnd();
+}
+
 export async function summarizeMobileChatSession(input: {
   userId: string;
   sessionId: string;
@@ -231,10 +242,15 @@ export async function summarizeMobileChatSession(input: {
     }),
   ]);
 
-  const existingPayload = asObject<{ messageCount?: number }>(
-    existingSummary?.payload,
-  );
-  if (existingSummary?.id && input.skipIfSummaryExists) {
+  const existingPayload = asObject<{
+    messageCount?: number;
+    summaryVersion?: string;
+  }>(existingSummary?.payload);
+  if (
+    existingSummary?.id &&
+    input.skipIfSummaryExists &&
+    existingPayload?.summaryVersion === SESSION_SUMMARY_VERSION
+  ) {
     return {
       summarized: false,
       reason: "already_summarized",
@@ -244,7 +260,8 @@ export async function summarizeMobileChatSession(input: {
   if (
     existingSummary?.id &&
     typeof existingPayload?.messageCount === "number" &&
-    existingPayload.messageCount >= messages.length
+    existingPayload.messageCount >= messages.length &&
+    existingPayload.summaryVersion === SESSION_SUMMARY_VERSION
   ) {
     return {
       summarized: false,
@@ -277,11 +294,13 @@ export async function summarizeMobileChatSession(input: {
 
   const { text } = await generateText({
     model: google,
+    maxOutputTokens: SESSION_SUMMARY_MAX_CHARS,
     prompt: [
       "아래는 임산부와 아가야(간호사 캐릭터)의 대화예요.",
-      "대화 내용을 1~2문장으로 따뜻하게 요약해주세요.",
+      "채팅창 단위로 주제만 간략히 파악할 수 있게 2~4문장, 최대 300자 안에서 요약해 주세요.",
       "- 산모의 감정이나 주된 고민을 먼저 반영하세요.",
       "- 어시스턴트가 안내한 핵심 정보나 다음 행동을 간결히 담으세요.",
+      "- 여러 흐름(기분, 사전, 날짜 질문 등)이 섞여 있으면 흐름별 주제를 한 문장 안에 자연스럽게 묶어 주세요.",
       "- 진단 표현, 의료 단정 표현은 쓰지 마세요.",
       "- '요약:' 같은 머리말 없이 본문만 작성하세요.",
       "- 한국어, -해요/-어요 체.",
@@ -291,13 +310,14 @@ export async function summarizeMobileChatSession(input: {
     ].join("\n"),
   });
 
-  const summaryText = text.trim();
+  const summaryText = limitSummaryText(text, SESSION_SUMMARY_MAX_CHARS);
   if (!summaryText) {
     return { summarized: false, reason: "empty_summary" };
   }
 
   const payload = {
     source: input.source ?? "session_close",
+    summaryVersion: SESSION_SUMMARY_VERSION,
     messageCount: messages.length,
     generatedAt: new Date().toISOString(),
   } as Prisma.InputJsonValue;

@@ -109,7 +109,7 @@ export function PatientRecordDayScreen({
 
     requestAnimationFrame(() => {
       InteractionManager.runAfterInteractions(() => {
-        router.push(`/chat/${sessionId}`);
+        router.push(`/chat/${sessionId}?readOnly=1`);
         void prefetch.finally(() => {
           setTimeout(() => {
             isOpeningConversationRef.current = false;

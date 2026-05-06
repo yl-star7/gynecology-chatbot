@@ -35,13 +35,15 @@ import {
 
 export function PatientConversationScreen({
   sessionId,
+  forceReadOnly = false,
 }: {
   sessionId: string;
+  forceReadOnly?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const { surface: activeSurface } = useMobileTheme();
-  const model = usePatientConversationScreenModel({ sessionId });
+  const model = usePatientConversationScreenModel({ sessionId, forceReadOnly });
   const baselineWindowHeightRef = useRef(windowHeight);
   const [isDebugSheetVisible, setIsDebugSheetVisible] = useState(false);
   const [debugCopyStatus, setDebugCopyStatus] = useState<

@@ -41,6 +41,7 @@ type SessionRow = {
   title: string;
   last_message_at: string | null;
   last_message_preview?: string | null;
+  summary?: string | null;
 };
 
 type MessagePreviewPart = {
@@ -214,16 +215,21 @@ export function toRecentChats(sessions: SessionRow[]): RecentChatSummary[] {
         : 0;
       return rightTime - leftTime;
     })
-    .map((session) => ({
-      id: session.id,
-      title: session.title,
-      preview:
-        resolveRecentChatPreview({
-          plainText: session.last_message_preview,
-        }) || "",
-      updatedAtLabel: formatRecentChatLabel(session.last_message_at),
-      updatedAtIso: session.last_message_at,
-    }));
+    .map((session) => {
+      const summary = session.summary?.replace(/\s+/g, " ").trim() || null;
+
+      return {
+        id: session.id,
+        title: session.title,
+        preview:
+          resolveRecentChatPreview({
+            plainText: summary ?? session.last_message_preview,
+          }) || "",
+        ...(summary ? { summary } : {}),
+        updatedAtLabel: formatRecentChatLabel(session.last_message_at),
+        updatedAtIso: session.last_message_at,
+      };
+    });
 }
 
 export function toChatSession(
@@ -388,6 +394,9 @@ export function toRecordDayView(input: {
       entryType: record.entry_type,
       linkedSessionId: record.session_id,
     })),
-    relatedSessions: toRecentChats(input.relatedSessions),
+    relatedSessions: toRecentChats(input.relatedSessions).map((session) => ({
+      ...session,
+      isReadOnly: true,
+    })),
   };
 }

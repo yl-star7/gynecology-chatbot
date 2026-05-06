@@ -34,25 +34,15 @@ jest.mock("@/lib/db/admin-client", () => {
 });
 
 import { requireMobileSession } from "@/lib/mobile/session-auth";
-import {
-  dbInsert,
-  dbSelect,
-  dbUpdate,
-} from "@/lib/db/admin-client";
+import { dbInsert, dbSelect, dbUpdate } from "@/lib/db/admin-client";
 import { GET, POST } from "./route";
 
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
   typeof requireMobileSession
 >;
-const mockedDbInsert = dbInsert as jest.MockedFunction<
-  typeof dbInsert
->;
-const mockedDbSelect = dbSelect as jest.MockedFunction<
-  typeof dbSelect
->;
-const mockedDbUpdate = dbUpdate as jest.MockedFunction<
-  typeof dbUpdate
->;
+const mockedDbInsert = dbInsert as jest.MockedFunction<typeof dbInsert>;
+const mockedDbSelect = dbSelect as jest.MockedFunction<typeof dbSelect>;
+const mockedDbUpdate = dbUpdate as jest.MockedFunction<typeof dbUpdate>;
 
 describe("GET /api/mobile/records", () => {
   beforeEach(() => {
@@ -196,6 +186,93 @@ describe("GET /api/mobile/records", () => {
         }),
       ]),
     );
+  });
+
+  it("전체 대화 요약과 채팅창 단위 요약을 분리해서 내려준다", async () => {
+    const longDailySummary = "가".repeat(200);
+    mockedRequireMobileSession.mockResolvedValue({
+      userId: "user-1",
+      sessionToken: "token-1",
+    } as never);
+    mockedDbSelect
+      .mockResolvedValueOnce([
+        {
+          pregnancy_day_count: 165,
+          pregnancy_week: 24,
+          pregnancy_day_in_week: 4,
+        },
+      ] as never)
+      .mockResolvedValueOnce([{ id: "week-24" }] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "daily-summary",
+          title: "하루 요약",
+          summary: longDailySummary,
+          entry_type: "ai_summary",
+          session_id: null,
+          payload: {
+            source: "daily_conversation_summary",
+            summaryVersion: "detailed_v2",
+          },
+        },
+        {
+          id: "session-summary",
+          title: "채팅",
+          summary: "기분과 날짜 질문 주제를 간략히 정리했어요.",
+          entry_type: "ai_summary",
+          session_id: "session-1",
+          payload: {
+            source: "midnight_cron",
+            summaryVersion: "session_topic_v2",
+          },
+        },
+      ] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "session-1",
+          title: "기분과 질문 대화",
+          last_message_at: "2026-04-13T10:00:00.000Z",
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          session_id: "session-1",
+          plain_text: "마지막 원문 메시지",
+          parts: [],
+        },
+      ] as never)
+      .mockResolvedValueOnce([
+        {
+          pregnancy_day_count: 165,
+          pregnancy_week: 24,
+          pregnancy_day_in_week: 4,
+        },
+      ] as never)
+      .mockResolvedValueOnce([{ id: "week-24" }] as never)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const request = new Request(
+      "http://localhost:3000/api/mobile/records?userId=user-1&date=2026-04-13",
+    ) as Request & { nextUrl: URL };
+    request.nextUrl = new URL(request.url);
+
+    const response = await GET(request as never);
+    const payload = await response.json();
+
+    expect(payload.recordDay.conversationSummary).toBe("가".repeat(170));
+    expect(payload.recordDay.conversationSummary).toHaveLength(170);
+    expect(payload.recordDay.relatedSessions).toEqual([
+      expect.objectContaining({
+        id: "session-1",
+        preview: "기분과 날짜 질문 주제를 간략히 정리했어요.",
+        summary: "기분과 날짜 질문 주제를 간략히 정리했어요.",
+        isReadOnly: true,
+      }),
+    ]);
   });
 
   it("view 기반 오늘 대화 세션도 relatedSessions에 포함한다", async () => {

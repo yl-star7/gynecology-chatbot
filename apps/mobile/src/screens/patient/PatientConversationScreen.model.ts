@@ -69,8 +69,10 @@ function isNewConversationSession(sessionId: string) {
 
 export function usePatientConversationScreenModel({
   sessionId,
+  forceReadOnly = false,
 }: {
   sessionId: string;
+  forceReadOnly?: boolean;
 }) {
   const router = useRouter();
   const { currentUser } = useMobileAppSession();
@@ -209,8 +211,9 @@ export function usePatientConversationScreenModel({
   }, [isSending, session.messages.length]);
 
   const isReadOnly =
-    !isNewConversationSession(sessionId) &&
-    isPastConversationSession(session.lastMessageAtIso);
+    forceReadOnly ||
+    (!isNewConversationSession(sessionId) &&
+      isPastConversationSession(session.lastMessageAtIso));
 
   async function handleSend(
     overrideText?: string,

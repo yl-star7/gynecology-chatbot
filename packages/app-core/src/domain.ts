@@ -57,8 +57,10 @@ export interface RecentChatSummary {
   id: string;
   title: string;
   preview: string;
+  summary?: string | null;
   updatedAtLabel: string;
   updatedAtIso?: string | null;
+  isReadOnly?: boolean;
 }
 
 export interface RecordDayItem {
