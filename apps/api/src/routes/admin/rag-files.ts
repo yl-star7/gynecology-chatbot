@@ -4,6 +4,7 @@ import { Storage } from "@google-cloud/storage";
 import { prisma } from "@gynecology-chatbot/db/prisma";
 import { getSchiftClient } from "@gynecology-chatbot/mobile-api/schift-client";
 
+import { resolveAdminDatabaseUserId } from "./audit.js";
 import { requireAdminProxy, type AdminProxyVariables } from "./auth.js";
 
 const app = new Hono<{ Variables: AdminProxyVariables }>();
@@ -158,7 +159,7 @@ app.post("/files", async (c) => {
         mime_type: file.type,
         status: "processing",
         enabled: true,
-        uploaded_by: c.get("adminUserId"),
+        uploaded_by: await resolveAdminDatabaseUserId(c.get("adminUserId")),
       },
     });
 

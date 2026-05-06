@@ -7,6 +7,29 @@ function toAuditPayload(value: Record<string, unknown>): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
 }
 
+export async function resolveAdminDatabaseUserId(rawAdminUserId: string) {
+  if (!UUID_PATTERN.test(rawAdminUserId)) {
+    return null;
+  }
+
+  const user = await prisma.users.findUnique({
+    where: { id: rawAdminUserId },
+    select: { id: true },
+  });
+
+  return user?.id ?? null;
+}
+
+function normalizeNullableUuid(value: string | null, label: string) {
+  if (!value) return null;
+  if (UUID_PATTERN.test(value)) return value;
+
+  console.warn(`Skipping invalid UUID value in admin audit log: ${label}`, {
+    value,
+  });
+  return null;
+}
+
 export async function createAdminAuditLog(input: {
   adminUserId: string;
   targetUserId: string | null;
@@ -17,8 +40,9 @@ export async function createAdminAuditLog(input: {
   beforePayload: Record<string, unknown>;
   afterPayload: Record<string, unknown>;
 }) {
-  if (!UUID_PATTERN.test(input.adminUserId)) {
-    console.warn("Skipping admin audit log for non-UUID admin user id", {
+  const adminUserId = await resolveAdminDatabaseUserId(input.adminUserId);
+  if (!adminUserId) {
+    console.warn("Skipping admin audit log for non-DB admin user id", {
       actionType: input.actionType,
       entityType: input.entityType,
       entityId: input.entityId,
@@ -26,16 +50,23 @@ export async function createAdminAuditLog(input: {
     return;
   }
 
-  await prisma.admin_audit_logs.create({
-    data: {
-      admin_user_id: input.adminUserId,
-      target_user_id: input.targetUserId,
-      action_type: input.actionType,
-      entity_type: input.entityType,
-      entity_id: input.entityId,
-      reason: input.reason,
-      before_payload: toAuditPayload(input.beforePayload),
-      after_payload: toAuditPayload(input.afterPayload),
-    },
-  });
+  try {
+    await prisma.admin_audit_logs.create({
+      data: {
+        admin_user_id: adminUserId,
+        target_user_id: normalizeNullableUuid(
+          input.targetUserId,
+          "target_user_id",
+        ),
+        action_type: input.actionType,
+        entity_type: input.entityType,
+        entity_id: normalizeNullableUuid(input.entityId, "entity_id"),
+        reason: input.reason,
+        before_payload: toAuditPayload(input.beforePayload),
+        after_payload: toAuditPayload(input.afterPayload),
+      },
+    });
+  } catch (error) {
+    console.warn("Skipping admin audit log after write failure", error);
+  }
 }

@@ -2,6 +2,10 @@ import { Hono } from "hono";
 import type { Prisma } from "@gynecology-chatbot/db/prisma";
 import { prisma } from "@gynecology-chatbot/db/prisma";
 
+import {
+  createAdminAuditLog,
+  resolveAdminDatabaseUserId,
+} from "./audit.js";
 import { requireAdminProxy, type AdminProxyVariables } from "./auth.js";
 
 const app = new Hono<{ Variables: AdminProxyVariables }>();
@@ -52,18 +56,6 @@ type UpsertPayload = {
   tone: string | null;
   active: boolean;
 };
-
-type MoodVariantAuditInput = {
-  adminUserId: string | null;
-  actionType: "create" | "update" | "delete";
-  entityId: string;
-  reason: string;
-  beforePayload: Prisma.InputJsonValue;
-  afterPayload: Prisma.InputJsonValue;
-};
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function serializeRow(row: MoodVariantRow) {
   return {
@@ -165,44 +157,6 @@ function toJsonSafeSnapshot(value: unknown): unknown {
   return value;
 }
 
-async function resolveAdminDatabaseUserId(rawAdminUserId: string) {
-  if (!UUID_PATTERN.test(rawAdminUserId)) {
-    return null;
-  }
-
-  const user = await prisma.users.findUnique({
-    where: { id: rawAdminUserId },
-    select: { id: true },
-  });
-
-  return user?.id ?? null;
-}
-
-async function writeMoodVariantAuditLog(input: MoodVariantAuditInput) {
-  if (!input.adminUserId) {
-    console.warn(
-      "Skipping mood variant audit log because admin user is not a DB user",
-    );
-    return;
-  }
-
-  try {
-    await prisma.admin_audit_logs.create({
-      data: {
-        admin_user_id: input.adminUserId,
-        action_type: input.actionType,
-        entity_type: "mood-variants",
-        entity_id: input.entityId,
-        reason: input.reason,
-        before_payload: input.beforePayload,
-        after_payload: input.afterPayload,
-      },
-    });
-  } catch (error) {
-    console.warn("Failed to write mood variant audit log", error);
-  }
-}
-
 async function saveMoodVariantSnapshotAndUpdate(input: {
   id: string;
   data: Record<string, unknown>;
@@ -276,9 +230,11 @@ app.post("/engine/moods", async (c) => {
     },
   })) as unknown as MoodVariantRow;
 
-  await writeMoodVariantAuditLog({
-    adminUserId,
+  await createAdminAuditLog({
+    adminUserId: c.get("adminUserId"),
+    targetUserId: null,
     actionType: "create",
+    entityType: "mood-variants",
     entityId: created.id,
     reason: "admin mood variant create",
     beforePayload: {},
@@ -321,9 +277,11 @@ app.patch("/engine/moods/:id", async (c) => {
   });
   if (!updated) return c.json({ error: "not_found" }, 404);
 
-  await writeMoodVariantAuditLog({
-    adminUserId,
+  await createAdminAuditLog({
+    adminUserId: c.get("adminUserId"),
+    targetUserId: null,
     actionType: "update",
+    entityType: "mood-variants",
     entityId: id,
     reason: "admin mood variant update",
     beforePayload: {
@@ -333,7 +291,7 @@ app.patch("/engine/moods/:id", async (c) => {
       tone: before.tone,
       active: before.active,
     },
-    afterPayload: data as Prisma.InputJsonValue,
+    afterPayload: data,
   });
 
   return c.json({ item: serializeRow(updated) });
@@ -350,9 +308,11 @@ app.delete("/engine/moods/:id", async (c) => {
 
   await prisma.content_mood_variants.delete({ where: { id } });
 
-  await writeMoodVariantAuditLog({
-    adminUserId: await resolveAdminDatabaseUserId(c.get("adminUserId")),
+  await createAdminAuditLog({
+    adminUserId: c.get("adminUserId"),
+    targetUserId: null,
     actionType: "delete",
+    entityType: "mood-variants",
     entityId: id,
     reason: "admin mood variant delete",
     beforePayload: {

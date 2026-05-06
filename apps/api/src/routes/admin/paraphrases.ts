@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { prisma } from "@gynecology-chatbot/db/prisma";
 
+import { resolveAdminDatabaseUserId } from "./audit.js";
 import { requireAdminProxy, type AdminProxyVariables } from "./auth.js";
 
 const app = new Hono<{ Variables: AdminProxyVariables }>();
@@ -98,7 +99,7 @@ app.patch("/content/paraphrases", async (c) => {
       data: {
         status: "ready",
         is_active: true,
-        reviewed_by: c.get("adminUserId"),
+        reviewed_by: await resolveAdminDatabaseUserId(c.get("adminUserId")),
         reviewed_at: new Date(),
         ...(reviewNote ? { review_note: reviewNote } : {}),
       },
