@@ -46,11 +46,13 @@ export function isRenderableConversationPart({
   messageId,
   assistantMessageIdsWithLaterUserMessage,
   latestQuickRepliesMessageId,
+  isReadOnly = false,
 }: {
   part: ChatMessage["parts"][number];
   messageId: string;
   assistantMessageIdsWithLaterUserMessage: Set<string>;
   latestQuickRepliesMessageId?: string;
+  isReadOnly?: boolean;
 }) {
   if (part.type === "text") {
     const visibleText = part.text
@@ -73,6 +75,9 @@ export function isRenderableConversationPart({
   }
 
   if (part.type === "survey") {
+    if (isReadOnly) {
+      return false;
+    }
     if (assistantMessageIdsWithLaterUserMessage.has(messageId)) {
       return false;
     }
@@ -88,6 +93,9 @@ export function isRenderableConversationPart({
   }
 
   if (part.type === "quickReplies") {
+    if (isReadOnly) {
+      return false;
+    }
     if (messageId !== latestQuickRepliesMessageId) {
       return false;
     }
@@ -101,10 +109,12 @@ export function resolveRenderableConversationMessages({
   messages,
   assistantMessageIdsWithLaterUserMessage,
   latestQuickRepliesMessageId,
+  isReadOnly = false,
 }: {
   messages: ChatMessage[];
   assistantMessageIdsWithLaterUserMessage: Set<string>;
   latestQuickRepliesMessageId?: string;
+  isReadOnly?: boolean;
 }) {
   return messages.filter((message) =>
     message.parts.some((part) =>
@@ -113,6 +123,7 @@ export function resolveRenderableConversationMessages({
         messageId: message.id,
         assistantMessageIdsWithLaterUserMessage,
         latestQuickRepliesMessageId,
+        isReadOnly,
       }),
     ),
   );

@@ -225,6 +225,50 @@ test("conversation message list hides unsupported assistant parts from the rende
   );
 });
 
+test("conversation message list hides interactive reply controls when read only", () => {
+  const messages = [
+    {
+      id: "assistant-reply",
+      role: "assistant",
+      createdAtLabel: "방금 전",
+      parts: [
+        { id: "text", type: "text", text: "확인했어요." },
+        {
+          id: "quick-replies",
+          type: "quickReplies",
+          title: "다음 선택",
+          choices: [{ id: "c1", label: "네", message: "네" }],
+        },
+      ],
+    },
+    {
+      id: "assistant-survey",
+      role: "assistant",
+      createdAtLabel: "방금 전",
+      parts: [
+        {
+          id: "survey",
+          type: "survey",
+          surveyId: "s1",
+          title: "상태 확인",
+          body: "지금은 어떤가요?",
+          choices: [{ id: "good", label: "괜찮아요" }],
+        },
+      ],
+    },
+  ] as const;
+
+  assert.deepEqual(
+    resolveRenderableConversationMessages({
+      messages,
+      assistantMessageIdsWithLaterUserMessage: new Set(),
+      latestQuickRepliesMessageId: "assistant-reply",
+      isReadOnly: true,
+    }).map((message) => message.id),
+    ["assistant-reply"],
+  );
+});
+
 test("assistant message id is marked when a later user message exists", () => {
   const result = resolveAssistantMessageIdsWithLaterUserMessage([
     { id: "a1", role: "assistant" },

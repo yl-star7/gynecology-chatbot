@@ -127,6 +127,7 @@ export function PatientConversationScreen({
             onSurveyAnswer={model.handleSurveyAnswer}
             surveySaveErrorText={resolvePatientSurveySaveError(new Error())}
             onDeepLinkPress={model.handleDeepLink}
+            isReadOnly={model.isReadOnly}
           />
 
           <PatientConversationComposer

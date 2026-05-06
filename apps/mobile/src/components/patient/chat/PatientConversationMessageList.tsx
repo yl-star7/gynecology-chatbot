@@ -54,6 +54,7 @@ export function PatientConversationMessageList({
   onSurveyAnswer,
   surveySaveErrorText,
   onDeepLinkPress,
+  isReadOnly = false,
 }: {
   scrollViewRef: (instance: ScrollView | null) => void;
   messages: ChatMessage[];
@@ -79,6 +80,7 @@ export function PatientConversationMessageList({
       weekNumber?: number | null;
     },
   ) => void;
+  isReadOnly?: boolean;
 }) {
   const [didChooseEmptyReply, setDidChooseEmptyReply] = useState(false);
   const assistantMessageIdsWithLaterUserMessage =
@@ -93,6 +95,7 @@ export function PatientConversationMessageList({
     messages,
     assistantMessageIdsWithLaterUserMessage,
     latestQuickRepliesMessageId,
+    isReadOnly,
   });
   const listState = resolveConversationMessageListState({
     messagesLength: renderableMessages.length,
@@ -154,7 +157,7 @@ export function PatientConversationMessageList({
                   </Text>
                 </View>
               </View>
-              {!didChooseEmptyReply ? (
+              {!isReadOnly && !didChooseEmptyReply ? (
                 <View style={styles.quickRepliesWrapper}>
                   <View style={styles.quickRepliesRow}>
                     {EMPTY_STATE_QUICK_REPLIES.map((choice) => (
@@ -242,6 +245,12 @@ export function PatientConversationMessageList({
                       const isImage = part.type === "image";
                       const isQuickReplies = part.type === "quickReplies";
                       const isDeepLink = part.type === "deepLink";
+                      if (
+                        isReadOnly &&
+                        (part.type === "quickReplies" || part.type === "survey")
+                      ) {
+                        return null;
+                      }
                       return (
                         <View key={part.id} style={styles.assistantBubbleRow}>
                           <View
