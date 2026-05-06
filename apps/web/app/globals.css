@@ -1,6 +1,39 @@
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
+/* Keep the mood variant editor usable with real prompt copy. */
+body:has(#prompt-suffix-input) [role="dialog"] {
+  max-height: calc(100dvh - 2rem);
+  width: calc(100vw - 2rem);
+  max-width: 48rem;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  background-color: hsl(var(--popover));
+}
+
+body:has(#prompt-suffix-input) [role="dialog"] > div:first-of-type {
+  padding-right: 2rem;
+}
+
+body:has(#prompt-suffix-input) [role="dialog"] > div:nth-of-type(2) {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+body:has(#prompt-suffix-input) [role="dialog"] > div:nth-of-type(3) {
+  border-top: 1px solid hsl(var(--border));
+  padding-top: 1rem;
+}
+
+#prompt-suffix-input {
+  min-height: 16rem;
+  max-height: 45dvh;
+  line-height: 1.5rem;
+  resize: vertical;
+  overflow: auto;
+}
+
 /* ── Schift SDK WorkflowEditor: CSS utilities for SDK components ──
  * Tailwind v4 does not scan node_modules, so SDK classes are not generated.
  * We use @utility (Tailwind v4 API) for standard utility names and plain
