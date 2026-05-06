@@ -44,9 +44,14 @@ type CharacterImagesManifest = {
   version: string;
   images: Record<NurseImageTone, string>;
 };
+type MobileSessionExpiredHandler = () => void | Promise<void>;
 
 let currentMobileSessionToken: string | null = null;
 let currentMobileUserId: string | null = null;
+let mobileSessionExpiredHandler: MobileSessionExpiredHandler | null = null;
+let isNotifyingSessionExpired = false;
+
+const SESSION_EXPIRED_MESSAGE = "세션이 만료되었어요. 다시 로그인해 주세요.";
 
 interface MobileApiClientOptions {
   fetchImpl?: MobileFetch;
@@ -146,13 +151,33 @@ function getEnvUserId() {
   );
 }
 
+export function setMobileSessionExpiredHandler(
+  handler: MobileSessionExpiredHandler | null,
+) {
+  mobileSessionExpiredHandler = handler;
+}
+
+function notifyMobileSessionExpired() {
+  if (!mobileSessionExpiredHandler || isNotifyingSessionExpired) {
+    return;
+  }
+
+  isNotifyingSessionExpired = true;
+  void Promise.resolve(mobileSessionExpiredHandler()).finally(() => {
+    isNotifyingSessionExpired = false;
+  });
+}
+
+function createSessionExpiredError() {
+  notifyMobileSessionExpired();
+  return new SessionExpiredError(SESSION_EXPIRED_MESSAGE);
+}
+
 async function parseJson<T>(response: Response) {
   const payload = (await response.json()) as T & { error?: string };
   if (!response.ok) {
     if (response.status === 401) {
-      throw new SessionExpiredError(
-        "세션이 만료되었어요. 다시 로그인해 주세요.",
-      );
+      throw createSessionExpiredError();
     }
     if (response.status === 429) {
       throw new RateLimitError("잠시 후 다시 시도해 주세요.");
@@ -391,9 +416,7 @@ export function createMobileApiClient(
       await ensureMobileSessionState();
       const sessionHeaders = buildMobileSessionHeaders();
       if (!sessionHeaders.Authorization) {
-        throw new SessionExpiredError(
-          "세션이 만료되었어요. 다시 로그인해 주세요.",
-        );
+        throw createSessionExpiredError();
       }
 
       const response = await fetchImpl(
@@ -484,18 +507,14 @@ export function createMobileApiClient(
       await ensureMobileSessionState();
       const sessionHeaders = buildMobileSessionHeaders();
       if (!sessionHeaders.Authorization) {
-        throw new SessionExpiredError(
-          "세션이 만료되었어요. 다시 로그인해 주세요.",
-        );
+        throw createSessionExpiredError();
       }
 
       let resolvedUserId: string;
       try {
         resolvedUserId = getUserId();
       } catch {
-        throw new SessionExpiredError(
-          "세션이 만료되었어요. 다시 로그인해 주세요.",
-        );
+        throw createSessionExpiredError();
       }
 
       const controller = new AbortController();
@@ -530,9 +549,7 @@ export function createMobileApiClient(
     async summarizeChatSession(sessionId: string) {
       const sessionHeaders = buildMobileSessionHeaders();
       if (!sessionHeaders.Authorization) {
-        throw new SessionExpiredError(
-          "세션이 만료되었어요. 다시 로그인해 주세요.",
-        );
+        throw createSessionExpiredError();
       }
       const response = await fetchImpl(
         `${getApiBaseUrl()}/api/mobile/sessions/${sessionId}/summarize`,

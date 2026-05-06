@@ -1,5 +1,10 @@
 // @ts-nocheck
-import { Stack } from "expo-router";
+import {
+  Stack,
+  useRootNavigationState,
+  useRouter,
+  useSegments,
+} from "expo-router";
 import {
   HIDDEN_HEADER_SCREEN_OPTIONS,
   ROOT_STACK_ROUTE_NAMES,
@@ -21,7 +26,10 @@ import {
 import { DailyLocalNotificationRegistrar } from "../src/components/DailyLocalNotificationRegistrar";
 import { MobileUpdateReloader } from "../src/components/MobileUpdateReloader";
 import { PushTokenRegistrar } from "../src/components/PushTokenRegistrar";
-import { preloadPatientAppData } from "../src/core/mobileBootstrap.model";
+import {
+  preloadPatientAppData,
+  resolveUnauthenticatedRedirect,
+} from "../src/core/mobileBootstrap.model";
 import {
   hasFreshCachedHomeView,
   hasFreshCachedPregnancyWeeks,
@@ -71,10 +79,28 @@ function BootstrapGate({ children }: { children: React.ReactNode }) {
   const { currentUser, isRestoringSession } = useMobileAppSession();
   const services = useMobileServices();
   const { applyThemeKey, restoreThemeKeyForUser } = useMobileTheme();
+  const router = useRouter();
+  const segments = useSegments();
+  const rootNavigationState = useRootNavigationState();
 
   useEffect(() => {
     void SplashScreen.hideAsync().catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (isRestoringSession || !rootNavigationState?.key) {
+      return;
+    }
+
+    const redirectHref = resolveUnauthenticatedRedirect({
+      currentUser,
+      isRestoringSession,
+      routeSegments: segments,
+    });
+    if (redirectHref) {
+      router.replace(redirectHref);
+    }
+  }, [currentUser, isRestoringSession, rootNavigationState?.key, router, segments]);
 
   useEffect(() => {
     if (isRestoringSession) {

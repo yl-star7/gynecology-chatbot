@@ -1,6 +1,5 @@
 // @ts-nocheck
-import { Tabs, useRouter } from "expo-router";
-import { useEffect } from "react";
+import { Tabs } from "expo-router";
 import { Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useMobileAppSession } from "../../src/core/MobileAppSessionProvider";
@@ -16,7 +15,6 @@ import {
 export default function TabsLayout() {
   const { currentUser, isRestoringSession } = useMobileAppSession();
   const { palette, surface } = useMobileTheme();
-  const router = useRouter();
   const bottomInset = usePatientBottomInset();
   const tabsScreenOptions = buildTabsScreenOptions({
     accent: palette.accent,
@@ -53,24 +51,11 @@ export default function TabsLayout() {
     },
   };
 
-  useEffect(() => {
-    if (isRestoringSession) {
-      return;
-    }
-
-    if (!currentUser) {
-      router.replace("/auth/login");
-    } else if (currentUser.accountStatus === "pending_approval") {
-      router.replace("/approval-pending");
-    } else if (!currentUser.hasCompletedOnboarding) {
-      router.replace("/onboarding");
-    }
-  }, [currentUser, isRestoringSession, router]);
-
   if (
     isRestoringSession ||
     !currentUser ||
-    currentUser.accountStatus === "pending_approval"
+    currentUser.accountStatus === "pending_approval" ||
+    !currentUser.hasCompletedOnboarding
   ) {
     return null;
   }

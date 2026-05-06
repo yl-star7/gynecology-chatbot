@@ -12,6 +12,7 @@ import {
   createMobileApiClient,
   SessionExpiredError,
   RateLimitError,
+  setMobileSessionExpiredHandler,
   storeCurrentMobileSessionToken,
   storeCurrentMobileUserId,
 } from "./mobileApi.ts";
@@ -19,6 +20,7 @@ import {
 test.beforeEach(() => {
   storeCurrentMobileSessionToken(null);
   storeCurrentMobileUserId(null);
+  setMobileSessionExpiredHandler(null);
 });
 
 const profilePayload: MobileProfileViewData = {
@@ -330,6 +332,10 @@ test("updateTodayChecklistItem sends PATCH to the mobile today endpoint", async 
 });
 
 test("401 응답 시 SessionExpiredError를 throw한다", async () => {
+  let notified = false;
+  setMobileSessionExpiredHandler(() => {
+    notified = true;
+  });
   const client = createMobileApiClient({
     getApiBaseUrl: () => "http://example.com",
     getUserId: () => "user-1",
@@ -351,6 +357,7 @@ test("401 응답 시 SessionExpiredError를 throw한다", async () => {
       return true;
     },
   );
+  assert.equal(notified, true);
 });
 
 test("429 응답 시 RateLimitError를 throw한다", async () => {

@@ -2,10 +2,19 @@ import type {
   AuthenticatedUser,
   OnboardingProfileInput,
 } from "@gynecology-chatbot/app-core";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   fetchCurrentMobileSession,
   readCurrentMobileSessionToken,
+  setMobileSessionExpiredHandler,
   storeCurrentMobileSessionToken,
   storeCurrentMobileUserId,
 } from "../api/mobileApi";
@@ -52,6 +61,33 @@ export function MobileAppSessionProvider({
     null,
   );
   const [isRestoringSession, setIsRestoringSession] = useState(true);
+  const currentUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    currentUserIdRef.current = currentUser?.id ?? null;
+  }, [currentUser?.id]);
+
+  const clearSessionState = useCallback(async () => {
+    const nativeUserId = await readNativeUserId();
+    const userId = currentUserIdRef.current ?? nativeUserId;
+
+    clearPatientViewCaches(userId);
+    await clearPersistedPatientViewCaches(userId);
+    storeCurrentMobileSessionToken(null);
+    storeCurrentMobileUserId(null);
+    await clearNativeSessionToken();
+    await clearNativeUserId();
+    setCurrentUser(null);
+    setIsRestoringSession(false);
+  }, []);
+
+  useEffect(() => {
+    setMobileSessionExpiredHandler(clearSessionState);
+
+    return () => {
+      setMobileSessionExpiredHandler(null);
+    };
+  }, [clearSessionState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,12 +146,7 @@ export function MobileAppSessionProvider({
           return;
         }
 
-        storeCurrentMobileSessionToken(null);
-        storeCurrentMobileUserId(null);
-        clearPatientViewCaches(nativeUserId);
-        await clearPersistedPatientViewCaches(nativeUserId);
-        await clearNativeSessionToken();
-        await clearNativeUserId();
+        await clearSessionState();
       } finally {
         if (!cancelled) {
           setIsRestoringSession(false);
@@ -128,7 +159,7 @@ export function MobileAppSessionProvider({
     return () => {
       cancelled = true;
     };
-  }, [services.profilePort]);
+  }, [clearSessionState, services.profilePort]);
 
   const value = useMemo<MobileAppSessionValue>(
     () => ({
@@ -177,17 +208,10 @@ export function MobileAppSessionProvider({
         return nextUser;
       },
       async signOut() {
-        clearPatientViewCaches(currentUser?.id);
-        await clearPersistedPatientViewCaches(currentUser?.id);
-        storeCurrentMobileSessionToken(null);
-        storeCurrentMobileUserId(null);
-        await clearNativeSessionToken();
-        await clearNativeUserId();
-        setCurrentUser(null);
-        setIsRestoringSession(false);
+        await clearSessionState();
       },
     }),
-    [currentUser, isRestoringSession, services],
+    [clearSessionState, currentUser, isRestoringSession, services],
   );
 
   return (

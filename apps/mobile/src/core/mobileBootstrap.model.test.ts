@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createTodayIsoDate,
   preloadPatientAppData,
+  resolveUnauthenticatedRedirect,
 } from "./mobileBootstrap.model.ts";
 
 function createServices(calls: string[], rejectHome = false) {
@@ -160,4 +161,81 @@ test("createTodayIsoDate uses Korean calendar days", () => {
       process.env.TZ = previousTimeZone;
     }
   }
+});
+
+test("resolveUnauthenticatedRedirect sends protected routes to login", () => {
+  assert.equal(
+    resolveUnauthenticatedRedirect({
+      currentUser: null,
+      isRestoringSession: false,
+      routeSegments: ["chat", "session-1"],
+    }),
+    "/auth/login",
+  );
+  assert.equal(
+    resolveUnauthenticatedRedirect({
+      currentUser: null,
+      isRestoringSession: false,
+      routeSegments: ["records", "2026-05-05"],
+    }),
+    "/auth/login",
+  );
+});
+
+test("resolveUnauthenticatedRedirect leaves login and restoring states alone", () => {
+  assert.equal(
+    resolveUnauthenticatedRedirect({
+      currentUser: null,
+      isRestoringSession: false,
+      routeSegments: ["auth", "login"],
+    }),
+    null,
+  );
+  assert.equal(
+    resolveUnauthenticatedRedirect({
+      currentUser: null,
+      isRestoringSession: true,
+      routeSegments: ["chat", "session-1"],
+    }),
+    null,
+  );
+});
+
+test("resolveUnauthenticatedRedirect owns pending and onboarding redirects", () => {
+  assert.equal(
+    resolveUnauthenticatedRedirect({
+      currentUser: {
+        id: "user-pending",
+        accountStatus: "pending_approval",
+        hasCompletedOnboarding: true,
+      },
+      isRestoringSession: false,
+      routeSegments: ["(tabs)", "home"],
+    }),
+    "/approval-pending",
+  );
+  assert.equal(
+    resolveUnauthenticatedRedirect({
+      currentUser: {
+        id: "user-onboarding",
+        accountStatus: "active",
+        hasCompletedOnboarding: false,
+      },
+      isRestoringSession: false,
+      routeSegments: ["chat", "new"],
+    }),
+    "/onboarding",
+  );
+  assert.equal(
+    resolveUnauthenticatedRedirect({
+      currentUser: {
+        id: "user-1",
+        accountStatus: "active",
+        hasCompletedOnboarding: true,
+      },
+      isRestoringSession: false,
+      routeSegments: ["auth", "login"],
+    }),
+    "/(tabs)/home",
+  );
 });

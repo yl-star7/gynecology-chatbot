@@ -29,6 +29,65 @@ export function createTodayIsoDate(now = new Date()) {
   return createKoreanDateKey(now);
 }
 
+export function resolveUnauthenticatedRedirect({
+  currentUser,
+  isRestoringSession,
+  routeSegments,
+}: {
+  currentUser: Pick<
+    AuthenticatedUser,
+    "accountStatus" | "hasCompletedOnboarding" | "id"
+  > | null;
+  isRestoringSession: boolean;
+  routeSegments: readonly string[];
+}) {
+  if (isRestoringSession) {
+    return null;
+  }
+
+  const [rootSegment] = routeSegments;
+
+  if (!currentUser) {
+    return rootSegment === "auth" ? null : "/auth/login";
+  }
+
+  if (
+    currentUser.accountStatus === "pending_approval" &&
+    rootSegment !== "approval-pending"
+  ) {
+    return "/approval-pending";
+  }
+
+  if (
+    currentUser.accountStatus !== "pending_approval" &&
+    !currentUser.hasCompletedOnboarding &&
+    rootSegment !== "onboarding"
+  ) {
+    return "/onboarding";
+  }
+
+  if (rootSegment === "auth") {
+    return currentUser.hasCompletedOnboarding ? "/(tabs)/home" : "/onboarding";
+  }
+
+  if (
+    currentUser.accountStatus !== "pending_approval" &&
+    currentUser.hasCompletedOnboarding &&
+    (rootSegment === "approval-pending" || rootSegment === "onboarding")
+  ) {
+    return "/(tabs)/home";
+  }
+
+  if (
+    currentUser.accountStatus === "pending_approval" ||
+    !currentUser.hasCompletedOnboarding
+  ) {
+    return null;
+  }
+
+  return null;
+}
+
 export async function preloadPatientAppData({
   currentUser,
   services,
