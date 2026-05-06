@@ -14,6 +14,8 @@ import {
 import { prisma } from "@gynecology-chatbot/db/prisma";
 
 const STAGE_MAPPING_KEY = "workflow_stage_mapping";
+const WORKFLOW_SETTINGS_BLOCK_ID = "__workflow_settings";
+const WORKFLOW_SETTINGS_BLOCK_TYPE = "workflow_settings";
 
 type Ctx = { params: Promise<{ name: string }> };
 
@@ -22,6 +24,8 @@ type WorkflowYaml = {
   name: string;
   description?: string;
   admin_metadata?: Record<string, unknown>;
+  config?: Record<string, unknown>;
+  chat_flow?: Record<string, unknown>;
   prompts?: Record<string, string>;
   static_responses?: Record<string, unknown>;
   blocks: Array<{
@@ -55,15 +59,55 @@ function parseWorkflowYaml(text: string): WorkflowYaml {
   return yaml;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function asStringRecord(value: unknown): Record<string, string> | null {
+  const record = asRecord(value);
+  if (!record) return null;
+  const out: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(record)) {
+    if (typeof entry === "string") out[key] = entry;
+  }
+  return out;
+}
+
+function hasOwn(record: Record<string, unknown>, key: string) {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
+function workflowSettingsConfig(yaml: WorkflowYaml) {
+  const config: Record<string, unknown> = {};
+  if (yaml.admin_metadata) config.admin_metadata = yaml.admin_metadata;
+  if (yaml.config) config.config = yaml.config;
+  if (yaml.chat_flow) config.chat_flow = yaml.chat_flow;
+  if (yaml.prompts) config.prompts = yaml.prompts;
+  if (yaml.static_responses) config.static_responses = yaml.static_responses;
+  return config;
+}
+
 function toWorkflow(id: string, yaml: WorkflowYaml): Workflow {
   const now = new Date().toISOString();
-  const blocks = yaml.blocks.map((block, index) => ({
-    id: block.id,
-    type: block.type as WorkflowGraph["blocks"][number]["type"],
-    title: block.title ?? block.id,
-    position: { x: 100 + index * 220, y: 120 },
-    config: block.config ?? {},
-  }));
+  const settingsBlock = {
+    id: WORKFLOW_SETTINGS_BLOCK_ID,
+    type: WORKFLOW_SETTINGS_BLOCK_TYPE as WorkflowGraph["blocks"][number]["type"],
+    title: "YAML 전역 설정",
+    position: { x: 100, y: 40 },
+    config: workflowSettingsConfig(yaml),
+  };
+  const blocks = [
+    settingsBlock,
+    ...yaml.blocks.map((block, index) => ({
+      id: block.id,
+      type: block.type as WorkflowGraph["blocks"][number]["type"],
+      title: block.title ?? block.id,
+      position: { x: 100 + index * 220, y: 180 },
+      config: block.config ?? {},
+    })),
+  ];
   return {
     id,
     name: yaml.name,
@@ -89,18 +133,24 @@ function graphToYamlBlocks(graph: Record<string, unknown>) {
   const blocks = (graph.nodes ?? graph.blocks ?? []) as Array<
     Record<string, unknown>
   >;
-  return blocks.map((block) => ({
-    id: String(block.id),
-    type: String(block.type),
-    title:
-      typeof block.title === "string" && block.title.trim()
-        ? block.title
-        : String(block.id),
-    config:
-      block.config && typeof block.config === "object"
-        ? (block.config as Record<string, unknown>)
-        : {},
-  }));
+  return blocks
+    .filter(
+      (block) =>
+        block.id !== WORKFLOW_SETTINGS_BLOCK_ID &&
+        block.type !== WORKFLOW_SETTINGS_BLOCK_TYPE,
+    )
+    .map((block) => ({
+      id: String(block.id),
+      type: String(block.type),
+      title:
+        typeof block.title === "string" && block.title.trim()
+          ? block.title
+          : String(block.id),
+      config:
+        block.config && typeof block.config === "object"
+          ? (block.config as Record<string, unknown>)
+          : {},
+    }));
 }
 
 function graphToYamlEdges(graph: Record<string, unknown>) {
@@ -113,6 +163,39 @@ function graphToYamlEdges(graph: Record<string, unknown>) {
     target_handle:
       typeof edge.target_handle === "string" ? edge.target_handle : undefined,
   }));
+}
+
+function graphToWorkflowSettings(
+  graph: Record<string, unknown>,
+): Partial<WorkflowYaml> {
+  const blocks = (graph.nodes ?? graph.blocks ?? []) as Array<
+    Record<string, unknown>
+  >;
+  const settingsBlock = blocks.find(
+    (block) =>
+      block.id === WORKFLOW_SETTINGS_BLOCK_ID ||
+      block.type === WORKFLOW_SETTINGS_BLOCK_TYPE,
+  );
+  const config = asRecord(settingsBlock?.config);
+  if (!config) return {};
+
+  const patch: Partial<WorkflowYaml> = {};
+  if (hasOwn(config, "admin_metadata")) {
+    patch.admin_metadata = asRecord(config.admin_metadata) ?? {};
+  }
+  if (hasOwn(config, "config")) {
+    patch.config = asRecord(config.config) ?? {};
+  }
+  if (hasOwn(config, "chat_flow")) {
+    patch.chat_flow = asRecord(config.chat_flow) ?? {};
+  }
+  if (hasOwn(config, "prompts")) {
+    patch.prompts = asStringRecord(config.prompts) ?? {};
+  }
+  if (hasOwn(config, "static_responses")) {
+    patch.static_responses = asRecord(config.static_responses) ?? {};
+  }
+  return patch;
 }
 
 function resolvePromptRefs(
@@ -256,8 +339,10 @@ export async function PATCH(request: NextRequest, context: Ctx) {
     const { yaml: current } = await readYaml(name);
     const body = (await request.json()) as Record<string, unknown>;
     const graph = body.graph as Record<string, unknown> | undefined;
+    const workflowSettings = graph ? graphToWorkflowSettings(graph) : {};
     const nextYaml: WorkflowYaml = {
       ...current,
+      ...workflowSettings,
       name: typeof body.name === "string" ? body.name : current.name,
       description:
         typeof body.description === "string"

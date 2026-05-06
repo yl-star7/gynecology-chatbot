@@ -4,9 +4,22 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   WorkflowEditorProvider,
   WorkflowBuilder,
+  type BlockTypeDefinition,
   type WorkflowEditorAPI,
 } from "@schift-io/sdk/workflow-editor";
 import type { Workflow, WorkflowRun } from "@schift-io/sdk";
+
+const AGAYA_WORKFLOW_BLOCKS: BlockTypeDefinition[] = [
+  {
+    type: "workflow_settings",
+    label: "YAML 전역 설정",
+    category: "Control",
+    icon: "⚙",
+    defaultConfig: {},
+    inputs: [],
+    outputs: [],
+  },
+];
 
 function createAdminWorkflowAPI(base = "/api/admin/schift/workflows"): WorkflowEditorAPI {
 
@@ -132,7 +145,7 @@ export function AdminWorkflowEditorAdapter({ workflowId, apiBase, onBack }: Prop
   }, []);
 
   return (
-    <WorkflowEditorProvider api={api}>
+    <WorkflowEditorProvider api={api} customBlocks={AGAYA_WORKFLOW_BLOCKS}>
       <div
         ref={editorRootRef}
         className="schift-editor-root h-full min-h-[500px] [--schift-black:#0a0a0f] [--schift-blue:#3b82f6] [--schift-gray-100:#111118] [--schift-gray-30:#b0b0c8] [--schift-gray-50:#71718a] [--schift-gray-60:#50506b] [--schift-gray-70:#35354a] [--schift-gray-80:#252530] [--schift-gray-90:#1a1a24] [--schift-green:#10b981] [--schift-red:#ef4444] [--schift-white:#e8e8f0] [--schift-yellow:#f59e0b]"
