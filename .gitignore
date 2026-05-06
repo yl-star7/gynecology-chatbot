@@ -48,6 +48,15 @@ artifacts/
 output/
 output/playwright/
 
+# local agent/browser artifacts
+/.claude/settings.local.json
+/.claude/worktrees/
+/.playwright-mcp/
+/admin-*.png
+/tmp-*.png
+/tmp-*/
+/scripts/_tmp-*.mjs
+
 # env files
 .env*
 !.env.example
