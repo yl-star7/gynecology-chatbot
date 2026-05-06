@@ -62,7 +62,7 @@ describe("chat flow config", () => {
     expect(config.todayQuestion.blockedText).toContain("태교 질문");
     expect(config.questionSelected.answerTemplate).toContain("{{questionText}}");
     expect(config.questionAnswer.reflectionLoop).toMatchObject({
-      minUserTurnsBeforeNext: 2,
+      minUserTurnsBeforeNext: 1,
       maxUserTurnsPerQuestion: 5,
       quickReplyMode: "hidden",
       nextQuestionLabelTemplate: "다른 질문도 볼래요 ({{remainingCount}}개)",
@@ -99,7 +99,7 @@ describe("chat flow config", () => {
     ]);
     expect(config.weekInfoOptIn.answerVariations).toEqual(["주차 정보 볼까요?"]);
     expect(config.questionAnswer.reflectionLoop).toMatchObject({
-      minUserTurnsBeforeNext: 3,
+      minUserTurnsBeforeNext: 1,
       maxUserTurnsPerQuestion: 5,
     });
   });

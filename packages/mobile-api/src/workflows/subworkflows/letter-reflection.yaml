@@ -1,7 +1,7 @@
 version: 1
 name: 모성간호 letter_reflection (편지/공감 대화)
 description: >
-  stage=2 전용. 사용자가 오늘의 질문에 답변 중. 편지형 공감 + 역질문 1개.
+  stage=2 전용. 사용자가 오늘의 질문에 답변 중. 편지형 공감 + 짧은 마무리.
   stage=0 회귀 절대 금지.
 
 admin_metadata:
@@ -11,7 +11,7 @@ admin_metadata:
 
 config:
   reflection_loop:
-    min_user_turns_before_next: 2
+    min_user_turns_before_next: 1
     max_user_turns_per_question: 5
     quick_reply_mode: hidden
     wrap_up_message: 오늘 질문은 여기까지 담아도 충분해요. 이 마음을 기억해둘게요.
@@ -25,7 +25,7 @@ prompts:
 
     출력 JSON 스키마(반드시 준수, JSON 하나만, 마크다운/코드블록 금지):
     {
-      "answer": string,                              // 공감 1문단(2~3문장) + 의미화 1문장 + 열린 역질문 1개
+      "answer": string,                              // 공감 1문단(2~3문장) + 의미화 1문장 + 짧은 마무리
       "scenario": "letter_reflection" | "daily_followup" | "empathy_chat",
       "characterTone": "calm" | "sad" | "anxious" | "joyful" | "tired",
       "guardrailStatus": "safe",
@@ -53,7 +53,7 @@ prompts:
     - 버튼을 보여주는 턴의 answer는 현재 질문에 대한 자연스러운 마무리 느낌이면 충분합니다. 다음 질문 목록은 서버가 다음 턴에서 보여주므로 answer에 질문 목록을 쓰지 마세요.
     - 답변 내용에 맞춘 보조 선택지, "하나 더 이야기하기", "다른 방향으로 물어보기", "오늘은 여기까지" 같은 quickReplies는 만들지 마세요.
     - **config.reflection_loop.next_question_message 또는 "다음 질문" 계열이 사용자 메시지면** 지금 질문에 대한 짧은 wrap-up만 작성하세요. 서버가 현재 질문을 마무리하고 다음 질문 목록을 보여주는 전환을 처리합니다.
-    - **answer 는 공감 + 의미화 + 열린 질문 1개 구조 유지**. 한 턴에 조언을 몰아넣지 말기.
+    - 오늘의 질문 답변 턴에서는 임의 후속 질문을 만들지 마세요. 사용자가 이미 고른 질문에 답했으면 공감 + 의미화 + 짧은 마무리로 닫고, 다음 질문 선택은 서버 전환 버튼이 처리합니다.
     - **금지**: "주차 정보 궁금하세요?", "아기 발달 정보 짧게 확인", "오늘 기분 어떠세요" stage=0 문구.
     - **금지**: scenario=baby_info_offer / mood_intake / emotion_checkin. stage=0 회귀 불가.
     - 사용자가 "고마워요", "괜찮아요" 정도의 감사만 보내도 **바로 종료하지 말고** empathy_chat 으로 한 턴 더 이어가세요. 실제 종료는 서버 shortcut 이 처리.
@@ -62,12 +62,12 @@ prompts:
     - 우울/슬픔 표현 → characterTone="sad", 불안 → "anxious", 기본 "calm".
 
     질문 강조 포맷:
-    - answer 본문에 사용자에게 묻는 질문 문장이 들어갈 때는 정확히 **하나**의 질문만 다음 포맷으로 감싸 작성하세요.
+    - answer 본문에 사용자에게 묻는 질문 문장이 꼭 필요할 때만 정확히 **하나**의 질문을 다음 포맷으로 감싸 작성하세요. 오늘의 질문 마무리 턴에서는 질문 문장을 쓰지 마세요.
       **"질문 본문"** (바깥은 **...** 볼드 + 안쪽은 큰따옴표 1쌍)
     - 금지: ""질문 본문"", """질문 본문""", "**질문 본문**"처럼 따옴표가 중복되거나 볼드가 안쪽에만 들어간 형식.
     - 평서문 공감/의미화 문단에는 따옴표·볼드를 쓰지 마세요.
     - 질문이 없는 턴(마무리 wrap-up 등)에는 이 포맷을 쓰지 마세요.
-    - letter_reflection/daily_followup/empathy_chat 에서는 열린 역질문 1개가 기본이므로, 그 역질문만 이 포맷으로 감싸 쓰세요.
+    - letter_reflection/daily_followup/empathy_chat 에서 서버 전환 버튼이 뜨는 턴에는 이 포맷을 사용하지 말고, 질문 없이 마무리하세요.
 
     선택지 요약 규칙:
     - quickReplies[].label 및 surveyChoices[].label 은 최대 10자 이내로 요약하세요.

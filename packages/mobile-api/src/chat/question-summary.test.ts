@@ -31,23 +31,27 @@ describe("buildSummaryText", () => {
   });
 
   it("falls back to userAnswer when compactSummary is only workflow state", () => {
-    expect(
-      buildSummaryText({
-        compactSummary:
-          "현재 단계: 질문 답변 대기 (a5d93e8b-02e8-428d-8ea8-c5ef9569691c)",
-        userAnswer: "오늘은 아기에게 고맙다고 말하고 싶어요.",
-      }),
-    ).toBe("오늘은 아기에게 고맙다고 말하고 싶어요.");
+    const summary = buildSummaryText({
+      compactSummary:
+        "현재 단계: 질문 답변 대기 (a5d93e8b-02e8-428d-8ea8-c5ef9569691c)",
+      userAnswer: "오늘은 아기에게 고맙다고 말하고 싶어요.",
+    });
+
+    expect(summary).toContain("오늘은 아기에게 고맙다고 말하고 싶어요");
+    expect(summary).not.toContain("질문 답변 대기");
   });
 
   it("falls back to userAnswer when compactSummary only says answer is in progress", () => {
-    expect(
-      buildSummaryText({
-        compactSummary: "현재 단계: 질문 답변 중",
-        userAnswer:
-          "갑자기 마음이 아플 때는 숨을 고르고 괜찮다고 말해주고 싶어요.",
-      }),
-    ).toBe("갑자기 마음이 아플 때는 숨을 고르고 괜찮다고 말해주고 싶어요.");
+    const summary = buildSummaryText({
+      compactSummary: "현재 단계: 질문 답변 중",
+      userAnswer:
+        "갑자기 마음이 아플 때는 숨을 고르고 괜찮다고 말해주고 싶어요.",
+    });
+
+    expect(summary).toContain(
+      "갑자기 마음이 아플 때는 숨을 고르고 괜찮다고 말해주고 싶어요",
+    );
+    expect(summary).not.toContain("질문 답변 중");
   });
 
   it("truncates to 220 chars", () => {

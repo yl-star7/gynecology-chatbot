@@ -320,6 +320,57 @@ describe("mobile chat responder", () => {
     );
   });
 
+  it("continues workflow when fresh RAG lookup times out", async () => {
+    const runWorkflow = jest.fn().mockResolvedValue({
+      run: {
+        status: "completed",
+        outputs: {
+          answer: JSON.stringify({
+            answer: "주차 정보는 지금 대화 흐름 안에서 짧게 이어갈게요.",
+            scenario: "baby_info",
+          }),
+        },
+      },
+    });
+    const loadRagContext = jest
+      .fn()
+      .mockRejectedValue(new Error("File RAG weekly search timed out"));
+
+    const responder = createMobileChatResponder({
+      getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
+      runSchiftWorkflow: runWorkflow,
+      extractSchiftWorkflowOutputs: (run) => run.outputs ?? {},
+      formatSchiftWorkflowRun: () => "답변: ok",
+      loadCharacterImages: async () => ({}),
+      loadRagContext,
+    });
+
+    const result = await responder({
+      promptContext: null,
+      currentWeek: 33,
+      normalizedSessionId: "session-1",
+      text: "33주차 정보 볼래요",
+      imageDataUris: [],
+      hardGuardrailReason: null,
+    });
+
+    expect(loadRagContext).toHaveBeenCalledWith({
+      query: "33주차 정보 볼래요",
+      currentWeek: 33,
+    });
+    expect(runWorkflow).toHaveBeenCalledWith({
+      schift: expect.any(Object),
+      inputs: expect.objectContaining({
+        results: null,
+      }),
+    });
+    expect(result.assistantMessage.parts).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "_rag_sources" }),
+      ]),
+    );
+  });
+
   it("combines baby and mother weekly information in the static info turn", async () => {
     const responder = createMobileChatResponder({
       getSchiftClient: () => ({ workflows: { run: jest.fn() } }),

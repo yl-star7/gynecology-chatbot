@@ -124,6 +124,33 @@ describe("rewriteLetterReflectionQuickReplies", () => {
     );
   });
 
+  it("removes generated follow-up questions when closing a reflection answer", () => {
+    const payload = {
+      answer: `배가 묵직하고 숨이 차는 변화를 느끼면서도, 아기가 건강하게 자라고 있다는 생각에 마음이 놓이시는군요. **이런 몸의 변화와 마음의 안심 사이에서, 이번 주에 가장 감사하게 느껴지는 순간이 있다면 언제였을까요?**\n\n${QUESTION_WRAP_UP_MESSAGE}`,
+      quickReplies: [],
+    };
+
+    const out = rewriteLetterReflectionQuickReplies(
+      payload,
+      {
+        answeredQuestionIds: [],
+        currentAttachmentQuestionId: "q1",
+        currentQuestionTurnCount: 1,
+      },
+      {
+        loopPolicy: {
+          min_user_turns_before_next: 1,
+          max_user_turns_per_question: 5,
+        },
+      },
+    );
+
+    expect(out.answer).toBe(
+      `배가 묵직하고 숨이 차는 변화를 느끼면서도, 아기가 건강하게 자라고 있다는 생각에 마음이 놓이시는군요.\n\n${QUESTION_WRAP_UP_MESSAGE}`,
+    );
+    expect(out.answer).not.toContain("언제였을까요");
+  });
+
   it("hides the next-question button until the configured reflection turn", () => {
     const payload = {
       quickReplies: [{ label: "다른 질문도 볼래요", message: "." }],
@@ -273,6 +300,27 @@ describe("rewriteLetterReflectionQuickReplies", () => {
     );
     expect(out.quickReplies).toHaveLength(1);
     expect(out.quickReplies![0].label).toBe("다른 질문도 볼래요 (2개)");
+  });
+
+  it("offers the next question after the first answer by default", () => {
+    const payload = {
+      answer: "그 마음을 잘 담아둘게요.",
+      quickReplies: [],
+    };
+
+    const out = rewriteLetterReflectionQuickReplies(payload, {
+      answeredQuestionIds: [],
+      currentAttachmentQuestionId: "q1",
+      currentQuestionTurnCount: 1,
+    });
+
+    expect(out.quickReplies).toEqual([
+      {
+        id: "next",
+        label: "다른 질문도 볼래요 (2개)",
+        message: "다음 질문으로 이어갈래요.",
+      },
+    ]);
   });
 
   it("uses configured button text and wrap-up text", () => {

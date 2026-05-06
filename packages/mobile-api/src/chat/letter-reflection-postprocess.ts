@@ -41,7 +41,7 @@ export const QUESTION_WRAP_UP_MESSAGE =
   "오늘 질문은 여기까지 담아도 충분해요. 이 마음을 기억해둘게요.";
 export const DEFAULT_LETTER_REFLECTION_LOOP_POLICY: LetterReflectionLoopPolicy =
   {
-    minUserTurnsBeforeNext: 3,
+    minUserTurnsBeforeNext: 1,
     maxUserTurnsPerQuestion: 5,
     quickReplyMode: "hidden",
     wrapUpMessage: QUESTION_WRAP_UP_MESSAGE,
@@ -207,19 +207,15 @@ function wrapUpRepeatingQuestion(answer: unknown, wrapUpMessage: string) {
     return wrapUpMessage;
   }
 
-  const sentences =
-    answer
-      .match(/[^.!?]+[.!?]+|[^.!?]+$/g)
-      ?.map((sentence) => sentence.trim())
-      .filter(Boolean) ?? [];
-  const lastSentence = sentences.at(-1) ?? "";
-  const answerWithoutTrailingQuestion = lastSentence.endsWith("?")
-    ? sentences.slice(0, -1).join(" ").trim()
+  const answerBeforeWrapUp = answer.includes(wrapUpMessage)
+    ? answer.slice(0, answer.indexOf(wrapUpMessage)).trim()
     : answer.trim();
-
-  if (answerWithoutTrailingQuestion.includes(wrapUpMessage)) {
-    return answerWithoutTrailingQuestion;
-  }
+  const answerWithoutTrailingQuestion = answerBeforeWrapUp
+    .replace(
+      /(^|\s+)[^.!?。！？\n]*[?？]\s*[*_`"'”’)\]]*\s*$/u,
+      "",
+    )
+    .trim();
 
   return answerWithoutTrailingQuestion
     ? `${answerWithoutTrailingQuestion}\n\n${wrapUpMessage}`

@@ -35,6 +35,8 @@ export function LoginScreen() {
   const [hasRequestedCode, setHasRequestedCode] = useState(
     initialFormState.hasRequestedCode,
   );
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const signInInFlightRef = useRef(false);
 
   const isBypassPhoneNumber = useMemo(
     () =>
@@ -81,6 +83,10 @@ export function LoginScreen() {
   }
 
   async function handleLogin() {
+    if (signInInFlightRef.current) {
+      return;
+    }
+
     if (!hasRequestedCode) {
       setError("먼저 인증번호 받기를 눌러주세요.");
       return;
@@ -92,12 +98,17 @@ export function LoginScreen() {
     }
 
     try {
+      signInInFlightRef.current = true;
+      setIsSigningIn(true);
       const user = await signIn({ phoneNumber, verificationCode });
       router.replace(resolvePostLoginHref(user));
     } catch (nextError) {
       setError(
         nextError instanceof Error ? nextError.message : "로그인에 실패했어요.",
       );
+    } finally {
+      signInInFlightRef.current = false;
+      setIsSigningIn(false);
     }
   }
 
@@ -145,19 +156,31 @@ export function LoginScreen() {
             label="인증번호 받기"
             variant="secondary"
             onPress={handleRequestCode}
+            disabled={isSigningIn}
           />
-          <Button label="시작하기" onPress={handleLogin} />
+          <Button
+            label="시작하기"
+            onPress={handleLogin}
+            disabled={isSigningIn}
+          />
           {allowDevelopmentBypass ? (
             <Button
               label="개발자 자동 로그인 (01012345678)"
               variant="secondary"
+              disabled={isSigningIn}
               onPress={async () => {
+                if (signInInFlightRef.current) {
+                  return;
+                }
+
                 setError(null);
                 setStatusMessage("테스트 계정으로 로그인하는 중이에요.");
                 setPhoneNumber("01012345678");
                 setVerificationCode("000000");
                 setHasRequestedCode(true);
                 try {
+                  signInInFlightRef.current = true;
+                  setIsSigningIn(true);
                   const user = await signIn({
                     phoneNumber: "01012345678",
                     verificationCode: "000000",
@@ -170,6 +193,9 @@ export function LoginScreen() {
                       ? nextError.message
                       : "자동 로그인에 실패했어요.",
                   );
+                } finally {
+                  signInInFlightRef.current = false;
+                  setIsSigningIn(false);
                 }
               }}
             />

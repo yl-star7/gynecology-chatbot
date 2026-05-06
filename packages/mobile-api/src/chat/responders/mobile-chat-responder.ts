@@ -635,21 +635,29 @@ export function createMobileChatResponder<
             memoryContext.ragContextWeek === input.currentWeek)
             ? { context: memoryContext.ragContext, sources: [] }
             : null;
-        const loadedRagContext = deps.ragContext?.trim()
+        let loadedRagContext: RagContextResult | null = deps.ragContext?.trim()
           ? { context: deps.ragContext, sources: [] }
-          : (cachedRagContext ??
-            (deps.loadRagContext &&
-            shouldLoadRagContext({
-              userText: input.text,
-              currentStage,
-              currentTurnStage,
-              workflowStage: memoryContext.workflowStage,
-            })
-              ? await deps.loadRagContext({
-                  query: input.text,
-                  currentWeek: input.currentWeek,
-                })
-              : null));
+          : cachedRagContext;
+        if (
+          !loadedRagContext &&
+          deps.loadRagContext &&
+          shouldLoadRagContext({
+            userText: input.text,
+            currentStage,
+            currentTurnStage,
+            workflowStage: memoryContext.workflowStage,
+          })
+        ) {
+          try {
+            loadedRagContext = await deps.loadRagContext({
+              query: input.text,
+              currentWeek: input.currentWeek,
+            });
+          } catch (error) {
+            console.warn("mobile chat RAG context load failed:", error);
+            loadedRagContext = null;
+          }
+        }
 
         const selectedWorkflowId = deps.selectWorkflowId?.({
           query: input.text,
