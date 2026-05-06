@@ -13,8 +13,8 @@ export default function AdminOperationsPage({
   return (
     <AdminPageFrame
       adminDisplayName={adminDisplayName}
-      currentPath="/admin/dashboard"
-      title="운영 상태"
+      currentPath="/admin/ops/settings"
+      title="운영 설정"
     >
       <AdminOperationsPanel />
     </AdminPageFrame>

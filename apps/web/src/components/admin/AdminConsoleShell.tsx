@@ -65,6 +65,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "시스템 운영",
     icon: Activity,
     children: [
+      { href: "/admin/ops/settings", label: "설정/실행" },
       { href: "/admin/ops/branding", label: "브랜딩" },
       { href: "/admin/ops/monitoring", label: "모니터링" },
       { href: "/admin/ops/audit", label: "감사 로그" },

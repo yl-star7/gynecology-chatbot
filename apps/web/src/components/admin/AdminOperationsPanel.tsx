@@ -3,7 +3,11 @@
 import {
   Activity,
   AlertTriangle,
+  Bell,
+  GitBranch,
   MessageSquare,
+  RefreshCw,
+  Send,
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -20,8 +24,16 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   BrandingImagePreview,
@@ -110,6 +122,18 @@ interface SchiftRunResult {
   };
 }
 
+interface ScheduleConfig {
+  dailyCheckEnabled: boolean;
+  dailyCheckTime: string;
+  weeklyMilestoneEnabled: boolean;
+  weeklyMilestoneTime: string;
+  weeklyMilestoneDay: number;
+  checkupReminderEnabled: boolean;
+  checkupReminderTime: string;
+}
+
+type OperationKey = "refresh-yaml" | "push-send" | "proactive";
+
 const DEFAULT_BRANDING: BrandingData = {
   mascotBucketId: "pregnancy-content",
   mascotObjectPath: "assets/penguin-nurse/app/neutral.png",
@@ -117,6 +141,16 @@ const DEFAULT_BRANDING: BrandingData = {
   mascotAltText: "펭귄 간호사",
   surveyFormUrl: DEFAULT_EXTERNAL_SURVEYS[0]?.url ?? null,
   externalSurveys: DEFAULT_EXTERNAL_SURVEYS,
+};
+
+const DEFAULT_SCHEDULE: ScheduleConfig = {
+  dailyCheckEnabled: true,
+  dailyCheckTime: "09:00",
+  weeklyMilestoneEnabled: true,
+  weeklyMilestoneTime: "10:00",
+  weeklyMilestoneDay: 1,
+  checkupReminderEnabled: true,
+  checkupReminderTime: "18:00",
 };
 
 const CHARACTER_IMAGE_TONES: Array<{
@@ -129,6 +163,16 @@ const CHARACTER_IMAGE_TONES: Array<{
   { key: "anxious", label: "걱정" },
   { key: "tired", label: "피곤" },
   { key: "sad", label: "슬픔" },
+];
+
+const WEEKDAY_OPTIONS = [
+  { value: "0", label: "일요일" },
+  { value: "1", label: "월요일" },
+  { value: "2", label: "화요일" },
+  { value: "3", label: "수요일" },
+  { value: "4", label: "목요일" },
+  { value: "5", label: "금요일" },
+  { value: "6", label: "토요일" },
 ];
 
 const DEFAULT_CHARACTER_IMAGES: CharacterImagesData = {
@@ -180,6 +224,27 @@ export function AdminOperationsPanel() {
   const [approvalPolicyError, setApprovalPolicyError] = useState<string | null>(
     null,
   );
+
+  const [schedule, setSchedule] = useState<ScheduleConfig>(DEFAULT_SCHEDULE);
+  const [scheduleLoading, setScheduleLoading] = useState(true);
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [scheduleResult, setScheduleResult] = useState<string | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+
+  const [stageMappingJson, setStageMappingJson] = useState("{}");
+  const [stageMappingLoading, setStageMappingLoading] = useState(true);
+  const [stageMappingSaving, setStageMappingSaving] = useState(false);
+  const [stageMappingResult, setStageMappingResult] = useState<string | null>(
+    null,
+  );
+  const [stageMappingError, setStageMappingError] = useState<string | null>(
+    null,
+  );
+
+  const [operationRunning, setOperationRunning] =
+    useState<OperationKey | null>(null);
+  const [operationResult, setOperationResult] = useState<string | null>(null);
+  const [operationError, setOperationError] = useState<string | null>(null);
 
   const [branding, setBranding] = useState<BrandingData>(DEFAULT_BRANDING);
   const [brandingLoading, setBrandingLoading] = useState(true);
@@ -241,6 +306,50 @@ export function AdminOperationsPanel() {
       }
     }
 
+    async function fetchSchedule() {
+      setScheduleLoading(true);
+      setScheduleError(null);
+      try {
+        const res = await fetch("/api/admin/schedule");
+        if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+        const data = (await res.json()) as Partial<ScheduleConfig>;
+        if (!cancelled) setSchedule({ ...DEFAULT_SCHEDULE, ...data });
+      } catch (err) {
+        if (!cancelled) {
+          setScheduleError(
+            err instanceof Error
+              ? err.message
+              : "알림 스케줄을 불러오지 못했습니다.",
+          );
+        }
+      } finally {
+        if (!cancelled) setScheduleLoading(false);
+      }
+    }
+
+    async function fetchStageMapping() {
+      setStageMappingLoading(true);
+      setStageMappingError(null);
+      try {
+        const res = await fetch("/api/admin/workflow-rules/stage-mapping");
+        if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+        const data = (await res.json()) as { mapping?: unknown };
+        if (!cancelled) {
+          setStageMappingJson(JSON.stringify(data.mapping ?? {}, null, 2));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setStageMappingError(
+            err instanceof Error
+              ? err.message
+              : "워크플로우 매핑을 불러오지 못했습니다.",
+          );
+        }
+      } finally {
+        if (!cancelled) setStageMappingLoading(false);
+      }
+    }
+
     async function fetchBranding() {
       setBrandingLoading(true);
       try {
@@ -291,6 +400,8 @@ export function AdminOperationsPanel() {
 
     void fetchRagProvider();
     void fetchApprovalPolicy();
+    void fetchSchedule();
+    void fetchStageMapping();
     void fetchBranding();
     void fetchCharacterImages();
     void fetchSchiftStatus();
@@ -327,6 +438,100 @@ export function AdminOperationsPanel() {
       );
     } finally {
       setApprovalPolicySaving(false);
+    }
+  }
+
+  async function handleSaveSchedule() {
+    setScheduleSaving(true);
+    setScheduleResult(null);
+    setScheduleError(null);
+    try {
+      const res = await fetch("/api/admin/schedule", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(schedule),
+      });
+      const payload = (await res.json()) as {
+        schedule?: ScheduleConfig;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(payload.error ?? `서버 오류 (${res.status})`);
+      }
+
+      setSchedule(payload.schedule ?? schedule);
+      setScheduleResult("알림 스케줄을 저장했습니다.");
+    } catch (err) {
+      setScheduleError(
+        err instanceof Error
+          ? err.message
+          : "알림 스케줄 저장에 실패했습니다.",
+      );
+    } finally {
+      setScheduleSaving(false);
+    }
+  }
+
+  async function handleSaveStageMapping() {
+    setStageMappingSaving(true);
+    setStageMappingResult(null);
+    setStageMappingError(null);
+    try {
+      const mapping = JSON.parse(stageMappingJson) as unknown;
+      const res = await fetch("/api/admin/workflow-rules/stage-mapping", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mapping),
+      });
+      const payload = (await res.json()) as {
+        mapping?: unknown;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(payload.error ?? `서버 오류 (${res.status})`);
+      }
+
+      setStageMappingJson(JSON.stringify(payload.mapping ?? mapping, null, 2));
+      setStageMappingResult("워크플로우 매핑을 저장했습니다.");
+    } catch (err) {
+      setStageMappingError(
+        err instanceof SyntaxError
+          ? "JSON 형식을 확인해주세요."
+          : err instanceof Error
+            ? err.message
+            : "워크플로우 매핑 저장에 실패했습니다.",
+      );
+    } finally {
+      setStageMappingSaving(false);
+    }
+  }
+
+  async function handleRunOperation(
+    key: OperationKey,
+    url: string,
+    body?: Record<string, unknown>,
+  ) {
+    setOperationRunning(key);
+    setOperationResult(null);
+    setOperationError(null);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: body ? { "Content-Type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const payload = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        throw new Error(payload.error ?? `서버 오류 (${res.status})`);
+      }
+
+      setOperationResult(JSON.stringify(payload, null, 2));
+    } catch (err) {
+      setOperationError(
+        err instanceof Error ? err.message : "운영 실행에 실패했습니다.",
+      );
+    } finally {
+      setOperationRunning(null);
     }
   }
 
@@ -637,6 +842,281 @@ export function AdminOperationsPanel() {
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>{approvalPolicyError}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 알림 스케줄 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Bell className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm text-muted-foreground">
+              알림 스케줄
+            </CardTitle>
+          </div>
+          <CardDescription>
+            매일 확인, 주차 변경, 검진 알림의 사용 여부와 발송 시각을
+            관리합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {scheduleLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : (
+            <>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-md border bg-card p-3">
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    <Checkbox
+                      aria-label="매일 확인 알림 사용"
+                      checked={schedule.dailyCheckEnabled}
+                      onCheckedChange={(checked) =>
+                        setSchedule((current) => ({
+                          ...current,
+                          dailyCheckEnabled: checked === true,
+                        }))
+                      }
+                    />
+                    매일 확인 알림
+                  </label>
+                  <Input
+                    className="mt-3"
+                    type="time"
+                    aria-label="매일 확인 알림 시각"
+                    value={schedule.dailyCheckTime}
+                    onChange={(event) =>
+                      setSchedule((current) => ({
+                        ...current,
+                        dailyCheckTime: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="rounded-md border bg-card p-3">
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    <Checkbox
+                      aria-label="주차 변경 알림 사용"
+                      checked={schedule.weeklyMilestoneEnabled}
+                      onCheckedChange={(checked) =>
+                        setSchedule((current) => ({
+                          ...current,
+                          weeklyMilestoneEnabled: checked === true,
+                        }))
+                      }
+                    />
+                    주차 변경 알림
+                  </label>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_120px]">
+                    <Input
+                      type="time"
+                      aria-label="주차 변경 알림 시각"
+                      value={schedule.weeklyMilestoneTime}
+                      onChange={(event) =>
+                        setSchedule((current) => ({
+                          ...current,
+                          weeklyMilestoneTime: event.target.value,
+                        }))
+                      }
+                    />
+                    <Select
+                      value={String(schedule.weeklyMilestoneDay)}
+                      onValueChange={(value) =>
+                        setSchedule((current) => ({
+                          ...current,
+                          weeklyMilestoneDay: Number(value),
+                        }))
+                      }
+                    >
+                      <SelectTrigger aria-label="주차 변경 알림 요일">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WEEKDAY_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="rounded-md border bg-card p-3">
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    <Checkbox
+                      aria-label="검진 알림 사용"
+                      checked={schedule.checkupReminderEnabled}
+                      onCheckedChange={(checked) =>
+                        setSchedule((current) => ({
+                          ...current,
+                          checkupReminderEnabled: checked === true,
+                        }))
+                      }
+                    />
+                    검진 알림
+                  </label>
+                  <Input
+                    className="mt-3"
+                    type="time"
+                    aria-label="검진 알림 시각"
+                    value={schedule.checkupReminderTime}
+                    onChange={(event) =>
+                      setSchedule((current) => ({
+                        ...current,
+                        checkupReminderTime: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                className="w-fit"
+                disabled={scheduleSaving}
+                aria-busy={scheduleSaving}
+                onClick={() => void handleSaveSchedule()}
+              >
+                {scheduleSaving ? "저장 중..." : "스케줄 저장"}
+              </Button>
+            </>
+          )}
+
+          {scheduleResult && (
+            <Alert role="status" aria-live="polite">
+              <AlertDescription>{scheduleResult}</AlertDescription>
+            </Alert>
+          )}
+          {scheduleError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{scheduleError}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 운영 실행 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <GitBranch className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm text-muted-foreground">
+              운영 실행
+            </CardTitle>
+          </div>
+          <CardDescription>
+            워크플로우 캐시, 수동 알림, stage별 워크플로우 연결을 확인합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={operationRunning !== null}
+              aria-busy={operationRunning === "refresh-yaml"}
+              onClick={() =>
+                void handleRunOperation(
+                  "refresh-yaml",
+                  "/api/admin/workflow-rules/refresh-yaml",
+                )
+              }
+            >
+              <RefreshCw className="mr-1 h-4 w-4" />
+              {operationRunning === "refresh-yaml"
+                ? "새로고침 중..."
+                : "YAML 캐시 새로고침"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={operationRunning !== null}
+              aria-busy={operationRunning === "push-send"}
+              onClick={() =>
+                void handleRunOperation("push-send", "/api/admin/push/send")
+              }
+            >
+              <Send className="mr-1 h-4 w-4" />
+              {operationRunning === "push-send"
+                ? "발송 중..."
+                : "푸시 수동 발송"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={operationRunning !== null}
+              aria-busy={operationRunning === "proactive"}
+              onClick={() =>
+                void handleRunOperation(
+                  "proactive",
+                  "/api/admin/proactive/trigger",
+                  { triggerId: "daily_check" },
+                )
+              }
+            >
+              <MessageSquare className="mr-1 h-4 w-4" />
+              {operationRunning === "proactive"
+                ? "실행 중..."
+                : "자동 대화 실행"}
+            </Button>
+          </div>
+
+          <div className="rounded-md border bg-card p-3">
+            <div className="mb-3">
+              <Label htmlFor="stage-mapping-json">
+                stage 워크플로우 매핑 JSON
+              </Label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                router, baby_info, letter_reflection, free_chat, general에
+                연결할 워크플로우 ID를 지정합니다.
+              </p>
+            </div>
+            <Textarea
+              id="stage-mapping-json"
+              value={stageMappingJson}
+              disabled={stageMappingLoading}
+              rows={7}
+              className="font-mono text-xs"
+              onChange={(event) => setStageMappingJson(event.target.value)}
+            />
+            <Button
+              type="button"
+              className="mt-3"
+              disabled={stageMappingLoading || stageMappingSaving}
+              aria-busy={stageMappingSaving}
+              onClick={() => void handleSaveStageMapping()}
+            >
+              {stageMappingSaving ? "저장 중..." : "매핑 저장"}
+            </Button>
+          </div>
+
+          {operationResult && (
+            <pre
+              className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border bg-muted p-3 text-xs"
+              aria-live="polite"
+            >
+              {operationResult}
+            </pre>
+          )}
+          {operationError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{operationError}</AlertDescription>
+            </Alert>
+          )}
+          {stageMappingResult && (
+            <Alert role="status" aria-live="polite">
+              <AlertDescription>{stageMappingResult}</AlertDescription>
+            </Alert>
+          )}
+          {stageMappingError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{stageMappingError}</AlertDescription>
             </Alert>
           )}
         </CardContent>

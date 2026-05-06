@@ -56,6 +56,92 @@ describe("AdminOperationsPanel", () => {
           );
         }
 
+        if (url === "/api/admin/schedule" && init?.method === "PUT") {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              schedule: JSON.parse(String(init.body)),
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (
+          url === "/api/admin/workflow-rules/stage-mapping" &&
+          !init?.method
+        ) {
+          return new Response(
+            JSON.stringify({
+              mapping: {
+                router: "wf-router",
+                baby_info: "wf-baby",
+                letter_reflection: "wf-letter",
+                free_chat: "wf-free",
+                general: "wf-general",
+              },
+              source: "db",
+              updatedAt: "2026-05-06T00:00:00.000Z",
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (
+          url === "/api/admin/workflow-rules/stage-mapping" &&
+          init?.method === "PUT"
+        ) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              mapping: JSON.parse(String(init.body)),
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (
+          url === "/api/admin/workflow-rules/refresh-yaml" &&
+          init?.method === "POST"
+        ) {
+          return new Response(
+            JSON.stringify({
+              name: "모성간호 상담 응답",
+              blockCount: 4,
+              refreshedAt: "2026-05-06T00:00:00.000Z",
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (url === "/api/admin/push/send" && init?.method === "POST") {
+          return new Response(JSON.stringify({ sent: 3, skipped: 1 }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        if (
+          url === "/api/admin/proactive/trigger" &&
+          init?.method === "POST"
+        ) {
+          return new Response(JSON.stringify({ triggerId: "daily_check" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
         if (url === "/api/admin/approval-policy" && !init?.method) {
           return new Response(JSON.stringify({ requireApproval: true }), {
             status: 200,
@@ -234,6 +320,84 @@ describe("AdminOperationsPanel", () => {
         body: JSON.stringify({ requireApproval: false }),
       }),
     );
+  });
+
+  it("saves notification schedule controls", async () => {
+    render(<AdminOperationsPanel />);
+
+    const dailyTimeInput = await screen.findByLabelText("매일 확인 알림 시각");
+    fireEvent.change(dailyTimeInput, { target: { value: "08:30" } });
+    fireEvent.click(screen.getByRole("button", { name: "스케줄 저장" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/admin/schedule",
+        expect.objectContaining({
+          method: "PUT",
+          body: expect.stringContaining('"dailyCheckTime":"08:30"'),
+        }),
+      );
+    });
+    expect(
+      await screen.findByText("알림 스케줄을 저장했습니다."),
+    ).toBeInTheDocument();
+  });
+
+  it("runs manual operations from admin controls", async () => {
+    render(<AdminOperationsPanel />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /YAML 캐시 새로고침/ }),
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/admin/workflow-rules/refresh-yaml",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+    expect(await screen.findByText(/모성간호 상담 응답/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /푸시 수동 발송/ }));
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/admin/push/send",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+  });
+
+  it("saves stage workflow mapping as JSON", async () => {
+    render(<AdminOperationsPanel />);
+
+    const mappingInput = await screen.findByLabelText(
+      "stage 워크플로우 매핑 JSON",
+    );
+    fireEvent.change(mappingInput, {
+      target: {
+        value: JSON.stringify({
+          router: "wf-router-2",
+          baby_info: "wf-baby",
+          letter_reflection: "wf-letter",
+          free_chat: "wf-free",
+          general: "wf-general",
+        }),
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "매핑 저장" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/admin/workflow-rules/stage-mapping",
+        expect.objectContaining({
+          method: "PUT",
+          body: expect.stringContaining("wf-router-2"),
+        }),
+      );
+    });
+    expect(
+      await screen.findByText("워크플로우 매핑을 저장했습니다."),
+    ).toBeInTheDocument();
   });
 
   it("uploads mascot files through signed URLs before saving branding", async () => {
