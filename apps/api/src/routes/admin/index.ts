@@ -2,7 +2,6 @@ import { Hono } from "hono";
 
 import analyticsRoutes from "./analytics.js";
 import configRoutes from "./config.js";
-import contentBasicRoutes from "./content-basic.js";
 import dashboardRoutes from "./dashboard.js";
 import homeCopyRoutes from "./home-copy.js";
 import knowledgeRoutes from "./knowledge.js";
@@ -19,7 +18,6 @@ const app = new Hono();
 
 app.route("/", analyticsRoutes);
 app.route("/", configRoutes);
-app.route("/", contentBasicRoutes);
 app.route("/", dashboardRoutes);
 app.route("/", homeCopyRoutes);
 app.route("/", knowledgeRoutes);

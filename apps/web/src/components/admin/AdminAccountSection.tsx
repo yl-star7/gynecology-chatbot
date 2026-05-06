@@ -35,6 +35,7 @@ import {
   getManagedUserStatusBadge,
   getManagedUserStatusLabel,
 } from "./admin-dashboard-labels";
+import { AdminUserPersonaPanel } from "./AdminUserPersonaPanel";
 
 type ManagedUser = AdminDashboardData["managedUsers"][number];
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
@@ -367,6 +368,13 @@ export function AdminAccountSection({
                 </p>
               </div>
             </div>
+
+            {drawerOpen && selectedUser ? (
+              <AdminUserPersonaPanel
+                key={selectedUser.id}
+                userId={selectedUser.id}
+              />
+            ) : null}
 
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">

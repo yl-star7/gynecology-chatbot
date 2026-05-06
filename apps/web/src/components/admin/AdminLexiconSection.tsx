@@ -34,18 +34,9 @@ import AdminPageFrame from "../AdminPageFrame";
 import { AdminDocumentsSection } from "./content/AdminDocumentsSection";
 import { useAdminContentState } from "./useAdminContentState";
 
-export interface LexiconDriftSummary {
-  dbCount: number;
-  schiftCount: number;
-  untaggedCount: number;
-  available: boolean;
-  message: string | null;
-}
-
 interface AdminLexiconSectionProps {
   adminDisplayName: string;
   dashboard: AdminDashboardData;
-  initialDrift: LexiconDriftSummary;
 }
 
 type RagDocument = AdminDashboardData["ragDocuments"][number];
@@ -84,7 +75,6 @@ function detectSurface(document: RagDocument): LexiconSurface | null {
 export default function AdminLexiconSection({
   adminDisplayName,
   dashboard,
-  initialDrift: _initialDrift,
 }: AdminLexiconSectionProps) {
   const state = useAdminContentState(dashboard, "documents");
 

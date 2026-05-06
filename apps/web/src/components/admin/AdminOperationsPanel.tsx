@@ -384,7 +384,7 @@ export function AdminOperationsPanel() {
       try {
         const res = await fetch("/api/admin/schift");
         if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
-        const data = await res.json();
+        const data = (await res.json()) as SchiftStatus;
         if (!cancelled) setSchiftStatus(data);
       } catch (err) {
         if (!cancelled)
