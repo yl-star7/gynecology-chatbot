@@ -32,6 +32,7 @@ import {
   getWorkflowStatusLabel,
 } from "../admin-dashboard-labels";
 import { AdminWorkflowEditorAdapter } from "./AdminWorkflowEditorAdapter";
+import { getWorkflowYamlEditorRouteName } from "./workflow-yaml-route";
 
 type WorkflowRule = AdminDashboardData["workflowRules"][number];
 
@@ -55,29 +56,6 @@ function workflowSourceLabel(rule: WorkflowRule) {
   if (rule.source === "gcs-yaml") return "GCS YAML";
   if (rule.source === "schift") return "Schift";
   return "SQL";
-}
-
-function yamlRouteNameFromSlug(slug: string | null | undefined) {
-  const routeName = slug?.replace(/^maternal-nursing-/, "");
-  if (
-    routeName === "monolith" ||
-    routeName === "router" ||
-    routeName === "baby-info" ||
-    routeName === "letter-reflection" ||
-    routeName === "free-chat" ||
-    routeName === "general"
-  ) {
-    return routeName;
-  }
-  return null;
-}
-
-function yamlEndpointName(rule: WorkflowRule | undefined) {
-  const slugRouteName = yamlRouteNameFromSlug(rule?.sqlSlug);
-  if (slugRouteName) return slugRouteName;
-  if (rule?.workflowKind === "monolith") return "monolith";
-  if (rule?.workflowKind === "router") return "router";
-  return null;
 }
 
 export interface AdminPoliciesSectionProps {
@@ -206,8 +184,9 @@ export function AdminPoliciesSection({
   const [testQuery, setTestQuery] = useState("산모 복통이 심해요");
   const [reflectionLoopForm, setReflectionLoopForm] =
     useState<ReflectionLoopForm>(EMPTY_REFLECTION_LOOP_FORM);
-  const [reflectionLoopStoragePath, setReflectionLoopStoragePath] =
-    useState<string | null>(null);
+  const [reflectionLoopStoragePath, setReflectionLoopStoragePath] = useState<
+    string | null
+  >(null);
   const [reflectionLoopMessage, setReflectionLoopMessage] = useState<
     string | null
   >(null);
@@ -530,9 +509,7 @@ export function AdminPoliciesSection({
 
           <div className="mt-3 grid gap-3 md:grid-cols-3">
             <div className="space-y-1">
-              <Label htmlFor="reflection-min-turns">
-                다음 질문 버튼 노출
-              </Label>
+              <Label htmlFor="reflection-min-turns">다음 질문 버튼 노출</Label>
               <Input
                 id="reflection-min-turns"
                 type="number"
@@ -617,9 +594,7 @@ export function AdminPoliciesSection({
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="reflection-next-label">
-                다음 질문 버튼 문구
-              </Label>
+              <Label htmlFor="reflection-next-label">다음 질문 버튼 문구</Label>
               <Input
                 id="reflection-next-label"
                 value={reflectionLoopForm.nextQuestionLabelTemplate}
@@ -633,9 +608,7 @@ export function AdminPoliciesSection({
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="reflection-next-message">
-                버튼 전송 메시지
-              </Label>
+              <Label htmlFor="reflection-next-message">버튼 전송 메시지</Label>
               <Input
                 id="reflection-next-message"
                 value={reflectionLoopForm.nextQuestionMessage}
@@ -742,7 +715,8 @@ export function AdminPoliciesSection({
                             }
                             onSelectWorkflowRule(rule.id);
                             if (rule.storagePath) {
-                              const yamlName = yamlEndpointName(rule);
+                              const yamlName =
+                                getWorkflowYamlEditorRouteName(rule);
                               if (yamlName) {
                                 setView({
                                   mode: "editor",
