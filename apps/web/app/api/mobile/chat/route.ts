@@ -355,7 +355,6 @@ export async function POST(request: NextRequest) {
       extractSchiftWorkflowOutputs,
       formatSchiftWorkflowRun,
       loadCharacterImages,
-      preferLocalFallback: true,
       weekKnowledgeEntityId,
       selectWorkflowId: (sel) => {
         const picked = selectStageWorkflow(sel, stageMapping);

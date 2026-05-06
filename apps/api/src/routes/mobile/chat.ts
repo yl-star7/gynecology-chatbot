@@ -422,7 +422,6 @@ app.post("/", async (c) => {
       extractSchiftWorkflowOutputs,
       formatSchiftWorkflowRun,
       loadCharacterImages,
-      preferLocalFallback: false,
       loadRagContext: ({ query, currentWeek }) =>
         searchFileRag({
           query,

@@ -15,10 +15,6 @@ export async function resolveAssistantResponse(input: {
     assistantMessage: ChatMessage;
     workflowMemoryPayload: WorkflowAssistantPayload | null;
   }>;
-  fallbackResponse?: () => Promise<{
-    assistantMessage: ChatMessage;
-    workflowMemoryPayload: WorkflowAssistantPayload | null;
-  }>;
 }): Promise<{
   assistantMessage: ChatMessage;
   workflowMemoryPayload: WorkflowAssistantPayload | null;

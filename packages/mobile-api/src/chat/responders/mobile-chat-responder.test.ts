@@ -320,7 +320,7 @@ describe("mobile chat responder", () => {
     );
   });
 
-  it("combines baby and mother weekly information in the fallback info turn", async () => {
+  it("combines baby and mother weekly information in the static info turn", async () => {
     const responder = createMobileChatResponder({
       getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
       runSchiftWorkflow: jest.fn().mockResolvedValue({
@@ -437,7 +437,7 @@ describe("mobile chat responder", () => {
     );
   });
 
-  it("reports workflow errors instead of using stage=0 local fallback", async () => {
+  it("reports workflow errors instead of synthesizing a stage=0 response", async () => {
     const responder = createMobileChatResponder({
       getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
       runSchiftWorkflow: jest
@@ -489,7 +489,7 @@ describe("mobile chat responder", () => {
     ).rejects.toThrow("should not run");
   });
 
-  it("routes active question answers to letter workflow even when local fallback is enabled", async () => {
+  it("routes active question answers to letter workflow", async () => {
     const runWorkflow = jest.fn().mockResolvedValue({
       run: {
         status: "completed",
@@ -515,7 +515,6 @@ describe("mobile chat responder", () => {
       extractSchiftWorkflowOutputs: (run) => run.outputs ?? {},
       formatSchiftWorkflowRun: () => "답변: ok",
       loadCharacterImages: async () => ({}),
-      preferLocalFallback: true,
       selectWorkflowId,
     });
 
@@ -594,7 +593,7 @@ describe("mobile chat responder", () => {
     }
   });
 
-  it("reports workflow errors instead of using a letter fallback", async () => {
+  it("reports workflow errors instead of synthesizing a letter response", async () => {
     const responder = createMobileChatResponder({
       getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
       runSchiftWorkflow: jest
@@ -603,7 +602,6 @@ describe("mobile chat responder", () => {
       extractSchiftWorkflowOutputs: (run) => run.outputs ?? {},
       formatSchiftWorkflowRun: () => "답변: workflow 출력이 없어요.",
       loadCharacterImages: async () => ({}),
-      preferLocalFallback: true,
     });
 
     await expect(
