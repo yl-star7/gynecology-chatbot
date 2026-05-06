@@ -53,6 +53,18 @@ type UpsertPayload = {
   active: boolean;
 };
 
+type MoodVariantAuditInput = {
+  adminUserId: string | null;
+  actionType: "create" | "update" | "delete";
+  entityId: string;
+  reason: string;
+  beforePayload: Prisma.InputJsonValue;
+  afterPayload: Prisma.InputJsonValue;
+};
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function serializeRow(row: MoodVariantRow) {
   return {
     id: row.id,
@@ -153,10 +165,48 @@ function toJsonSafeSnapshot(value: unknown): unknown {
   return value;
 }
 
+async function resolveAdminDatabaseUserId(rawAdminUserId: string) {
+  if (!UUID_PATTERN.test(rawAdminUserId)) {
+    return null;
+  }
+
+  const user = await prisma.users.findUnique({
+    where: { id: rawAdminUserId },
+    select: { id: true },
+  });
+
+  return user?.id ?? null;
+}
+
+async function writeMoodVariantAuditLog(input: MoodVariantAuditInput) {
+  if (!input.adminUserId) {
+    console.warn(
+      "Skipping mood variant audit log because admin user is not a DB user",
+    );
+    return;
+  }
+
+  try {
+    await prisma.admin_audit_logs.create({
+      data: {
+        admin_user_id: input.adminUserId,
+        action_type: input.actionType,
+        entity_type: "mood-variants",
+        entity_id: input.entityId,
+        reason: input.reason,
+        before_payload: input.beforePayload,
+        after_payload: input.afterPayload,
+      },
+    });
+  } catch (error) {
+    console.warn("Failed to write mood variant audit log", error);
+  }
+}
+
 async function saveMoodVariantSnapshotAndUpdate(input: {
   id: string;
   data: Record<string, unknown>;
-  actorId: string;
+  actorId: string | null;
 }) {
   const current = (await prisma.content_mood_variants.findUnique({
     where: { id: input.id },
@@ -217,7 +267,7 @@ app.post("/engine/moods", async (c) => {
     return c.json({ error: "already_exists", id: existing.id }, 409);
   }
 
-  const adminUserId = c.get("adminUserId");
+  const adminUserId = await resolveAdminDatabaseUserId(c.get("adminUserId"));
   const created = (await prisma.content_mood_variants.create({
     data: {
       ...payload,
@@ -226,21 +276,18 @@ app.post("/engine/moods", async (c) => {
     },
   })) as unknown as MoodVariantRow;
 
-  await prisma.admin_audit_logs.create({
-    data: {
-      admin_user_id: adminUserId,
-      action_type: "create",
-      entity_type: "mood-variants",
-      entity_id: created.id,
-      reason: "admin mood variant create",
-      before_payload: {},
-      after_payload: {
-        scenario: created.scenario,
-        mood: created.mood,
-        prompt_suffix: created.prompt_suffix,
-        tone: created.tone,
-        active: created.active,
-      },
+  await writeMoodVariantAuditLog({
+    adminUserId,
+    actionType: "create",
+    entityId: created.id,
+    reason: "admin mood variant create",
+    beforePayload: {},
+    afterPayload: {
+      scenario: created.scenario,
+      mood: created.mood,
+      prompt_suffix: created.prompt_suffix,
+      tone: created.tone,
+      active: created.active,
     },
   });
 
@@ -266,7 +313,7 @@ app.patch("/engine/moods/:id", async (c) => {
   })) as unknown as MoodVariantRow | null;
   if (!before) return c.json({ error: "not_found" }, 404);
 
-  const adminUserId = c.get("adminUserId");
+  const adminUserId = await resolveAdminDatabaseUserId(c.get("adminUserId"));
   const updated = await saveMoodVariantSnapshotAndUpdate({
     id,
     data,
@@ -274,22 +321,19 @@ app.patch("/engine/moods/:id", async (c) => {
   });
   if (!updated) return c.json({ error: "not_found" }, 404);
 
-  await prisma.admin_audit_logs.create({
-    data: {
-      admin_user_id: adminUserId,
-      action_type: "update",
-      entity_type: "mood-variants",
-      entity_id: id,
-      reason: "admin mood variant update",
-      before_payload: {
-        scenario: before.scenario,
-        mood: before.mood,
-        prompt_suffix: before.prompt_suffix,
-        tone: before.tone,
-        active: before.active,
-      },
-      after_payload: data as Prisma.InputJsonValue,
+  await writeMoodVariantAuditLog({
+    adminUserId,
+    actionType: "update",
+    entityId: id,
+    reason: "admin mood variant update",
+    beforePayload: {
+      scenario: before.scenario,
+      mood: before.mood,
+      prompt_suffix: before.prompt_suffix,
+      tone: before.tone,
+      active: before.active,
     },
+    afterPayload: data as Prisma.InputJsonValue,
   });
 
   return c.json({ item: serializeRow(updated) });
@@ -306,22 +350,19 @@ app.delete("/engine/moods/:id", async (c) => {
 
   await prisma.content_mood_variants.delete({ where: { id } });
 
-  await prisma.admin_audit_logs.create({
-    data: {
-      admin_user_id: c.get("adminUserId"),
-      action_type: "delete",
-      entity_type: "mood-variants",
-      entity_id: id,
-      reason: "admin mood variant delete",
-      before_payload: {
-        scenario: before.scenario,
-        mood: before.mood,
-        prompt_suffix: before.prompt_suffix,
-        tone: before.tone,
-        active: before.active,
-      },
-      after_payload: {},
+  await writeMoodVariantAuditLog({
+    adminUserId: await resolveAdminDatabaseUserId(c.get("adminUserId")),
+    actionType: "delete",
+    entityId: id,
+    reason: "admin mood variant delete",
+    beforePayload: {
+      scenario: before.scenario,
+      mood: before.mood,
+      prompt_suffix: before.prompt_suffix,
+      tone: before.tone,
+      active: before.active,
     },
+    afterPayload: {},
   });
 
   return c.json({ ok: true });
