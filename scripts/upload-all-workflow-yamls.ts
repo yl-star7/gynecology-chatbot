@@ -2,15 +2,7 @@
  * 모든 stage별 subworkflow YAML + router YAML 을 GCS 에 업로드.
  * admin 이 GCS 콘솔/엔드포인트로 편집 가능하도록.
  *
- * GCS paths:
- *   agaya-workflow-config/
- *     maternal-nursing.yaml           (기존 monolith — 폴백)
- *     maternal-nursing-router.yaml    (router)
- *     subworkflows/
- *       baby-info.yaml
- *       letter-reflection.yaml
- *       free-chat.yaml
- *       general.yaml
+ * GCS paths are taken from WORKFLOW_YAML_DB_CATALOG.
  */
 
 import "dotenv/config";
@@ -22,36 +14,18 @@ loadEnv({ path: path.resolve(process.cwd(), ".env.local"), override: true });
 loadEnv({ path: path.resolve(process.cwd(), ".env") });
 
 import { Storage } from "@google-cloud/storage";
+import {
+  DEFAULT_WORKFLOW_YAML_BUCKET,
+  WORKFLOW_YAML_DB_CATALOG,
+} from "../packages/app-core/src/workflow-yaml-catalog";
 
-const BUCKET = process.env.GCS_WORKFLOW_BUCKET ?? "agaya-workflow-config";
+const BUCKET = process.env.GCS_WORKFLOW_BUCKET ?? DEFAULT_WORKFLOW_YAML_BUCKET;
 
-const UPLOADS = [
-  {
-    local: "packages/mobile-api/src/workflows/maternal-nursing.yaml",
-    remote: "maternal-nursing.yaml",
-  },
-  {
-    local: "packages/mobile-api/src/workflows/maternal-nursing-router.yaml",
-    remote: "maternal-nursing-router.yaml",
-  },
-  {
-    local: "packages/mobile-api/src/workflows/subworkflows/baby-info.yaml",
-    remote: "subworkflows/baby-info.yaml",
-  },
-  {
-    local:
-      "packages/mobile-api/src/workflows/subworkflows/letter-reflection.yaml",
-    remote: "subworkflows/letter-reflection.yaml",
-  },
-  {
-    local: "packages/mobile-api/src/workflows/subworkflows/free-chat.yaml",
-    remote: "subworkflows/free-chat.yaml",
-  },
-  {
-    local: "packages/mobile-api/src/workflows/subworkflows/general.yaml",
-    remote: "subworkflows/general.yaml",
-  },
-];
+const WORKFLOW_LOCAL_DIR = "packages/mobile-api/src/workflows";
+const UPLOADS = WORKFLOW_YAML_DB_CATALOG.map((entry) => ({
+  local: path.join(WORKFLOW_LOCAL_DIR, entry.gcsObject),
+  remote: entry.gcsObject,
+}));
 
 async function main() {
   const storage = new Storage({

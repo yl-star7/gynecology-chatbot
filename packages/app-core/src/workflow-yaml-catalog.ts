@@ -66,6 +66,22 @@ export const ADMIN_WORKFLOW_YAML_CATALOG: AdminWorkflowYamlCatalogEntry[] = [
   },
 ];
 
+export const RUNTIME_WORKFLOW_YAML_ENTRY: AdminWorkflowYamlCatalogEntry = {
+  slug: "maternal-nursing-monolith",
+  name: "모성간호 monolith (채팅 런타임)",
+  kind: "monolith",
+  trigger: "mobile chat runtime",
+  retrievalScope: "모바일 채팅 런타임 YAML",
+  modelName: "gemini-2.5-flash-lite",
+  gcsObject: "maternal-nursing.yaml",
+  status: "active",
+};
+
+export const WORKFLOW_YAML_DB_CATALOG: AdminWorkflowYamlCatalogEntry[] = [
+  RUNTIME_WORKFLOW_YAML_ENTRY,
+  ...ADMIN_WORKFLOW_YAML_CATALOG,
+];
+
 export function buildWorkflowYamlStoragePath(
   gcsObject: string,
   bucket = DEFAULT_WORKFLOW_YAML_BUCKET,
@@ -90,4 +106,46 @@ export function buildAdminWorkflowYamlCatalog(
     gcsObject: entry.gcsObject,
     sqlSlug: entry.slug,
   }));
+}
+
+function hasEditableYamlKind(rule: AdminWorkflowRule) {
+  return (
+    rule.workflowKind === "monolith" ||
+    rule.workflowKind === "router" ||
+    rule.workflowKind === "subworkflow"
+  );
+}
+
+export function orderDbWorkflowRulesByYamlCatalog(
+  rules: AdminWorkflowRule[],
+): AdminWorkflowRule[] {
+  const catalogSlugOrder = new Map(
+    WORKFLOW_YAML_DB_CATALOG.map((entry, index) => [entry.slug, index]),
+  );
+  const candidates = rules.filter(
+    (rule) =>
+      Boolean(rule.storagePath) &&
+      ((rule.sqlSlug && catalogSlugOrder.has(rule.sqlSlug)) ||
+        hasEditableYamlKind(rule)),
+  );
+  const seenIds = new Set<string>();
+  const ordered: AdminWorkflowRule[] = [];
+
+  for (const entry of WORKFLOW_YAML_DB_CATALOG) {
+    const rule = candidates.find(
+      (candidate) => candidate.sqlSlug === entry.slug,
+    );
+    if (rule && !seenIds.has(rule.id)) {
+      ordered.push(rule);
+      seenIds.add(rule.id);
+    }
+  }
+
+  for (const rule of candidates) {
+    if (seenIds.has(rule.id)) continue;
+    ordered.push(rule);
+    seenIds.add(rule.id);
+  }
+
+  return ordered;
 }

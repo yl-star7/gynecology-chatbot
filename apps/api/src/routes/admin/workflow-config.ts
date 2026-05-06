@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import {
-  ADMIN_WORKFLOW_YAML_CATALOG,
   DEFAULT_WORKFLOW_YAML_BUCKET,
+  WORKFLOW_YAML_DB_CATALOG,
   buildWorkflowYamlStoragePath,
 } from "@gynecology-chatbot/app-core";
 import type { Prisma } from "@gynecology-chatbot/db/prisma";
@@ -27,26 +27,23 @@ type Mapping = {
   router?: string | null;
 };
 
-function defaultsFromEnv(): Mapping {
+function emptyMapping(): Mapping {
   return {
-    baby_info: process.env.SCHIFT_WF_BABY_INFO ?? null,
-    letter_reflection: process.env.SCHIFT_WF_LETTER_REFLECTION ?? null,
-    free_chat: process.env.SCHIFT_WF_FREE_CHAT ?? null,
-    general: process.env.SCHIFT_WF_GENERAL ?? null,
-    router: process.env.SCHIFT_WF_ROUTER ?? null,
+    baby_info: null,
+    letter_reflection: null,
+    free_chat: null,
+    general: null,
+    router: null,
   };
 }
 
 function sanitizeMapping(input: unknown): Mapping {
-  const defaults = defaultsFromEnv();
   if (!input || typeof input !== "object" || Array.isArray(input))
-    return defaults;
+    return emptyMapping();
   const obj = input as Record<string, unknown>;
   const pick = (key: keyof Mapping): string | null => {
     const value = obj[key];
-    return typeof value === "string" && value.trim()
-      ? value.trim()
-      : (defaults[key] ?? null);
+    return typeof value === "string" && value.trim() ? value.trim() : null;
   };
   return {
     baby_info: pick("baby_info"),
@@ -60,6 +57,7 @@ function sanitizeMapping(input: unknown): Mapping {
 function mapWorkflowRule(row: {
   id: string;
   name: string;
+  slug?: string | null;
   provider: string;
   is_active: boolean;
   config: Prisma.JsonValue;
@@ -75,6 +73,24 @@ function mapWorkflowRule(row: {
     !Array.isArray(row.metadata)
       ? (row.metadata as Record<string, unknown>)
       : {};
+  const readString = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = metadata[key] ?? config[key];
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    return null;
+  };
+  const workflowKind = readString("workflowKind", "kind", "workflow_kind");
+  const gcsBucket = readString("gcsBucket", "gcs_bucket");
+  const gcsObject = readString("gcsObject", "gcs_object", "yamlObject");
+  const storagePath = readString(
+    "storagePath",
+    "storage_path",
+    "yamlPath",
+    "yaml_path",
+    "gcsPath",
+    "gcs_path",
+  );
   return {
     id: row.id,
     name: row.name,
@@ -97,7 +113,55 @@ function mapWorkflowRule(row: {
           ? config.modelName
           : "미설정",
     status: row.is_active ? "active" : "review",
+    source: storagePath ? ("gcs-yaml" as const) : ("sql" as const),
+    workflowKind:
+      workflowKind === "router" ||
+      workflowKind === "subworkflow" ||
+      workflowKind === "monolith" ||
+      workflowKind === "managed"
+        ? workflowKind
+        : storagePath
+          ? "managed"
+          : undefined,
+    storagePath,
+    gcsBucket,
+    gcsObject,
+    sqlSlug: row.slug ?? null,
   };
+}
+
+function normalizeOptionalString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function parseGcsStoragePath(storagePath: string | null) {
+  if (!storagePath?.startsWith("gs://")) return null;
+  const withoutScheme = storagePath.slice("gs://".length);
+  const slashIndex = withoutScheme.indexOf("/");
+  if (slashIndex <= 0) return null;
+  const bucket = withoutScheme.slice(0, slashIndex).trim();
+  const objectPath = withoutScheme.slice(slashIndex + 1).replace(/^\/+/, "");
+  return bucket && objectPath
+    ? { gcsBucket: bucket, gcsObject: objectPath }
+    : null;
+}
+
+function asJsonObject(value: Prisma.JsonValue | null | undefined) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readJsonString(
+  config: Record<string, unknown>,
+  metadata: Record<string, unknown>,
+  ...keys: string[]
+) {
+  for (const key of keys) {
+    const value = metadata[key] ?? config[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
 }
 
 app.get("/workflow-rules/stage-mapping", async (c) => {
@@ -105,12 +169,11 @@ app.get("/workflow-rules/stage-mapping", async (c) => {
     where: { key: STAGE_MAPPING_KEY },
     select: { value: true, updated_at: true },
   });
-  const mapping = row?.value ? sanitizeMapping(row.value) : defaultsFromEnv();
+  const mapping = row?.value ? sanitizeMapping(row.value) : emptyMapping();
   return c.json({
     mapping,
-    source: row?.value ? "db" : "env",
+    source: row?.value ? "db" : "empty",
     updatedAt: row?.updated_at ?? null,
-    envDefaults: defaultsFromEnv(),
   });
 });
 
@@ -136,24 +199,63 @@ app.post("/workflow-rules/sync-yaml-catalog", async (c) => {
     process.env.GCS_WORKFLOW_BUCKET ?? DEFAULT_WORKFLOW_YAML_BUCKET;
   const synced = [];
 
-  for (const entry of ADMIN_WORKFLOW_YAML_CATALOG) {
-    const storagePath = buildWorkflowYamlStoragePath(entry.gcsObject, bucket);
+  for (const entry of WORKFLOW_YAML_DB_CATALOG) {
+    const existing = await prisma.workflow_definitions.findUnique({
+      where: { slug: entry.slug },
+      select: { config: true, metadata: true },
+    });
+    const existingConfig = asJsonObject(existing?.config);
+    const existingMetadata = asJsonObject(existing?.metadata);
+    const storedStoragePath = readJsonString(
+      existingConfig,
+      existingMetadata,
+      "storagePath",
+      "storage_path",
+      "yamlPath",
+      "yaml_path",
+      "gcsPath",
+      "gcs_path",
+    );
+    const parsedStoredPath = parseGcsStoragePath(storedStoragePath);
+    const gcsBucket =
+      readJsonString(
+        existingConfig,
+        existingMetadata,
+        "gcsBucket",
+        "gcs_bucket",
+      ) ??
+      parsedStoredPath?.gcsBucket ??
+      bucket;
+    const gcsObject =
+      readJsonString(
+        existingConfig,
+        existingMetadata,
+        "gcsObject",
+        "gcs_object",
+        "yamlObject",
+      ) ??
+      parsedStoredPath?.gcsObject ??
+      entry.gcsObject;
+    const storagePath =
+      storedStoragePath ?? buildWorkflowYamlStoragePath(gcsObject, gcsBucket);
     const config = {
+      ...existingConfig,
       workflowKind: entry.kind,
       yamlSource: "gcs",
       storagePath,
-      gcsBucket: bucket,
-      gcsObject: entry.gcsObject,
+      gcsBucket,
+      gcsObject,
     } satisfies Prisma.InputJsonObject;
     const metadata = {
+      ...existingMetadata,
       trigger: entry.trigger,
       retrievalScope: entry.retrievalScope,
       modelName: entry.modelName,
       workflowKind: entry.kind,
       yamlSource: "gcs",
       storagePath,
-      gcsBucket: bucket,
-      gcsObject: entry.gcsObject,
+      gcsBucket,
+      gcsObject,
       managedBy: "admin-workflow-yaml-catalog",
     } satisfies Prisma.InputJsonObject;
 
@@ -225,6 +327,35 @@ app.patch("/workflow-rules/:ruleId", async (c) => {
         : input.status === "review"
           ? "review"
           : null;
+    const workflowKind =
+      input.workflowKind === "router" ||
+      input.workflowKind === "subworkflow" ||
+      input.workflowKind === "monolith" ||
+      input.workflowKind === "managed"
+        ? input.workflowKind
+        : null;
+    const requestedStoragePath = normalizeOptionalString(input.storagePath);
+    const requestedGcsBucket = normalizeOptionalString(input.gcsBucket);
+    const requestedGcsObject = normalizeOptionalString(input.gcsObject);
+    const parsedStoragePath = parseGcsStoragePath(requestedStoragePath);
+    const locationPatch: Record<string, string> = {};
+    if (workflowKind) {
+      locationPatch.workflowKind = workflowKind;
+    }
+    if (requestedStoragePath || requestedGcsBucket || requestedGcsObject) {
+      locationPatch.yamlSource = "gcs";
+      if (requestedStoragePath) {
+        locationPatch.storagePath = requestedStoragePath;
+      }
+      const gcsBucket = parsedStoragePath?.gcsBucket ?? requestedGcsBucket;
+      const gcsObject = parsedStoragePath?.gcsObject ?? requestedGcsObject;
+      if (gcsBucket) {
+        locationPatch.gcsBucket = gcsBucket;
+      }
+      if (gcsObject) {
+        locationPatch.gcsObject = gcsObject;
+      }
+    }
     if (
       !ruleId ||
       !name ||
@@ -256,12 +387,14 @@ app.patch("/workflow-rules/:ruleId", async (c) => {
               ...((current.config as Record<string, unknown>) ?? {}),
               modelName,
               retrievalScope,
+              ...locationPatch,
             },
             metadata: {
               ...((current.metadata as Record<string, unknown>) ?? {}),
               trigger,
               retrievalScope,
               modelName,
+              ...locationPatch,
             },
             updated_at: new Date(),
           },
@@ -289,12 +422,14 @@ app.patch("/workflow-rules/:ruleId", async (c) => {
           ...((current.config as Record<string, unknown>) ?? {}),
           modelName,
           retrievalScope,
+          ...locationPatch,
         },
         metadata: {
           ...((current.metadata as Record<string, unknown>) ?? {}),
           trigger,
           retrievalScope,
           modelName,
+          ...locationPatch,
         },
         updated_at: new Date(),
       },
@@ -319,6 +454,7 @@ app.patch("/workflow-rules/:ruleId", async (c) => {
         retrieval_scope: retrievalScope,
         model_name: modelName,
         status,
+        ...(requestedStoragePath ? { storage_path: requestedStoragePath } : {}),
       },
     });
     return c.json({ workflowRule: mapWorkflowRule(updated) });

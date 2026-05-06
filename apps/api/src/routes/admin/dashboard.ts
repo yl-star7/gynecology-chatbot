@@ -5,7 +5,7 @@ import type {
   UserAccountStatus,
   UserActionType,
 } from "@gynecology-chatbot/app-core";
-import { buildAdminWorkflowYamlCatalog } from "@gynecology-chatbot/app-core";
+import { orderDbWorkflowRulesByYamlCatalog } from "@gynecology-chatbot/app-core";
 import { prisma } from "@gynecology-chatbot/db/prisma";
 import { decryptPhoneNumber } from "@gynecology-chatbot/mobile-api/privacy/phone-crypto";
 
@@ -185,16 +185,6 @@ function mapWorkflowRule(row: {
   };
 }
 
-function getWorkflowYamlBucket() {
-  return process.env.GCS_WORKFLOW_BUCKET ?? "agaya-workflow-config";
-}
-
-function isRuntimeRoutedWorkflow(rule: AdminWorkflowRule) {
-  return (
-    rule.workflowKind === "router" || rule.workflowKind === "subworkflow"
-  );
-}
-
 function mergeWorkflowRulesWithYamlCatalog(
   rows: Array<{
     id: string;
@@ -206,49 +196,9 @@ function mergeWorkflowRulesWithYamlCatalog(
     metadata: unknown;
   }>,
 ): AdminWorkflowRule[] {
-  const mappedRules = rows.map(mapWorkflowRule);
-  const identityOf = (rule: AdminWorkflowRule) =>
-    [rule.name, rule.trigger, rule.modelName]
-      .map((part) => part.trim().toLowerCase())
-      .join("::");
-  const mappedBySlug = new Map(
-    mappedRules
-      .filter((rule) => rule.sqlSlug)
-      .map((rule) => [rule.sqlSlug as string, rule]),
+  return orderDbWorkflowRulesByYamlCatalog(
+    rows.filter((row) => row.provider === "gcs-yaml").map(mapWorkflowRule),
   );
-  const mappedByIdentity = new Map(
-    mappedRules.map((rule) => [identityOf(rule), rule]),
-  );
-  const catalogRules = buildAdminWorkflowYamlCatalog(getWorkflowYamlBucket());
-  const orderedCatalogRules = catalogRules.map((catalogRule) => {
-    const sqlRule =
-      mappedBySlug.get(catalogRule.sqlSlug ?? "") ??
-      mappedByIdentity.get(identityOf(catalogRule));
-    if (!sqlRule) return catalogRule;
-    return {
-      ...catalogRule,
-      ...sqlRule,
-      workflowKind: sqlRule.workflowKind ?? catalogRule.workflowKind,
-      storagePath: sqlRule.storagePath ?? catalogRule.storagePath,
-      gcsBucket: sqlRule.gcsBucket ?? catalogRule.gcsBucket,
-      gcsObject: sqlRule.gcsObject ?? catalogRule.gcsObject,
-      source: "sql" as const,
-    };
-  });
-  const catalogSlugs = new Set(
-    catalogRules.map((rule) => rule.sqlSlug).filter(Boolean),
-  );
-  const catalogIdentities = new Set(catalogRules.map(identityOf));
-  const catalogNames = new Set(catalogRules.map((rule) => rule.name));
-  const extraSqlRules = mappedRules.filter(
-    (rule) =>
-      isRuntimeRoutedWorkflow(rule) &&
-      (!rule.sqlSlug || !catalogSlugs.has(rule.sqlSlug)) &&
-      !catalogIdentities.has(identityOf(rule)) &&
-      !(catalogNames.has(rule.name) && !rule.storagePath),
-  );
-
-  return [...orderedCatalogRules, ...extraSqlRules];
 }
 
 function formatUserActionLabel(actionType: UserActionType) {

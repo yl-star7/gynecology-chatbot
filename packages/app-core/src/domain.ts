@@ -412,6 +412,10 @@ export interface AdminWorkflowRuleInput {
   retrievalScope: string;
   modelName: string;
   status: AdminWorkflowRule["status"];
+  workflowKind?: AdminWorkflowRule["workflowKind"];
+  storagePath?: string | null;
+  gcsBucket?: string | null;
+  gcsObject?: string | null;
 }
 
 export interface AdminHistoryMessageRagSource {

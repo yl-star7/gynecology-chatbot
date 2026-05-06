@@ -4,8 +4,8 @@
  * GET  /api/admin/workflow-rules/subworkflows/{name}   → GCS 에서 읽어 YAML 반환
  * PUT  /api/admin/workflow-rules/subworkflows/{name}   → body(YAML text) 를 GCS 에 저장
  *
- * name ∈ { baby-info, letter-reflection, free-chat, general, router }
- * router 는 특수 경로(maternal-nursing-router.yaml) 에 저장.
+ * name ∈ { baby-info, letter-reflection, free-chat, general, router, monolith }
+ * 실제 GCS 위치는 workflow_definitions 의 YAML 위치 컬럼에서 읽습니다.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -17,8 +17,12 @@ import { readAdminSessionUser } from "@/lib/admin/auth";
 import { prisma } from "@gynecology-chatbot/db/prisma";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import { refreshWorkflowFromStorage } from "@/lib/mobile/workflows/load-workflow-yaml";
+import {
+  WORKFLOW_STAGE_MAPPING_BY_NAME,
+  recordAdminWorkflowYamlSave,
+  resolveAdminWorkflowYamlLocation,
+} from "@/lib/admin/workflow-yaml-location";
 
-const BUCKET = process.env.GCS_WORKFLOW_BUCKET ?? "agaya-workflow-config";
 const STAGE_MAPPING_KEY = "workflow_stage_mapping";
 
 type WorkflowYaml = {
@@ -53,14 +57,6 @@ function getStorage(): Storage {
       process.env.GOOGLE_CLOUD_PROJECT ||
       undefined,
   });
-}
-
-function resolvePath(name: string): string | null {
-  if (name === "router") return "maternal-nursing-router.yaml";
-  if (name === "monolith") return "maternal-nursing.yaml";
-  const allowed = ["baby-info", "letter-reflection", "free-chat", "general"];
-  if (!allowed.includes(name)) return null;
-  return `subworkflows/${name}.yaml`;
 }
 
 function resolvePromptRefs(
@@ -101,39 +97,23 @@ function parseWorkflowYaml(body: string): WorkflowYaml | null {
 }
 
 async function getMappedWorkflowId(name: string) {
-  const keyByName: Record<string, string> = {
-    "baby-info": "baby_info",
-    "letter-reflection": "letter_reflection",
-    "free-chat": "free_chat",
-    general: "general",
-    router: "router",
-  };
-  const envByName: Record<string, string> = {
-    "baby-info": "SCHIFT_WF_BABY_INFO",
-    "letter-reflection": "SCHIFT_WF_LETTER_REFLECTION",
-    "free-chat": "SCHIFT_WF_FREE_CHAT",
-    general: "SCHIFT_WF_GENERAL",
-    router: "SCHIFT_WF_ROUTER",
-  };
-  const mappingKey = keyByName[name];
+  const location = await resolveAdminWorkflowYamlLocation(name);
+  const routeName = location?.routeName;
+  const mappingKey = routeName
+    ? WORKFLOW_STAGE_MAPPING_BY_NAME[routeName].mappingKey
+    : null;
   if (!mappingKey) return null;
 
-  try {
-    const row = await prisma.system_config.findUnique({
-      where: { key: STAGE_MAPPING_KEY },
-      select: { value: true },
-    });
-    const value = row?.value;
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      const mapped = (value as Record<string, unknown>)[mappingKey];
-      if (typeof mapped === "string" && mapped.trim()) return mapped.trim();
-    }
-  } catch {
-    // Env fallback below keeps save usable if DB is unavailable.
+  const row = await prisma.system_config.findUnique({
+    where: { key: STAGE_MAPPING_KEY },
+    select: { value: true },
+  });
+  const value = row?.value;
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const mapped = (value as Record<string, unknown>)[mappingKey];
+    if (typeof mapped === "string" && mapped.trim()) return mapped.trim();
   }
-
-  const envKey = envByName[name];
-  return envKey ? (process.env[envKey]?.trim() ?? null) : null;
+  return null;
 }
 
 async function syncWorkflowToSchift(
@@ -195,8 +175,8 @@ export async function GET(
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const { name } = await context.params;
-  const remotePath = resolvePath(name);
-  if (!remotePath) {
+  const location = await resolveAdminWorkflowYamlLocation(name);
+  if (!location) {
     return NextResponse.json(
       { error: `unknown subworkflow: ${name}` },
       { status: 400 },
@@ -204,8 +184,8 @@ export async function GET(
   }
   try {
     const [buffer] = await getStorage()
-      .bucket(BUCKET)
-      .file(remotePath)
+      .bucket(location.bucket)
+      .file(location.objectPath)
       .download();
     return new NextResponse(buffer.toString("utf-8"), {
       headers: { "Content-Type": "text/yaml; charset=utf-8" },
@@ -232,8 +212,8 @@ export async function PUT(
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const { name } = await context.params;
-  const remotePath = resolvePath(name);
-  if (!remotePath) {
+  const location = await resolveAdminWorkflowYamlLocation(name);
+  if (!location) {
     return NextResponse.json(
       { error: `unknown subworkflow: ${name}` },
       { status: 400 },
@@ -251,11 +231,15 @@ export async function PUT(
     );
   }
   try {
-    await getStorage().bucket(BUCKET).file(remotePath).save(body, {
-      resumable: false,
-      contentType: "text/yaml",
-      validation: false,
-    });
+    await getStorage()
+      .bucket(location.bucket)
+      .file(location.objectPath)
+      .save(body, {
+        resumable: false,
+        contentType: "text/yaml",
+        validation: false,
+      });
+    await recordAdminWorkflowYamlSave(location, body);
     const sync: {
       cacheRefreshed: boolean;
       schift: "synced" | "skipped" | "failed";
@@ -266,7 +250,7 @@ export async function PUT(
       schift: "skipped",
     };
 
-    if (name === "monolith") {
+    if (location.routeName === "monolith") {
       sync.cacheRefreshed = Boolean(await refreshWorkflowFromStorage());
     } else {
       const workflowId = await getMappedWorkflowId(name);
@@ -286,7 +270,7 @@ export async function PUT(
 
     return NextResponse.json({
       ok: true,
-      path: `gs://${BUCKET}/${remotePath}`,
+      path: location.storagePath,
       bytes: body.length,
       savedAt: new Date().toISOString(),
       sync,

@@ -1,5 +1,6 @@
 import {
   computeProgressFromEvents,
+  fetchAttachmentQuestionProgress,
   getKstDayStartUtc,
   type QuestionEventRow,
 } from "./attachment-question-progress";
@@ -11,6 +12,29 @@ describe("getKstDayStartUtc", () => {
     const start = getKstDayStartUtc(now);
     // KST 2026-04-21 00:00 = UTC 2026-04-20 15:00
     expect(start.toISOString()).toBe("2026-04-20T15:00:00.000Z");
+  });
+});
+
+describe("fetchAttachmentQuestionProgress", () => {
+  it("returns empty progress without querying Prisma when local user id is not UUID", async () => {
+    const findMany = jest.fn();
+
+    const progress = await fetchAttachmentQuestionProgress({
+      prisma: {
+        user_question_events: {
+          findMany,
+        },
+      },
+      userId: "local-user-demo",
+      sessionId: "11111111-1111-4111-8111-111111111111",
+      now: new Date("2026-04-21T06:30:00Z"),
+    });
+
+    expect(progress).toEqual({
+      answeredQuestionIds: [],
+      currentAttachmentQuestionId: null,
+    });
+    expect(findMany).not.toHaveBeenCalled();
   });
 });
 

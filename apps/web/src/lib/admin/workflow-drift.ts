@@ -1,14 +1,11 @@
-import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { promises as fs } from "node:fs";
-import path from "node:path";
-import { promisify } from "node:util";
 
+import { Storage } from "@google-cloud/storage";
+import { RUNTIME_WORKFLOW_YAML_ENTRY } from "@gynecology-chatbot/app-core";
 import { prisma } from "@gynecology-chatbot/db/prisma";
 
+import { resolveAdminWorkflowYamlLocation } from "@/lib/admin/workflow-yaml-location";
 import { listSchiftWorkflows } from "@/lib/mobile/schift-workflows-api";
-
-const execFileAsync = promisify(execFile);
 
 export interface WorkflowDriftReport {
   yamlSha: string | null;
@@ -71,65 +68,34 @@ export function computeWorkflowDrift(inputs: WorkflowDriftInputs): {
   };
 }
 
-const YAML_FILE_ABS_PATH = path.resolve(
-  process.cwd(),
-  "..",
-  "..",
-  "packages/mobile-api/src/workflows/maternal-nursing.yaml",
-);
-
-async function resolveYamlPath(): Promise<string | null> {
-  const candidates = [
-    YAML_FILE_ABS_PATH,
-    path.resolve(
-      process.cwd(),
-      "packages/mobile-api/src/workflows/maternal-nursing.yaml",
-    ),
-    path.resolve(
-      process.cwd(),
-      "../packages/mobile-api/src/workflows/maternal-nursing.yaml",
-    ),
-  ];
-
-  for (const candidate of candidates) {
-    try {
-      await fs.access(candidate);
-      return candidate;
-    } catch {
-      // ignore and try next
-    }
-  }
-  return null;
+function getStorage() {
+  return new Storage({
+    projectId:
+      process.env.GCS_PROJECT_ID ||
+      process.env.GOOGLE_CLOUD_PROJECT ||
+      undefined,
+  });
 }
 
-async function readYamlShortSha(filePath: string): Promise<string | null> {
-  // git 기반 커밋 sha 우선, 실패 시 파일 내용 해시로 폴백.
+async function readYamlSourceStatus(): Promise<{
+  sha: string | null;
+  modifiedAt: string | null;
+}> {
   try {
-    const { stdout } = await execFileAsync(
-      "git",
-      ["log", "-n", "1", "--pretty=format:%H", "--", filePath],
-      { cwd: path.dirname(filePath) },
-    );
-    const sha = stdout.trim();
-    if (sha) return sha;
+    const location = await resolveAdminWorkflowYamlLocation("monolith");
+    if (!location) return { sha: null, modifiedAt: null };
+    const file = getStorage().bucket(location.bucket).file(location.objectPath);
+    const [[buffer], [metadata]] = await Promise.all([
+      file.download(),
+      file.getMetadata(),
+    ]);
+    return {
+      sha: createHash("sha256").update(buffer).digest("hex"),
+      modifiedAt:
+        typeof metadata.updated === "string" ? metadata.updated : null,
+    };
   } catch {
-    // fall through
-  }
-
-  try {
-    const content = await fs.readFile(filePath);
-    return createHash("sha256").update(content).digest("hex");
-  } catch {
-    return null;
-  }
-}
-
-async function readYamlModifiedAt(filePath: string): Promise<string | null> {
-  try {
-    const stats = await fs.stat(filePath);
-    return stats.mtime.toISOString();
-  } catch {
-    return null;
+    return { sha: null, modifiedAt: null };
   }
 }
 
@@ -139,12 +105,18 @@ async function readLatestDbWorkflow(): Promise<{
 }> {
   try {
     const row = await prisma.workflow_definitions.findFirst({
+      where: {
+        provider: "gcs-yaml",
+        slug: RUNTIME_WORKFLOW_YAML_ENTRY.slug,
+      },
       orderBy: { updated_at: "desc" },
     });
     if (!row) return { version: null, updatedAt: null };
     const metadata = (row.metadata ?? {}) as Record<string, unknown>;
     const versionFromMetadata =
-      typeof metadata.version === "string"
+      typeof metadata.yamlSha === "string"
+        ? metadata.yamlSha
+        : typeof metadata.version === "string"
         ? metadata.version
         : typeof metadata.git_sha === "string"
           ? metadata.git_sha
@@ -206,24 +178,22 @@ async function readSchiftRuntimeStatus(): Promise<SchiftRuntimeStatus> {
 }
 
 export async function loadWorkflowDrift(): Promise<WorkflowDriftReport> {
-  const yamlPath = await resolveYamlPath();
-  const [yamlSha, yamlModifiedAt, db, schift] = await Promise.all([
-    yamlPath ? readYamlShortSha(yamlPath) : Promise.resolve(null),
-    yamlPath ? readYamlModifiedAt(yamlPath) : Promise.resolve(null),
+  const [yamlSource, db, schift] = await Promise.all([
+    readYamlSourceStatus(),
     readLatestDbWorkflow(),
     readSchiftRuntimeStatus(),
   ]);
 
   const { drift, reasons } = computeWorkflowDrift({
-    yamlSha,
+    yamlSha: yamlSource.sha,
     dbVersion: db.version,
     schiftStatus: schift.status,
     schiftAvailable: schift.available,
   });
 
   return {
-    yamlSha,
-    yamlModifiedAt,
+    yamlSha: yamlSource.sha,
+    yamlModifiedAt: yamlSource.modifiedAt,
     dbVersion: db.version,
     dbUpdatedAt: db.updatedAt,
     schiftStatus: schift.status,
@@ -236,6 +206,6 @@ export async function loadWorkflowDrift(): Promise<WorkflowDriftReport> {
 }
 
 export const __testing__ = {
-  resolveYamlPath,
+  readYamlSourceStatus,
   readLatestDbWorkflow,
 };

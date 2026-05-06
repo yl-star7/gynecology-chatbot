@@ -1,5 +1,5 @@
 /**
- * 모성간호 상담 워크플로우 YAML을 GCS(`agaya-workflow-config` bucket)에 업로드하고,
+ * 모성간호 상담 워크플로우 YAML을 GCS workflow catalog bucket에 업로드하고,
  * admin refresh 엔드포인트를 호출해 서버 캐시를 즉시 갱신한다.
  *
  * Usage:
@@ -17,12 +17,17 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Storage } from "@google-cloud/storage";
+import {
+  DEFAULT_WORKFLOW_YAML_BUCKET,
+  RUNTIME_WORKFLOW_YAML_ENTRY,
+} from "../packages/app-core/src/workflow-yaml-catalog";
 
-const BUCKET = process.env.GCS_WORKFLOW_BUCKET ?? "agaya-workflow-config";
-const OBJECT_PATH = "maternal-nursing.yaml";
+const BUCKET = process.env.GCS_WORKFLOW_BUCKET ?? DEFAULT_WORKFLOW_YAML_BUCKET;
+const OBJECT_PATH = RUNTIME_WORKFLOW_YAML_ENTRY.gcsObject;
 const YAML_PATH = path.resolve(
   __dirname,
-  "../packages/mobile-api/src/workflows/maternal-nursing.yaml",
+  "../packages/mobile-api/src/workflows",
+  OBJECT_PATH,
 );
 
 function getEnv(name: string): string {

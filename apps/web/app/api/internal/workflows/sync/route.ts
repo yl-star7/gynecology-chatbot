@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { createDefaultInternalAnswerWorkflow } from "@/lib/mobile/schift-workflows-api";
-import {
-  loadMaternalNursingWorkflow,
-  refreshWorkflowFromStorage,
-} from "@/lib/mobile/workflows/load-workflow-yaml";
+import { refreshWorkflowFromStorage } from "@/lib/mobile/workflows/load-workflow-yaml";
 
 function isAuthorized(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -19,8 +16,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    const workflowDefinition =
-      (await refreshWorkflowFromStorage()) ?? loadMaternalNursingWorkflow();
+    const workflowDefinition = await refreshWorkflowFromStorage();
+    if (!workflowDefinition) {
+      throw new Error("runtime workflow YAML location is not configured in DB");
+    }
     const workflow = await createDefaultInternalAnswerWorkflow(
       workflowDefinition,
     );

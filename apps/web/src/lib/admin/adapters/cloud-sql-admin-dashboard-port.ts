@@ -7,12 +7,10 @@ import type {
   UserAccountStatus,
   UserActionType,
 } from "@gynecology-chatbot/app-core";
-import { buildAdminWorkflowYamlCatalog } from "@gynecology-chatbot/app-core";
+import { orderDbWorkflowRulesByYamlCatalog } from "@gynecology-chatbot/app-core";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 
 import { hasDockerConfig } from "@/lib/server-data-provider";
-import { getSchiftClient } from "@/lib/mobile/schift-client";
-import { listSchiftWorkflows } from "@/lib/mobile/schift-workflows-api";
 import { normalizePhoneNumberToE164 } from "@/lib/mobile/solapi-sms";
 import {
   createPhoneNumberStorage,
@@ -23,7 +21,6 @@ import { recordUserAction } from "@/lib/mobile/user-action-log";
 import { createAdminAuditLogSafe } from "@/lib/admin/admin-actor";
 
 import { MockAdminDashboardPortAdapter } from "./mock-admin-dashboard-port";
-import { mapSchiftWorkflowRule } from "./schift-workflow";
 
 function hasBackendAdminConfig() {
   return hasDockerConfig();
@@ -374,90 +371,14 @@ function mapWorkflowRule(row: {
   };
 }
 
-function getWorkflowYamlBucket() {
-  return process.env.GCS_WORKFLOW_BUCKET ?? "agaya-workflow-config";
-}
-
-function isRuntimeRoutedWorkflow(rule: AdminWorkflowRule) {
-  return (
-    rule.workflowKind === "router" || rule.workflowKind === "subworkflow"
-  );
-}
-
 function mergeWorkflowRulesWithYamlCatalog(
   workflowDefinitions: DashboardWorkflowDefinitionRow[],
-  schiftWorkflowRules: AdminWorkflowRule[],
 ) {
-  const mappedRules = workflowDefinitions.map(mapWorkflowRule);
-  const identityOf = (rule: AdminWorkflowRule) =>
-    buildWorkflowIdentity({
-      name: rule.name,
-      trigger: rule.trigger,
-      modelName: rule.modelName,
-    });
-  const mappedBySlug = new Map(
-    mappedRules
-      .filter((rule) => rule.sqlSlug)
-      .map((rule) => [rule.sqlSlug as string, rule]),
+  return orderDbWorkflowRulesByYamlCatalog(
+    workflowDefinitions
+      .filter((definition) => definition.provider === "gcs-yaml")
+      .map(mapWorkflowRule),
   );
-  const mappedByIdentity = new Map(
-    mappedRules.map((rule) => [identityOf(rule), rule]),
-  );
-  const catalogRules = buildAdminWorkflowYamlCatalog(getWorkflowYamlBucket());
-  const orderedCatalogRules = catalogRules.map((catalogRule) => {
-    const sqlRule =
-      mappedBySlug.get(catalogRule.sqlSlug ?? "") ??
-      mappedByIdentity.get(identityOf(catalogRule));
-    if (!sqlRule) return catalogRule;
-    return {
-      ...catalogRule,
-      ...sqlRule,
-      workflowKind: sqlRule.workflowKind ?? catalogRule.workflowKind,
-      storagePath: sqlRule.storagePath ?? catalogRule.storagePath,
-      gcsBucket: sqlRule.gcsBucket ?? catalogRule.gcsBucket,
-      gcsObject: sqlRule.gcsObject ?? catalogRule.gcsObject,
-      source: "sql" as const,
-    };
-  });
-  const catalogSlugs = new Set(
-    catalogRules.map((rule) => rule.sqlSlug).filter(Boolean),
-  );
-  const catalogIdentities = new Set(catalogRules.map(identityOf));
-  const catalogNames = new Set(catalogRules.map((rule) => rule.name));
-  const extraSqlRules = mappedRules.filter(
-    (rule) =>
-      isRuntimeRoutedWorkflow(rule) &&
-      (!rule.sqlSlug || !catalogSlugs.has(rule.sqlSlug)) &&
-      !catalogIdentities.has(identityOf(rule)) &&
-      !(catalogNames.has(rule.name) && !rule.storagePath),
-  );
-  const sqlAndCatalogRules = [...orderedCatalogRules, ...extraSqlRules];
-  const seenWorkflowIds = new Set(sqlAndCatalogRules.map((def) => def.id));
-  const seenWorkflowIdentities = new Set(
-    sqlAndCatalogRules.map((workflow) =>
-      buildWorkflowIdentity({
-        name: workflow.name,
-        trigger: workflow.trigger,
-        modelName: workflow.modelName,
-      }),
-    ),
-  );
-  const dedupedSchiftWorkflows = schiftWorkflowRules.filter((workflow) => {
-    if (!isRuntimeRoutedWorkflow(workflow)) return false;
-    if (seenWorkflowIds.has(workflow.id)) return false;
-
-    const identity = buildWorkflowIdentity({
-      name: workflow.name,
-      trigger: workflow.trigger,
-      modelName: workflow.modelName,
-    });
-    if (seenWorkflowIdentities.has(identity)) return false;
-
-    seenWorkflowIdentities.add(identity);
-    return true;
-  });
-
-  return [...sqlAndCatalogRules, ...dedupedSchiftWorkflows];
 }
 
 function getMetadataString(
@@ -506,20 +427,6 @@ function extractSourceFilename(
   ]);
 }
 
-function normalizeWorkflowKeyPart(value: string) {
-  return value.trim().toLowerCase();
-}
-
-function buildWorkflowIdentity(input: {
-  name: string;
-  trigger: string;
-  modelName: string;
-}) {
-  return [input.name, input.trigger, input.modelName]
-    .map(normalizeWorkflowKeyPart)
-    .join("::");
-}
-
 export class CloudSqlAdminDashboardPortAdapter implements AdminDashboardPort {
   private readonly fallback = new MockAdminDashboardPortAdapter();
 
@@ -537,7 +444,6 @@ export class CloudSqlAdminDashboardPortAdapter implements AdminDashboardPort {
       ragDocumentsResult,
       workflowDefinitionsResult,
       userActions,
-      schiftWorkflowRules,
     ] = await Promise.all([
       prisma.users
         .findMany({
@@ -741,20 +647,6 @@ export class CloudSqlAdminDashboardPortAdapter implements AdminDashboardPort {
             occurred_at: row.occurred_at.toISOString(),
           })),
         ),
-      (async () => {
-        const schift = getSchiftClient();
-        if (!schift) {
-          return [];
-        }
-
-        try {
-          const workflows = await listSchiftWorkflows();
-          return workflows.map(mapSchiftWorkflowRule);
-        } catch (error) {
-          console.error("admin dashboard schift workflows unavailable", error);
-          return [];
-        }
-      })(),
     ]);
 
     const ragDocuments = ragDocumentsResult ?? [];
@@ -962,10 +854,7 @@ export class CloudSqlAdminDashboardPortAdapter implements AdminDashboardPort {
         mappedUserActions.length > 0
           ? mappedUserActions
           : dashboard.userActions,
-      workflowRules: mergeWorkflowRulesWithYamlCatalog(
-        workflowDefinitions,
-        schiftWorkflowRules,
-      ),
+      workflowRules: mergeWorkflowRulesWithYamlCatalog(workflowDefinitions),
     };
   }
 }

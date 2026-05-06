@@ -5,9 +5,14 @@ import type { Schift, Workflow, WorkflowGraph } from "@schift-io/sdk";
 
 import { readAdminSessionUser } from "@/lib/admin/auth";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
+import { refreshWorkflowFromStorage } from "@/lib/mobile/workflows/load-workflow-yaml";
+import {
+  WORKFLOW_STAGE_MAPPING_BY_NAME,
+  recordAdminWorkflowYamlSave,
+  resolveAdminWorkflowYamlLocation,
+} from "@/lib/admin/workflow-yaml-location";
 import { prisma } from "@gynecology-chatbot/db/prisma";
 
-const BUCKET = process.env.GCS_WORKFLOW_BUCKET ?? "agaya-workflow-config";
 const STAGE_MAPPING_KEY = "workflow_stage_mapping";
 
 type Ctx = { params: Promise<{ name: string }> };
@@ -40,14 +45,6 @@ function getStorage() {
       process.env.GOOGLE_CLOUD_PROJECT ||
       undefined,
   });
-}
-
-function resolvePath(name: string) {
-  if (name === "router") return "maternal-nursing-router.yaml";
-  if (name === "monolith") return "maternal-nursing.yaml";
-  const allowed = ["baby-info", "letter-reflection", "free-chat", "general"];
-  if (!allowed.includes(name)) return null;
-  return `subworkflows/${name}.yaml`;
 }
 
 function parseWorkflowYaml(text: string): WorkflowYaml {
@@ -136,39 +133,23 @@ function resolvePromptRefs(
 }
 
 async function getMappedWorkflowId(name: string) {
-  const keyByName: Record<string, string> = {
-    "baby-info": "baby_info",
-    "letter-reflection": "letter_reflection",
-    "free-chat": "free_chat",
-    general: "general",
-    router: "router",
-  };
-  const envByName: Record<string, string> = {
-    "baby-info": "SCHIFT_WF_BABY_INFO",
-    "letter-reflection": "SCHIFT_WF_LETTER_REFLECTION",
-    "free-chat": "SCHIFT_WF_FREE_CHAT",
-    general: "SCHIFT_WF_GENERAL",
-    router: "SCHIFT_WF_ROUTER",
-  };
-  const mappingKey = keyByName[name];
+  const location = await resolveAdminWorkflowYamlLocation(name);
+  const routeName = location?.routeName;
+  const mappingKey = routeName
+    ? WORKFLOW_STAGE_MAPPING_BY_NAME[routeName].mappingKey
+    : null;
   if (!mappingKey) return null;
 
-  try {
-    const row = await prisma.system_config.findUnique({
-      where: { key: STAGE_MAPPING_KEY },
-      select: { value: true },
-    });
-    const value = row?.value;
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      const mapped = (value as Record<string, unknown>)[mappingKey];
-      if (typeof mapped === "string" && mapped.trim()) return mapped.trim();
-    }
-  } catch {
-    // Env fallback keeps editor save usable during DB outages.
+  const row = await prisma.system_config.findUnique({
+    where: { key: STAGE_MAPPING_KEY },
+    select: { value: true },
+  });
+  const value = row?.value;
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const mapped = (value as Record<string, unknown>)[mappingKey];
+    if (typeof mapped === "string" && mapped.trim()) return mapped.trim();
   }
-
-  const envKey = envByName[name];
-  return envKey ? (process.env[envKey]?.trim() ?? null) : null;
+  return null;
 }
 
 async function syncWorkflowToSchift(
@@ -222,20 +203,32 @@ async function syncWorkflowToSchift(
 }
 
 async function readYaml(name: string) {
-  const remotePath = resolvePath(name);
-  if (!remotePath) throw new Error(`unknown YAML workflow: ${name}`);
-  const [buffer] = await getStorage().bucket(BUCKET).file(remotePath).download();
-  return parseWorkflowYaml(buffer.toString("utf-8"));
+  const location = await resolveAdminWorkflowYamlLocation(name);
+  if (!location) throw new Error(`unknown YAML workflow: ${name}`);
+  const [buffer] = await getStorage()
+    .bucket(location.bucket)
+    .file(location.objectPath)
+    .download();
+  return {
+    yaml: parseWorkflowYaml(buffer.toString("utf-8")),
+    location,
+  };
 }
 
 async function saveYaml(name: string, yaml: WorkflowYaml) {
-  const remotePath = resolvePath(name);
-  if (!remotePath) throw new Error(`unknown YAML workflow: ${name}`);
-  await getStorage().bucket(BUCKET).file(remotePath).save(stringifyYaml(yaml), {
-    resumable: false,
-    contentType: "text/yaml",
-    validation: false,
-  });
+  const location = await resolveAdminWorkflowYamlLocation(name);
+  if (!location) throw new Error(`unknown YAML workflow: ${name}`);
+  const yamlText = stringifyYaml(yaml);
+  await getStorage()
+    .bucket(location.bucket)
+    .file(location.objectPath)
+    .save(yamlText, {
+      resumable: false,
+      contentType: "text/yaml",
+      validation: false,
+    });
+  await recordAdminWorkflowYamlSave(location, yamlText);
+  return location;
 }
 
 export async function GET(_request: NextRequest, context: Ctx) {
@@ -244,7 +237,8 @@ export async function GET(_request: NextRequest, context: Ctx) {
 
   try {
     const { name } = await context.params;
-    return NextResponse.json(toWorkflow(name, await readYaml(name)));
+    const { yaml } = await readYaml(name);
+    return NextResponse.json(toWorkflow(name, yaml));
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "failed" },
@@ -259,7 +253,7 @@ export async function PATCH(request: NextRequest, context: Ctx) {
 
   try {
     const { name } = await context.params;
-    const current = await readYaml(name);
+    const { yaml: current } = await readYaml(name);
     const body = (await request.json()) as Record<string, unknown>;
     const graph = body.graph as Record<string, unknown> | undefined;
     const nextYaml: WorkflowYaml = {
@@ -273,12 +267,15 @@ export async function PATCH(request: NextRequest, context: Ctx) {
       edges: graph ? graphToYamlEdges(graph) : current.edges,
     };
 
-    await saveYaml(name, nextYaml);
+    const location = await saveYaml(name, nextYaml);
 
     const workflowId = await getMappedWorkflowId(name);
     const schift = getSchiftClient();
     if (workflowId && schift) {
       await syncWorkflowToSchift(schift, workflowId, nextYaml);
+    }
+    if (location.routeName === "monolith") {
+      await refreshWorkflowFromStorage();
     }
 
     return NextResponse.json(toWorkflow(name, nextYaml));

@@ -257,28 +257,14 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
     });
   });
 
-  it("uses the GCS YAML catalog instead of mock workflow ids when backend queries are empty", async () => {
+  it("does not synthesize YAML catalog rows when backend queries are empty", async () => {
     seedEmptyDashboardQueries();
     mockedGetSchiftClient.mockReturnValue(null);
 
     const dashboard = await adapter.getDashboard();
 
     expect(dashboard.ragDocuments).toEqual([]);
-    expect(dashboard.workflowRules).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "yaml:maternal-nursing-router",
-          name: "모성간호 router (stage 분기)",
-          storagePath:
-            "gs://agaya-workflow-config/maternal-nursing-router.yaml",
-        }),
-        expect.objectContaining({
-          id: "yaml:maternal-nursing-free-chat",
-          workflowKind: "subworkflow",
-          storagePath: "gs://agaya-workflow-config/subworkflows/free-chat.yaml",
-        }),
-      ]),
-    );
+    expect(dashboard.workflowRules).toEqual([]);
   });
 
   it("hides managed Schift workflows from the runtime workflow list", async () => {
@@ -339,14 +325,7 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
 
     const dashboard = await adapter.getDashboard();
 
-    expect(dashboard.workflowRules).toHaveLength(5);
-    expect(dashboard.workflowRules.map((rule) => rule.id)).toEqual([
-      "yaml:maternal-nursing-router",
-      "yaml:maternal-nursing-baby-info",
-      "yaml:maternal-nursing-letter-reflection",
-      "yaml:maternal-nursing-free-chat",
-      "yaml:maternal-nursing-general",
-    ]);
+    expect(dashboard.workflowRules).toEqual([]);
     expect(dashboard.workflowRules).not.toContainEqual(
       expect.objectContaining({ id: "schift-wf-2" }),
     );
@@ -355,12 +334,13 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
     );
   });
 
-  it("keeps router and sub workflows visible in the dashboard", async () => {
+  it("shows only DB-backed YAML workflows in catalog order", async () => {
     seedEmptyDashboardQueries();
     mockedPrisma.workflow_definitions.findMany.mockResolvedValue([
       {
         id: "workflow-chat-default",
         name: "기본 채팅 응답",
+        slug: null,
         provider: "flowise",
         is_active: true,
         config: {
@@ -374,18 +354,63 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
         },
       },
       {
-        id: "definition-1",
-        name: "모성간호 상담 응답",
-        provider: "schift",
+        id: "runtime-row",
+        name: "모성간호 monolith (채팅 런타임)",
+        slug: "maternal-nursing-monolith",
+        provider: "gcs-yaml",
         is_active: true,
         config: {
-          trigger: "내부 데이터만 답변",
+          workflowKind: "monolith",
+          storagePath: "gs://agaya-workflow-config/runtime/current.yaml",
+          gcsBucket: "agaya-workflow-config",
+          gcsObject: "runtime/current.yaml",
+        },
+        metadata: {
+          trigger: "mobile chat runtime",
+          retrievalScope: "모바일 채팅 런타임 YAML",
+          modelName: "gemini-2.5-flash-lite",
+          workflowKind: "monolith",
+        },
+      },
+      {
+        id: "router-row",
+        name: "모성간호 router (stage 분기)",
+        slug: "maternal-nursing-router",
+        provider: "gcs-yaml",
+        is_active: true,
+        config: {
+          workflowKind: "router",
+          storagePath:
+            "gs://agaya-workflow-config/maternal-nursing-router.yaml",
+          gcsBucket: "agaya-workflow-config",
+          gcsObject: "maternal-nursing-router.yaml",
           modelName: "gemini-2.5-flash-lite",
         },
         metadata: {
-          trigger: "내부 데이터만 답변",
-          retrievalScope: "pregnancy-knowledge 내부 자료",
+          trigger: "stage router",
+          retrievalScope: "stage 기반 subworkflow 라우팅",
           modelName: "gemini-2.5-flash-lite",
+          workflowKind: "router",
+        },
+      },
+      {
+        id: "free-row",
+        name: "모성간호 free_chat (자유 대화)",
+        slug: "maternal-nursing-free-chat",
+        provider: "gcs-yaml",
+        is_active: true,
+        config: {
+          workflowKind: "subworkflow",
+          storagePath: "gs://agaya-workflow-config/subworkflows/free-chat.yaml",
+          gcsBucket: "agaya-workflow-config",
+          gcsObject: "subworkflows/free-chat.yaml",
+          modelName: "gemini-2.5-flash-lite",
+        },
+        metadata: {
+          trigger: "stage=free_chat",
+          retrievalScope: "자유 대화",
+          modelName: "gemini-2.5-flash-lite",
+          workflowKind: "subworkflow",
         },
       },
     ] as never);
@@ -415,19 +440,20 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
 
     const dashboard = await adapter.getDashboard();
 
-    expect(dashboard.workflowRules.map((rule) => rule.id)).toEqual(
-      [
-        "yaml:maternal-nursing-router",
-        "yaml:maternal-nursing-baby-info",
-        "yaml:maternal-nursing-letter-reflection",
-        "yaml:maternal-nursing-free-chat",
-        "yaml:maternal-nursing-general",
-      ],
-    );
+    expect(dashboard.workflowRules.map((rule) => rule.id)).toEqual([
+      "runtime-row",
+      "router-row",
+      "free-row",
+    ]);
     expect(dashboard.workflowRules).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          id: "yaml:maternal-nursing-router",
+          id: "runtime-row",
+          workflowKind: "monolith",
+          storagePath: "gs://agaya-workflow-config/runtime/current.yaml",
+        }),
+        expect.objectContaining({
+          id: "router-row",
           workflowKind: "router",
           storagePath:
             "gs://agaya-workflow-config/maternal-nursing-router.yaml",
@@ -437,19 +463,19 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
     expect(dashboard.workflowRules.map((rule) => rule.id)).toEqual(
       expect.not.arrayContaining([
         "workflow-chat-default",
-        "definition-1",
         "schift-wf-2",
         "schift-wf-3",
       ]),
     );
   });
 
-  it("keeps catalog router and sub workflows when stale definitions exist", async () => {
+  it("ignores stale Schift definitions instead of replacing missing DB YAML rows", async () => {
     seedEmptyDashboardQueries();
     mockedPrisma.workflow_definitions.findMany.mockResolvedValue([
       {
         id: "stale-definition-id",
         name: "모성간호 상담 응답",
+        slug: null,
         provider: "schift",
         is_active: true,
         config: {
@@ -489,23 +515,7 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
 
     const dashboard = await adapter.getDashboard();
 
-    expect(dashboard.workflowRules.map((rule) => rule.id)).toEqual(
-      [
-        "yaml:maternal-nursing-router",
-        "yaml:maternal-nursing-baby-info",
-        "yaml:maternal-nursing-letter-reflection",
-        "yaml:maternal-nursing-free-chat",
-        "yaml:maternal-nursing-general",
-      ],
-    );
-    expect(dashboard.workflowRules).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "yaml:maternal-nursing-router",
-          workflowKind: "router",
-        }),
-      ]),
-    );
+    expect(dashboard.workflowRules).toEqual([]);
     expect(dashboard.workflowRules.map((rule) => rule.id)).toEqual(
       expect.not.arrayContaining([
         "stale-definition-id",
@@ -527,6 +537,8 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
 
   it("stores allowed phone numbers as encrypted payloads and redacts audit values", async () => {
     const userAdapter = new CloudSqlAdminUserPortAdapter();
+    const adminUserId = "11111111-1111-4111-8111-111111111111";
+    mockedPrisma.users.findUnique.mockResolvedValue({ id: adminUserId });
     mockedPrisma.blocked_phone_numbers.findUnique.mockResolvedValue(
       null as never,
     );
@@ -542,7 +554,7 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
     mockedPrisma.admin_audit_logs.create.mockResolvedValue({} as never);
 
     const created = await userAdapter.createAllowedPhoneNumber({
-      actorId: "admin-1",
+      actorId: adminUserId,
       phoneNumber: "01012345678",
       displayName: "김수연",
       note: "seed",

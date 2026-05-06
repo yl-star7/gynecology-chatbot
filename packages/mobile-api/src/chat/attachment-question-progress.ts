@@ -72,6 +72,14 @@ export function computeProgressFromEvents(input: {
   };
 }
 
+function isUuid(value: string | null) {
+  return Boolean(
+    value?.match(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i,
+    ),
+  );
+}
+
 /**
  * DB 조회 wrapper. Prisma 사용. 호출자는 prisma client 주입.
  */
@@ -90,6 +98,15 @@ export async function fetchAttachmentQuestionProgress(deps: {
   now?: Date;
 }): Promise<QuestionProgress> {
   const dayStartUtc = getKstDayStartUtc(deps.now);
+  if (!isUuid(deps.userId)) {
+    return computeProgressFromEvents({
+      rows: [],
+      sessionId: null,
+      dayStartUtc,
+    });
+  }
+
+  const sessionId = isUuid(deps.sessionId) ? deps.sessionId : null;
   const rows = await deps.prisma.user_question_events.findMany({
     where: {
       user_id: deps.userId,
@@ -100,9 +117,9 @@ export async function fetchAttachmentQuestionProgress(deps: {
           answered_at: { gte: dayStartUtc },
         },
         // 현 세션에서 sent but not yet answered
-        deps.sessionId
+        sessionId
           ? {
-              session_id: deps.sessionId,
+              session_id: sessionId,
               status: "sent",
               answered_at: null,
             }
@@ -119,7 +136,7 @@ export async function fetchAttachmentQuestionProgress(deps: {
   });
   return computeProgressFromEvents({
     rows,
-    sessionId: deps.sessionId,
+    sessionId,
     dayStartUtc,
   });
 }

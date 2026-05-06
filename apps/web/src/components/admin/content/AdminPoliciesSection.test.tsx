@@ -11,7 +11,11 @@ import { AdminPoliciesSection } from "./AdminPoliciesSection";
 jest.mock("@schift-io/sdk/workflow-editor", () => ({
   WorkflowEditorProvider: ({ children }: { children: React.ReactNode }) =>
     children,
-  WorkflowBuilder: () => <div>워크플로우 빌더</div>,
+  WorkflowBuilder: ({
+    initialWorkflowId,
+  }: {
+    initialWorkflowId?: string | null;
+  }) => <div>워크플로우 빌더 {initialWorkflowId}</div>,
 }));
 
 describe("AdminPoliciesSection", () => {
@@ -233,6 +237,7 @@ describe("AdminPoliciesSection", () => {
             status: "active",
             source: "gcs-yaml",
             workflowKind: "subworkflow",
+            sqlSlug: "maternal-nursing-free-chat",
             gcsObject: "subworkflows/free-chat.yaml",
             storagePath:
               "gs://agaya-workflow-config/subworkflows/free-chat.yaml",
@@ -265,7 +270,139 @@ describe("AdminPoliciesSection", () => {
       screen.getByRole("button", { name: /free text sub workflow/ }),
     );
 
-    expect(await screen.findByText("워크플로우 빌더")).toBeInTheDocument();
+    expect(await screen.findByText(/워크플로우 빌더/)).toBeInTheDocument();
+  });
+
+  it("does not infer a YAML editor route from the GCS object path alone", async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url === "/api/admin/schift") {
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url === "/api/admin/workflow-rules/chat-flow/reflection-loop") {
+        return new Response(JSON.stringify(reflectionLoopPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    render(
+      <AdminPoliciesSection
+        workflowRules={[
+          {
+            id: "workflow-free",
+            name: "free text sub workflow",
+            trigger: "free-text",
+            retrievalScope: "상담",
+            modelName: "gemini-2.5-flash-lite",
+            status: "active",
+            source: "gcs-yaml",
+            workflowKind: "subworkflow",
+            gcsObject: "subworkflows/free-chat.yaml",
+            storagePath:
+              "gs://agaya-workflow-config/subworkflows/free-chat.yaml",
+          },
+        ]}
+        selectedWorkflowRuleId="workflow-free"
+        contentMessage={null}
+        workflowName="free text sub workflow"
+        workflowTrigger="free-text"
+        workflowRetrievalScope="상담"
+        workflowModelName="gemini-2.5-flash-lite"
+        workflowStatus="active"
+        isWorkflowSaving={false}
+        isWorkflowRunning={false}
+        isWorkflowDeleting={false}
+        onSelectWorkflowRule={() => {}}
+        onWorkflowNameChange={() => {}}
+        onWorkflowTriggerChange={() => {}}
+        onWorkflowRetrievalScopeChange={() => {}}
+        onWorkflowModelNameChange={() => {}}
+        onWorkflowStatusChange={() => {}}
+        onSaveWorkflowRule={async () => {}}
+        onRunWorkflowRule={async () => {}}
+        onDeleteWorkflowRule={async () => {}}
+      />,
+    );
+
+    await screen.findByDisplayValue("2");
+    fireEvent.click(
+      screen.getByRole("button", { name: /free text sub workflow/ }),
+    );
+
+    expect(screen.queryByText(/워크플로우 빌더/)).not.toBeInTheDocument();
+  });
+
+  it("opens YAML editor by workflow kind even when the GCS object path is custom", async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url === "/api/admin/schift") {
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url === "/api/admin/workflow-rules/chat-flow/reflection-loop") {
+        return new Response(JSON.stringify(reflectionLoopPayload), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    render(
+      <AdminPoliciesSection
+        workflowRules={[
+          {
+            id: "workflow-monolith",
+            name: "runtime YAML",
+            trigger: "mobile chat runtime",
+            retrievalScope: "상담",
+            modelName: "gemini-2.5-flash-lite",
+            status: "active",
+            source: "gcs-yaml",
+            workflowKind: "monolith",
+            sqlSlug: "maternal-nursing-monolith",
+            storagePath: "gs://agaya-workflow-config/runtime/custom.yaml",
+            gcsObject: "runtime/custom.yaml",
+          },
+        ]}
+        selectedWorkflowRuleId="workflow-monolith"
+        contentMessage={null}
+        workflowName="runtime YAML"
+        workflowTrigger="mobile chat runtime"
+        workflowRetrievalScope="상담"
+        workflowModelName="gemini-2.5-flash-lite"
+        workflowStatus="active"
+        isWorkflowSaving={false}
+        isWorkflowRunning={false}
+        isWorkflowDeleting={false}
+        onSelectWorkflowRule={() => {}}
+        onWorkflowNameChange={() => {}}
+        onWorkflowTriggerChange={() => {}}
+        onWorkflowRetrievalScopeChange={() => {}}
+        onWorkflowModelNameChange={() => {}}
+        onWorkflowStatusChange={() => {}}
+        onSaveWorkflowRule={async () => {}}
+        onRunWorkflowRule={async () => {}}
+        onDeleteWorkflowRule={async () => {}}
+      />,
+    );
+
+    await screen.findByDisplayValue("2");
+    fireEvent.click(screen.getByRole("button", { name: /runtime YAML/ }));
+
+    expect(
+      await screen.findByText("워크플로우 빌더 monolith"),
+    ).toBeInTheDocument();
   });
 
   it("saves the question reflection loop policy from the settings panel", async () => {

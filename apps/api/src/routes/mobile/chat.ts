@@ -320,6 +320,10 @@ app.get("/initial-workflow", async (c) => {
         `source=${workflowDef.source}`,
         `version=${workflowDef.version ?? "unknown"}`,
         `name=${formatLogValue(workflowDef.name)}`,
+        `storage=${workflowDef.storageBucket ?? "-"}:${workflowDef.storagePath}`,
+        `locationSource=${workflowDef.locationSource ?? "-"}`,
+        `locationRow=${workflowDef.locationSlug ?? workflowDef.locationRowId ?? "-"}`,
+        `locationUpdatedAt=${workflowDef.locationUpdatedAt ?? "-"}`,
         `blocks=${workflowDef.graph.blocks.length}`,
       ].join(" "),
     );
@@ -408,28 +412,25 @@ app.post("/", async (c) => {
         const stored = (row?.value ?? null) as unknown;
         if (stored && typeof stored === "object" && !Array.isArray(stored)) {
           const s = stored as Record<string, unknown>;
-          const pick = (k: string, envKey: string) =>
+          const pick = (k: string) =>
             typeof s[k] === "string" && (s[k] as string).trim()
               ? (s[k] as string).trim()
-              : (process.env[envKey] ?? null);
+              : null;
           return {
-            baby_info: pick("baby_info", "SCHIFT_WF_BABY_INFO"),
-            letter_reflection: pick(
-              "letter_reflection",
-              "SCHIFT_WF_LETTER_REFLECTION",
-            ),
-            free_chat: pick("free_chat", "SCHIFT_WF_FREE_CHAT"),
-            general: pick("general", "SCHIFT_WF_GENERAL"),
+            baby_info: pick("baby_info"),
+            letter_reflection: pick("letter_reflection"),
+            free_chat: pick("free_chat"),
+            general: pick("general"),
           };
         }
       } catch {
-        // fallthrough to env
+        // Runtime YAML remains primary when DB mapping cannot be read.
       }
       return {
-        baby_info: process.env.SCHIFT_WF_BABY_INFO ?? null,
-        letter_reflection: process.env.SCHIFT_WF_LETTER_REFLECTION ?? null,
-        free_chat: process.env.SCHIFT_WF_FREE_CHAT ?? null,
-        general: process.env.SCHIFT_WF_GENERAL ?? null,
+        baby_info: null,
+        letter_reflection: null,
+        free_chat: null,
+        general: null,
       };
     })();
     const chatFlowOptions: ChatFlowOptions = await (async () => {
@@ -453,6 +454,10 @@ app.post("/", async (c) => {
         `source=${workflowDef.source}`,
         `version=${workflowDef.version ?? "unknown"}`,
         `name=${formatLogValue(workflowDef.name)}`,
+        `storage=${workflowDef.storageBucket ?? "-"}:${workflowDef.storagePath}`,
+        `locationSource=${workflowDef.locationSource ?? "-"}`,
+        `locationRow=${workflowDef.locationSlug ?? workflowDef.locationRowId ?? "-"}`,
+        `locationUpdatedAt=${workflowDef.locationUpdatedAt ?? "-"}`,
         `sessionId=${normalizedSessionId}`,
         `blocks=${workflowDef.graph.blocks.length}`,
       ].join(" "),
@@ -846,8 +851,9 @@ app.post("/", async (c) => {
       imageDataUris,
       hardGuardrailReason,
     });
+    const canUsePrismaUserSession = isUuid(userId) && isUuid(result.sessionId);
 
-    if (isUuid(selectedQuestionId)) {
+    if (canUsePrismaUserSession && isUuid(selectedQuestionId)) {
       try {
         await recordQuestionSent({
           prisma: prisma as unknown as Parameters<
@@ -898,7 +904,7 @@ app.post("/", async (c) => {
             isQuestionAnswerText({ userAnswer: answerText })
           ? justClosedQuestionId
           : null;
-    if (answerQuestionId) {
+    if (canUsePrismaUserSession && answerQuestionId) {
       try {
         await markQuestionAnswered({
           prisma: prisma as unknown as Parameters<
@@ -915,6 +921,7 @@ app.post("/", async (c) => {
     }
     if (
       justClosedQuestionId &&
+      canUsePrismaUserSession &&
       nextMem?.stage === "free_chat" &&
       nextMem.stageName === "question_session_deferred" &&
       !isQuestionAnswerText({ userAnswer: answerText })
@@ -943,7 +950,11 @@ app.post("/", async (c) => {
       )
       .join("\n\n")
       .trim();
-    if (activeQuestionId && isQuestionAnswerText({ userAnswer: text })) {
+    if (
+      canUsePrismaUserSession &&
+      activeQuestionId &&
+      isQuestionAnswerText({ userAnswer: text })
+    ) {
       try {
         const dateKey = getKstDateKey();
         const existingQuestionRows = await prisma.calendar_logs.findMany({
@@ -1050,67 +1061,71 @@ app.post("/", async (c) => {
       }
     }
 
-    try {
-      const todayDate = getKstDateKey();
-      const existingChatCalendarLog = await prisma.calendar_logs.findFirst({
-        where: {
-          user_id: userId,
-          date: parseDateOnly(todayDate),
-          session_id: result.sessionId,
-          entry_type: "chat_saved",
-        },
-        select: { id: true },
-      });
-      const assistantSummary = result.assistantMessages
-        .flatMap((message) =>
-          message.parts.flatMap((part) =>
-            part.type === "text" && part.text.trim() ? [part.text.trim()] : [],
-          ),
-        )
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim();
-      const compactSummary =
-        result.workflowMemoryPayload?.nextSessionMemory?.compactSummary
-          ?.replace(/^현재 단계:\s*/u, "")
-          .trim();
-      const calendarSummary =
-        compactSummary ||
-        assistantSummary.slice(0, 220) ||
-        text.slice(0, 140) ||
-        null;
-      const chatCalendarPayload = {
-        lastMessageAt: new Date().toISOString(),
-        source: "chat_session_sync",
-        compactSummary:
-          result.workflowMemoryPayload?.nextSessionMemory?.compactSummary ??
-          null,
-        assistantSummary: assistantSummary || null,
-      };
-      if (existingChatCalendarLog?.id) {
-        await prisma.calendar_logs.update({
-          where: { id: existingChatCalendarLog.id },
-          data: {
-            title: text.slice(0, 40) || "아기와 대화",
-            summary: calendarSummary,
-            payload: chatCalendarPayload,
-          },
-        });
-      } else {
-        await prisma.calendar_logs.create({
-          data: {
+    if (canUsePrismaUserSession) {
+      try {
+        const todayDate = getKstDateKey();
+        const existingChatCalendarLog = await prisma.calendar_logs.findFirst({
+          where: {
             user_id: userId,
-            session_id: result.sessionId,
             date: parseDateOnly(todayDate),
+            session_id: result.sessionId,
             entry_type: "chat_saved",
-            title: text.slice(0, 40) || "아기와 대화",
-            summary: calendarSummary,
-            payload: chatCalendarPayload,
           },
+          select: { id: true },
         });
+        const assistantSummary = result.assistantMessages
+          .flatMap((message) =>
+            message.parts.flatMap((part) =>
+              part.type === "text" && part.text.trim()
+                ? [part.text.trim()]
+                : [],
+            ),
+          )
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim();
+        const compactSummary =
+          result.workflowMemoryPayload?.nextSessionMemory?.compactSummary
+            ?.replace(/^현재 단계:\s*/u, "")
+            .trim();
+        const calendarSummary =
+          compactSummary ||
+          assistantSummary.slice(0, 220) ||
+          text.slice(0, 140) ||
+          null;
+        const chatCalendarPayload = {
+          lastMessageAt: new Date().toISOString(),
+          source: "chat_session_sync",
+          compactSummary:
+            result.workflowMemoryPayload?.nextSessionMemory?.compactSummary ??
+            null,
+          assistantSummary: assistantSummary || null,
+        };
+        if (existingChatCalendarLog?.id) {
+          await prisma.calendar_logs.update({
+            where: { id: existingChatCalendarLog.id },
+            data: {
+              title: text.slice(0, 40) || "아기와 대화",
+              summary: calendarSummary,
+              payload: chatCalendarPayload,
+            },
+          });
+        } else {
+          await prisma.calendar_logs.create({
+            data: {
+              user_id: userId,
+              session_id: result.sessionId,
+              date: parseDateOnly(todayDate),
+              entry_type: "chat_saved",
+              title: text.slice(0, 40) || "아기와 대화",
+              summary: calendarSummary,
+              payload: chatCalendarPayload,
+            },
+          });
+        }
+      } catch (error) {
+        console.warn("mobile chat calendar sync failed", error);
       }
-    } catch (error) {
-      console.warn("mobile chat calendar sync failed", error);
     }
 
     return noStoreJson(c, {

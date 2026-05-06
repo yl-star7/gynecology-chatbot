@@ -7,8 +7,7 @@
  *   3. stage=0 + 사용자가 주차 정보 긍정 답변 ("네, 볼래요" etc.) → baby_info
  *   4. 그 외 → general (기본 라우트)
  *
- * 매핑은 DB system_config('workflow_stage_mapping') 또는 env 변수.
- * 라우트가 이 값을 전달.
+ * 매핑은 라우트가 DB system_config('workflow_stage_mapping')에서 읽어 전달.
  */
 
 export type StageWorkflowMapping = {

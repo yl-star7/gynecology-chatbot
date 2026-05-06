@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createInitialWorkflowMessageFromPrompt } from "@gynecology-chatbot/mobile-api/chat/initial-workflow-message";
 import { parseChatFlowConfig } from "@gynecology-chatbot/mobile-api/chat/chat-flow-config";
-import { loadMaternalNursingWorkflow } from "@gynecology-chatbot/mobile-api/workflows/load-workflow-yaml";
+import { loadMaternalNursingWorkflowPreferRemote } from "@gynecology-chatbot/mobile-api/workflows/load-workflow-yaml";
 import {
   isMobileSessionError,
   requireMobileSession,
@@ -10,7 +10,7 @@ import {
 export async function GET(request: NextRequest) {
   try {
     await requireMobileSession(request);
-    const workflowDef = loadMaternalNursingWorkflow();
+    const workflowDef = await loadMaternalNursingWorkflowPreferRemote();
     const chatFlowConfig = parseChatFlowConfig({
       chatFlow: workflowDef.chatFlow,
       prompts: workflowDef.prompts,

@@ -1,6 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { loadMaternalNursingWorkflow } from "./load-workflow-yaml";
+import {
+  loadMaternalNursingWorkflow,
+  resolveWorkflowYamlLocationFromRows,
+} from "./load-workflow-yaml";
 
 function parsePromptJson(prompt: string | undefined) {
   expect(prompt).toBeDefined();
@@ -55,6 +58,9 @@ describe("maternal nursing workflow YAML", () => {
     expect(workflow.version).toBe(2);
     expect(workflow.source).toBe("local");
     expect(workflow.storagePath).toBe("maternal-nursing.yaml");
+    expect(workflow.locationSource).toBeNull();
+    expect(workflow.locationRowId).toBeNull();
+    expect(workflow.locationSlug).toBeNull();
     expect(workflow.localPath).toEqual(
       expect.stringContaining("maternal-nursing.yaml"),
     );
@@ -79,6 +85,71 @@ describe("maternal nursing workflow YAML", () => {
     expect(rag?.config?.template).toEqual(
       expect.stringContaining("{{selectedQuestionId}}"),
     );
+  });
+
+  it("resolves the runtime YAML location from workflow_definitions row columns", () => {
+    const location = resolveWorkflowYamlLocationFromRows([
+      {
+        id: "router-row",
+        slug: "maternal-nursing-router",
+        config: {
+          workflowKind: "router",
+          storagePath: "gs://agaya-workflow-config/maternal-nursing-router.yaml",
+        },
+        metadata: {},
+        updated_at: "2026-05-06T10:00:00.000Z",
+      },
+      {
+        id: "monolith-row",
+        slug: "maternal-nursing-monolith",
+        config: {
+          workflowKind: "monolith",
+          storagePath: "gs://agaya-workflow-config/workflows/runtime-v3.yaml",
+        },
+        metadata: {
+          gcsBucket: "ignored-when-storage-path-is-gs-url",
+          gcsObject: "ignored.yaml",
+        },
+        updated_at: "2026-05-06T11:00:00.000Z",
+      },
+    ]);
+
+    expect(location).toEqual({
+      bucket: "agaya-workflow-config",
+      path: "workflows/runtime-v3.yaml",
+      storagePath: "gs://agaya-workflow-config/workflows/runtime-v3.yaml",
+      locationSource: "db",
+      rowId: "monolith-row",
+      slug: "maternal-nursing-monolith",
+      updatedAt: "2026-05-06T11:00:00.000Z",
+    });
+  });
+
+  it("does not infer the runtime YAML location from kind or object name without the runtime slug", () => {
+    const location = resolveWorkflowYamlLocationFromRows([
+      {
+        id: "old-row",
+        slug: "maternal-nursing",
+        config: {
+          workflowKind: "monolith",
+          storagePath: "gs://agaya-workflow-config/maternal-nursing.yaml",
+        },
+        metadata: {},
+        updated_at: "2026-05-06T11:00:00.000Z",
+      },
+    ]);
+
+    expect(location).toBeNull();
+  });
+
+  it("keeps the retained router YAML detached from env workflow ids", () => {
+    const routerYaml = fs.readFileSync(
+      path.join(__dirname, "maternal-nursing-router.yaml"),
+      "utf8",
+    );
+
+    expect(routerYaml).not.toContain("$env.");
+    expect(routerYaml).not.toContain("SCHIFT_WF_");
   });
 
   it("keeps premade mood intake and weekly opt-in variation pools large enough", () => {

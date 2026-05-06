@@ -4,10 +4,11 @@ import path from "node:path";
 import { Storage } from "@google-cloud/storage";
 import { parse as parseYaml } from "yaml";
 
+import { RUNTIME_WORKFLOW_YAML_ENTRY } from "@gynecology-chatbot/app-core";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import type { WorkflowGraph } from "@schift-io/sdk";
 
-const STORAGE_BUCKET = "agaya-workflow-config";
-const STORAGE_PATH = "maternal-nursing.yaml";
+const STORAGE_PATH = RUNTIME_WORKFLOW_YAML_ENTRY.gcsObject;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5분
 
 interface WorkflowYaml {
@@ -43,6 +44,10 @@ export type LoadedMaternalNursingWorkflow = {
   source: "local" | "gcs-cache" | "gcs-refresh";
   storageBucket: string | null;
   storagePath: string;
+  locationSource: "db" | null;
+  locationRowId: string | null;
+  locationSlug: string | null;
+  locationUpdatedAt: string | null;
   localPath: string | null;
   loadedAt: string;
   adminMetadata: WorkflowYaml["admin_metadata"];
@@ -50,6 +55,24 @@ export type LoadedMaternalNursingWorkflow = {
   staticResponses: Record<string, Record<string, unknown>>;
   chatFlow?: unknown | null;
   graph: WorkflowGraph;
+};
+
+export type WorkflowYamlStorageLocation = {
+  bucket: string;
+  path: string;
+  storagePath: string;
+  locationSource: "db";
+  rowId?: string | null;
+  slug?: string | null;
+  updatedAt?: string | null;
+};
+
+export type WorkflowYamlLocationRow = {
+  id: string;
+  slug: string | null;
+  config: Prisma.JsonValue | null;
+  metadata: Prisma.JsonValue | null;
+  updated_at?: Date | string | null;
 };
 
 function resolveRef(
@@ -153,7 +176,14 @@ function buildResult(
   yaml: WorkflowYaml,
   metadata: Pick<
     LoadedMaternalNursingWorkflow,
-    "source" | "storageBucket" | "storagePath" | "localPath"
+    | "source"
+    | "storageBucket"
+    | "storagePath"
+    | "locationSource"
+    | "locationRowId"
+    | "locationSlug"
+    | "locationUpdatedAt"
+    | "localPath"
   >,
 ): LoadedMaternalNursingWorkflow {
   yamlConfigRef.current =
@@ -182,6 +212,10 @@ function buildResult(
     source: metadata.source,
     storageBucket: metadata.storageBucket,
     storagePath: metadata.storagePath,
+    locationSource: metadata.locationSource,
+    locationRowId: metadata.locationRowId,
+    locationSlug: metadata.locationSlug,
+    locationUpdatedAt: metadata.locationUpdatedAt,
     localPath: metadata.localPath,
     loadedAt: new Date().toISOString(),
     adminMetadata: yaml.admin_metadata,
@@ -197,7 +231,155 @@ function buildResult(
 let remoteCache: {
   result: ReturnType<typeof buildResult>;
   fetchedAt: number;
+  locationKey: string;
 } | null = null;
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readString(
+  metadata: Record<string, unknown>,
+  config: Record<string, unknown>,
+  keys: string[],
+) {
+  for (const key of keys) {
+    const value = metadata[key] ?? config[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function normalizeObjectPath(value: string) {
+  return value.replace(/^\/+/, "").trim();
+}
+
+function buildStoragePath(bucket: string, objectPath: string) {
+  return `gs://${bucket}/${normalizeObjectPath(objectPath)}`;
+}
+
+function parseStorageLocation(
+  storagePath: string | null,
+  gcsBucket: string | null,
+  gcsObject: string | null,
+): Pick<WorkflowYamlStorageLocation, "bucket" | "path" | "storagePath"> | null {
+  if (storagePath?.startsWith("gs://")) {
+    const withoutScheme = storagePath.slice("gs://".length);
+    const slashIndex = withoutScheme.indexOf("/");
+    if (slashIndex > 0) {
+      const bucket = withoutScheme.slice(0, slashIndex).trim();
+      const objectPath = normalizeObjectPath(
+        withoutScheme.slice(slashIndex + 1),
+      );
+      if (bucket && objectPath) {
+        return {
+          bucket,
+          path: objectPath,
+          storagePath: buildStoragePath(bucket, objectPath),
+        };
+      }
+    }
+  }
+
+  const bucket = gcsBucket?.trim();
+  const objectPath = normalizeObjectPath(gcsObject ?? storagePath ?? "");
+  if (!bucket || !objectPath || objectPath.startsWith("http")) {
+    return null;
+  }
+
+  return {
+    bucket,
+    path: objectPath,
+    storagePath: buildStoragePath(bucket, objectPath),
+  };
+}
+
+export function resolveWorkflowYamlLocationFromRows(
+  rows: WorkflowYamlLocationRow[],
+): WorkflowYamlStorageLocation | null {
+  const ranked = rows
+    .filter((row) => row.slug === RUNTIME_WORKFLOW_YAML_ENTRY.slug)
+    .map((row): WorkflowYamlStorageLocation | null => {
+      const config = asRecord(row.config);
+      const metadata = asRecord(row.metadata);
+      const parsed = parseStorageLocation(
+        readString(metadata, config, [
+          "storagePath",
+          "storage_path",
+          "yamlPath",
+          "yaml_path",
+          "gcsPath",
+          "gcs_path",
+        ]),
+        readString(metadata, config, ["gcsBucket", "gcs_bucket"]),
+        readString(metadata, config, [
+          "gcsObject",
+          "gcs_object",
+          "yamlObject",
+          "yaml_object",
+        ]),
+      );
+      if (!parsed) return null;
+      return {
+        ...parsed,
+        locationSource: "db" as const,
+        rowId: row.id,
+        slug: row.slug,
+        updatedAt:
+          row.updated_at instanceof Date
+            ? row.updated_at.toISOString()
+            : (row.updated_at ?? null),
+      };
+    })
+    .filter((location): location is WorkflowYamlStorageLocation =>
+      Boolean(location),
+    );
+
+  return ranked[0] ?? null;
+}
+
+async function resolveWorkflowYamlLocationFromDb() {
+  try {
+    const rows = await prisma.workflow_definitions.findMany({
+      where: {
+        provider: "gcs-yaml",
+        slug: RUNTIME_WORKFLOW_YAML_ENTRY.slug,
+        is_active: true,
+      },
+      select: {
+        id: true,
+        slug: true,
+        config: true,
+        metadata: true,
+        updated_at: true,
+      },
+      orderBy: {
+        updated_at: "desc",
+      },
+    });
+    return resolveWorkflowYamlLocationFromRows(rows);
+  } catch (error) {
+    console.warn(
+      "[mobile-chat-yaml] event=db_location_lookup_failed",
+      error instanceof Error ? error.message : error,
+    );
+    return null;
+  }
+}
+
+function getLocationKey(location: WorkflowYamlStorageLocation) {
+  return [
+    location.bucket,
+    location.path,
+    location.locationSource,
+    location.rowId ?? "-",
+    location.updatedAt ?? "-",
+  ].join("::");
+}
 
 function getGcsProjectId() {
   return (
@@ -205,63 +387,46 @@ function getGcsProjectId() {
   );
 }
 
-function shouldAttemptGcsRead() {
-  return Boolean(
-    process.env.GCS_WORKFLOW_BUCKET ||
-    process.env.GCS_PROJECT_ID ||
-    process.env.GOOGLE_CLOUD_PROJECT ||
-    process.env.GOOGLE_APPLICATION_CREDENTIALS,
-  );
-}
-
-async function fetchFromGcs(): Promise<{
+async function fetchFromGcs(location: WorkflowYamlStorageLocation): Promise<{
   text: string;
   bucket: string;
   path: string;
+  location: WorkflowYamlStorageLocation;
 } | null> {
-  if (!shouldAttemptGcsRead()) {
-    return null;
-  }
-
-  const bucket = process.env.GCS_WORKFLOW_BUCKET ?? STORAGE_BUCKET;
-
   try {
     const storage = new Storage({ projectId: getGcsProjectId() });
-    const [buffer] = await storage.bucket(bucket).file(STORAGE_PATH).download();
+    const [buffer] = await storage
+      .bucket(location.bucket)
+      .file(location.path)
+      .download();
     return {
       text: buffer.toString("utf-8"),
-      bucket,
-      path: STORAGE_PATH,
+      bucket: location.bucket,
+      path: location.path,
+      location,
     };
   } catch {
     return null;
   }
 }
 
-// ── 로컬 파일 fallback ──
+// ── 로컬 YAML 로더 ──
 
 function loadLocalYaml(): { yaml: WorkflowYaml; filePath: string } {
   const candidates = [
-    path.join(process.cwd(), "src/workflows/maternal-nursing.yaml"),
+    path.join(process.cwd(), "src/workflows", STORAGE_PATH),
+    path.join(process.cwd(), "packages/mobile-api/src/workflows", STORAGE_PATH),
     path.join(
       process.cwd(),
-      "packages/mobile-api/src/workflows/maternal-nursing.yaml",
+      "../../packages/mobile-api/src/workflows",
+      STORAGE_PATH,
     ),
-    path.join(
-      process.cwd(),
-      "../../packages/mobile-api/src/workflows/maternal-nursing.yaml",
-    ),
-    path.join(process.cwd(), "src/lib/mobile/workflows/maternal-nursing.yaml"),
-    path.join(
-      process.cwd(),
-      "apps/web/src/lib/mobile/workflows/maternal-nursing.yaml",
-    ),
+    path.join(process.cwd(), "src/lib/mobile/workflows", STORAGE_PATH),
+    path.join(process.cwd(), "apps/web/src/lib/mobile/workflows", STORAGE_PATH),
   ];
   const filePath = candidates.find((candidate) => fs.existsSync(candidate));
   if (!filePath) {
-    throw new Error(
-      `maternal-nursing.yaml not found in: ${candidates.join(", ")}`,
-    );
+    throw new Error(`${STORAGE_PATH} not found in: ${candidates.join(", ")}`);
   }
   const raw = fs.readFileSync(filePath, "utf-8");
   return {
@@ -282,6 +447,9 @@ function logWorkflowYamlLoad(
       `version=${workflow.version ?? "unknown"}`,
       `name=${workflow.name}`,
       `storage=${workflow.storageBucket ?? "-"}:${workflow.storagePath}`,
+      `locationSource=${workflow.locationSource ?? "-"}`,
+      `locationRow=${workflow.locationSlug ?? workflow.locationRowId ?? "-"}`,
+      `locationUpdatedAt=${workflow.locationUpdatedAt ?? "-"}`,
       `local=${workflow.localPath ?? "-"}`,
       `blocks=${workflow.graph.blocks.length}`,
     ].join(" "),
@@ -303,54 +471,47 @@ export function loadMaternalNursingWorkflow() {
     source: "local",
     storageBucket: null,
     storagePath: STORAGE_PATH,
+    locationSource: null,
+    locationRowId: null,
+    locationSlug: null,
+    locationUpdatedAt: null,
     localPath: local.filePath,
   });
   logWorkflowYamlLoad("load", result);
 
-  // 백그라운드에서 GCS 확인 → 있으면 캐시 갱신
-  fetchFromGcs()
-    .then((remote) => {
-      if (remote) {
-        const remoteYaml = parseYaml(remote.text) as WorkflowYaml;
-        const remoteResult = buildResult(remoteYaml, {
-          source: "gcs-cache",
-          storageBucket: remote.bucket,
-          storagePath: remote.path,
-          localPath: local.filePath,
-        });
-        remoteCache = {
-          result: remoteResult,
-          fetchedAt: Date.now(),
-        };
-        logWorkflowYamlLoad("refresh", remoteResult);
-      }
-    })
-    .catch(() => {
-      // GCS 접근 실패 시 로컬 파일 유지
-    });
-
-  // 캐시가 있으면 원격 버전 반환, 없으면 로컬
   return remoteCache?.result ?? result;
 }
 
 /**
- * 모바일 채팅 런타임용: 캐시가 없으면 GCS를 먼저 확인하고, 실패할 때만
- * 번들된 로컬 YAML로 fallback 한다. 관리자 YAML 수정 후 콜드 스타트 첫 요청도
- * 가능한 한 원격 YAML을 사용하게 하기 위한 비동기 진입점이다.
+ * 모바일 채팅 런타임용: DB row가 가리키는 GCS YAML만 사용한다.
  */
 export async function loadMaternalNursingWorkflowPreferRemote() {
-  if (remoteCache && Date.now() - remoteCache.fetchedAt < CACHE_TTL_MS) {
+  const dbLocation = await resolveWorkflowYamlLocationFromDb();
+  if (!dbLocation) {
+    throw new Error("runtime workflow YAML location is not configured in DB");
+  }
+  const expectedLocationKey = getLocationKey(dbLocation);
+
+  if (
+    remoteCache &&
+    remoteCache.locationKey === expectedLocationKey &&
+    Date.now() - remoteCache.fetchedAt < CACHE_TTL_MS
+  ) {
     logWorkflowYamlLoad("load", remoteCache.result);
     return remoteCache.result;
   }
 
-  const remote = await fetchFromGcs();
+  const remote = await fetchFromGcs(dbLocation);
   if (remote) {
     const remoteYaml = parseYaml(remote.text) as WorkflowYaml;
     const result = buildResult(remoteYaml, {
       source: "gcs-refresh",
       storageBucket: remote.bucket,
       storagePath: remote.path,
+      locationSource: remote.location.locationSource,
+      locationRowId: remote.location.rowId ?? null,
+      locationSlug: remote.location.slug ?? null,
+      locationUpdatedAt: remote.location.updatedAt ?? null,
       localPath: null,
     });
     remoteCache = {
@@ -358,15 +519,20 @@ export async function loadMaternalNursingWorkflowPreferRemote() {
         source: "gcs-cache",
         storageBucket: remote.bucket,
         storagePath: remote.path,
+        locationSource: remote.location.locationSource,
+        locationRowId: remote.location.rowId ?? null,
+        locationSlug: remote.location.slug ?? null,
+        locationUpdatedAt: remote.location.updatedAt ?? null,
         localPath: null,
       }),
       fetchedAt: Date.now(),
+      locationKey: getLocationKey(remote.location),
     };
     logWorkflowYamlLoad("refresh", result);
     return result;
   }
 
-  return loadMaternalNursingWorkflow();
+  throw new Error(`runtime workflow YAML could not be read: ${dbLocation.storagePath}`);
 }
 
 /**
@@ -374,7 +540,11 @@ export async function loadMaternalNursingWorkflowPreferRemote() {
  * 관리자가 YAML을 업로드한 직후 호출용.
  */
 export async function refreshWorkflowFromStorage() {
-  const remote = await fetchFromGcs();
+  const dbLocation = await resolveWorkflowYamlLocationFromDb();
+  if (!dbLocation) {
+    return null;
+  }
+  const remote = await fetchFromGcs(dbLocation);
   if (!remote) {
     return null;
   }
@@ -384,9 +554,17 @@ export async function refreshWorkflowFromStorage() {
     source: "gcs-refresh",
     storageBucket: remote.bucket,
     storagePath: remote.path,
+    locationSource: remote.location.locationSource,
+    locationRowId: remote.location.rowId ?? null,
+    locationSlug: remote.location.slug ?? null,
+    locationUpdatedAt: remote.location.updatedAt ?? null,
     localPath: null,
   });
-  remoteCache = { result, fetchedAt: Date.now() };
+  remoteCache = {
+    result,
+    fetchedAt: Date.now(),
+    locationKey: getLocationKey(remote.location),
+  };
   logWorkflowYamlLoad("refresh", result);
   return result;
 }
