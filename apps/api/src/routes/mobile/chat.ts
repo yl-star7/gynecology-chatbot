@@ -55,7 +55,7 @@ import {
   type StageWorkflowMapping,
 } from "@gynecology-chatbot/mobile-api/chat/stage-workflow-selector";
 import { rewriteLetterReflectionQuickReplies } from "@gynecology-chatbot/mobile-api/chat/letter-reflection-postprocess";
-import { loadMaternalNursingWorkflow } from "@gynecology-chatbot/mobile-api/workflows/load-workflow-yaml";
+import { loadMaternalNursingWorkflowPreferRemote } from "@gynecology-chatbot/mobile-api/workflows/load-workflow-yaml";
 import type {
   CharacterTone,
   ProfileMemoryPayload,
@@ -298,7 +298,7 @@ async function findWeekKnowledgeEntityId(currentWeek: number | null) {
 app.get("/initial-workflow", async (c) => {
   try {
     await requireMobileSession(c);
-    const workflowDef = loadMaternalNursingWorkflow();
+    const workflowDef = await loadMaternalNursingWorkflowPreferRemote();
     console.info(
       [
         "[mobile-chat-yaml]",
@@ -430,7 +430,7 @@ app.post("/", async (c) => {
       }
     })();
 
-    const workflowDef = loadMaternalNursingWorkflow();
+    const workflowDef = await loadMaternalNursingWorkflowPreferRemote();
     console.info(
       [
         "[mobile-chat-yaml]",

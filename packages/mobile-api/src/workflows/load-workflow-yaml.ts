@@ -334,6 +334,42 @@ export function loadMaternalNursingWorkflow() {
 }
 
 /**
+ * 모바일 채팅 런타임용: 캐시가 없으면 GCS를 먼저 확인하고, 실패할 때만
+ * 번들된 로컬 YAML로 fallback 한다. 관리자 YAML 수정 후 콜드 스타트 첫 요청도
+ * 가능한 한 원격 YAML을 사용하게 하기 위한 비동기 진입점이다.
+ */
+export async function loadMaternalNursingWorkflowPreferRemote() {
+  if (remoteCache && Date.now() - remoteCache.fetchedAt < CACHE_TTL_MS) {
+    logWorkflowYamlLoad("load", remoteCache.result);
+    return remoteCache.result;
+  }
+
+  const remote = await fetchFromGcs();
+  if (remote) {
+    const remoteYaml = parseYaml(remote.text) as WorkflowYaml;
+    const result = buildResult(remoteYaml, {
+      source: "gcs-refresh",
+      storageBucket: remote.bucket,
+      storagePath: remote.path,
+      localPath: null,
+    });
+    remoteCache = {
+      result: buildResult(remoteYaml, {
+        source: "gcs-cache",
+        storageBucket: remote.bucket,
+        storagePath: remote.path,
+        localPath: null,
+      }),
+      fetchedAt: Date.now(),
+    };
+    logWorkflowYamlLoad("refresh", result);
+    return result;
+  }
+
+  return loadMaternalNursingWorkflow();
+}
+
+/**
  * GCS에서 최신 YAML을 강제로 가져온다.
  * 관리자가 YAML을 업로드한 직후 호출용.
  */
