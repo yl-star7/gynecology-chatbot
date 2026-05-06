@@ -1,6 +1,9 @@
 import {
+  QUESTION_WRAP_UP_MESSAGE,
+  resolveLetterReflectionCurrentTurnCount,
   resolveLetterReflectionNextChipMinTurns,
   rewriteLetterReflectionQuickReplies,
+  syncLetterReflectionPayloadToMessageParts,
 } from "./letter-reflection-postprocess";
 
 describe("rewriteLetterReflectionQuickReplies", () => {
@@ -43,14 +46,45 @@ describe("rewriteLetterReflectionQuickReplies", () => {
     ]);
   });
 
-  it("uses a stable 3 or 4 turn threshold per question", () => {
-    expect(resolveLetterReflectionNextChipMinTurns("q1")).toBe(3);
-    expect(resolveLetterReflectionNextChipMinTurns("q2")).toBe(4);
-    expect(resolveLetterReflectionNextChipMinTurns("q1")).toBe(3);
+  it("uses a stable two-turn threshold per question", () => {
+    expect(resolveLetterReflectionNextChipMinTurns("q1")).toBe(2);
+    expect(resolveLetterReflectionNextChipMinTurns("q2")).toBe(2);
+    expect(resolveLetterReflectionNextChipMinTurns("q1")).toBe(2);
+  });
+
+  it("resolves the current turn count from persisted memory first", () => {
+    expect(
+      resolveLetterReflectionCurrentTurnCount({
+        priorQuestionId: "q1",
+        priorTurnCount: 2,
+        nextQuestionId: "q1",
+        recentMessages: [{ role: "user", text: "이전 답변" }],
+      }),
+    ).toBe(3);
+  });
+
+  it("falls back to recent question messages when memory has no turn count", () => {
+    expect(
+      resolveLetterReflectionCurrentTurnCount({
+        priorQuestionId: "q1",
+        priorTurnCount: 0,
+        nextQuestionId: "q1",
+        recentMessages: [
+          {
+            role: "assistant",
+            text: "이 질문에 대해 편안하게 답해주세요.",
+          },
+          { role: "user", text: "첫 답변" },
+          { role: "assistant", text: "좋아요." },
+          { role: "user", text: "두 번째 답변" },
+        ],
+      }),
+    ).toBe(2);
   });
 
   it("appends remaining count to the single next-question button after threshold", () => {
     const payload = {
+      answer: "그 마음이 따뜻하게 전해질 것 같아요. 또 어떤 감정이 드시나요?",
       quickReplies: [
         { label: "조금 더 말할래요", message: "." },
         { label: "다른 질문도 볼래요", message: "." },
@@ -68,18 +102,44 @@ describe("rewriteLetterReflectionQuickReplies", () => {
         id: "next",
       },
     ]);
+    expect(out.answer).toBe(
+      `그 마음이 따뜻하게 전해질 것 같아요.\n\n${QUESTION_WRAP_UP_MESSAGE}`,
+    );
   });
 
-  it("hides the next-question button until a four-turn question reaches its threshold", () => {
+  it("hides the next-question button until the second reflection turn", () => {
     const payload = {
       quickReplies: [{ label: "다른 질문도 볼래요", message: "." }],
     };
     const out = rewriteLetterReflectionQuickReplies(payload, {
       answeredQuestionIds: [],
       currentAttachmentQuestionId: "q2",
-      currentQuestionTurnCount: 3,
+      currentQuestionTurnCount: 1,
     });
     expect(out.quickReplies).toBeUndefined();
+  });
+
+  it("preserves the active question memory when the model omits session memory", () => {
+    const payload = {
+      answer: "천천히 해볼게요.",
+      quickReplies: [{ label: "다른 질문도 볼래요", message: "." }],
+    };
+    const out = rewriteLetterReflectionQuickReplies(payload, {
+      answeredQuestionIds: ["q1"],
+      currentAttachmentQuestionId: "q2",
+      currentQuestionTurnCount: 1,
+    });
+
+    expect(out.nextSessionMemory).toMatchObject({
+      workflowVersion: 2,
+      stage: 2,
+      stageName: "choice_conversation",
+      compactSummary: "현재 단계: 질문 답변 중",
+      lastScenario: "letter_reflection",
+      answeredQuestionIds: ["q1"],
+      currentAttachmentQuestionId: "q2",
+      currentQuestionTurnCount: 1,
+    });
   });
 
   it("moves to free chat when the current question is the last remaining candidate", () => {
@@ -169,5 +229,76 @@ describe("rewriteLetterReflectionQuickReplies", () => {
     });
     expect(out.quickReplies).toHaveLength(1);
     expect(out.quickReplies![0].label).toBe("다른 질문도 볼래요 (2개)");
+  });
+});
+
+describe("syncLetterReflectionPayloadToMessageParts", () => {
+  it("syncs the rewritten answer and quick replies into assistant parts", () => {
+    const assistantMessage = {
+      parts: [
+        {
+          type: "text",
+          id: "text-1",
+          text: "또 어떤 감정이 드시나요?",
+        },
+        {
+          type: "quickReplies",
+          id: "quick-1",
+          choices: [],
+        },
+      ],
+    };
+
+    syncLetterReflectionPayloadToMessageParts(assistantMessage, {
+      answer: `충분히 잘 담아두셨어요.\n\n${QUESTION_WRAP_UP_MESSAGE}`,
+      quickReplies: [
+        {
+          id: "next",
+          label: "다른 질문도 볼래요 (2개)",
+          message: "다음 질문으로 이어갈래요.",
+        },
+      ],
+    });
+
+    expect(assistantMessage.parts[0]).toEqual({
+      type: "text",
+      id: "text-1",
+      text: `충분히 잘 담아두셨어요.\n\n${QUESTION_WRAP_UP_MESSAGE}`,
+    });
+    expect(assistantMessage.parts[1]).toMatchObject({
+      type: "quickReplies",
+      choices: [
+        {
+          id: "next",
+          label: "다른 질문도 볼래요 (2개)",
+          message: "다음 질문으로 이어갈래요.",
+        },
+      ],
+    });
+  });
+
+  it("removes stale quick replies when the rewritten payload hides them", () => {
+    const assistantMessage = {
+      parts: [
+        { type: "text", id: "text-1", text: "계속 이야기해볼까요?" },
+        {
+          type: "quickReplies",
+          id: "quick-1",
+          choices: [{ label: "다음", message: "다음" }],
+        },
+      ],
+    };
+
+    syncLetterReflectionPayloadToMessageParts(assistantMessage, {
+      answer: "그 마음을 같이 기억해둘게요.",
+    });
+
+    expect(assistantMessage.parts).toEqual([
+      {
+        type: "text",
+        id: "text-1",
+        text: "그 마음을 같이 기억해둘게요.",
+      },
+    ]);
   });
 });

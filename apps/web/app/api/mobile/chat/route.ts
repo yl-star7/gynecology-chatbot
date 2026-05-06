@@ -52,7 +52,11 @@ import {
   selectStageWorkflow,
   type StageWorkflowMapping,
 } from "@gynecology-chatbot/mobile-api/chat/stage-workflow-selector";
-import { rewriteLetterReflectionQuickReplies } from "@gynecology-chatbot/mobile-api/chat/letter-reflection-postprocess";
+import {
+  resolveLetterReflectionCurrentTurnCount,
+  rewriteLetterReflectionQuickReplies,
+  syncLetterReflectionPayloadToMessageParts,
+} from "@gynecology-chatbot/mobile-api/chat/letter-reflection-postprocess";
 import { loadMaternalNursingWorkflow } from "@gynecology-chatbot/mobile-api/workflows/load-workflow-yaml";
 import type { CharacterTone } from "@gynecology-chatbot/mobile-api/chat/workflow-payload";
 import {
@@ -581,18 +585,23 @@ export async function POST(request: NextRequest) {
         ((payload?.nextSessionMemory as any)?.lastScenario as
           | string
           | undefined);
+      const priorMemory = input.promptContext?.sessionMemory as
+        | (SessionMemoryPayload & {
+            currentQuestionTurnCount?: number;
+            currentAttachmentQuestionId?: string | null;
+          })
+        | null
+        | undefined;
+      const activeQuestionId =
+        progress.currentAttachmentQuestionId ??
+        priorMemory?.currentAttachmentQuestionId ??
+        null;
       if (
+        activeQuestionId ||
         scenarioFinal === "letter_reflection" ||
         scenarioFinal === "daily_followup" ||
         scenarioFinal === "empathy_chat"
       ) {
-        const priorMemory = input.promptContext?.sessionMemory as
-          | (SessionMemoryPayload & {
-              currentQuestionTurnCount?: number;
-              currentAttachmentQuestionId?: string | null;
-            })
-          | null
-          | undefined;
         const priorTurnCount = priorMemory?.currentQuestionTurnCount ?? 0;
         const priorQuestionId =
           priorMemory?.currentAttachmentQuestionId ?? null;
@@ -603,20 +612,34 @@ export async function POST(request: NextRequest) {
             })
           | undefined;
         const nextQuestionId =
-          nextMem?.currentAttachmentQuestionId ??
-          progress.currentAttachmentQuestionId;
+          nextMem?.currentAttachmentQuestionId ?? activeQuestionId;
         const currentQuestionTurnCount =
-          priorQuestionId && priorQuestionId === nextQuestionId
-            ? priorTurnCount + 1
-            : 1;
+          resolveLetterReflectionCurrentTurnCount({
+            priorQuestionId,
+            priorTurnCount,
+            nextQuestionId,
+            recentMessages: input.promptContext?.recentMessages,
+          });
         if (nextMem) {
           (nextMem as Record<string, unknown>).currentQuestionTurnCount =
             currentQuestionTurnCount;
         }
-        rewriteLetterReflectionQuickReplies(payload as any, {
-          ...progress,
-          currentQuestionTurnCount,
-        });
+        rewriteLetterReflectionQuickReplies(
+          payload as any,
+          {
+            answeredQuestionIds: progress.answeredQuestionIds,
+            currentAttachmentQuestionId: activeQuestionId,
+            currentQuestionTurnCount,
+          },
+          {
+            quota: todayQuestionCandidates.length,
+            candidateQuestionIds: todayQuestionCandidates.map((q) => q.id),
+          },
+        );
+        syncLetterReflectionPayloadToMessageParts(
+          result.assistantMessage,
+          payload as any,
+        );
       }
       return result;
     };

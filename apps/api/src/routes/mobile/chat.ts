@@ -54,7 +54,11 @@ import {
   selectStageWorkflow,
   type StageWorkflowMapping,
 } from "@gynecology-chatbot/mobile-api/chat/stage-workflow-selector";
-import { rewriteLetterReflectionQuickReplies } from "@gynecology-chatbot/mobile-api/chat/letter-reflection-postprocess";
+import {
+  resolveLetterReflectionCurrentTurnCount,
+  rewriteLetterReflectionQuickReplies,
+  syncLetterReflectionPayloadToMessageParts,
+} from "@gynecology-chatbot/mobile-api/chat/letter-reflection-postprocess";
 import { loadMaternalNursingWorkflowPreferRemote } from "@gynecology-chatbot/mobile-api/workflows/load-workflow-yaml";
 import type {
   CharacterTone,
@@ -703,18 +707,23 @@ app.post("/", async (c) => {
         ((payload?.nextSessionMemory as any)?.lastScenario as
           | string
           | undefined);
+      const priorMemory = input.promptContext?.sessionMemory as
+        | (SessionMemoryPayload & {
+            currentQuestionTurnCount?: number;
+            currentAttachmentQuestionId?: string | null;
+          })
+        | null
+        | undefined;
+      const activeQuestionId =
+        progress.currentAttachmentQuestionId ??
+        priorMemory?.currentAttachmentQuestionId ??
+        null;
       if (
+        activeQuestionId ||
         scenarioFinal === "letter_reflection" ||
         scenarioFinal === "daily_followup" ||
         scenarioFinal === "empathy_chat"
       ) {
-        const priorMemory = input.promptContext?.sessionMemory as
-          | (SessionMemoryPayload & {
-              currentQuestionTurnCount?: number;
-              currentAttachmentQuestionId?: string | null;
-            })
-          | null
-          | undefined;
         const priorTurnCount = priorMemory?.currentQuestionTurnCount ?? 0;
         const priorQuestionId =
           priorMemory?.currentAttachmentQuestionId ?? null;
@@ -725,12 +734,14 @@ app.post("/", async (c) => {
             })
           | undefined;
         const nextQuestionId =
-          nextMem?.currentAttachmentQuestionId ??
-          progress.currentAttachmentQuestionId;
+          nextMem?.currentAttachmentQuestionId ?? activeQuestionId;
         const currentQuestionTurnCount =
-          priorQuestionId && priorQuestionId === nextQuestionId
-            ? priorTurnCount + 1
-            : 1;
+          resolveLetterReflectionCurrentTurnCount({
+            priorQuestionId,
+            priorTurnCount,
+            nextQuestionId,
+            recentMessages: input.promptContext?.recentMessages,
+          });
         if (nextMem) {
           (nextMem as Record<string, unknown>).currentQuestionTurnCount =
             currentQuestionTurnCount;
@@ -738,7 +749,8 @@ app.post("/", async (c) => {
         rewriteLetterReflectionQuickReplies(
           payload as any,
           {
-            ...progress,
+            answeredQuestionIds: progress.answeredQuestionIds,
+            currentAttachmentQuestionId: activeQuestionId,
             currentQuestionTurnCount,
           },
           {
@@ -747,53 +759,10 @@ app.post("/", async (c) => {
             candidateQuestionIds: todayQuestionCandidates.map((q) => q.id),
           },
         );
-        const quickReplies = Array.isArray((payload as any)?.quickReplies)
-          ? ((payload as any).quickReplies as Array<{
-              label?: unknown;
-              message?: unknown;
-            }>)
-          : [];
-        if (quickReplies.length > 0) {
-          const quickRepliesId = `workflow-quick-${Date.now()}`;
-          result.assistantMessage.parts = [
-            ...result.assistantMessage.parts.filter(
-              (part) => part.type !== "quickReplies",
-            ),
-            {
-              type: "quickReplies",
-              id: quickRepliesId,
-              choices: quickReplies
-                .map((choice, index) => {
-                  const label =
-                    typeof choice.label === "string" ? choice.label.trim() : "";
-                  const message =
-                    typeof choice.message === "string" && choice.message.trim()
-                      ? choice.message.trim()
-                      : label;
-                  return label
-                    ? {
-                        id: `${quickRepliesId}-choice-${index + 1}`,
-                        label,
-                        message,
-                      }
-                    : null;
-                })
-                .filter(
-                  (
-                    choice,
-                  ): choice is {
-                    id: string;
-                    label: string;
-                    message: string;
-                  } => Boolean(choice),
-                ),
-            },
-          ];
-        } else {
-          result.assistantMessage.parts = result.assistantMessage.parts.filter(
-            (part) => part.type !== "quickReplies",
-          );
-        }
+        syncLetterReflectionPayloadToMessageParts(
+          result.assistantMessage,
+          payload as any,
+        );
       }
       return result;
     };

@@ -281,7 +281,7 @@ describe("maternal nursing workflow YAML", () => {
       expect.stringContaining("end는 summary를 트리거"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("약 2번 정도 assistant-user 왕복 대화"),
+      expect.stringContaining("2번 정도 assistant-user 왕복 대화"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining("다음 질문으로 넘어가기"),
