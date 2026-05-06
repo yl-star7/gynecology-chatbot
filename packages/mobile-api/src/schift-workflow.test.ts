@@ -1,6 +1,7 @@
 import {
   extractSchiftWorkflowOutputs,
   resolveSchiftWorkflowId,
+  runSchiftWorkflow,
 } from "./schift-workflow";
 
 jest.mock("./schift-workflows-api", () => ({
@@ -50,12 +51,44 @@ describe("resolveSchiftWorkflowId", () => {
   });
 });
 
+describe("runSchiftWorkflow", () => {
+  beforeEach(() => {
+    mockedListSchiftWorkflows.mockReset();
+  });
+
+  it("requires an explicit workflow id", async () => {
+    await expect(
+      runSchiftWorkflow({
+        schift: { workflows: {} },
+        inputs: { query: "안녕하세요" },
+      } as never),
+    ).rejects.toThrow("Schift workflow ID is required");
+
+    expect(mockedListSchiftWorkflows).not.toHaveBeenCalled();
+  });
+
+  it("does not retry another workflow when the requested workflow is missing", async () => {
+    const get = jest.fn().mockRejectedValue(new Error("404 not found"));
+
+    await expect(
+      runSchiftWorkflow({
+        schift: { workflows: { get } },
+        workflowId: "wf-missing",
+        inputs: { query: "안녕하세요" },
+      } as never),
+    ).rejects.toThrow("404 not found");
+
+    expect(get).toHaveBeenCalledWith("wf-missing");
+    expect(mockedListSchiftWorkflows).not.toHaveBeenCalled();
+  });
+});
+
 describe("extractSchiftWorkflowOutputs", () => {
   it("ignores empty Schift answer payloads and uses the LLM text block", () => {
     const outputs = extractSchiftWorkflowOutputs({
       outputs: {
         result: {
-          answer: "{\"text\":\"\",\"sources\":[]}",
+          answer: '{"text":"","sources":[]}',
           sources: [],
           format: "json",
         },
@@ -66,7 +99,7 @@ describe("extractSchiftWorkflowOutputs", () => {
         },
         answer: {
           outputs: {
-            answer: "{\"text\":\"\",\"sources\":[]}",
+            answer: '{"text":"","sources":[]}',
             sources: [],
           },
         },
@@ -75,7 +108,9 @@ describe("extractSchiftWorkflowOutputs", () => {
             text: JSON.stringify({
               answer: "그렇게 느낄 수 있어요.",
               characterTone: "anxious",
-              quickReplies: [{ label: "아기 소식 볼래요", message: "아기 소식 볼래요." }],
+              quickReplies: [
+                { label: "아기 소식 볼래요", message: "아기 소식 볼래요." },
+              ],
             }),
           },
         },

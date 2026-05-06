@@ -54,53 +54,26 @@ export async function runSchiftWorkflow(input: {
   workflowId?: string;
   inputs: Record<string, unknown>;
 }) {
-  const resolvedWorkflowId = await resolveSchiftWorkflowId(
-    input.schift,
-    input.workflowId,
-  );
+  const resolvedWorkflowId = input.workflowId?.trim() || null;
 
   if (!resolvedWorkflowId) {
-    throw new Error("No Schift workflow available");
+    throw new Error("Schift workflow ID is required");
   }
 
-  try {
-    const workflow = await input.schift.workflows.get(resolvedWorkflowId);
-    const outputBlockId = resolveWorkflowOutputBlockId(workflow);
-    const run = outputBlockId
-      ? await runSchiftWorkflowWithOutput(
-          resolvedWorkflowId,
-          input.inputs,
-          outputBlockId,
-        )
-      : await input.schift.workflows.run(resolvedWorkflowId, input.inputs);
+  const workflow = await input.schift.workflows.get(resolvedWorkflowId);
+  const outputBlockId = resolveWorkflowOutputBlockId(workflow);
+  const run = outputBlockId
+    ? await runSchiftWorkflowWithOutput(
+        resolvedWorkflowId,
+        input.inputs,
+        outputBlockId,
+      )
+    : await input.schift.workflows.run(resolvedWorkflowId, input.inputs);
 
-    return {
-      workflowId: resolvedWorkflowId,
-      run,
-    };
-  } catch (error) {
-    const is404 =
-      error instanceof Error &&
-      (error.message.includes("404") || error.message.includes("not found"));
-    if (!is404) throw error;
-
-    // 워크플로우가 Schift에서 삭제됨 — 목록에서 다시 resolve
-    const fallbackId = await resolveSchiftWorkflowId(input.schift);
-    if (!fallbackId || fallbackId === resolvedWorkflowId) {
-      throw error;
-    }
-
-    const workflow = await input.schift.workflows.get(fallbackId);
-    const outputBlockId = resolveWorkflowOutputBlockId(workflow);
-    const run = outputBlockId
-      ? await runSchiftWorkflowWithOutput(
-          fallbackId,
-          input.inputs,
-          outputBlockId,
-        )
-      : await input.schift.workflows.run(fallbackId, input.inputs);
-    return { workflowId: fallbackId, run };
-  }
+  return {
+    workflowId: resolvedWorkflowId,
+    run,
+  };
 }
 
 function resolveWorkflowOutputBlockId(workflow: Workflow) {

@@ -505,7 +505,7 @@ export function createMobileChatResponder<
   }) => Promise<RagContextResult>;
   /**
    * stage 기반으로 호출할 Schift workflow ID 를 고른다.
-   * 반환 값이 있으면 해당 ID 로 호출, 없으면 기본 resolveSchiftWorkflowId 로직 (name 매칭).
+   * 반환 값이 없으면 workflow 실행은 실패한다.
    */
   selectWorkflowId?: (input: {
     query: string;
