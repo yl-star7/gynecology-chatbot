@@ -16,9 +16,9 @@
 
 | 구분 | 배포 위치 | 역할 | 핵심 설정 포인트 |
 |---|---|---|---|
-| web | Vercel (Next.js) | 관리자 콘솔 + 모바일 API + Cron API | 프로젝트 환경변수, Cron 인증(`CRON_SECRET`), 관리자 인증(`ADMIN_SESSION_SECRET`, `ADMIN_LOGIN_PASSWORD`) |
+| web | legacyBackend (Next.js) | 관리자 콘솔 + 모바일 API + Cron API | 프로젝트 환경변수, Cron 인증(`CRON_SECRET`), 관리자 인증(`ADMIN_SESSION_SECRET`, `ADMIN_LOGIN_PASSWORD`) |
 | mobile | Expo EAS Build → App Store / Google Play | iOS/Android 앱 빌드 및 배포 | `app.json` 앱 식별자/버전, `eas.json` 빌드 프로필, Firebase 설정 파일 |
-| db | Supabase (PostgreSQL + Storage) | 사용자/세션/콘텐츠 데이터 저장 | Supabase URL/키, 서비스 롤 키, 스키마/마이그레이션 반영 |
+| db | legacyBackend (PostgreSQL + Storage) | 사용자/세션/콘텐츠 데이터 저장 | legacyBackend URL/키, 서비스 롤 키, 스키마/마이그레이션 반영 |
 | 외부 서비스 | Twilio / Gemini / Schift / Firebase / 스토어 콘솔 | 인증, AI 응답, 워크플로우, 푸시, 스토어 배포 | 각 서비스 API 키/권한/프로젝트 연동 상태 |
 
 ### 2-1-1. 운영 인계 시 함께 전달할 정보
@@ -51,7 +51,7 @@
 | `NEXT_PUBLIC_DEV_USER_ID` | 개발/로컬 사용자 식별 (개발용) | web 개발 환경 |
 | `EXPO_PUBLIC_DEV_USER_ID` | 개발/로컬 사용자 식별 (개발용) | mobile 개발 환경 |
 | `EXPO_PUBLIC_MOBILE_DATA_PROVIDER` | 모바일 데이터 공급 방식 선택값 | mobile 런타임 |
-| `SERVER_DATA_PROVIDER` | 서버 데이터 공급자(`docker`/`supabase`) | web 서버 런타임 |
+| `SERVER_DATA_PROVIDER` | 서버 데이터 공급자(`docker`/`legacyBackend`) | web 서버 런타임 |
 | `ADMIN_DATA_PROVIDER` | 관리자 데이터 공급자(`backend`/`mock`) | web 서버 런타임 |
 
 ### 3-2. Database/로컬 개발 보조
@@ -72,15 +72,15 @@
 | `ADMIN_ACTOR_USER_ID` | 관리자 작업 행위자 식별자 | 로컬 개발/관리자 로깅 |
 | `PHONE_DATA_SECRET` | 전화번호 암복호화 키 | web 서버 개인정보 처리 |
 
-### 3-3. Supabase
+### 3-3. legacyBackend
 
 | 변수명 | 용도 | 적용 위치 |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL | web/mobile 클라이언트 초기화 |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | Supabase 퍼블리셔블 키 | web/mobile 클라이언트 |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key(호환 변수) | web/mobile 클라이언트 |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase 서비스 롤 키(서버 전용) | web 서버 API |
-| `SUPABASE_SERVICE_ROLE` | 서비스 롤 키 별칭 | web 서버 API |
+| `NEXT_PUBLIC_legacyBackend_URL` | legacyBackend 프로젝트 URL | web/mobile 클라이언트 초기화 |
+| `NEXT_PUBLIC_legacyBackend_PUBLISHABLE_DEFAULT_KEY` | legacyBackend 퍼블리셔블 키 | web/mobile 클라이언트 |
+| `NEXT_PUBLIC_legacyBackend_ANON_KEY` | legacyBackend anon key(호환 변수) | web/mobile 클라이언트 |
+| `legacyBackend_SERVICE_ROLE_KEY` | legacyBackend 서비스 롤 키(서버 전용) | web 서버 API |
+| `legacyBackend_SERVICE_ROLE` | 서비스 롤 키 별칭 | web 서버 API |
 | `SERVICEROLE` | 서비스 롤 키 별칭 | web 서버 API |
 
 ### 3-4. AI/워크플로우
@@ -108,7 +108,7 @@
 
 ### 3-7. 설정 시 주의사항
 
-- `ADMIN_SESSION_SECRET`, `ADMIN_LOGIN_PASSWORD`, `PHONE_DATA_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `TWILIO_AUTH_TOKEN`, `GEMINI_API_KEY`, `SCHIFT_API_KEY`, `CRON_SECRET`는 **서버 전용 비밀값**으로 관리합니다.
+- `ADMIN_SESSION_SECRET`, `ADMIN_LOGIN_PASSWORD`, `PHONE_DATA_SECRET`, `legacyBackend_SERVICE_ROLE_KEY`, `TWILIO_AUTH_TOKEN`, `GEMINI_API_KEY`, `SCHIFT_API_KEY`, `CRON_SECRET`는 **서버 전용 비밀값**으로 관리합니다.
 - `EXPO_PUBLIC_*`, `NEXT_PUBLIC_*` 접두 변수는 클라이언트 노출 범위를 고려해 값 설계가 필요합니다.
 - 운영/스테이징/개발 환경을 분리해 같은 변수명에 환경별 값을 각각 관리합니다.
 
@@ -116,7 +116,7 @@
 
 1. `NEXT_PUBLIC_APP_URL`, `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_WEB_URL`이 실제 배포 URL과 일치하는지 확인합니다.
 2. `ADMIN_SESSION_SECRET`, `ADMIN_LOGIN_PASSWORD`, `CRON_SECRET`가 운영 환경에 누락 없이 등록되었는지 확인합니다.
-3. Supabase 관련 값(`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`)이 동일 프로젝트를 바라보는지 확인합니다.
+3. legacyBackend 관련 값(`NEXT_PUBLIC_legacyBackend_URL`, `legacyBackend_SERVICE_ROLE_KEY`)이 동일 프로젝트를 바라보는지 확인합니다.
 4. Twilio, Gemini, Schift, Firebase 등 외부 서비스 키가 운영 계정 기준인지 확인합니다.
 5. 개발 전용 변수(`NEXT_PUBLIC_DEV_USER_ID`, `EXPO_PUBLIC_DEV_USER_ID`, `LOCAL_*`)가 운영 환경에 섞이지 않았는지 점검합니다.
 
@@ -128,8 +128,8 @@
 
 | 서비스 | 사용 목적 | 운영자가 확인할 항목 |
 |---|---|---|
-| Vercel | web 배포/운영, Cron 실행 | 프로젝트 권한, 환경변수, Cron 라우트 동작 |
-| Supabase | DB/Storage | 프로젝트 접근 권한, 키 발급 상태, 마이그레이션 반영 |
+| legacyBackend | web 배포/운영, Cron 실행 | 프로젝트 권한, 환경변수, Cron 라우트 동작 |
+| legacyBackend | DB/Storage | 프로젝트 접근 권한, 키 발급 상태, 마이그레이션 반영 |
 | Expo(EAS) | 모바일 빌드/배포 | EAS 프로젝트 연결, 빌드 권한, 배포 이력 |
 | Apple Developer / App Store Connect | iOS 배포 | 인증서/프로비저닝 상태, TestFlight 권한 |
 | Google Play Console | Android 배포 | 앱 권한, 트랙(내부/프로덕션) 접근 권한 |
@@ -150,14 +150,14 @@
 
 ## 5) 배포 순서 개요
 
-1. **DB 준비 (Supabase)**
-   - 운영 Supabase 프로젝트 접근 권한 확인
-   - `supabase db push --dry-run` 결과가 `Remote database is up to date.`인지 확인
-   - active migration chain은 `supabase/migrations/`의 원격 history 일치 파일만 기준으로 확인
-   - baseline 이전 SQL은 `supabase/migrations_legacy/` 보관용이며 운영 DB에 재적용하지 않음
+1. **DB 준비 (legacyBackend)**
+   - 운영 legacyBackend 프로젝트 접근 권한 확인
+   - `legacyBackend db push --dry-run` 결과가 `Remote database is up to date.`인지 확인
+   - active migration chain은 `legacyBackend/migrations/`의 원격 history 일치 파일만 기준으로 확인
+   - baseline 이전 SQL은 `legacyBackend/migrations_legacy/` 보관용이며 운영 DB에 재적용하지 않음
    - 서비스 롤 키/퍼블리셔블 키 발급 상태 확인
 
-2. **web 배포 준비 (Vercel)**
+2. **web 배포 준비 (legacyBackend)**
    - `.env.example` 기준으로 운영 환경변수 등록
    - 관리자 인증/모바일 세션/Cron 관련 변수 우선 검증
    - 배포 후 관리자 로그인, 모바일 API 인증 동작 점검
@@ -193,7 +193,7 @@
 - 관리자 로그인 실패: `ADMIN_LOGIN_PASSWORD`, `ADMIN_SESSION_SECRET`, 배포 환경변수 누락 여부 확인
 - 모바일 인증 실패: Twilio Verify 설정, 전화번호 형식, 운영/테스트 모드 구분 확인
 - 채팅 실패: Gemini/Schift 키 유효성, 서버 로그, rate limit 또는 외부 API 에러 확인
-- 콘텐츠 조회 실패: Supabase 연결 정보와 스키마 반영 상태 확인
+- 콘텐츠 조회 실패: legacyBackend 연결 정보와 스키마 반영 상태 확인
 - Cron 실패: `CRON_SECRET` 불일치 여부와 배포 환경의 스케줄러 설정 확인
 
 ---
@@ -205,11 +205,11 @@
 - [ ] `.env.example`의 변수명이 운영 환경에 모두 반영되어 있다.
 - [ ] 서버 전용 비밀값이 클라이언트 공개 변수에 섞이지 않았다.
 - [ ] `ADMIN_SESSION_SECRET`, `ADMIN_LOGIN_PASSWORD`, `CRON_SECRET` 설정이 완료되었다.
-- [ ] Supabase/Twilio/Gemini/Schift 키가 운영 계정 기준으로 등록되었다.
+- [ ] legacyBackend/Twilio/Gemini/Schift 키가 운영 계정 기준으로 등록되었다.
 
 ### 6-2. web
 
-- [ ] Vercel 프로젝트에 web 배포가 정상 완료되었다.
+- [ ] legacyBackend 프로젝트에 web 배포가 정상 완료되었다.
 - [ ] 관리자 로그인/세션 유지/로그아웃이 정상 동작한다.
 - [ ] 모바일 API에서 Bearer 세션 인증이 정상 동작한다.
 - [ ] Cron 인증 호출이 정상 동작한다.
@@ -223,7 +223,7 @@
 
 ### 6-4. DB/외부 서비스
 
-- [ ] Supabase 스키마 및 운영 데이터 접근 권한이 확인되었다.
+- [ ] legacyBackend 스키마 및 운영 데이터 접근 권한이 확인되었다.
 - [ ] Twilio Verify OTP 발송/검증이 정상이다.
 - [ ] Gemini/Schift 호출이 정상이며 에러 로깅 경로가 확인되었다.
 - [ ] Firebase 푸시(FCM/APNs) 연동 상태가 확인되었다.

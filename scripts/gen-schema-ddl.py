@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Cloud SQL Postgres schema DDL from Supabase metadata JSON files.
+"""Generate Cloud SQL Postgres schema DDL from legacyBackend metadata JSON files.
 
 Inputs (under /tmp):
   - si-columns.json       : column metadata
@@ -66,7 +66,7 @@ def main() -> None:
 
     out: list[str] = []
     out.append("-- ============================================================")
-    out.append("-- Cloud SQL Postgres schema generated from Supabase metadata")
+    out.append("-- Cloud SQL Postgres schema generated from legacyBackend metadata")
     out.append("-- Generator: scripts/gen-schema-ddl.py")
     out.append("-- ============================================================")
     out.append("")

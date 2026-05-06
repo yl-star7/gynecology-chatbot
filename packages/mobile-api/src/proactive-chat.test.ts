@@ -8,12 +8,8 @@ jest.mock("expo-server-sdk", () => {
   return Expo;
 });
 
-jest.mock("ai", () => ({
-  generateText: jest.fn(async () => ({ text: "오늘도 잘하고 있어요" })),
-}));
-
-jest.mock("@ai-sdk/google", () => ({
-  createGoogleGenerativeAI: jest.fn(() => () => "mock-model"),
+jest.mock("./text-generation", () => ({
+  generateGoogleText: jest.fn(async () => "오늘도 잘하고 있어요"),
 }));
 
 jest.mock("@/lib/db/admin-client", () => ({

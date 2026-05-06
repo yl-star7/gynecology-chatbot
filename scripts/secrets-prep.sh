@@ -21,8 +21,8 @@ ENV_FILE="${ENV_FILE:-.env.production.local}"
 # Left side: env var on Cloud Run. Right side: Secret Manager secret name.
 SECRETS=(
   "GEMINI_API_KEY:gemini-api-key"
-  "SUPABASE_URL:supabase-url"
-  "SUPABASE_SERVICE_ROLE_KEY:supabase-service-role-key"
+  "legacyBackend_URL:legacyBackend-url"
+  "legacyBackend_SERVICE_ROLE_KEY:legacyBackend-service-role-key"
   "ADMIN_SESSION_SECRET:admin-session-secret"
   "CRON_SECRET:cron-secret"
   "SCHIFT_API_KEY:schift-api-key"

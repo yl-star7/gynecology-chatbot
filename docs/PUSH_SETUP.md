@@ -155,8 +155,8 @@ import * as Notifications from 'expo-notifications';
 const { data } = await Notifications.getLastNotificationResponseAsync();
 const token = (await Notifications.getExpoPushTokenAsync()).data;
 
-// Supabase에 저장
-await supabase
+// legacyBackend에 저장
+await legacyBackend
   .from('pregnancy_profiles')
   .update({ push_token: token })
   .eq('id', userId);
@@ -192,7 +192,7 @@ await supabase
 
 ### 문제: Token 등록 실패
 - 로그인 상태 확인
-- Supabase RLS 정책 확인
+- legacyBackend RLS 정책 확인
 - `pregnancy_profiles` 테이블의 `push_token` 컬럼 존재 여부 확인
 
 ---

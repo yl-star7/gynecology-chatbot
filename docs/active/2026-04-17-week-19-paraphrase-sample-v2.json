@@ -4,8 +4,8 @@
   "promptVersion": "weekly-encyclopedia-v2",
   "purpose": "19주차 임신백과 paraphrase 샘플 v2",
   "sourceReference": {
-    "weekSource": "supabase/migrations_legacy/pre-remote-baseline-20260417/20260324_seed_pregnancy_week_content.sql",
-    "daySource": "supabase/migrations_legacy/pre-remote-baseline-20260417/20260412_reimport_pregnancy_content.sql",
+    "weekSource": "legacyBackend/migrations_legacy/pre-remote-baseline-20260417/20260324_seed_pregnancy_week_content.sql",
+    "daySource": "legacyBackend/migrations_legacy/pre-remote-baseline-20260417/20260412_reimport_pregnancy_content.sql",
     "weekNumber": 19
   },
   "usageMetadata": {
@@ -284,8 +284,8 @@
     "source_trace": {
       "weekNumber": 19,
       "sourceTables": [
-        "supabase/migrations_legacy/pre-remote-baseline-20260417/20260324_seed_pregnancy_week_content.sql",
-        "supabase/migrations_legacy/pre-remote-baseline-20260417/20260412_reimport_pregnancy_content.sql"
+        "legacyBackend/migrations_legacy/pre-remote-baseline-20260417/20260324_seed_pregnancy_week_content.sql",
+        "legacyBackend/migrations_legacy/pre-remote-baseline-20260417/20260412_reimport_pregnancy_content.sql"
       ],
       "sourceHash": "d41d8cd98f00b204e9800998ecf8427e",
       "sourceCodes": [

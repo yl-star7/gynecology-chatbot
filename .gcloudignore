@@ -66,8 +66,6 @@ apps/web
 screenshots
 output
 test-results
-supabase/.temp
-supabase/migrations/drizzle
 data
 data
 autoresearch-results.tsv
@@ -81,7 +79,6 @@ autoresearch-results.tsv
 .omx
 .ccs
 .claude
-.vercel
 
 # Cloud build artifacts and Docker layer cache from prior builds
 *.tar

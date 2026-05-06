@@ -1,4 +1,4 @@
-# Supabase REST → Prisma (Cloud SQL) 정식 이관 계획
+# legacyBackend REST → Prisma (Cloud SQL) 정식 이관 계획
 
 작성: 2026-04-20
 대상 브랜치: `main`
@@ -6,9 +6,9 @@
 
 ## 0. 목표
 
-- 모든 `supabaseSelect / supabaseInsert / supabaseUpdate / supabaseDelete / supabaseRpc` 호출을 **Prisma Client** 기반 쿼리로 교체
-- Supabase JS SDK 의존(`@supabase/supabase-js`, `@supabase/ssr`)을 DB 쿼리 레이어에서 완전히 제거
-- 단, **Storage** (이미지 업로드/다운로드)는 당장은 Supabase Storage 유지 → 별도 트랙 (추후 GCS 이관)
+- 모든 `legacyBackendSelect / legacyBackendInsert / legacyBackendUpdate / legacyBackendDelete / legacyBackendRpc` 호출을 **Prisma Client** 기반 쿼리로 교체
+- legacyBackend JS SDK 의존(`@legacyBackend/legacyBackend-js`, `@legacyBackend/ssr`)을 DB 쿼리 레이어에서 완전히 제거
+- 단, **Storage** (이미지 업로드/다운로드)는 당장은 legacyBackend Storage 유지 → 별도 트랙 (추후 GCS 이관)
 
 ## 1. 현황 스캔
 
@@ -20,12 +20,12 @@
 
 | 파일 | count | 비고 |
 |---|---|---|
-| `apps/web/src/lib/admin/adapters/supabase-admin-dashboard-port.ts` | 31 | admin 대시보드 adapter |
+| `apps/web/src/lib/admin/adapters/legacyBackend-admin-dashboard-port.ts` | 31 | admin 대시보드 adapter |
 | `packages/mobile-api/src/chat/chat-repository.ts` | 30 | 채팅 저장/조회 핵심 |
 | `apps/web/app/api/mobile/records/route.ts` | 19 | records API |
 | `apps/api/src/routes/mobile/records.ts` | 19 | records API (Cloud Run 포트) |
 | `packages/mobile-api/src/auth.ts` | 18 | 인증 로직 |
-| `apps/web/src/lib/admin/adapters/supabase-admin-content-port.ts` | 17 | content adapter |
+| `apps/web/src/lib/admin/adapters/legacyBackend-admin-content-port.ts` | 17 | content adapter |
 | `apps/web/src/lib/db/repositories/week-content-repository.ts` | 16 | 주차 콘텐츠 repo |
 | `apps/web/app/api/mobile/today/route.ts` / `apps/api/src/routes/mobile/today.ts` | 15 each | today API 양쪽 |
 | `apps/web/app/api/admin/analytics/route.ts` | 12 | analytics |
@@ -40,7 +40,7 @@
 ### 1.3 특수 처리 필요 포인트
 
 - **벡터 검색** (`content.pregnancy_documents.embedding`, `vector(768)`):
-  - 현재 `supabaseRpc("match_pregnancy_documents", ...)` 사용 중
+  - 현재 `legacyBackendRpc("match_pregnancy_documents", ...)` 사용 중
   - Prisma는 `vector` 네이티브 지원 없음 → `$queryRaw` + `pgvector` 문법 직접 사용
   - 파일: `packages/mobile-api/src/rag.ts`
 - **뷰 조회** (`v_chat_session_activity_dates` 등 4개):
@@ -49,9 +49,9 @@
   - `.not(col, "is", "null")` / `.is(col, null)` / `.in(col, [...])` / `.order(col, { ascending: false, nullsFirst: false })` / `.limit(n)` / `.gte/lte/gt/lt(col, v)`
   - → Prisma `where`, `orderBy`, `take`, `skip`로 1:1 매핑 (표 하단)
 - **`or` / `and` 필터 문자열**:
-  - `supabaseSelect("tbl?or=(a.eq.1,b.eq.2)&...")`
+  - `legacyBackendSelect("tbl?or=(a.eq.1,b.eq.2)&...")`
   - → `prisma.tbl.findMany({ where: { OR: [{ a: 1 }, { b: 2 }] } })`
-- **RPC 호출** (`supabaseRpc`): 벡터 검색 외에 있다면 모두 `$queryRaw`/`$executeRaw`
+- **RPC 호출** (`legacyBackendRpc`): 벡터 검색 외에 있다면 모두 `$queryRaw`/`$executeRaw`
 - **`on_conflict` + `ignoreDuplicates`** (upsert 유사):
   - `prisma.tbl.upsert({ where: ..., create: ..., update: ... })` 또는 `createMany({ data, skipDuplicates: true })`
 - **스키마 분리**: `content.*` 테이블은 Prisma 모델 이름에 `@@schema("content")` 포함 → 자동 라우팅. 단 `public.content_*`는 legacy mirror로 공존. 중장기 정리 필요
@@ -62,7 +62,7 @@
 
 ```ts
 // BEFORE
-await supabaseSelect<UserRow[]>(
+await legacyBackendSelect<UserRow[]>(
   `users?select=id,role,phone_number_blind_index&phone_number_blind_index=eq.${idx}&limit=1`,
 );
 
@@ -77,7 +77,7 @@ await prisma.users.findFirst({
 
 ```ts
 // BEFORE
-await supabaseInsert("chat_sessions", { user_id, title, status: "active" });
+await legacyBackendInsert("chat_sessions", { user_id, title, status: "active" });
 
 // AFTER
 await prisma.chat_sessions.create({
@@ -89,7 +89,7 @@ await prisma.chat_sessions.create({
 
 ```ts
 // BEFORE
-await supabaseUpdate(`users?id=eq.${id}`, { last_login_at: now });
+await legacyBackendUpdate(`users?id=eq.${id}`, { last_login_at: now });
 
 // AFTER
 await prisma.users.update({
@@ -102,7 +102,7 @@ await prisma.users.update({
 
 ```ts
 // BEFORE
-await supabaseInsert(
+await legacyBackendInsert(
   "calendar_logs",
   { user_id, date, entry_type, payload },
   { onConflict: "user_id,date,entry_type", ignoreDuplicates: false },
@@ -126,7 +126,7 @@ await prisma.calendar_logs.createMany({
 
 ```ts
 // BEFORE
-await supabaseDelete(`auth_sessions?id=eq.${id}`);
+await legacyBackendDelete(`auth_sessions?id=eq.${id}`);
 
 // AFTER
 await prisma.auth_sessions.delete({ where: { id } });
@@ -155,8 +155,8 @@ await prisma.auth_sessions.delete({ where: { id } });
 ### 벡터 검색 (rag.ts)
 
 ```ts
-// BEFORE (supabaseRpc)
-await supabaseRpc("match_pregnancy_documents", {
+// BEFORE (legacyBackendRpc)
+await legacyBackendRpc("match_pregnancy_documents", {
   query_embedding: embedding,
   match_count: 5,
   current_week: week,
@@ -188,7 +188,7 @@ const rows = await prisma.$queryRaw<
 
 ### Phase B — 어댑터 deprecate 준비 (0.5일)
 
-7. **B1** `packages/mobile-api/src/supabase/admin-client.ts`를 **deprecation shim**으로 전환
+7. **B1** `packages/mobile-api/src/legacyBackend/admin-client.ts`를 **deprecation shim**으로 전환
    - 내부에서 PostgREST DSL → SQL parse 후 Prisma `$queryRawUnsafe` / `$executeRawUnsafe` 실행
    - 새 매개변수 없이 기존 시그니처 유지
    - `console.warn("[deprecated] use Prisma directly")` 호출 시마다 출력 (개발 모드만)
@@ -202,8 +202,8 @@ const rows = await prisma.$queryRaw<
 9. **C1** `packages/mobile-api/src/chat/chat-repository.ts` (30 callsites, 채팅 핵심) — 1명일
 10. **C2** `packages/mobile-api/src/auth.ts` (18) — 0.5일
 11. **C3** `apps/api/src/routes/mobile/records.ts` + `today.ts` + `chat.ts` + `home.ts` + `sessions.ts` + `profile.ts` + `push.ts` + `weeks.ts` + `branding.ts` + `content-items.ts` + `link.ts` (11개) — 1일
-12. **C4** `apps/web/src/lib/admin/adapters/supabase-admin-dashboard-port.ts` (31) — 0.5일
-13. **C5** `apps/web/src/lib/admin/adapters/supabase-admin-content-port.ts` (17) — 0.3일
+12. **C4** `apps/web/src/lib/admin/adapters/legacyBackend-admin-dashboard-port.ts` (31) — 0.5일
+13. **C5** `apps/web/src/lib/admin/adapters/legacyBackend-admin-content-port.ts` (17) — 0.3일
 14. **C6** `apps/web/src/lib/db/repositories/week-content-repository.ts` (16) — 0.3일
 
 ### Phase D — 나머지 일괄 이관 (1일)
@@ -214,16 +214,16 @@ const rows = await prisma.$queryRaw<
 
 ### Phase E — 정리 + 컷오버 (1일)
 
-16. **E1** B1의 admin-client shim 삭제. 모든 파일이 Prisma direct 사용 확인 (grep `supabaseSelect` = 0 hit)
-17. **E2** `@supabase/supabase-js`, `@supabase/ssr` 의존성 — DB 관련 부분 제거. Storage 관련만 유지 (`apps/web` 어드민 이미지 업로드)
+16. **E1** B1의 admin-client shim 삭제. 모든 파일이 Prisma direct 사용 확인 (grep `legacyBackendSelect` = 0 hit)
+17. **E2** `@legacyBackend/legacyBackend-js`, `@legacyBackend/ssr` 의존성 — DB 관련 부분 제거. Storage 관련만 유지 (`apps/web` 어드민 이미지 업로드)
 18. **E3** Cloud Run 재배포 + 스모크 테스트 (`/api/mobile/chat`, `/api/mobile/today`, `/api/mobile/auth/login` 등)
 19. **E4** `apps/web` Cloud Run 쪽 mobile route도 동시 동작 확인 (`SERVER_DATA_PROVIDER` 은 unused로 전환)
 20. **E5** EAS `EXPO_PUBLIC_API_BASE_URL`을 Cloud Run URL로 교체 → 새 TestFlight 빌드 배포
-21. **E6** 관찰 3일 → Supabase 프로젝트 pause (DB 쪽만. Storage는 유지)
+21. **E6** 관찰 3일 → legacyBackend 프로젝트 pause (DB 쪽만. Storage는 유지)
 
 ### Phase F — Storage 이관 (별도 스프린트, 미반영)
 
-22. 추후: Supabase Storage → GCS 이관. branding-assets, pregnancy-content 버킷 각각 migrate. 클라이언트 URL 변경 TestFlight 재빌드 필요.
+22. 추후: legacyBackend Storage → GCS 이관. branding-assets, pregnancy-content 버킷 각각 migrate. 클라이언트 URL 변경 TestFlight 재빌드 필요.
 
 ## 4. 작업 병렬화 전략
 
@@ -280,11 +280,11 @@ const rows = await prisma.$queryRaw<
 - [ ] C1~C6 핫팟 파일 이관
 - [ ] D1 꼬리 파일 병렬 이관
 - [ ] E1 shim 삭제
-- [ ] E2 @supabase/supabase-js DB import 제거
+- [ ] E2 @legacyBackend/legacyBackend-js DB import 제거
 - [ ] E3 Cloud Run 재배포 + 스모크
 - [ ] E4 Cloud Run web 미러 검증
 - [ ] E5 EAS 재빌드 + TestFlight
-- [ ] E6 Supabase DB pause
+- [ ] E6 legacyBackend DB pause
 - [ ] F Storage 이관 (별도)
 
 ## 8. 참고 자료

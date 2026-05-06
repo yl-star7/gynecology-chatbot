@@ -26,14 +26,14 @@ COPY --from=builder /app/out/full/ .
 COPY turbo.json turbo.json
 
 ARG NEXT_PUBLIC_APP_URL=http://localhost:3005
-ARG NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy-anon-key
+ARG NEXT_PUBLIC_legacyBackend_URL=https://example.legacyBackend.co
+ARG NEXT_PUBLIC_legacyBackend_ANON_KEY=dummy-anon-key
 
 # Keep build-time public envs explicit so Docker builds do not depend on checked-in .env files.
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
-    NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+    NEXT_PUBLIC_legacyBackend_URL=$NEXT_PUBLIC_legacyBackend_URL \
+    NEXT_PUBLIC_legacyBackend_ANON_KEY=$NEXT_PUBLIC_legacyBackend_ANON_KEY
 RUN pnpm build --filter=@gynecology-chatbot/web...
 
 # Runner stage

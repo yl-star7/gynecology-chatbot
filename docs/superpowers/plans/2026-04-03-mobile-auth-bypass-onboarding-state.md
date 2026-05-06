@@ -20,14 +20,14 @@
 
 ```ts
 test("returns hasCompletedOnboarding false for bypass login when no pregnancy profile exists", async () => {
-  mockedSupabaseSelect.mockReset();
-  mockedSupabaseInsert.mockReset();
-  mockedSupabaseUpdate.mockReset();
+  mockedlegacyBackendSelect.mockReset();
+  mockedlegacyBackendInsert.mockReset();
+  mockedlegacyBackendUpdate.mockReset();
   mockedCheckSmsVerification.mockReset();
 
-  mockedSupabaseUpdate.mockResolvedValue([]);
-  mockedSupabaseInsert.mockResolvedValue([]);
-  mockedSupabaseSelect
+  mockedlegacyBackendUpdate.mockResolvedValue([]);
+  mockedlegacyBackendInsert.mockResolvedValue([]);
+  mockedlegacyBackendSelect
     .mockResolvedValueOnce([])
     .mockResolvedValueOnce([
       {
@@ -51,16 +51,16 @@ test("returns hasCompletedOnboarding false for bypass login when no pregnancy pr
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd "/Users/jskang/Projects/si" && pnpm --filter @gynecology-chatbot/web test -- auth.testmode-login.test.ts`
-Expected: FAIL with the current mocked Supabase builder/response order not matching `auth.ts` query flow.
+Expected: FAIL with the current mocked legacyBackend builder/response order not matching `auth.ts` query flow.
 
 - [ ] **Step 3: Write minimal test harness fixes so the test exercises real auth flow**
 
 ```ts
-jest.mock("@/lib/supabase/admin-client", () => ({
-  supabaseInsert: jest.fn(),
-  supabaseSelect: jest.fn(),
-  supabaseUpdate: jest.fn(),
-  getSupabaseAdminClient: jest.fn(() => ({
+jest.mock("@/lib/legacyBackend/admin-client", () => ({
+  legacyBackendInsert: jest.fn(),
+  legacyBackendSelect: jest.fn(),
+  legacyBackendUpdate: jest.fn(),
+  getlegacyBackendAdminClient: jest.fn(() => ({
     from: jest.fn((table: string) => ({
       select: jest.fn(() => ({
         eq: jest.fn(() => ({
@@ -98,14 +98,14 @@ git commit -m "test: cover auth bypass onboarding state"
 
 ```ts
 test("returns hasCompletedOnboarding true for bypass login when pregnancy profile exists", async () => {
-  mockedSupabaseSelect.mockReset();
-  mockedSupabaseInsert.mockReset();
-  mockedSupabaseUpdate.mockReset();
+  mockedlegacyBackendSelect.mockReset();
+  mockedlegacyBackendInsert.mockReset();
+  mockedlegacyBackendUpdate.mockReset();
   mockedCheckSmsVerification.mockReset();
 
-  mockedSupabaseUpdate.mockResolvedValue([]);
-  mockedSupabaseInsert.mockResolvedValue([]);
-  mockedSupabaseSelect
+  mockedlegacyBackendUpdate.mockResolvedValue([]);
+  mockedlegacyBackendInsert.mockResolvedValue([]);
+  mockedlegacyBackendSelect
     .mockResolvedValueOnce([
       {
         id: "user-1",
@@ -153,9 +153,9 @@ Expected: FAIL until the test file consistently mirrors the production query ord
 
 ```ts
 function queueSelectRows(...rows: unknown[][]) {
-  mockedSupabaseSelect.mockReset();
+  mockedlegacyBackendSelect.mockReset();
   for (const result of rows) {
-    mockedSupabaseSelect.mockResolvedValueOnce(result as never);
+    mockedlegacyBackendSelect.mockResolvedValueOnce(result as never);
   }
 }
 ```

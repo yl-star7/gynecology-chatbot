@@ -20,7 +20,7 @@ from google import genai
 from google.genai import types
 
 DOCX_PATH = "/Users/jskang/Downloads/임신 주수 별 발달정보(0320_room).docx"
-OUTPUT_SQL = Path(__file__).parent.parent / "supabase" / "migrations" / "20260412_reimport_pregnancy_content.sql"
+OUTPUT_SQL = Path(__file__).parent.parent / "legacyBackend" / "migrations" / "20260412_reimport_pregnancy_content.sql"
 OUTPUT_JSON = Path(__file__).parent / "reimport_results.json"
 
 SYSTEM_PROMPT = """\

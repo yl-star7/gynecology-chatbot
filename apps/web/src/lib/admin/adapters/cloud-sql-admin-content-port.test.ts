@@ -172,7 +172,7 @@ describe("CloudSqlAdminContentPortAdapter", () => {
     process.env.DATABASE_URL = originalDatabaseUrl;
   });
 
-  it("maps week summaries from Supabase rows", async () => {
+  it("maps week summaries from legacyBackend rows", async () => {
     mockedResolveServerDataProvider.mockReturnValue("docker");
         mockedHasDockerConfig.mockReturnValue(true);
     mockedWeekRepositoryListWeeks.mockResolvedValueOnce([

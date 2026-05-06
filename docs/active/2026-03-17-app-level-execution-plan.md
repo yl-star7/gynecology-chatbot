@@ -9,7 +9,7 @@
 - `apps/web`는 관리자 콘솔, 모바일 웹 화면, Next.js API route를 함께 가진다.
 - `apps/mobile`은 더 이상 단순 WebView 래퍼가 아니다. Expo Router 기반 네이티브 앱 화면과 세션, 포트, 푸시 등록 흐름을 직접 가진다.
 - `packages/app-core`는 모바일/관리자 도메인 타입, 포트, 테마 프리셋의 기준이다.
-- `packages/db`와 `supabase/migrations`는 현재 DB 계약을 반영한다.
+- `packages/db`와 `legacyBackend/migrations`는 현재 DB 계약을 반영한다.
 - 인증은 전화번호 OTP 중심이다.
 - 사용자 데이터 소스는 `mock` 또는 API 기반으로 전환 가능하다.
 - 관리자 데이터는 서버 세션 기반으로 보호된다.
@@ -324,7 +324,7 @@
 ### P4. 데이터 계약 통합
 
 - `packages/db`
-- `supabase/migrations`
+- `legacyBackend/migrations`
 - `docs/reference/DATABASE_SCHEMA.md`
 - 세 축의 이름과 설명을 동일하게 맞춘다.
 - 특히 아래 용어를 혼용하지 않도록 정리한다.
@@ -359,6 +359,6 @@
 
 ## 12. 결론
 
-- 현재 저장소는 "웹 관리자 + 모바일 웹 보조 화면 + 네이티브 Expo 앱 + 공용 도메인 + Supabase" 구조다.
+- 현재 저장소는 "웹 관리자 + 모바일 웹 보조 화면 + 네이티브 Expo 앱 + 공용 도메인 + legacyBackend" 구조다.
 - 앞으로의 과업 지시서는 이 구조를 기준으로 작성해야 한다.
 - 특히 `apps/mobile`을 단순 래퍼로 취급하는 설명은 더 이상 사용하지 않는다.

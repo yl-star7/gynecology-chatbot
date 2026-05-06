@@ -221,7 +221,7 @@ git commit -m "refactor: pass baby nickname through onboarding route"
 
 ```ts
 test("completeUserOnboarding stores babyNickname in first-class column and onboarding payload", async () => {
-  mockedSupabaseSelect
+  mockedlegacyBackendSelect
     .mockResolvedValueOnce([
       {
         id: "user-1",
@@ -256,7 +256,7 @@ test("completeUserOnboarding stores babyNickname in first-class column and onboa
         theme_key: "rose-sand",
       },
     ]);
-  mockedSupabaseInsert.mockResolvedValue([]);
+  mockedlegacyBackendInsert.mockResolvedValue([]);
 
   await completeUserOnboarding({
     userId: "user-1",
@@ -267,7 +267,7 @@ test("completeUserOnboarding stores babyNickname in first-class column and onboa
     themeKey: "rose-sand",
   });
 
-  expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+  expect(mockedlegacyBackendInsert).toHaveBeenCalledWith(
     "pregnancy_profiles",
     expect.objectContaining({
       baby_nickname: "콩이",

@@ -19,23 +19,19 @@ jest.mock("@gynecology-chatbot/db/prisma", () => {
   return { prisma: mockedPrisma };
 });
 
-jest.mock("ai", () => ({
-  generateText: jest.fn(),
-}));
-
-jest.mock("@ai-sdk/google", () => ({
-  createGoogleGenerativeAI: jest.fn(() => () => "mock-model"),
+jest.mock("../text-generation", () => ({
+  generateGoogleText: jest.fn(),
 }));
 
 var mockedPrisma: any;
 
-import { generateText } from "ai";
+import { generateGoogleText } from "../text-generation";
 import {
   MobileChatSessionNotFoundError,
   summarizeMobileChatSession,
 } from "./session-summary";
 
-const mockedGenerateText = generateText as jest.Mock;
+const mockedGenerateText = generateGoogleText as jest.Mock;
 
 function buildMessage(input: {
   id: string;
@@ -63,9 +59,9 @@ describe("summarizeMobileChatSession", () => {
     mockedPrisma.chat_messages.findMany.mockReset();
     mockedPrisma.v_chat_session_activity_dates.findMany.mockReset();
     mockedGenerateText.mockReset();
-    mockedGenerateText.mockResolvedValue({
-      text: "배뭉침 걱정을 나누고 쉬는 자세를 안내받았어요.",
-    });
+    mockedGenerateText.mockResolvedValue(
+      "배뭉침 걱정을 나누고 쉬는 자세를 안내받았어요.",
+    );
   });
 
   afterAll(() => {

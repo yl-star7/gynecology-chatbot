@@ -25,9 +25,9 @@ jest.mock("next/navigation", () => ({
   },
 }));
 
-// Supabase 클라이언트 모킹 (파일이 생기면 주석 해제)
+// legacyBackend 클라이언트 모킹 (파일이 생기면 주석 해제)
 /*
-jest.mock('@/lib/supabase-client', () => ({
+jest.mock('@/lib/legacyBackend-client', () => ({
   createClient: () => ({
     auth: {
       getSession: jest.fn(() => Promise.resolve({ data: { session: null }, error: null })),
@@ -69,7 +69,7 @@ jest.mock('react-hot-toast', () => ({
 }));
 */
 
-// Vercel AI SDK 모킹
+// legacyBackend AI SDK 모킹
 /*
 jest.mock('ai/react', () => ({
   useChat: () => ({
@@ -317,10 +317,10 @@ Object.defineProperty(window, "matchMedia", {
 // 환경변수 모킹
 process.env = {
   ...process.env,
-  NEXT_PUBLIC_SUPABASE_URL: "https://test.supabase.co",
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY: "test-publishable-key",
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key",
-  SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",
+  NEXT_PUBLIC_legacyBackend_URL: "https://test.legacyBackend.co",
+  NEXT_PUBLIC_legacyBackend_PUBLISHABLE_DEFAULT_KEY: "test-publishable-key",
+  NEXT_PUBLIC_legacyBackend_ANON_KEY: "test-anon-key",
+  legacyBackend_SERVICE_ROLE_KEY: "test-service-role-key",
   NEXT_PUBLIC_APP_URL: "http://localhost:4000",
   NODE_ENV: "test",
 };

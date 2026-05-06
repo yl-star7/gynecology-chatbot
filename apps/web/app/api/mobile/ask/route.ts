@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText } from "ai";
+import {
+  generateGoogleText,
+  type GoogleTextGenerationInput,
+} from "@gynecology-chatbot/mobile-api/text-generation";
 
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import {
@@ -195,7 +197,7 @@ function buildPrompt(input: {
 }
 
 export type GenerateAnswerDeps = {
-  generate?: typeof generateText;
+  generate?: (input: GoogleTextGenerationInput) => Promise<string>;
   getApiKey?: () => string;
 };
 
@@ -203,13 +205,12 @@ export async function generateAnswer(
   prompt: string,
   deps: GenerateAnswerDeps = {},
 ): Promise<string> {
-  const generate = deps.generate ?? generateText;
+  const generate = deps.generate ?? generateGoogleText;
   const getApiKey = deps.getApiKey ?? getGoogleApiKey;
 
-  const model = createGoogleGenerativeAI({ apiKey: getApiKey() })(GEMINI_MODEL);
-
-  const { text } = await generate({
-    model,
+  const text = await generate({
+    apiKey: getApiKey(),
+    model: GEMINI_MODEL,
     prompt,
   });
 

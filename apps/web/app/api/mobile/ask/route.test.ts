@@ -1,14 +1,8 @@
-const generateTextMock = jest.fn();
+const generateGoogleTextMock = jest.fn();
 const schiftSearchMock = jest.fn();
 
-jest.mock("@ai-sdk/google", () => ({
-  createGoogleGenerativeAI: jest.fn(() =>
-    jest.fn(() => ({ id: "mock-model" })),
-  ),
-}));
-
-jest.mock("ai", () => ({
-  generateText: (...args: unknown[]) => generateTextMock(...args),
+jest.mock("@gynecology-chatbot/mobile-api/text-generation", () => ({
+  generateGoogleText: (...args: unknown[]) => generateGoogleTextMock(...args),
 }));
 
 jest.mock("@/lib/mobile/schift-client", () => ({
@@ -90,9 +84,9 @@ beforeEach(() => {
       },
     ],
   });
-  generateTextMock.mockResolvedValue({
-    text: "## 답변\n20주차에는 태동이 점점 또렷해져요.\n- 하루 한 번 태동을 기록해보세요.",
-  });
+  generateGoogleTextMock.mockResolvedValue(
+    "## 답변\n20주차에는 태동이 점점 또렷해져요.\n- 하루 한 번 태동을 기록해보세요.",
+  );
 });
 
 describe("POST /api/mobile/ask", () => {
@@ -116,7 +110,7 @@ describe("POST /api/mobile/ask", () => {
       expect.objectContaining({ title: expect.any(String) }),
     );
     expect(schiftSearchMock).toHaveBeenCalledTimes(1);
-    expect(generateTextMock).toHaveBeenCalledTimes(1);
+    expect(generateGoogleTextMock).toHaveBeenCalledTimes(1);
   });
 
   test("empty query returns 400", async () => {
@@ -136,7 +130,7 @@ describe("POST /api/mobile/ask", () => {
     const response = await POST(buildRequest({ query: "안녕하세요" }));
     expect(response.status).toBe(401);
     expect(schiftSearchMock).not.toHaveBeenCalled();
-    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(generateGoogleTextMock).not.toHaveBeenCalled();
   });
 
   test("rate limit returns 429 with Retry-After", async () => {
@@ -153,14 +147,14 @@ describe("POST /api/mobile/ask", () => {
     );
     expect(response.status).toBe(429);
     expect(response.headers.get("Retry-After")).not.toBeNull();
-    expect(generateTextMock).not.toHaveBeenCalled();
+    expect(generateGoogleTextMock).not.toHaveBeenCalled();
   });
 
   test("still answers when Schift returns nothing", async () => {
     schiftSearchMock.mockResolvedValueOnce({ results: [] });
-    generateTextMock.mockResolvedValueOnce({
-      text: "자료가 부족해요. 가까운 병원이나 전문가와 상담해 보시는 걸 권해요.",
-    });
+    generateGoogleTextMock.mockResolvedValueOnce(
+      "자료가 부족해요. 가까운 병원이나 전문가와 상담해 보시는 걸 권해요.",
+    );
 
     const response = await POST(
       buildRequest(

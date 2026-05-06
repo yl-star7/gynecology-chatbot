@@ -1,21 +1,36 @@
 /**
- * DB의 임신 주수 콘텐츠 → Supabase pregnancy_documents 테이블에 embedding과 함께 저장
+ * DB의 임신 주수 콘텐츠를 pregnancy_documents 테이블에 embedding과 함께 저장
  *
  * Usage: NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm tsx scripts/fill-pregnancy-rag.ts
  */
 
 import pg from "pg";
-import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-const PGVECTOR_DIM = 1536;
+const PGVECTOR_DIM = 1024;
 
 if (!DATABASE_URL) { console.error("DATABASE_URL required"); process.exit(1); }
 if (!GEMINI_API_KEY) { console.error("GEMINI_API_KEY required"); process.exit(1); }
 
 const pool = new pg.Pool({ connectionString: DATABASE_URL, ssl: { rejectUnauthorized: false } });
-const embeddings = new GoogleGenerativeAIEmbeddings({ apiKey: GEMINI_API_KEY, modelName: "gemini-embedding-001" });
+
+type GoogleEmbeddingClient = {
+  models: {
+    embedContent(input: {
+      model: string;
+      contents: string;
+      config: { outputDimensionality: number };
+    }): Promise<{ embeddings?: Array<{ values?: number[] }> }>;
+  };
+};
+
+async function createGenaiClient(apiKey: string): Promise<GoogleEmbeddingClient> {
+  const { GoogleGenAI } = await import("@google/genai");
+  return new GoogleGenAI({ apiKey });
+}
+
+const genaiPromise = createGenaiClient(GEMINI_API_KEY);
 
 async function query<T>(sql: string, params?: unknown[]): Promise<T[]> {
   const r = await pool.query(sql, params);
@@ -51,7 +66,14 @@ function buildDayText(d: DayRow, cls: ChecklistRow[], qs: QuestionRow[]): string
 }
 
 async function embedText(text: string): Promise<number[]> {
-  const vec = await embeddings.embedQuery(text);
+  const genai = await genaiPromise;
+  const response = await genai.models.embedContent({
+    model: "gemini-embedding-001",
+    contents: text,
+    config: { outputDimensionality: PGVECTOR_DIM },
+  });
+  const vec = response.embeddings?.[0]?.values;
+  if (!vec) throw new Error("Gemini embedding response was empty");
   return vec.slice(0, PGVECTOR_DIM);
 }
 

@@ -7,9 +7,11 @@
  * 운영자가 Admin UI 에서 수정하면 다음 대화부터 즉시 반영된다.
  */
 
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { prisma } from "@gynecology-chatbot/db/prisma";
-import { generateText } from "ai";
+import {
+  generateGoogleText,
+  type GoogleTextGenerationInput,
+} from "./text-generation";
 
 const ALLOWED_MOODS = new Set(["calm", "joyful", "anxious", "tired", "sad"]);
 const MOOD_TEXT_LIMIT = 120;
@@ -97,7 +99,7 @@ function getGoogleApiKey() {
 
 export async function classifyMoodToneWithLlm(input: {
   text: string;
-  generate?: typeof generateText;
+  generate?: (input: GoogleTextGenerationInput) => Promise<string>;
 }): Promise<MoodClassificationTone> {
   const text = input.text.trim();
   if (!text || text.length > MOOD_TEXT_LIMIT) return "unknown";
@@ -107,9 +109,9 @@ export async function classifyMoodToneWithLlm(input: {
   if (!apiKey) return inferMoodToneFromFreeText(text) ?? "unknown";
 
   try {
-    const model = createGoogleGenerativeAI({ apiKey })("gemini-2.5-flash-lite");
-    const result = await (input.generate ?? generateText)({
-      model,
+    const result = await (input.generate ?? generateGoogleText)({
+      apiKey,
+      model: "gemini-2.5-flash-lite",
       prompt: [
         "임산부 앱의 감정 확인 단계입니다.",
         "사용자 문장을 아래 라벨 중 하나로만 분류하세요.",
@@ -120,7 +122,7 @@ export async function classifyMoodToneWithLlm(input: {
         `문장: ${text}`,
       ].join("\n"),
     });
-    return parseMoodClassification(result.text);
+    return parseMoodClassification(result);
   } catch {
     return inferMoodToneFromFreeText(text) ?? "unknown";
   }

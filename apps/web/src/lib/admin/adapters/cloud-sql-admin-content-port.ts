@@ -28,18 +28,18 @@ import {
 import { patchSchiftWorkflow } from "@/lib/mobile/schift-workflows-api";
 import {
   WeekContentRepository,
-  type SupabaseWeekAssetRow,
-  type SupabaseWeekDayRow,
-  type SupabaseWeekMediaRow,
-  type SupabaseWeekRow,
-  type SupabaseWeekSectionRow,
+  type legacyBackendWeekAssetRow,
+  type legacyBackendWeekDayRow,
+  type legacyBackendWeekMediaRow,
+  type legacyBackendWeekRow,
+  type legacyBackendWeekSectionRow,
 } from "@/lib/db/repositories/week-content-repository";
 
 function hasBackendAdminConfig() {
   return hasDockerConfig();
 }
 
-type SupabaseKnowledgeItemRow = {
+type legacyBackendKnowledgeItemRow = {
   id: string;
   slug: string;
   section: "knowledge" | "notebook";
@@ -111,7 +111,7 @@ async function insertAdminAuditLog(input: {
   });
 }
 
-type SupabaseRagDocumentRow = {
+type legacyBackendRagDocumentRow = {
   id: string;
   title: string;
   content: string;
@@ -123,7 +123,7 @@ type SupabaseRagDocumentRow = {
   updated_at?: string | Date | null;
 };
 
-type SupabaseWorkflowDefinitionRow = {
+type legacyBackendWorkflowDefinitionRow = {
   id: string;
   name: string;
   slug: string;
@@ -158,7 +158,7 @@ function toIsoString(value: string | Date | null | undefined) {
   return value instanceof Date ? value.toISOString() : value;
 }
 
-function mapWeekSummary(row: SupabaseWeekRow): AdminWeekSummary {
+function mapWeekSummary(row: legacyBackendWeekRow): AdminWeekSummary {
   return {
     id: row.id,
     weekNumber: row.week_number,
@@ -174,12 +174,12 @@ function mapWeekSummary(row: SupabaseWeekRow): AdminWeekSummary {
   };
 }
 
-function buildStoragePath(row: SupabaseWeekMediaRow) {
+function buildStoragePath(row: legacyBackendWeekMediaRow) {
   return `storage://${row.bucket_id}/${row.object_path}`;
 }
 
 function findWeekMediaPath(
-  rows: SupabaseWeekMediaRow[],
+  rows: legacyBackendWeekMediaRow[],
   allowedRoles: Set<string>,
 ) {
   const match = [...rows]
@@ -197,7 +197,7 @@ function findWeekMediaPath(
   return match ? buildStoragePath(match) : null;
 }
 
-function mapSections(rows: SupabaseWeekSectionRow[]): AdminWeekSection[] {
+function mapSections(rows: legacyBackendWeekSectionRow[]): AdminWeekSection[] {
   return rows
     .map((row) => ({
       id: row.id,
@@ -212,7 +212,7 @@ function mapSections(rows: SupabaseWeekSectionRow[]): AdminWeekSection[] {
     .sort(sectionComparator);
 }
 
-function mapAssets(rows: SupabaseWeekAssetRow[]): AdminWeekAsset[] {
+function mapAssets(rows: legacyBackendWeekAssetRow[]): AdminWeekAsset[] {
   return rows
     .map((row) => ({
       id: row.id,
@@ -228,7 +228,7 @@ function mapAssets(rows: SupabaseWeekAssetRow[]): AdminWeekAsset[] {
     .sort(assetComparator);
 }
 
-function mapDays(rows: SupabaseWeekDayRow[]): AdminWeekDay[] {
+function mapDays(rows: legacyBackendWeekDayRow[]): AdminWeekDay[] {
   return rows
     .map((row) => ({
       id: row.id,
@@ -242,7 +242,7 @@ function mapDays(rows: SupabaseWeekDayRow[]): AdminWeekDay[] {
     .sort(dayComparator);
 }
 
-function mapMedia(rows: SupabaseWeekMediaRow[]): AdminWeekMedia[] {
+function mapMedia(rows: legacyBackendWeekMediaRow[]): AdminWeekMedia[] {
   return rows
     .map((row) => ({
       id: row.id,
@@ -259,11 +259,11 @@ function mapMedia(rows: SupabaseWeekMediaRow[]): AdminWeekMedia[] {
 }
 
 function mapWeekDetail(
-  row: SupabaseWeekRow,
-  days: SupabaseWeekDayRow[],
-  sections: SupabaseWeekSectionRow[],
-  assets: SupabaseWeekAssetRow[],
-  media: SupabaseWeekMediaRow[],
+  row: legacyBackendWeekRow,
+  days: legacyBackendWeekDayRow[],
+  sections: legacyBackendWeekSectionRow[],
+  assets: legacyBackendWeekAssetRow[],
+  media: legacyBackendWeekMediaRow[],
 ): AdminWeekDetail {
   const mappedMedia = mapMedia(media);
 
@@ -302,11 +302,11 @@ function mapKnowledgeItem(row: {
   };
 }
 
-function getDocumentUpdatedAt(row: SupabaseRagDocumentRow) {
+function getDocumentUpdatedAt(row: legacyBackendRagDocumentRow) {
   return toIsoString(row.updated_at ?? row.created_at ?? null);
 }
 
-function mapRagDocument(row: SupabaseRagDocumentRow): AdminRagDocumentDetail {
+function mapRagDocument(row: legacyBackendRagDocumentRow): AdminRagDocumentDetail {
   const status =
     row.metadata?.draft || row.metadata?.chunk_count === 0 ? "draft" : "ready";
 
@@ -327,7 +327,7 @@ function mapRagDocument(row: SupabaseRagDocumentRow): AdminRagDocumentDetail {
 }
 
 function mapWorkflowRule(
-  row: SupabaseWorkflowDefinitionRow,
+  row: legacyBackendWorkflowDefinitionRow,
 ): AdminWorkflowRule {
   const trigger =
     typeof row.metadata?.trigger === "string"
@@ -394,7 +394,7 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
       draft: false,
       source: "admin_upload",
     };
-    const inserted = await prisma.$queryRaw<Array<SupabaseRagDocumentRow>>`
+    const inserted = await prisma.$queryRaw<Array<legacyBackendRagDocumentRow>>`
       INSERT INTO public.content_pregnancy_documents (
         id,
         title,
@@ -420,7 +420,7 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
       RETURNING id, title, content, pregnancy_week, category, image_url, metadata, created_at, NULL::timestamptz AS updated_at
     `;
 
-    const document = mapRagDocument(inserted[0] as SupabaseRagDocumentRow);
+    const document = mapRagDocument(inserted[0] as legacyBackendRagDocumentRow);
     if (shouldWriteAdminAuditLog(actorId)) {
       await insertAdminAuditLog({
         actorId,
@@ -466,7 +466,7 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
         updated_at: true,
       },
       take: 1,
-    })) as SupabaseRagDocumentRow[];
+    })) as legacyBackendRagDocumentRow[];
 
     return rows[0] ? mapRagDocument(rows[0]) : null;
   }
@@ -489,7 +489,7 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
     const beforeDocument = shouldWriteAdminAuditLog(actorId)
       ? await this.getDocument(documentId)
       : null;
-    const updated = await prisma.$queryRaw<Array<SupabaseRagDocumentRow>>`
+    const updated = await prisma.$queryRaw<Array<legacyBackendRagDocumentRow>>`
       UPDATE public.content_pregnancy_documents
          SET title = ${input.title},
              content = ${input.content},
@@ -588,7 +588,7 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
         updated_at: true,
       },
       take: 1,
-    })) as SupabaseWorkflowDefinitionRow[];
+    })) as legacyBackendWorkflowDefinitionRow[];
     const current = currentRows[0];
     if (!current || current.provider === "schift") {
       const schift = getSchiftClient();
@@ -696,7 +696,7 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
           updated_at: true,
         },
       }),
-    ] as unknown as Array<SupabaseWorkflowDefinitionRow>;
+    ] as unknown as Array<legacyBackendWorkflowDefinitionRow>;
 
     const workflowRule = updated[0] ? mapWorkflowRule(updated[0]) : null;
     if (workflowRule && shouldWriteAdminAuditLog(actorId)) {
@@ -769,10 +769,10 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
           updated_at: true,
         },
       }),
-    ] as unknown as Array<SupabaseKnowledgeItemRow>;
+    ] as unknown as Array<legacyBackendKnowledgeItemRow>;
 
     const knowledgeItem = mapKnowledgeItem(
-      inserted[0] as SupabaseKnowledgeItemRow,
+      inserted[0] as legacyBackendKnowledgeItemRow,
     );
     if (shouldWriteAdminAuditLog(actorId)) {
       await insertAdminAuditLog({
@@ -836,7 +836,7 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
           updated_at: true,
         },
       }),
-    ] as unknown as Array<SupabaseKnowledgeItemRow>;
+    ] as unknown as Array<legacyBackendKnowledgeItemRow>;
     const knowledgeItem = updated[0] ? mapKnowledgeItem(updated[0]) : null;
     if (knowledgeItem && shouldWriteAdminAuditLog(actorId)) {
       await insertAdminAuditLog({

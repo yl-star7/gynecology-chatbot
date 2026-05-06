@@ -52,18 +52,11 @@ output/playwright/
 .env*
 !.env.example
 
-# vercel
-.vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
-# supabase
-.supabase
-supabase/functions/.temp
-supabase/.temp/
-supabase/migrations/drizzle/
 
 # local secrets
 secrets/

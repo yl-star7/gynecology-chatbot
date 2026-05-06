@@ -22,7 +22,7 @@ import {
   dbUpdate,
 } from "@/lib/db/admin-client";
 
-export type SupabaseWeekRow = {
+export type legacyBackendWeekRow = {
   id: string;
   week_number: number;
   title: string | null;
@@ -36,7 +36,7 @@ export type SupabaseWeekRow = {
   updated_at: string | Date;
 };
 
-export type SupabaseWeekSectionRow = {
+export type legacyBackendWeekSectionRow = {
   id: string;
   day_number: number | null;
   code: string;
@@ -47,7 +47,7 @@ export type SupabaseWeekSectionRow = {
   is_active: boolean | null;
 };
 
-export type SupabaseWeekAssetRow = {
+export type legacyBackendWeekAssetRow = {
   id: string;
   day_number: number | null;
   code: string;
@@ -59,7 +59,7 @@ export type SupabaseWeekAssetRow = {
   is_active: boolean | null;
 };
 
-export type SupabaseWeekDayRow = {
+export type legacyBackendWeekDayRow = {
   id: string;
   day_number: number;
   title: string | null;
@@ -69,7 +69,7 @@ export type SupabaseWeekDayRow = {
   display_order: number | null;
 };
 
-export type SupabaseWeekMediaRow = {
+export type legacyBackendWeekMediaRow = {
   id: string;
   day_number: number | null;
   media_scope: "week" | "day";
@@ -127,7 +127,7 @@ export class WeekContentRepository {
     this.createId = deps.createId ?? randomUUID;
   }
 
-  async listWeeks(): Promise<SupabaseWeekRow[]> {
+  async listWeeks(): Promise<legacyBackendWeekRow[]> {
     if (this.hasDirectContentDatabase()) {
       const rows = await this.prisma.pregnancy_week_data.findMany({
         select: {
@@ -147,12 +147,12 @@ export class WeekContentRepository {
       });
       return rows.map((row) => ({
         ...row,
-        status: row.status as SupabaseWeekRow["status"],
+        status: row.status as legacyBackendWeekRow["status"],
       }));
     }
 
     try {
-      return await this.select<Array<SupabaseWeekRow>>(
+      return await this.select<Array<legacyBackendWeekRow>>(
         "content_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&status=eq.published&order=week_number.asc",
       );
     } catch (error) {
@@ -160,14 +160,14 @@ export class WeekContentRepository {
         "public week summaries unavailable, falling back to content schema",
         error,
       );
-      return this.select<Array<SupabaseWeekRow>>(
+      return this.select<Array<legacyBackendWeekRow>>(
         "content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
       );
     }
   }
 
-  async getWeek(weekNumber: number): Promise<SupabaseWeekRow | null> {
-    let weekRows: Array<SupabaseWeekRow>;
+  async getWeek(weekNumber: number): Promise<legacyBackendWeekRow | null> {
+    let weekRows: Array<legacyBackendWeekRow>;
     if (this.hasDirectContentDatabase()) {
       const week = await this.prisma.pregnancy_week_data.findUnique({
         where: { week_number: weekNumber },
@@ -189,13 +189,13 @@ export class WeekContentRepository {
         ? [
             {
               ...week,
-              status: week.status as SupabaseWeekRow["status"],
+              status: week.status as legacyBackendWeekRow["status"],
             },
           ]
         : [];
     } else {
       try {
-        weekRows = await this.select<Array<SupabaseWeekRow>>(
+        weekRows = await this.select<Array<legacyBackendWeekRow>>(
           `content_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&status=eq.published&limit=1`,
         );
       } catch (error) {
@@ -203,7 +203,7 @@ export class WeekContentRepository {
           "public week detail unavailable, falling back to content schema",
           error,
         );
-        weekRows = await this.select<Array<SupabaseWeekRow>>(
+        weekRows = await this.select<Array<legacyBackendWeekRow>>(
           `content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
         );
       }
@@ -213,10 +213,10 @@ export class WeekContentRepository {
   }
 
   async getWeekChildren(weekId: string): Promise<{
-    sections: SupabaseWeekSectionRow[];
-    assets: SupabaseWeekAssetRow[];
-    days: SupabaseWeekDayRow[];
-    media: SupabaseWeekMediaRow[];
+    sections: legacyBackendWeekSectionRow[];
+    assets: legacyBackendWeekAssetRow[];
+    days: legacyBackendWeekDayRow[];
+    media: legacyBackendWeekMediaRow[];
   }> {
     if (this.hasDirectContentDatabase()) {
       const [sections, assets, days, media] = await Promise.all([
@@ -308,19 +308,19 @@ export class WeekContentRepository {
       };
     }
 
-    let sections: Array<SupabaseWeekSectionRow>;
-    let assets: Array<SupabaseWeekAssetRow>;
-    let days: Array<SupabaseWeekDayRow>;
+    let sections: Array<legacyBackendWeekSectionRow>;
+    let assets: Array<legacyBackendWeekAssetRow>;
+    let days: Array<legacyBackendWeekDayRow>;
 
     try {
       [sections, assets, days] = await Promise.all([
-        this.select<Array<SupabaseWeekSectionRow>>(
+        this.select<Array<legacyBackendWeekSectionRow>>(
           `content.week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
-        this.select<Array<SupabaseWeekAssetRow>>(
+        this.select<Array<legacyBackendWeekAssetRow>>(
           `content.week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
-        this.select<Array<SupabaseWeekDayRow>>(
+        this.select<Array<legacyBackendWeekDayRow>>(
           `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${weekId}&order=day_number.asc`,
         ),
       ]);
@@ -330,21 +330,21 @@ export class WeekContentRepository {
         error,
       );
       [sections, assets, days] = await Promise.all([
-        this.select<Array<SupabaseWeekSectionRow>>(
+        this.select<Array<legacyBackendWeekSectionRow>>(
           `content.week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
-        this.select<Array<SupabaseWeekAssetRow>>(
+        this.select<Array<legacyBackendWeekAssetRow>>(
           `content.week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
-        this.select<Array<SupabaseWeekDayRow>>(
+        this.select<Array<legacyBackendWeekDayRow>>(
           `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${weekId}&order=day_number.asc`,
         ),
       ]);
     }
 
-    let media: Array<SupabaseWeekMediaRow>;
+    let media: Array<legacyBackendWeekMediaRow>;
     try {
-      media = await this.select<Array<SupabaseWeekMediaRow>>(
+      media = await this.select<Array<legacyBackendWeekMediaRow>>(
         `content.pregnancy_week_media?select=id,day_number,media_scope,bucket_id,object_path,media_role,alt_text,source_file_name,display_order&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
       );
     } catch (error) {

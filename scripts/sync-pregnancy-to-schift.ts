@@ -41,10 +41,10 @@ if (!DATABASE_URL) {
 // -- Postgres direct query via pg --
 import pg from "pg";
 // Strip sslmode/gssencmode from URL to avoid pg-connection-string overriding
-// our TLS settings (Supabase pooler serves a self-signed cert).
+// our TLS settings (legacyBackend pooler serves a self-signed cert).
 const needsSsl =
   DATABASE_URL.includes("sslmode=") ||
-  /supabase\.(co|com)|pooler\./i.test(DATABASE_URL);
+  /legacyBackend\.(co|com)|pooler\./i.test(DATABASE_URL);
 const cleanedUrl = DATABASE_URL.replace(/[?&](sslmode|gssencmode)=[^&]*/g, "")
   .replace(/\?&/, "?")
   .replace(/\?$/, "");

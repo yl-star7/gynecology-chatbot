@@ -2,8 +2,8 @@
 
 > 기준일: 2026-04-17
 
-현재 운영 기준은 Supabase PostgreSQL + public mirror 테이블 + Schift workflow 연동이다.  
-`supabase/migrations/`는 linked Supabase 프로젝트의 migration history와 맞는 active chain만 둔다.
+현재 운영 기준은 legacyBackend PostgreSQL + public mirror 테이블 + Schift workflow 연동이다.
+`legacyBackend/migrations/`는 linked legacyBackend 프로젝트의 migration history와 맞는 active chain만 둔다.
 
 ## 1. 설계 원칙
 
@@ -28,10 +28,10 @@
 baseline 이전 migration은 아래 archive에 보관한다.
 
 ```text
-supabase/migrations_legacy/pre-remote-baseline-20260417/
+legacyBackend/migrations_legacy/pre-remote-baseline-20260417/
 ```
 
-새 migration은 `YYYYMMDDHHMMSS_description.sql` 형식으로 작성한다. 적용 전후에는 `supabase db push --dry-run`과 `supabase migration list`로 remote/local 차이를 확인한다.
+새 migration은 `YYYYMMDDHHMMSS_description.sql` 형식으로 작성한다. 적용 전후에는 `legacyBackend db push --dry-run`과 `legacyBackend migration list`로 remote/local 차이를 확인한다.
 
 ## 3. Public Tables
 
@@ -415,5 +415,5 @@ workflow가 `nextProfileMemory.personaHint`, `personaConfidence`, `personaEviden
 
 ### Legacy migrations
 
-- `supabase/migrations_legacy/pre-remote-baseline-20260417/`는 historical reference다.
+- `legacyBackend/migrations_legacy/pre-remote-baseline-20260417/`는 historical reference다.
 - 운영 DB에 다시 적용하지 않는다.

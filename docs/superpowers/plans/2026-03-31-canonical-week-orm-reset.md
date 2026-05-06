@@ -18,11 +18,11 @@
 - `apps/web/src/lib/db/client.ts` — `DATABASE_URL` 기반 Drizzle client 생성
 - `apps/web/src/lib/db/repositories/week-content-repository.ts` — 주차 summary/detail 조회, day/checklist/question/media upsert/delete, audit logging용 write helper
 - `apps/web/src/lib/db/repositories/week-content-repository.test.ts` — repository SQL shape/unit test
-- `supabase/migrations/20260331_drop_legacy_week_tables.sql` — legacy `content.pregnancy_weeks`, `content.pregnancy_week_sections`, `content.pregnancy_week_assets` 삭제 migration
+- `db/migrations/20260331_drop_legacy_week_tables.sql` — legacy `content.pregnancy_weeks`, `content.pregnancy_week_sections`, `content.pregnancy_week_assets` 삭제 migration
 
 ### Modify
-- `apps/web/src/lib/admin/adapters/supabase-admin-content-port.ts` — canonical week CRUD를 ORM repository 호출로 교체
-- `apps/web/src/lib/admin/adapters/supabase-admin-content-port.test.ts` — repository 기반 동작 검증으로 갱신
+- `apps/web/src/lib/admin/adapters/legacyBackend-admin-content-port.ts` — canonical week CRUD를 ORM repository 호출로 교체
+- `apps/web/src/lib/admin/adapters/legacyBackend-admin-content-port.test.ts` — repository 기반 동작 검증으로 갱신
 - `apps/web/src/lib/mobile/local-postgres-schema.ts` — legacy local tables 제거, canonical 5개 + 이벤트 테이블만 남김
 - `apps/web/src/lib/mobile/local-postgres.ts` — allowlist/seed/bootstrap에서 legacy table 제거, canonical seed만 유지
 - `apps/web/src/lib/mobile/local-postgres-schema.test.ts` — legacy table 미생성 검증 추가
@@ -33,7 +33,7 @@
 ### Test
 - `apps/web/src/lib/mobile/local-postgres-schema.test.ts`
 - `apps/web/src/lib/mobile/local-postgres.test.ts`
-- `apps/web/src/lib/admin/adapters/supabase-admin-content-port.test.ts`
+- `apps/web/src/lib/admin/adapters/legacyBackend-admin-content-port.test.ts`
 - `apps/web/src/lib/db/repositories/week-content-repository.test.ts`
 
 ---
@@ -230,10 +230,10 @@ git commit -m "feat: add canonical week drizzle schema"
 
 **Files:**
 - Create: `apps/web/src/lib/db/repositories/week-content-repository.ts`
-- Modify: `apps/web/src/lib/admin/adapters/supabase-admin-content-port.ts:45-1760`
-- Modify: `apps/web/src/lib/admin/adapters/supabase-admin-content-port.test.ts:98-320`
+- Modify: `apps/web/src/lib/admin/adapters/legacyBackend-admin-content-port.ts:45-1760`
+- Modify: `apps/web/src/lib/admin/adapters/legacyBackend-admin-content-port.test.ts:98-320`
 - Test: `apps/web/src/lib/db/repositories/week-content-repository.test.ts`
-- Test: `apps/web/src/lib/admin/adapters/supabase-admin-content-port.test.ts`
+- Test: `apps/web/src/lib/admin/adapters/legacyBackend-admin-content-port.test.ts`
 
 - [ ] **Step 1: Write the failing repository behavior test**
 
@@ -324,7 +324,7 @@ export class WeekContentRepository {
 ```ts
 import { WeekContentRepository } from "@/lib/db/repositories/week-content-repository";
 
-export class SupabaseAdminContentPortAdapter implements AdminContentPort {
+export class legacyBackendAdminContentPortAdapter implements AdminContentPort {
   private readonly fallback = new MockAdminContentAdapter();
   private readonly weekRepository = new WeekContentRepository();
 
@@ -386,13 +386,13 @@ it("maps week detail from canonical repository rows", async () => {
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `pnpm --filter @gynecology-chatbot/web exec jest src/lib/db/repositories/week-content-repository.test.ts src/lib/admin/adapters/supabase-admin-content-port.test.ts --runInBand`
+Run: `pnpm --filter @gynecology-chatbot/web exec jest src/lib/db/repositories/week-content-repository.test.ts src/lib/admin/adapters/legacyBackend-admin-content-port.test.ts --runInBand`
 Expected: PASS
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/web/src/lib/db/repositories/week-content-repository.ts apps/web/src/lib/db/repositories/week-content-repository.test.ts apps/web/src/lib/admin/adapters/supabase-admin-content-port.ts apps/web/src/lib/admin/adapters/supabase-admin-content-port.test.ts
+git add apps/web/src/lib/db/repositories/week-content-repository.ts apps/web/src/lib/db/repositories/week-content-repository.test.ts apps/web/src/lib/admin/adapters/legacyBackend-admin-content-port.ts apps/web/src/lib/admin/adapters/legacyBackend-admin-content-port.test.ts
 git commit -m "refactor: route week content through drizzle repository"
 ```
 
@@ -600,10 +600,10 @@ git commit -m "refactor: align local postgres with canonical week schema"
 
 ---
 
-### Task 4: legacy Supabase 객체와 기준 문서 정리
+### Task 4: legacy legacyBackend 객체와 기준 문서 정리
 
 **Files:**
-- Create: `supabase/migrations/20260331_drop_legacy_week_tables.sql`
+- Create: `db/migrations/20260331_drop_legacy_week_tables.sql`
 - Modify: `docs/reference/DATABASE_SCHEMA.md:119-154`
 
 - [ ] **Step 1: Write the failing documentation expectation test**
@@ -690,7 +690,7 @@ Expected: PASS, then monorepo type-check PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260331_drop_legacy_week_tables.sql docs/reference/DATABASE_SCHEMA.md
+git add db/migrations/20260331_drop_legacy_week_tables.sql docs/reference/DATABASE_SCHEMA.md
 git commit -m "docs: promote canonical week schema and drop legacy tables"
 ```
 
@@ -702,7 +702,7 @@ git commit -m "docs: promote canonical week schema and drop legacy tables"
 - canonical 5개를 ORM 기준으로 재정의 — Task 1
 - admin week CRUD를 canonical 관계로 집중화 — Task 2
 - local-postgres 구형 복제 구조 제거 — Task 3
-- legacy Supabase 객체 제거 + 기준 문서 갱신 — Task 4
+- legacy legacyBackend 객체 제거 + 기준 문서 갱신 — Task 4
 
 ### Placeholder scan
 - `TODO`, `TBD`, “적절한 처리” 같은 문구 없음

@@ -1,11 +1,10 @@
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import {
   addCalendarDays,
   createKoreanDateKey,
   createKoreanDateTime,
 } from "@gynecology-chatbot/app-core/time";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
-import { generateText } from "ai";
+import { generateGoogleText } from "../text-generation";
 
 type MessageRow = {
   id: string;
@@ -288,12 +287,9 @@ export async function summarizeMobileChatSession(input: {
     };
   }
 
-  const google = createGoogleGenerativeAI({ apiKey: getGoogleApiKey() })(
-    "gemini-2.5-flash-lite",
-  );
-
-  const { text } = await generateText({
-    model: google,
+  const text = await generateGoogleText({
+    apiKey: getGoogleApiKey(),
+    model: "gemini-2.5-flash-lite",
     maxOutputTokens: SESSION_SUMMARY_MAX_CHARS,
     prompt: [
       "아래는 임산부와 아가야(간호사 캐릭터)의 대화예요.",

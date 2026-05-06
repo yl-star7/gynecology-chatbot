@@ -1,6 +1,6 @@
 # Cloud Run Mobile Cutover Checklist
 
-**Target**: Migrate mobile app API base from `https://gynecology-chatbot.vercel.app` to `https://agaya-api-yvdnhntt7a-du.a.run.app` and hosted web/admin pages to `https://agaya-web-yvdnhntt7a-du.a.run.app` (Cloud Run).
+**Target**: Migrate mobile app API base from `https://gynecology-chatbot.legacyBackend.app` to `https://agaya-api-yvdnhntt7a-du.a.run.app` and hosted web/admin pages to `https://agaya-web-yvdnhntt7a-du.a.run.app` (Cloud Run).
 **Scope**: `apps/mobile` uses Cloud Run API/web services backed by Cloud SQL.
 
 ## 1. Files holding API/web base URLs
@@ -19,10 +19,10 @@ Consumers (no code change needed, env-driven):
 - `apps/mobile/package.json:6-7` — local dev defaults (`localhost:3005`, `10.0.2.2:3005`) stay as-is
 
 Test fixture (optional cosmetic update):
-- `apps/mobile/src/screens/auth/LoginScreen.model.test.ts:42` — string literal `gynecology-chatbot.vercel.app`
+- `apps/mobile/src/screens/auth/LoginScreen.model.test.ts:42` — string literal `gynecology-chatbot.legacyBackend.app`
 
 Non-API URLs (do NOT touch):
-- `apps/mobile/src/screens/patient/week-baby-images.ts:12` — Supabase storage, unrelated
+- `apps/mobile/src/screens/patient/week-baby-images.ts:12` — legacyBackend storage, unrelated
 
 ## 2. Preview vs Production envs
 
@@ -56,4 +56,4 @@ Both `preview` and `production` profiles in `eas.json` point to Cloud Run and mu
 - Day 0-1: TestFlight review (~24h typical), Play internal is near-instant.
 - Day 1-3: internal testers verify core flows (login, today, records, chat, push register, survey WebView).
 - Day 3-7: promote to production track; users update over ~1-2 weeks.
-- Vercel is no longer the target runtime. Keep any legacy endpoint only as an explicit rollback fallback, not as a documented primary path.
+- legacyBackend is no longer the target runtime. Keep any legacy endpoint only as an explicit rollback fallback, not as a documented primary path.

@@ -120,6 +120,6 @@ jobs:
       - name: Build
         run: pnpm build
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_legacyBackend_URL: ${{ secrets.NEXT_PUBLIC_legacyBackend_URL }}
+          NEXT_PUBLIC_legacyBackend_ANON_KEY: ${{ secrets.NEXT_PUBLIC_legacyBackend_ANON_KEY }}
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}

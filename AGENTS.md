@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
 | `/api/admin/content/checklists` | GET/POST | 체크리스트 관리 |
 | `/api/admin/content/questions` | GET/POST | 질문 관리 |
 | `/api/admin/rag/upload` | POST | RAG 문서 업로드 |
-| `/api/admin/rag-provider` | GET/PUT | RAG 백엔드 설정 (schift/supabase/auto) |
+| `/api/admin/rag-provider` | GET/PUT | RAG 백엔드 설정 (schift/legacyBackend/auto) |
 | `/api/admin/schift` | GET/POST | Schift 컬렉션 조회 / 버킷 업로드 |
 | `/api/admin/schift/chat` | POST | Schift RAG 채팅 테스트 |
 | `/api/admin/workflow-rules/[ruleId]` | GET/PUT/DELETE | 응답 정책 |
@@ -261,8 +261,8 @@ const styles = StyleSheet.create({
 
 ### DB 쿼리 패턴
 
-- `supabaseSelect`, `supabaseInsert`, `supabaseUpdate` 사용 (`@/lib/mobile/supabase-rest`)
-- content 스키마 테이블은 **직접 쿼리 금지** (Supabase REST가 406 반환)
+- `legacyBackendSelect`, `legacyBackendInsert`, `legacyBackendUpdate` 사용 (`@/lib/mobile/legacyBackend-rest`)
+- content 스키마 테이블은 **직접 쿼리 금지** (legacyBackend REST가 406 반환)
 - 운영 API는 public mirror 테이블/view 사용: `content_knowledge_items`, `content_pregnancy_week_data`, `content_pregnancy_day_contents`, `content_week_checklists`, `content_week_questions`, `content_pregnancy_documents`, `v_user_persona_profiles`, `v_user_calendar_activity`
 - public 스키마는 prefix 없이 사용 (예: `calendar_logs`)
 

@@ -1,7 +1,6 @@
 node_modules
 .git
 .turbo
-.vercel
 .expo
 apps/**/.expo
 
@@ -28,6 +27,4 @@ screenshots
 output
 
 # local/runtime state
-supabase/.temp
-supabase/migrations/drizzle
 *.log

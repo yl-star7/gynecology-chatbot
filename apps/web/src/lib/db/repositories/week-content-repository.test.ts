@@ -7,11 +7,11 @@ import type {
 
 import {
   WeekContentRepository,
-  type SupabaseWeekAssetRow,
-  type SupabaseWeekDayRow,
-  type SupabaseWeekMediaRow,
-  type SupabaseWeekRow,
-  type SupabaseWeekSectionRow,
+  type legacyBackendWeekAssetRow,
+  type legacyBackendWeekDayRow,
+  type legacyBackendWeekMediaRow,
+  type legacyBackendWeekRow,
+  type legacyBackendWeekSectionRow,
 } from "./week-content-repository";
 
 describe("WeekContentRepository", () => {
@@ -49,7 +49,7 @@ describe("WeekContentRepository", () => {
   });
 
   it("lists week summaries from canonical public view", async () => {
-    const rows: SupabaseWeekRow[] = [
+    const rows: legacyBackendWeekRow[] = [
       {
         id: "week-1",
         week_number: 1,
@@ -327,7 +327,7 @@ describe("WeekContentRepository", () => {
   });
 
   it("exposes canonical week child row typings", () => {
-    const day: SupabaseWeekDayRow = {
+    const day: legacyBackendWeekDayRow = {
       id: "day-id",
       day_number: 1,
       title: "Day 1",
@@ -336,7 +336,7 @@ describe("WeekContentRepository", () => {
       mother_changes_payload: { items: ["b"] },
       display_order: 1,
     };
-    const section: SupabaseWeekSectionRow = {
+    const section: legacyBackendWeekSectionRow = {
       id: "section-id",
       day_number: 1,
       code: "baby_growth",
@@ -346,7 +346,7 @@ describe("WeekContentRepository", () => {
       is_required: true,
       is_active: true,
     };
-    const asset: SupabaseWeekAssetRow = {
+    const asset: legacyBackendWeekAssetRow = {
       id: "asset-id",
       day_number: 1,
       code: "hero-card",
@@ -357,7 +357,7 @@ describe("WeekContentRepository", () => {
       is_required: false,
       is_active: true,
     };
-    const media: SupabaseWeekMediaRow = {
+    const media: legacyBackendWeekMediaRow = {
       id: "media-id",
       day_number: null,
       media_scope: "week",

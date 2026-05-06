@@ -1,9 +1,8 @@
 import { Hono } from "hono";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText } from "ai";
 
 import { getSchiftClient } from "@gynecology-chatbot/mobile-api/schift-client";
 import { checkRateLimit } from "@gynecology-chatbot/mobile-api/rate-limit";
+import { generateGoogleText } from "@gynecology-chatbot/mobile-api/text-generation";
 import {
   mobileRouteErrorResponse,
   requireMobileSession,
@@ -180,12 +179,9 @@ function buildPrompt(input: {
 }
 
 async function generateAnswer(prompt: string): Promise<string> {
-  const model = createGoogleGenerativeAI({ apiKey: getGoogleApiKey() })(
-    GEMINI_MODEL,
-  );
-
-  const { text } = await generateText({
-    model,
+  const text = await generateGoogleText({
+    apiKey: getGoogleApiKey(),
+    model: GEMINI_MODEL,
     prompt,
   });
 

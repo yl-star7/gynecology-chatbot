@@ -52,8 +52,6 @@ apps/mobile/dist
 apps/mobile/.expo
 
 # Web artifacts
-apps/**/.vercel
-.vercel
 apps/web/.next
 apps/web/playwright-report
 apps/web/test-results
@@ -65,8 +63,6 @@ apps/web/test-results
 screenshots
 output
 test-results
-supabase/.temp
-supabase/migrations/drizzle
 *.log
 .DS_Store
 builds

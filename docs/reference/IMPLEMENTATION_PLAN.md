@@ -1,7 +1,7 @@
 # 부인과 챗봇 구현 계획
 
 > 최종 업데이트: 2026-03-14
-> 기준: 신규 브랜치에서 다시 쓴다고 가정한 Supabase 기반 모노레포
+> 기준: 신규 브랜치에서 다시 쓴다고 가정한 legacyBackend 기반 모노레포
 
 ## 1. 목표 구조
 
@@ -18,7 +18,7 @@ packages/app-core
   포트 인터페이스
   DI 조립 계약
 
-supabase
+legacyBackend
   SQL 마이그레이션
 ```
 
@@ -96,12 +96,12 @@ supabase
   - `source_title`
   - `source_section`
 
-## 6. Supabase 구현 순서
+## 6. legacyBackend 구현 순서
 
 1. 최소 테이블 SQL 작성
 2. RLS 정책 초안 작성
 3. `packages/app-core` 포트 확정
-4. web/mobile 각각 Supabase adapter 연결
+4. web/mobile 각각 legacyBackend adapter 연결
 5. 모바일 홈 조회 연결
 6. 모바일 세션 채팅 연결
 7. 관리자 조회 화면 연결
@@ -149,7 +149,7 @@ supabase
 2. `sms_otp`
 - 운영 배포 최소 요구안
 - SMS 벤더 연결
-- Supabase Auth Hook 또는 커스텀 OTP 검증
+- legacyBackend Auth Hook 또는 커스텀 OTP 검증
 
 3. `identity_verification`
 - 고신뢰 본인확인
@@ -165,7 +165,7 @@ supabase
 
 ## 12. 바로 다음 작업
 
-1. `supabase/migrations`에 최소 스키마 SQL 작성
+1. `legacyBackend/migrations`에 최소 스키마 SQL 작성
 2. `chat_sessions` / `chat_messages` 기준으로 앱 전역 용어 통일
 3. `pregnancy_documents` ingest 및 검색 adapter 초안 작성
 4. 관리자 대시보드 정보구조 확정

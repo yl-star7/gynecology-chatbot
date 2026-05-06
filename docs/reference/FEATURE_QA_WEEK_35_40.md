@@ -2,7 +2,7 @@
 
 작성일: 2026-03-29
 대상 기능: 모바일/채팅에서 사용하는 주차 콘텐츠(오늘 정보, 체크리스트, 질문) 노출 기능
-검증 환경: Remote Postgres (`SUPABASE_REMOTE_DATABASE_URL`)
+검증 환경: Remote Postgres (`legacyBackend_REMOTE_DATABASE_URL`)
 
 ## QA 범위
 - 주차 데이터 publish 상태

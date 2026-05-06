@@ -56,7 +56,7 @@
 |---|---------|------|
 | #16 | 온보딩 중간 이탈 | step 상태 영속화 필요 — AsyncStorage 또는 서버측 저장 설계 필요 |
 | #20 | 다중 기기 동시 쓰기 | optimistic locking 설계 필요 — 현재 다중 로그인은 허용됨 |
-| #24 | 저장 실패 일관성 | Supabase REST는 트랜잭션 미지원 — DB function 또는 RPC 설계 필요 |
+| #24 | 저장 실패 일관성 | legacyBackend REST는 트랜잭션 미지원 — DB function 또는 RPC 설계 필요 |
 
 ### 검증
 

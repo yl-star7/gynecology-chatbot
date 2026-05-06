@@ -1,8 +1,7 @@
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createKoreanDateKey } from "@gynecology-chatbot/app-core/time";
-import { generateText } from "ai";
 import Expo from "expo-server-sdk";
 import { dbInsert, dbSelect } from "./db/admin-client";
+import { generateGoogleText } from "./text-generation";
 
 const expo = new Expo();
 
@@ -73,10 +72,6 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
       Expo.isExpoPushToken(t.push_token),
   );
 
-  const google = createGoogleGenerativeAI({
-    apiKey: getGoogleApiKey(),
-  });
-
   let scheduled = 0;
   const errors: string[] = [];
 
@@ -85,8 +80,9 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
       const pregnancyWeek = target.pregnancy_week!;
 
       // 3. Generate personalized message via Gemini
-      const { text } = await generateText({
-        model: google("gemini-2.0-flash"),
+      const text = await generateGoogleText({
+        apiKey: getGoogleApiKey(),
+        model: "gemini-2.0-flash",
         prompt: [
           `당신은 임산부 돌봄 어시스턴트입니다.`,
           `사용자의 임신 ${pregnancyWeek}주차에 맞는 짧은 안부 메시지를 한국어로 작성하세요.`,

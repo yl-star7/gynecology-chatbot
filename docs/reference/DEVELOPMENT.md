@@ -8,7 +8,7 @@
 - `apps/web`는 관리자 웹과 모바일용 서버 API를 담당한다.
 - `apps/mobile`은 Expo React Native 사용자 앱이다.
 - `packages/app-core`는 도메인 타입, 포트, DI 계약을 담당한다.
-- 백엔드 데이터 소스는 `SERVER_DATA_PROVIDER=docker|supabase`로 명시 선택한다.
+- 백엔드 데이터 소스는 `SERVER_DATA_PROVIDER=docker|legacyBackend`로 명시 선택한다.
 - 사용자 인증은 `전화번호 + OTP + auth_sessions`를 사용한다.
 - 채팅은 `chat_sessions` 중심으로 관리한다.
 - 저장 링크는 기본적으로 `session_id`를 사용하고, 특정 답변을 다시 열어야 할 때만 `message_id`를 사용한다.
@@ -26,8 +26,8 @@ gynecology-chatbot/
 ├── packages/
 │   ├── app-core/               # 공용 도메인 / 포트 / DI
 │   └── db/                     # Drizzle 스키마
-├── supabase/
-│   ├── migrations/             # 원격 Supabase history와 맞는 active migration chain
+├── legacyBackend/
+│   ├── migrations/             # 원격 legacyBackend history와 맞는 active migration chain
 │   └── migrations_legacy/      # baseline 이전 historical migration 보관
 ├── docs/
 │   └── reference/              # PRD, 스키마, 구현 기준
@@ -125,8 +125,8 @@ pnpm dev:s
 SERVER_DATA_PROVIDER=docker
 ADMIN_DATA_PROVIDER=backend
 DATABASE_URL=
-NEXT_PUBLIC_SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_legacyBackend_URL=
+legacyBackend_SERVICE_ROLE_KEY=
 GEMINI_API_KEY=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
@@ -145,9 +145,9 @@ EXPO_PUBLIC_WEB_URL=http://localhost:3005
 - 채팅은 세션 중심으로 본다.
 - 정적 콘텐츠는 운영 REST API에서 public mirror 테이블을 기준으로 다룬다.
 
-## 8. Supabase migration 운영 기준
+## 8. legacyBackend migration 운영 기준
 
-`supabase/migrations/`는 linked Supabase 프로젝트의 remote migration history와 1:1로 맞는 active chain만 둔다.
+`legacyBackend/migrations/`는 linked legacyBackend 프로젝트의 remote migration history와 1:1로 맞는 active chain만 둔다.
 
 현재 active chain:
 
@@ -157,7 +157,7 @@ EXPO_PUBLIC_WEB_URL=http://localhost:3005
 20260417120200_add_user_persona_signals.sql
 ```
 
-baseline 이전 historical SQL은 `supabase/migrations_legacy/pre-remote-baseline-20260417/`에 보관한다. 운영 DB에 다시 push하지 않는다.
+baseline 이전 historical SQL은 `legacyBackend/migrations_legacy/pre-remote-baseline-20260417/`에 보관한다. 운영 DB에 다시 push하지 않는다.
 
 새 migration 규칙:
 
@@ -167,8 +167,8 @@ baseline 이전 historical SQL은 `supabase/migrations_legacy/pre-remote-baselin
 - 적용 전후에 아래 명령으로 remote/local 차이를 확인한다.
 
 ```bash
-direnv exec /Users/jskang/Projects/si supabase db push --dry-run
-direnv exec /Users/jskang/Projects/si supabase migration list
+direnv exec /Users/jskang/Projects/si legacyBackend db push --dry-run
+direnv exec /Users/jskang/Projects/si legacyBackend migration list
 ```
 
 정상 상태:

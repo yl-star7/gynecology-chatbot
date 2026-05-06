@@ -1,7 +1,7 @@
 # Monorepo Hierarchy
 
 ## 목적
-현재 저장소를 "관리자 웹 + 사용자 모바일 앱 + 공용 도메인 패키지 + Supabase" 구조로 유지하기 위한 기준 문서다.
+현재 저장소를 "관리자 웹 + 사용자 모바일 앱 + 공용 도메인 패키지 + legacyBackend" 구조로 유지하기 위한 기준 문서다.
 
 ## 최상위 책임
 
@@ -21,8 +21,8 @@
 - 뷰 모델 계약
 - in-memory adapter
 
-### `supabase`
-- `migrations/`: linked Supabase remote history와 맞는 active migration chain
+### `legacyBackend`
+- `migrations/`: linked legacyBackend remote history와 맞는 active migration chain
 - `migrations_legacy/`: remote baseline 이전 historical SQL 보관
 - 함수
 - 데이터 기준
@@ -46,7 +46,7 @@ apps/web ------\
                 > packages/app-core
 apps/mobile ---/
 
-apps/web -----> supabase
+apps/web -----> legacyBackend
 apps/mobile --> apps/web API 또는 별도 backend endpoint
 ```
 
@@ -55,11 +55,11 @@ apps/mobile --> apps/web API 또는 별도 backend endpoint
 2. `packages/app-core` 계약 수정
 3. web/mobile composition root 반영
 4. UI 구현
-5. Supabase adapter 연결
+5. legacyBackend adapter 연결
 
 ## 현재 기준
 - 웹은 관리자 전용
 - 모바일은 사용자 전용
-- Supabase 기준. migration은 `YYYYMMDDHHMMSS_description.sql` 형식으로 생성하고 `db push --dry-run` clean 상태를 유지
+- legacyBackend 기준. migration은 `YYYYMMDDHHMMSS_description.sql` 형식으로 생성하고 `db push --dry-run` clean 상태를 유지
 - 모노레포 유지
 - 오프라인 모드 제외

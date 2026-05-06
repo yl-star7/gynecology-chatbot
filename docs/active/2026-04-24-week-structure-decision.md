@@ -14,7 +14,7 @@
 상위 문서 §2.4.3은 주차별 Day × Section × Asset 3중 계층을 **`content_items.metadata` jsonb 트리로 통째 저장**하는 방향을 기본값으로 제안했습니다. §4.8은 이를 열린 결정 사항으로 남겨 두었습니다. 본 문서는 실제 스키마·편집 플로우·읽기 경로·데이터 규모를 조사해 다음 세 옵션을 비교하고 **옵션 C(하이브리드)**를 권장합니다.
 
 핵심 근거 두 가지:
-1. **관계형 FK가 이미 존재합니다.** `public.user_checklist_events.checklist_id` → `content_week_checklists.id`, `user_question_events.question_id` → `content_week_questions.id` (`supabase/migrations/20260331172420_move_content_to_public_and_drop_allowlist.sql:317-323`). 이 두 자식 테이블을 jsonb 배열로 접어 올리면 유저 이벤트 FK가 깨집니다. 합성 ID를 쓰면 무결성 보장이 사라집니다.
+1. **관계형 FK가 이미 존재합니다.** `public.user_checklist_events.checklist_id` → `content_week_checklists.id`, `user_question_events.question_id` → `content_week_questions.id` (`legacyBackend/migrations/20260331172420_move_content_to_public_and_drop_allowlist.sql:317-323`). 이 두 자식 테이블을 jsonb 배열로 접어 올리면 유저 이벤트 FK가 깨집니다. 합성 ID를 쓰면 무결성 보장이 사라집니다.
 2. **읽기 경로가 날(per-day/per-checklist) 단위입니다.** 모바일 today/profile/records API는 `week_data_id + day_number` 조합으로 매우 좁은 select를 수행합니다(예: `apps/web/app/api/mobile/today/route.ts:157-204`). jsonb를 사용하면 뷰 층에서 매 요청마다 `jsonb_array_elements`를 풀어야 하며, 인덱스 활용도가 현재 대비 약해집니다.
 
 ---
@@ -23,7 +23,7 @@
 
 ### 1.1 테이블 관계도 (파일:라인)
 
-`supabase/migrations/20260331172420_move_content_to_public_and_drop_allowlist.sql:12-94`:
+`legacyBackend/migrations/20260331172420_move_content_to_public_and_drop_allowlist.sql:12-94`:
 
 ```
 content_pregnancy_week_data (id, week_number UNIQUE, title, baby/mother_summary, warning_signs, recommended_actions, checklist_intro, question_intro, status)
@@ -43,7 +43,7 @@ public.user_question_events.question_id    -> content_week_questions.id  (ON DEL
 
 ### 1.2 현재 row 수 / 깊이 추정
 
-`supabase/examples/week_24_seed_example.sql` (전체 274줄, 7.5KB)에서 한 주차가 생성하는 row 수:
+`legacyBackend/examples/week_24_seed_example.sql` (전체 274줄, 7.5KB)에서 한 주차가 생성하는 row 수:
 - week_data: **1 row** / 주
 - day_contents: 최대 **7 row** / 주 (day 1..7)
 - week_checklists: 24주차 시드 기준 **3 row** (`week_24_seed_example.sql:59-85`), 전 주차 평균 3~5 row 추정
@@ -324,7 +324,7 @@ A가 매력적이지만 **FK 깨짐 비용이 단일 버킷 미학보다 크고*
 
 1. 본 문서 유저 승인.
 2. `docs/active/2026-04-23-admin-hierarchy-replan.md` §2.4.3 테이블을 옵션 C 반영으로 개정(체크리스트/질문/미디어를 "별도 테이블 유지"로 명시).
-3. `supabase/migrations/YYYYMMDD_week_content_items_hybrid.sql` 초안 작성 — 위 5.1 단계 반영.
+3. `legacyBackend/migrations/YYYYMMDD_week_content_items_hybrid.sql` 초안 작성 — 위 5.1 단계 반영.
 4. 호환 뷰 SQL 작성 후 staging 에서 모바일 today/profile/records API 회귀 테스트.
 5. `apps/api/src/routes/admin/weeks.ts` PATCH 핸들러 리팩터 + Prisma 타입 재생성.
 

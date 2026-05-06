@@ -5,7 +5,7 @@ jest.mock("@/lib/db/admin-client", () => ({
 import { dbInsert } from "@/lib/db/admin-client";
 import { POST } from "./route";
 
-const mockedSupabaseInsert = dbInsert as jest.MockedFunction<
+const mockedlegacyBackendInsert = dbInsert as jest.MockedFunction<
   typeof dbInsert
 >;
 
@@ -14,7 +14,7 @@ describe("POST /api/internal/persona-signals", () => {
 
   beforeEach(() => {
     process.env.CRON_SECRET = "test-secret";
-    mockedSupabaseInsert.mockReset();
+    mockedlegacyBackendInsert.mockReset();
   });
 
   afterAll(() => {
@@ -29,11 +29,11 @@ describe("POST /api/internal/persona-signals", () => {
     );
 
     expect(response.status).toBe(401);
-    expect(mockedSupabaseInsert).not.toHaveBeenCalled();
+    expect(mockedlegacyBackendInsert).not.toHaveBeenCalled();
   });
 
   it("stores persona signal webhook payloads idempotently", async () => {
-    mockedSupabaseInsert.mockResolvedValue([
+    mockedlegacyBackendInsert.mockResolvedValue([
       {
         id: "signal-id",
         user_id: "user-1",
@@ -68,7 +68,7 @@ describe("POST /api/internal/persona-signals", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockedSupabaseInsert).toHaveBeenCalledWith(
+    expect(mockedlegacyBackendInsert).toHaveBeenCalledWith(
       "user_persona_signals",
       expect.objectContaining({
         id: expect.any(String),
@@ -111,6 +111,6 @@ describe("POST /api/internal/persona-signals", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(mockedSupabaseInsert).not.toHaveBeenCalled();
+    expect(mockedlegacyBackendInsert).not.toHaveBeenCalled();
   });
 });

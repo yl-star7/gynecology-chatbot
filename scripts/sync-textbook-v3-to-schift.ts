@@ -31,8 +31,6 @@ loadEnv({ path: path.resolve(process.cwd(), ".env.local"), override: true });
 loadEnv({ path: path.resolve(process.cwd(), ".env"), override: true });
 if (SHELL_GEMINI) process.env.GEMINI_API_KEY = SHELL_GEMINI;
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
 const SCHIFT_API_KEY = process.env.SCHIFT_API_KEY;
 const SCHIFT_API_URL = process.env.SCHIFT_API_URL ?? "https://api.schift.io";
 const BUCKET_ID =
@@ -55,10 +53,29 @@ if (!GEMINI_API_KEY) {
   process.exit(1);
 }
 
-const gemini = new GoogleGenerativeAI(GEMINI_API_KEY);
-const visionModel = gemini.getGenerativeModel({
-  model: "gemini-2.5-flash-lite",
-});
+type GoogleVisionClient = {
+  models: {
+    generateContent(input: {
+      model: string;
+      contents: Array<
+        | string
+        | {
+            inlineData: {
+              mimeType: string;
+              data: string;
+            };
+          }
+      >;
+    }): Promise<{ text?: string }>;
+  };
+};
+
+async function createGenaiClient(apiKey: string): Promise<GoogleVisionClient> {
+  const { GoogleGenAI } = await import("@google/genai");
+  return new GoogleGenAI({ apiKey });
+}
+
+const genaiPromise = createGenaiClient(GEMINI_API_KEY);
 
 const VISION_PROMPT = `이 이미지는 한국어 간호학 교재의 한 페이지입니다. 다음 규칙으로 깨끗한 markdown 으로 추출하세요.
 
@@ -121,20 +138,22 @@ function renderPdfPages(pdfPath: string, outDir: string): string[] {
 async function ocrPage(imagePath: string): Promise<string> {
   const imgBytes = fs.readFileSync(imagePath);
   const imgBase64 = imgBytes.toString("base64");
+  const genai = await genaiPromise;
 
-  const result = await visionModel.generateContent([
-    { text: VISION_PROMPT },
-    {
-      inlineData: {
-        mimeType: "image/png",
-        data: imgBase64,
+  const response = await genai.models.generateContent({
+    model: "gemini-2.5-flash-lite",
+    contents: [
+      VISION_PROMPT,
+      {
+        inlineData: {
+          mimeType: "image/png",
+          data: imgBase64,
+        },
       },
-    },
-  ]);
+    ],
+  });
 
-  const response = result.response;
-  const text = response.text();
-  return text.trim();
+  return (response.text ?? "").trim();
 }
 
 async function processChapter(

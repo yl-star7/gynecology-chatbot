@@ -512,9 +512,9 @@ async function listWeekNumbers(client, options) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const connectionString = process.env.SUPABASE_REMOTE_DATABASE_URL || process.env.DATABASE_URL;
+  const connectionString = process.env.legacyBackend_REMOTE_DATABASE_URL || process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error("SUPABASE_REMOTE_DATABASE_URL or DATABASE_URL is required");
+    throw new Error("legacyBackend_REMOTE_DATABASE_URL or DATABASE_URL is required");
   }
 
   fs.mkdirSync(options.outDir, { recursive: true });
