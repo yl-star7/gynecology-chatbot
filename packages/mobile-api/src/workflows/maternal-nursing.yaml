@@ -20,6 +20,126 @@ config:
   calendar_summary_webhook_secret: $env.CALENDAR_SUMMARY_WEBHOOK_SECRET
 
 # ─────────────────────────────────────
+# 채팅 단계 제어 (관리자 수정 대상)
+# 앱은 표시/입력 전달만 하고, 서버 Orchestrator가 아래 선언을 읽어 실행한다.
+# ─────────────────────────────────────
+chat_flow:
+  data_sources:
+    pregnancy_profile:
+      source: rdb
+      table: pregnancy_profiles
+      fields: [pregnancy_week, pregnancy_day_count, due_date, baby_nickname, onboarding_payload]
+      used_by: [chat_start, mood_intake, week_info, question_answer, free_chat]
+      description: 현재 주수, 태명, 말투 선호와 프로필 메모리
+    week_content:
+      source: rdb
+      table: content_pregnancy_week_data
+      fields: [week_number, baby_summary, mother_summary, warning_signs, recommended_actions]
+      used_by: [week_info, question_answer]
+      description: 주차별 태아 발달과 산모 변화의 기본 근거
+    day_content:
+      source: rdb
+      table: content_pregnancy_day_contents
+      fields: [day_number, baby_development_payload, baby_message, mother_changes_payload]
+      used_by: [week_info]
+      description: 오늘 일자에 맞춘 세부 발달/변화 정보
+    today_questions:
+      source: rdb
+      table: content_week_questions
+      fields: [id, code, question_text, question_type, display_order, is_required]
+      used_by: [today_question, question_answer]
+      description: 관리자 설정 태교 질문 세트
+    question_progress:
+      source: rdb
+      table: user_question_events
+      fields: [question_id, status, sent_at, answered_at]
+      used_by: [today_question, question_answer, free_chat_gate]
+      description: 오늘 답변한 질문과 현재 진행 중인 질문
+    session_memory:
+      source: rdb
+      table: chat_sessions
+      fields: [memory_payload]
+      used_by: [all_stages]
+      description: stage, mood, compactSummary, currentAttachmentQuestionId
+    recent_history:
+      source: rdb
+      table: chat_messages
+      fields: [role, plain_text, created_at]
+      used_by: [question_answer, free_chat]
+      description: 최근 대화 히스토리와 compressed log 입력
+    persona:
+      source: rdb
+      view: v_user_persona_profiles
+      fields: [persona_hint, confidence, evidence_summary]
+      used_by: [question_answer, free_chat]
+      description: 응답 톤 조절용 상담 성향
+
+  stages:
+    mood_intake:
+      prompt_text: |
+        오늘은 마음이 어떠세요?
+
+        편하게 하나만 골라도 좋고, 직접 말해줘도 괜찮아요.
+      direct_input_acknowledgement_text: 오늘의 기분 나눠줘서 고마워요. 잘 기억해서 차근차근 더 이야기 해볼게요.
+      options:
+        - { label: 좋아요, message: 오늘은 좋은 기분이에요., tone: joyful }
+        - { label: 우울해요, message: 오늘은 우울한 기분이에요., tone: sad }
+        - { label: 슬퍼요, message: 오늘은 슬픈 기분이에요., tone: sad }
+        - { label: 화나요, message: 오늘은 화나는 기분이에요., tone: anxious }
+        - { label: 직접 입력, message: 직접 말하고 싶어요., tone: calm }
+      acknowledgements_by_tone:
+        joyful: [좋은 마음이 느껴져서 저도 반가워요., 그 밝은 기분을 오늘 안에서 잘 간직해봐요.]
+        sad: [울적한 마음을 꺼내줘서 고마워요., 슬픈 마음이 올라온 하루였군요.]
+        anxious: [마음이 조금 긴장되어 있었군요., 걱정되는 마음을 말해줘서 고마워요.]
+        tired: [몸과 마음이 많이 지친 날이군요., 오늘은 속도를 조금 늦춰도 괜찮아요.]
+        calm: [차분하게 지금 마음을 살펴보고 계시군요., 좋아요, 지금의 마음을 조용히 함께 기억해둘게요.]
+
+    week_info_opt_in:
+      answer_variations:
+        - 오늘 주차의 산모/태아 정보가 궁금하세요?
+        - 지금 주차에 맞는 산모와 태아 이야기를 짧게 볼까요?
+        - 오늘 주차 기준으로 산모 몸 변화와 태아 발달을 확인해볼까요?
+        - 이번 주 산모와 태아에게 어떤 변화가 있는지 궁금하세요?
+      quick_replies:
+        yes: { id: week-info-yes, label: 네, message: "네, 오늘 주차 정보 볼래요." }
+        no: { id: week-info-no, label: 아니요, message: "아니요, 태교 질문으로 넘어갈게요." }
+
+    today_question:
+      prompt_text: 아래 질문 중 하나를 골라 이어가요.
+      blocked_text: 오늘의 태교 질문이 아직 남아 있어요. 아래 질문 중 하나를 먼저 골라주세요.
+      deferred_week_info_text: 좋아요. 주차 정보는 나중에 보고, 먼저 아래 태교 질문 중 하나를 골라 이어가요.
+      compact_summary_template: "현재 단계: 모아애착 질문 ({{answeredCount}}/{{quota}} 답변 완료)"
+
+    question_selected:
+      answer_template: |
+        **"{{questionText}}"**
+
+        이 질문에 대해 편안하게 답해주세요. 아기에게 들려주는 편지처럼 써도 좋고, 떠오르는 한 문장이어도 괜찮아요.
+
+    active_question_required:
+      answer_template: |
+        오늘의 질문이 아직 진행 중이에요. 자유질문은 오늘의 질문을 모두 답한 뒤에 열려요.
+
+        **"{{questionText}}"**
+
+        짧은 한 문장이어도 괜찮으니 먼저 답해주세요.
+
+    exhausted_choice:
+      answer_text: |
+        오늘의 태교 질문에 답해주시고 태교 활동에 함께해주셔서 감사해요. 😊
+        이제 편안하게 자유로운 이야기를 나눠볼까요?
+
+    free_chat_intro:
+      answer_text: 편하게 이야기 이어갈게요. 오늘 나누고 싶은 이야기가 있으세요?
+      quick_replies:
+        - { id: free-chat-topic-body, label: 몸 상태 이야기, message: "요즘 몸 상태가 어떤지 이야기하고 싶어요." }
+        - { id: free-chat-topic-feeling, label: 오늘 기분, message: "오늘 기분을 조금 더 나누고 싶어요." }
+        - { id: end-session, label: 여기까지 할래요, message: 오늘은 여기까지 할게요. }
+
+    ended:
+      answer_text: 오늘 이야기해줘서 고마워요. 또 만나요.
+
+# ─────────────────────────────────────
 # 프롬프트 (관리자 수정 대상)
 # ─────────────────────────────────────
 
@@ -510,7 +630,7 @@ prompts:
     {"answer":"아래 질문 중 하나를 골라 이어가요.","guardrailStatus":"safe","characterTone":"calm","scenario":"attachment_question","quickReplies":[{"label":"오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?","message":"오늘 아기에게 가장 먼저 들려주고 싶은 말은 무엇인가요?"},{"label":"요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?","message":"요즘 아기가 어떤 순간에 엄마 마음을 느낄 것 같나요?"}],"nextSessionMemory":{"compactSummary":"현재 단계: 모아애착 질문","lastScenario":"attachment_question","lastCharacterTone":"calm"}}
 
   static_mood_intake: |
-    {"scenario":"mood_intake","moodPrompts":[{"label":"좋아요","message":"오늘 기분이 좋아요.","tone":"joyful"},{"label":"울적해요","message":"기분이 울적해요.","tone":"sad"},{"label":"슬퍼요","message":"오늘은 마음이 슬퍼요.","tone":"sad"},{"label":"짜증나요","message":"오늘은 조금 짜증이 나요.","tone":"anxious"},{"label":"직접 입력","message":"직접 말하고 싶어요.","tone":"calm"},{"label":"편안해요","message":"오늘은 마음이 편안해요.","tone":"calm"},{"label":"설레요","message":"아기를 생각하면 설레요.","tone":"joyful"},{"label":"기대돼요","message":"오늘 하루가 조금 기대돼요.","tone":"joyful"},{"label":"괜찮아요","message":"오늘은 괜찮은 편이에요.","tone":"calm"},{"label":"걱정돼요","message":"오늘은 조금 걱정돼요.","tone":"anxious"},{"label":"불안해요","message":"마음이 불안해요.","tone":"anxious"},{"label":"피곤해요","message":"몸이 많이 피곤해요.","tone":"tired"},{"label":"졸려요","message":"오늘은 자꾸 졸려요.","tone":"tired"},{"label":"무거워요","message":"몸이 무겁게 느껴져요.","tone":"tired"},{"label":"외로워요","message":"혼자인 것처럼 느껴져요.","tone":"sad"},{"label":"답답해요","message":"마음이 답답해요.","tone":"anxious"},{"label":"궁금해요","message":"오늘 주차에 대해 궁금해요.","tone":"calm"},{"label":"차분해요","message":"차분하게 이야기하고 싶어요.","tone":"calm"},{"label":"감사해요","message":"아기와 함께인 시간이 감사해요.","tone":"joyful"},{"label":"예민해요","message":"오늘은 작은 일에도 예민해요.","tone":"anxious"}]}
+    {"scenario":"mood_intake","promptText":"오늘은 마음이 어떠세요?\n\n편하게 하나만 골라도 좋고, 직접 말해줘도 괜찮아요.","directInputAcknowledgementText":"오늘의 기분 나눠줘서 고마워요. 잘 기억해서 차근차근 더 이야기 해볼게요.","moodPrompts":[{"label":"좋아요","message":"오늘은 좋은 기분이에요.","tone":"joyful"},{"label":"우울해요","message":"오늘은 우울한 기분이에요.","tone":"sad"},{"label":"슬퍼요","message":"오늘은 슬픈 기분이에요.","tone":"sad"},{"label":"화나요","message":"오늘은 화나는 기분이에요.","tone":"anxious"},{"label":"직접 입력","message":"직접 말하고 싶어요.","tone":"calm"},{"label":"편안해요","message":"오늘은 마음이 편안해요.","tone":"calm"},{"label":"설레요","message":"아기를 생각하면 설레요.","tone":"joyful"},{"label":"기대돼요","message":"오늘 하루가 조금 기대돼요.","tone":"joyful"},{"label":"괜찮아요","message":"오늘은 괜찮은 편이에요.","tone":"calm"},{"label":"걱정돼요","message":"오늘은 조금 걱정돼요.","tone":"anxious"},{"label":"불안해요","message":"마음이 불안해요.","tone":"anxious"},{"label":"피곤해요","message":"몸이 많이 피곤해요.","tone":"tired"},{"label":"졸려요","message":"오늘은 자꾸 졸려요.","tone":"tired"},{"label":"무거워요","message":"몸이 무겁게 느껴져요.","tone":"tired"},{"label":"외로워요","message":"혼자인 것처럼 느껴져요.","tone":"sad"},{"label":"답답해요","message":"마음이 답답해요.","tone":"anxious"},{"label":"궁금해요","message":"오늘 주차에 대해 궁금해요.","tone":"calm"},{"label":"차분해요","message":"차분하게 이야기하고 싶어요.","tone":"calm"},{"label":"감사해요","message":"아기와 함께인 시간이 감사해요.","tone":"joyful"},{"label":"예민해요","message":"오늘은 작은 일에도 예민해요.","tone":"anxious"}]}
 
   static_week_info_opt_in: |
     {"scenario":"week_info_opt_in","answerVariations":["오늘 주차의 산모/태아 정보가 궁금하세요?","지금 주차에 맞는 산모와 태아 이야기를 짧게 볼까요?","오늘 주차 기준으로 산모 몸 변화와 태아 발달을 확인해볼까요?","이번 주 산모와 태아에게 어떤 변화가 있는지 궁금하세요?","오늘 주차의 엄마 몸과 아기 성장 정보를 열어볼까요?","지금 주수의 산모/태아 핵심 정보를 같이 볼까요?","오늘 주차에 맞는 태아 발달과 산모 변화를 확인할까요?","이번 주 아기와 엄마에게 중요한 포인트를 볼까요?","오늘 주차의 산모와 태아 정보를 짧게 살펴볼까요?","지금 주차에 맞는 아기 소식과 엄마 몸 변화를 볼까요?","오늘의 주차 정보, 산모와 태아 중 궁금한 내용을 확인할까요?","이번 주 산모/태아 정보를 먼저 보고 질문으로 이어갈까요?","오늘 주차의 아기 발달과 엄마 변화를 열어볼까요?","지금 산모와 태아에게 필요한 주차 정보를 볼까요?","오늘 주수에 맞는 산모/태아 안내를 확인해볼까요?","이번 주 태아와 산모 변화가 궁금하신가요?","오늘 주차 정보로 산모와 태아 상태를 가볍게 볼까요?","지금 주차의 엄마와 아기 이야기를 짧게 확인할까요?","오늘 주차 산모/태아 정보를 보고 오늘의 질문으로 이어갈까요?","이번 주 산모와 태아의 핵심 변화가 궁금하세요?"]}

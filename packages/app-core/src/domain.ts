@@ -214,8 +214,6 @@ export interface ChatComposerInput {
   pregnancyWeek?: number;
   selectedQuestionId?: string;
   selectedMoodTone?: EmotionTone;
-  clientWorkflowStage?: number | string | null;
-  clientWorkflowStageName?: string | null;
 }
 
 export interface LinkTargetContent {

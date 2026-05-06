@@ -21,6 +21,7 @@ interface WorkflowYaml {
   };
   prompts: Record<string, string>;
   static_responses: Record<string, Record<string, unknown>>;
+  chat_flow?: unknown;
   blocks: Array<{
     id: string;
     type: string;
@@ -34,6 +35,17 @@ interface WorkflowYaml {
     target_handle?: string;
   }>;
 }
+
+export type LoadedMaternalNursingWorkflow = {
+  version?: number;
+  name: string;
+  description: string;
+  adminMetadata: WorkflowYaml["admin_metadata"];
+  prompts: Record<string, string>;
+  staticResponses: Record<string, Record<string, unknown>>;
+  chatFlow?: unknown | null;
+  graph: WorkflowGraph;
+};
 
 function resolveRef(
   value: unknown,
@@ -132,7 +144,7 @@ function resolveConfig(
   >;
 }
 
-function buildResult(yaml: WorkflowYaml) {
+function buildResult(yaml: WorkflowYaml): LoadedMaternalNursingWorkflow {
   yamlConfigRef.current =
     (yaml as unknown as { config?: Record<string, unknown> }).config ?? null;
   const graph: WorkflowGraph = {
@@ -159,6 +171,7 @@ function buildResult(yaml: WorkflowYaml) {
     adminMetadata: yaml.admin_metadata,
     prompts: yaml.prompts,
     staticResponses: yaml.static_responses,
+    chatFlow: yaml.chat_flow ?? null,
     graph: { ...graph, nodes: graph.blocks } as WorkflowGraph,
   };
 }

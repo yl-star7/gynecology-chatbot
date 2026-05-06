@@ -31,7 +31,6 @@ import {
 } from "./patientErrorCopy.model";
 import { buildConversationWeekEncyclopediaSheetModel } from "./PatientConversationWeekEncyclopediaSheet.model";
 import { isPastConversationSession } from "./patientConversationSessionStatus.model";
-import { createInitialConversationMessage } from "./PatientConversationInitialMessage.model";
 import {
   resolveConversationDeepLinkAction,
   type ConversationDeepLinkMeta,
@@ -148,6 +147,12 @@ export function usePatientConversationScreenModel({
       return;
     }
 
+    if (isNewConversationSession(sessionId)) {
+      setIsLoadingSessionDetail(false);
+      setSessionLoadErrorMessage(null);
+      return;
+    }
+
     setIsLoadingSessionDetail(true);
     setSessionLoadErrorMessage(null);
 
@@ -159,7 +164,7 @@ export function usePatientConversationScreenModel({
     } finally {
       setIsLoadingSessionDetail(false);
     }
-  }, [currentUser, replaceSession, resolvedSessionId, services]);
+  }, [currentUser, replaceSession, resolvedSessionId, services, sessionId]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -185,18 +190,40 @@ export function usePatientConversationScreenModel({
     if (
       !isNewConversationSession(sessionId) ||
       didSeedInitialMessageRef.current ||
+      !currentUser ||
       session.messages.length > 0
     ) {
       return;
     }
 
+    let isCancelled = false;
     didSeedInitialMessageRef.current = true;
-    appendMessage(
-      resolvedSessionId,
-      "아기와 대화",
-      createInitialConversationMessage(),
-    );
-  }, [appendMessage, resolvedSessionId, session.messages.length, sessionId]);
+    void services.chatPort
+      .getInitialConversationMessage()
+      .then((message) => {
+        if (isCancelled) {
+          return;
+        }
+        appendMessage(resolvedSessionId, "아기와 대화", message);
+      })
+      .catch((error: unknown) => {
+        if (isCancelled) {
+          return;
+        }
+        setSessionLoadErrorMessage(resolvePatientConversationLoadError(error));
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    appendMessage,
+    currentUser,
+    resolvedSessionId,
+    services.chatPort,
+    session.messages.length,
+    sessionId,
+  ]);
 
   useEffect(() => {
     if (session.messages.length === 0 && !isSending) {
@@ -240,10 +267,6 @@ export function usePatientConversationScreenModel({
         text: nextText,
         selectedQuestionId,
         selectedMoodTone,
-        clientWorkflowStage:
-          debugSnapshot.inferredFlow === "mood_intake" ? 0 : null,
-        clientWorkflowStageName:
-          debugSnapshot.inferredFlow === "mood_intake" ? "mood_intake" : null,
       });
       const [firstMessage, ...followUpMessages] = assistantMessages;
       if (firstMessage) {
@@ -302,28 +325,10 @@ export function usePatientConversationScreenModel({
     const latestText = latestAssistant?.parts.find(
       (part) => part.type === "text",
     );
-    const inferFlow = () => {
-      if (latestQuickReplies?.type === "quickReplies") {
-        const ids = latestQuickReplies.choices.map((choice) => choice.id);
-        if (ids.some((id) => id.startsWith("initial-workflow-"))) {
-          return "mood_intake";
-        }
-        if (ids.includes("week-info-yes") || ids.includes("week-info-no")) {
-          return "week_info_opt_in";
-        }
-        if (ids.some((id) => id.includes("mood"))) {
-          return "mood_intake";
-        }
-        return "quick_reply";
-      }
-      return latestAssistant ? "assistant_response" : "empty";
-    };
-
     return {
       routeSessionId: sessionId,
       resolvedSessionId,
       isNewSessionAlias: isNewConversationSession(sessionId),
-      inferredFlow: inferFlow(),
       latestAssistantId: latestAssistant?.id ?? null,
       latestAssistantPartTypes:
         latestAssistant?.parts.map((part) => part.type) ?? [],

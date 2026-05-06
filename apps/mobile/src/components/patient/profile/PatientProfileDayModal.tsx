@@ -327,7 +327,7 @@ export function PatientProfileDayModal({
                 <View style={styles.modalPanel}>
                   <View style={styles.modalConversationCard}>
                     <Text style={styles.modalConversationMeta}>
-                      그날의 전체 요약
+                      오늘의 전체 요약
                     </Text>
                     <Text style={styles.modalSummaryText}>
                       {conversationSummary}

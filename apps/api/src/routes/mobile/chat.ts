@@ -30,6 +30,8 @@ import {
   maybeShortCircuitStaticTurn,
   type QuestionProgress,
 } from "@gynecology-chatbot/mobile-api/chat/stage-shortcut";
+import { createInitialWorkflowMessageFromPrompt } from "@gynecology-chatbot/mobile-api/chat/initial-workflow-message";
+import { parseChatFlowConfig } from "@gynecology-chatbot/mobile-api/chat/chat-flow-config";
 import { fetchAttachmentQuestionProgress } from "@gynecology-chatbot/mobile-api/chat/attachment-question-progress";
 import {
   classifyMoodToneWithLlm,
@@ -289,6 +291,35 @@ async function findWeekKnowledgeEntityId(currentWeek: number | null) {
   }
 }
 
+app.get("/initial-workflow", async (c) => {
+  try {
+    await requireMobileSession(c);
+    const workflowDef = loadMaternalNursingWorkflow();
+    const chatFlowConfig = parseChatFlowConfig({
+      chatFlow: workflowDef.chatFlow,
+      prompts: workflowDef.prompts,
+    });
+    const message = createInitialWorkflowMessageFromPrompt(
+      JSON.stringify({
+        scenario: "mood_intake",
+        promptText: chatFlowConfig.moodIntake.promptText,
+        directInputAcknowledgementText:
+          chatFlowConfig.moodIntake.directInputAcknowledgementText,
+        moodPrompts: chatFlowConfig.moodIntake.moodPrompts,
+      }),
+    );
+
+    c.header("Cache-Control", "private, max-age=300");
+    return c.json({ message });
+  } catch (error) {
+    console.error("mobile chat initial workflow route error", error);
+    if (isMobileSessionError(error)) {
+      return c.json({ error: error.message }, 401);
+    }
+    return c.json({ error: "초기 대화 정보를 불러오지 못했어요." }, 500);
+  }
+});
+
 app.post("/", async (c) => {
   try {
     const body = await c.req.json();
@@ -299,15 +330,6 @@ app.post("/", async (c) => {
         ? body.selectedQuestionId
         : null;
     const selectedMoodTone = normalizeMoodTone(body.selectedMoodTone);
-    const clientWorkflowStage =
-      typeof body.clientWorkflowStage === "number" ||
-      typeof body.clientWorkflowStage === "string"
-        ? body.clientWorkflowStage
-        : null;
-    const clientWorkflowStageName =
-      typeof body.clientWorkflowStageName === "string"
-        ? body.clientWorkflowStageName
-        : null;
     const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
     const pregnancyWeek =
       typeof body.pregnancyWeek === "number" ? body.pregnancyWeek : null;
@@ -421,34 +443,14 @@ app.post("/", async (c) => {
     });
 
     const workflowDef = loadMaternalNursingWorkflow();
-    const moodPool = (() => {
-      try {
-        const parsed = JSON.parse(
-          workflowDef.prompts.static_mood_intake ?? "{}",
-        );
-        return Array.isArray(parsed.moodPrompts)
-          ? (parsed.moodPrompts as Array<{
-              label: string;
-              message: string;
-              tone: CharacterTone;
-            }>)
-          : [];
-      } catch {
-        return [];
-      }
-    })();
-    const weekInfoOptInVariations = (() => {
-      try {
-        const parsed = JSON.parse(
-          workflowDef.prompts.static_week_info_opt_in ?? "{}",
-        );
-        return Array.isArray(parsed.answerVariations)
-          ? (parsed.answerVariations as string[])
-          : [];
-      } catch {
-        return [];
-      }
-    })();
+    const chatFlowConfig = parseChatFlowConfig({
+      chatFlow: workflowDef.chatFlow,
+      prompts: workflowDef.prompts,
+    });
+    const moodIntakeConfig = chatFlowConfig.moodIntake;
+    const moodPool = moodIntakeConfig.moodPrompts;
+    const weekInfoOptInVariations =
+      chatFlowConfig.weekInfoOptIn.answerVariations;
 
     const respondWithMobileChat: typeof baseMobileResponder = async (input) => {
       let progress: QuestionProgress;
@@ -484,7 +486,7 @@ app.post("/", async (c) => {
         input.text,
       ]);
       const memory = input.promptContext?.sessionMemory ?? null;
-      const rawStage = memory?.stage ?? clientWorkflowStage ?? null;
+      const rawStage = memory?.stage ?? null;
       const compactSummary = memory?.compactSummary ?? "";
       const canInferFreeTextMood =
         !progress.currentAttachmentQuestionId &&
@@ -497,21 +499,20 @@ app.post("/", async (c) => {
       const inferredFreeTextMood = shouldInferFreeTextMood
         ? await classifyMoodToneWithLlm({ text: input.text })
         : "unknown";
-      const selectedMoodEntry =
-        selectedMoodTone
-          ? {
-              label: matchedMoodEntry?.label ?? input.text,
-              message: input.text,
-              tone: selectedMoodTone,
-            }
-          : (matchedMoodEntry ??
-            (inferredFreeTextMood !== "unknown"
-              ? {
-                  label: "직접 입력",
-                  message: input.text,
-                  tone: inferredFreeTextMood,
-                }
-              : null));
+      const selectedMoodEntry = selectedMoodTone
+        ? {
+            label: matchedMoodEntry?.label ?? input.text,
+            message: input.text,
+            tone: selectedMoodTone,
+          }
+        : (matchedMoodEntry ??
+          (inferredFreeTextMood !== "unknown"
+            ? {
+                label: "직접 입력",
+                message: input.text,
+                tone: inferredFreeTextMood,
+              }
+            : null));
       const effectiveMoodPool =
         selectedMoodEntry &&
         !moodPool.some((m) => m.message === selectedMoodEntry.message)
@@ -532,16 +533,20 @@ app.post("/", async (c) => {
         selectedQuestionId: isUuid(input.selectedQuestionId ?? null)
           ? (input.selectedQuestionId ?? null)
           : null,
-        clientWorkflowStage:
-          selectedMoodEntry && rawStage === null ? 0 : clientWorkflowStage,
-        clientWorkflowStageName,
+        transientWorkflowStage:
+          selectedMoodEntry && rawStage === null ? 0 : null,
         currentWeek: input.currentWeek,
         promptContext: input.promptContext,
         moodPool: effectiveMoodPool,
+        moodPromptText: moodIntakeConfig.promptText,
+        directMoodAcknowledgementText:
+          moodIntakeConfig.directInputAcknowledgementText,
         moodAcknowledgementPool,
         weekInfoOptInVariations,
+        flowConfig: chatFlowConfig,
         todayQuestionCandidates,
         progress,
+        effectiveQuestionQuota: todayQuestionCandidates.length,
         rngSeed: moodVariantSeed,
       });
 
@@ -677,6 +682,8 @@ app.post("/", async (c) => {
           },
           {
             mode: chatFlowOptions.letterReflectionQuickReplies,
+            quota: todayQuestionCandidates.length,
+            candidateQuestionIds: todayQuestionCandidates.map((q) => q.id),
           },
         );
         const quickReplies = Array.isArray((payload as any)?.quickReplies)

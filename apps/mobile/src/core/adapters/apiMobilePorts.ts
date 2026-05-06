@@ -17,6 +17,7 @@ import { createTodayIsoDate } from "../mobileBootstrap.model.ts";
 import {
   cacheChatSession,
   cacheHomeView,
+  cacheInitialConversationMessage,
   cachePregnancyWeeks,
   cacheProfileView,
   cacheRecentChats,
@@ -27,9 +28,11 @@ import {
   clearCachedRecentChats,
   clearCachedRecordDayView,
   hasFreshCachedChatSession,
+  hasFreshCachedInitialConversationMessage,
   hasFreshCachedRecentChats,
   hasFreshCachedRecordDayView,
   readCachedChatSession,
+  readCachedInitialConversationMessage,
   readCachedRecentChats,
   readCachedRecordDayView,
 } from "../patientViewCache";
@@ -175,6 +178,27 @@ export class ApiMobileChatAdapter implements MobileChatPort {
     return payload.sessions;
   }
 
+  async getInitialConversationMessage() {
+    const userId = this.getUserId();
+    const cached = readCachedInitialConversationMessage(userId);
+    if (hasFreshCachedInitialConversationMessage(userId)) {
+      if (cached) {
+        return cached;
+      }
+    }
+
+    try {
+      const payload = await this.client.fetchInitialConversationMessage();
+      cacheInitialConversationMessage(userId, payload.message);
+      return payload.message;
+    } catch (error) {
+      if (cached) {
+        return cached;
+      }
+      throw error;
+    }
+  }
+
   async getSession(sessionId?: string) {
     const resolvedSessionId = sessionId ?? "new";
     const userId = this.getUserId();
@@ -201,8 +225,6 @@ export class ApiMobileChatAdapter implements MobileChatPort {
       pregnancyWeek: input.pregnancyWeek,
       selectedQuestionId: input.selectedQuestionId,
       selectedMoodTone: input.selectedMoodTone,
-      clientWorkflowStage: input.clientWorkflowStage,
-      clientWorkflowStageName: input.clientWorkflowStageName,
       imageDataUris: [],
     });
     const userId = this.getUserId();

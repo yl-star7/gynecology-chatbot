@@ -1,12 +1,9 @@
 version: 2
 name: 모성간호 router (stage 분기)
 description: >
-  단일 진입점 router workflow. workflowStage + 사용자 텍스트 + currentAttachmentQuestionId
-  를 보고 4개 subworkflow 중 하나로 분기한다.
-  - baby_info: stage=0 & 사용자가 주차 정보 보겠다고 답함
-  - letter:    stage=2 & currentAttachmentQuestionId 존재
-  - free_chat: stage='free_chat'
-  - fallback:  그 외 (general)
+  단일 진입점 router workflow. 서버 Orchestrator가 관리하는 workflowStage,
+  사용자 텍스트, currentAttachmentQuestionId를 보고 subworkflow를 고른다.
+  deterministic 단계 문구와 선택지는 maternal-nursing.yaml의 chat_flow가 담당한다.
 
 admin_metadata:
   trigger: stage router

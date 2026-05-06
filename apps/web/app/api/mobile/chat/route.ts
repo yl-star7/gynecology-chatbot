@@ -29,6 +29,7 @@ import {
   maybeShortCircuitStaticTurn,
   type QuestionProgress,
 } from "@gynecology-chatbot/mobile-api/chat/stage-shortcut";
+import { parseChatFlowConfig } from "@gynecology-chatbot/mobile-api/chat/chat-flow-config";
 import { fetchAttachmentQuestionProgress } from "@gynecology-chatbot/mobile-api/chat/attachment-question-progress";
 import {
   classifyMoodToneWithLlm,
@@ -371,34 +372,14 @@ export async function POST(request: NextRequest) {
     // Short-circuit 래퍼 — stage=0/1 static 턴은 LLM 없이 즉시 반환.
     // stage=2 및 LLM 필요 턴은 baseMobileResponder 로 위임.
     const workflowDef = loadMaternalNursingWorkflow();
-    const moodPool = (() => {
-      try {
-        const parsed = JSON.parse(
-          workflowDef.prompts.static_mood_intake ?? "{}",
-        );
-        return Array.isArray(parsed.moodPrompts)
-          ? (parsed.moodPrompts as Array<{
-              label: string;
-              message: string;
-              tone: CharacterTone;
-            }>)
-          : [];
-      } catch {
-        return [];
-      }
-    })();
-    const weekInfoOptInVariations = (() => {
-      try {
-        const parsed = JSON.parse(
-          workflowDef.prompts.static_week_info_opt_in ?? "{}",
-        );
-        return Array.isArray(parsed.answerVariations)
-          ? (parsed.answerVariations as string[])
-          : [];
-      } catch {
-        return [];
-      }
-    })();
+    const chatFlowConfig = parseChatFlowConfig({
+      chatFlow: workflowDef.chatFlow,
+      prompts: workflowDef.prompts,
+    });
+    const moodIntakeConfig = chatFlowConfig.moodIntake;
+    const moodPool = moodIntakeConfig.moodPrompts;
+    const weekInfoOptInVariations =
+      chatFlowConfig.weekInfoOptIn.answerVariations;
 
     const respondWithMobileChat: typeof baseMobileResponder = async (input) => {
       // 0) SQL 기반 진행 상태 조회
@@ -449,21 +430,20 @@ export async function POST(request: NextRequest) {
       const inferredFreeTextMood = shouldInferFreeTextMood
         ? await classifyMoodToneWithLlm({ text: input.text })
         : "unknown";
-      const selectedMoodEntry =
-        selectedMoodTone
-          ? {
-              label: matchedMoodEntry?.label ?? input.text,
-              message: input.text,
-              tone: selectedMoodTone,
-            }
-          : (matchedMoodEntry ??
-            (inferredFreeTextMood !== "unknown"
-              ? {
-                  label: "직접 입력",
-                  message: input.text,
-                  tone: inferredFreeTextMood,
-                }
-              : null));
+      const selectedMoodEntry = selectedMoodTone
+        ? {
+            label: matchedMoodEntry?.label ?? input.text,
+            message: input.text,
+            tone: selectedMoodTone,
+          }
+        : (matchedMoodEntry ??
+          (inferredFreeTextMood !== "unknown"
+            ? {
+                label: "직접 입력",
+                message: input.text,
+                tone: inferredFreeTextMood,
+              }
+            : null));
       const effectiveMoodPool =
         selectedMoodEntry &&
         !moodPool.some((m) => m.message === selectedMoodEntry.message)
@@ -484,12 +464,17 @@ export async function POST(request: NextRequest) {
         selectedQuestionId: isUuid(input.selectedQuestionId ?? null)
           ? (input.selectedQuestionId ?? null)
           : null,
-        clientWorkflowStage: selectedMoodEntry && rawStage === null ? 0 : null,
+        transientWorkflowStage:
+          selectedMoodEntry && rawStage === null ? 0 : null,
         currentWeek: input.currentWeek,
         promptContext: input.promptContext,
         moodPool: effectiveMoodPool,
+        moodPromptText: moodIntakeConfig.promptText,
+        directMoodAcknowledgementText:
+          moodIntakeConfig.directInputAcknowledgementText,
         moodAcknowledgementPool,
         weekInfoOptInVariations,
+        flowConfig: chatFlowConfig,
         todayQuestionCandidates,
         progress,
         rngSeed: moodVariantSeed,
