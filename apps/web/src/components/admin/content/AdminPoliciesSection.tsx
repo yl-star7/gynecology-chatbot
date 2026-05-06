@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Play, Route, Trash2 } from "lucide-react";
+import { Play, Route, Save, Trash2 } from "lucide-react";
 
 import type { AdminDashboardData } from "@gynecology-chatbot/app-core";
 
@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -94,6 +95,62 @@ type View =
   | { mode: "list" }
   | { mode: "editor"; workflowId: string | null; apiBase?: string };
 
+type ReflectionLoopForm = {
+  minUserTurnsBeforeNext: string;
+  maxUserTurnsPerQuestion: string;
+  quickReplyMode: "hidden" | "assistive";
+  wrapUpMessage: string;
+  nextQuestionLabelTemplate: string;
+  nextQuestionMessage: string;
+  exhaustedFreeChatMessage: string;
+};
+
+const REFLECTION_LOOP_ENDPOINT =
+  "/api/admin/workflow-rules/chat-flow/reflection-loop";
+
+const EMPTY_REFLECTION_LOOP_FORM: ReflectionLoopForm = {
+  minUserTurnsBeforeNext: "",
+  maxUserTurnsPerQuestion: "",
+  quickReplyMode: "hidden",
+  wrapUpMessage: "",
+  nextQuestionLabelTemplate: "",
+  nextQuestionMessage: "",
+  exhaustedFreeChatMessage: "",
+};
+
+function reflectionLoopFormFromPayload(value: unknown): ReflectionLoopForm {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  return {
+    minUserTurnsBeforeNext:
+      typeof record.minUserTurnsBeforeNext === "number"
+        ? String(record.minUserTurnsBeforeNext)
+        : "",
+    maxUserTurnsPerQuestion:
+      typeof record.maxUserTurnsPerQuestion === "number"
+        ? String(record.maxUserTurnsPerQuestion)
+        : "",
+    quickReplyMode:
+      record.quickReplyMode === "assistive" ? "assistive" : "hidden",
+    wrapUpMessage:
+      typeof record.wrapUpMessage === "string" ? record.wrapUpMessage : "",
+    nextQuestionLabelTemplate:
+      typeof record.nextQuestionLabelTemplate === "string"
+        ? record.nextQuestionLabelTemplate
+        : "",
+    nextQuestionMessage:
+      typeof record.nextQuestionMessage === "string"
+        ? record.nextQuestionMessage
+        : "",
+    exhaustedFreeChatMessage:
+      typeof record.exhaustedFreeChatMessage === "string"
+        ? record.exhaustedFreeChatMessage
+        : "",
+  };
+}
+
 export function AdminPoliciesSection({
   workflowRules,
   selectedWorkflowRuleId,
@@ -132,6 +189,15 @@ export function AdminPoliciesSection({
     string | null
   >(null);
   const [testQuery, setTestQuery] = useState("산모 복통이 심해요");
+  const [reflectionLoopForm, setReflectionLoopForm] =
+    useState<ReflectionLoopForm>(EMPTY_REFLECTION_LOOP_FORM);
+  const [reflectionLoopStoragePath, setReflectionLoopStoragePath] =
+    useState<string | null>(null);
+  const [reflectionLoopMessage, setReflectionLoopMessage] = useState<
+    string | null
+  >(null);
+  const [isReflectionLoopLoading, setIsReflectionLoopLoading] = useState(true);
+  const [isReflectionLoopSaving, setIsReflectionLoopSaving] = useState(false);
   const selectedWorkflowRule = workflowRules.find(
     (rule) => rule.id === selectedWorkflowRuleId,
   );
@@ -186,6 +252,110 @@ export function AdminPoliciesSection({
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadReflectionLoopPolicy() {
+      setIsReflectionLoopLoading(true);
+      try {
+        const response = await fetch(REFLECTION_LOOP_ENDPOINT);
+        if (!response.ok) {
+          throw new Error("오늘 질문 대화 루프 설정을 불러오지 못했습니다.");
+        }
+        const payload = (await response.json()) as {
+          reflectionLoop?: unknown;
+          storagePath?: string | null;
+        };
+        if (!cancelled) {
+          setReflectionLoopForm(
+            reflectionLoopFormFromPayload(payload.reflectionLoop),
+          );
+          setReflectionLoopStoragePath(payload.storagePath ?? null);
+          setReflectionLoopMessage(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setReflectionLoopMessage(
+            error instanceof Error
+              ? error.message
+              : "오늘 질문 대화 루프 설정을 불러오지 못했습니다.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsReflectionLoopLoading(false);
+        }
+      }
+    }
+
+    void loadReflectionLoopPolicy();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function saveReflectionLoopPolicy() {
+    const minUserTurnsBeforeNext = Number(
+      reflectionLoopForm.minUserTurnsBeforeNext,
+    );
+    const maxUserTurnsPerQuestion = Number(
+      reflectionLoopForm.maxUserTurnsPerQuestion,
+    );
+    if (
+      !Number.isInteger(minUserTurnsBeforeNext) ||
+      !Number.isInteger(maxUserTurnsPerQuestion) ||
+      minUserTurnsBeforeNext < 1 ||
+      maxUserTurnsPerQuestion < minUserTurnsBeforeNext
+    ) {
+      setReflectionLoopMessage(
+        "버튼 노출 기준은 1 이상, 최대 대화 횟수는 버튼 노출 기준 이상이어야 합니다.",
+      );
+      return;
+    }
+
+    setIsReflectionLoopSaving(true);
+    try {
+      const response = await fetch(REFLECTION_LOOP_ENDPOINT, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reflectionLoop: {
+            minUserTurnsBeforeNext,
+            maxUserTurnsPerQuestion,
+            quickReplyMode: reflectionLoopForm.quickReplyMode,
+            wrapUpMessage: reflectionLoopForm.wrapUpMessage,
+            nextQuestionLabelTemplate:
+              reflectionLoopForm.nextQuestionLabelTemplate,
+            nextQuestionMessage: reflectionLoopForm.nextQuestionMessage,
+            exhaustedFreeChatMessage:
+              reflectionLoopForm.exhaustedFreeChatMessage,
+          },
+        }),
+      });
+      if (!response.ok) {
+        throw new Error("오늘 질문 대화 루프 설정을 저장하지 못했습니다.");
+      }
+      const payload = (await response.json()) as {
+        reflectionLoop?: unknown;
+        storagePath?: string | null;
+      };
+      setReflectionLoopForm(
+        reflectionLoopFormFromPayload(payload.reflectionLoop),
+      );
+      setReflectionLoopStoragePath(payload.storagePath ?? null);
+      setReflectionLoopMessage("대화 루프 설정을 저장했습니다.");
+    } catch (error) {
+      setReflectionLoopMessage(
+        error instanceof Error
+          ? error.message
+          : "오늘 질문 대화 루프 설정을 저장하지 못했습니다.",
+      );
+    } finally {
+      setIsReflectionLoopSaving(false);
+    }
+  }
 
   const filteredWorkflowRules = workflowRules.filter((rule) => {
     const query = workflowQuery.trim().toLowerCase();
@@ -326,6 +496,167 @@ export function AdminPoliciesSection({
             <AlertDescription>{workflowEditorMessage}</AlertDescription>
           </Alert>
         ) : null}
+
+        <div className="mt-4 rounded-md border bg-muted/30 p-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold">오늘 질문 대화 루프</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                질문 하나 안에서 몇 번 머문 뒤 다음 질문 버튼을 보여줄지
+                정합니다.
+              </p>
+            </div>
+            {reflectionLoopStoragePath ? (
+              <code className="max-w-[360px] truncate rounded bg-background px-2 py-1 text-xs text-muted-foreground">
+                {reflectionLoopStoragePath}
+              </code>
+            ) : null}
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <div className="space-y-1">
+              <Label htmlFor="reflection-min-turns">
+                다음 질문 버튼 노출
+              </Label>
+              <Input
+                id="reflection-min-turns"
+                type="number"
+                min={1}
+                value={reflectionLoopForm.minUserTurnsBeforeNext}
+                disabled={isReflectionLoopLoading}
+                onChange={(event) =>
+                  setReflectionLoopForm((current) => ({
+                    ...current,
+                    minUserTurnsBeforeNext: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="reflection-max-turns">질문당 최대 대화</Label>
+              <Input
+                id="reflection-max-turns"
+                type="number"
+                min={1}
+                value={reflectionLoopForm.maxUserTurnsPerQuestion}
+                disabled={isReflectionLoopLoading}
+                onChange={(event) =>
+                  setReflectionLoopForm((current) => ({
+                    ...current,
+                    maxUserTurnsPerQuestion: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="reflection-reply-mode">초반 선택지</Label>
+              <Select
+                value={reflectionLoopForm.quickReplyMode}
+                disabled={isReflectionLoopLoading}
+                onValueChange={(value) =>
+                  setReflectionLoopForm((current) => ({
+                    ...current,
+                    quickReplyMode:
+                      value === "assistive" ? "assistive" : "hidden",
+                  }))
+                }
+              >
+                <SelectTrigger id="reflection-reply-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hidden">숨김</SelectItem>
+                  <SelectItem value="assistive">보조 버튼 표시</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-3 lg:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="reflection-wrap-up">질문 마무리 문구</Label>
+              <Textarea
+                id="reflection-wrap-up"
+                value={reflectionLoopForm.wrapUpMessage}
+                disabled={isReflectionLoopLoading}
+                onChange={(event) =>
+                  setReflectionLoopForm((current) => ({
+                    ...current,
+                    wrapUpMessage: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="reflection-exhausted">모든 질문 완료 문구</Label>
+              <Textarea
+                id="reflection-exhausted"
+                value={reflectionLoopForm.exhaustedFreeChatMessage}
+                disabled={isReflectionLoopLoading}
+                onChange={(event) =>
+                  setReflectionLoopForm((current) => ({
+                    ...current,
+                    exhaustedFreeChatMessage: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="reflection-next-label">
+                다음 질문 버튼 문구
+              </Label>
+              <Input
+                id="reflection-next-label"
+                value={reflectionLoopForm.nextQuestionLabelTemplate}
+                disabled={isReflectionLoopLoading}
+                onChange={(event) =>
+                  setReflectionLoopForm((current) => ({
+                    ...current,
+                    nextQuestionLabelTemplate: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="reflection-next-message">
+                버튼 전송 메시지
+              </Label>
+              <Input
+                id="reflection-next-message"
+                value={reflectionLoopForm.nextQuestionMessage}
+                disabled={isReflectionLoopLoading}
+                onChange={(event) =>
+                  setReflectionLoopForm((current) => ({
+                    ...current,
+                    nextQuestionMessage: event.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              버튼 문구에는 {"{{remainingCount}}"}를 넣으면 남은 질문 수가
+              표시됩니다.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              disabled={isReflectionLoopLoading || isReflectionLoopSaving}
+              onClick={() => void saveReflectionLoopPolicy()}
+            >
+              <Save className="mr-1 h-4 w-4" />
+              {isReflectionLoopSaving ? "저장 중…" : "루프 설정 저장"}
+            </Button>
+          </div>
+
+          {reflectionLoopMessage ? (
+            <Alert className="mt-3" role="status">
+              <AlertDescription>{reflectionLoopMessage}</AlertDescription>
+            </Alert>
+          ) : null}
+        </div>
 
         <div className="mt-4 flex flex-wrap items-end gap-3 rounded-md border border-dashed bg-muted p-3">
           <div className="flex-1 min-w-[240px] space-y-1">
