@@ -73,6 +73,9 @@ errors: 0
 | `0d0083dd` | 채팅 stage 제어를 YAML 중심으로 이동 |
 | `09dd6565` | 숨은 로컬 fallback 응답 제거 |
 | `db3196aa` | 차단된 기존 플랫폼 흔적 제거 및 Cloud SQL 기준 정렬 |
+| `abe85857` | YAML alignment 검증 명령과 납품 완료 문서 추가 |
+| `b6a2307a` | 납품 대상 관리자/앱/API/DB 변경 묶음 정리 |
+| `cda84bf5` | 채팅 런타임이 원격 YAML을 우선 확인하도록 정렬 |
 
 히스토리 재작성은 하지 않았다. 납품 전 상태를 보존하면서 검증 가능한 단위의 커밋으로만 정리했다.
 
@@ -119,7 +122,7 @@ pnpm exec tsc --noEmit --skipLibCheck --module NodeNext --moduleResolution NodeN
 
 ## 6. 잔여 리스크
 
-- 현재 작업트리에는 납품 범위 밖의 기존 미커밋 변경과 임시 스크린샷/테스트 산출물이 남아 있다. 이번 납품 커밋에는 검증 가능한 runtime/YAML 정리만 포함했다.
+- 현재 작업트리에는 납품 범위 밖의 agent worktree metadata와 임시 스크린샷/테스트 산출물만 남아 있다. 추적 소스 변경은 납품 커밋에 포함했다.
 - 실 운영 bucket에 YAML을 업로드하거나 remote workflow를 provision하는 작업은 별도 운영 행위로 분리해야 한다.
 - 앱 스토어 제출 빌드는 이번 문서 작성 시점에 새로 실행하지 않았다.
 
