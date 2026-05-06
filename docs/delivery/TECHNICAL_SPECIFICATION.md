@@ -26,15 +26,15 @@
                          +-------v-------+
                          |   API 서버     |
                          |  (Next.js)    |
-                         |  legacyBackend 배포   |
+                         | Cloud Run 배포 |
                          +---+---+---+---+
                              |   |   |
               +--------------+   |   +--------------+
               |                  |                   |
       +-------v------+  +-------v-------+   +-------v-------+
-      |   legacyBackend   |  |  AI 워크플로우  |   |    Twilio     |
-      |  PostgreSQL  |  |  (Schift SDK) |   |   SMS/OTP     |
-      |  + Storage   |  +-------+-------+   +---------------+
+      | Cloud SQL   |  |  AI 워크플로우  |   |    Twilio     |
+      | PostgreSQL  |  |  (Schift SDK) |   |   SMS/OTP     |
+      |   + GCS     |  +-------+-------+   +---------------+
       +--------------+          |
                          +------v-------+
                          | Google Gemini |
@@ -55,12 +55,12 @@
 |-----------|------|------|
 | 모바일 앱 | Expo 52 + React Native 0.76 | 사용자 앱 (iOS/Android) |
 | 웹 서버/API | Next.js 15 (App Router) | API 서버 + 관리자 콘솔 + 모바일 웹뷰 |
-| 데이터베이스 | PostgreSQL 15 (legacyBackend) | 사용자, 세션, 채팅, 콘텐츠 저장 |
+| 데이터베이스 | PostgreSQL 15 (Cloud SQL) | 사용자, 세션, 채팅, 콘텐츠 저장 |
 | AI 엔진 | Google Gemini + Schift SDK | 상담 응답 생성, 워크플로우 제어 |
 | 인증/SMS | Twilio Verify + Messages | 전화번호 OTP 인증, SMS 알림 |
 | 푸시 알림 | Expo Server SDK | 모바일 푸시 알림 발송 |
-| 파일 저장소 | legacyBackend Storage | 이미지, 문서 파일 저장 |
-| 배포 (웹) | legacyBackend | 서버리스 배포 + Cron 스케줄링 |
+| 파일 저장소 | GCS | 이미지, 문서 파일 저장 |
+| 배포 (웹) | Cloud Run | 컨테이너 배포 |
 | 배포 (앱) | EAS Build | iOS/Android 앱 빌드 및 배포 |
 
 ---
@@ -290,14 +290,14 @@
 
 | 대상 | 플랫폼 | 도구 |
 |------|--------|------|
-| 웹 (관리자 + API) | legacyBackend | Next.js 서버리스 |
+| 웹 (관리자 + API) | Cloud Run | Next.js container |
 | 모바일 앱 | App Store / Google Play | EAS Build |
-| 데이터베이스 | legacyBackend Cloud | PostgreSQL 15 |
+| 데이터베이스 | Cloud SQL | PostgreSQL 15 |
 
-### 4.2 legacyBackend 배포 설정
+### 4.2 Cloud Run 배포 설정
 
-- **리전**: `hnd1` (도쿄)
-- **Cron**: `0 0 * * *` (매일 UTC 0시 = KST 9시, `/api/cron/proactive-chat`)
+- **리전**: `asia-northeast3`
+- **Cron**: Cloud Scheduler에서 internal route 호출
 - **CORS**: 모든 `/api/*` 경로에 GET/POST/PUT/DELETE/OPTIONS 허용
 
 ### 4.3 환경변수
@@ -305,17 +305,10 @@
 #### 앱 설정
 | 변수 | 설명 | 예시 |
 |------|------|------|
-| `NEXT_PUBLIC_APP_URL` | 웹 프론트엔드 URL | `https://your-domain.legacyBackend.app` |
-| `EXPO_PUBLIC_API_BASE_URL` | 모바일 API 엔드포인트 | `https://your-domain.legacyBackend.app` |
-| `SERVER_DATA_PROVIDER` | 데이터 소스 (`docker` 또는 `legacyBackend`) | `legacyBackend` |
+| `NEXT_PUBLIC_APP_URL` | 웹 프론트엔드 URL | `https://agaya-web-yvdnhntt7a-du.a.run.app` |
+| `EXPO_PUBLIC_API_BASE_URL` | 모바일 API 엔드포인트 | `https://agaya-api-yvdnhntt7a-du.a.run.app` |
+| `SERVER_DATA_PROVIDER` | 데이터 소스 (`docker`) | `docker` |
 | `ADMIN_DATA_PROVIDER` | 관리자 데이터 포트 (`backend` 또는 `mock`) | `backend` |
-
-#### legacyBackend
-| 변수 | 설명 |
-|------|------|
-| `NEXT_PUBLIC_legacyBackend_URL` | legacyBackend 프로젝트 URL |
-| `NEXT_PUBLIC_legacyBackend_ANON_KEY` | legacyBackend 공개 키 |
-| `legacyBackend_SERVICE_ROLE_KEY` | legacyBackend 서비스 역할 키 (서버 전용) |
 
 #### AI/LLM
 | 변수 | 설명 |
@@ -337,7 +330,7 @@
 |------|------|
 | `ADMIN_SESSION_SECRET` | 관리자 세션 서명 키 |
 | `ADMIN_LOGIN_PASSWORD` | 관리자 콘솔 로그인 비밀번호 |
-| `CRON_SECRET` | legacyBackend Cron 인증 토큰 |
+| `CRON_SECRET` | Cloud Scheduler/Cron 인증 토큰 |
 | `PHONE_DATA_SECRET` | 전화번호 AES 암호화 키 |
 
 ---
@@ -363,9 +356,6 @@ pnpm install
 
 # 로컬 개발 (Docker DB)
 pnpm dev:d
-
-# 로컬 개발 (legacyBackend DB)
-pnpm dev:s
 
 # 전체 빌드
 pnpm build

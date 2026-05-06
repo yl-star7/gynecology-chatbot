@@ -33,27 +33,6 @@ type ExternalSurveyConfig = {
   visible: boolean;
 };
 
-const DEFAULT_EXTERNAL_SURVEYS: ExternalSurveyConfig[] = [
-  {
-    id: "survey-1",
-    label: "1차 설문지",
-    url: "https://forms.gle/ZoLxWPdwid1F94FE8",
-    visible: true,
-  },
-  {
-    id: "survey-2",
-    label: "2차 설문지",
-    url: "https://forms.gle/LvFmEZHkGM3MMLQ8A",
-    visible: true,
-  },
-  {
-    id: "survey-3",
-    label: "3차 설문지",
-    url: "https://forms.gle/fNUX6qDjXR5wXoGt7",
-    visible: true,
-  },
-];
-
 type CharacterImagesConfig = {
   version: string;
   images: Record<CharacterImageTone, string>;
@@ -91,10 +70,9 @@ function asBrandingConfig(value: Prisma.JsonValue): BrandingConfig | null {
 }
 
 function visibleExternalSurveys(branding: BrandingConfig | null) {
-  const surveys = Array.isArray(branding?.externalSurveys)
-    ? branding.externalSurveys
-    : DEFAULT_EXTERNAL_SURVEYS;
-  return surveys.filter((survey) => survey.visible && survey.url);
+  return Array.isArray(branding?.externalSurveys)
+    ? branding.externalSurveys.filter((survey) => survey.visible && survey.url)
+    : [];
 }
 
 function isValidHttpsUrl(input: unknown) {
@@ -156,8 +134,7 @@ app.get("/", async (c) => {
     const branding = brandingRow ? asBrandingConfig(brandingRow.value) : null;
     const characterImages = asCharacterImagesConfig(characterImagesRow?.value);
     const externalSurveys = visibleExternalSurveys(branding);
-    const surveyFormUrl =
-      externalSurveys[0]?.url ?? branding?.surveyFormUrl ?? null;
+    const surveyFormUrl = externalSurveys[0]?.url ?? null;
 
     if (!branding?.mascotBucketId || !branding?.mascotObjectPath) {
       return c.json({

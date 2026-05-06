@@ -13,6 +13,7 @@ import type {
   AdminWeekSummary,
 } from "@gynecology-chatbot/app-core";
 import { useEffect, useMemo, useState } from "react";
+import { getAdminVisibleWeeks } from "./content/admin-week-visibility";
 import { getWeekPublishReview } from "./content/week-publish-review";
 
 type OrderedItem = { displayOrder: number };
@@ -324,7 +325,7 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
           throw new Error(payload.error ?? "주차 목록을 불러오지 못했습니다.");
         }
 
-        const weeks = payload.weeks ?? [];
+        const weeks = getAdminVisibleWeeks(payload.weeks ?? []);
         if (cancelled) {
           return;
         }
@@ -446,18 +447,6 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     updateWeekDetail((current) => ({
       ...current,
       [field]: value,
-    }));
-  }
-
-  function handleWeekStatusChange(value: AdminWeekDetail["status"]) {
-    if (value === "published") {
-      setContentMessage("게시는 검수 후 게시 버튼으로만 진행해 주세요.");
-      return;
-    }
-
-    updateWeekDetail((current) => ({
-      ...current,
-      status: value,
     }));
   }
 
@@ -896,21 +885,31 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     setIsAccountSubmitting(false);
   }
 
-  async function updateUserStatus(status: "active" | "paused") {
+  async function updateUserStatus(
+    userId: string,
+    status: "active" | "paused",
+    action: "approve" | "reject" | "pause" | "resume",
+  ) {
     setIsAccountSubmitting(true);
     setActionMessage(null);
+
+    const actionReason =
+      reason ||
+      (action === "approve"
+        ? "운영자 가입 승인"
+        : action === "reject"
+          ? "운영자 가입 거절"
+          : action === "pause"
+            ? "운영자 수동 사용 중단"
+            : "운영자 수동 사용 재개");
 
     const response = await fetch("/api/admin/users/status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        userId: selectedUserId,
+        userId,
         status,
-        reason:
-          reason ||
-          (status === "paused"
-            ? "운영자 수동 사용 중단"
-            : "운영자 수동 사용 재개"),
+        reason: actionReason,
       }),
     });
 
@@ -918,9 +917,13 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     if (!response.ok) {
       setActionMessage(
         payload.error ??
-          (status === "paused"
-            ? "사용 중단 처리에 실패했습니다."
-            : "사용 재개 처리에 실패했습니다."),
+          (action === "approve"
+            ? "사용 승인 처리에 실패했습니다."
+            : action === "reject"
+              ? "가입 거절 처리에 실패했습니다."
+              : status === "paused"
+                ? "사용 중단 처리에 실패했습니다."
+                : "사용 재개 처리에 실패했습니다."),
       );
       setIsAccountSubmitting(false);
       return;
@@ -928,23 +931,32 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
 
     setManagedUsers((current) =>
       current.map((user) =>
-        user.id === selectedUserId
+        user.id === userId
           ? {
               ...user,
               status: status === "paused" ? "paused" : "active",
+              accountStatus: status,
               latestIssue:
-                status === "paused"
-                  ? "사용 중단 처리 완료"
-                  : "사용 재개 처리 완료",
+                action === "approve"
+                  ? "사용 승인 완료"
+                  : action === "reject"
+                    ? "가입 거절 완료"
+                    : status === "paused"
+                      ? "사용 중단 처리 완료"
+                      : "사용 재개 처리 완료",
             }
           : user,
       ),
     );
     setReason("");
     setActionMessage(
-      status === "paused"
-        ? "사용자 이용을 잠시 중단했습니다."
-        : "사용자 이용을 다시 열었습니다.",
+      action === "approve"
+        ? "사용자 이용을 승인했습니다."
+        : action === "reject"
+          ? "사용자 가입을 거절했습니다."
+          : status === "paused"
+            ? "사용자 이용을 잠시 중단했습니다."
+            : "사용자 이용을 다시 열었습니다.",
     );
     setIsAccountSubmitting(false);
   }
@@ -1435,8 +1447,13 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     setKnowledgeStatus,
     handleUpdatePhoneNumber,
     handleResetSession,
-    handlePauseUser: () => updateUserStatus("paused"),
-    handleResumeUser: () => updateUserStatus("active"),
+    handlePauseUser: () => updateUserStatus(selectedUserId, "paused", "pause"),
+    handleResumeUser: () =>
+      updateUserStatus(selectedUserId, "active", "resume"),
+    handleApproveUser: (userId: string) =>
+      updateUserStatus(userId, "active", "approve"),
+    handleRejectUser: (userId: string) =>
+      updateUserStatus(userId, "paused", "reject"),
     handleCreateAllowedPhoneNumber,
     handleUpdateAllowedPhoneNumber,
     handleDeleteAllowedPhoneNumber,
@@ -1457,7 +1474,6 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
     handleSaveWorkflowRule,
     handleSelectWeek,
     handleWeekFieldChange,
-    handleWeekStatusChange,
     handleWeekSectionChange,
     handleWeekAssetChange,
     handleWeekDayChange,

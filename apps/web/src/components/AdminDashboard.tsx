@@ -2,29 +2,60 @@
 
 import type { AdminDashboardData } from "@gynecology-chatbot/app-core";
 
-import { AdminAccountSection } from "./admin/AdminAccountSection";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
 import { AdminConsoleShell } from "./admin/AdminConsoleShell";
-import { AdminContentSection } from "./admin/AdminContentSection";
 import { AdminMetricsBar } from "./admin/AdminMetricsBar";
-import { AdminMonitoringSection } from "./admin/AdminMonitoringSection";
-import { AdminOperationsPanel } from "./admin/AdminOperationsPanel";
-import { useAdminDashboardState } from "./admin/useAdminDashboardState";
 
 interface AdminDashboardProps {
   dashboard: AdminDashboardData;
   adminDisplayName: string;
 }
 
+function DashboardLink({ href, children }: { href: string; children: string }) {
+  return (
+    <a
+      href={href}
+      className="text-sm font-medium text-primary-600 hover:text-primary-700"
+    >
+      {children}
+    </a>
+  );
+}
+
 export default function AdminDashboard({
   dashboard,
   adminDisplayName,
 }: AdminDashboardProps) {
-  const state = useAdminDashboardState(dashboard) as ReturnType<
-    typeof useAdminDashboardState
-  > & {
-    handlePauseUser: () => Promise<void>;
-    handleResumeUser: () => Promise<void>;
-  };
+  const attentionUsers = dashboard.managedUsers.filter(
+    (user) => user.status !== "active",
+  );
+  const pendingApprovals = dashboard.managedUsers.filter(
+    (user) => user.accountStatus === "pending_approval",
+  );
+  const recoveryUsers = dashboard.managedUsers.filter(
+    (user) => user.accountStatus === "pending_recovery",
+  );
+  const readyDocuments = dashboard.ragDocuments.filter(
+    (document) => document.status === "ready",
+  );
+  const draftDocuments = dashboard.ragDocuments.filter(
+    (document) => document.status === "draft",
+  );
+  const activeWorkflows = dashboard.workflowRules.filter(
+    (workflow) => workflow.status === "active",
+  );
+  const reviewWorkflows = dashboard.workflowRules.filter(
+    (workflow) => workflow.status === "review",
+  );
+  const recentActions = dashboard.userActions.slice(0, 6);
 
   async function handleLogout() {
     await fetch("/api/admin/auth/logout", { method: "POST" });
@@ -34,177 +65,183 @@ export default function AdminDashboard({
   return (
     <AdminConsoleShell
       adminDisplayName={adminDisplayName}
-      currentPath="/admin/operations"
-      title="운영 상태"
+      currentPath="/admin/dashboard"
+      title="대시보드"
       onLogout={handleLogout}
     >
-      <AdminMetricsBar metrics={dashboard.metrics} />
-      <section id="operations">
-        <AdminOperationsPanel />
-      </section>
-      <section id="accounts">
-        <AdminAccountSection
-          managedUsers={state.managedUsers}
-          allowedPhoneNumbers={state.allowedPhoneNumbers}
-          userSearchQuery=""
-          selectedUserId={state.selectedUserId}
-          phoneNumber={state.phoneNumber}
-          reason={state.reason}
-          selectedAllowedPhoneId={state.selectedAllowedPhoneId}
-          allowedPhoneNumber={state.allowedPhoneNumber}
-          allowedDisplayName={state.allowedDisplayName}
-          allowedNote={state.allowedNote}
-          actionMessage={state.actionMessage}
-          isSubmitting={state.isAccountSubmitting}
-          onUserSearchQueryChange={() => {}}
-          onSelectUser={state.syncSelectedUser}
-          onPhoneNumberChange={state.setPhoneNumber}
-          onReasonChange={state.setReason}
-          onSelectAllowedPhone={state.syncSelectedAllowedPhone}
-          onAllowedPhoneNumberChange={state.setAllowedPhoneNumber}
-          onAllowedDisplayNameChange={state.setAllowedDisplayName}
-          onAllowedNoteChange={state.setAllowedNote}
-          onUpdatePhoneNumber={state.handleUpdatePhoneNumber}
-          onResetSession={state.handleResetSession}
-          onPauseUser={state.handlePauseUser}
-          onResumeUser={state.handleResumeUser}
-          onCreateAllowedPhoneNumber={state.handleCreateAllowedPhoneNumber}
-          onUpdateAllowedPhoneNumber={state.handleUpdateAllowedPhoneNumber}
-          onDeleteAllowedPhoneNumber={state.handleDeleteAllowedPhoneNumber}
-        />
-      </section>
-      <section id="content">
-        <AdminContentSection
-          homeCopyItems={[]}
-          selectedHomeCopyItemId=""
-          knowledgeItems={state.knowledgeItems}
-          selectedKnowledgeItemId={state.selectedKnowledgeItemId}
-          homeCopySlot="hero_bubble"
-          homeCopyVariant=""
-          homeCopyTitle=""
-          homeCopyBody=""
-          homeCopyStatus="published"
-          homeCopyDisplayOrder=""
-          knowledgeSlug={state.knowledgeSlug}
-          knowledgeSection={state.knowledgeSection}
-          knowledgeTitle={state.knowledgeTitle}
-          knowledgeBody={state.knowledgeBody}
-          knowledgeImageUrl={state.knowledgeImageUrl}
-          knowledgeStatus={state.knowledgeStatus}
-          selectedRagDocumentId={state.selectedRagDocumentId}
-          ragDocuments={state.ragDocuments}
-          ragFiles={[]}
-          workflowRules={state.workflowRules}
-          contentMessage={state.contentMessage}
-          ragTitle={state.ragTitle}
-          ragCategory={state.ragCategory}
-          ragWeek={state.ragWeek}
-          ragContent={state.ragContent}
-          selectedWorkflowRuleId={state.selectedWorkflowRuleId}
-          workflowName={state.workflowName}
-          workflowTrigger={state.workflowTrigger}
-          workflowRetrievalScope={state.workflowRetrievalScope}
-          workflowModelName={state.workflowModelName}
-          workflowStatus={state.workflowStatus}
-          weekSummaries={state.weekSummaries}
-          selectedWeekNumber={state.selectedWeekNumber}
-          selectedWeekDetail={state.selectedWeekDetail}
-          isLoadingWeeks={state.isLoadingWeeks}
-          uploadingCoverField={null}
-          uploadingMediaIndex={null}
-          isRagSubmitting={state.isRagSubmitting}
-          isFileUploading={false}
-          isHomeCopySaving={false}
-          isKnowledgeSaving={state.isKnowledgeSaving}
-          isWorkflowSaving={state.isWorkflowSaving}
-          isWorkflowBootstrapping={state.isWorkflowSaving}
-          isWorkflowRunning={false}
-          isWorkflowDeleting={false}
-          isWeekSaving={state.isWeekSaving}
-          onSelectHomeCopyItem={() => {}}
-          onHomeCopySlotChange={() => {}}
-          onHomeCopyVariantChange={() => {}}
-          onHomeCopyTitleChange={() => {}}
-          onHomeCopyBodyChange={() => {}}
-          onHomeCopyStatusChange={() => {}}
-          onHomeCopyDisplayOrderChange={() => {}}
-          onCreateHomeCopyItem={async () => {}}
-          onUpdateHomeCopyItem={async () => {}}
-          onDeleteHomeCopyItem={async () => {}}
-          onResetHomeCopyItem={() => {}}
-          onSelectKnowledgeItem={state.syncSelectedKnowledgeItem}
-          onKnowledgeSlugChange={state.setKnowledgeSlug}
-          onKnowledgeSectionChange={state.setKnowledgeSection}
-          onKnowledgeTitleChange={state.setKnowledgeTitle}
-          onKnowledgeBodyChange={state.setKnowledgeBody}
-          onKnowledgeImageUrlChange={state.setKnowledgeImageUrl}
-          onKnowledgeStatusChange={state.setKnowledgeStatus}
-          onCreateKnowledgeItem={state.handleCreateKnowledgeItem}
-          onUpdateKnowledgeItem={state.handleUpdateKnowledgeItem}
-          onDeleteKnowledgeItem={state.handleDeleteKnowledgeItem}
-          onSelectRagDocument={state.syncSelectedRagDocument}
-          onResetRagDocument={state.resetRagDocumentForm}
-          onRagTitleChange={state.setRagTitle}
-          onRagCategoryChange={state.setRagCategory}
-          onRagWeekChange={state.setRagWeek}
-          onRagContentChange={state.setRagContent}
-          onUploadRagDocument={state.handleUploadRagDocument}
-          onDeleteRagDocument={state.handleDeleteRagDocument}
-          onUploadRagFile={async () => {}}
-          onDeleteRagFile={async () => {}}
-          onToggleRagFile={async () => {}}
-          onSelectWorkflowRule={state.syncSelectedWorkflowRule}
-          onWorkflowNameChange={state.setWorkflowName}
-          onWorkflowTriggerChange={state.setWorkflowTrigger}
-          onWorkflowRetrievalScopeChange={state.setWorkflowRetrievalScope}
-          onWorkflowModelNameChange={state.setWorkflowModelName}
-          onWorkflowStatusChange={state.setWorkflowStatus}
-          onSaveWorkflowRule={state.handleSaveWorkflowRule}
-          onBootstrapWorkflowRule={async () => {}}
-          onRunWorkflowRule={async () => {}}
-          onDeleteWorkflowRule={async () => {}}
-          onSelectWeek={state.handleSelectWeek}
-          onWeekFieldChange={state.handleWeekFieldChange}
-          onWeekStatusChange={state.handleWeekStatusChange}
-          onUploadWeekCoverImage={async () => {}}
-          onWeekDayChange={state.handleWeekDayChange}
-          onWeekSectionChange={state.handleWeekSectionChange}
-          onWeekAssetChange={state.handleWeekAssetChange}
-          onWeekMediaChange={state.handleWeekMediaChange}
-          onUploadWeekMedia={async () => {}}
-          onAddWeekDay={state.handleAddWeekDay}
-          onAddWeekSection={state.handleAddWeekSection}
-          onAddWeekAsset={state.handleAddWeekAsset}
-          onAddWeekMedia={state.handleAddWeekMedia}
-          onMoveWeekDay={state.handleMoveWeekDay}
-          onMoveWeekSection={state.handleMoveWeekSection}
-          onMoveWeekAsset={state.handleMoveWeekAsset}
-          onMoveWeekMedia={state.handleMoveWeekMedia}
-          onRemoveWeekDay={state.handleRemoveWeekDay}
-          onRemoveWeekSection={state.handleRemoveWeekSection}
-          onRemoveWeekAsset={state.handleRemoveWeekAsset}
-          onRemoveWeekMedia={state.handleRemoveWeekMedia}
-          onSaveWeek={state.handleSaveWeek}
-          onPublishWeek={state.handlePublishWeek}
-        />
-      </section>
-      <section id="monitoring">
-        <AdminMonitoringSection
-          userActions={dashboard.userActions}
-          historyUsers={dashboard.historyUsers}
-          focusedHistoryUser={state.focusedHistoryUser}
-          focusedUserActions={state.focusedUserActions}
-          searchQuery=""
-          selectedActionType="all"
-          actionPage={1}
-          userPage={1}
-          onSearchQueryChange={() => {}}
-          onSelectedActionTypeChange={() => {}}
-          onActionPageChange={() => {}}
-          onUserPageChange={() => {}}
-          onFocusUser={state.setFocusedUserId}
-        />
-      </section>
+      <div className="space-y-6">
+        <AdminMetricsBar metrics={dashboard.metrics} />
+
+        <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg">사용자 처리</CardTitle>
+              <CardDescription>
+                승인과 복구가 필요한 계정만 봅니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">확인 필요</p>
+                  <p className="text-2xl font-semibold">
+                    {attentionUsers.length}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">승인 대기</p>
+                  <p className="text-2xl font-semibold">
+                    {pendingApprovals.length}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">복구 대기</p>
+                  <p className="text-2xl font-semibold">
+                    {recoveryUsers.length}
+                  </p>
+                </div>
+              </div>
+              <DashboardLink href="/admin/ops/users">
+                사용자 운영 액션으로 이동
+              </DashboardLink>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg">RAG 자료</CardTitle>
+              <CardDescription>사전에 반영된 자료 상태입니다.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">전체</p>
+                  <p className="text-2xl font-semibold">
+                    {dashboard.ragDocuments.length}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">배포 가능</p>
+                  <p className="text-2xl font-semibold">
+                    {readyDocuments.length}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">작성 중</p>
+                  <p className="text-2xl font-semibold">
+                    {draftDocuments.length}
+                  </p>
+                </div>
+              </div>
+              <DashboardLink href="/admin/lexicon">
+                사전 관리로 이동
+              </DashboardLink>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg">응답 워크플로우</CardTitle>
+              <CardDescription>
+                SQL/GCS 기준의 응답 설정 상태입니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">전체</p>
+                  <p className="text-2xl font-semibold">
+                    {dashboard.workflowRules.length}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">활성</p>
+                  <p className="text-2xl font-semibold">
+                    {activeWorkflows.length}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">검토</p>
+                  <p className="text-2xl font-semibold">
+                    {reviewWorkflows.length}
+                  </p>
+                </div>
+              </div>
+              <DashboardLink href="/admin/engine/workflows">
+                워크플로우로 이동
+              </DashboardLink>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_1.2fr]">
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg">최근 계정 이슈</CardTitle>
+              <CardDescription>
+                상태 확인이 필요한 사용자입니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {attentionUsers.length === 0 ? (
+                <p className="rounded-md border border-dashed bg-muted p-6 text-center text-sm text-muted-foreground">
+                  확인이 필요한 계정이 없습니다.
+                </p>
+              ) : (
+                <div className="divide-y rounded-md border">
+                  {attentionUsers.slice(0, 5).map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between gap-3 p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {user.name}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {user.latestIssue}
+                        </p>
+                      </div>
+                      <Badge variant="outline">{user.accountStatus}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg">최근 사용자 이벤트</CardTitle>
+              <CardDescription>사용자 앱 활동 로그입니다.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {recentActions.length === 0 ? (
+                <p className="rounded-md border border-dashed bg-muted p-6 text-center text-sm text-muted-foreground">
+                  최근 이벤트가 없습니다.
+                </p>
+              ) : (
+                <div className="divide-y rounded-md border">
+                  {recentActions.map((action) => (
+                    <div key={action.id} className="grid gap-1 p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium">{action.userName}</p>
+                        <Badge variant="secondary">{action.actionLabel}</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {action.detail}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {action.occurredAtLabel}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      </div>
     </AdminConsoleShell>
   );
 }

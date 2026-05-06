@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatMobilePregnancyWeekDayLabel } from "@gynecology-chatbot/app-core";
 import {
   ActivityIndicator,
   ScrollView,
@@ -97,7 +98,11 @@ function resolveDetailMeta(data: LexiconDetail) {
   const weekLabel = data.week ? `${data.week}주차` : "주차 미지정";
   if (data.surface === "week_overview") return `${weekLabel} · 주차 개요`;
   if (data.surface === "week_day" && data.day) {
-    return `${weekLabel} · ${data.day}일차`;
+    const dayLabel =
+      typeof data.week === "number"
+        ? formatMobilePregnancyWeekDayLabel(data.week, data.day)
+        : `${Math.max(0, data.day - 1)}일`;
+    return `${weekLabel} · ${dayLabel}`;
   }
   return weekLabel;
 }

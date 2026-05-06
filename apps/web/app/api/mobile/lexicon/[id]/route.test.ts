@@ -156,12 +156,13 @@ describe("GET /api/mobile/lexicon/[id]", () => {
     expect(payload).toEqual(
       expect.objectContaining({
         id: "week-20-day-3",
-        title: "임신 20주 3일차: 태동 기록",
+        title: "임신 20주 2일: 태동 기록",
         week: 20,
         day: 3,
         surface: "week_day",
       }),
     );
+    expect(payload.content).toContain("# 임신 20주 2일");
     expect(payload.content).toContain("## 생활 체크리스트");
     expect(payload.content).toContain(
       "- 태동 느낌 기록하기: 편안한 시간에 짧게 적어봐요.",

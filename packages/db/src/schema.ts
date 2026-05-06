@@ -68,7 +68,7 @@ export const users = pgTable(
     ),
     accountStatusCheck: check(
       "users_account_status_check",
-      sql`${table.accountStatus} IN ('active', 'paused', 'deleted', 'pending_recovery')`,
+      sql`${table.accountStatus} IN ('active', 'paused', 'deleted', 'pending_recovery', 'pending_approval')`,
     ),
   }),
 );
@@ -387,7 +387,7 @@ export const pregnancyDocuments = contentSchema.table(
     content: text("content").notNull(),
     pregnancyWeek: integer("pregnancy_week"),
     category: varchar("category", { length: 100 }).notNull(),
-    embedding: vector("embedding", { dimensions: 1536 }).notNull(),
+    embedding: vector("embedding", { dimensions: 1024 }).notNull(),
     metadata: jsonb("metadata")
       .notNull()
       .default(sql`'{}'::jsonb`),

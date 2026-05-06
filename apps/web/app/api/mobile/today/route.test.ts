@@ -1,9 +1,3 @@
-jest.mock("@gynecology-chatbot/mobile-api/baby-comfort-pool", () => ({
-  pickBabyComfortMessage: jest.fn(
-    async (params: { fallback: string | null }) => params.fallback,
-  ),
-}));
-
 jest.mock("@/lib/mobile/session-auth", () => ({
   requireMobileSession: jest.fn(),
   mobileNoStoreJson: jest.fn((payload: unknown, init?: ResponseInit) =>

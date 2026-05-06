@@ -1,59 +1,17 @@
 import { Hono } from "hono";
-import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
+import { prisma } from "@gynecology-chatbot/db/prisma";
+import {
+  buildMobileWeeksPayload,
+  normalizeWeeklyEncyclopediaRows,
+  parseWeekParam,
+  type SourceWeekRow,
+} from "@gynecology-chatbot/mobile-api/weeks/weekly-encyclopedia";
 import {
   mobileRouteErrorResponse,
   requireMobileSession,
 } from "../../lib/session-auth.js";
 
 const app = new Hono();
-
-type WeekRow = {
-  week_number: number;
-  title: string;
-  baby_size_label: string | null;
-  baby_summary: string | null;
-  mother_summary: string | null;
-};
-
-type EncyclopediaRow = {
-  week_number: number;
-  content_scope: string;
-  category: string;
-  title: string | null;
-  summary: string | null;
-  body: string | null;
-  items: unknown[];
-};
-
-type DocumentLinkRow = {
-  id: string;
-  pregnancy_week: number | null;
-};
-
-type MobileWeek = {
-  weekNumber: number;
-  linkEntityId?: string | null;
-  title: string | null;
-  babySizeLabel: string | null;
-  babySummary: string | null;
-  motherSummary: string | null;
-  lifeGuide?: {
-    title: string | null;
-    summary: string | null;
-    body: string | null;
-    items: unknown[];
-  } | null;
-  caution?: {
-    title: string | null;
-    summary: string | null;
-    body: string | null;
-    items: unknown[];
-  } | null;
-  faq?: {
-    title: string | null;
-    items: unknown[];
-  } | null;
-};
 
 type TimingEntry = {
   name: string;
@@ -88,146 +46,6 @@ function timeSync<T>(entries: TimingEntry[], name: string, run: () => T) {
   }
 }
 
-function mapSourceWeeks(rows: WeekRow[]) {
-  return rows.map((row) => ({
-    weekNumber: row.week_number,
-    title: row.title,
-    babySizeLabel: row.baby_size_label,
-    babySummary: row.baby_summary,
-    motherSummary: row.mother_summary,
-  }));
-}
-
-function mapEncyclopediaWeeks(rows: EncyclopediaRow[]) {
-  const weekMap = new Map<number, MobileWeek>();
-
-  for (const row of rows) {
-    const current = weekMap.get(row.week_number) ?? {
-      weekNumber: row.week_number,
-      title: null,
-      babySizeLabel: null,
-      babySummary: null,
-      motherSummary: null,
-      lifeGuide: null,
-      caution: null,
-      faq: null,
-    };
-
-    if (row.content_scope === "week_summary" && row.category === "overview") {
-      current.title = row.title ?? current.title;
-    }
-    if (
-      row.content_scope === "section" &&
-      row.category === "baby_development"
-    ) {
-      current.babySummary = row.summary ?? row.body ?? current.babySummary;
-    }
-    if (row.content_scope === "section" && row.category === "mother_body") {
-      current.motherSummary = row.summary ?? row.body ?? current.motherSummary;
-    }
-    if (row.content_scope === "section" && row.category === "life_guide") {
-      current.lifeGuide = {
-        title: row.title,
-        summary: row.summary,
-        body: row.body,
-        items: row.items ?? [],
-      };
-    }
-    if (row.content_scope === "section" && row.category === "caution") {
-      current.caution = {
-        title: row.title,
-        summary: row.summary,
-        body: row.body,
-        items: row.items ?? [],
-      };
-    }
-    if (row.content_scope === "section" && row.category === "faq") {
-      current.faq = {
-        title: row.title,
-        items: row.items ?? [],
-      };
-    }
-
-    weekMap.set(row.week_number, current);
-  }
-
-  return [...weekMap.values()].sort(
-    (left, right) => left.weekNumber - right.weekNumber,
-  );
-}
-
-function mergeWeeks(
-  sourceWeeks: MobileWeek[],
-  encyclopediaWeeks: MobileWeek[],
-) {
-  const weekMap = new Map<number, MobileWeek>(
-    sourceWeeks.map((week) => [week.weekNumber, week]),
-  );
-
-  for (const encyclopediaWeek of encyclopediaWeeks) {
-    const sourceWeek = weekMap.get(encyclopediaWeek.weekNumber);
-    weekMap.set(encyclopediaWeek.weekNumber, {
-      weekNumber: encyclopediaWeek.weekNumber,
-      title:
-        encyclopediaWeek.title ??
-        sourceWeek?.title ??
-        `${encyclopediaWeek.weekNumber}주차`,
-      babySizeLabel:
-        encyclopediaWeek.babySizeLabel ?? sourceWeek?.babySizeLabel ?? null,
-      babySummary:
-        encyclopediaWeek.babySummary ?? sourceWeek?.babySummary ?? null,
-      motherSummary:
-        encyclopediaWeek.motherSummary ?? sourceWeek?.motherSummary ?? null,
-      lifeGuide: encyclopediaWeek.lifeGuide ?? sourceWeek?.lifeGuide ?? null,
-      caution: encyclopediaWeek.caution ?? sourceWeek?.caution ?? null,
-      faq: encyclopediaWeek.faq ?? sourceWeek?.faq ?? null,
-    });
-  }
-
-  return [...weekMap.values()]
-    .map((week) => ({
-      ...week,
-      title: week.title ?? `${week.weekNumber}주차`,
-    }))
-    .sort((left, right) => left.weekNumber - right.weekNumber);
-}
-
-function buildDocumentIdByWeek(rows: DocumentLinkRow[]) {
-  const documentIdByWeek = new Map<number, string>();
-
-  for (const row of rows) {
-    if (
-      row.pregnancy_week === null ||
-      documentIdByWeek.has(row.pregnancy_week)
-    ) {
-      continue;
-    }
-    documentIdByWeek.set(row.pregnancy_week, row.id);
-  }
-
-  return documentIdByWeek;
-}
-
-function attachLinkEntityIds(weeks: MobileWeek[], rows: DocumentLinkRow[]) {
-  const documentIdByWeek = buildDocumentIdByWeek(rows);
-
-  return weeks.map((week) => ({
-    ...week,
-    linkEntityId: documentIdByWeek.get(week.weekNumber) ?? null,
-  }));
-}
-
-function asUnknownArray(value: Prisma.JsonValue | null | undefined) {
-  return Array.isArray(value) ? value : [];
-}
-
-function parseWeekParam(raw: string | null): number | null {
-  if (!raw) return null;
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 42) return null;
-  return parsed;
-}
-
 async function loadWeeklyEncyclopediaRows(weekFilter: number | null) {
   const rows = await prisma.v_weekly_encyclopedia.findMany({
     where:
@@ -248,28 +66,7 @@ async function loadWeeklyEncyclopediaRows(weekFilter: number | null) {
     ],
   });
 
-  return rows
-    .filter(
-      (row): row is typeof row & {
-        week_number: number;
-        content_scope: string;
-        category: string;
-      } =>
-        typeof row.week_number === "number" &&
-        typeof row.content_scope === "string" &&
-        typeof row.category === "string",
-    )
-    .map(
-      (row): EncyclopediaRow => ({
-        week_number: row.week_number,
-        content_scope: row.content_scope,
-        category: row.category,
-        title: row.title,
-        summary: row.summary,
-        body: row.body,
-        items: asUnknownArray(row.items),
-      }),
-    );
+  return normalizeWeeklyEncyclopediaRows(rows);
 }
 
 app.get("/", async (c) => {
@@ -316,23 +113,19 @@ app.get("/", async (c) => {
       ),
     ]);
 
-    const payload = timeSync(timings, "build", () => ({
-      weeks: attachLinkEntityIds(
-        mergeWeeks(
-          mapSourceWeeks(
-            rows.map((row): WeekRow => ({
-              week_number: row.week_number,
-              title: row.title ?? `${row.week_number}주차`,
-              baby_size_label: row.baby_size_label,
-              baby_summary: row.baby_summary,
-              mother_summary: row.mother_summary,
-            })),
-          ),
-          mapEncyclopediaWeeks(encyclopediaRows),
-        ),
-        documentLinkRows,
-      ),
-    }));
+    const payload = timeSync(timings, "build", () =>
+      buildMobileWeeksPayload({
+        sourceWeeks: rows.map((row): SourceWeekRow => ({
+          week_number: row.week_number,
+          title: row.title,
+          baby_size_label: row.baby_size_label,
+          baby_summary: row.baby_summary,
+          mother_summary: row.mother_summary,
+        })),
+        encyclopediaRows,
+        documentLinks: documentLinkRows,
+      }),
+    );
     timings.push({
       name: "total",
       durationMs: performance.now() - requestStartedAt,

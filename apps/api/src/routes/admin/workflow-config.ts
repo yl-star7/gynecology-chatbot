@@ -1,4 +1,9 @@
 import { Hono } from "hono";
+import {
+  ADMIN_WORKFLOW_YAML_CATALOG,
+  DEFAULT_WORKFLOW_YAML_BUCKET,
+  buildWorkflowYamlStoragePath,
+} from "@gynecology-chatbot/app-core";
 import type { Prisma } from "@gynecology-chatbot/db/prisma";
 import { prisma } from "@gynecology-chatbot/db/prisma";
 import { patchSchiftWorkflow } from "@gynecology-chatbot/mobile-api/schift-workflows-api";
@@ -11,6 +16,8 @@ const app = new Hono<{ Variables: AdminProxyVariables }>();
 app.use("*", requireAdminProxy);
 
 const STAGE_MAPPING_KEY = "workflow_stage_mapping";
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type Mapping = {
   baby_info: string | null;
@@ -32,7 +39,8 @@ function defaultsFromEnv(): Mapping {
 
 function sanitizeMapping(input: unknown): Mapping {
   const defaults = defaultsFromEnv();
-  if (!input || typeof input !== "object" || Array.isArray(input)) return defaults;
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    return defaults;
   const obj = input as Record<string, unknown>;
   const pick = (key: keyof Mapping): string | null => {
     const value = obj[key];
@@ -62,7 +70,9 @@ function mapWorkflowRule(row: {
       ? (row.config as Record<string, unknown>)
       : {};
   const metadata =
-    row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+    row.metadata &&
+    typeof row.metadata === "object" &&
+    !Array.isArray(row.metadata)
       ? (row.metadata as Record<string, unknown>)
       : {};
   return {
@@ -121,6 +131,81 @@ app.put("/workflow-rules/stage-mapping", async (c) => {
   return c.json({ ok: true, mapping });
 });
 
+app.post("/workflow-rules/sync-yaml-catalog", async (c) => {
+  const bucket =
+    process.env.GCS_WORKFLOW_BUCKET ?? DEFAULT_WORKFLOW_YAML_BUCKET;
+  const synced = [];
+
+  for (const entry of ADMIN_WORKFLOW_YAML_CATALOG) {
+    const storagePath = buildWorkflowYamlStoragePath(entry.gcsObject, bucket);
+    const config = {
+      workflowKind: entry.kind,
+      yamlSource: "gcs",
+      storagePath,
+      gcsBucket: bucket,
+      gcsObject: entry.gcsObject,
+    } satisfies Prisma.InputJsonObject;
+    const metadata = {
+      trigger: entry.trigger,
+      retrievalScope: entry.retrievalScope,
+      modelName: entry.modelName,
+      workflowKind: entry.kind,
+      yamlSource: "gcs",
+      storagePath,
+      gcsBucket: bucket,
+      gcsObject: entry.gcsObject,
+      managedBy: "admin-workflow-yaml-catalog",
+    } satisfies Prisma.InputJsonObject;
+
+    const row = await prisma.workflow_definitions.upsert({
+      where: { slug: entry.slug },
+      create: {
+        name: entry.name,
+        slug: entry.slug,
+        provider: "gcs-yaml",
+        status: entry.status === "active" ? "published" : "draft",
+        is_active: entry.status === "active",
+        config,
+        metadata,
+      },
+      update: {
+        name: entry.name,
+        provider: "gcs-yaml",
+        status: entry.status === "active" ? "published" : "draft",
+        is_active: entry.status === "active",
+        config,
+        metadata,
+        updated_at: new Date(),
+      },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        provider: true,
+        is_active: true,
+        metadata: true,
+      },
+    });
+    synced.push(row);
+  }
+
+  const adminUserId = c.get("adminUserId");
+  if (UUID_PATTERN.test(adminUserId)) {
+    await createAdminAuditLog({
+      adminUserId,
+      targetUserId: null,
+      actionType: "workflow_yaml_catalog_sync",
+      entityType: "workflow_definitions",
+      entityId: null,
+      reason: "sync workflow YAML GCS locations into SQL catalog",
+      beforePayload: {},
+      afterPayload: { count: synced.length, bucket },
+    });
+  }
+
+  return c.json({ ok: true, bucket, workflowRules: synced });
+});
+
 app.patch("/workflow-rules/:ruleId", async (c) => {
   try {
     const ruleId = c.req.param("ruleId");
@@ -134,8 +219,20 @@ app.patch("/workflow-rules/:ruleId", async (c) => {
         : "";
     const modelName =
       typeof input.modelName === "string" ? input.modelName.trim() : "";
-    const status = input.status === "active" ? "active" : input.status === "review" ? "review" : null;
-    if (!ruleId || !name || !trigger || !retrievalScope || !modelName || !status) {
+    const status =
+      input.status === "active"
+        ? "active"
+        : input.status === "review"
+          ? "review"
+          : null;
+    if (
+      !ruleId ||
+      !name ||
+      !trigger ||
+      !retrievalScope ||
+      !modelName ||
+      !status
+    ) {
       return c.json({ error: "invalid workflow payload" }, 400);
     }
 
@@ -210,15 +307,30 @@ app.patch("/workflow-rules/:ruleId", async (c) => {
       entityId: ruleId,
       reason: "workflow_rule_update",
       beforePayload: current
-        ? { name: current.name, provider: current.provider, status: current.is_active ? "active" : "review" }
+        ? {
+            name: current.name,
+            provider: current.provider,
+            status: current.is_active ? "active" : "review",
+          }
         : {},
-      afterPayload: { name, trigger, retrieval_scope: retrievalScope, model_name: modelName, status },
+      afterPayload: {
+        name,
+        trigger,
+        retrieval_scope: retrievalScope,
+        model_name: modelName,
+        status,
+      },
     });
     return c.json({ workflowRule: mapWorkflowRule(updated) });
   } catch (error) {
     console.error("admin api workflow rule PATCH error", error);
     return c.json(
-      { error: error instanceof Error ? error.message : "failed to update workflow rule" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "failed to update workflow rule",
+      },
       400,
     );
   }

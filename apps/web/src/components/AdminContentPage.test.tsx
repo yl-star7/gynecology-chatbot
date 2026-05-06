@@ -581,10 +581,11 @@ describe("AdminContentPage", () => {
     await screen.findByText("6주차 개요");
     fireEvent.click(screen.getByRole("button", { name: "상세 편집 열기" }));
     await screen.findByRole("heading", { name: "6주차 편집" });
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "Day 본문" }), {
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "일별 본문" }), {
       button: 0,
       ctrlKey: false,
     });
+    expect(screen.getByRole("heading", { name: "6주 0일" })).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "Day 추가" }),
     ).not.toBeInTheDocument();

@@ -22,24 +22,30 @@ import { embedPregnancyDocument } from "@/lib/mobile/rag";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import { hasDockerConfig } from "@/lib/server-data-provider";
 import {
+  createAdminAuditLogSafe,
+  isUuid,
+  resolveAdminActorId,
+} from "@/lib/admin/admin-actor";
+import { saveSnapshotAndUpdate } from "@/lib/admin/snapshot-helper";
+import {
   buildSchiftWorkflowDescription,
   mapSchiftWorkflowRule,
 } from "./schift-workflow";
 import { patchSchiftWorkflow } from "@/lib/mobile/schift-workflows-api";
 import {
   WeekContentRepository,
-  type legacyBackendWeekAssetRow,
-  type legacyBackendWeekDayRow,
-  type legacyBackendWeekMediaRow,
-  type legacyBackendWeekRow,
-  type legacyBackendWeekSectionRow,
+  type DbWeekAssetRow,
+  type DbWeekDayRow,
+  type DbWeekMediaRow,
+  type DbWeekRow,
+  type DbWeekSectionRow,
 } from "@/lib/db/repositories/week-content-repository";
 
 function hasBackendAdminConfig() {
   return hasDockerConfig();
 }
 
-type legacyBackendKnowledgeItemRow = {
+type DbKnowledgeItemRow = {
   id: string;
   slug: string;
   section: "knowledge" | "notebook";
@@ -50,15 +56,8 @@ type legacyBackendKnowledgeItemRow = {
   updated_at: string | Date;
 };
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function hasDirectContentDatabase() {
   return Boolean(process.env.DATABASE_URL);
-}
-
-function isUuid(value: string) {
-  return UUID_PATTERN.test(value);
 }
 
 function toVectorLiteral(values: number[]) {
@@ -84,10 +83,6 @@ function shouldWriteAdminAuditLog(actorId?: string) {
   return Boolean(actorId || process.env.ADMIN_ACTOR_USER_ID);
 }
 
-function toInputJsonValue(value: Record<string, unknown>) {
-  return value as Prisma.InputJsonValue;
-}
-
 async function insertAdminAuditLog(input: {
   actorId?: string;
   actionType: string;
@@ -97,33 +92,44 @@ async function insertAdminAuditLog(input: {
   beforePayload: Record<string, unknown>;
   afterPayload: Record<string, unknown>;
 }) {
-  await prisma.admin_audit_logs.create({
-    data: {
-      admin_user_id: getAdminActorId(input.actorId),
-      target_user_id: null,
-      action_type: input.actionType,
-      entity_type: input.entityType,
-      entity_id: input.entityId,
-      reason: input.reason,
-      before_payload: toInputJsonValue(input.beforePayload),
-      after_payload: toInputJsonValue(input.afterPayload),
-    },
+  await createAdminAuditLogSafe({
+    adminUserId: getAdminActorId(input.actorId),
+    targetUserId: null,
+    actionType: input.actionType,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    reason: input.reason,
+    beforePayload: input.beforePayload,
+    afterPayload: input.afterPayload,
   });
 }
 
-type legacyBackendRagDocumentRow = {
+type DbRagDocumentRow = {
   id: string;
   title: string;
   content: string;
   pregnancy_week: number | null;
   category: string;
   image_url?: string | null;
-  metadata: { chunk_count?: number; draft?: boolean } | null;
+  metadata: RagDocumentMetadata | null;
   created_at?: string | Date;
   updated_at?: string | Date | null;
 };
 
-type legacyBackendWorkflowDefinitionRow = {
+type RagDocumentMetadata = {
+  chunk_count?: number;
+  draft?: boolean;
+  fileId?: unknown;
+  sourceFileId?: unknown;
+  source_file_id?: unknown;
+  filename?: unknown;
+  file_name?: unknown;
+  sourceFilename?: unknown;
+  source_filename?: unknown;
+  source?: unknown;
+};
+
+type DbWorkflowDefinitionRow = {
   id: string;
   name: string;
   slug: string;
@@ -158,7 +164,7 @@ function toIsoString(value: string | Date | null | undefined) {
   return value instanceof Date ? value.toISOString() : value;
 }
 
-function mapWeekSummary(row: legacyBackendWeekRow): AdminWeekSummary {
+function mapWeekSummary(row: DbWeekRow): AdminWeekSummary {
   return {
     id: row.id,
     weekNumber: row.week_number,
@@ -174,14 +180,11 @@ function mapWeekSummary(row: legacyBackendWeekRow): AdminWeekSummary {
   };
 }
 
-function buildStoragePath(row: legacyBackendWeekMediaRow) {
+function buildStoragePath(row: DbWeekMediaRow) {
   return `storage://${row.bucket_id}/${row.object_path}`;
 }
 
-function findWeekMediaPath(
-  rows: legacyBackendWeekMediaRow[],
-  allowedRoles: Set<string>,
-) {
+function findWeekMediaPath(rows: DbWeekMediaRow[], allowedRoles: Set<string>) {
   const match = [...rows]
     .filter(
       (row) =>
@@ -190,14 +193,13 @@ function findWeekMediaPath(
         allowedRoles.has(row.media_role),
     )
     .sort(
-      (left, right) =>
-        (left.display_order ?? 0) - (right.display_order ?? 0),
+      (left, right) => (left.display_order ?? 0) - (right.display_order ?? 0),
     )[0];
 
   return match ? buildStoragePath(match) : null;
 }
 
-function mapSections(rows: legacyBackendWeekSectionRow[]): AdminWeekSection[] {
+function mapSections(rows: DbWeekSectionRow[]): AdminWeekSection[] {
   return rows
     .map((row) => ({
       id: row.id,
@@ -212,7 +214,7 @@ function mapSections(rows: legacyBackendWeekSectionRow[]): AdminWeekSection[] {
     .sort(sectionComparator);
 }
 
-function mapAssets(rows: legacyBackendWeekAssetRow[]): AdminWeekAsset[] {
+function mapAssets(rows: DbWeekAssetRow[]): AdminWeekAsset[] {
   return rows
     .map((row) => ({
       id: row.id,
@@ -228,7 +230,7 @@ function mapAssets(rows: legacyBackendWeekAssetRow[]): AdminWeekAsset[] {
     .sort(assetComparator);
 }
 
-function mapDays(rows: legacyBackendWeekDayRow[]): AdminWeekDay[] {
+function mapDays(rows: DbWeekDayRow[]): AdminWeekDay[] {
   return rows
     .map((row) => ({
       id: row.id,
@@ -242,7 +244,7 @@ function mapDays(rows: legacyBackendWeekDayRow[]): AdminWeekDay[] {
     .sort(dayComparator);
 }
 
-function mapMedia(rows: legacyBackendWeekMediaRow[]): AdminWeekMedia[] {
+function mapMedia(rows: DbWeekMediaRow[]): AdminWeekMedia[] {
   return rows
     .map((row) => ({
       id: row.id,
@@ -259,11 +261,11 @@ function mapMedia(rows: legacyBackendWeekMediaRow[]): AdminWeekMedia[] {
 }
 
 function mapWeekDetail(
-  row: legacyBackendWeekRow,
-  days: legacyBackendWeekDayRow[],
-  sections: legacyBackendWeekSectionRow[],
-  assets: legacyBackendWeekAssetRow[],
-  media: legacyBackendWeekMediaRow[],
+  row: DbWeekRow,
+  days: DbWeekDayRow[],
+  sections: DbWeekSectionRow[],
+  assets: DbWeekAssetRow[],
+  media: DbWeekMediaRow[],
 ): AdminWeekDetail {
   const mappedMedia = mapMedia(media);
 
@@ -302,11 +304,57 @@ function mapKnowledgeItem(row: {
   };
 }
 
-function getDocumentUpdatedAt(row: legacyBackendRagDocumentRow) {
+function getDocumentUpdatedAt(row: DbRagDocumentRow) {
   return toIsoString(row.updated_at ?? row.created_at ?? null);
 }
 
-function mapRagDocument(row: legacyBackendRagDocumentRow): AdminRagDocumentDetail {
+function getMetadataString(
+  metadata: RagDocumentMetadata | null | undefined,
+  keys: Array<keyof RagDocumentMetadata>,
+) {
+  for (const key of keys) {
+    const value = metadata?.[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function extractSourceFileId(metadata: RagDocumentMetadata | null | undefined) {
+  const explicit = getMetadataString(metadata, [
+    "fileId",
+    "sourceFileId",
+    "source_file_id",
+  ]);
+  if (explicit) return explicit;
+
+  const sourceName = getMetadataString(metadata, [
+    "filename",
+    "file_name",
+    "sourceFilename",
+    "source_filename",
+    "source",
+  ]);
+  const uuidPrefix = sourceName?.match(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i,
+  );
+  return uuidPrefix?.[0] ?? null;
+}
+
+function extractSourceFilename(
+  metadata: RagDocumentMetadata | null | undefined,
+) {
+  return getMetadataString(metadata, [
+    "filename",
+    "file_name",
+    "sourceFilename",
+    "source_filename",
+    "source",
+  ]);
+}
+
+function mapRagDocument(row: DbRagDocumentRow): AdminRagDocumentDetail {
   const status =
     row.metadata?.draft || row.metadata?.chunk_count === 0 ? "draft" : "ready";
 
@@ -321,14 +369,14 @@ function mapRagDocument(row: legacyBackendRagDocumentRow): AdminRagDocumentDetai
     chunkCount: row.metadata?.chunk_count ?? 1,
     updatedAt: getDocumentUpdatedAt(row),
     status,
+    sourceFileId: extractSourceFileId(row.metadata),
+    sourceFilename: extractSourceFilename(row.metadata),
     content: row.content,
     imageUrl: row.image_url ?? null,
   };
 }
 
-function mapWorkflowRule(
-  row: legacyBackendWorkflowDefinitionRow,
-): AdminWorkflowRule {
+function mapWorkflowRule(row: DbWorkflowDefinitionRow): AdminWorkflowRule {
   const trigger =
     typeof row.metadata?.trigger === "string"
       ? row.metadata.trigger
@@ -394,7 +442,7 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
       draft: false,
       source: "admin_upload",
     };
-    const inserted = await prisma.$queryRaw<Array<legacyBackendRagDocumentRow>>`
+    const inserted = await prisma.$queryRaw<Array<DbRagDocumentRow>>`
       INSERT INTO public.content_pregnancy_documents (
         id,
         title,
@@ -420,7 +468,7 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
       RETURNING id, title, content, pregnancy_week, category, image_url, metadata, created_at, NULL::timestamptz AS updated_at
     `;
 
-    const document = mapRagDocument(inserted[0] as legacyBackendRagDocumentRow);
+    const document = mapRagDocument(inserted[0] as DbRagDocumentRow);
     if (shouldWriteAdminAuditLog(actorId)) {
       await insertAdminAuditLog({
         actorId,
@@ -466,7 +514,7 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
         updated_at: true,
       },
       take: 1,
-    })) as legacyBackendRagDocumentRow[];
+    })) as DbRagDocumentRow[];
 
     return rows[0] ? mapRagDocument(rows[0]) : null;
   }
@@ -489,7 +537,8 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
     const beforeDocument = shouldWriteAdminAuditLog(actorId)
       ? await this.getDocument(documentId)
       : null;
-    const updated = await prisma.$queryRaw<Array<legacyBackendRagDocumentRow>>`
+    const updatedByValue = await resolveAdminActorId(actorId);
+    const updated = await prisma.$queryRaw<Array<DbRagDocumentRow>>`
       UPDATE public.content_pregnancy_documents
          SET title = ${input.title},
              content = ${input.content},
@@ -497,7 +546,13 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
              category = ${input.category},
              image_url = ${imageUrl},
              embedding = ${toVectorLiteral(embedding)}::vector,
-             updated_at = NOW()
+             updated_at = NOW(),
+             previous_snapshot = (
+               SELECT row_to_json(t)
+                 FROM public.content_pregnancy_documents t
+                WHERE t.id = ${documentId}::uuid
+             ),
+             updated_by = ${updatedByValue}::uuid
        WHERE id = ${documentId}::uuid
    RETURNING id, title, content, pregnancy_week, category, image_url, metadata, created_at, updated_at
     `;
@@ -588,7 +643,7 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
         updated_at: true,
       },
       take: 1,
-    })) as legacyBackendWorkflowDefinitionRow[];
+    })) as DbWorkflowDefinitionRow[];
     const current = currentRows[0];
     if (!current || current.provider === "schift") {
       const schift = getSchiftClient();
@@ -696,7 +751,7 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
           updated_at: true,
         },
       }),
-    ] as unknown as Array<legacyBackendWorkflowDefinitionRow>;
+    ] as unknown as Array<DbWorkflowDefinitionRow>;
 
     const workflowRule = updated[0] ? mapWorkflowRule(updated[0]) : null;
     if (workflowRule && shouldWriteAdminAuditLog(actorId)) {
@@ -769,11 +824,9 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
           updated_at: true,
         },
       }),
-    ] as unknown as Array<legacyBackendKnowledgeItemRow>;
+    ] as unknown as Array<DbKnowledgeItemRow>;
 
-    const knowledgeItem = mapKnowledgeItem(
-      inserted[0] as legacyBackendKnowledgeItemRow,
-    );
+    const knowledgeItem = mapKnowledgeItem(inserted[0] as DbKnowledgeItemRow);
     if (shouldWriteAdminAuditLog(actorId)) {
       await insertAdminAuditLog({
         actorId,
@@ -804,40 +857,50 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
     }
 
     const imageUrl = input.imageUrl ?? null;
-    const beforeItem = shouldWriteAdminAuditLog(actorId)
-      ? (await this.selectKnowledgeItemRows()).find((item) => item.id === id)
+    const beforeItem = (await this.selectKnowledgeItemRows()).find(
+      (item) => item.id === id,
+    );
+    const publishedAt =
+      input.status === "published"
+        ? beforeItem?.status === "published"
+          ? undefined
+          : new Date()
+        : null;
+    const updateData: Record<string, unknown> = {
+      slug: input.slug,
+      section: input.section,
+      title: input.title,
+      body: input.body,
+      image_url: imageUrl,
+      status: input.status,
+    };
+    if (publishedAt !== undefined) {
+      updateData.published_at = publishedAt;
+    }
+    await saveSnapshotAndUpdate({
+      model: prisma.content_knowledge_items as unknown as Parameters<
+        typeof saveSnapshotAndUpdate
+      >[0]["model"],
+      id,
+      actorId: actorId ?? null,
+      data: updateData,
+    });
+    const reloaded = await prisma.content_knowledge_items.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        slug: true,
+        section: true,
+        title: true,
+        body: true,
+        image_url: true,
+        status: true,
+        updated_at: true,
+      },
+    });
+    const knowledgeItem = reloaded
+      ? mapKnowledgeItem(reloaded as DbKnowledgeItemRow)
       : null;
-    const updated = [
-      await prisma.content_knowledge_items.update({
-        where: { id },
-        data: {
-          slug: input.slug,
-          section: input.section,
-          title: input.title,
-          body: input.body,
-          image_url: imageUrl,
-          status: input.status,
-          published_at:
-            input.status === "published"
-              ? beforeItem?.status === "published"
-                ? undefined
-                : new Date()
-              : null,
-          updated_at: new Date(),
-        },
-        select: {
-          id: true,
-          slug: true,
-          section: true,
-          title: true,
-          body: true,
-          image_url: true,
-          status: true,
-          updated_at: true,
-        },
-      }),
-    ] as unknown as Array<legacyBackendKnowledgeItemRow>;
-    const knowledgeItem = updated[0] ? mapKnowledgeItem(updated[0]) : null;
     if (knowledgeItem && shouldWriteAdminAuditLog(actorId)) {
       await insertAdminAuditLog({
         actorId,
@@ -935,16 +998,20 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
       return null;
     }
 
-    await this.weekContentRepository.updateWeekSummary(current.id, {
-      title: input.title,
-      babySizeLabel: input.babySizeLabel,
-      babySizeCompareObject: input.babySizeCompareObject,
-      babySummary: input.babySummary,
-      motherSummary: input.motherSummary,
-      heroImagePath: input.heroImagePath,
-      compareImagePath: input.compareImagePath,
-      status: input.status,
-    });
+    await this.weekContentRepository.updateWeekSummary(
+      current.id,
+      {
+        title: input.title,
+        babySizeLabel: input.babySizeLabel,
+        babySizeCompareObject: input.babySizeCompareObject,
+        babySummary: input.babySummary,
+        motherSummary: input.motherSummary,
+        heroImagePath: input.heroImagePath,
+        compareImagePath: input.compareImagePath,
+        status: input.status,
+      },
+      actorId ?? null,
+    );
 
     const nextSectionIds = new Set(
       input.sections
@@ -999,22 +1066,26 @@ export class CloudSqlAdminContentPortAdapter implements AdminContentPort {
     const dayIdByNumber = await this.weekContentRepository.upsertDayContents(
       current.id,
       input.days,
+      actorId ?? null,
     );
 
     await this.weekContentRepository.upsertChecklists(
       current.id,
       input.sections,
       dayIdByNumber,
+      actorId ?? null,
     );
     await this.weekContentRepository.upsertQuestions(
       current.id,
       input.assets,
       dayIdByNumber,
+      actorId ?? null,
     );
     await this.weekContentRepository.upsertMedia(
       current.id,
       input.media,
       dayIdByNumber,
+      actorId ?? null,
     );
 
     const nextWeek = await this.getWeek(weekNumber);

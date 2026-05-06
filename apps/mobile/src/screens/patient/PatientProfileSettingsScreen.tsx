@@ -14,9 +14,7 @@ import { Button } from "../../components/ui";
 import { patientSurfacePalette as surface, space, typo } from "../../theme";
 import { buildPatientScrollContentInsets } from "./patientScreenLayout.model";
 import { usePatientProfileSettingsScreenModel } from "./PatientProfileSettingsScreen.model";
-
-const USER_GUIDE_URL =
-  "https://fluoridated-hunter-34f.notion.site/35610b1324b880c4b572dfc9a7cb57e7?source=copy_link";
+import { USER_GUIDE_URL } from "./patientSurveyFormUrl.model";
 
 function resolveAppVersionLabel() {
   const appVersion =

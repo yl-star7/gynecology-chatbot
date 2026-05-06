@@ -25,9 +25,9 @@
 - **display_label**: `"N주차"` 형식 (예: `"18주차"`)
 - **정책**: **closed enum**. 41+ 요청 시 마이그레이션으로만 확장.
 - **근거**:
-  - `legacyBackend/migrations/20260331172420_move_content_to_public_and_drop_allowlist.sql:27` — `CHECK (week_number BETWEEN 1 AND 40)`
-  - `legacyBackend/migrations/drizzle/0000_wet_mattie_franklin.sql:162` — `CHECK ("pregnancy_weeks"."week_number" BETWEEN 1 AND 40)`
-  - `legacyBackend/migrations/20260417143000_add_content_paraphrase_tables.sql:72-73` — `CHECK (source_week_number BETWEEN 1 AND 40)`
+  - `db/migrations/20260331172420_move_content_to_public_and_drop_allowlist.sql:27` — `CHECK (week_number BETWEEN 1 AND 40)`
+  - `db/migrations/drizzle/0000_wet_mattie_franklin.sql:162` — `CHECK ("pregnancy_weeks"."week_number" BETWEEN 1 AND 40)`
+  - `db/migrations/20260417143000_add_content_paraphrase_tables.sql:72-73` — `CHECK (source_week_number BETWEEN 1 AND 40)`
 - **예외 허용**: 태명 변경 안내·일반 홈 카피·언어 사전 등은 `week` 태그 없이 저장 가능. UI 필터에서 "주차 없음" 옵션 제공.
 
 ### 1.2 `surface` — 사용처/기능
@@ -50,7 +50,7 @@
 
 ### 1.3 `topic` — 주제
 
-`content.content_pregnancy_documents.category` / `content.content_knowledge_items.category` 는 `varchar(100) NOT NULL` 자유 입력입니다(`legacyBackend/migrations/drizzle/0000_wet_mattie_franklin.sql:99`, `apps/web/prisma/schema.prisma:239,259`). 그러나 실제 코드에서 사용되는 값은 encyclopedia paraphrase 파이프라인의 `ALLOWED_SECTION_CATEGORIES` 뿐입니다.
+`content.content_pregnancy_documents.category` / `content.content_knowledge_items.category` 는 `varchar(100) NOT NULL` 자유 입력입니다(`db/migrations/drizzle/0000_wet_mattie_franklin.sql:99`, `apps/web/prisma/schema.prisma:239,259`). 그러나 실제 코드에서 사용되는 값은 encyclopedia paraphrase 파이프라인의 `ALLOWED_SECTION_CATEGORIES` 뿐입니다.
 
 근거 — `scripts/generate-weekly-encyclopedia-paraphrases.mjs:12-18`:
 
@@ -161,7 +161,7 @@ CLAUDE.md 문구 톤 규칙 준수:
 closed 네임스페이스에 새 value 를 추가할 때 거쳐야 하는 절차입니다.
 
 1. **제안 PR**: 본 문서(`2026-04-24-tag-namespaces-proposal.md`) 개정 + 추가 value 의 근거 제시(사용처·사용 이유).
-2. **시드 SQL**: `legacyBackend/migrations/` 에 `YYYYMMDD_add_tag_<namespace>_<value>.sql` 마이그레이션으로 `content.tags` INSERT.
+2. **시드 SQL**: `db/migrations/` 에 `YYYYMMDD_add_tag_<namespace>_<value>.sql` 마이그레이션으로 `content.tags` INSERT.
 3. **코드 반영** (네임스페이스별):
    - `mood` / `scenario`: `packages/mobile-api/src/workflows/*.yaml` 의 union 타입에 추가 + 프롬프트 재튜닝.
    - `surface`: Admin UI 프리셋 필터 + 어댑터 매핑 추가.
@@ -177,7 +177,7 @@ closed 네임스페이스에 새 value 를 추가할 때 거쳐야 하는 절차
 Step 2.5 초기 마이그레이션에서 실행합니다. `content.tags` 테이블은 상위 문서 §2.4.1 스키마를 전제로 합니다. `content.tags_namespace_value_key`(unique (namespace, value)) 제약에 맞춰 `ON CONFLICT DO NOTHING` 으로 멱등성을 확보합니다.
 
 ```sql
--- legacyBackend/migrations/YYYYMMDD_seed_tag_namespaces.sql
+-- db/migrations/YYYYMMDD_seed_tag_namespaces.sql
 -- Tag namespaces and initial values.
 -- Source: docs/active/2026-04-24-tag-namespaces-proposal.md §1
 
@@ -272,10 +272,10 @@ commit;
 | 주제 | 파일 | 라인 |
 |---|---|---|
 | 상위 기획 (단일 버킷 + 태그 모델) | `docs/active/2026-04-23-admin-hierarchy-replan.md` | §2.4, §4.7 |
-| week 범위 제약 | `legacyBackend/migrations/20260331172420_move_content_to_public_and_drop_allowlist.sql` | 27 |
-| week 범위 제약 (drizzle) | `legacyBackend/migrations/drizzle/0000_wet_mattie_franklin.sql` | 162 |
-| paraphrase week 제약 | `legacyBackend/migrations/20260417143000_add_content_paraphrase_tables.sql` | 72-73 |
-| pregnancy_documents.category 스키마 | `legacyBackend/migrations/drizzle/0000_wet_mattie_franklin.sql` | 99, 223 |
+| week 범위 제약 | `db/migrations/20260331172420_move_content_to_public_and_drop_allowlist.sql` | 27 |
+| week 범위 제약 (drizzle) | `db/migrations/drizzle/0000_wet_mattie_franklin.sql` | 162 |
+| paraphrase week 제약 | `db/migrations/20260417143000_add_content_paraphrase_tables.sql` | 72-73 |
+| pregnancy_documents.category 스키마 | `db/migrations/drizzle/0000_wet_mattie_franklin.sql` | 99, 223 |
 | prisma category 모델 | `apps/web/prisma/schema.prisma` | 239, 259 |
 | topic whitelist | `scripts/generate-weekly-encyclopedia-paraphrases.mjs` | 12-18 |
 | topic 확장값 (overview 등) | `scripts/generate-weekly-encyclopedia-paraphrases.mjs` | 319, 338, 381 |

@@ -27,6 +27,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import {
   buildQuestionSummaryRecord,
+  isQuestionAnswerText,
+  isQuestionSummaryPendingText,
   shouldSaveQuestionSummary,
 } from "@gynecology-chatbot/mobile-api/chat/question-summary";
 
@@ -93,12 +95,33 @@ export async function POST(request: NextRequest) {
               equals: selectedQuestionId,
             } as Prisma.JsonFilter,
           },
-          select: { id: true },
+          select: { id: true, summary: true, payload: true },
         })
       : null;
+    const existingPayload =
+      existing?.payload &&
+      typeof existing.payload === "object" &&
+      !Array.isArray(existing.payload)
+        ? (existing.payload as {
+            answer?: unknown;
+            compactSummary?: unknown;
+          })
+        : null;
+    const existingAnswer =
+      typeof existingPayload?.answer === "string"
+        ? existingPayload.answer
+        : existing?.summary;
+    const existingSummary =
+      typeof existingPayload?.compactSummary === "string"
+        ? existingPayload.compactSummary
+        : existing?.summary;
 
     const alreadyIds = new Set(
-      existing?.id ? [selectedQuestionId as string] : [],
+      existing?.id &&
+        isQuestionAnswerText({ userAnswer: existingAnswer }) &&
+        !isQuestionSummaryPendingText(existingSummary)
+        ? [selectedQuestionId as string]
+        : [],
     );
 
     if (
@@ -106,6 +129,8 @@ export async function POST(request: NextRequest) {
         workflowStage,
         selectedQuestionId,
         alreadyPersistedQuestionIds: alreadyIds,
+        compactSummary:
+          typeof body.compactSummary === "string" ? body.compactSummary : null,
       })
     ) {
       return NextResponse.json({ ok: true, skipped: true });
@@ -129,17 +154,24 @@ export async function POST(request: NextRequest) {
       moodLabel: typeof body.moodLabel === "string" ? body.moodLabel : null,
     });
 
-    await prisma.calendar_logs.create({
-      data: {
-        user_id: record.userId,
-        session_id: record.sessionId,
-        date: toDateOnly(record.date),
-        entry_type: record.entryType,
-        title: record.title,
-        summary: record.summary,
-        payload: record.payload as Prisma.InputJsonValue,
-      },
-    });
+    const data = {
+      user_id: record.userId,
+      session_id: record.sessionId,
+      date: toDateOnly(record.date),
+      entry_type: record.entryType,
+      title: record.title,
+      summary: record.summary,
+      payload: record.payload as Prisma.InputJsonValue,
+    };
+
+    if (existing?.id) {
+      await prisma.calendar_logs.update({
+        where: { id: existing.id },
+        data,
+      });
+    } else {
+      await prisma.calendar_logs.create({ data });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

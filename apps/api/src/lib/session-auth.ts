@@ -7,13 +7,18 @@ import {
 
 export { isMobileSessionError };
 
+type RequireMobileSessionOptions = {
+  requireApproved?: boolean;
+};
+
 export async function requireMobileSession(
   c: Context,
   expectedUserId?: string | null,
+  options: RequireMobileSessionOptions = { requireApproved: true },
 ) {
   const authorization = c.req.header("authorization");
   const token = extractBearerTokenFromAuthorization(authorization ?? null);
-  return verifyMobileSessionToken(token, expectedUserId ?? null);
+  return verifyMobileSessionToken(token, expectedUserId ?? null, options);
 }
 
 export function mobileRouteErrorResponse(

@@ -42,9 +42,7 @@ export function PatientSurveyFormScreen() {
         visibleSurveys.find((survey) => survey.id === params.surveyId) ??
         visibleSurveys[0] ??
         null;
-      const nextSurveyFormUrl =
-        normalizeSurveyFormUrl(selectedSurvey?.url) ??
-        normalizeSurveyFormUrl(branding.surveyFormUrl);
+      const nextSurveyFormUrl = normalizeSurveyFormUrl(selectedSurvey?.url);
 
       setSurveyFormUrl(nextSurveyFormUrl);
       if (!nextSurveyFormUrl) {

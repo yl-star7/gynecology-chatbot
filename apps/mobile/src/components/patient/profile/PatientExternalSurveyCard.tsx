@@ -27,7 +27,7 @@ export function PatientExternalSurveyCard({
         <Text style={styles.externalSurveyTitle}>설문으로 의견 들려주세요</Text>
         <Text style={styles.externalSurveyBody}>
           {hasSurveys
-            ? "새 창 없이 앱 안에서 바로 설문에 답할 수 있어요."
+            ? "설문 페이지로 이동해 바로 답할 수 있어요."
             : "아직 열 수 있는 설문이 없어요. 준비되면 여기에서 안내해드릴게요."}
         </Text>
         {hasSurveys ? (

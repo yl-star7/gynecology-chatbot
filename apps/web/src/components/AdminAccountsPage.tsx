@@ -11,13 +11,17 @@ import { useAdminAccountsState } from "./admin/useAdminAccountsState";
 interface AdminAccountsPageProps {
   adminDisplayName: string;
   dashboard: AdminDashboardData;
+  title?: string;
+  currentPath?: string;
 }
 
 export default function AdminAccountsPage({
   adminDisplayName,
   dashboard,
+  title = "사용자 설정",
+  currentPath = "/admin/accounts",
 }: AdminAccountsPageProps) {
-  const pathname = usePathname() ?? "/admin/accounts";
+  const pathname = usePathname() ?? currentPath;
   const router = useRouter();
   const searchParams = useSearchParams();
   const resolvedSearchParams = searchParams ?? new URLSearchParams();
@@ -106,8 +110,8 @@ export default function AdminAccountsPage({
   return (
     <AdminPageFrame
       adminDisplayName={adminDisplayName}
-      currentPath="/admin/accounts"
-      title="사용자 설정"
+      currentPath={currentPath}
+      title={title}
     >
       <AdminAccountSection
         managedUsers={state.managedUsers}
@@ -134,6 +138,8 @@ export default function AdminAccountsPage({
         onResetSession={state.handleResetSession}
         onPauseUser={state.handlePauseUser}
         onResumeUser={state.handleResumeUser}
+        onApproveUser={state.handleApproveUser}
+        onRejectUser={state.handleRejectUser}
         onCreateAllowedPhoneNumber={state.handleCreateAllowedPhoneNumber}
         onUpdateAllowedPhoneNumber={state.handleUpdateAllowedPhoneNumber}
         onDeleteAllowedPhoneNumber={state.handleDeleteAllowedPhoneNumber}

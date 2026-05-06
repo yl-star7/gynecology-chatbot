@@ -9,9 +9,6 @@ const nextConfig: NextConfig = {
     "/api/internal/workflows/sync": [
       "../../packages/mobile-api/src/workflows/maternal-nursing.yaml",
     ],
-    "/api/admin/workflow-rules/bootstrap": [
-      "../../packages/mobile-api/src/workflows/maternal-nursing.yaml",
-    ],
     "/api/admin/workflow-rules/refresh-yaml": [
       "../../packages/mobile-api/src/workflows/maternal-nursing.yaml",
     ],

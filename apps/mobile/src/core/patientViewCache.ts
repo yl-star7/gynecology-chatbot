@@ -1,4 +1,5 @@
 import type {
+  ChatMessage,
   ChatSession,
   HomeViewData,
   MobilePregnancyWeekSummary,
@@ -36,6 +37,7 @@ type PersistedPatientViewCache = {
   home: CacheEntry<HomeViewData> | null;
   today: CacheEntry<TodayViewData> | null;
   recentChats: CacheEntry<RecentChatSummary[]> | null;
+  initialConversationMessage?: CacheEntry<ChatMessage> | null;
   pregnancyWeeks: CacheEntry<MobilePregnancyWeekSummary[]> | null;
   recordDays: [string, CacheEntry<RecordDayView>][];
 };
@@ -45,6 +47,10 @@ const homeCache = new Map<string, CacheEntry<HomeViewData>>();
 const todayCache = new Map<string, CacheEntry<TodayViewData>>();
 const recordDayCache = new Map<string, CacheEntry<RecordDayView>>();
 const recentChatsCache = new Map<string, CacheEntry<RecentChatSummary[]>>();
+const initialConversationMessageCache = new Map<
+  string,
+  CacheEntry<ChatMessage>
+>();
 const pregnancyWeeksCache = new Map<
   string,
   CacheEntry<MobilePregnancyWeekSummary[]>
@@ -183,6 +189,8 @@ function isPersistedPatientViewCache(
     isNullableCacheEntryShape(cache.home) &&
     isNullableCacheEntryShape(cache.today) &&
     isNullableCacheEntryShape(cache.recentChats) &&
+    (cache.initialConversationMessage === undefined ||
+      isNullableCacheEntryShape(cache.initialConversationMessage)) &&
     isNullableCacheEntryShape(cache.pregnancyWeeks) &&
     Array.isArray(cache.recordDays) &&
     cache.recordDays.every(isPersistedRecordDayEntry)
@@ -196,6 +204,7 @@ function clearMemoryPatientViewCaches(userId?: string | null) {
     todayCache.clear();
     recordDayCache.clear();
     recentChatsCache.clear();
+    initialConversationMessageCache.clear();
     pregnancyWeeksCache.clear();
     chatSessionCache.clear();
     return;
@@ -205,6 +214,7 @@ function clearMemoryPatientViewCaches(userId?: string | null) {
   clearCachedHomeView(userId);
   clearCachedTodayView(userId);
   clearCachedRecentChats(userId);
+  clearCachedInitialConversationMessage(userId);
   clearCachedPregnancyWeeks(userId);
 
   Array.from(recordDayCache.keys()).forEach((key) => {
@@ -244,6 +254,8 @@ function createPersistedPatientViewCacheSnapshot(
     home: homeCache.get(userId) ?? null,
     today: todayCache.get(userId) ?? null,
     recentChats: recentChatsCache.get(userId) ?? null,
+    initialConversationMessage:
+      initialConversationMessageCache.get(userId) ?? null,
     pregnancyWeeks: pregnancyWeeksCache.get(userId) ?? null,
     recordDays: collectRecordDayEntries(userId),
   };
@@ -257,6 +269,7 @@ function hasPersistedPatientViewCacheContent(
     snapshot.home ||
     snapshot.today ||
     snapshot.recentChats ||
+    snapshot.initialConversationMessage ||
     snapshot.pregnancyWeeks ||
     snapshot.recordDays.length > 0,
   );
@@ -376,6 +389,13 @@ export async function hydratePatientViewCaches(userId?: string | null) {
 
     if (parsedValue.recentChats) {
       recentChatsCache.set(userId, parsedValue.recentChats);
+    }
+
+    if (parsedValue.initialConversationMessage) {
+      initialConversationMessageCache.set(
+        userId,
+        parsedValue.initialConversationMessage,
+      );
     }
 
     if (parsedValue.pregnancyWeeks) {
@@ -519,6 +539,35 @@ export function cacheRecentChats(
 
 export function clearCachedRecentChats(userId?: string | null) {
   clearCacheKey(recentChatsCache, userId);
+  if (userId) {
+    schedulePersistedPatientViewCache(userId);
+  }
+}
+
+export function readCachedInitialConversationMessage(userId?: string | null) {
+  return readCacheValue(initialConversationMessageCache, userId);
+}
+
+export function hasFreshCachedInitialConversationMessage(
+  userId?: string | null,
+) {
+  if (!userId) {
+    return false;
+  }
+
+  return isFreshEntry(initialConversationMessageCache.get(userId));
+}
+
+export function cacheInitialConversationMessage(
+  userId: string,
+  message: ChatMessage,
+) {
+  cacheValue(initialConversationMessageCache, userId, message);
+  schedulePersistedPatientViewCache(userId);
+}
+
+export function clearCachedInitialConversationMessage(userId?: string | null) {
+  clearCacheKey(initialConversationMessageCache, userId);
   if (userId) {
     schedulePersistedPatientViewCache(userId);
   }

@@ -34,6 +34,10 @@ import {
 } from "../admin-dashboard-labels";
 import { AdminWeekOverlay } from "./AdminWeekOverlay";
 import {
+  formatMobileWeekDayLabel,
+  formatMobileWeekDayRangeLabel,
+} from "./admin-week-day-labels";
+import {
   getWeekPublishDayStatus,
   getWeekPublishReview,
 } from "./week-publish-review";
@@ -140,7 +144,9 @@ function ParaphraseCard({
           </h5>
           <p className="mt-1 text-sm text-muted-foreground">
             {getParaphraseScopeLabel(item.contentScope)}
-            {item.dayNumber ? ` · Day ${item.dayNumber}` : ""}
+            {item.dayNumber
+              ? ` · ${formatMobileWeekDayLabel(item.weekNumber, item.dayNumber)}`
+              : ""}
             {item.sourceCode ? ` · ${item.sourceCode}` : ""}
           </p>
         </div>
@@ -440,6 +446,10 @@ export function AdminWeeksSection({
           return {
             id: day.id || `day-${day.dayNumber}`,
             dayNumber: day.dayNumber,
+            dayLabel: formatMobileWeekDayLabel(
+              selectedWeekDetail.weekNumber,
+              day.dayNumber,
+            ),
             fetalCount: day.babyDevelopmentItems.filter((item) => item.trim())
               .length,
             maternalCount: day.motherChangesItems.filter((item) => item.trim())
@@ -470,9 +480,12 @@ export function AdminWeeksSection({
   const publishReview = selectedWeekDetail
     ? getWeekPublishReview(selectedWeekDetail)
     : null;
+  const selectedWeekDayRangeLabel = selectedWeekDetail
+    ? formatMobileWeekDayRangeLabel(selectedWeekDetail.weekNumber)
+    : "";
   const publishReviewMessage = publishReview
     ? publishReview.isReady
-      ? "Day 1~7 검수를 마쳤어요. 지금 바로 게시할 수 있어요."
+      ? `${selectedWeekDayRangeLabel} 검수를 마쳤어요. 지금 바로 게시할 수 있어요.`
       : `게시 전 확인이 필요한 항목 ${publishReview.missingItems.length}개`
     : null;
 
@@ -583,11 +596,11 @@ export function AdminWeeksSection({
                       </div>
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                         <SummaryCard
-                          label="오늘 아기는요"
+                          label="주차 아기 요약"
                           value={selectedWeekDetail.babySummary}
                         />
                         <SummaryCard
-                          label="오늘 엄마는요"
+                          label="주차 엄마 요약"
                           value={selectedWeekDetail.motherSummary}
                         />
                         <div className="space-y-3 rounded-lg border bg-muted p-4 md:col-span-2">
@@ -621,7 +634,7 @@ export function AdminWeeksSection({
 
                     <div className="grid grid-cols-2 gap-3 xl:grid-cols-1">
                       <StatCard
-                        label="Day 수"
+                        label="일자 수"
                         value={selectedWeekOverview?.dayCount ?? 0}
                       />
                       <StatCard
@@ -699,7 +712,12 @@ export function AdminWeeksSection({
 
               <Card className="shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-lg">Day 1~7 검수</CardTitle>
+                  <CardTitle className="text-lg">
+                    {formatMobileWeekDayRangeLabel(
+                      selectedWeekDetail.weekNumber,
+                    )}{" "}
+                    검수
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {selectedWeekDayRows.map((day) => (
@@ -708,9 +726,11 @@ export function AdminWeeksSection({
                       className="rounded-lg border bg-muted p-4"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <h4 className="text-base font-semibold">
-                          Day {day.dayNumber}
-                        </h4>
+                        <div>
+                          <h4 className="text-base font-semibold">
+                            {day.dayLabel}
+                          </h4>
+                        </div>
                         <Badge
                           variant="outline"
                           className={publishDayToneClass(day.status)}
@@ -757,7 +777,7 @@ export function AdminWeeksSection({
               <CardContent className="p-6 text-center text-sm text-muted-foreground">
                 {isLoadingWeeks
                   ? "주차 상세를 불러오는 중입니다."
-                  : "왼쪽에서 주차를 선택하면 주차 개요와 Day 검수 보드가 열립니다."}
+                  : "왼쪽에서 주차를 선택하면 주차 개요와 일자별 검수 보드가 열립니다."}
               </CardContent>
             </Card>
           )}

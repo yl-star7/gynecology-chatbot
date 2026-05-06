@@ -124,6 +124,10 @@ function getKstDateKey() {
   return createKoreanDateKey();
 }
 
+function formatLogValue(value: unknown) {
+  return String(value ?? "null").replace(/\s+/g, "_");
+}
+
 function getInternalWebhookBaseUrl(c: Context) {
   const host =
     c.req.header("x-forwarded-host") ?? c.req.header("host") ?? "localhost";
@@ -295,6 +299,16 @@ app.get("/initial-workflow", async (c) => {
   try {
     await requireMobileSession(c);
     const workflowDef = loadMaternalNursingWorkflow();
+    console.info(
+      [
+        "[mobile-chat-yaml]",
+        "route=initial-workflow",
+        `source=${workflowDef.source}`,
+        `version=${workflowDef.version ?? "unknown"}`,
+        `name=${formatLogValue(workflowDef.name)}`,
+        `blocks=${workflowDef.graph.blocks.length}`,
+      ].join(" "),
+    );
     const chatFlowConfig = parseChatFlowConfig({
       chatFlow: workflowDef.chatFlow,
       prompts: workflowDef.prompts,
@@ -416,6 +430,20 @@ app.post("/", async (c) => {
       }
     })();
 
+    const workflowDef = loadMaternalNursingWorkflow();
+    console.info(
+      [
+        "[mobile-chat-yaml]",
+        "route=chat",
+        "event=loaded",
+        `source=${workflowDef.source}`,
+        `version=${workflowDef.version ?? "unknown"}`,
+        `name=${formatLogValue(workflowDef.name)}`,
+        `sessionId=${normalizedSessionId}`,
+        `blocks=${workflowDef.graph.blocks.length}`,
+      ].join(" "),
+    );
+
     const baseMobileResponder = createMobileChatResponder({
       getSchiftClient,
       runSchiftWorkflow,
@@ -433,15 +461,37 @@ app.post("/", async (c) => {
         const picked = selectStageWorkflow(sel, stageMapping);
         if (picked) {
           console.info(
-            `[stage-workflow] key=${picked.key} id=${picked.workflowId} reason=${picked.reason}`,
+            [
+              "[mobile-chat-yaml]",
+              "route=chat",
+              "event=workflow_select",
+              `source=${workflowDef.source}`,
+              `version=${workflowDef.version ?? "unknown"}`,
+              `key=${picked.key}`,
+              `id=${picked.workflowId}`,
+              `reason=${formatLogValue(picked.reason)}`,
+              `stage=${formatLogValue(sel.workflowStage)}`,
+              `lastScenario=${formatLogValue(sel.lastScenario)}`,
+            ].join(" "),
           );
           return picked.workflowId;
         }
+        console.info(
+          [
+            "[mobile-chat-yaml]",
+            "route=chat",
+            "event=workflow_select",
+            `source=${workflowDef.source}`,
+            `version=${workflowDef.version ?? "unknown"}`,
+            "key=none",
+            `stage=${formatLogValue(sel.workflowStage)}`,
+            `lastScenario=${formatLogValue(sel.lastScenario)}`,
+          ].join(" "),
+        );
         return null;
       },
     });
 
-    const workflowDef = loadMaternalNursingWorkflow();
     const chatFlowConfig = parseChatFlowConfig({
       chatFlow: workflowDef.chatFlow,
       prompts: workflowDef.prompts,
@@ -550,6 +600,18 @@ app.post("/", async (c) => {
       });
 
       if (shortcut) {
+        console.info(
+          [
+            "[mobile-chat-yaml]",
+            "route=chat",
+            "event=shortcut",
+            `source=${workflowDef.source}`,
+            `version=${workflowDef.version ?? "unknown"}`,
+            `scenario=${formatLogValue(shortcut.workflowMemoryPayload.scenario)}`,
+            `nextStage=${formatLogValue(shortcut.workflowMemoryPayload.nextSessionMemory?.stage)}`,
+            `nextStageName=${formatLogValue(shortcut.workflowMemoryPayload.nextSessionMemory?.stageName)}`,
+          ].join(" "),
+        );
         if (shortcut.sideEffects?.fireMoodWebhook) {
           const moodSide = shortcut.sideEffects.fireMoodWebhook;
           postWorkflowSessionMemoryWebhook({

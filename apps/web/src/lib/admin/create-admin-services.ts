@@ -9,9 +9,9 @@ import { MockAdminDashboardPortAdapter } from "./adapters/mock-admin-dashboard-p
 import { MockAdminUserPortAdapter } from "./adapters/mock-admin-user-port";
 import { CloudSqlAdminContentPortAdapter } from "./adapters/cloud-sql-admin-content-port";
 import {
-  legacyBackendAdminDashboardPortAdapter,
-  legacyBackendAdminUserPortAdapter,
-} from "./adapters/legacyBackend-admin-dashboard-port";
+  CloudSqlAdminDashboardPortAdapter,
+  CloudSqlAdminUserPortAdapter,
+} from "./adapters/cloud-sql-admin-dashboard-port";
 import { hasDockerConfig } from "../server-data-provider";
 
 export interface AdminServices {
@@ -45,9 +45,9 @@ export function createAdminServices(
   if (provider === "backend") {
     return {
       adminDashboardPort:
-        options.adminDashboardPort ?? new legacyBackendAdminDashboardPortAdapter(),
+        options.adminDashboardPort ?? new CloudSqlAdminDashboardPortAdapter(),
       adminUserPort:
-        options.adminUserPort ?? new legacyBackendAdminUserPortAdapter(),
+        options.adminUserPort ?? new CloudSqlAdminUserPortAdapter(),
       adminContentPort:
         options.adminContentPort ?? new CloudSqlAdminContentPortAdapter(),
     };

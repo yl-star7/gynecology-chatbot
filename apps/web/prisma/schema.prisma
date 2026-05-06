@@ -238,7 +238,7 @@ model PregnancyDocument {
   pregnancyWeek Int?                        @map("pregnancy_week")
   category      String                      @db.VarChar(100)
   sourceFile    String?                     @map("source_file") @db.VarChar(500)
-  embedding     Unsupported("vector(1536)")
+  embedding     Unsupported("vector(1024)")
   metadata      Json                        @default("{}")
   createdAt     DateTime                    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
@@ -264,7 +264,7 @@ model MedicalKnowledge {
   createdAt       DateTime                     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   version         String?                      @db.VarChar(20)
-  embedding       Unsupported("vector(1536)")?
+  embedding       Unsupported("vector(1024)")?
   popularityScore Float                        @default(0) @map("popularity_score") @db.Real
 
   @@index([category])
@@ -400,7 +400,7 @@ model SessionMemory {
   content        String
   summary        String?
   memoryType     String                       @default("conversation") @map("memory_type") @db.VarChar(30)
-  embedding      Unsupported("vector(1536)")?
+  embedding      Unsupported("vector(1024)")?
   metadata       Json                         @default("{}")
   createdAt      DateTime                     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz

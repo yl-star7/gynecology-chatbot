@@ -18,6 +18,7 @@ import type {
 } from "@gynecology-chatbot/app-core";
 
 import type { RagFileItem } from "./content/AdminDocumentsSection";
+import { getAdminVisibleWeeks } from "./content/admin-week-visibility";
 import { getWeekPublishReview } from "./content/week-publish-review";
 
 type OrderedItem = { displayOrder: number };
@@ -235,7 +236,6 @@ export function useAdminContentState(
   const [isHomeCopySaving, setIsHomeCopySaving] = useState(false);
   const [isKnowledgeSaving, setIsKnowledgeSaving] = useState(false);
   const [isWorkflowSaving, setIsWorkflowSaving] = useState(false);
-  const [isWorkflowBootstrapping, setIsWorkflowBootstrapping] = useState(false);
   const [isWorkflowRunning, setIsWorkflowRunning] = useState(false);
   const [isWorkflowDeleting, setIsWorkflowDeleting] = useState(false);
   const [isWeekSaving, setIsWeekSaving] = useState(false);
@@ -412,7 +412,7 @@ export function useAdminContentState(
           throw new Error(payload.error ?? "주차 목록을 불러오지 못했습니다.");
         }
 
-        const weeks = payload.weeks ?? [];
+        const weeks = getAdminVisibleWeeks(payload.weeks ?? []);
         if (cancelled) {
           return;
         }
@@ -464,12 +464,15 @@ export function useAdminContentState(
           files?: Array<{
             id: string;
             filename: string;
+            storage_path: string;
+            schift_bucket: string;
             file_size: number;
             mime_type: string;
             status: "processing" | "ready" | "failed";
             enabled: boolean;
             error_message: string | null;
             created_at: string;
+            updated_at: string;
           }>;
         };
         if (!response.ok || cancelled) return;
@@ -477,12 +480,15 @@ export function useAdminContentState(
           (payload.files ?? []).map((f) => ({
             id: f.id,
             filename: f.filename,
+            storagePath: f.storage_path,
+            schiftBucket: f.schift_bucket,
             fileSize: f.file_size,
             mimeType: f.mime_type,
             status: f.status,
             enabled: f.enabled ?? true,
             errorMessage: f.error_message,
             createdAt: f.created_at,
+            updatedAt: f.updated_at,
           })),
         );
       } catch {
@@ -577,18 +583,6 @@ export function useAdminContentState(
     updateWeekDetail((current) => ({
       ...current,
       [field]: value,
-    }));
-  }
-
-  function handleWeekStatusChange(value: AdminWeekDetail["status"]) {
-    if (value === "published") {
-      setContentMessage("게시는 검수 후 게시 버튼으로만 진행해 주세요.");
-      return;
-    }
-
-    updateWeekDetail((current) => ({
-      ...current,
-      status: value,
     }));
   }
 
@@ -1214,12 +1208,15 @@ export function useAdminContentState(
         file?: {
           id: string;
           filename: string;
+          storage_path: string;
+          schift_bucket: string;
           file_size: number;
           mime_type: string;
           status: "processing" | "ready" | "failed";
           enabled: boolean;
           error_message: string | null;
           created_at: string;
+          updated_at: string;
         };
       };
 
@@ -1232,12 +1229,15 @@ export function useAdminContentState(
         const newFile: RagFileItem = {
           id: payload.file.id,
           filename: payload.file.filename,
+          storagePath: payload.file.storage_path,
+          schiftBucket: payload.file.schift_bucket,
           fileSize: payload.file.file_size,
           mimeType: payload.file.mime_type,
           status: payload.file.status,
           enabled: payload.file.enabled ?? true,
           errorMessage: payload.file.error_message,
           createdAt: payload.file.created_at,
+          updatedAt: payload.file.updated_at,
         };
         setRagFiles((current) => [newFile, ...current]);
       }
@@ -1349,42 +1349,6 @@ export function useAdminContentState(
     setWorkflowStatus(payload.workflowRule.status);
     setContentMessage("응답 정책을 저장했습니다.");
     setIsWorkflowSaving(false);
-  }
-
-  async function handleBootstrapWorkflowRule() {
-    setIsWorkflowBootstrapping(true);
-    setContentMessage(null);
-
-    const response = await fetch("/api/admin/workflow-rules/bootstrap", {
-      method: "POST",
-    });
-    const payload = (await response.json()) as {
-      error?: string;
-      workflowRule?: AdminWorkflowRule;
-    };
-
-    if (!response.ok || !payload.workflowRule) {
-      setContentMessage(
-        payload.error ?? "기본 워크플로우 생성에 실패했습니다.",
-      );
-      setIsWorkflowBootstrapping(false);
-      return;
-    }
-
-    setWorkflowRules((current) => {
-      const withoutCurrent = current.filter(
-        (rule) => rule.id !== payload.workflowRule?.id,
-      );
-      return [payload.workflowRule as AdminWorkflowRule, ...withoutCurrent];
-    });
-    setSelectedWorkflowRuleId(payload.workflowRule.id);
-    setWorkflowName(payload.workflowRule.name);
-    setWorkflowTrigger(payload.workflowRule.trigger);
-    setWorkflowRetrievalScope(payload.workflowRule.retrievalScope);
-    setWorkflowModelName(payload.workflowRule.modelName);
-    setWorkflowStatus(payload.workflowRule.status);
-    setContentMessage("기본 워크플로우를 만들었습니다.");
-    setIsWorkflowBootstrapping(false);
   }
 
   async function handleRunWorkflowRule(query: string) {
@@ -1765,7 +1729,6 @@ export function useAdminContentState(
     isHomeCopySaving,
     isKnowledgeSaving,
     isWorkflowSaving,
-    isWorkflowBootstrapping,
     isWorkflowRunning,
     isWorkflowDeleting,
     isWeekSaving,
@@ -1817,12 +1780,10 @@ export function useAdminContentState(
     handleDeleteRagFile,
     handleToggleRagFile,
     handleSaveWorkflowRule,
-    handleBootstrapWorkflowRule,
     handleRunWorkflowRule,
     handleDeleteWorkflowRule,
     handleSelectWeek,
     handleWeekFieldChange,
-    handleWeekStatusChange,
     handleUploadWeekCoverImage,
     handleWeekSectionChange,
     handleWeekAssetChange,

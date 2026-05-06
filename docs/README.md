@@ -18,7 +18,6 @@
 제품/설계 참고 문서입니다.
 
 - `PRD.md`
-- `IMPLEMENTATION_PLAN.md`
 - `UI_SPECS.md`
 - `DATABASE_SCHEMA.md`
 - `DEVELOPMENT.md`

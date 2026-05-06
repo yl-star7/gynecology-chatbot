@@ -7,11 +7,11 @@ import type {
 
 import {
   WeekContentRepository,
-  type legacyBackendWeekAssetRow,
-  type legacyBackendWeekDayRow,
-  type legacyBackendWeekMediaRow,
-  type legacyBackendWeekRow,
-  type legacyBackendWeekSectionRow,
+  type DbWeekAssetRow,
+  type DbWeekDayRow,
+  type DbWeekMediaRow,
+  type DbWeekRow,
+  type DbWeekSectionRow,
 } from "./week-content-repository";
 
 describe("WeekContentRepository", () => {
@@ -49,7 +49,7 @@ describe("WeekContentRepository", () => {
   });
 
   it("lists week summaries from canonical public view", async () => {
-    const rows: legacyBackendWeekRow[] = [
+    const rows: DbWeekRow[] = [
       {
         id: "week-1",
         week_number: 1,
@@ -327,7 +327,7 @@ describe("WeekContentRepository", () => {
   });
 
   it("exposes canonical week child row typings", () => {
-    const day: legacyBackendWeekDayRow = {
+    const day: DbWeekDayRow = {
       id: "day-id",
       day_number: 1,
       title: "Day 1",
@@ -336,7 +336,7 @@ describe("WeekContentRepository", () => {
       mother_changes_payload: { items: ["b"] },
       display_order: 1,
     };
-    const section: legacyBackendWeekSectionRow = {
+    const section: DbWeekSectionRow = {
       id: "section-id",
       day_number: 1,
       code: "baby_growth",
@@ -346,7 +346,7 @@ describe("WeekContentRepository", () => {
       is_required: true,
       is_active: true,
     };
-    const asset: legacyBackendWeekAssetRow = {
+    const asset: DbWeekAssetRow = {
       id: "asset-id",
       day_number: 1,
       code: "hero-card",
@@ -357,7 +357,7 @@ describe("WeekContentRepository", () => {
       is_required: false,
       is_active: true,
     };
-    const media: legacyBackendWeekMediaRow = {
+    const media: DbWeekMediaRow = {
       id: "media-id",
       day_number: null,
       media_scope: "week",
@@ -373,5 +373,189 @@ describe("WeekContentRepository", () => {
     expect(section.code).toBe("baby_growth");
     expect(asset.question_type).toBe("hero");
     expect(media.media_scope).toBe("week");
+  });
+});
+
+describe("WeekContentRepository — snapshot wiring (Prisma path)", () => {
+  const mockedSaveSnapshot = jest.fn().mockResolvedValue({ id: "x" });
+
+  function makeRepo() {
+    return new WeekContentRepository({
+      hasDirectContentDatabase: () => true,
+      saveSnapshot: mockedSaveSnapshot,
+      // prisma calls not needed — all updates go through saveSnapshot
+      prisma: {
+        pregnancy_week_data: {
+          findMany: jest.fn(),
+          findUnique: jest.fn(),
+          update: jest.fn(),
+        },
+        pregnancy_day_contents: {
+          findMany: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+          delete: jest.fn(),
+        },
+        week_checklists: {
+          findMany: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+          delete: jest.fn(),
+        },
+        week_questions: {
+          findMany: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+          delete: jest.fn(),
+        },
+        pregnancy_week_media: {
+          findMany: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+          delete: jest.fn(),
+        },
+      } as never,
+    });
+  }
+
+  beforeEach(() => {
+    mockedSaveSnapshot.mockClear();
+  });
+
+  it("updateWeekSummary calls saveSnapshot with actorId and week data", async () => {
+    const repo = makeRepo();
+    await repo.updateWeekSummary(
+      "week-uuid-1",
+      {
+        title: "수정된 제목",
+        babySizeLabel: "체리",
+        babySizeCompareObject: "작은 체리",
+        babySummary: "아기 요약",
+        motherSummary: "엄마 요약",
+        heroImagePath: null,
+        compareImagePath: null,
+        status: "published",
+      },
+      "actor-uuid-1",
+    );
+
+    expect(mockedSaveSnapshot).toHaveBeenCalledTimes(1);
+    const call = mockedSaveSnapshot.mock.calls[0][0];
+    expect(call.id).toBe("week-uuid-1");
+    expect(call.actorId).toBe("actor-uuid-1");
+    expect(call.data).toMatchObject({
+      title: "수정된 제목",
+      status: "published",
+    });
+  });
+
+  it("upsertDayContents calls saveSnapshot per existing day with actorId", async () => {
+    const repo = makeRepo();
+    const days: AdminWeekDayInput[] = [
+      {
+        id: "day-existing-id",
+        dayNumber: 1,
+        title: "Day 1",
+        babyDevelopmentItems: ["아기"],
+        babyMessage: "메시지",
+        motherChangesItems: ["엄마"],
+        displayOrder: 1,
+      },
+    ];
+
+    await repo.upsertDayContents("week-uuid-1", days, "actor-uuid-2");
+
+    expect(mockedSaveSnapshot).toHaveBeenCalledTimes(1);
+    const call = mockedSaveSnapshot.mock.calls[0][0];
+    expect(call.id).toBe("day-existing-id");
+    expect(call.actorId).toBe("actor-uuid-2");
+    expect(call.data).toMatchObject({ day_number: 1, baby_message: "메시지" });
+  });
+
+  it("upsertChecklists calls saveSnapshot per existing section with actorId", async () => {
+    const repo = makeRepo();
+    const sections: AdminWeekSectionInput[] = [
+      {
+        id: "section-existing",
+        dayNumber: 1,
+        sectionKey: "baby_growth",
+        title: "아기 성장",
+        body: "본문",
+        displayOrder: 1,
+        isRequired: true,
+        isActive: true,
+      },
+    ];
+
+    await repo.upsertChecklists(
+      "week-uuid-1",
+      sections,
+      new Map([[1, "day-1"]]),
+      "actor-uuid-3",
+    );
+
+    expect(mockedSaveSnapshot).toHaveBeenCalledTimes(1);
+    const call = mockedSaveSnapshot.mock.calls[0][0];
+    expect(call.id).toBe("section-existing");
+    expect(call.actorId).toBe("actor-uuid-3");
+    expect(call.data).toMatchObject({ code: "baby_growth" });
+  });
+
+  it("upsertQuestions calls saveSnapshot per existing asset with actorId", async () => {
+    const repo = makeRepo();
+    const assets: AdminWeekAssetInput[] = [
+      {
+        id: "asset-existing",
+        dayNumber: 1,
+        assetType: "hero",
+        storagePath: "/hero.jpg",
+        altText: "hero",
+        styleKey: "hero-card",
+        displayOrder: 1,
+        isRequired: false,
+        isActive: true,
+      },
+    ];
+
+    await repo.upsertQuestions(
+      "week-uuid-1",
+      assets,
+      new Map([[1, "day-1"]]),
+      "actor-uuid-4",
+    );
+
+    expect(mockedSaveSnapshot).toHaveBeenCalledTimes(1);
+    const call = mockedSaveSnapshot.mock.calls[0][0];
+    expect(call.id).toBe("asset-existing");
+    expect(call.actorId).toBe("actor-uuid-4");
+    expect(call.data).toMatchObject({ question_type: "hero" });
+  });
+
+  it("upsertMedia calls saveSnapshot per existing media item with actorId", async () => {
+    const repo = makeRepo();
+    const media: AdminWeekMediaInput[] = [
+      {
+        id: "media-existing",
+        dayNumber: null,
+        mediaScope: "week",
+        bucketId: "pregnancy-content",
+        objectPath: "weeks/1/hero.jpg",
+        mediaRole: "hero",
+        altText: null,
+        sourceFileName: "hero.jpg",
+        displayOrder: 1,
+      },
+    ];
+
+    await repo.upsertMedia("week-uuid-1", media, new Map(), "actor-uuid-5");
+
+    expect(mockedSaveSnapshot).toHaveBeenCalledTimes(1);
+    const call = mockedSaveSnapshot.mock.calls[0][0];
+    expect(call.id).toBe("media-existing");
+    expect(call.actorId).toBe("actor-uuid-5");
+    expect(call.data).toMatchObject({
+      media_role: "hero",
+      object_path: "weeks/1/hero.jpg",
+    });
   });
 });

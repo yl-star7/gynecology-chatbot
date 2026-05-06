@@ -94,7 +94,7 @@ const NAV_ITEMS: NavItem[] = [
 사용자 관점에서 "글을 올리는 곳이 왜 두 개인지" 구분이 라벨만으로는 전달되지 않습니다. 두 테이블 모두 `image_url` 필드를 가지고 있지만 이미지 업로드 경로/버킷 설정은 다릅니다.
 
 근거:
-- `legacyBackend/migrations/20260331172420_move_content_to_public_and_drop_allowlist.sql` — `content_pregnancy_documents`, `content_knowledge_items`
+- `db/migrations/20260331172420_move_content_to_public_and_drop_allowlist.sql` — `content_pregnancy_documents`, `content_knowledge_items`
 - `apps/web/src/lib/admin/adapters/cloud-sql-admin-content-port.ts:309-327` — RAG 문서 매핑
 - `apps/web/src/lib/admin/adapters/cloud-sql-admin-content-port.ts:300-302` — knowledge item 매핑
 
@@ -112,7 +112,7 @@ const NAV_ITEMS: NavItem[] = [
 
 근거:
 - `apps/web/src/components/admin/content/AdminWeekOverlay.tsx:1-50` — `renderWeekImageField` 포함
-- `apps/web/src/lib/admin/gcs-storage.ts`, `legacyBackend-storage.ts` — 두 개의 스토리지 어댑터가 공존 (일원화 진입점 없음)
+- `apps/web/src/lib/admin/gcs-storage.ts` — GCS 스토리지 어댑터
 
 #### 1.2.5 "운영 상태"와 "모니터링"의 책임 중복
 
@@ -215,7 +215,7 @@ Admin UI에서의 노출: `AdminWorkflowEditorAdapter.tsx`에서 **별도 편집
 - **대시보드 vs 운영 분리**: `AdminOperationsPanel`은 한 페이지에 지표를 보여주는 "홈"에 가깝고, `AdminMonitoringSection`은 세부 관찰 도구입니다. 둘을 "운영 상태" 하나로 묶고 있어 모니터링이 저평가됩니다.
 - **콘텐츠 = CMS만**: "글과 데이터를 편집"하는 작업만 남깁니다. 동적 응답 로직(워크플로우, 변주)은 "대화 엔진"으로 이동합니다. 편집 대상의 성질이 다르므로 최상위로 분리합니다.
 - **대화 엔진 = 챗봇 행동 규칙**: 워크플로우, 기분별 변주, 홈/프롬프트 문구는 모두 "AI가 어떻게 말하는가"를 결정합니다. 이들을 한 곳에 모으면 튜닝 작업 시 문맥 전환이 줄어듭니다.
-- **자산 = 바이너리 저장소**: 이미지/업로드 파일/스토리지 버킷 설정은 현재 `gcs-storage.ts` + `legacyBackend-storage.ts` 두 어댑터가 있음에도 UI 진입점이 없습니다. 별도 섹션으로 분리해 스토리지 일원화 작업(유저 #7)을 위한 landing pad를 마련합니다.
+- **자산 = 바이너리 저장소**: 이미지/업로드 파일/스토리지 버킷 설정은 `gcs-storage.ts` 기준으로 다룹니다. 별도 섹션으로 분리해 스토리지 운영 작업의 landing pad를 마련합니다.
 
 ### 2.2 각 섹션 상세
 
@@ -260,7 +260,7 @@ Admin UI에서의 노출: `AdminWorkflowEditorAdapter.tsx`에서 **별도 편집
 
 - **이미지** (`/admin/assets/images`): 주차별/안내문/문서 이미지를 버킷 단위로 조회. `content_pregnancy_week_media`, `hero_image_path`, `compare_image_path`, `knowledge_items.image_url`, `pregnancy_documents.image_url`이 가리키는 파일들을 한 화면에서 목록화.
 - **업로드 원본** (`/admin/assets/uploads`): 유저 업로드(`chat_messages.image_attachments`) 감사 뷰.
-- **스토리지 설정** (`/admin/assets/settings`): `gcs-storage.ts` vs `legacyBackend-storage.ts` 중 어느 백엔드가 활성인지 + 버킷 이름 / 공개 URL prefix 표시. 유저 #7 "스토리지 일원화" 작업의 landing pad.
+- **스토리지 설정** (`/admin/assets/settings`): GCS 버킷 이름 / 공개 URL prefix 표시.
 
 #### 운영 (`/admin/ops`)
 
@@ -528,7 +528,7 @@ apps/web/src/components/admin/
 
 **세부 절차**:
 
-1. **신규 스키마 생성** (`legacyBackend/migrations/YYYYMMDD_content_items_bucket.sql`)
+1. **신규 스키마 생성** (`db/migrations/YYYYMMDD_content_items_bucket.sql`)
    - `content.content_items`, `content.tags`, `content.content_tags` 신설 (§2.4.1)
    - 표준 태그 시드 (namespace `week`/`surface`/`topic`/`mood`/`scenario`/`lang`)
    - RLS 정책: admin write, public read only through view (CLAUDE.md content 스키마 규칙 준수)
@@ -611,7 +611,7 @@ Step 2.5 이후 각 기능은 **네임스페이스 + `content_items` row 추가*
 
 **4.3 자산 섹션 (`/admin/assets/*`)**
 - `content_items.metadata`에 image_url이 들어간 row를 flatten 조회 + `content_pregnancy_week_media`(유지) UNION. 이미지 자산은 §2.4에서 통합 대상 제외이므로 기존 테이블 경로 유지.
-- 스토리지 설정: `gcs-storage.ts`, `legacyBackend-storage.ts` 중 `process.env.STORAGE_PROVIDER` 값을 표시 (read-only 우선).
+- 스토리지 설정: `gcs-storage.ts` 기준의 버킷/공개 URL prefix 값을 표시 (read-only 우선).
 - 업로드 원본: `chat_messages.image_attachments` JSONB를 flatten하여 최근 N건 표시.
 
 **리스크**: 낮음~중간. 신규 API 엔드포인트는 대부분 `content_items` 공통 CRUD로 수렴. 자산 섹션만 독자 쿼리 필요. 인증 패턴은 `readAdminSessionUser() + null 체크 → 401` 기존 규칙을 그대로 따른다 (CLAUDE.md 인증 패턴 규칙).
@@ -640,7 +640,7 @@ Step 2.5 이후 각 기능은 **네임스페이스 + `content_items` row 추가*
 
 ### 4.5 스토리지 설정 UI의 권한 범위
 
-read-only로 시작할지, 버킷 변경까지 허용할지 결정 필요. 버킷 변경은 배포 환경 변수(`STORAGE_PROVIDER`, `legacyBackend_STORAGE_BUCKET` 등)와 연결되므로 **read-only 권장**.
+read-only로 시작할지, 버킷 변경까지 허용할지 결정 필요. 버킷 변경은 배포 환경 변수와 연결되므로 **read-only 권장**.
 
 ### 4.6 `/admin/operations` → `/admin/dashboard` 리네이밍 필요성
 
@@ -713,7 +713,7 @@ CLAUDE.md 인증 패턴 규칙:
 - `apps/web/src/components/admin/content/AdminPoliciesSection.test.tsx`
 - `apps/web/src/components/admin/AdminOperationsPanel.test.tsx`
 - `apps/web/src/lib/admin/adapters/cloud-sql-admin-content-port.test.ts`
-- `apps/web/src/lib/admin/adapters/legacyBackend-admin-dashboard-port.test.ts`
+- `apps/web/src/lib/admin/adapters/cloud-sql-admin-dashboard-port.test.ts`
 - `apps/web/app/api/admin/content/home-copy/route.test.ts`
 
 Step 2 이동 시 import 경로만 변경되므로 기존 테스트가 **같은 수준의 커버리지를 유지**해야 합니다. 테스트 파일 누락 없이 이동하는지 체크리스트로 검증.
@@ -776,8 +776,8 @@ Step 4.3 (assets) — Step 2 이후 아무때나
 | 파일 YAML | `packages/mobile-api/src/workflows/` | 전체 |
 | 주차 overlay | `apps/web/src/components/admin/content/AdminWeekOverlay.tsx` | 1-50 |
 | RAG 매핑 | `apps/web/src/lib/admin/adapters/cloud-sql-admin-content-port.ts` | 309-327 |
-| 콘텐츠 마이그레이션 | `legacyBackend/migrations/20260331172420_move_content_to_public_and_drop_allowlist.sql` | 전체 |
-| 스토리지 어댑터 | `apps/web/src/lib/admin/gcs-storage.ts`, `legacyBackend-storage.ts` | 전체 |
+| 콘텐츠 마이그레이션 | `db/migrations/20260331172420_move_content_to_public_and_drop_allowlist.sql` | 전체 |
+| 스토리지 어댑터 | `apps/web/src/lib/admin/gcs-storage.ts` | 전체 |
 | 라우트 리다이렉트 선례 | `apps/web/app/admin/content/page.tsx` | 1-5 |
 
 ## 부록 B — Task 상태

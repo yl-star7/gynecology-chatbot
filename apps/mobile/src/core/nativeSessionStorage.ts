@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-import { createNativeThemeStorageKey } from "./nativeThemeStorage.model";
+import { createNativeThemeStorageKey } from "./nativeThemeStorage.model.ts";
 
 const MOBILE_SESSION_TOKEN_KEY = "phedy-mobile-session-token";
 const MOBILE_USER_ID_KEY = "phedy-mobile-user-id";
@@ -37,7 +37,11 @@ function splitNativeStorageChunks(value: string) {
   }
 
   const chunks: string[] = [];
-  for (let index = 0; index < value.length; index += NATIVE_STORAGE_CHUNK_SIZE) {
+  for (
+    let index = 0;
+    index < value.length;
+    index += NATIVE_STORAGE_CHUNK_SIZE
+  ) {
     chunks.push(value.slice(index, index + NATIVE_STORAGE_CHUNK_SIZE));
   }
 
@@ -95,7 +99,10 @@ export async function persistNativeChunkedValue(key: string, value: string) {
     await persistNativeStorageValue(createChunkKey(key, index), chunkValue);
   }
 
-  await persistNativeStorageValue(createChunkMetaKey(key), String(chunks.length));
+  await persistNativeStorageValue(
+    createChunkMetaKey(key),
+    String(chunks.length),
+  );
 
   if (previousChunkCount && previousChunkCount > chunks.length) {
     for (let index = chunks.length; index < previousChunkCount; index += 1) {
@@ -147,7 +154,10 @@ export async function persistNativeThemeKeyForUser(
   userId: string,
   themeKey: string,
 ) {
-  await persistNativeStorageValue(createNativeThemeStorageKey(userId), themeKey);
+  await persistNativeStorageValue(
+    createNativeThemeStorageKey(userId),
+    themeKey,
+  );
 }
 
 export async function clearNativeThemeKeyForUser(userId: string) {

@@ -65,7 +65,6 @@ export interface AdminContentSectionProps {
   isHomeCopySaving: boolean;
   isKnowledgeSaving: boolean;
   isWorkflowSaving: boolean;
-  isWorkflowBootstrapping?: boolean;
   isWorkflowRunning?: boolean;
   isWorkflowDeleting?: boolean;
   isWeekSaving: boolean;
@@ -111,7 +110,6 @@ export interface AdminContentSectionProps {
     value: AdminDashboardData["workflowRules"][number]["status"],
   ) => void;
   onSaveWorkflowRule: () => Promise<void>;
-  onBootstrapWorkflowRule?: () => Promise<void>;
   onRunWorkflowRule?: (query: string) => Promise<void>;
   onDeleteWorkflowRule?: () => Promise<void>;
   onSelectWeek: (weekNumber: number) => void;
@@ -126,7 +124,6 @@ export interface AdminContentSectionProps {
       | "compareImagePath",
     value: string,
   ) => void;
-  onWeekStatusChange: (value: AdminWeekDetail["status"]) => void;
   onUploadWeekCoverImage: (
     field: "heroImagePath" | "compareImagePath",
     file: File,
@@ -167,6 +164,7 @@ export interface AdminContentSectionProps {
   onSaveWeek: () => Promise<void>;
   onPublishWeek: () => Promise<void>;
   view?: "all" | "documents" | "static" | "weeks" | "policies";
+  policiesInitialView?: "list" | "editor";
 }
 
 export function AdminContentSection({
@@ -212,7 +210,6 @@ export function AdminContentSection({
   isHomeCopySaving,
   isKnowledgeSaving,
   isWorkflowSaving,
-  isWorkflowBootstrapping = false,
   isWorkflowRunning = false,
   isWorkflowDeleting = false,
   isWeekSaving,
@@ -256,12 +253,10 @@ export function AdminContentSection({
   onWorkflowModelNameChange,
   onWorkflowStatusChange,
   onSaveWorkflowRule,
-  onBootstrapWorkflowRule = async () => {},
   onRunWorkflowRule = async () => {},
   onDeleteWorkflowRule = async () => {},
   onSelectWeek,
   onWeekFieldChange,
-  onWeekStatusChange,
   onUploadWeekCoverImage,
   onWeekDayChange,
   onWeekSectionChange,
@@ -283,6 +278,7 @@ export function AdminContentSection({
   onSaveWeek,
   onPublishWeek,
   view = "all",
+  policiesInitialView = "list",
 }: AdminContentSectionProps) {
   if (view === "documents") {
     return (
@@ -372,7 +368,6 @@ export function AdminContentSection({
         workflowModelName={workflowModelName}
         workflowStatus={workflowStatus}
         isWorkflowSaving={isWorkflowSaving}
-        isWorkflowBootstrapping={isWorkflowBootstrapping}
         isWorkflowRunning={isWorkflowRunning}
         isWorkflowDeleting={isWorkflowDeleting}
         onSelectWorkflowRule={onSelectWorkflowRule}
@@ -382,9 +377,9 @@ export function AdminContentSection({
         onWorkflowModelNameChange={onWorkflowModelNameChange}
         onWorkflowStatusChange={onWorkflowStatusChange}
         onSaveWorkflowRule={onSaveWorkflowRule}
-        onBootstrapWorkflowRule={onBootstrapWorkflowRule}
         onRunWorkflowRule={onRunWorkflowRule}
         onDeleteWorkflowRule={onDeleteWorkflowRule}
+        initialView={policiesInitialView}
       />
     );
   }
@@ -402,7 +397,6 @@ export function AdminContentSection({
         uploadingMediaIndex={uploadingMediaIndex}
         onSelectWeek={onSelectWeek}
         onWeekFieldChange={onWeekFieldChange}
-        onWeekStatusChange={onWeekStatusChange}
         onUploadWeekCoverImage={onUploadWeekCoverImage}
         onWeekDayChange={onWeekDayChange}
         onWeekSectionChange={onWeekSectionChange}

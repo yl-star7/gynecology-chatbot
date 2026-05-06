@@ -85,7 +85,7 @@ describe("week publish review", () => {
     const week = createWeekDetail();
 
     expect(getWeekPublishReview(week).missingItems).toEqual(
-      expect.arrayContaining(["Day 2", "Day 7"]),
+      expect.arrayContaining(["1주 1일", "1주 6일"]),
     );
   });
 });

@@ -4,13 +4,41 @@ import type {
   AdminDashboardData,
   AdminHistoryUser,
 } from "@gynecology-chatbot/app-core";
+import { ChevronLeft, ChevronRight, Search, User } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
-  getSessionRoleBadge,
   getSessionRoleLabel,
   getUserActionTypeLabel,
 } from "./admin-dashboard-labels";
-import styles from "./AdminConsoleLayout.module.css";
 
 interface AdminMonitoringSectionProps {
   userActions: AdminDashboardData["userActions"];
@@ -27,6 +55,9 @@ interface AdminMonitoringSectionProps {
   onUserPageChange: (value: number) => void;
   onFocusUser: (userId: string) => void;
 }
+
+const ACTIONS_PER_PAGE = 8;
+const USERS_PER_PAGE = 4;
 
 export function AdminMonitoringSection({
   userActions,
@@ -73,8 +104,6 @@ export function AdminMonitoringSection({
     );
   });
 
-  const ACTIONS_PER_PAGE = 8;
-  const USERS_PER_PAGE = 4;
   const paginatedUserActions = filteredUserActions.slice(
     (actionPage - 1) * ACTIONS_PER_PAGE,
     actionPage * ACTIONS_PER_PAGE,
@@ -91,333 +120,410 @@ export function AdminMonitoringSection({
     1,
     Math.ceil(filteredHistoryUsers.length / USERS_PER_PAGE),
   );
-  const selectedSessionCount = focusedHistoryUser?.sessions.length ?? 0;
 
   return (
-    <section className={styles.sectionStack}>
-      <section className={styles.statsGrid}>
-        <div className={styles.panelStat}>
-          <span className={styles.metaLabel}>실시간 이벤트</span>
-          <strong>{filteredUserActions.length}</strong>
-        </div>
-        <div className={styles.panelStat}>
-          <span className={styles.metaLabel}>감시 대상 사용자</span>
-          <strong>{filteredHistoryUsers.length}</strong>
-        </div>
-        <div className={styles.panelStat}>
-          <span className={styles.metaLabel}>선택 사용자 이벤트</span>
-          <strong>{focusedUserActions.length}</strong>
-        </div>
-        <div className={styles.panelStat}>
-          <span className={styles.metaLabel}>선택 사용자 세션</span>
-          <strong>{selectedSessionCount}</strong>
-        </div>
-      </section>
+    <div className="flex flex-col gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">
+            <h2>모니터링 필터</h2>
+          </CardTitle>
+          <CardDescription>
+            이벤트와 사용자를 조건으로 좁혀서 조회합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-[1fr_240px]">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => {
+                  onSearchQueryChange(event.target.value);
+                }}
+                placeholder="이름, 이벤트, 상세, 세션으로 검색"
+                className="pl-9"
+              />
+            </div>
+            <Select
+              value={selectedActionType}
+              onValueChange={onSelectedActionTypeChange}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="이벤트 종류" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 이벤트</SelectItem>
+                {actionTypeOptions.map((actionType) => (
+                  <SelectItem key={actionType} value={actionType}>
+                    {getUserActionTypeLabel(actionType)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
+      <Tabs defaultValue="events" className="w-full">
+        <TabsList>
+          <TabsTrigger value="events">이벤트 로그</TabsTrigger>
+          <TabsTrigger value="users">사용자 히스토리</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="events" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">
+                <h2>실시간 사용자 이벤트</h2>
+              </CardTitle>
+              <CardDescription>
+                총 {filteredUserActions.length}건의 이벤트 중 현재 페이지를
+                표시합니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[140px]">사용자</TableHead>
+                      <TableHead className="w-[160px]">이벤트</TableHead>
+                      <TableHead>상세</TableHead>
+                      <TableHead className="w-[160px]">세션</TableHead>
+                      <TableHead className="w-[140px]">시각</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedUserActions.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          className="py-10 text-center text-sm text-muted-foreground"
+                        >
+                          조건에 맞는 이벤트가 없습니다.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedUserActions.map((action) => (
+                        <TableRow key={action.id}>
+                          <TableCell className="font-medium">
+                            {action.userName}
+                          </TableCell>
+                          <TableCell>{action.actionLabel}</TableCell>
+                          <TableCell
+                            className="max-w-[380px] truncate text-muted-foreground"
+                            title={action.detail || undefined}
+                          >
+                            {action.detail || "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                action.sessionId ? "default" : "secondary"
+                              }
+                            >
+                              {action.sessionTitle ?? "계정 이벤트"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {action.occurredAtLabel}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <Pagination
+                page={actionPage}
+                totalPages={totalActionPages}
+                onPageChange={onActionPageChange}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="users" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">
+                <h2>채팅 세션 감사</h2>
+              </CardTitle>
+              <CardDescription>
+                사용자를 선택하면 아래에 계정 이벤트와 세션 기록이 표시됩니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>이름</TableHead>
+                      <TableHead>전화번호</TableHead>
+                      <TableHead className="w-[100px]">주차</TableHead>
+                      <TableHead className="w-[200px]">최근 세션</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedHistoryUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={4}
+                          className="py-10 text-center text-sm text-muted-foreground"
+                        >
+                          조건에 맞는 사용자가 없습니다.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedHistoryUsers.map((user) => {
+                        const isSelected = focusedHistoryUser?.id === user.id;
+                        return (
+                          <TableRow
+                            key={user.id}
+                            data-state={isSelected ? "selected" : undefined}
+                            onClick={() => onFocusUser(user.id)}
+                            className="cursor-pointer"
+                          >
+                            <TableCell className="font-medium">
+                              {user.name}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {user.phoneNumber}
+                            </TableCell>
+                            <TableCell>{user.pregnancyWeekLabel}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {user.latestSessionLabel}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <Pagination
+                page={userPage}
+                totalPages={totalUserPages}
+                onPageChange={onUserPageChange}
+              />
+            </CardContent>
+          </Card>
+
+          {focusedHistoryUser ? (
+            <FocusedUserDetail
+              user={focusedHistoryUser}
+              focusedUserActions={focusedUserActions}
+            />
+          ) : null}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function Pagination({
+  page,
+  totalPages,
+  onPageChange,
+}: {
+  page: number;
+  totalPages: number;
+  onPageChange: (value: number) => void;
+}) {
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={page === 1}
+        onClick={() => onPageChange(Math.max(1, page - 1))}
+      >
+        <ChevronLeft className="mr-1 h-4 w-4" />
+        이전
+      </Button>
+      <span className="text-sm text-muted-foreground">
+        {page} / {totalPages}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={page >= totalPages}
+        onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+      >
+        다음
+        <ChevronRight className="ml-1 h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
+function FocusedUserDetail({
+  user,
+  focusedUserActions,
+}: {
+  user: AdminHistoryUser;
+  focusedUserActions: AdminDashboardData["userActions"];
+}) {
+  return (
+    <Card className="mt-4">
+      <CardHeader>
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className={styles.panelTitle}>실시간 사용자 이벤트</h2>
-            <p className={styles.panelDescription}>
-              이벤트를 먼저 좁혀서 현재 어떤 사용자가 어떤 행동을 했는지
-              확인합니다.
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <User className="h-4 w-4" />
+              {user.name}
+            </CardTitle>
+            <CardDescription>
+              {user.phoneNumber} · {user.pregnancyWeekLabel} · 최근{" "}
+              {user.latestSessionLabel}
+            </CardDescription>
+          </div>
+          <Badge variant="secondary">세션 {user.sessions.length}개</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-6">
+        <section className="flex flex-col gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">계정 이벤트</h3>
+            <p className="text-xs text-muted-foreground">
+              선택한 사용자의 최근 계정 활동입니다.
             </p>
           </div>
-        </div>
-
-        <div className={styles.managementGrid}>
-          <div className={styles.formGrid}>
-            <div className={styles.panelGrid}>
-              <label className={styles.fieldGroup}>
-                <span className={styles.fieldLabel}>이벤트 검색</span>
-                <input
-                  className={styles.fieldInput}
-                  value={searchQuery}
-                  onChange={(event) => {
-                    onSearchQueryChange(event.target.value);
-                  }}
-                />
-              </label>
-              <label className={styles.fieldGroup}>
-                <span className={styles.fieldLabel}>이벤트 종류</span>
-                <select
-                  className={styles.fieldSelect}
-                  value={selectedActionType}
-                  onChange={(event) => {
-                    onSelectedActionTypeChange(event.target.value);
-                  }}
-                >
-                  <option value="all">전체</option>
-                  {actionTypeOptions.map((actionType) => (
-                    <option key={actionType} value={actionType}>
-                      {getUserActionTypeLabel(actionType)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+          {focusedUserActions.length === 0 ? (
+            <div className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+              선택한 사용자의 계정 이벤트가 아직 없습니다.
             </div>
-
-            <div className={styles.list}>
-              {paginatedUserActions.map((action) => (
-                <div key={action.id} className={styles.listRow}>
-                  <div className={styles.listDetail}>
-                    <strong className={styles.listPrimary}>
-                      {action.userName}
-                    </strong>
-                    <span className={styles.listMeta}>
-                      {action.actionLabel} · {action.detail}
-                    </span>
-                  </div>
-                  <div className={styles.listMetaGroup}>
-                    <span className={styles.statusBadge}>
-                      {action.sessionTitle ?? "계정 이벤트"}
-                    </span>
-                    <span className={styles.listMeta}>
-                      {action.occurredAtLabel}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {paginatedUserActions.length === 0 ? (
-                <div className={styles.listEmpty}>
-                  조건에 맞는 이벤트가 없습니다.
-                </div>
-              ) : null}
-            </div>
-
-            <div className={styles.actionRow}>
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                disabled={actionPage === 1}
-                onClick={() => onActionPageChange(Math.max(1, actionPage - 1))}
-              >
-                이전 이벤트
-              </button>
-              <span className={styles.formHint}>
-                {actionPage} / {totalActionPages}
-              </span>
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                disabled={actionPage >= totalActionPages}
-                onClick={() =>
-                  onActionPageChange(Math.min(totalActionPages, actionPage + 1))
-                }
-              >
-                다음 이벤트
-              </button>
-            </div>
-          </div>
-
-          <div className={styles.formGrid}>
-            <div className={styles.panelHeader}>
-              <div>
-                <h3 className={styles.panelTitle}>채팅 세션 감사</h3>
-                <p className={styles.panelDescription}>
-                  사용자를 선택한 뒤 계정 이벤트와 채팅 세션 흐름을 이어서
-                  확인합니다.
-                </p>
-              </div>
-            </div>
-
-            <div className={styles.list}>
-              {paginatedHistoryUsers.map((user) => (
-                <button
-                  key={user.id}
-                  className={`${styles.listButton} ${
-                    focusedHistoryUser?.id === user.id
-                      ? styles.listButtonSelected
-                      : ""
-                  }`}
-                  type="button"
-                  aria-pressed={focusedHistoryUser?.id === user.id}
-                  onClick={() => onFocusUser(user.id)}
-                >
-                  <div className={styles.listDetail}>
-                    <strong className={styles.listPrimary}>{user.name}</strong>
-                    <span className={styles.listMeta}>
-                      {user.phoneNumber} · {user.pregnancyWeekLabel}
-                    </span>
-                  </div>
-                  <div className={styles.listMetaGroup}>
-                    <span className={styles.statusBadge}>최근 세션</span>
-                    <span className={styles.listMeta}>
-                      {user.latestSessionLabel}
-                    </span>
-                  </div>
-                </button>
-              ))}
-              {paginatedHistoryUsers.length === 0 ? (
-                <div className={styles.listEmpty}>
-                  조건에 맞는 사용자가 없습니다.
-                </div>
-              ) : null}
-            </div>
-
-            <div className={styles.actionRow}>
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                disabled={userPage === 1}
-                onClick={() => onUserPageChange(Math.max(1, userPage - 1))}
-              >
-                이전 사용자
-              </button>
-              <span className={styles.formHint}>
-                {userPage} / {totalUserPages}
-              </span>
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                disabled={userPage >= totalUserPages}
-                onClick={() =>
-                  onUserPageChange(Math.min(totalUserPages, userPage + 1))
-                }
-              >
-                다음 사용자
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {focusedHistoryUser ? (
-        <section className={styles.sectionStack}>
-          <section className={styles.statsGrid}>
-            <div className={styles.historyStat}>
-              <span className={styles.metaLabel}>선택 사용자</span>
-              <strong>{focusedHistoryUser.name}</strong>
-            </div>
-            <div className={styles.historyStat}>
-              <span className={styles.metaLabel}>전화번호</span>
-              <strong>{focusedHistoryUser.phoneNumber}</strong>
-            </div>
-            <div className={styles.historyStat}>
-              <span className={styles.metaLabel}>임신 주차</span>
-              <strong>{focusedHistoryUser.pregnancyWeekLabel}</strong>
-            </div>
-            <div className={styles.historyStat}>
-              <span className={styles.metaLabel}>최근 채팅</span>
-              <strong>{focusedHistoryUser.latestSessionLabel}</strong>
-            </div>
-          </section>
-
-          <section className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <div>
-                <h2 className={styles.panelTitle}>선택 사용자 감사 로그</h2>
-                <p className={styles.panelDescription}>
-                  선택한 사용자의 계정 이벤트를 먼저 보고, 아래 세션 기록으로
-                  이어서 확인합니다.
-                </p>
-              </div>
-            </div>
-
-            <div className={styles.list}>
-              {focusedUserActions.length > 0 ? (
-                focusedUserActions.map((action) => (
-                  <div key={action.id} className={styles.listRow}>
-                    <div className={styles.listDetail}>
-                      <strong className={styles.listPrimary}>
+          ) : (
+            <ScrollArea className="max-h-[240px] rounded-md border">
+              <ul className="divide-y">
+                {focusedUserActions.map((action) => (
+                  <li
+                    key={action.id}
+                    className="flex items-start justify-between gap-4 px-4 py-3"
+                  >
+                    <div className="flex flex-col gap-1">
+                      <span className="text-sm font-medium">
                         {action.actionLabel}
-                      </strong>
-                      <span className={styles.listMeta}>{action.detail}</span>
-                    </div>
-                    <div className={styles.listMetaGroup}>
-                      <span className={styles.statusBadge}>
-                        {action.sessionTitle ?? "계정 이벤트"}
                       </span>
-                      <span className={styles.listMeta}>
+                      {action.detail ? (
+                        <span
+                          className="text-xs text-muted-foreground"
+                          title={action.detail}
+                        >
+                          {action.detail}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge
+                        variant={action.sessionId ? "default" : "secondary"}
+                      >
+                        {action.sessionTitle ?? "계정 이벤트"}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
                         {action.occurredAtLabel}
                       </span>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className={styles.listEmpty}>
-                  선택한 사용자의 계정 이벤트가 아직 없습니다.
-                </div>
-              )}
-            </div>
-          </section>
+                  </li>
+                ))}
+              </ul>
+            </ScrollArea>
+          )}
+        </section>
 
-          <section className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <div>
-                <h2 className={styles.panelTitle}>세션별 대화 감사</h2>
-                <p className={styles.panelDescription}>
-                  세션 단위로 메시지 흐름을 나눠 보면 어떤 대화에서 문제가
-                  시작됐는지 파악하기 쉽습니다.
-                </p>
-              </div>
-            </div>
+        <Separator />
 
-            <div className={styles.sessionGrid}>
-              {focusedHistoryUser.sessions.map((session) => (
-                <section key={session.id} className={styles.panel}>
-                  <div className={styles.panelHeader}>
-                    <div>
-                      <h3 className={styles.panelTitle}>{session.title}</h3>
+        <section className="flex flex-col gap-4">
+          <div>
+            <h3 className="text-sm font-semibold">세션별 대화</h3>
+            <p className="text-xs text-muted-foreground">
+              세션 단위로 메시지 흐름을 확인합니다.
+            </p>
+          </div>
+
+          {user.sessions.length === 0 ? (
+            <div className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+              세션이 아직 없습니다.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {user.sessions.map((session) => (
+                <Card key={session.id} className="bg-muted">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <CardTitle className="text-base">
+                        {session.title}
+                      </CardTitle>
+                      <Badge variant="outline">
+                        {session.pregnancyWeekLabel}
+                      </Badge>
                     </div>
-                    <span
-                      className={`${styles.statusBadge} ${styles.tagAccent}`}
-                    >
-                      {session.pregnancyWeekLabel}
-                    </span>
-                  </div>
-
-                  <div className={styles.list}>
-                    {session.messages.map((message) => (
-                      <div key={message.id} className={styles.listRow}>
-                        <div className={styles.listDetail}>
-                          <strong className={styles.listPrimary}>
-                            {getSessionRoleLabel(message.role)}
-                          </strong>
-                          <span className={styles.listMeta}>
-                            {message.summary}
-                          </span>
-                          {message.ragSources &&
-                          message.ragSources.length > 0 ? (
-                            <div
-                              style={{
-                                marginTop: 4,
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: 4,
-                              }}
-                            >
-                              {message.ragSources.map((source, sourceIndex) => (
-                                <span
-                                  key={sourceIndex}
-                                  className={`${styles.statusBadge} ${styles.tagAccent}`}
-                                  title={`유사도: ${source.similarity.toFixed(3)}`}
-                                >
-                                  {source.filename}
-                                </span>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-                        <div className={styles.listMetaGroup}>
-                          <span
-                            className={`${styles.statusBadge} ${styles[getSessionRoleBadge(message.role)] ?? ""}`}
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="flex flex-col gap-3">
+                      {session.messages.map((message) => {
+                        const isAssistant = message.role === "assistant";
+                        return (
+                          <li
+                            key={message.id}
+                            className={`flex ${
+                              isAssistant ? "justify-start" : "justify-end"
+                            }`}
                           >
-                            {getSessionRoleLabel(message.role)}
-                          </span>
-                          <span className={styles.listMeta}>
-                            {message.createdAtLabel}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
+                            <div
+                              className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                                isAssistant
+                                  ? "bg-background"
+                                  : "bg-primary text-primary-foreground"
+                              }`}
+                            >
+                              <div
+                                className={`mb-1 text-xs font-medium ${
+                                  isAssistant
+                                    ? "text-muted-foreground"
+                                    : "text-primary-foreground/80"
+                                }`}
+                              >
+                                {getSessionRoleLabel(message.role)} ·{" "}
+                                {message.createdAtLabel}
+                              </div>
+                              <p className="whitespace-pre-wrap break-words">
+                                {message.summary}
+                              </p>
+                              {message.ragSources &&
+                              message.ragSources.length > 0 ? (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {message.ragSources.map(
+                                    (source, sourceIndex) => (
+                                      <Badge
+                                        key={sourceIndex}
+                                        variant="secondary"
+                                        className="text-[10px]"
+                                        title={`유사도: ${source.similarity.toFixed(3)}`}
+                                      >
+                                        {source.filename}
+                                      </Badge>
+                                    ),
+                                  )}
+                                </div>
+                              ) : null}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </CardContent>
+                </Card>
               ))}
             </div>
-          </section>
+          )}
         </section>
-      ) : null}
-    </section>
+      </CardContent>
+    </Card>
   );
 }

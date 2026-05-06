@@ -1,3 +1,6 @@
+export const USER_GUIDE_URL =
+  "https://fluoridated-hunter-34f.notion.site/35610b1324b880c4b572dfc9a7cb57e7?source=copy_link";
+
 export function normalizeSurveyFormUrl(input: string | null | undefined) {
   if (!input?.trim()) {
     return null;

@@ -3,9 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   InteractionManager,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
+  Text,
 } from "react-native";
 import type {
   HomeViewData,
@@ -14,6 +16,7 @@ import type {
   TodayViewData,
 } from "@gynecology-chatbot/app-core";
 import { PatientShell } from "../../components/patient/PatientShell";
+import { Button, Card } from "../../components/ui";
 import { PatientExternalSurveyCard } from "../../components/patient/profile/PatientExternalSurveyCard";
 import { PatientProfileAccountCard } from "../../components/patient/profile/PatientProfileAccountCard";
 import { PatientProfileCalendarCard } from "../../components/patient/profile/PatientProfileCalendarCard";
@@ -35,7 +38,7 @@ import {
   mergePatientProfileSyncSnapshot,
   usePatientProfileSyncSnapshot,
 } from "./patientProfileSyncStore";
-import { space } from "../../theme";
+import { patientSurfacePalette as surface, space, typo } from "../../theme";
 import {
   addProfileCalendarMonths,
   buildProfileCalendarModel,
@@ -45,7 +48,10 @@ import {
 } from "./patientProfileCalendar";
 import { buildPatientTabContentInsets } from "./patientScreenLayout.model";
 import { usePatientBottomInset } from "./usePatientBottomInset";
-import { normalizeSurveyFormUrl } from "./patientSurveyFormUrl.model";
+import {
+  normalizeSurveyFormUrl,
+  USER_GUIDE_URL,
+} from "./patientSurveyFormUrl.model";
 import {
   buildProfileDayState,
   buildProfileInfoCards,
@@ -222,14 +228,7 @@ export function PatientProfileScreen() {
                 : [];
             })
           : [];
-        const fallbackUrl = normalizeSurveyFormUrl(branding.surveyFormUrl);
-        setExternalSurveys(
-          surveys.length > 0
-            ? surveys
-            : fallbackUrl
-              ? [{ id: "legacy", label: "설문", url: fallbackUrl }]
-              : [],
-        );
+        setExternalSurveys(surveys);
       })
       .catch(() => {
         if (!isMounted) {
@@ -343,7 +342,10 @@ export function PatientProfileScreen() {
     () => resolveProfileCalendarMonthKey(home?.calendarDays),
     [home?.calendarDays],
   );
-  const currentCalendarMonth = useMemo(() => createProfileCalendarMonthKey(), []);
+  const currentCalendarMonth = useMemo(
+    () => createProfileCalendarMonthKey(),
+    [],
+  );
   const calendarMonthLabel =
     home?.currentMonthLabel ??
     formatProfileCalendarMonthLabel(visibleCalendarMonth);
@@ -433,10 +435,29 @@ export function PatientProfileScreen() {
 
           <PatientExternalSurveyCard
             surveys={externalSurveys}
-            onOpenSurvey={(surveyId) =>
-              router.push(`/profile-survey?surveyId=${encodeURIComponent(surveyId)}`)
-            }
+            onOpenSurvey={(surveyId) => {
+              const surveyUrl = externalSurveys.find(
+                (survey) => survey.id === surveyId,
+              )?.url;
+              if (surveyUrl) {
+                void Linking.openURL(surveyUrl);
+              }
+            }}
           />
+
+          <Card variant="muted">
+            <Text style={styles.sectionTitle}>사용설명서</Text>
+            <Text style={styles.sectionDescription}>
+              앱 사용 방법을 한 번에 확인할 수 있어요.
+            </Text>
+            <Button
+              label="사용설명서 보기"
+              variant="secondary"
+              onPress={() => {
+                void Linking.openURL(USER_GUIDE_URL);
+              }}
+            />
+          </Card>
 
           <PatientProfileAccountCard
             phoneNumber={profile?.phoneNumber}
@@ -484,5 +505,15 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: space.lg,
     gap: space.lg,
+  },
+  sectionTitle: {
+    ...typo.titleSm,
+    color: surface.textPrimary,
+  },
+  sectionDescription: {
+    marginTop: space.xs,
+    marginBottom: space.lg,
+    ...typo.caption,
+    color: surface.textSecondary,
   },
 });

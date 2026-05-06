@@ -40,6 +40,11 @@ export type LoadedMaternalNursingWorkflow = {
   version?: number;
   name: string;
   description: string;
+  source: "local" | "gcs-cache" | "gcs-refresh";
+  storageBucket: string | null;
+  storagePath: string;
+  localPath: string | null;
+  loadedAt: string;
   adminMetadata: WorkflowYaml["admin_metadata"];
   prompts: Record<string, string>;
   staticResponses: Record<string, Record<string, unknown>>;
@@ -144,7 +149,13 @@ function resolveConfig(
   >;
 }
 
-function buildResult(yaml: WorkflowYaml): LoadedMaternalNursingWorkflow {
+function buildResult(
+  yaml: WorkflowYaml,
+  metadata: Pick<
+    LoadedMaternalNursingWorkflow,
+    "source" | "storageBucket" | "storagePath" | "localPath"
+  >,
+): LoadedMaternalNursingWorkflow {
   yamlConfigRef.current =
     (yaml as unknown as { config?: Record<string, unknown> }).config ?? null;
   const graph: WorkflowGraph = {
@@ -168,6 +179,11 @@ function buildResult(yaml: WorkflowYaml): LoadedMaternalNursingWorkflow {
     version: yaml.version,
     name: yaml.name,
     description: yaml.description,
+    source: metadata.source,
+    storageBucket: metadata.storageBucket,
+    storagePath: metadata.storagePath,
+    localPath: metadata.localPath,
+    loadedAt: new Date().toISOString(),
     adminMetadata: yaml.admin_metadata,
     prompts: yaml.prompts,
     staticResponses: yaml.static_responses,
@@ -198,7 +214,11 @@ function shouldAttemptGcsRead() {
   );
 }
 
-async function fetchFromGcs(): Promise<string | null> {
+async function fetchFromGcs(): Promise<{
+  text: string;
+  bucket: string;
+  path: string;
+} | null> {
   if (!shouldAttemptGcsRead()) {
     return null;
   }
@@ -208,7 +228,11 @@ async function fetchFromGcs(): Promise<string | null> {
   try {
     const storage = new Storage({ projectId: getGcsProjectId() });
     const [buffer] = await storage.bucket(bucket).file(STORAGE_PATH).download();
-    return buffer.toString("utf-8");
+    return {
+      text: buffer.toString("utf-8"),
+      bucket,
+      path: STORAGE_PATH,
+    };
   } catch {
     return null;
   }
@@ -216,7 +240,7 @@ async function fetchFromGcs(): Promise<string | null> {
 
 // ── 로컬 파일 fallback ──
 
-function loadLocalYaml(): WorkflowYaml {
+function loadLocalYaml(): { yaml: WorkflowYaml; filePath: string } {
   const candidates = [
     path.join(process.cwd(), "src/workflows/maternal-nursing.yaml"),
     path.join(
@@ -240,7 +264,28 @@ function loadLocalYaml(): WorkflowYaml {
     );
   }
   const raw = fs.readFileSync(filePath, "utf-8");
-  return parseYaml(raw) as WorkflowYaml;
+  return {
+    yaml: parseYaml(raw) as WorkflowYaml,
+    filePath,
+  };
+}
+
+function logWorkflowYamlLoad(
+  event: "load" | "refresh",
+  workflow: LoadedMaternalNursingWorkflow,
+) {
+  console.info(
+    [
+      "[mobile-chat-yaml]",
+      `event=${event}`,
+      `source=${workflow.source}`,
+      `version=${workflow.version ?? "unknown"}`,
+      `name=${workflow.name}`,
+      `storage=${workflow.storageBucket ?? "-"}:${workflow.storagePath}`,
+      `local=${workflow.localPath ?? "-"}`,
+      `blocks=${workflow.graph.blocks.length}`,
+    ].join(" "),
+  );
 }
 
 // ── 공개 API ──
@@ -248,22 +293,36 @@ function loadLocalYaml(): WorkflowYaml {
 export function loadMaternalNursingWorkflow() {
   // 캐시가 유효하면 바로 반환
   if (remoteCache && Date.now() - remoteCache.fetchedAt < CACHE_TTL_MS) {
+    logWorkflowYamlLoad("load", remoteCache.result);
     return remoteCache.result;
   }
 
   // 동기 호출이므로 로컬 파일을 기본으로 사용
-  const yaml = loadLocalYaml();
-  const result = buildResult(yaml);
+  const local = loadLocalYaml();
+  const result = buildResult(local.yaml, {
+    source: "local",
+    storageBucket: null,
+    storagePath: STORAGE_PATH,
+    localPath: local.filePath,
+  });
+  logWorkflowYamlLoad("load", result);
 
   // 백그라운드에서 GCS 확인 → 있으면 캐시 갱신
   fetchFromGcs()
-    .then((text) => {
-      if (text) {
-        const remoteYaml = parseYaml(text) as WorkflowYaml;
+    .then((remote) => {
+      if (remote) {
+        const remoteYaml = parseYaml(remote.text) as WorkflowYaml;
+        const remoteResult = buildResult(remoteYaml, {
+          source: "gcs-cache",
+          storageBucket: remote.bucket,
+          storagePath: remote.path,
+          localPath: local.filePath,
+        });
         remoteCache = {
-          result: buildResult(remoteYaml),
+          result: remoteResult,
           fetchedAt: Date.now(),
         };
+        logWorkflowYamlLoad("refresh", remoteResult);
       }
     })
     .catch(() => {
@@ -279,13 +338,19 @@ export function loadMaternalNursingWorkflow() {
  * 관리자가 YAML을 업로드한 직후 호출용.
  */
 export async function refreshWorkflowFromStorage() {
-  const text = await fetchFromGcs();
-  if (!text) {
+  const remote = await fetchFromGcs();
+  if (!remote) {
     return null;
   }
 
-  const yaml = parseYaml(text) as WorkflowYaml;
-  const result = buildResult(yaml);
+  const yaml = parseYaml(remote.text) as WorkflowYaml;
+  const result = buildResult(yaml, {
+    source: "gcs-refresh",
+    storageBucket: remote.bucket,
+    storagePath: remote.path,
+    localPath: null,
+  });
   remoteCache = { result, fetchedAt: Date.now() };
+  logWorkflowYamlLoad("refresh", result);
   return result;
 }

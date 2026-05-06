@@ -2,8 +2,10 @@ import { Hono } from "hono";
 import type {
   AdminDashboardData,
   AdminWorkflowRule,
+  UserAccountStatus,
   UserActionType,
 } from "@gynecology-chatbot/app-core";
+import { buildAdminWorkflowYamlCatalog } from "@gynecology-chatbot/app-core";
 import { prisma } from "@gynecology-chatbot/db/prisma";
 import { decryptPhoneNumber } from "@gynecology-chatbot/mobile-api/privacy/phone-crypto";
 
@@ -37,16 +39,80 @@ function formatAdminEventLabel(value: string | null | undefined) {
     active: "정상 이용 중",
     paused: "사용 중단 상태",
     pending_recovery: "접근 복구 대기",
+    pending_approval: "사용 승인 대기",
     phone_change: "전화번호 변경",
     session_reset: "세션 초기화",
     content_update: "콘텐츠 설정 변경",
+    account_pause: "사용 중단",
+    account_resume: "사용 재개",
+    account_approve: "사용 승인",
   };
   return labels[value] ?? value;
+}
+
+type RagDocumentMetadata = {
+  chunk_count?: number;
+  draft?: boolean;
+  fileId?: unknown;
+  sourceFileId?: unknown;
+  source_file_id?: unknown;
+  filename?: unknown;
+  file_name?: unknown;
+  sourceFilename?: unknown;
+  source_filename?: unknown;
+  source?: unknown;
+};
+
+function getMetadataString(
+  metadata: RagDocumentMetadata | null | undefined,
+  keys: Array<keyof RagDocumentMetadata>,
+) {
+  for (const key of keys) {
+    const value = metadata?.[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function extractSourceFileId(metadata: RagDocumentMetadata | null | undefined) {
+  const explicit = getMetadataString(metadata, [
+    "fileId",
+    "sourceFileId",
+    "source_file_id",
+  ]);
+  if (explicit) return explicit;
+
+  const sourceName = getMetadataString(metadata, [
+    "filename",
+    "file_name",
+    "sourceFilename",
+    "source_filename",
+    "source",
+  ]);
+  const uuidPrefix = sourceName?.match(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i,
+  );
+  return uuidPrefix?.[0] ?? null;
+}
+
+function extractSourceFilename(
+  metadata: RagDocumentMetadata | null | undefined,
+) {
+  return getMetadataString(metadata, [
+    "filename",
+    "file_name",
+    "sourceFilename",
+    "source_filename",
+    "source",
+  ]);
 }
 
 function mapWorkflowRule(row: {
   id: string;
   name: string;
+  slug?: string | null;
   provider: string;
   is_active: boolean;
   config: unknown;
@@ -57,9 +123,29 @@ function mapWorkflowRule(row: {
       ? (row.config as Record<string, unknown>)
       : {};
   const metadata =
-    row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+    row.metadata &&
+    typeof row.metadata === "object" &&
+    !Array.isArray(row.metadata)
       ? (row.metadata as Record<string, unknown>)
       : {};
+  const readString = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = metadata[key] ?? config[key];
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    return null;
+  };
+  const workflowKind = readString("workflowKind", "kind", "workflow_kind");
+  const gcsBucket = readString("gcsBucket", "gcs_bucket");
+  const gcsObject = readString("gcsObject", "gcs_object", "yamlObject");
+  const storagePath = readString(
+    "storagePath",
+    "storage_path",
+    "yamlPath",
+    "yaml_path",
+    "gcsPath",
+    "gcs_path",
+  );
   return {
     id: row.id,
     name: row.name,
@@ -82,11 +168,94 @@ function mapWorkflowRule(row: {
           ? config.modelName
           : "미설정",
     status: row.is_active ? "active" : "review",
+    source: "sql",
+    workflowKind:
+      workflowKind === "router" ||
+      workflowKind === "subworkflow" ||
+      workflowKind === "monolith" ||
+      workflowKind === "managed"
+        ? workflowKind
+        : storagePath
+          ? "managed"
+          : undefined,
+    storagePath,
+    gcsBucket,
+    gcsObject,
+    sqlSlug: row.slug ?? null,
   };
 }
 
+function getWorkflowYamlBucket() {
+  return process.env.GCS_WORKFLOW_BUCKET ?? "agaya-workflow-config";
+}
+
+function isRuntimeRoutedWorkflow(rule: AdminWorkflowRule) {
+  return (
+    rule.workflowKind === "router" || rule.workflowKind === "subworkflow"
+  );
+}
+
+function mergeWorkflowRulesWithYamlCatalog(
+  rows: Array<{
+    id: string;
+    name: string;
+    slug: string | null;
+    provider: string;
+    is_active: boolean;
+    config: unknown;
+    metadata: unknown;
+  }>,
+): AdminWorkflowRule[] {
+  const mappedRules = rows.map(mapWorkflowRule);
+  const identityOf = (rule: AdminWorkflowRule) =>
+    [rule.name, rule.trigger, rule.modelName]
+      .map((part) => part.trim().toLowerCase())
+      .join("::");
+  const mappedBySlug = new Map(
+    mappedRules
+      .filter((rule) => rule.sqlSlug)
+      .map((rule) => [rule.sqlSlug as string, rule]),
+  );
+  const mappedByIdentity = new Map(
+    mappedRules.map((rule) => [identityOf(rule), rule]),
+  );
+  const catalogRules = buildAdminWorkflowYamlCatalog(getWorkflowYamlBucket());
+  const orderedCatalogRules = catalogRules.map((catalogRule) => {
+    const sqlRule =
+      mappedBySlug.get(catalogRule.sqlSlug ?? "") ??
+      mappedByIdentity.get(identityOf(catalogRule));
+    if (!sqlRule) return catalogRule;
+    return {
+      ...catalogRule,
+      ...sqlRule,
+      workflowKind: sqlRule.workflowKind ?? catalogRule.workflowKind,
+      storagePath: sqlRule.storagePath ?? catalogRule.storagePath,
+      gcsBucket: sqlRule.gcsBucket ?? catalogRule.gcsBucket,
+      gcsObject: sqlRule.gcsObject ?? catalogRule.gcsObject,
+      source: "sql" as const,
+    };
+  });
+  const catalogSlugs = new Set(
+    catalogRules.map((rule) => rule.sqlSlug).filter(Boolean),
+  );
+  const catalogIdentities = new Set(catalogRules.map(identityOf));
+  const catalogNames = new Set(catalogRules.map((rule) => rule.name));
+  const extraSqlRules = mappedRules.filter(
+    (rule) =>
+      isRuntimeRoutedWorkflow(rule) &&
+      (!rule.sqlSlug || !catalogSlugs.has(rule.sqlSlug)) &&
+      !catalogIdentities.has(identityOf(rule)) &&
+      !(catalogNames.has(rule.name) && !rule.storagePath),
+  );
+
+  return [...orderedCatalogRules, ...extraSqlRules];
+}
+
 function formatUserActionLabel(actionType: UserActionType) {
-  const labels: Record<UserActionType, { actionLabel: string; detail: string }> = {
+  const labels: Record<
+    UserActionType,
+    { actionLabel: string; detail: string }
+  > = {
     account_paused: {
       actionLabel: "사용 중단",
       detail: "운영자가 이 사용자의 이용을 잠시 멈췄습니다.",
@@ -94,6 +263,10 @@ function formatUserActionLabel(actionType: UserActionType) {
     account_resumed: {
       actionLabel: "사용 재개",
       detail: "운영자가 이 사용자의 이용을 다시 열었습니다.",
+    },
+    account_approved: {
+      actionLabel: "사용 승인",
+      detail: "운영자가 이 사용자의 앱 이용을 승인했습니다.",
     },
     login_succeeded: {
       actionLabel: "로그인 완료",
@@ -197,6 +370,7 @@ app.get("/dashboard", async (c) => {
         select: {
           id: true,
           name: true,
+          slug: true,
           provider: true,
           is_active: true,
           config: true,
@@ -218,7 +392,9 @@ app.get("/dashboard", async (c) => {
       }),
     ]);
 
-    const profilesByUser = new Map(profiles.map((profile) => [profile.user_id, profile]));
+    const profilesByUser = new Map(
+      profiles.map((profile) => [profile.user_id, profile]),
+    );
     const sessionsByUser = new Map<string, typeof sessions>();
     for (const session of sessions) {
       const current = sessionsByUser.get(session.user_id) ?? [];
@@ -246,6 +422,7 @@ app.get("/dashboard", async (c) => {
           "알 수 없는 사용자",
         phoneNumber: decryptPhoneNumber(user.phone_number_encrypted as string),
         status: toManagedUserStatus(user.account_status),
+        accountStatus: user.account_status as UserAccountStatus,
         latestIssue: formatAdminEventLabel(
           latestAuditByUser.get(user.id) ?? user.account_status,
         ),
@@ -263,7 +440,7 @@ app.get("/dashboard", async (c) => {
           profile?.pregnancy_day_in_week ?? null,
         ),
         latestSessionLabel: userSessions[0]?.last_message_at
-          ? toIsoStringOrNull(userSessions[0].last_message_at) ?? "기록 없음"
+          ? (toIsoStringOrNull(userSessions[0].last_message_at) ?? "기록 없음")
           : "기록 없음",
         sessions: userSessions.slice(0, 8).map((session) => ({
           id: session.id,
@@ -327,7 +504,8 @@ app.get("/dashboard", async (c) => {
           id: "recovery",
           label: "계정 복구 요청",
           value: String(
-            users.filter((user) => user.account_status === "pending_recovery").length,
+            users.filter((user) => user.account_status === "pending_recovery")
+              .length,
           ),
           changeLabel: "처리 대기",
         },
@@ -348,7 +526,7 @@ app.get("/dashboard", async (c) => {
           document.metadata &&
           typeof document.metadata === "object" &&
           !Array.isArray(document.metadata)
-            ? (document.metadata as { chunk_count?: number; draft?: boolean })
+            ? (document.metadata as RagDocumentMetadata)
             : null;
         return {
           id: document.id,
@@ -361,9 +539,11 @@ app.get("/dashboard", async (c) => {
           updatedAt: (document.updated_at ?? document.created_at).toISOString(),
           status:
             metadata?.draft || metadata?.chunk_count === 0 ? "draft" : "ready",
+          sourceFileId: extractSourceFileId(metadata),
+          sourceFilename: extractSourceFilename(metadata),
         };
       }),
-      workflowRules: workflowDefinitions.map(mapWorkflowRule),
+      workflowRules: mergeWorkflowRulesWithYamlCatalog(workflowDefinitions),
       historyUsers,
       userActions: actions,
     };
@@ -372,7 +552,10 @@ app.get("/dashboard", async (c) => {
   } catch (error) {
     console.error("admin api dashboard error", error);
     return c.json(
-      { error: error instanceof Error ? error.message : "failed to load dashboard" },
+      {
+        error:
+          error instanceof Error ? error.message : "failed to load dashboard",
+      },
       500,
     );
   }

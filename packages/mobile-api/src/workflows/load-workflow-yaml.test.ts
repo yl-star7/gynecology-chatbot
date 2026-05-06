@@ -7,6 +7,8 @@ function parsePromptJson(prompt: string | undefined) {
   return JSON.parse(prompt ?? "{}") as {
     answer?: string;
     scenario?: string;
+    promptText?: string;
+    directInputAcknowledgementText?: string;
     quickReplies?: unknown[];
     answerVariations?: string[];
     moodPrompts?: Array<{ label: string; message: string; tone: string }>;
@@ -51,6 +53,11 @@ describe("maternal nursing workflow YAML", () => {
     const rag = workflow.graph.blocks.find((block) => block.id === "rag");
 
     expect(workflow.version).toBe(2);
+    expect(workflow.source).toBe("local");
+    expect(workflow.storagePath).toBe("maternal-nursing.yaml");
+    expect(workflow.localPath).toEqual(
+      expect.stringContaining("maternal-nursing.yaml"),
+    );
     expect(rag?.type).toBe("rag");
     expect(rag?.config?.system_prompt).toEqual(
       expect.stringContaining("Workflow v2 승인 플로우 계약"),
@@ -82,17 +89,23 @@ describe("maternal nursing workflow YAML", () => {
     );
 
     expect(moodIntake.scenario).toBe("mood_intake");
+    expect(moodIntake.promptText).toBe(
+      "오늘은 마음이 어떠세요?\n\n편하게 하나만 골라도 좋고, 직접 말해줘도 괜찮아요.",
+    );
+    expect(moodIntake.directInputAcknowledgementText).toBe(
+      "오늘의 기분 나눠줘서 고마워요. 잘 기억해서 차근차근 더 이야기 해볼게요.",
+    );
     expect(moodIntake.moodPrompts).toHaveLength(20);
     expect(
       new Set(moodIntake.moodPrompts?.map((prompt) => prompt.label)),
     ).toHaveProperty("size", 20);
     expect(moodIntake.moodPrompts?.slice(0, 5)).toEqual([
-      { label: "좋아요", message: "오늘 기분이 좋아요.", tone: "joyful" },
-      { label: "울적해요", message: "기분이 울적해요.", tone: "sad" },
-      { label: "슬퍼요", message: "오늘은 마음이 슬퍼요.", tone: "sad" },
+      { label: "좋아요", message: "오늘은 좋은 기분이에요.", tone: "joyful" },
+      { label: "우울해요", message: "오늘은 우울한 기분이에요.", tone: "sad" },
+      { label: "슬퍼요", message: "오늘은 슬픈 기분이에요.", tone: "sad" },
       {
-        label: "짜증나요",
-        message: "오늘은 조금 짜증이 나요.",
+        label: "화나요",
+        message: "오늘은 화나는 기분이에요.",
         tone: "anxious",
       },
       { label: "직접 입력", message: "직접 말하고 싶어요.", tone: "calm" },

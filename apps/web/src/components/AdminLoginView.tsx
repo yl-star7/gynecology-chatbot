@@ -3,7 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import styles from "./admin/AdminConsoleLayout.module.css";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function AdminLoginView() {
   const router = useRouter();
@@ -35,42 +39,45 @@ export default function AdminLoginView() {
   }
 
   return (
-    <main className={styles.loginRoot}>
-      <section className={styles.loginPanel}>
-        <div className={styles.loginCard}>
-          <div>
-            <h1 className={styles.panelTitle}>관리자 로그인</h1>
-          </div>
-
-          <form className={styles.formGrid} onSubmit={handleSubmit}>
-            <label className={styles.fieldGroup}>
-              <span className={styles.fieldLabel}>전화번호</span>
-              <input
-                className={styles.fieldInput}
+    <main className="admin-console-shell flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
+      <Card className="w-full max-w-md shadow-sm">
+        <CardHeader>
+          <CardTitle>
+            <h1>관리자 로그인</h1>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <div className="space-y-1.5">
+              <Label htmlFor="admin-phone-number">전화번호</Label>
+              <Input
+                id="admin-phone-number"
+                autoComplete="tel"
                 value={phoneNumber}
                 onChange={(event) => setPhoneNumber(event.target.value)}
               />
-            </label>
-            <label className={styles.fieldGroup}>
-              <span className={styles.fieldLabel}>비밀번호</span>
-              <input
-                className={styles.fieldInput}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="admin-password">비밀번호</Label>
+              <Input
+                id="admin-password"
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />
-            </label>
-            {error ? <p className={styles.formHint}>{error}</p> : null}
-            <button
-              className={styles.primaryButton}
-              type="submit"
-              disabled={isSubmitting}
-            >
+            </div>
+            {error ? (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : null}
+            <Button type="submit" disabled={isSubmitting} className="w-full">
               {isSubmitting ? "로그인 중" : "로그인"}
-            </button>
+            </Button>
           </form>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
     </main>
   );
 }

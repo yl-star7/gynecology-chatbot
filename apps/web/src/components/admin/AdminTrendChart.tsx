@@ -1,6 +1,7 @@
 "use client";
 
-import styles from "./AdminConsoleLayout.module.css";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/components/ui/cn";
 
 interface DailyTrendItem {
   date: string;
@@ -20,9 +21,24 @@ const PADDING_RIGHT = 16;
 const PADDING_TOP = 12;
 const PADDING_BOTTOM = 32;
 
-const COLOR_SESSIONS = "#0f62fe"; // --admin-accent
-const COLOR_LOGINS = "#198038"; // --admin-success
-const COLOR_MESSAGES = "#8a3ffc"; // purple
+const COLOR_SESSIONS = "#0f62fe";
+const COLOR_LOGINS = "#198038";
+const COLOR_MESSAGES = "#8a3ffc";
+
+function LegendItem({
+  label,
+  colorClassName,
+}: {
+  label: string;
+  colorClassName: string;
+}) {
+  return (
+    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className={cn("h-2.5 w-2.5 rounded-sm", colorClassName)} />
+      {label}
+    </span>
+  );
+}
 
 export function AdminTrendChart({ dailyTrend }: AdminTrendChartProps) {
   if (!dailyTrend || dailyTrend.length === 0) return null;
@@ -48,31 +64,25 @@ export function AdminTrendChart({ dailyTrend }: AdminTrendChartProps) {
   }
 
   return (
-    <div className={styles.trendChartSection}>
-      <p className={styles.trendChartHeader}>주간 활동 추이</p>
-      <div className={styles.trendChartContainer}>
-        <div className={styles.trendLegend}>
-          <span className={styles.trendLegendItem}>
-            <span className={styles.trendLegendDot} style={{ background: COLOR_SESSIONS }} />
-            상담
-          </span>
-          <span className={styles.trendLegendItem}>
-            <span className={styles.trendLegendDot} style={{ background: COLOR_LOGINS }} />
-            로그인
-          </span>
-          <span className={styles.trendLegendItem}>
-            <span className={styles.trendLegendDot} style={{ background: COLOR_MESSAGES }} />
-            메시지
-          </span>
+    <Card className="shadow-sm">
+      <CardHeader className="pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <CardTitle className="text-sm font-medium">주간 활동 추이</CardTitle>
+          <div className="flex flex-wrap justify-end gap-4">
+            <LegendItem label="상담" colorClassName="bg-primary-500" />
+            <LegendItem label="로그인" colorClassName="bg-emerald-600" />
+            <LegendItem label="메시지" colorClassName="bg-violet-600" />
+          </div>
         </div>
-
+      </CardHeader>
+      <CardContent>
         <svg
           viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
           width="100%"
           height="auto"
           role="img"
           aria-label="주간 활동 추이 차트"
-          style={{ display: "block", maxWidth: CHART_WIDTH }}
+          className="block max-w-[560px]"
         >
           {yTicks.map((tick) => (
             <g key={tick}>
@@ -126,7 +136,7 @@ export function AdminTrendChart({ dailyTrend }: AdminTrendChartProps) {
                       >
                         <title>{`${day.date} ${bar.label}: ${bar.value}`}</title>
                       </rect>
-                      {bar.value > 0 && (
+                      {bar.value > 0 ? (
                         <text
                           x={bx + barWidth / 2}
                           y={yPos(bar.value) - 4}
@@ -137,7 +147,7 @@ export function AdminTrendChart({ dailyTrend }: AdminTrendChartProps) {
                         >
                           {bar.value}
                         </text>
-                      )}
+                      ) : null}
                     </g>
                   );
                 })}
@@ -154,12 +164,10 @@ export function AdminTrendChart({ dailyTrend }: AdminTrendChartProps) {
             );
           })}
         </svg>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
-
-// ── 사용자 분포 도넛 차트 ────────────────────────────────────
 
 interface UserDistributionProps {
   totalUsers: number;
@@ -180,18 +188,35 @@ export function AdminUserDistributionChart({
   if (totalUsers === 0) return null;
 
   const segments = [
-    { label: "푸시 활성", value: pushEnabled, color: "#198038" },
-    { label: "온보딩 완료", value: Math.max(onboardedUsers - pushEnabled, 0), color: "#0f62fe" },
-    { label: "미온보딩", value: Math.max(totalUsers - onboardedUsers, 0), color: "#d9e1ec" },
+    {
+      label: "푸시 활성",
+      value: pushEnabled,
+      color: "#198038",
+      colorClassName: "bg-emerald-600",
+    },
+    {
+      label: "온보딩 완료",
+      value: Math.max(onboardedUsers - pushEnabled, 0),
+      color: "#0f62fe",
+      colorClassName: "bg-primary-500",
+    },
+    {
+      label: "미온보딩",
+      value: Math.max(totalUsers - onboardedUsers, 0),
+      color: "#d9e1ec",
+      colorClassName: "bg-muted",
+    },
   ].filter((s) => s.value > 0);
 
   const circumference = 2 * Math.PI * DONUT_RADIUS;
   let offset = 0;
 
   return (
-    <div className={styles.trendChartSection}>
-      <p className={styles.trendChartHeader}>사용자 분포</p>
-      <div className={styles.trendChartContainer} style={{ display: "flex", alignItems: "center", gap: 32 }}>
+    <Card className="shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-sm font-medium">사용자 분포</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-wrap items-center gap-8">
         <svg
           viewBox={`0 0 ${DONUT_SIZE} ${DONUT_SIZE}`}
           width={DONUT_SIZE}
@@ -241,15 +266,16 @@ export function AdminUserDistributionChart({
             전체
           </text>
         </svg>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="flex flex-col gap-2">
           {segments.map((seg) => (
-            <span key={seg.label} className={styles.trendLegendItem} style={{ fontSize: 13 }}>
-              <span className={styles.trendLegendDot} style={{ background: seg.color }} />
-              {seg.label}: {seg.value}명
-            </span>
+            <LegendItem
+              key={seg.label}
+              label={`${seg.label}: ${seg.value}명`}
+              colorClassName={seg.colorClassName}
+            />
           ))}
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

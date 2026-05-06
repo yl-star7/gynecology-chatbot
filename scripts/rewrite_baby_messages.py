@@ -24,8 +24,8 @@ except ImportError:
     print("pip install google-genai")
     sys.exit(1)
 
-SQL_PATH = Path(__file__).parent.parent / "legacyBackend" / "migrations" / "20260324_seed_pregnancy_week_content.sql"
-OUTPUT_PATH = Path(__file__).parent.parent / "legacyBackend" / "migrations" / "20260412_rewrite_baby_messages.sql"
+SQL_PATH = Path(__file__).parent.parent / "db" / "migrations" / "20260324_seed_pregnancy_week_content.sql"
+OUTPUT_PATH = Path(__file__).parent.parent / "db" / "migrations" / "20260412_rewrite_baby_messages.sql"
 
 SYSTEM_PROMPT = """\
 당신은 임산부 대상 모성간호 앱의 콘텐츠 에디터입니다.

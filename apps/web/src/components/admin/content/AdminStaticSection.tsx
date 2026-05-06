@@ -9,12 +9,57 @@ import type {
   HomeCopyStatus,
 } from "@gynecology-chatbot/app-core";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+
 import {
   getWeekStatusBadge,
   getWeekStatusLabel,
 } from "../admin-dashboard-labels";
-import styles from "../AdminConsoleLayout.module.css";
 import { AdminHomeCopyPanel } from "./AdminHomeCopyPanel";
+
+type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
+
+function statusVariant(badge: string | null | undefined): BadgeVariant {
+  switch (badge) {
+    case "statusSuccess":
+      return "default";
+    case "statusWarning":
+      return "secondary";
+    case "statusError":
+      return "destructive";
+    case "statusMuted":
+      return "outline";
+    default:
+      return "outline";
+  }
+}
 
 export interface AdminStaticSectionProps {
   homeCopyItems: HomeCopyItem[];
@@ -111,17 +156,18 @@ export function AdminStaticSection({
     knowledgeItems.find((item) => item.id === selectedKnowledgeItemId) ?? null;
 
   const filteredKnowledgeItems = knowledgeItems.filter((item) => {
+    const normalizedQuery = knowledgeQuery.trim().toLowerCase();
     const matchesQuery =
-      !knowledgeQuery.trim() ||
-      item.title.toLowerCase().includes(knowledgeQuery.trim().toLowerCase()) ||
-      item.slug.toLowerCase().includes(knowledgeQuery.trim().toLowerCase());
+      !normalizedQuery ||
+      item.title.toLowerCase().includes(normalizedQuery) ||
+      item.slug.toLowerCase().includes(normalizedQuery);
     const matchesStatus =
       knowledgeStatusFilter === "all" || item.status === knowledgeStatusFilter;
     return matchesQuery && matchesStatus;
   });
 
   return (
-    <section className={styles.sectionStack}>
+    <section className="flex flex-col gap-6">
       <AdminHomeCopyPanel
         homeCopyItems={homeCopyItems}
         selectedHomeCopyItemId={selectedHomeCopyItemId}
@@ -146,241 +192,258 @@ export function AdminStaticSection({
         onResetHomeCopyItem={onResetHomeCopyItem}
       />
 
-      <section className={styles.panel}>
-        <div className={styles.routeHeader}>
-          <div>
-            <h2 className={styles.routeTitle}>주차별 아기는요?</h2>
-            <p className={styles.panelDescription}>
+      <section className="rounded-lg border bg-card p-6 shadow-sm">
+        <div className="flex flex-col gap-4 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-foreground">
+              주차별 아기는요?
+            </h2>
+            <p className="text-sm text-muted-foreground">
               주차별 아기 정보에 함께 쓰는 고정 안내문을 관리하고, 상세 수정은
               우측 패널에서 처리합니다.
             </p>
           </div>
-          <div className={styles.topbarActions}>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={() => {
-                onResetKnowledgeItem();
-                setActiveOverlay(true);
-              }}
-            >
-              새 안내문
-            </button>
-          </div>
+          <Button
+            type="button"
+            onClick={() => {
+              onResetKnowledgeItem();
+              setActiveOverlay(true);
+            }}
+          >
+            새 안내문
+          </Button>
         </div>
 
-        <div className={styles.tableToolbar}>
-          <label className={styles.fieldGroup}>
-            <span className={styles.fieldLabel}>검색</span>
-            <input
-              className={styles.fieldInput}
+        <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-end">
+          <div className="flex-1 space-y-1.5">
+            <Label htmlFor="knowledge-search">검색</Label>
+            <Input
+              id="knowledge-search"
               value={knowledgeQuery}
               onChange={(event) => setKnowledgeQuery(event.target.value)}
               placeholder="제목 또는 슬러그"
             />
-          </label>
-          <label className={styles.fieldGroup}>
-            <span className={styles.fieldLabel}>상태</span>
-            <select
-              className={styles.fieldSelect}
+          </div>
+          <div className="w-full space-y-1.5 sm:w-48">
+            <Label>상태</Label>
+            <Select
               value={knowledgeStatusFilter}
-              onChange={(event) => setKnowledgeStatusFilter(event.target.value)}
+              onValueChange={setKnowledgeStatusFilter}
             >
-              <option value="all">전체</option>
-              <option value="draft">초안</option>
-              <option value="published">게시중</option>
-              <option value="archived">보관</option>
-            </select>
-          </label>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체</SelectItem>
+                <SelectItem value="draft">초안</SelectItem>
+                <SelectItem value="published">게시중</SelectItem>
+                <SelectItem value="archived">보관</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className={styles.dataTable}>
-          <div className={styles.dataTableHeader}>
-            <span>제목</span>
-            <span>슬러그</span>
-            <span>섹션</span>
-            <span>상태</span>
-            <span>최근 수정</span>
-          </div>
-          {filteredKnowledgeItems.map((item) => (
-            <button
-              key={item.id}
-              className={`${styles.dataTableRow} ${
-                selectedKnowledgeItemId === item.id
-                  ? styles.dataTableRowActive
-                  : ""
-              }`}
-              type="button"
-              onClick={() => {
-                onSelectKnowledgeItem(item.id);
-                setActiveOverlay(true);
-              }}
-            >
-              <span className={styles.dataTableTitleGroup}>
-                <strong>{item.title}</strong>
-              </span>
-              <span>{item.slug}</span>
-              <span>{item.section}</span>
-              <span>
-                <span
-                  className={`${styles.statusBadge} ${
-                    styles[getWeekStatusBadge(item.status)] ?? ""
-                  }`}
-                >
-                  {getWeekStatusLabel(item.status)}
-                </span>
-              </span>
-              <span>{item.updatedAt}</span>
-            </button>
-          ))}
-          {filteredKnowledgeItems.length === 0 ? (
-            <div className={styles.listEmpty}>
-              조건에 맞는 안내문이 없습니다.
-            </div>
-          ) : null}
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>제목</TableHead>
+                <TableHead className="w-[160px]">슬러그</TableHead>
+                <TableHead className="w-[120px]">섹션</TableHead>
+                <TableHead className="w-[100px]">상태</TableHead>
+                <TableHead className="w-[160px]">최근 수정</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredKnowledgeItems.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="h-24 text-center text-sm text-muted-foreground"
+                  >
+                    조건에 맞는 안내문이 없습니다.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredKnowledgeItems.map((item) => (
+                  <TableRow
+                    key={item.id}
+                    data-state={
+                      item.id === selectedKnowledgeItemId
+                        ? "selected"
+                        : undefined
+                    }
+                    className="cursor-pointer"
+                    onClick={() => {
+                      onSelectKnowledgeItem(item.id);
+                      setActiveOverlay(true);
+                    }}
+                  >
+                    <TableCell>
+                      <strong className="font-medium text-foreground">
+                        {item.title}
+                      </strong>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {item.slug}
+                    </TableCell>
+                    <TableCell className="text-sm">{item.section}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={statusVariant(getWeekStatusBadge(item.status))}
+                      >
+                        {getWeekStatusLabel(item.status)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {item.updatedAt}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </section>
 
-      {activeOverlay ? (
-        <>
-          <button
-            aria-label="패널 닫기"
-            className={styles.overlayBackdrop}
-            type="button"
-            onClick={() => setActiveOverlay(false)}
-          />
-          <aside className={styles.overlayPanel}>
-            <div className={styles.overlayHeader}>
-              <div>
-                <h3 className={styles.panelTitle}>
-                  {selectedKnowledgeItem ? "안내문 편집" : "새 안내문"}
-                </h3>
-                <p className={styles.panelDescription}>
-                  이름, 상태, 본문을 한 패널 안에서 수정합니다.
-                </p>
-              </div>
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                onClick={() => setActiveOverlay(false)}
-              >
-                닫기
-              </button>
-            </div>
-            <div className={styles.overlayBody}>
-              {contentMessage ? (
-                <p className={styles.formHint}>{contentMessage}</p>
-              ) : null}
-              <div className={styles.panelGrid}>
-                <label className={styles.fieldGroup}>
-                  <span className={styles.fieldLabel}>슬러그</span>
-                  <input
-                    className={styles.fieldInput}
-                    value={knowledgeSlug}
-                    onChange={(event) =>
-                      onKnowledgeSlugChange(event.target.value)
-                    }
-                  />
-                </label>
-                <label className={styles.fieldGroup}>
-                  <span className={styles.fieldLabel}>섹션</span>
-                  <select
-                    className={styles.fieldSelect}
-                    value={knowledgeSection}
-                    onChange={(event) =>
-                      onKnowledgeSectionChange(
-                        event.target.value as AdminKnowledgeItem["section"],
-                      )
-                    }
-                  >
-                    <option value="knowledge">knowledge</option>
-                    <option value="notebook">notebook</option>
-                  </select>
-                </label>
-              </div>
-              <div className={styles.panelGrid}>
-                <label className={styles.fieldGroup}>
-                  <span className={styles.fieldLabel}>제목</span>
-                  <input
-                    className={styles.fieldInput}
-                    value={knowledgeTitle}
-                    onChange={(event) =>
-                      onKnowledgeTitleChange(event.target.value)
-                    }
-                  />
-                </label>
-                <label className={styles.fieldGroup}>
-                  <span className={styles.fieldLabel}>상태</span>
-                  <select
-                    className={styles.fieldSelect}
-                    value={knowledgeStatus}
-                    onChange={(event) =>
-                      onKnowledgeStatusChange(
-                        event.target.value as AdminKnowledgeItem["status"],
-                      )
-                    }
-                  >
-                    <option value="draft">draft</option>
-                    <option value="published">published</option>
-                    <option value="archived">archived</option>
-                  </select>
-                </label>
-              </div>
-              <label className={styles.fieldGroup}>
-                <span className={styles.fieldLabel}>본문</span>
-                <textarea
-                  className={styles.overlayTextarea}
-                  value={knowledgeBody}
+      <Sheet open={activeOverlay} onOpenChange={setActiveOverlay}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col gap-4 overflow-y-auto sm:max-w-lg"
+        >
+          <SheetHeader>
+            <SheetTitle>
+              {selectedKnowledgeItem ? "안내문 편집" : "새 안내문"}
+            </SheetTitle>
+            <SheetDescription>
+              이름, 상태, 본문을 한 패널 안에서 수정합니다.
+            </SheetDescription>
+          </SheetHeader>
+
+          {contentMessage ? (
+            <p className="text-sm text-muted-foreground">{contentMessage}</p>
+          ) : null}
+
+          <div className="flex flex-1 flex-col gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="knowledge-slug">슬러그</Label>
+                <Input
+                  id="knowledge-slug"
+                  value={knowledgeSlug}
                   onChange={(event) =>
-                    onKnowledgeBodyChange(event.target.value)
+                    onKnowledgeSlugChange(event.target.value)
                   }
                 />
-              </label>
-              <label className={styles.fieldGroup}>
-                <span className={styles.fieldLabel}>이미지 URL</span>
-                <input
-                  className={styles.fieldInput}
-                  value={knowledgeImageUrl}
-                  onChange={(event) =>
-                    onKnowledgeImageUrlChange(event.target.value)
+              </div>
+              <div className="space-y-1.5">
+                <Label>섹션</Label>
+                <Select
+                  value={knowledgeSection}
+                  onValueChange={(value) =>
+                    onKnowledgeSectionChange(
+                      value as AdminKnowledgeItem["section"],
+                    )
                   }
-                  placeholder="https://example.com/image.png"
-                />
-              </label>
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="knowledge">knowledge</SelectItem>
+                    <SelectItem value="notebook">notebook</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className={styles.overlayFooter}>
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                disabled={isKnowledgeSaving}
-                onClick={onResetKnowledgeItem}
-              >
-                비우기
-              </button>
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                disabled={isKnowledgeSaving || !selectedKnowledgeItemId}
-                onClick={onDeleteKnowledgeItem}
-              >
-                삭제
-              </button>
-              <button
-                className={styles.primaryButton}
-                type="button"
-                disabled={isKnowledgeSaving}
-                onClick={
-                  selectedKnowledgeItemId
-                    ? onUpdateKnowledgeItem
-                    : onCreateKnowledgeItem
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="knowledge-title">제목</Label>
+                <Input
+                  id="knowledge-title"
+                  value={knowledgeTitle}
+                  onChange={(event) =>
+                    onKnowledgeTitleChange(event.target.value)
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>상태</Label>
+                <Select
+                  value={knowledgeStatus}
+                  onValueChange={(value) =>
+                    onKnowledgeStatusChange(
+                      value as AdminKnowledgeItem["status"],
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">draft</SelectItem>
+                    <SelectItem value="published">published</SelectItem>
+                    <SelectItem value="archived">archived</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="knowledge-body">본문</Label>
+              <Textarea
+                id="knowledge-body"
+                value={knowledgeBody}
+                onChange={(event) => onKnowledgeBodyChange(event.target.value)}
+                rows={8}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="knowledge-image">이미지 URL</Label>
+              <Input
+                id="knowledge-image"
+                value={knowledgeImageUrl}
+                onChange={(event) =>
+                  onKnowledgeImageUrlChange(event.target.value)
                 }
-              >
-                {selectedKnowledgeItemId ? "안내문 저장" : "안내문 생성"}
-              </button>
+                placeholder="https://example.com/image.png"
+              />
             </div>
-          </aside>
-        </>
-      ) : null}
+          </div>
+
+          <SheetFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              type="button"
+              disabled={isKnowledgeSaving}
+              onClick={onResetKnowledgeItem}
+            >
+              비우기
+            </Button>
+            <Button
+              variant="outline"
+              type="button"
+              disabled={isKnowledgeSaving || !selectedKnowledgeItemId}
+              onClick={onDeleteKnowledgeItem}
+            >
+              삭제
+            </Button>
+            <Button
+              type="button"
+              disabled={isKnowledgeSaving}
+              onClick={
+                selectedKnowledgeItemId
+                  ? onUpdateKnowledgeItem
+                  : onCreateKnowledgeItem
+              }
+            >
+              {selectedKnowledgeItemId ? "안내문 저장" : "안내문 생성"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </section>
   );
 }

@@ -25,32 +25,6 @@ jest.mock("next/navigation", () => ({
   },
 }));
 
-// legacyBackend 클라이언트 모킹 (파일이 생기면 주석 해제)
-/*
-jest.mock('@/lib/legacyBackend-client', () => ({
-  createClient: () => ({
-    auth: {
-      getSession: jest.fn(() => Promise.resolve({ data: { session: null }, error: null })),
-      getUser: jest.fn(() => Promise.resolve({ data: { user: null }, error: null })),
-      signUp: jest.fn(),
-      signInWithPassword: jest.fn(),
-      signOut: jest.fn(),
-      onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })),
-    },
-    from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        eq: jest.fn(() => ({
-          single: jest.fn(() => Promise.resolve({ data: null, error: null })),
-        })),
-      })),
-      insert: jest.fn(() => Promise.resolve({ data: null, error: null })),
-      update: jest.fn(() => Promise.resolve({ data: null, error: null })),
-      delete: jest.fn(() => Promise.resolve({ data: null, error: null })),
-    })),
-  }),
-}));
-*/
-
 // React Hot Toast 모킹
 /*
 jest.mock('react-hot-toast', () => ({
@@ -69,7 +43,7 @@ jest.mock('react-hot-toast', () => ({
 }));
 */
 
-// legacyBackend AI SDK 모킹
+// AI SDK 모킹
 /*
 jest.mock('ai/react', () => ({
   useChat: () => ({
@@ -85,6 +59,7 @@ jest.mock('ai/react', () => ({
 
 // Lucide React 아이콘 모킹
 jest.mock("lucide-react", () => {
+  const React = require("react");
   const icons = [
     "Heart",
     "MessageSquare",
@@ -106,6 +81,11 @@ jest.mock("lucide-react", () => {
     "Send",
     "Menu",
     "X",
+    "PlusCircle",
+    "Play",
+    "Plus",
+    "Pencil",
+    "RotateCcw",
   ];
 
   const iconComponents = {};
@@ -118,7 +98,24 @@ jest.mock("lucide-react", () => {
       });
   });
 
-  return iconComponents;
+  // Fallback: return a generic svg for any unlisted icon so we don't break
+  // shadcn components that import arbitrary icons (ChevronDown, Check, X, etc.).
+  return new Proxy(iconComponents, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      if (typeof prop === "string" && /^[A-Z]/.test(prop)) {
+        const Component = ({ className, ...props }) =>
+          React.createElement("svg", {
+            "data-testid": `${prop.toLowerCase()}-icon`,
+            className,
+            ...props,
+          });
+        target[prop] = Component;
+        return Component;
+      }
+      return undefined;
+    },
+  });
 });
 
 jest.mock("@gynecology-chatbot/db/prisma", () => {
@@ -154,7 +151,9 @@ jest.mock("@gynecology-chatbot/db/prisma", () => {
         } else {
           for (const operator of ["eq", "gte", "lte", "lt", "gt"]) {
             if (operator in value) {
-              params.push(`${column}=${operator}.${formatValue(value[operator])}`);
+              params.push(
+                `${column}=${operator}.${formatValue(value[operator])}`,
+              );
             }
           }
         }
@@ -197,7 +196,8 @@ jest.mock("@gynecology-chatbot/db/prisma", () => {
   function normalizeDateFields(row, select) {
     if (!row || typeof row !== "object") return row;
     const next = { ...row };
-    const selected = select && typeof select === "object" ? Object.keys(select) : [];
+    const selected =
+      select && typeof select === "object" ? Object.keys(select) : [];
     for (const key of [...new Set([...Object.keys(next), ...selected])]) {
       const shouldBeDate =
         key === "date" ||
@@ -317,10 +317,6 @@ Object.defineProperty(window, "matchMedia", {
 // 환경변수 모킹
 process.env = {
   ...process.env,
-  NEXT_PUBLIC_legacyBackend_URL: "https://test.legacyBackend.co",
-  NEXT_PUBLIC_legacyBackend_PUBLISHABLE_DEFAULT_KEY: "test-publishable-key",
-  NEXT_PUBLIC_legacyBackend_ANON_KEY: "test-anon-key",
-  legacyBackend_SERVICE_ROLE_KEY: "test-service-role-key",
   NEXT_PUBLIC_APP_URL: "http://localhost:4000",
   NODE_ENV: "test",
 };
@@ -341,9 +337,10 @@ if (typeof global.Request === "undefined") {
   global.Response = Response;
 }
 
-global.fetch = jest.fn(async () =>
-  new global.Response(JSON.stringify({ ok: true }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  }),
+global.fetch = jest.fn(
+  async () =>
+    new global.Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }),
 );

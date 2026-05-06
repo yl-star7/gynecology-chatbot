@@ -1,6 +1,6 @@
 # Cloud Run Mobile Cutover Checklist
 
-**Target**: Migrate mobile app API base from `https://gynecology-chatbot.legacyBackend.app` to `https://agaya-api-yvdnhntt7a-du.a.run.app` and hosted web/admin pages to `https://agaya-web-yvdnhntt7a-du.a.run.app` (Cloud Run).
+**Target**: Keep mobile app API base on `https://agaya-api-yvdnhntt7a-du.a.run.app` and hosted web/admin pages on `https://agaya-web-yvdnhntt7a-du.a.run.app` (Cloud Run).
 **Scope**: `apps/mobile` uses Cloud Run API/web services backed by Cloud SQL.
 
 ## 1. Files holding API/web base URLs
@@ -18,11 +18,8 @@ Consumers (no code change needed, env-driven):
 - `apps/mobile/src/screens/auth/LoginScreen.tsx:26`
 - `apps/mobile/package.json:6-7` — local dev defaults (`localhost:3005`, `10.0.2.2:3005`) stay as-is
 
-Test fixture (optional cosmetic update):
-- `apps/mobile/src/screens/auth/LoginScreen.model.test.ts:42` — string literal `gynecology-chatbot.legacyBackend.app`
-
-Non-API URLs (do NOT touch):
-- `apps/mobile/src/screens/patient/week-baby-images.ts:12` — legacyBackend storage, unrelated
+Non-API URLs:
+- `apps/mobile/src/screens/patient/week-baby-images.ts:12` — static pregnancy content image base URL
 
 ## 2. Preview vs Production envs
 
@@ -43,11 +40,10 @@ Both `preview` and `production` profiles in `eas.json` point to Cloud Run and mu
 - OTA (Expo Updates) could ship a new bundle with the new URL baked in, but still requires rebuilding the JS bundle; this repo's flow is `./build.sh ios|aos` per `CLAUDE.md`.
 - Bump `versionCode`/`buildNumber` via `autoIncrement` (already on for production).
 
-## 5. Rollback plan
+## 5. Recovery plan
 
-- Keep fallback path available only if explicitly needed during rollout.
 - Cloud Run must connect to Cloud SQL `agaya-2026:asia-northeast3:agaya-db`.
-- If Cloud Run breaks: flip both public URLs back to the previous stable host, rebuild, submit, or ship OTA with old URL.
+- If Cloud Run breaks: fix or roll back the Cloud Run revision, then rebuild or ship OTA only when public URL values change.
 - Monitor Cloud Run 5xx + push registration failures (`/api/mobile/push/register`) for first 48h.
 
 ## 6. Submission timeline
@@ -56,4 +52,3 @@ Both `preview` and `production` profiles in `eas.json` point to Cloud Run and mu
 - Day 0-1: TestFlight review (~24h typical), Play internal is near-instant.
 - Day 1-3: internal testers verify core flows (login, today, records, chat, push register, survey WebView).
 - Day 3-7: promote to production track; users update over ~1-2 weeks.
-- legacyBackend is no longer the target runtime. Keep any legacy endpoint only as an explicit rollback fallback, not as a documented primary path.

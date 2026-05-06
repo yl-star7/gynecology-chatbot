@@ -14,6 +14,7 @@ const USER_ACTION_TYPE_LABELS: Record<string, string> = {
   chat_message_sent: "채팅 메시지 전송",
   account_paused: "사용 중단",
   account_resumed: "사용 재개",
+  account_approved: "사용 승인",
 };
 
 const ADMIN_EVENT_LABELS: Record<string, string> = {
@@ -21,11 +22,13 @@ const ADMIN_EVENT_LABELS: Record<string, string> = {
   paused: "사용 중단 상태",
   deleted: "삭제된 계정",
   pending_recovery: "접근 복구 대기",
+  pending_approval: "사용 승인 대기",
   content_update: "콘텐츠 설정 변경",
   phone_change: "전화번호 변경",
   session_reset: "세션 초기화",
   account_pause: "사용 중단",
   account_resume: "사용 재개",
+  account_approve: "사용 승인",
   allowed_phone_number_create: "허용 전화번호 추가",
   allowed_phone_number_update: "허용 전화번호 수정",
   allowed_phone_number_delete: "허용 전화번호 삭제",

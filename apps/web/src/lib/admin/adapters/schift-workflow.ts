@@ -48,9 +48,7 @@ function parseAdminMeta(description: string | null | undefined) {
 function inferModelName(workflow: Workflow) {
   const blocks = getWorkflowBlocks(workflow);
   const llmBlock = blocks.find((block) => block.type === "llm");
-  const selectorBlock = blocks.find(
-    (block) => block.type === "model_selector",
-  );
+  const selectorBlock = blocks.find((block) => block.type === "model_selector");
 
   const llmModel = llmBlock?.config?.model;
   if (typeof llmModel === "string" && llmModel.trim()) {
@@ -67,12 +65,8 @@ function inferModelName(workflow: Workflow) {
 
 function inferRetrievalScope(workflow: Workflow) {
   const blocks = getWorkflowBlocks(workflow);
-  const collectionBlock = blocks.find(
-    (block) => block.type === "collection",
-  );
-  const retrieverBlock = blocks.find(
-    (block) => block.type === "retriever",
-  );
+  const collectionBlock = blocks.find((block) => block.type === "collection");
+  const retrieverBlock = blocks.find((block) => block.type === "retriever");
 
   const collectionName = collectionBlock?.config?.collection;
   if (typeof collectionName === "string" && collectionName.trim()) {
@@ -114,6 +108,8 @@ export function mapSchiftWorkflowRule(workflow: Workflow): AdminWorkflowRule {
         ? meta.modelName.trim()
         : inferModelName(workflow),
     status: workflow.status === "active" ? "active" : "review",
+    source: "schift",
+    workflowKind: "managed",
     blocks,
   };
 }

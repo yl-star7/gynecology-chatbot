@@ -1,9 +1,4 @@
-import {
-  dbDelete,
-  dbInsert,
-  dbSelect,
-  dbUpdate,
-} from "@/lib/db/admin-client";
+import { dbDelete, dbInsert, dbSelect, dbUpdate } from "@/lib/db/admin-client";
 import { embedPregnancyDocument } from "@/lib/mobile/rag";
 import { getSchiftClient } from "@/lib/mobile/schift-client";
 import { patchSchiftWorkflow } from "@/lib/mobile/schift-workflows-api";
@@ -93,18 +88,10 @@ jest.mock("@/lib/db/repositories/week-content-repository", () => ({
   })),
 }));
 
-const mockedDelete = dbDelete as jest.MockedFunction<
-  typeof dbDelete
->;
-const mockedSelect = dbSelect as jest.MockedFunction<
-  typeof dbSelect
->;
-const mockedInsert = dbInsert as jest.MockedFunction<
-  typeof dbInsert
->;
-const mockedUpdate = dbUpdate as jest.MockedFunction<
-  typeof dbUpdate
->;
+const mockedDelete = dbDelete as jest.MockedFunction<typeof dbDelete>;
+const mockedSelect = dbSelect as jest.MockedFunction<typeof dbSelect>;
+const mockedInsert = dbInsert as jest.MockedFunction<typeof dbInsert>;
+const mockedUpdate = dbUpdate as jest.MockedFunction<typeof dbUpdate>;
 const mockedEmbedPregnancyDocument =
   embedPregnancyDocument as jest.MockedFunction<typeof embedPregnancyDocument>;
 const mockedGetSchiftClient = getSchiftClient as jest.MockedFunction<
@@ -172,9 +159,9 @@ describe("CloudSqlAdminContentPortAdapter", () => {
     process.env.DATABASE_URL = originalDatabaseUrl;
   });
 
-  it("maps week summaries from legacyBackend rows", async () => {
+  it("maps week summaries from DB rows", async () => {
     mockedResolveServerDataProvider.mockReturnValue("docker");
-        mockedHasDockerConfig.mockReturnValue(true);
+    mockedHasDockerConfig.mockReturnValue(true);
     mockedWeekRepositoryListWeeks.mockResolvedValueOnce([
       {
         id: "week-1",
@@ -213,7 +200,7 @@ describe("CloudSqlAdminContentPortAdapter", () => {
 
   it("returns detailed week content with ordered sections and assets", async () => {
     mockedResolveServerDataProvider.mockReturnValue("docker");
-        mockedHasDockerConfig.mockReturnValue(true);
+    mockedHasDockerConfig.mockReturnValue(true);
     mockedWeekRepositoryGetWeek.mockResolvedValueOnce({
       id: "week-2",
       week_number: 2,
@@ -341,7 +328,7 @@ describe("CloudSqlAdminContentPortAdapter", () => {
 
   it("returns null when the week is missing", async () => {
     mockedResolveServerDataProvider.mockReturnValue("docker");
-        mockedHasDockerConfig.mockReturnValue(true);
+    mockedHasDockerConfig.mockReturnValue(true);
     mockedWeekRepositoryGetWeek.mockResolvedValueOnce(null);
     const detail = await adapter.getWeek(99);
     expect(detail).toBeNull();
@@ -349,7 +336,7 @@ describe("CloudSqlAdminContentPortAdapter", () => {
 
   it("saves week metadata, sections, and assets", async () => {
     mockedResolveServerDataProvider.mockReturnValue("docker");
-        mockedHasDockerConfig.mockReturnValue(true);
+    mockedHasDockerConfig.mockReturnValue(true);
     mockedWeekRepositoryGetWeek.mockResolvedValue({
       id: "week-12",
       week_number: 12,
@@ -414,7 +401,9 @@ describe("CloudSqlAdminContentPortAdapter", () => {
         },
       ],
     });
-    mockedWeekRepositoryUpsertDayContents.mockResolvedValue(new Map([[1, "11111111-1111-4111-8111-aaaaaaaaaaaa"]]));
+    mockedWeekRepositoryUpsertDayContents.mockResolvedValue(
+      new Map([[1, "11111111-1111-4111-8111-aaaaaaaaaaaa"]]),
+    );
 
     await adapter.saveWeek(12, {
       title: "12주차 관리본",
@@ -503,6 +492,7 @@ describe("CloudSqlAdminContentPortAdapter", () => {
         heroImagePath: "/images/week12/hero-next.jpg",
         status: "published",
       }),
+      null,
     );
     expect(mockedWeekRepositoryUpsertDayContents).toHaveBeenCalledWith(
       "week-12",
@@ -512,6 +502,7 @@ describe("CloudSqlAdminContentPortAdapter", () => {
           babyDevelopmentItems: ["수정된 아기 본문"],
         }),
       ]),
+      null,
     );
     expect(mockedWeekRepositoryUpsertChecklists).toHaveBeenCalledWith(
       "week-12",
@@ -525,6 +516,7 @@ describe("CloudSqlAdminContentPortAdapter", () => {
         }),
       ]),
       expect.any(Map),
+      null,
     );
     expect(mockedWeekRepositoryUpsertQuestions).toHaveBeenCalledWith(
       "week-12",
@@ -535,6 +527,7 @@ describe("CloudSqlAdminContentPortAdapter", () => {
         }),
       ]),
       expect.any(Map),
+      null,
     );
     expect(mockedWeekRepositoryUpsertMedia).toHaveBeenCalledWith(
       "week-12",
@@ -546,12 +539,13 @@ describe("CloudSqlAdminContentPortAdapter", () => {
         }),
       ]),
       expect.any(Map),
+      null,
     );
   });
 
   it("deletes persisted sections and assets omitted from the payload", async () => {
     mockedResolveServerDataProvider.mockReturnValue("docker");
-        mockedHasDockerConfig.mockReturnValue(true);
+    mockedHasDockerConfig.mockReturnValue(true);
     mockedWeekRepositoryGetWeek.mockResolvedValue({
       id: "week-12",
       week_number: 12,
@@ -657,7 +651,9 @@ describe("CloudSqlAdminContentPortAdapter", () => {
         },
       ],
     });
-    mockedWeekRepositoryUpsertDayContents.mockResolvedValue(new Map([[1, "11111111-1111-4111-8111-bbbbbbbbbbbb"]]));
+    mockedWeekRepositoryUpsertDayContents.mockResolvedValue(
+      new Map([[1, "11111111-1111-4111-8111-bbbbbbbbbbbb"]]),
+    );
     mockedDelete.mockResolvedValue([]);
 
     await adapter.saveWeek(12, {
@@ -820,26 +816,24 @@ describe("CloudSqlAdminContentPortAdapter", () => {
         updated_at: "2026-03-18T10:00:00.000Z",
       },
     ]);
-    mockedPrisma.workflow_definitions.update.mockResolvedValueOnce(
-      {
-        id: "wf-1",
-        name: "수정된 기본 응답",
-        slug: "default-chat",
-        provider: "flowise",
-        status: "draft",
-        is_active: false,
-        config: {
-          modelName: "gemini-2.5-pro",
-          retrievalScope: "응급 문서 우선",
-        },
-        metadata: {
-          trigger: "복통",
-          retrievalScope: "응급 문서 우선",
-          modelName: "gemini-2.5-pro",
-        },
-        updated_at: "2026-03-18T11:00:00.000Z",
+    mockedPrisma.workflow_definitions.update.mockResolvedValueOnce({
+      id: "wf-1",
+      name: "수정된 기본 응답",
+      slug: "default-chat",
+      provider: "flowise",
+      status: "draft",
+      is_active: false,
+      config: {
+        modelName: "gemini-2.5-pro",
+        retrievalScope: "응급 문서 우선",
       },
-    );
+      metadata: {
+        trigger: "복통",
+        retrievalScope: "응급 문서 우선",
+        modelName: "gemini-2.5-pro",
+      },
+      updated_at: "2026-03-18T11:00:00.000Z",
+    });
 
     await adapter.deleteDocument("11111111-1111-4111-8111-111111111111");
     const updatedRule = await adapter.updateWorkflowRule("wf-1", {
@@ -850,9 +844,11 @@ describe("CloudSqlAdminContentPortAdapter", () => {
       status: "review",
     });
 
-    expect(mockedPrisma.content_pregnancy_documents.delete).toHaveBeenCalledWith(
-      { where: { id: "11111111-1111-4111-8111-111111111111" } },
-    );
+    expect(
+      mockedPrisma.content_pregnancy_documents.delete,
+    ).toHaveBeenCalledWith({
+      where: { id: "11111111-1111-4111-8111-111111111111" },
+    });
     expect(updatedRule).toMatchObject({
       id: "wf-1",
       name: "수정된 기본 응답",
@@ -913,5 +909,43 @@ describe("CloudSqlAdminContentPortAdapter", () => {
       modelName: "gemini-2.5-flash-lite",
       status: "active",
     });
+  });
+
+  it("updateDocument inlines previous_snapshot in the raw SQL UPDATE", async () => {
+    mockedResolveServerDataProvider.mockReturnValue("docker");
+    mockedHasDockerConfig.mockReturnValue(true);
+    mockedEmbedPregnancyDocument.mockResolvedValueOnce([0.1, 0.2, 0.3]);
+    mockedPrisma.content_pregnancy_documents.findMany.mockResolvedValueOnce([]);
+    mockedPrisma.$queryRaw.mockResolvedValueOnce([
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        title: "수정된 문서",
+        content: "수정 본문",
+        pregnancy_week: null,
+        category: "guide",
+        metadata: { chunk_count: 1 },
+        updated_at: "2026-04-24T10:00:00.000Z",
+      },
+    ]);
+
+    const result = await adapter.updateDocument(
+      "11111111-1111-4111-8111-111111111111",
+      {
+        title: "수정된 문서",
+        pregnancyWeek: null,
+        category: "guide",
+        content: "수정 본문",
+      },
+    );
+
+    expect(result).not.toBeNull();
+    expect(mockedPrisma.$queryRaw).toHaveBeenCalledTimes(1);
+    // The raw SQL template includes previous_snapshot subquery — verify the call happened
+    const rawCallArgs = mockedPrisma.$queryRaw.mock.calls[0];
+    // Tagged template literal first arg is a TemplateStringsArray
+    const sqlFragments = rawCallArgs[0] as unknown as string[];
+    const fullSql = sqlFragments.join(" ");
+    expect(fullSql).toContain("previous_snapshot");
+    expect(fullSql).toContain("row_to_json");
   });
 });

@@ -1,6 +1,7 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions", "views"]
+  binaryTargets   = ["native", "debian-openssl-1.1.x"]
 }
 
 datasource db {
@@ -265,18 +266,62 @@ model chat_sessions {
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model content_knowledge_items {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug         String    @unique @db.VarChar(120)
-  section      String
-  title        String
-  body         String
-  image_url    String?
-  status       String    @default("draft")
-  published_at DateTime? @db.Timestamptz(6)
-  created_at   DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
-  updated_at   DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+model content_baby_comfort_pool {
+  id                                                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  text                                              String
+  tag_week                                          Int?
+  tag_mood                                          String?
+  active                                            Boolean  @default(true)
+  weight                                            Int      @default(1)
+  previous_snapshot                                 Json?
+  created_by                                        String?  @db.Uuid
+  updated_by                                        String?  @db.Uuid
+  created_at                                        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                                        DateTime @default(now()) @db.Timestamptz(6)
+  users_content_baby_comfort_pool_created_byTousers users?   @relation("content_baby_comfort_pool_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  users_content_baby_comfort_pool_updated_byTousers users?   @relation("content_baby_comfort_pool_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction)
 
+  @@index([tag_mood], map: "idx_baby_comfort_pool_tag_mood")
+  @@index([tag_week], map: "idx_baby_comfort_pool_tag_week")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model content_knowledge_items {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug              String    @unique @db.VarChar(120)
+  section           String
+  title             String
+  body              String
+  image_url         String?
+  status            String    @default("draft")
+  published_at      DateTime? @db.Timestamptz(6)
+  created_at        DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at        DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  previous_snapshot Json?
+  updated_by        String?   @db.Uuid
+  users             users?    @relation(fields: [updated_by], references: [id], onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model content_mood_variants {
+  id                                            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scenario                                      String
+  mood                                          String
+  prompt_suffix                                 String
+  tone                                          String?
+  active                                        Boolean  @default(true)
+  previous_snapshot                             Json?
+  created_by                                    String?  @db.Uuid
+  updated_by                                    String?  @db.Uuid
+  created_at                                    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                                    DateTime @default(now()) @db.Timestamptz(6)
+  users_content_mood_variants_created_byTousers users?   @relation("content_mood_variants_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  users_content_mood_variants_updated_byTousers users?   @relation("content_mood_variants_updated_byTousers", fields: [updated_by], references: [id], onUpdate: NoAction)
+
+  @@unique([scenario, mood], map: "content_mood_variants_scenario_mood_unique")
   @@schema("public")
 }
 
@@ -347,6 +392,9 @@ model content_pregnancy_day_contents {
   display_order                Int                            @default(0)
   created_at                   DateTime                       @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
   updated_at                   DateTime                       @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  previous_snapshot            Json?
+  updated_by                   String?                        @db.Uuid
+  users                        users?                         @relation(fields: [updated_by], references: [id], onUpdate: NoAction)
   content_pregnancy_week_data  content_pregnancy_week_data    @relation(fields: [week_data_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   content_pregnancy_week_media content_pregnancy_week_media[]
   content_week_checklists      content_week_checklists[]
@@ -357,16 +405,19 @@ model content_pregnancy_day_contents {
 }
 
 model content_pregnancy_documents {
-  id             String                 @id @db.Uuid
-  title          String?                @db.VarChar
-  content        String
-  pregnancy_week Int?
-  category       String                 @db.VarChar
-  image_url      String?
-  embedding      Unsupported("vector")?
-  metadata       Json                   @default("{}")
-  created_at     DateTime               @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
-  updated_at     DateTime               @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  id                String                 @id @db.Uuid
+  title             String?                @db.VarChar
+  content           String
+  pregnancy_week    Int?
+  category          String                 @db.VarChar
+  image_url         String?
+  embedding         Unsupported("vector")?
+  metadata          Json                   @default("{}")
+  created_at        DateTime               @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at        DateTime               @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  previous_snapshot Json?
+  updated_by        String?                @db.Uuid
+  users             users?                 @relation(fields: [updated_by], references: [id], onUpdate: NoAction)
 
   @@schema("public")
 }
@@ -387,7 +438,10 @@ model content_pregnancy_week_data {
   status                         String                           @default("draft")
   created_at                     DateTime                         @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
   updated_at                     DateTime                         @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  previous_snapshot              Json?
+  updated_by                     String?                          @db.Uuid
   content_pregnancy_day_contents content_pregnancy_day_contents[]
+  users                          users?                           @relation(fields: [updated_by], references: [id], onUpdate: NoAction)
   content_pregnancy_week_media   content_pregnancy_week_media[]
   content_week_checklists        content_week_checklists[]
   content_week_questions         content_week_questions[]
@@ -410,7 +464,10 @@ model content_pregnancy_week_media {
   display_order                  Int                             @default(0)
   created_at                     DateTime                        @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
   updated_at                     DateTime                        @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  previous_snapshot              Json?
+  updated_by                     String?                         @db.Uuid
   content_pregnancy_day_contents content_pregnancy_day_contents? @relation(fields: [day_content_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                          users?                          @relation(fields: [updated_by], references: [id], onUpdate: NoAction)
   content_pregnancy_week_data    content_pregnancy_week_data     @relation(fields: [week_data_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@schema("public")
@@ -453,7 +510,10 @@ model content_week_checklists {
   is_active                      Boolean                         @default(true)
   created_at                     DateTime                        @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
   updated_at                     DateTime                        @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  previous_snapshot              Json?
+  updated_by                     String?                         @db.Uuid
   content_pregnancy_day_contents content_pregnancy_day_contents? @relation(fields: [day_content_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                          users?                          @relation(fields: [updated_by], references: [id], onUpdate: NoAction)
   content_pregnancy_week_data    content_pregnancy_week_data     @relation(fields: [week_data_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   user_checklist_events          user_checklist_events[]
 
@@ -476,7 +536,10 @@ model content_week_questions {
   is_active                      Boolean                         @default(true)
   created_at                     DateTime                        @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
   updated_at                     DateTime                        @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  previous_snapshot              Json?
+  updated_by                     String?                         @db.Uuid
   content_pregnancy_day_contents content_pregnancy_day_contents? @relation(fields: [day_content_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                          users?                          @relation(fields: [updated_by], references: [id], onUpdate: NoAction)
   content_pregnancy_week_data    content_pregnancy_week_data     @relation(fields: [week_data_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   user_question_events           user_question_events[]
 
@@ -530,9 +593,12 @@ model pregnancy_profiles {
 }
 
 model system_config {
-  key        String   @id @db.VarChar(100)
-  value      Json     @default("{}")
-  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  key               String   @id @db.VarChar(100)
+  value             Json     @default("{}")
+  updated_at        DateTime @default(now()) @db.Timestamptz(6)
+  previous_snapshot Json?
+  updated_by        String?  @db.Uuid
+  users             users?   @relation(fields: [updated_by], references: [id], onUpdate: NoAction)
 
   @@schema("public")
 }
@@ -629,29 +695,41 @@ model user_question_events {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model users {
-  id                                                      String                      @id @db.Uuid
-  role                                                    String                      @default("user")
-  phone_number                                            String?                     @unique @default("") @db.VarChar(20)
-  account_status                                          String                      @default("active")
-  phone_verified_at                                       DateTime?                   @db.Timestamptz(6)
-  last_login_at                                           DateTime?                   @db.Timestamptz(6)
-  created_at                                              DateTime                    @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
-  updated_at                                              DateTime                    @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
-  phone_number_encrypted                                  String?
-  phone_number_blind_index                                String?                     @unique(map: "idx_users_phone_number_blind_index")
-  phone_number_last4                                      String?                     @db.VarChar(4)
-  admin_audit_logs_admin_audit_logs_admin_user_idTousers  admin_audit_logs[]          @relation("admin_audit_logs_admin_user_idTousers")
-  admin_audit_logs_admin_audit_logs_target_user_idTousers admin_audit_logs[]          @relation("admin_audit_logs_target_user_idTousers")
-  auth_sessions                                           auth_sessions[]
-  calendar_logs                                           calendar_logs[]
-  chat_messages                                           chat_messages[]
-  chat_sessions                                           chat_sessions[]
-  content_paraphrased_items                               content_paraphrased_items[]
-  pregnancy_profiles                                      pregnancy_profiles?
-  user_action_logs                                        user_action_logs[]
-  user_checklist_events                                   user_checklist_events[]
-  user_persona_signals                                    user_persona_signals[]
-  user_question_events                                    user_question_events[]
+  id                                                                    String                           @id @db.Uuid
+  role                                                                  String                           @default("user")
+  phone_number                                                          String?                          @unique @default("") @db.VarChar(20)
+  account_status                                                        String                           @default("active")
+  phone_verified_at                                                     DateTime?                        @db.Timestamptz(6)
+  last_login_at                                                         DateTime?                        @db.Timestamptz(6)
+  created_at                                                            DateTime                         @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at                                                            DateTime                         @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  phone_number_encrypted                                                String?
+  phone_number_blind_index                                              String?                          @unique(map: "idx_users_phone_number_blind_index")
+  phone_number_last4                                                    String?                          @db.VarChar(4)
+  admin_audit_logs_admin_audit_logs_admin_user_idTousers                admin_audit_logs[]               @relation("admin_audit_logs_admin_user_idTousers")
+  admin_audit_logs_admin_audit_logs_target_user_idTousers               admin_audit_logs[]               @relation("admin_audit_logs_target_user_idTousers")
+  auth_sessions                                                         auth_sessions[]
+  calendar_logs                                                         calendar_logs[]
+  chat_messages                                                         chat_messages[]
+  chat_sessions                                                         chat_sessions[]
+  content_baby_comfort_pool_content_baby_comfort_pool_created_byTousers content_baby_comfort_pool[]      @relation("content_baby_comfort_pool_created_byTousers")
+  content_baby_comfort_pool_content_baby_comfort_pool_updated_byTousers content_baby_comfort_pool[]      @relation("content_baby_comfort_pool_updated_byTousers")
+  content_knowledge_items                                               content_knowledge_items[]
+  content_mood_variants_content_mood_variants_created_byTousers         content_mood_variants[]          @relation("content_mood_variants_created_byTousers")
+  content_mood_variants_content_mood_variants_updated_byTousers         content_mood_variants[]          @relation("content_mood_variants_updated_byTousers")
+  content_paraphrased_items                                             content_paraphrased_items[]
+  content_pregnancy_day_contents                                        content_pregnancy_day_contents[]
+  content_pregnancy_documents                                           content_pregnancy_documents[]
+  content_pregnancy_week_data                                           content_pregnancy_week_data[]
+  content_pregnancy_week_media                                          content_pregnancy_week_media[]
+  content_week_checklists                                               content_week_checklists[]
+  content_week_questions                                                content_week_questions[]
+  pregnancy_profiles                                                    pregnancy_profiles?
+  system_config                                                         system_config[]
+  user_action_logs                                                      user_action_logs[]
+  user_checklist_events                                                 user_checklist_events[]
+  user_persona_signals                                                  user_persona_signals[]
+  user_question_events                                                  user_question_events[]
 
   @@schema("public")
 }

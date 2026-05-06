@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   WorkflowEditorProvider,
   WorkflowBuilder,
@@ -8,8 +8,7 @@ import {
 } from "@schift-io/sdk/workflow-editor";
 import type { Workflow, WorkflowRun } from "@schift-io/sdk";
 
-function createAdminWorkflowAPI(): WorkflowEditorAPI {
-  const base = "/api/admin/schift/workflows";
+function createAdminWorkflowAPI(base = "/api/admin/schift/workflows"): WorkflowEditorAPI {
 
   async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
     const res = await fetch(url, {
@@ -66,16 +65,6 @@ function createAdminWorkflowAPI(): WorkflowEditorAPI {
         );
         if (workflows.length > 0) return workflows[0];
 
-        // 워크플로우가 아예 없으면 기본 워크플로우 부트스트랩
-        await fetch("/api/admin/workflow-rules/bootstrap", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        });
-        const refreshed = await fetchJSON<Workflow[]>(base).then((items) =>
-          items.map(normalizeWorkflow),
-        );
-        if (refreshed.length > 0) return refreshed[0];
-
         throw error;
       }
     },
@@ -103,34 +92,50 @@ function createAdminWorkflowAPI(): WorkflowEditorAPI {
 
 interface Props {
   workflowId?: string | null;
+  apiBase?: string;
   onBack: () => void;
 }
 
-const SCHIFT_THEME_VARS: React.CSSProperties & Record<string, string> = {
-  "--schift-black": "#0a0a0f",
-  "--schift-gray-100": "#111118",
-  "--schift-gray-90": "#1a1a24",
-  "--schift-gray-80": "#252530",
-  "--schift-gray-70": "#35354a",
-  "--schift-gray-60": "#50506b",
-  "--schift-gray-50": "#71718a",
-  "--schift-gray-30": "#b0b0c8",
-  "--schift-white": "#e8e8f0",
-  "--schift-blue": "#3b82f6",
-  "--schift-green": "#10b981",
-  "--schift-red": "#ef4444",
-  "--schift-yellow": "#f59e0b",
-};
-
-export function AdminWorkflowEditorAdapter({ workflowId, onBack }: Props) {
-  const api = useMemo(() => createAdminWorkflowAPI(), []);
+export function AdminWorkflowEditorAdapter({ workflowId, apiBase, onBack }: Props) {
+  const api = useMemo(() => createAdminWorkflowAPI(apiBase), [apiBase]);
   const handleBack = useCallback(() => onBack(), [onBack]);
+  const editorRootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const root = editorRootRef.current;
+    if (!root) return;
+    const rootNode = root;
+
+    function normalizeRunButtonLabel() {
+      const walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode();
+
+      while (node) {
+        const text = node.textContent;
+        if (text?.includes("&blacktriangleright;")) {
+          node.textContent = text.replace(/&blacktriangleright;\s*/g, "");
+        }
+        node = walker.nextNode();
+      }
+    }
+
+    normalizeRunButtonLabel();
+
+    const observer = new MutationObserver(normalizeRunButtonLabel);
+    observer.observe(rootNode, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <WorkflowEditorProvider api={api}>
       <div
-        className="schift-editor-root"
-        style={{ height: "100%", minHeight: 500, ...SCHIFT_THEME_VARS }}
+        ref={editorRootRef}
+        className="schift-editor-root h-full min-h-[500px] [--schift-black:#0a0a0f] [--schift-blue:#3b82f6] [--schift-gray-100:#111118] [--schift-gray-30:#b0b0c8] [--schift-gray-50:#71718a] [--schift-gray-60:#50506b] [--schift-gray-70:#35354a] [--schift-gray-80:#252530] [--schift-gray-90:#1a1a24] [--schift-green:#10b981] [--schift-red:#ef4444] [--schift-white:#e8e8f0] [--schift-yellow:#f59e0b]"
       >
         <WorkflowBuilder
           initialWorkflowId={workflowId ?? null}

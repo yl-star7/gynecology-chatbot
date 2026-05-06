@@ -80,23 +80,43 @@ function resolvePromptRefs(
 async function provision(
   schift: Schift,
   yamlPath: string,
+  fallbackWorkflowId?: string,
 ): Promise<{ id: string; name: string }> {
   const raw = fs.readFileSync(path.resolve(process.cwd(), yamlPath), "utf-8");
   const wf = parseYaml(raw) as Yaml;
 
-  // 기존 같은 name의 workflow 검색 (SDK list 가 undefined 리턴하는 버그 대응)
-  const existingListRaw = (await schift.workflows.list()) as unknown;
-  const existingList: Array<{ id: string; name: string; status?: string }> =
-    Array.isArray(existingListRaw)
-      ? (existingListRaw as Array<{
-          id: string;
-          name: string;
-          status?: string;
-        }>)
-      : [];
-  const existing = existingList.find(
-    (w) => w.name === wf.name && w.status !== "archived",
-  );
+  let existing: { id: string; name: string; status?: string } | undefined;
+  const envWorkflowId = fallbackWorkflowId?.trim();
+  if (envWorkflowId) {
+    const byId = (await schift.workflows.get(envWorkflowId)) as {
+      id?: string;
+      name?: string;
+      status?: string;
+    };
+    if (byId.status !== "archived") {
+      existing = {
+        id: byId.id ?? envWorkflowId,
+        name: byId.name ?? wf.name,
+        status: byId.status,
+      };
+    }
+  }
+
+  if (!existing) {
+    // 기존 같은 name의 workflow 검색 (SDK list 가 undefined 리턴하는 버그 대응)
+    const existingListRaw = (await schift.workflows.list()) as unknown;
+    const existingList: Array<{ id: string; name: string; status?: string }> =
+      Array.isArray(existingListRaw)
+        ? (existingListRaw as Array<{
+            id: string;
+            name: string;
+            status?: string;
+          }>)
+        : [];
+    existing = existingList.find(
+      (w) => w.name === wf.name && w.status !== "archived",
+    );
+  }
 
   let workflowId: string;
   if (existing) {
@@ -160,7 +180,7 @@ async function main() {
   console.log("Provisioning subworkflows...\n");
   const results: Array<{ key: string; id: string; name: string }> = [];
   for (const { key, path: p } of SUBWORKFLOW_FILES) {
-    const { id, name } = await provision(schift, p);
+    const { id, name } = await provision(schift, p, process.env[key]);
     results.push({ key, id, name });
   }
   console.log("\n\n=== .env 에 추가할 값 ===");

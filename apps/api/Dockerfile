@@ -12,7 +12,7 @@ RUN corepack enable
 FROM base AS deps
 WORKDIR /repo
 
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc* ./
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc* .pnpmfile.cjs* ./
 COPY packages ./packages
 COPY apps/api ./apps/api
 

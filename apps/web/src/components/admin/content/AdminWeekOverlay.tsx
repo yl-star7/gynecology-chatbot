@@ -39,6 +39,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 import { AdminFileUpload } from "../ui";
+import {
+  formatMobileWeekDayLabel,
+  formatMobileWeekDayRangeLabel,
+} from "./admin-week-day-labels";
 import { AdminWeekOverlayKnowledgeTab } from "./AdminWeekOverlayKnowledgeTab";
 import { WeekImagePreview } from "./WeekImagePreview";
 
@@ -221,7 +225,10 @@ function getChecklistNumber(section: AdminWeekSection, fallbackIndex: number) {
   return displayRemainder > 0 ? displayRemainder : fallbackIndex + 1;
 }
 
-function groupChecklistSections(sections: AdminWeekSection[]) {
+function groupChecklistSections(
+  sections: AdminWeekSection[],
+  weekNumber: number,
+) {
   const groups = new Map<
     string,
     {
@@ -242,7 +249,10 @@ function groupChecklistSections(sections: AdminWeekSection[]) {
       groups.get(key) ??
       {
         dayNumber,
-        label: dayNumber === null ? "공통 체크리스트" : `Day ${dayNumber}`,
+        label:
+          dayNumber === null
+            ? "공통 체크리스트"
+            : formatMobileWeekDayLabel(weekNumber, dayNumber),
         items: [],
       };
 
@@ -282,7 +292,7 @@ function getQuestionNumber(asset: AdminWeekAsset, fallbackIndex: number) {
   return displayRemainder > 0 ? displayRemainder : fallbackIndex + 1;
 }
 
-function groupQuestionAssets(assets: AdminWeekAsset[]) {
+function groupQuestionAssets(assets: AdminWeekAsset[], weekNumber: number) {
   const groups = new Map<
     string,
     {
@@ -303,7 +313,10 @@ function groupQuestionAssets(assets: AdminWeekAsset[]) {
       groups.get(key) ??
       {
         dayNumber,
-        label: dayNumber === null ? "공통 질문" : `Day ${dayNumber}`,
+        label:
+          dayNumber === null
+            ? "공통 질문"
+            : formatMobileWeekDayLabel(weekNumber, dayNumber),
         items: [],
       };
 
@@ -452,7 +465,7 @@ export function AdminWeekOverlay({
               : "주차 편집"}
           </SheetTitle>
           <SheetDescription>
-            주차 요약, Day별 본문, 체크리스트, 질문, 이미지를 탭별로
+            주차 요약, 일별 본문, 체크리스트, 질문, 이미지를 탭별로
             관리합니다.
           </SheetDescription>
         </SheetHeader>
@@ -472,7 +485,7 @@ export function AdminWeekOverlay({
                   <strong>{selectedWeekDetail.weekNumber}주차</strong>
                 </div>
                 <div className="rounded-md border bg-muted p-3">
-                  <p className="text-xs text-muted-foreground">Day 수</p>
+                  <p className="text-xs text-muted-foreground">일자 수</p>
                   <strong>{selectedWeekDetail.days.length}</strong>
                 </div>
                 <div className="rounded-md border bg-muted p-3">
@@ -489,7 +502,7 @@ export function AdminWeekOverlay({
               <Tabs defaultValue="basic" className="space-y-4">
                 <TabsList className="h-auto flex-wrap justify-start">
                   <TabsTrigger value="basic">기본 정보</TabsTrigger>
-                  <TabsTrigger value="days">Day 본문</TabsTrigger>
+                  <TabsTrigger value="days">일별 본문</TabsTrigger>
                   <TabsTrigger value="checklists">체크리스트</TabsTrigger>
                   <TabsTrigger value="questions">질문</TabsTrigger>
                   <TabsTrigger value="images">이미지</TabsTrigger>
@@ -547,10 +560,13 @@ export function AdminWeekOverlay({
                 </TabsContent>
 
                 <TabsContent value="days" className="mt-0 space-y-4">
-                  <SectionCard title="Day별 본문">
+                  <SectionCard
+                    title="일별 본문"
+                    description={`모바일과 같은 ${formatMobileWeekDayRangeLabel(selectedWeekDetail.weekNumber)} 기준으로 관리합니다.`}
+                  >
                     {selectedWeekDetail.days.length === 0 ? (
                       <EmptyEditorState>
-                        등록된 Day 본문이 없습니다.
+                        등록된 일별 본문이 없습니다.
                       </EmptyEditorState>
                     ) : (
                       <div className="space-y-4">
@@ -562,27 +578,13 @@ export function AdminWeekOverlay({
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div>
                                 <h4 className="font-semibold">
-                                  Day {day.dayNumber}
+                                  {formatMobileWeekDayLabel(
+                                    selectedWeekDetail.weekNumber,
+                                    day.dayNumber,
+                                  )}
                                 </h4>
-                                <p className="text-xs text-muted-foreground">
-                                  앱에 노출되는 일별 본문입니다.
-                                </p>
                               </div>
                             </div>
-
-                            <Field label="아기 발달 항목">
-                              <Textarea
-                                value={day.babyDevelopmentItems.join("\n")}
-                                className="min-h-28"
-                                onChange={(event) =>
-                                  onWeekDayChange(
-                                    index,
-                                    "babyDevelopmentItems",
-                                    splitTextareaLines(event.target.value),
-                                  )
-                                }
-                              />
-                            </Field>
 
                             <Field label="아기의 말">
                               <Textarea
@@ -593,6 +595,20 @@ export function AdminWeekOverlay({
                                     index,
                                     "babyMessage",
                                     event.target.value,
+                                  )
+                                }
+                              />
+                            </Field>
+
+                            <Field label="아기 발달 항목">
+                              <Textarea
+                                value={day.babyDevelopmentItems.join("\n")}
+                                className="min-h-28"
+                                onChange={(event) =>
+                                  onWeekDayChange(
+                                    index,
+                                    "babyDevelopmentItems",
+                                    splitTextareaLines(event.target.value),
                                   )
                                 }
                               />
@@ -718,6 +734,7 @@ export function AdminWeekOverlay({
                       <div className="space-y-6">
                         {groupChecklistSections(
                           selectedWeekDetail.sections,
+                          selectedWeekDetail.weekNumber,
                         ).map((group) => (
                           <section
                             key={
@@ -831,8 +848,10 @@ export function AdminWeekOverlay({
                       </EmptyEditorState>
                     ) : (
                       <div className="space-y-6">
-                        {groupQuestionAssets(selectedWeekDetail.assets).map(
-                          (group) => (
+                        {groupQuestionAssets(
+                          selectedWeekDetail.assets,
+                          selectedWeekDetail.weekNumber,
+                        ).map((group) => (
                             <section
                               key={
                                 group.dayNumber === null

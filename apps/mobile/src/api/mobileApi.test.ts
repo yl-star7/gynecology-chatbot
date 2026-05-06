@@ -450,3 +450,52 @@ test("sendChatMessage restores token and user id from native storage before send
   readTokenMock.mock.restore();
   readUserIdMock.mock.restore();
 });
+
+test("fetchInitialConversationMessage restores token before requesting server workflow", async () => {
+  const readTokenMock = test.mock.method(
+    nativeSessionStorage,
+    "readNativeSessionToken",
+    async () => "native-token",
+  );
+  const readUserIdMock = test.mock.method(
+    nativeSessionStorage,
+    "readNativeUserId",
+    async () => "native-user",
+  );
+  const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+  const client = createMobileApiClient({
+    getApiBaseUrl: () => "http://example.com",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, init });
+      return Response.json({
+        message: {
+          id: "assistant-initial-workflow",
+          role: "assistant",
+          createdAtLabel: "방금 전",
+          parts: [
+            {
+              type: "text",
+              id: "initial-workflow-text",
+              text: "오늘은 마음이 어떠세요?",
+            },
+          ],
+        },
+      });
+    },
+  });
+
+  const response = await client.fetchInitialConversationMessage();
+
+  assert.equal(
+    calls[0]?.input,
+    "http://example.com/api/mobile/chat/initial-workflow",
+  );
+  assert.equal(
+    (calls[0]?.init?.headers as Record<string, string>).Authorization,
+    "Bearer native-token",
+  );
+  assert.equal(response.message.id, "assistant-initial-workflow");
+
+  readTokenMock.mock.restore();
+  readUserIdMock.mock.restore();
+});

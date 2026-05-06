@@ -6,6 +6,7 @@ import {
   decryptPhoneNumber,
   redactPhoneNumber,
 } from "@gynecology-chatbot/mobile-api/privacy/phone-crypto";
+import { recordUserAction } from "@gynecology-chatbot/mobile-api/user-action-log";
 
 import { createAdminAuditLog } from "./audit.js";
 import { requireAdminProxy, type AdminProxyVariables } from "./auth.js";
@@ -336,7 +337,9 @@ app.post("/users/update-phone", async (c) => {
     return c.json(
       {
         error:
-          error instanceof Error ? error.message : "failed to update phone number",
+          error instanceof Error
+            ? error.message
+            : "failed to update phone number",
       },
       400,
     );
@@ -400,6 +403,17 @@ app.post("/users/status", async (c) => {
       return c.json({ error: "userId, status, and reason are required" }, 400);
     }
 
+    const beforeUser = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { account_status: true },
+    });
+    const isApproval =
+      beforeUser?.account_status === "pending_approval" && status === "active";
+    const isRejection =
+      beforeUser?.account_status === "pending_approval" &&
+      status === "paused" &&
+      reason.includes("거절");
+
     await prisma.users.update({
       where: { id: userId },
       data: {
@@ -410,12 +424,28 @@ app.post("/users/status", async (c) => {
     await createAdminAuditLog({
       adminUserId: c.get("adminUserId"),
       targetUserId: userId,
-      actionType: status === "paused" ? "account_pause" : "account_resume",
+      actionType:
+        isRejection || status === "paused"
+          ? "account_pause"
+          : isApproval
+            ? "account_approve"
+            : "account_resume",
       entityType: "user",
       entityId: userId,
       reason,
-      beforePayload: {},
+      beforePayload: { account_status: beforeUser?.account_status ?? null },
       afterPayload: { account_status: status },
+    });
+
+    await recordUserAction({
+      userId,
+      actionType:
+        isRejection || status === "paused"
+          ? "account_paused"
+          : isApproval
+            ? "account_approved"
+            : "account_resumed",
+      payload: { reason },
     });
 
     return c.json({ ok: true });
@@ -424,7 +454,9 @@ app.post("/users/status", async (c) => {
     return c.json(
       {
         error:
-          error instanceof Error ? error.message : "failed to update user status",
+          error instanceof Error
+            ? error.message
+            : "failed to update user status",
       },
       400,
     );

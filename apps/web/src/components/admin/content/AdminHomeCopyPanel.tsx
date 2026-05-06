@@ -8,9 +8,36 @@ import type {
   HomeCopyStatus,
 } from "@gynecology-chatbot/app-core";
 
-import styles from "../AdminConsoleLayout.module.css";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 
-const SLOT_LABELS: Record<HomeCopySlot, string> = {
+export const SLOT_LABELS: Record<HomeCopySlot, string> = {
   hero_bubble: "아기 말풍선",
   daily_note: "오늘의 한마디",
   encouragement_quote: "응원 문구",
@@ -79,222 +106,246 @@ export function AdminHomeCopyPanel({
   });
 
   return (
-    <section className={styles.panel}>
-      <div className={styles.routeHeader}>
-        <div>
-          <h2 className={styles.routeTitle}>앱 메인 문구</h2>
-          <p className={styles.panelDescription}>
+    <section className="rounded-lg border bg-card p-6 shadow-sm">
+      <div className="flex flex-col gap-4 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-foreground">
+            앱 메인 문구
+          </h2>
+          <p className="text-sm text-muted-foreground">
             홈 화면 말풍선, 오늘의 한마디, 응원 문구를 관리합니다.
           </p>
         </div>
-        <div className={styles.topbarActions}>
-          <button
-            className={styles.primaryButton}
-            type="button"
-            onClick={() => {
-              onResetHomeCopyItem();
-              setActiveOverlay(true);
-            }}
-          >
-            새 문구
-          </button>
-        </div>
+        <Button
+          type="button"
+          onClick={() => {
+            onResetHomeCopyItem();
+            setActiveOverlay(true);
+          }}
+        >
+          새 문구
+        </Button>
       </div>
 
-      <div className={styles.tableToolbar}>
-        <label className={styles.fieldGroup}>
-          <span className={styles.fieldLabel}>검색</span>
-          <input
-            className={styles.fieldInput}
+      <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-end">
+        <div className="flex-1 space-y-1.5">
+          <Label htmlFor="home-copy-search">검색</Label>
+          <Input
+            id="home-copy-search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="제목, 본문, 대상"
           />
-        </label>
-        <label className={styles.fieldGroup}>
-          <span className={styles.fieldLabel}>위치</span>
-          <select
-            className={styles.fieldSelect}
+        </div>
+        <div className="w-full space-y-1.5 sm:w-48">
+          <Label>위치</Label>
+          <Select
             value={slotFilter}
-            onChange={(event) =>
-              setSlotFilter(event.target.value as HomeCopySlot | "all")
+            onValueChange={(value) =>
+              setSlotFilter(value as HomeCopySlot | "all")
             }
           >
-            <option value="all">전체</option>
-            <option value="hero_bubble">{SLOT_LABELS.hero_bubble}</option>
-            <option value="daily_note">{SLOT_LABELS.daily_note}</option>
-            <option value="encouragement_quote">
-              {SLOT_LABELS.encouragement_quote}
-            </option>
-          </select>
-        </label>
-      </div>
-
-      <div className={styles.dataTable}>
-        <div className={styles.dataTableHeader}>
-          <span>제목</span>
-          <span>위치</span>
-          <span>대상</span>
-          <span>순서</span>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체</SelectItem>
+              <SelectItem value="hero_bubble">
+                {SLOT_LABELS.hero_bubble}
+              </SelectItem>
+              <SelectItem value="daily_note">
+                {SLOT_LABELS.daily_note}
+              </SelectItem>
+              <SelectItem value="encouragement_quote">
+                {SLOT_LABELS.encouragement_quote}
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        {filteredItems.map((item) => (
-          <button
-            key={item.id}
-            className={`${styles.dataTableRow} ${
-              selectedHomeCopyItemId === item.id
-                ? styles.dataTableRowActive
-                : ""
-            }`}
-            type="button"
-            onClick={() => {
-              onSelectHomeCopyItem(item.id);
-              setActiveOverlay(true);
-            }}
-          >
-            <span className={styles.dataTableTitleGroup}>
-              <strong>{item.title}</strong>
-              <small>{item.body}</small>
-            </span>
-            <span>{SLOT_LABELS[item.slot]}</span>
-            <span>{item.variant ?? "전체"}</span>
-            <span>{item.displayOrder}</span>
-          </button>
-        ))}
-        {filteredItems.length === 0 ? (
-          <div className={styles.listEmpty}>조건에 맞는 문구가 없습니다.</div>
-        ) : null}
       </div>
 
-      {activeOverlay ? (
-        <>
-          <button
-            aria-label="패널 닫기"
-            className={styles.overlayBackdrop}
-            type="button"
-            onClick={() => setActiveOverlay(false)}
-          />
-          <aside className={styles.overlayPanel}>
-            <div className={styles.overlayHeader}>
-              <div>
-                <h3 className={styles.panelTitle}>
-                  {selectedItem ? "메인 문구 편집" : "새 메인 문구"}
-                </h3>
-                <p className={styles.panelDescription}>
-                  저장한 문구는 바로 앱 홈 화면 후보에 반영됩니다.
-                </p>
-              </div>
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                onClick={() => setActiveOverlay(false)}
-              >
-                닫기
-              </button>
-            </div>
-            <div className={styles.overlayBody}>
-              {contentMessage ? (
-                <p className={styles.formHint}>{contentMessage}</p>
-              ) : null}
-              <div className={styles.panelGrid}>
-                <label className={styles.fieldGroup}>
-                  <span className={styles.fieldLabel}>위치</span>
-                  <select
-                    className={styles.fieldSelect}
-                    value={homeCopySlot}
-                    onChange={(event) =>
-                      onHomeCopySlotChange(event.target.value as HomeCopySlot)
-                    }
-                  >
-                    <option value="hero_bubble">
-                      {SLOT_LABELS.hero_bubble}
-                    </option>
-                    <option value="daily_note">{SLOT_LABELS.daily_note}</option>
-                    <option value="encouragement_quote">
-                      {SLOT_LABELS.encouragement_quote}
-                    </option>
-                  </select>
-                </label>
-              </div>
-              <div className={styles.panelGrid}>
-                <label className={styles.fieldGroup}>
-                  <span className={styles.fieldLabel}>대상</span>
-                  <input
-                    className={styles.fieldInput}
-                    value={homeCopyVariant}
-                    onChange={(event) =>
-                      onHomeCopyVariantChange(event.target.value)
-                    }
-                    placeholder="default, unknown, 차분하게"
-                  />
-                </label>
-                <label className={styles.fieldGroup}>
-                  <span className={styles.fieldLabel}>순서</span>
-                  <input
-                    className={styles.fieldInput}
-                    type="number"
-                    value={homeCopyDisplayOrder}
-                    onChange={(event) =>
-                      onHomeCopyDisplayOrderChange(event.target.value)
-                    }
-                  />
-                </label>
-              </div>
-              <label className={styles.fieldGroup}>
-                <span className={styles.fieldLabel}>제목</span>
-                <input
-                  className={styles.fieldInput}
-                  value={homeCopyTitle}
-                  onChange={(event) =>
-                    onHomeCopyTitleChange(event.target.value)
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>제목</TableHead>
+              <TableHead className="w-[140px]">위치</TableHead>
+              <TableHead className="w-[120px]">대상</TableHead>
+              <TableHead className="w-[80px]">순서</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredItems.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={4}
+                  className="h-24 text-center text-sm text-muted-foreground"
+                >
+                  조건에 맞는 문구가 없습니다.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredItems.map((item) => (
+                <TableRow
+                  key={item.id}
+                  data-state={
+                    item.id === selectedHomeCopyItemId ? "selected" : undefined
                   }
-                />
-              </label>
-              <label className={styles.fieldGroup}>
-                <span className={styles.fieldLabel}>문구</span>
-                <textarea
-                  className={styles.overlayTextarea}
-                  value={homeCopyBody}
-                  onChange={(event) => onHomeCopyBodyChange(event.target.value)}
-                />
-              </label>
-              <p className={styles.formHint}>
-                사용할 수 있는 값: {"{babyName}"}, {"{pregnancyWeekLabel}"},{" "}
-                {"{tone}"}
-              </p>
-            </div>
-            <div className={styles.overlayFooter}>
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                disabled={isHomeCopySaving}
-                onClick={onResetHomeCopyItem}
-              >
-                비우기
-              </button>
-              <button
-                className={styles.secondaryButton}
-                type="button"
-                disabled={isHomeCopySaving || !selectedHomeCopyItemId}
-                onClick={onDeleteHomeCopyItem}
-              >
-                삭제
-              </button>
-              <button
-                className={styles.primaryButton}
-                type="button"
-                disabled={isHomeCopySaving}
-                onClick={
-                  selectedHomeCopyItemId
-                    ? onUpdateHomeCopyItem
-                    : onCreateHomeCopyItem
+                  className="cursor-pointer"
+                  onClick={() => {
+                    onSelectHomeCopyItem(item.id);
+                    setActiveOverlay(true);
+                  }}
+                >
+                  <TableCell>
+                    <div className="flex flex-col gap-0.5">
+                      <strong className="font-medium text-foreground">
+                        {item.title}
+                      </strong>
+                      <small className="line-clamp-1 text-xs text-muted-foreground">
+                        {item.body}
+                      </small>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {SLOT_LABELS[item.slot]}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {item.variant ?? "전체"}
+                  </TableCell>
+                  <TableCell className="text-sm">{item.displayOrder}</TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Sheet open={activeOverlay} onOpenChange={setActiveOverlay}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col gap-4 overflow-y-auto sm:max-w-lg"
+        >
+          <SheetHeader>
+            <SheetTitle>
+              {selectedItem ? "메인 문구 편집" : "새 메인 문구"}
+            </SheetTitle>
+            <SheetDescription>
+              저장한 문구는 바로 앱 홈 화면 후보에 반영됩니다.
+            </SheetDescription>
+          </SheetHeader>
+
+          {contentMessage ? (
+            <p className="text-sm text-muted-foreground">{contentMessage}</p>
+          ) : null}
+
+          <div className="flex flex-1 flex-col gap-4">
+            <div className="space-y-1.5">
+              <Label>위치</Label>
+              <Select
+                value={homeCopySlot}
+                onValueChange={(value) =>
+                  onHomeCopySlotChange(value as HomeCopySlot)
                 }
               >
-                {selectedHomeCopyItemId ? "문구 저장" : "문구 생성"}
-              </button>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hero_bubble">
+                    {SLOT_LABELS.hero_bubble}
+                  </SelectItem>
+                  <SelectItem value="daily_note">
+                    {SLOT_LABELS.daily_note}
+                  </SelectItem>
+                  <SelectItem value="encouragement_quote">
+                    {SLOT_LABELS.encouragement_quote}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </aside>
-        </>
-      ) : null}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="home-copy-variant">대상</Label>
+                <Input
+                  id="home-copy-variant"
+                  value={homeCopyVariant}
+                  onChange={(event) =>
+                    onHomeCopyVariantChange(event.target.value)
+                  }
+                  placeholder="default, unknown, 차분하게"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="home-copy-order">순서</Label>
+                <Input
+                  id="home-copy-order"
+                  type="number"
+                  value={homeCopyDisplayOrder}
+                  onChange={(event) =>
+                    onHomeCopyDisplayOrderChange(event.target.value)
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="home-copy-title">제목</Label>
+              <Input
+                id="home-copy-title"
+                value={homeCopyTitle}
+                onChange={(event) => onHomeCopyTitleChange(event.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="home-copy-body">문구</Label>
+              <Textarea
+                id="home-copy-body"
+                value={homeCopyBody}
+                onChange={(event) => onHomeCopyBodyChange(event.target.value)}
+                rows={6}
+              />
+            </div>
+
+            <Badge variant="outline" className="w-fit">
+              사용할 수 있는 값: {"{babyName}"}, {"{pregnancyWeekLabel}"},{" "}
+              {"{tone}"}
+            </Badge>
+          </div>
+
+          <SheetFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              type="button"
+              disabled={isHomeCopySaving}
+              onClick={onResetHomeCopyItem}
+            >
+              비우기
+            </Button>
+            <Button
+              variant="outline"
+              type="button"
+              disabled={isHomeCopySaving || !selectedHomeCopyItemId}
+              onClick={onDeleteHomeCopyItem}
+            >
+              삭제
+            </Button>
+            <Button
+              type="button"
+              disabled={isHomeCopySaving}
+              onClick={
+                selectedHomeCopyItemId
+                  ? onUpdateHomeCopyItem
+                  : onCreateHomeCopyItem
+              }
+            >
+              {selectedHomeCopyItemId ? "문구 저장" : "문구 생성"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </section>
   );
 }

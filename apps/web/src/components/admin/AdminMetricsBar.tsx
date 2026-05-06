@@ -4,7 +4,16 @@ import { useEffect, useState } from "react";
 
 import type { AdminMetric } from "@gynecology-chatbot/app-core";
 
-import styles from "./AdminConsoleLayout.module.css";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+
 import { AdminTrendChart, AdminUserDistributionChart } from "./AdminTrendChart";
 
 interface AdminMetricsBarProps {
@@ -37,12 +46,8 @@ const ANALYTICS_CARDS: {
   label: string;
 }[] = [
   { key: "totalUsers", label: "전체 사용자" },
-  { key: "onboardedUsers", label: "온보딩 완료" },
   { key: "todaySessions", label: "오늘 상담" },
   { key: "weekMessages", label: "주간 메시지" },
-  { key: "todayLogins", label: "오늘 로그인" },
-  { key: "weekLogins", label: "주간 로그인" },
-  { key: "todayEmotions", label: "오늘 감정 체크인" },
   { key: "pushEnabled", label: "푸시 활성" },
 ];
 
@@ -68,7 +73,11 @@ export function AdminMetricsBar({ metrics }: AdminMetricsBarProps) {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "데이터를 불러오지 못했습니다.");
+          setError(
+            err instanceof Error
+              ? err.message
+              : "데이터를 불러오지 못했습니다.",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -84,54 +93,71 @@ export function AdminMetricsBar({ metrics }: AdminMetricsBarProps) {
   }, []);
 
   return (
-    <section>
-      <div className={styles.metricsGrid}>
-        {metrics.map((metric) => (
-          <article key={metric.id} className={styles.metricCard}>
-            <span>{metric.label}</span>
-            <strong>{metric.value}</strong>
-            <span>{metric.changeLabel}</span>
-          </article>
-        ))}
-      </div>
+    <section className="space-y-6">
+      <div className="space-y-4">
+        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          핵심 운영 지표
+        </p>
 
-      <div className={styles.analyticsSection}>
-        <p className={styles.analyticsSectionHeader}>실시간 운영 현황</p>
-
-        {loading && (
-          <div className={styles.analyticsLoading} role="status" aria-live="polite">
-            데이터를 불러오는 중...
-          </div>
-        )}
-
-        {error && !loading && (
-          <div className={styles.analyticsError} role="alert">
-            {error}
-          </div>
-        )}
-
-        {analytics && !loading && (
-          <div className={styles.analyticsGrid}>
-            {ANALYTICS_CARDS.map(({ key, label }) => (
-              <article key={key} className={styles.analyticsCard}>
-                <span>{label}</span>
-                <strong>{analytics[key]}</strong>
-              </article>
+        {loading ? (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {ANALYTICS_CARDS.slice(0, 4).map(({ key }) => (
+              <Skeleton key={key} className="h-24 rounded-lg" />
             ))}
           </div>
-        )}
+        ) : null}
 
-        {analytics?.dailyTrend && analytics.dailyTrend.length > 0 && !loading && (
+        {error && !loading ? (
+          <div className="space-y-3">
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            {metrics.length > 0 ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {metrics.slice(0, 4).map((metric) => (
+                  <Card key={metric.id} className="shadow-sm">
+                    <CardHeader className="pb-2">
+                      <CardDescription>{metric.label}</CardDescription>
+                      <CardTitle className="text-2xl">{metric.value}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        {metric.changeLabel}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {analytics && !loading ? (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {ANALYTICS_CARDS.map(({ key, label }) => (
+              <Card key={key} className="shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardDescription>{label}</CardDescription>
+                  <CardTitle className="text-2xl">{analytics[key]}</CardTitle>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        ) : null}
+
+        {analytics?.dailyTrend &&
+        analytics.dailyTrend.length > 0 &&
+        !loading ? (
           <AdminTrendChart dailyTrend={analytics.dailyTrend} />
-        )}
+        ) : null}
 
-        {analytics && !loading && (
+        {analytics && !loading ? (
           <AdminUserDistributionChart
             totalUsers={analytics.totalUsers}
             onboardedUsers={analytics.onboardedUsers}
             pushEnabled={analytics.pushEnabled}
           />
-        )}
+        ) : null}
       </div>
     </section>
   );

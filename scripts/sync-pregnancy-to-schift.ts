@@ -5,6 +5,8 @@
  *
  * Usage: pnpm tsx scripts/sync-pregnancy-to-schift.ts            # 실제 업로드
  *        DRY_RUN=1 pnpm tsx scripts/sync-pregnancy-to-schift.ts  # 업로드 없이 파일 카운트만
+ *        ALLOW_APPEND=1 pnpm tsx scripts/sync-pregnancy-to-schift.ts
+ *          # 기존 문서가 있는 버킷에 의도적으로 추가 업로드할 때만 사용
  *
  * 전제:
  *   - Schift 서버의 ENCRYPTION_KEY 문제가 해결되어 job이 정상 처리돼야 함
@@ -25,6 +27,7 @@ const DATABASE_URL = process.env.DATABASE_URL;
 // BUCKET 환경변수로 런타임에 타겟 버킷 교체 가능 (cutover 용).
 const BUCKET_KNOWLEDGE = process.env.BUCKET ?? "pregnancy-knowledge";
 const DRY_RUN = process.env.DRY_RUN === "1";
+const ALLOW_APPEND = process.env.ALLOW_APPEND === "1";
 const RAW_DOCX_PATH =
   process.env.PREGNANCY_RAW_DOCX ??
   "/Users/jskang/Downloads/임신 주수 별 발달정보(0320_room).docx";
@@ -41,10 +44,8 @@ if (!DATABASE_URL) {
 // -- Postgres direct query via pg --
 import pg from "pg";
 // Strip sslmode/gssencmode from URL to avoid pg-connection-string overriding
-// our TLS settings (legacyBackend pooler serves a self-signed cert).
-const needsSsl =
-  DATABASE_URL.includes("sslmode=") ||
-  /legacyBackend\.(co|com)|pooler\./i.test(DATABASE_URL);
+// our TLS settings when a direct Postgres URL opts into TLS.
+const needsSsl = DATABASE_URL.includes("sslmode=");
 const cleanedUrl = DATABASE_URL.replace(/[?&](sslmode|gssencmode)=[^&]*/g, "")
   .replace(/\?&/, "?")
   .replace(/\?$/, "");
@@ -87,6 +88,13 @@ type QuestionRow = {
   week_number: number;
   day_number: number;
   question_text: string;
+};
+
+type BucketState = {
+  name: string;
+  file_count?: number;
+  vector_count?: number;
+  active_job_count?: number;
 };
 
 function buildWeekDocument(week: WeekRow): string {
@@ -252,6 +260,8 @@ async function main() {
   );
 
   const schift = new Schift({ apiKey: SCHIFT_API_KEY });
+  let knowledgeBucketState: BucketState | null = null;
+  let bucketStateChecked = false;
 
   // --- Pre-upload bucket state ---
   try {
@@ -259,16 +269,13 @@ async function main() {
       headers: { Authorization: `Bearer ${SCHIFT_API_KEY}` },
     });
     if (bucketsRes.ok) {
-      const buckets = (await bucketsRes.json()) as Array<{
-        name: string;
-        file_count?: number;
-        vector_count?: number;
-        active_job_count?: number;
-      }>;
+      bucketStateChecked = true;
+      const buckets = (await bucketsRes.json()) as BucketState[];
       console.log("\n[pre-upload bucket state]");
       for (const name of [BUCKET_KNOWLEDGE]) {
         const b = buckets.find((x) => x.name === name);
         if (b) {
+          knowledgeBucketState = b;
           console.log(
             `  ${name}: files=${b.file_count ?? "?"} vectors=${b.vector_count ?? "?"} active_jobs=${b.active_job_count ?? 0}`,
           );
@@ -281,6 +288,10 @@ async function main() {
           console.log(`  ${name}: (버킷 없음 — upload 시 생성됨)`);
         }
       }
+    } else {
+      console.warn(
+        `  (버킷 상태 조회 실패: HTTP ${bucketsRes.status} ${bucketsRes.statusText})`,
+      );
     }
   } catch (e) {
     console.warn(`  (버킷 상태 조회 실패: ${(e as Error).message})`);
@@ -290,6 +301,15 @@ async function main() {
     console.log(
       `\nDRY_RUN=1 — 업로드 생략. raw docx=${RAW_DOCX_PATH} (exists=${(await import("fs")).existsSync(RAW_DOCX_PATH)}), knowledge 문서=${knowledgeFileCount}개 (${uploadGroups.length} groups) 준비됨.`,
     );
+    if ((knowledgeBucketState?.file_count ?? 0) > 0 && !ALLOW_APPEND) {
+      console.log(
+        `  참고: "${BUCKET_KNOWLEDGE}" 버킷에 이미 ${knowledgeBucketState?.file_count}개 문서가 있어 실제 업로드는 기본값으로 중단됩니다.`,
+      );
+    } else if (!bucketStateChecked && !ALLOW_APPEND) {
+      console.log(
+        "  참고: 버킷 상태를 확인하지 못해 실제 업로드는 기본값으로 중단됩니다.",
+      );
+    }
     for (const group of uploadGroups.slice(0, 3)) {
       console.log(
         `  sample metadata: ${JSON.stringify(group.metadata)} × ${group.files.length} files`,
@@ -297,6 +317,28 @@ async function main() {
     }
     await pool.end();
     return;
+  }
+
+  if (!bucketStateChecked && !ALLOW_APPEND) {
+    console.error(
+      "\nRefusing to upload because the current Schift bucket state could not be verified.",
+    );
+    console.error(
+      "Set ALLOW_APPEND=1 only when appending without a bucket-state check is intentional.",
+    );
+    await pool.end();
+    process.exit(1);
+  }
+
+  if ((knowledgeBucketState?.file_count ?? 0) > 0 && !ALLOW_APPEND) {
+    console.error(
+      `\nRefusing to append to non-empty Schift bucket "${BUCKET_KNOWLEDGE}" (${knowledgeBucketState?.file_count} files).`,
+    );
+    console.error(
+      "Purge/delete the existing bucket before a clean resync, or set ALLOW_APPEND=1 only when duplicate documents are intentional.",
+    );
+    await pool.end();
+    process.exit(1);
   }
 
   // --- 1) Upload raw docx into the unified pregnancy-knowledge bucket with archive tag ---

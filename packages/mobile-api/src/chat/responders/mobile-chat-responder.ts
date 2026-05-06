@@ -682,6 +682,19 @@ export function createMobileChatResponder<
           lastScenario: memoryContext.lastScenario,
           compactSummary: memoryContext.compactSummary,
         });
+        console.info(
+          [
+            "[mobile-chat-workflow]",
+            "event=run_start",
+            `workflowId=${selectedWorkflowId ?? "auto"}`,
+            `sessionId=${input.normalizedSessionId}`,
+            `stage=${memoryContext.workflowStage ?? "null"}`,
+            `stageName=${memoryContext.workflowStageName ?? "null"}`,
+            `lastScenario=${memoryContext.lastScenario ?? "null"}`,
+            `turnStage=${currentTurnStage ?? "null"}`,
+            `hasRag=${loadedRagContext?.context.trim() ? "true" : "false"}`,
+          ].join(" "),
+        );
         const { run } = await deps.runSchiftWorkflow({
           schift,
           ...(selectedWorkflowId ? { workflowId: selectedWorkflowId } : {}),
@@ -754,6 +767,16 @@ export function createMobileChatResponder<
         }
 
         const workflowOutputs = deps.extractSchiftWorkflowOutputs(run);
+        console.info(
+          [
+            "[mobile-chat-workflow]",
+            "event=run_done",
+            `workflowId=${selectedWorkflowId ?? "auto"}`,
+            `sessionId=${input.normalizedSessionId}`,
+            `status=${run.status}`,
+            `outputKeys=${Object.keys(workflowOutputs ?? {}).join(",") || "-"}`,
+          ].join(" "),
+        );
         const workflowPayload = normalizeWorkflowMemoryPayload(
           parseWorkflowAssistantPayload(workflowOutputs),
         );

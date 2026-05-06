@@ -15,14 +15,14 @@ import {
 } from "@gynecology-chatbot/db/prisma";
 import { randomUUID } from "crypto";
 
+import { dbDelete, dbInsert, dbSelect, dbUpdate } from "@/lib/db/admin-client";
 import {
-  dbDelete,
-  dbInsert,
-  dbSelect,
-  dbUpdate,
-} from "@/lib/db/admin-client";
+  saveSnapshotAndUpdate,
+  type SnapshotCapableRow,
+  type SnapshotUpdateInput,
+} from "@/lib/admin/snapshot-helper";
 
-export type legacyBackendWeekRow = {
+export type DbWeekRow = {
   id: string;
   week_number: number;
   title: string | null;
@@ -36,7 +36,7 @@ export type legacyBackendWeekRow = {
   updated_at: string | Date;
 };
 
-export type legacyBackendWeekSectionRow = {
+export type DbWeekSectionRow = {
   id: string;
   day_number: number | null;
   code: string;
@@ -47,7 +47,7 @@ export type legacyBackendWeekSectionRow = {
   is_active: boolean | null;
 };
 
-export type legacyBackendWeekAssetRow = {
+export type DbWeekAssetRow = {
   id: string;
   day_number: number | null;
   code: string;
@@ -59,7 +59,7 @@ export type legacyBackendWeekAssetRow = {
   is_active: boolean | null;
 };
 
-export type legacyBackendWeekDayRow = {
+export type DbWeekDayRow = {
   id: string;
   day_number: number;
   title: string | null;
@@ -69,7 +69,7 @@ export type legacyBackendWeekDayRow = {
   display_order: number | null;
 };
 
-export type legacyBackendWeekMediaRow = {
+export type DbWeekMediaRow = {
   id: string;
   day_number: number | null;
   media_scope: "week" | "day";
@@ -96,6 +96,10 @@ type WeekContentPrisma = Pick<
   | "pregnancy_week_media"
 >;
 
+type SaveSnapshotFn = <TData extends Record<string, unknown>>(
+  input: SnapshotUpdateInput<TData>,
+) => Promise<SnapshotCapableRow>;
+
 type WeekContentRepositoryDeps = {
   select?: typeof dbSelect;
   update?: typeof dbUpdate;
@@ -104,6 +108,7 @@ type WeekContentRepositoryDeps = {
   prisma?: WeekContentPrisma;
   hasDirectContentDatabase?: () => boolean;
   createId?: () => string;
+  saveSnapshot?: SaveSnapshotFn;
 };
 
 export class WeekContentRepository {
@@ -114,6 +119,7 @@ export class WeekContentRepository {
   private readonly prisma: WeekContentPrisma;
   private readonly hasDirectContentDatabase: () => boolean;
   private readonly createId: () => string;
+  private readonly saveSnapshot: SaveSnapshotFn;
 
   constructor(deps: WeekContentRepositoryDeps = {}) {
     this.select = deps.select ?? dbSelect;
@@ -125,9 +131,10 @@ export class WeekContentRepository {
       deps.hasDirectContentDatabase ??
       (() => Boolean(process.env.DATABASE_URL));
     this.createId = deps.createId ?? randomUUID;
+    this.saveSnapshot = deps.saveSnapshot ?? saveSnapshotAndUpdate;
   }
 
-  async listWeeks(): Promise<legacyBackendWeekRow[]> {
+  async listWeeks(): Promise<DbWeekRow[]> {
     if (this.hasDirectContentDatabase()) {
       const rows = await this.prisma.pregnancy_week_data.findMany({
         select: {
@@ -147,12 +154,12 @@ export class WeekContentRepository {
       });
       return rows.map((row) => ({
         ...row,
-        status: row.status as legacyBackendWeekRow["status"],
+        status: row.status as DbWeekRow["status"],
       }));
     }
 
     try {
-      return await this.select<Array<legacyBackendWeekRow>>(
+      return await this.select<Array<DbWeekRow>>(
         "content_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&status=eq.published&order=week_number.asc",
       );
     } catch (error) {
@@ -160,14 +167,14 @@ export class WeekContentRepository {
         "public week summaries unavailable, falling back to content schema",
         error,
       );
-      return this.select<Array<legacyBackendWeekRow>>(
+      return this.select<Array<DbWeekRow>>(
         "content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&order=week_number.asc",
       );
     }
   }
 
-  async getWeek(weekNumber: number): Promise<legacyBackendWeekRow | null> {
-    let weekRows: Array<legacyBackendWeekRow>;
+  async getWeek(weekNumber: number): Promise<DbWeekRow | null> {
+    let weekRows: Array<DbWeekRow>;
     if (this.hasDirectContentDatabase()) {
       const week = await this.prisma.pregnancy_week_data.findUnique({
         where: { week_number: weekNumber },
@@ -189,13 +196,13 @@ export class WeekContentRepository {
         ? [
             {
               ...week,
-              status: week.status as legacyBackendWeekRow["status"],
+              status: week.status as DbWeekRow["status"],
             },
           ]
         : [];
     } else {
       try {
-        weekRows = await this.select<Array<legacyBackendWeekRow>>(
+        weekRows = await this.select<Array<DbWeekRow>>(
           `content_pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&status=eq.published&limit=1`,
         );
       } catch (error) {
@@ -203,7 +210,7 @@ export class WeekContentRepository {
           "public week detail unavailable, falling back to content schema",
           error,
         );
-        weekRows = await this.select<Array<legacyBackendWeekRow>>(
+        weekRows = await this.select<Array<DbWeekRow>>(
           `content.pregnancy_week_data?select=id,week_number,title,baby_size_label,baby_size_compare_object,baby_summary,mother_summary,warning_signs,recommended_actions,status,updated_at&week_number=eq.${weekNumber}&limit=1`,
         );
       }
@@ -213,10 +220,10 @@ export class WeekContentRepository {
   }
 
   async getWeekChildren(weekId: string): Promise<{
-    sections: legacyBackendWeekSectionRow[];
-    assets: legacyBackendWeekAssetRow[];
-    days: legacyBackendWeekDayRow[];
-    media: legacyBackendWeekMediaRow[];
+    sections: DbWeekSectionRow[];
+    assets: DbWeekAssetRow[];
+    days: DbWeekDayRow[];
+    media: DbWeekMediaRow[];
   }> {
     if (this.hasDirectContentDatabase()) {
       const [sections, assets, days, media] = await Promise.all([
@@ -308,19 +315,19 @@ export class WeekContentRepository {
       };
     }
 
-    let sections: Array<legacyBackendWeekSectionRow>;
-    let assets: Array<legacyBackendWeekAssetRow>;
-    let days: Array<legacyBackendWeekDayRow>;
+    let sections: Array<DbWeekSectionRow>;
+    let assets: Array<DbWeekAssetRow>;
+    let days: Array<DbWeekDayRow>;
 
     try {
       [sections, assets, days] = await Promise.all([
-        this.select<Array<legacyBackendWeekSectionRow>>(
+        this.select<Array<DbWeekSectionRow>>(
           `content.week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
-        this.select<Array<legacyBackendWeekAssetRow>>(
+        this.select<Array<DbWeekAssetRow>>(
           `content.week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
-        this.select<Array<legacyBackendWeekDayRow>>(
+        this.select<Array<DbWeekDayRow>>(
           `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${weekId}&order=day_number.asc`,
         ),
       ]);
@@ -330,21 +337,21 @@ export class WeekContentRepository {
         error,
       );
       [sections, assets, days] = await Promise.all([
-        this.select<Array<legacyBackendWeekSectionRow>>(
+        this.select<Array<DbWeekSectionRow>>(
           `content.week_checklists?select=id,day_number,code,title,description,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
-        this.select<Array<legacyBackendWeekAssetRow>>(
+        this.select<Array<DbWeekAssetRow>>(
           `content.week_questions?select=id,day_number,code,question_type,question_text,help_text,display_order,is_required,is_active&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
         ),
-        this.select<Array<legacyBackendWeekDayRow>>(
+        this.select<Array<DbWeekDayRow>>(
           `content.pregnancy_day_contents?select=id,day_number,title,baby_development_payload,baby_message,mother_changes_payload,display_order&week_data_id=eq.${weekId}&order=day_number.asc`,
         ),
       ]);
     }
 
-    let media: Array<legacyBackendWeekMediaRow>;
+    let media: Array<DbWeekMediaRow>;
     try {
-      media = await this.select<Array<legacyBackendWeekMediaRow>>(
+      media = await this.select<Array<DbWeekMediaRow>>(
         `content.pregnancy_week_media?select=id,day_number,media_scope,bucket_id,object_path,media_role,alt_text,source_file_name,display_order&week_data_id=eq.${weekId}&order=day_number.asc.nullslast,display_order.asc.nullslast`,
       );
     } catch (error) {
@@ -370,10 +377,15 @@ export class WeekContentRepository {
       compareImagePath: string | null;
       status: "draft" | "published" | "archived";
     },
+    actorId?: string | null,
   ): Promise<void> {
     if (this.hasDirectContentDatabase()) {
-      await this.prisma.pregnancy_week_data.update({
-        where: { id: weekId },
+      await this.saveSnapshot({
+        model: this.prisma.pregnancy_week_data as unknown as Parameters<
+          typeof saveSnapshotAndUpdate
+        >[0]["model"],
+        id: weekId,
+        actorId,
         data: {
           title: input.title,
           baby_size_label: input.babySizeLabel,
@@ -381,7 +393,6 @@ export class WeekContentRepository {
           baby_summary: input.babySummary,
           mother_summary: input.motherSummary,
           status: input.status,
-          updated_at: new Date(),
         },
       });
       return;
@@ -401,6 +412,7 @@ export class WeekContentRepository {
   async upsertDayContents(
     weekId: string,
     days: AdminWeekDayInput[],
+    actorId?: string | null,
   ): Promise<Map<number, string>> {
     const dayIdByNumber = new Map<number, string>();
 
@@ -421,8 +433,12 @@ export class WeekContentRepository {
 
       if (day.id) {
         if (this.hasDirectContentDatabase()) {
-          await this.prisma.pregnancy_day_contents.update({
-            where: { id: day.id },
+          await this.saveSnapshot({
+            model: this.prisma.pregnancy_day_contents as unknown as Parameters<
+              typeof saveSnapshotAndUpdate
+            >[0]["model"],
+            id: day.id,
+            actorId,
             data: {
               week_data_id: weekId,
               day_number: day.dayNumber,
@@ -483,6 +499,7 @@ export class WeekContentRepository {
     weekId: string,
     sections: AdminWeekSectionInput[],
     dayIdByNumber: Map<number, string>,
+    actorId?: string | null,
   ): Promise<void> {
     for (const section of sections) {
       const payload = {
@@ -502,8 +519,12 @@ export class WeekContentRepository {
 
       if (section.id) {
         if (this.hasDirectContentDatabase()) {
-          await this.prisma.week_checklists.update({
-            where: { id: section.id },
+          await this.saveSnapshot({
+            model: this.prisma.week_checklists as unknown as Parameters<
+              typeof saveSnapshotAndUpdate
+            >[0]["model"],
+            id: section.id,
+            actorId,
             data: {
               week_data_id: weekId,
               day_content_id: payload.day_content_id,
@@ -555,6 +576,7 @@ export class WeekContentRepository {
     weekId: string,
     assets: AdminWeekAssetInput[],
     dayIdByNumber: Map<number, string>,
+    actorId?: string | null,
   ): Promise<void> {
     for (const asset of assets) {
       const payload = {
@@ -575,8 +597,12 @@ export class WeekContentRepository {
 
       if (asset.id) {
         if (this.hasDirectContentDatabase()) {
-          await this.prisma.week_questions.update({
-            where: { id: asset.id },
+          await this.saveSnapshot({
+            model: this.prisma.week_questions as unknown as Parameters<
+              typeof saveSnapshotAndUpdate
+            >[0]["model"],
+            id: asset.id,
+            actorId,
             data: {
               week_data_id: weekId,
               day_content_id: payload.day_content_id,
@@ -630,6 +656,7 @@ export class WeekContentRepository {
     weekId: string,
     media: AdminWeekMediaInput[],
     dayIdByNumber: Map<number, string>,
+    actorId?: string | null,
   ): Promise<void> {
     for (const item of media) {
       const payload = {
@@ -650,8 +677,12 @@ export class WeekContentRepository {
 
       if (item.id) {
         if (this.hasDirectContentDatabase()) {
-          await this.prisma.pregnancy_week_media.update({
-            where: { id: item.id },
+          await this.saveSnapshot({
+            model: this.prisma.pregnancy_week_media as unknown as Parameters<
+              typeof saveSnapshotAndUpdate
+            >[0]["model"],
+            id: item.id,
+            actorId,
             data: {
               week_data_id: weekId,
               day_content_id: payload.day_content_id,

@@ -7,7 +7,7 @@ import json
 from docx import Document
 
 DOCX_PATH = sys.argv[1] if len(sys.argv) > 1 else "/Users/jskang/Downloads/임신 주수 별 발달정보(0320_room).docx"
-OUTPUT_PATH = sys.argv[2] if len(sys.argv) > 2 else "/Users/jskang/Projects/si/legacyBackend/migrations/20260324_seed_pregnancy_week_content.sql"
+OUTPUT_PATH = sys.argv[2] if len(sys.argv) > 2 else "/Users/jskang/Projects/si/db/migrations/20260324_seed_pregnancy_week_content.sql"
 
 # Reference numbers like (1)(2)(3) to strip
 REF_PATTERN = re.compile(r"\s*(\(\d+\))+\s*$")

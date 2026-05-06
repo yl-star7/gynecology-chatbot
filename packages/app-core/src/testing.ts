@@ -563,6 +563,22 @@ export class MockMobileChatAdapter implements MobileChatPort {
     return recentChats;
   }
 
+  async getInitialConversationMessage(): Promise<ChatMessage> {
+    return {
+      id: "assistant-initial-workflow",
+      role: "assistant",
+      createdAtLabel: "방금 전",
+      characterTone: "calm",
+      parts: [
+        {
+          type: "text",
+          id: "initial-workflow-text",
+          text: "오늘은 마음이 어떠세요?",
+        },
+      ],
+    };
+  }
+
   async getSession(sessionId = "chat-today"): Promise<ChatSession> {
     return toSession(sessionId);
   }

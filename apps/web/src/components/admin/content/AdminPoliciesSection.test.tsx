@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 
 import { AdminPoliciesSection } from "./AdminPoliciesSection";
 
@@ -53,7 +59,6 @@ describe("AdminPoliciesSection", () => {
         workflowModelName="gemini-2.5-flash-lite"
         workflowStatus="active"
         isWorkflowSaving={false}
-        isWorkflowBootstrapping={false}
         isWorkflowRunning={false}
         isWorkflowDeleting={false}
         onSelectWorkflowRule={() => {}}
@@ -63,7 +68,6 @@ describe("AdminPoliciesSection", () => {
         onWorkflowModelNameChange={() => {}}
         onWorkflowStatusChange={() => {}}
         onSaveWorkflowRule={async () => {}}
-        onBootstrapWorkflowRule={async () => {}}
         onRunWorkflowRule={async () => {}}
         onDeleteWorkflowRule={async () => {}}
       />,
@@ -85,5 +89,155 @@ describe("AdminPoliciesSection", () => {
     fireEvent.click(workflowButton);
 
     expect(screen.queryByText("워크플로우 빌더")).not.toBeInTheDocument();
+  });
+
+  it("keeps router and sub workflows visible in the list", async () => {
+    render(
+      <AdminPoliciesSection
+        workflowRules={[
+          {
+            id: "workflow-router",
+            name: "모성간호 상담 응답 router",
+            trigger: "stage=router",
+            retrievalScope: "전체",
+            modelName: "gemini-2.5-flash-lite",
+            status: "active",
+            source: "sql",
+            workflowKind: "router",
+            storagePath:
+              "gs://agaya-workflow-config/maternal-nursing-router.yaml",
+          },
+          {
+            id: "workflow-free",
+            name: "free text sub workflow",
+            trigger: "free-text",
+            retrievalScope: "상담",
+            modelName: "gemini-2.5-flash-lite",
+            status: "active",
+            source: "sql",
+            workflowKind: "subworkflow",
+            storagePath:
+              "gs://agaya-workflow-config/subworkflows/free-chat.yaml",
+          },
+          {
+            id: "workflow-calendar",
+            name: "calendar 요약 기록",
+            trigger: "calendar",
+            retrievalScope: "캘린더",
+            modelName: "gemini-2.5-flash-lite",
+            status: "review",
+            source: "sql",
+            workflowKind: "managed",
+          },
+        ]}
+        selectedWorkflowRuleId="workflow-router"
+        contentMessage={null}
+        workflowName="모성간호 상담 응답 router"
+        workflowTrigger="stage=router"
+        workflowRetrievalScope="전체"
+        workflowModelName="gemini-2.5-flash-lite"
+        workflowStatus="active"
+        isWorkflowSaving={false}
+        isWorkflowRunning={false}
+        isWorkflowDeleting={false}
+        onSelectWorkflowRule={() => {}}
+        onWorkflowNameChange={() => {}}
+        onWorkflowTriggerChange={() => {}}
+        onWorkflowRetrievalScopeChange={() => {}}
+        onWorkflowModelNameChange={() => {}}
+        onWorkflowStatusChange={() => {}}
+        onSaveWorkflowRule={async () => {}}
+        onRunWorkflowRule={async () => {}}
+        onDeleteWorkflowRule={async () => {}}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: /모성간호 상담 응답 router/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /free text sub workflow/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /calendar 요약 기록/ }),
+    ).toBeInTheDocument();
+
+    const totalSummary = screen
+      .getByText("전체 워크플로우")
+      .closest("div") as HTMLElement;
+    const subSummary = screen
+      .getByText("Sub workflow 추정")
+      .closest("div") as HTMLElement;
+
+    expect(within(totalSummary).getByText("3")).toBeInTheDocument();
+    expect(within(subSummary).getByText("1")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "gs://agaya-workflow-config/subworkflows/free-chat.yaml",
+      ),
+    ).toBeInTheDocument();
+
+    await screen.findByText(
+      "SCHIFT_API_KEY가 없어 노드 에디터를 열 수 없어요.",
+    );
+  });
+
+  it("opens selected YAML workflows in the node editor", async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url === "/api/admin/schift") {
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    render(
+      <AdminPoliciesSection
+        workflowRules={[
+          {
+            id: "workflow-free",
+            name: "free text sub workflow",
+            trigger: "free-text",
+            retrievalScope: "상담",
+            modelName: "gemini-2.5-flash-lite",
+            status: "active",
+            source: "gcs-yaml",
+            workflowKind: "subworkflow",
+            gcsObject: "subworkflows/free-chat.yaml",
+            storagePath:
+              "gs://agaya-workflow-config/subworkflows/free-chat.yaml",
+          },
+        ]}
+        selectedWorkflowRuleId="workflow-free"
+        contentMessage={null}
+        workflowName="free text sub workflow"
+        workflowTrigger="free-text"
+        workflowRetrievalScope="상담"
+        workflowModelName="gemini-2.5-flash-lite"
+        workflowStatus="active"
+        isWorkflowSaving={false}
+        isWorkflowRunning={false}
+        isWorkflowDeleting={false}
+        onSelectWorkflowRule={() => {}}
+        onWorkflowNameChange={() => {}}
+        onWorkflowTriggerChange={() => {}}
+        onWorkflowRetrievalScopeChange={() => {}}
+        onWorkflowModelNameChange={() => {}}
+        onWorkflowStatusChange={() => {}}
+        onSaveWorkflowRule={async () => {}}
+        onRunWorkflowRule={async () => {}}
+        onDeleteWorkflowRule={async () => {}}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /free text sub workflow/ }),
+    );
+
+    expect(await screen.findByText("워크플로우 빌더")).toBeInTheDocument();
   });
 });

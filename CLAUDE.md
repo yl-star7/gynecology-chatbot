@@ -1,6 +1,6 @@
 # 모성간호 챗봇 (gynecology-chatbot)
 
-임산부/가임기 사용자 대상 AI 상담 서비스. 모바일 앱(Expo) + 관리자 웹(Next.js) + legacyBackend 백엔드.
+임산부/가임기 사용자 대상 AI 상담 서비스. 모바일 앱(Expo) + 관리자 웹(Next.js) + GCP Cloud Run + Cloud SQL 백엔드.
 
 ## Repository Structure
 
@@ -10,7 +10,7 @@ apps/
   mobile/        # Expo Router — 사용자 앱 (네이티브)
 packages/
   app-core/      # 공용 도메인 타입, 포트, 테마 프리셋
-legacyBackend/
+db/
   migrations/    # DB 마이그레이션 (public + content 스키마)
 docs/
   active/        # 현재 실행 계획, SOW/PRD 점검표
@@ -24,7 +24,6 @@ flows/flowise/   # Flowise chatflow 설정
 ```bash
 pnpm install                  # 의존성 설치
 pnpm dev:d                    # Docker 로컬 개발 (Postgres + 시드)
-pnpm dev:s                    # legacyBackend 개발 모드
 pnpm build                    # 전체 빌드
 pnpm lint                     # 린트
 pnpm type-check               # 타입 체크
@@ -75,14 +74,14 @@ pnpm --filter @gynecology-chatbot/app-core type-check
 
 ### 데이터 소스 전환
 
-- `SERVER_DATA_PROVIDER=docker|legacyBackend` — 서버 데이터 소스 선택
+- `SERVER_DATA_PROVIDER=docker|backend` — 서버 데이터 소스 선택 (backend = Cloud SQL)
 - `ADMIN_DATA_PROVIDER=backend|mock` — 관리자 데이터 포트 선택
 - 환경변수로 명시 전환하며, 코드에서 하드코딩하지 않는다
 
 ### DB 쿼리 규칙 (절대 규칙)
 
-- `legacyBackendSelect`, `legacyBackendInsert`, `legacyBackendUpdate` 사용 (`@/lib/mobile/legacyBackend-rest`)
-- **`content` 스키마 테이블은 직접 쿼리 금지** (legacyBackend REST가 406 반환)
+- `dbSelect`, `dbInsert`, `dbUpdate` 사용 (`@/lib/mobile/db-rest`)
+- **`content` 스키마 테이블은 직접 쿼리 금지** (REST가 406 반환)
 - content 데이터는 public view를 통해 읽는다:
   - `published_pregnancy_weeks`
   - `published_knowledge_items`
@@ -117,7 +116,7 @@ pnpm --filter @gynecology-chatbot/app-core type-check
 ### 마이그레이션 규칙
 
 - 마이그레이션 파일명: `YYYYMMDD_description.sql`
-- `legacyBackend/migrations/`에 추가
+- `db/migrations/`에 추가
 - 기존 데이터 호환성 유지 — destructive 변경 시 사용자 확인 필수
 - RLS 정책이 필요한 테이블은 마이그레이션에 RLS 포함
 

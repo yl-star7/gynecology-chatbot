@@ -155,11 +155,15 @@ import * as Notifications from 'expo-notifications';
 const { data } = await Notifications.getLastNotificationResponseAsync();
 const token = (await Notifications.getExpoPushTokenAsync()).data;
 
-// legacyBackend에 저장
-await legacyBackend
-  .from('pregnancy_profiles')
-  .update({ push_token: token })
-  .eq('id', userId);
+// API에 저장
+await fetch(`${apiBaseUrl}/api/mobile/push/register`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${sessionToken}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ pushToken: token }),
+});
 ```
 
 ---
@@ -192,7 +196,7 @@ await legacyBackend
 
 ### 문제: Token 등록 실패
 - 로그인 상태 확인
-- legacyBackend RLS 정책 확인
+- 모바일 세션과 push token 저장 API 확인
 - `pregnancy_profiles` 테이블의 `push_token` 컬럼 존재 여부 확인
 
 ---

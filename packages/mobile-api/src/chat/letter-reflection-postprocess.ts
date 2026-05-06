@@ -22,13 +22,24 @@ export type LetterReflectionPayload = {
 
 export type LetterReflectionQuickReplyMode = "hidden" | "assistive";
 
-/**
- * 같은 attachment 질문에 대해 letter_reflection turn 이 몇 번 이어졌는지 임계값.
- * 이 값 미만이면 "다른 질문도 볼래요" chip 을 노출하지 않는다.
- */
-export const LETTER_REFLECTION_NEXT_CHIP_MIN_TURNS = 3;
+export const LETTER_REFLECTION_NEXT_CHIP_MIN_TURNS_MIN = 3;
+export const LETTER_REFLECTION_NEXT_CHIP_MIN_TURNS_MAX = 4;
 export const QUESTION_EXHAUSTED_FREE_CHAT_MESSAGE =
   "오늘의 질문을 모두 답변하셨어요. 이제 자유롭게 얘기해보아요.";
+
+export function resolveLetterReflectionNextChipMinTurns(
+  currentAttachmentQuestionId: string | null,
+) {
+  if (!currentAttachmentQuestionId) {
+    return LETTER_REFLECTION_NEXT_CHIP_MIN_TURNS_MAX;
+  }
+
+  let hash = 0;
+  for (let i = 0; i < currentAttachmentQuestionId.length; i += 1) {
+    hash = (hash + currentAttachmentQuestionId.charCodeAt(i)) % 2;
+  }
+  return LETTER_REFLECTION_NEXT_CHIP_MIN_TURNS_MIN + hash;
+}
 
 function transitionToFreeChat(
   payload: LetterReflectionPayload,
@@ -64,22 +75,24 @@ export function rewriteLetterReflectionQuickReplies(
   options: {
     mode?: LetterReflectionQuickReplyMode;
     quota?: number;
+    candidateQuestionIds?: string[];
   } = {},
 ): LetterReflectionPayload {
   if (!payload) return payload;
   const quota = options.quota ?? 3;
   const mode = options.mode ?? "hidden";
   const current = progress.currentAttachmentQuestionId;
-  // 이 질문이 종결되면 answered 에 더해지므로 "종결 후" 남은 개수 기준
-  const answeredAfterClose =
-    current && !progress.answeredQuestionIds.includes(current)
-      ? progress.answeredQuestionIds.length + 1
-      : progress.answeredQuestionIds.length;
-  const remainingAfterClose = Math.max(0, quota - answeredAfterClose);
   const answeredIdsAfterClose =
     current && !progress.answeredQuestionIds.includes(current)
       ? [...progress.answeredQuestionIds, current]
       : progress.answeredQuestionIds;
+  const answeredAfterClose = answeredIdsAfterClose.length;
+  const candidateQuestionIds = options.candidateQuestionIds ?? [];
+  const remainingAfterClose =
+    candidateQuestionIds.length > 0
+      ? candidateQuestionIds.filter((id) => !answeredIdsAfterClose.includes(id))
+          .length
+      : Math.max(0, quota - answeredAfterClose);
 
   if (remainingAfterClose === 0) {
     transitionToFreeChat(payload, answeredIdsAfterClose);
@@ -87,7 +100,8 @@ export function rewriteLetterReflectionQuickReplies(
   }
 
   const turnCount = progress.currentQuestionTurnCount ?? 0;
-  const allowNextChip = turnCount >= LETTER_REFLECTION_NEXT_CHIP_MIN_TURNS;
+  const nextChipMinTurns = resolveLetterReflectionNextChipMinTurns(current);
+  const allowNextChip = turnCount >= nextChipMinTurns;
 
   if (!allowNextChip && mode === "hidden") {
     delete payload.quickReplies;

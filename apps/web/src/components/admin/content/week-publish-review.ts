@@ -1,5 +1,7 @@
 import type { AdminWeekDetail } from "@gynecology-chatbot/app-core";
 
+import { formatMobileWeekDayLabel } from "./admin-week-day-labels";
+
 export interface WeekPublishReview {
   isReady: boolean;
   missingItems: string[];
@@ -56,13 +58,14 @@ export function getWeekPublishReview(week: AdminWeekDetail): WeekPublishReview {
 
   const dayMap = new Map(week.days.map((day) => [day.dayNumber, day]));
   for (let dayNumber = 1; dayNumber <= 7; dayNumber += 1) {
+    const dayLabel = formatMobileWeekDayLabel(week.weekNumber, dayNumber);
     if (!dayMap.has(dayNumber)) {
-      missingItems.push(`Day ${dayNumber}`);
+      missingItems.push(dayLabel);
       continue;
     }
 
     if (getWeekPublishDayStatus(week, dayNumber) !== "complete") {
-      missingItems.push(`Day ${dayNumber}`);
+      missingItems.push(dayLabel);
     }
   }
 

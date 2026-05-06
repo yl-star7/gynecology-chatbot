@@ -1,9 +1,5 @@
-import AdminOperationsPage from "@/components/AdminOperationsPage";
+import { redirect } from "next/navigation";
 
-import { requireAdminSession } from "@/lib/admin/auth";
-
-export default async function AdminOperationsRoute() {
-  const admin = await requireAdminSession();
-
-  return <AdminOperationsPage adminDisplayName={admin.displayName} />;
+export default function Page() {
+  redirect("/admin/dashboard");
 }

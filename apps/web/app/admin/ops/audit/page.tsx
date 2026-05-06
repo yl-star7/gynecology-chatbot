@@ -1,5 +1,25 @@
-import { redirect } from "next/navigation";
+import { requireAdminSession } from "@/lib/admin/auth";
 
-export default function Page() {
-  redirect("/admin/monitoring");
+import AdminPageFrame from "@/components/AdminPageFrame";
+import { AdminOpsAuditSection } from "@/components/admin/AdminOpsAuditSection";
+
+import { loadAdminOpsAuditLogs } from "./_lib/load-audit-logs";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
+export default async function AdminOpsAuditRoute() {
+  const admin = await requireAdminSession();
+  const logs = await loadAdminOpsAuditLogs();
+
+  return (
+    <AdminPageFrame
+      adminDisplayName={admin.displayName}
+      currentPath="/admin/ops/audit"
+      title="감사 로그"
+    >
+      <AdminOpsAuditSection logs={logs} />
+    </AdminPageFrame>
+  );
 }

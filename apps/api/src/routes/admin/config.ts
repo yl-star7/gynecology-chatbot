@@ -9,6 +9,7 @@ const RAG_PROVIDER_KEY = "rag_provider";
 const BRANDING_KEY = "ui_branding";
 const CHARACTER_IMAGES_KEY = "character_images";
 const SCHEDULE_KEY = "notification_schedule";
+const APPROVAL_POLICY_KEY = "mobile_approval_policy";
 const CHARACTER_IMAGE_TONES = [
   "neutral",
   "calm",
@@ -103,6 +104,12 @@ const DEFAULT_SCHEDULE = {
 
 type ScheduleConfig = typeof DEFAULT_SCHEDULE;
 
+const DEFAULT_APPROVAL_POLICY = {
+  requireApproval: true,
+};
+
+type ApprovalPolicyConfig = typeof DEFAULT_APPROVAL_POLICY;
+
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 app.use("*", requireAdminProxy);
@@ -182,6 +189,20 @@ function asScheduleConfig(value: Prisma.JsonValue | null | undefined) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as ScheduleConfig)
     : null;
+}
+
+function asApprovalPolicyConfig(value: Prisma.JsonValue | null | undefined) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return {
+    requireApproval:
+      typeof (value as { requireApproval?: unknown }).requireApproval ===
+      "boolean"
+        ? (value as { requireApproval: boolean }).requireApproval
+        : DEFAULT_APPROVAL_POLICY.requireApproval,
+  } satisfies ApprovalPolicyConfig;
 }
 
 function normalizeSurveyFormUrl(input: unknown) {
@@ -382,7 +403,9 @@ app.get("/branding/character-images", async (c) => {
       select: { value: true },
     });
 
-    return c.json(asCharacterImagesConfig(row?.value) ?? DEFAULT_CHARACTER_IMAGES);
+    return c.json(
+      asCharacterImagesConfig(row?.value) ?? DEFAULT_CHARACTER_IMAGES,
+    );
   } catch (error) {
     console.error("admin api character images GET error", error);
     return c.json({ error: "failed to load character images" }, 500);
@@ -420,6 +443,43 @@ app.put("/branding/character-images", async (c) => {
   } catch (error) {
     console.error("admin api character images PUT error", error);
     return c.json({ error: "failed to save character images" }, 500);
+  }
+});
+
+app.get("/approval-policy", async (c) => {
+  try {
+    const row = await prisma.system_config.findUnique({
+      where: { key: APPROVAL_POLICY_KEY },
+      select: { value: true },
+    });
+
+    return c.json(
+      asApprovalPolicyConfig(row?.value) ?? DEFAULT_APPROVAL_POLICY,
+    );
+  } catch (error) {
+    console.error("admin api approval-policy GET error", error);
+    return c.json({ error: "failed to load approval policy" }, 500);
+  }
+});
+
+app.put("/approval-policy", async (c) => {
+  try {
+    const body = (await c.req.json()) as Partial<ApprovalPolicyConfig>;
+    if (typeof body.requireApproval !== "boolean") {
+      return c.json({ error: "requireApproval must be boolean" }, 400);
+    }
+
+    const policy: ApprovalPolicyConfig = {
+      requireApproval: body.requireApproval,
+    };
+    await upsertSystemConfig(
+      APPROVAL_POLICY_KEY,
+      policy as Prisma.InputJsonValue,
+    );
+    return c.json({ ok: true, ...policy });
+  } catch (error) {
+    console.error("admin api approval-policy PUT error", error);
+    return c.json({ error: "failed to save approval policy" }, 500);
   }
 });
 

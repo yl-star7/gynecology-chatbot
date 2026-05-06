@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import type { AdminDashboardData } from "@gynecology-chatbot/app-core";
 
 import AdminPageFrame from "./AdminPageFrame";
@@ -13,9 +15,14 @@ interface AdminContentPageProps {
     | "/admin/content/documents"
     | "/admin/content/static"
     | "/admin/content/weeks"
-    | "/admin/content/policies";
+    | "/admin/content/policies"
+    | "/admin/assets/weeks"
+    | "/admin/engine/copy"
+    | "/admin/engine/workflows";
   title: string;
   view: "documents" | "static" | "weeks" | "policies";
+  topSlot?: ReactNode;
+  policiesInitialView?: "list" | "editor";
 }
 
 export default function AdminContentPage({
@@ -24,6 +31,8 @@ export default function AdminContentPage({
   currentPath,
   title,
   view,
+  topSlot,
+  policiesInitialView = "list",
 }: AdminContentPageProps) {
   const state = useAdminContentState(dashboard, view);
 
@@ -33,6 +42,7 @@ export default function AdminContentPage({
       currentPath={currentPath}
       title={title}
     >
+      {topSlot}
       <AdminContentSection
         homeCopyItems={state.homeCopyItems}
         selectedHomeCopyItemId={state.selectedHomeCopyItemId}
@@ -75,7 +85,6 @@ export default function AdminContentPage({
         isHomeCopySaving={state.isHomeCopySaving}
         isKnowledgeSaving={state.isKnowledgeSaving}
         isWorkflowSaving={state.isWorkflowSaving}
-        isWorkflowBootstrapping={state.isWorkflowBootstrapping}
         isWorkflowRunning={state.isWorkflowRunning}
         isWorkflowDeleting={state.isWorkflowDeleting}
         isWeekSaving={state.isWeekSaving}
@@ -119,12 +128,10 @@ export default function AdminContentPage({
         onWorkflowModelNameChange={state.setWorkflowModelName}
         onWorkflowStatusChange={state.setWorkflowStatus}
         onSaveWorkflowRule={state.handleSaveWorkflowRule}
-        onBootstrapWorkflowRule={state.handleBootstrapWorkflowRule}
         onRunWorkflowRule={state.handleRunWorkflowRule}
         onDeleteWorkflowRule={state.handleDeleteWorkflowRule}
         onSelectWeek={state.handleSelectWeek}
         onWeekFieldChange={state.handleWeekFieldChange}
-        onWeekStatusChange={state.handleWeekStatusChange}
         onUploadWeekCoverImage={state.handleUploadWeekCoverImage}
         onWeekDayChange={state.handleWeekDayChange}
         onWeekSectionChange={state.handleWeekSectionChange}
@@ -147,6 +154,7 @@ export default function AdminContentPage({
         onSaveWeek={state.handleSaveWeek}
         onPublishWeek={state.handlePublishWeek}
         view={view}
+        policiesInitialView={policiesInitialView}
       />
     </AdminPageFrame>
   );

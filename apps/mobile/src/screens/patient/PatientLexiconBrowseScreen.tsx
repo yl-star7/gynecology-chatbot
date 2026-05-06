@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatMobilePregnancyWeekDayLabel } from "@gynecology-chatbot/app-core";
 import {
   ActivityIndicator,
   ScrollView,
@@ -57,7 +58,9 @@ const WEEK_OPTIONS: { label: string; value: number | null }[] = [
 function resolveItemMeta(item: LexiconItem) {
   if (item.surface === "week_overview") return "주차 개요";
   if (item.surface === "week_day" && typeof item.day === "number") {
-    return `${item.day}일차`;
+    return typeof item.week === "number"
+      ? formatMobilePregnancyWeekDayLabel(item.week, item.day)
+      : `${Math.max(0, item.day - 1)}일`;
   }
   if (item.surface === "week_day") return "일차 자료";
   return "자료";

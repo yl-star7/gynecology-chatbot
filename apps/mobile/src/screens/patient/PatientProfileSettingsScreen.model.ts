@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useRootNavigationState, useRouter } from "expo-router";
 import { Keyboard } from "react-native";
 import { useEffect, useMemo, useState } from "react";
 import type {
@@ -54,6 +54,8 @@ function createDueDateMaxDate() {
 
 export function usePatientProfileSettingsScreenModel() {
   const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
+  const isNavigationReady = Boolean(rootNavigationState?.key);
   const { currentUser, isRestoringSession } = useMobileAppSession();
   const { profilePort, homePort } = useMobileServices();
   const { applyThemeKey, key: activeThemeKey } = useMobileTheme();
@@ -105,7 +107,7 @@ export function usePatientProfileSettingsScreenModel() {
   );
 
   useEffect(() => {
-    if (isRestoringSession) {
+    if (isRestoringSession || !isNavigationReady) {
       return;
     }
 
@@ -143,7 +145,14 @@ export function usePatientProfileSettingsScreenModel() {
         }
         setError(message);
       });
-  }, [currentUser, homePort, isRestoringSession, profilePort, router]);
+  }, [
+    currentUser,
+    homePort,
+    isNavigationReady,
+    isRestoringSession,
+    profilePort,
+    router,
+  ]);
 
   useEffect(() => {
     setThemeKey(activeThemeKey);

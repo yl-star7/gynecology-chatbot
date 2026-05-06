@@ -76,6 +76,7 @@ export interface KnowledgePort {
 
 export interface MobileChatPort {
   listRecentChats(): Promise<RecentChatSummary[]>;
+  getInitialConversationMessage(): Promise<ChatMessage>;
   getSession(sessionId?: string): Promise<ChatSession>;
   sendMessage(input: ChatComposerInput): Promise<ChatMessage[]>;
   resolveLink(target: string, entityId?: string): Promise<LinkTargetContent>;

@@ -1,18 +1,33 @@
 "use client";
 
+import {
+  Activity,
+  AlertTriangle,
+  MessageSquare,
+  TrendingUp,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
-import styles from "./AdminConsoleLayout.module.css";
-
-interface ScheduleData {
-  dailyCheckEnabled: boolean;
-  dailyCheckTime: string;
-  weeklyMilestoneEnabled: boolean;
-  weeklyMilestoneTime: string;
-  weeklyMilestoneDay: number;
-  checkupReminderEnabled: boolean;
-  checkupReminderTime: string;
-}
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  BrandingImagePreview,
+  buildPublicGcsImageUrl,
+} from "./BrandingImagePreview";
+import { AdminFileUpload } from "./ui";
 
 interface BrandingData {
   mascotBucketId: string | null;
@@ -95,18 +110,6 @@ interface SchiftRunResult {
   };
 }
 
-const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
-
-const DEFAULT_SCHEDULE: ScheduleData = {
-  dailyCheckEnabled: false,
-  dailyCheckTime: "09:00",
-  weeklyMilestoneEnabled: false,
-  weeklyMilestoneTime: "10:00",
-  weeklyMilestoneDay: 1,
-  checkupReminderEnabled: false,
-  checkupReminderTime: "08:00",
-};
-
 const DEFAULT_BRANDING: BrandingData = {
   mascotBucketId: "pregnancy-content",
   mascotObjectPath: "assets/penguin-nurse/app/neutral.png",
@@ -114,6 +117,28 @@ const DEFAULT_BRANDING: BrandingData = {
   mascotAltText: "펭귄 간호사",
   surveyFormUrl: DEFAULT_EXTERNAL_SURVEYS[0]?.url ?? null,
   externalSurveys: DEFAULT_EXTERNAL_SURVEYS,
+};
+
+const CHARACTER_IMAGE_TONES: Array<{
+  key: CharacterImageTone;
+  label: string;
+}> = [
+  { key: "neutral", label: "기본" },
+  { key: "calm", label: "차분" },
+  { key: "joyful", label: "기쁨" },
+  { key: "anxious", label: "걱정" },
+  { key: "tired", label: "피곤" },
+  { key: "sad", label: "슬픔" },
+];
+
+const DEFAULT_CHARACTER_IMAGES: CharacterImagesData = {
+  version: "gcs-penguin-nurse-v1",
+  images: Object.fromEntries(
+    CHARACTER_IMAGE_TONES.map(({ key }) => [
+      key,
+      `https://storage.googleapis.com/pregnancy-content/assets/penguin-nurse/app/${key}.png`,
+    ]),
+  ) as Record<CharacterImageTone, string>,
 };
 
 function normalizeBrandingData(data: Partial<BrandingData>): BrandingData {
@@ -138,34 +163,7 @@ function normalizeBrandingData(data: Partial<BrandingData>): BrandingData {
   };
 }
 
-const CHARACTER_IMAGE_TONES: Array<{
-  key: CharacterImageTone;
-  label: string;
-}> = [
-  { key: "neutral", label: "기본" },
-  { key: "calm", label: "차분" },
-  { key: "joyful", label: "기쁨" },
-  { key: "anxious", label: "걱정" },
-  { key: "tired", label: "피곤" },
-  { key: "sad", label: "슬픔" },
-];
-
-const DEFAULT_CHARACTER_IMAGES: CharacterImagesData = {
-  version: "gcs-penguin-nurse-v1",
-  images: Object.fromEntries(
-    CHARACTER_IMAGE_TONES.map(({ key }) => [
-      key,
-      `https://storage.googleapis.com/pregnancy-content/assets/penguin-nurse/app/${key}.png`,
-    ]),
-  ) as Record<CharacterImageTone, string>,
-};
-
 export function AdminOperationsPanel() {
-  // Panel 1: Push notification
-  const [pushLoading, setPushLoading] = useState(false);
-  const [pushResult, setPushResult] = useState<string | null>(null);
-  const [pushError, setPushError] = useState<string | null>(null);
-
   // Panel 2: RAG Provider
   const [ragProvider, setRagProvider] = useState<"schift">("schift");
   const [ragLoading, setRagLoading] = useState(true);
@@ -173,12 +171,16 @@ export function AdminOperationsPanel() {
   const [ragResult, setRagResult] = useState<string | null>(null);
   const [ragError, setRagError] = useState<string | null>(null);
 
-  // Panel 4: Schedule
-  const [schedule, setSchedule] = useState<ScheduleData>(DEFAULT_SCHEDULE);
-  const [scheduleLoading, setScheduleLoading] = useState(true);
-  const [scheduleSaving, setScheduleSaving] = useState(false);
-  const [scheduleResult, setScheduleResult] = useState<string | null>(null);
-  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [requireApproval, setRequireApproval] = useState(true);
+  const [approvalPolicyLoading, setApprovalPolicyLoading] = useState(true);
+  const [approvalPolicySaving, setApprovalPolicySaving] = useState(false);
+  const [approvalPolicyResult, setApprovalPolicyResult] = useState<
+    string | null
+  >(null);
+  const [approvalPolicyError, setApprovalPolicyError] = useState<string | null>(
+    null,
+  );
+
   const [branding, setBranding] = useState<BrandingData>(DEFAULT_BRANDING);
   const [brandingLoading, setBrandingLoading] = useState(true);
   const [brandingSaving, setBrandingSaving] = useState(false);
@@ -197,50 +199,45 @@ export function AdminOperationsPanel() {
   const [schiftError, setSchiftError] = useState<string | null>(null);
   const [schiftQuery, setSchiftQuery] = useState("");
   const [schiftRunning, setSchiftRunning] = useState(false);
-  const [schiftRunResult, setSchiftRunResult] = useState<SchiftRunResult | null>(null);
+  const [schiftRunResult, setSchiftRunResult] =
+    useState<SchiftRunResult | null>(null);
   const [schiftRunError, setSchiftRunError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-
-    async function fetchSchedule() {
-      setScheduleLoading(true);
-      setScheduleError(null);
-      try {
-        const res = await fetch("/api/admin/schedule");
-        if (!res.ok) {
-          throw new Error(`서버 오류 (${res.status})`);
-        }
-        const data: ScheduleData = await res.json();
-        if (!cancelled) {
-          setSchedule(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setScheduleError(
-            err instanceof Error
-              ? err.message
-              : "스케줄을 불러오지 못했습니다.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setScheduleLoading(false);
-        }
-      }
-    }
 
     async function fetchRagProvider() {
       setRagLoading(true);
       try {
         const res = await fetch("/api/admin/rag-provider");
         if (res.ok) {
-          const data = await res.json();
+          await res.json();
           if (!cancelled) setRagProvider("schift");
         }
       } catch {
       } finally {
         if (!cancelled) setRagLoading(false);
+      }
+    }
+
+    async function fetchApprovalPolicy() {
+      setApprovalPolicyLoading(true);
+      setApprovalPolicyError(null);
+      try {
+        const res = await fetch("/api/admin/approval-policy");
+        if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+        const data = (await res.json()) as { requireApproval: boolean };
+        if (!cancelled) setRequireApproval(data.requireApproval);
+      } catch (err) {
+        if (!cancelled) {
+          setApprovalPolicyError(
+            err instanceof Error
+              ? err.message
+              : "앱 사용 승인 정책을 불러오지 못했습니다.",
+          );
+        }
+      } finally {
+        if (!cancelled) setApprovalPolicyLoading(false);
       }
     }
 
@@ -281,14 +278,19 @@ export function AdminOperationsPanel() {
         const data = await res.json();
         if (!cancelled) setSchiftStatus(data);
       } catch (err) {
-        if (!cancelled) setSchiftError(err instanceof Error ? err.message : "Schift 상태를 불러오지 못했습니다.");
+        if (!cancelled)
+          setSchiftError(
+            err instanceof Error
+              ? err.message
+              : "Schift 상태를 불러오지 못했습니다.",
+          );
       } finally {
         if (!cancelled) setSchiftLoading(false);
       }
     }
 
     void fetchRagProvider();
-    void fetchSchedule();
+    void fetchApprovalPolicy();
     void fetchBranding();
     void fetchCharacterImages();
     void fetchSchiftStatus();
@@ -297,44 +299,34 @@ export function AdminOperationsPanel() {
     };
   }, []);
 
-  async function handleSendPush() {
-    setPushLoading(true);
-    setPushResult(null);
-    setPushError(null);
+  async function handleSaveApprovalPolicy(nextRequireApproval: boolean) {
+    setApprovalPolicySaving(true);
+    setApprovalPolicyResult(null);
+    setApprovalPolicyError(null);
     try {
-      const res = await fetch("/api/admin/push/send", { method: "POST" });
-      if (!res.ok) {
-        throw new Error(`서버 오류 (${res.status})`);
-      }
-      const data: { count: number } = await res.json();
-      setPushResult(`${data.count}명에게 발송 완료`);
-    } catch (err) {
-      setPushError(err instanceof Error ? err.message : "발송에 실패했습니다.");
-    } finally {
-      setPushLoading(false);
-    }
-  }
-
-  async function handleSaveSchedule() {
-    setScheduleSaving(true);
-    setScheduleResult(null);
-    setScheduleError(null);
-    try {
-      const res = await fetch("/api/admin/schedule", {
+      const res = await fetch("/api/admin/approval-policy", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(schedule),
+        body: JSON.stringify({ requireApproval: nextRequireApproval }),
       });
+      const payload = (await res.json()) as {
+        requireApproval?: boolean;
+        error?: string;
+      };
       if (!res.ok) {
-        throw new Error(`서버 오류 (${res.status})`);
+        throw new Error(payload.error ?? `서버 오류 (${res.status})`);
       }
-      setScheduleResult("스케줄이 저장되었습니다.");
+
+      setRequireApproval(payload.requireApproval ?? nextRequireApproval);
+      setApprovalPolicyResult("앱 사용 승인 정책을 저장했습니다.");
     } catch (err) {
-      setScheduleError(
-        err instanceof Error ? err.message : "저장에 실패했습니다.",
+      setApprovalPolicyError(
+        err instanceof Error
+          ? err.message
+          : "앱 사용 승인 정책 저장에 실패했습니다.",
       );
     } finally {
-      setScheduleSaving(false);
+      setApprovalPolicySaving(false);
     }
   }
 
@@ -545,6 +537,11 @@ export function AdminOperationsPanel() {
     }
   }
 
+  const mascotPreviewUrl = buildPublicGcsImageUrl(
+    branding.mascotBucketId,
+    branding.mascotObjectPath,
+  );
+
   async function handleSchiftRun(workflowId: string) {
     if (!schiftQuery.trim()) return;
     setSchiftRunning(true);
@@ -560,496 +557,515 @@ export function AdminOperationsPanel() {
       const data: SchiftRunResult = await res.json();
       setSchiftRunResult(data);
     } catch (err) {
-      setSchiftRunError(err instanceof Error ? err.message : "워크플로우 실행에 실패했습니다.");
+      setSchiftRunError(
+        err instanceof Error ? err.message : "워크플로우 실행에 실패했습니다.",
+      );
     } finally {
       setSchiftRunning(false);
     }
   }
 
   return (
-    <div className={styles.panelGrid}>
-      {/* Panel 1: Push/SMS notification */}
-      <section className={styles.panel}>
-        <div className={styles.panelHeader}>
-          <div>
-            <h2 className={styles.panelTitle}>알림 발송</h2>
+    <div className="flex flex-col gap-6">
+      {/* 앱 사용 승인 정책 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm text-muted-foreground">
+                앱 사용 승인 정책
+              </CardTitle>
+            </div>
+            {!approvalPolicyLoading && (
+              <Badge variant={requireApproval ? "default" : "secondary"}>
+                {requireApproval ? "승인제" : "전체 공개"}
+              </Badge>
+            )}
           </div>
-        </div>
+          <CardDescription>
+            새로 가입한 사람이 앱을 바로 쓰게 할지, 관리자가 먼저 확인할지
+            정합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {approvalPolicyLoading ? (
+            <Skeleton className="h-10 w-full" />
+          ) : (
+            <>
+              <div className="rounded-md border bg-muted p-3 text-sm">
+                <p className="font-medium">
+                  현재 모드:{" "}
+                  {requireApproval
+                    ? "관리자 확인 후 사용"
+                    : "가입하면 바로 사용"}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  {requireApproval
+                    ? "새 가입자는 사용자 관리 화면에서 승인해야 앱을 사용할 수 있습니다."
+                    : "새 가입자는 관리자 승인 없이 바로 앱을 사용할 수 있습니다."}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  disabled={approvalPolicySaving || requireApproval}
+                  aria-busy={approvalPolicySaving}
+                  onClick={() => void handleSaveApprovalPolicy(true)}
+                >
+                  관리자가 확인하고 승인
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={approvalPolicySaving || !requireApproval}
+                  aria-busy={approvalPolicySaving}
+                  onClick={() => void handleSaveApprovalPolicy(false)}
+                >
+                  가입하면 바로 사용
+                </Button>
+              </div>
+            </>
+          )}
 
-        <div className={styles.actionRow}>
-          <button
-            type="button"
-            className={styles.primaryButton}
-            onClick={() => void handleSendPush()}
-            disabled={pushLoading}
-            aria-busy={pushLoading}
-          >
-            {pushLoading ? "발송 중..." : "알림 보내기"}
-          </button>
-        </div>
+          {approvalPolicyResult && (
+            <Alert role="status" aria-live="polite">
+              <AlertDescription>{approvalPolicyResult}</AlertDescription>
+            </Alert>
+          )}
+          {approvalPolicyError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{approvalPolicyError}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
-        {pushResult && (
-          <p
-            className={styles.opsPanelSuccess}
-            role="status"
-            aria-live="polite"
-          >
-            {pushResult}
-          </p>
-        )}
-        {pushError && (
-          <p className={styles.opsPanelError} role="alert">
-            {pushError}
-          </p>
-        )}
-      </section>
-
-      {/* Panel 2: Schedule settings */}
-      <section className={`${styles.panel} ${styles.opsPanelWide}`}>
-        <div className={styles.panelHeader}>
-          <div>
-            <h2 className={styles.panelTitle}>알림 스케줄 설정</h2>
+      {/* FAB 마스코트 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm text-muted-foreground">
+              FAB 마스코트
+            </CardTitle>
           </div>
-        </div>
-
-        {scheduleLoading && (
-          <div
-            className={styles.analyticsLoading}
-            role="status"
-            aria-live="polite"
-          >
-            스케줄을 불러오는 중...
-          </div>
-        )}
-
-        {!scheduleLoading && (
-          <div className={styles.opsScheduleRows}>
-            {/* Row 1: Daily check */}
-            <div className={styles.opsScheduleRow}>
-              <label className={styles.opsToggleLabel}>
-                <input
-                  type="checkbox"
-                  className={styles.opsToggle}
-                  checked={schedule.dailyCheckEnabled}
-                  onChange={(e) =>
-                    setSchedule((prev) => ({
-                      ...prev,
-                      dailyCheckEnabled: e.target.checked,
+          <CardDescription>
+            마이페이지에서 열리는 설문 링크와 FAB에 표시할 마스코트 이미지를
+            관리합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {brandingLoading ? (
+            <div className="flex flex-col gap-2" aria-live="polite">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-2/3" />
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="survey-form-url">설문 링크</Label>
+                <Input
+                  id="survey-form-url"
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://forms.gle/... 또는 https://docs.google.com/forms/..."
+                  value={branding.surveyFormUrl ?? ""}
+                  onChange={(event) =>
+                    setBranding((current) => ({
+                      ...current,
+                      surveyFormUrl: event.target.value,
                     }))
                   }
+                  aria-label="설문 링크"
                 />
-                <span className={styles.fieldLabel}>매일 안부 체크</span>
-              </label>
-              <input
-                type="time"
-                className={`${styles.fieldInput} ${styles.opsTimeInput}`}
-                value={schedule.dailyCheckTime}
-                onChange={(e) =>
-                  setSchedule((prev) => ({
-                    ...prev,
-                    dailyCheckTime: e.target.value,
-                  }))
-                }
-                aria-label="매일 안부 체크 시각"
-              />
-            </div>
-          </div>
-        )}
+              </div>
+              <div>
+                <Button
+                  type="button"
+                  onClick={() => void handleSaveSurveyFormUrl()}
+                  disabled={brandingSaving}
+                  aria-busy={brandingSaving}
+                >
+                  {brandingSaving ? "저장 중..." : "설문 링크 저장"}
+                </Button>
+              </div>
 
-        <div className={styles.actionRow}>
-          <button
-            type="button"
-            className={styles.primaryButton}
-            onClick={() => void handleSaveSchedule()}
-            disabled={scheduleSaving || scheduleLoading}
-            aria-busy={scheduleSaving}
-          >
-            {scheduleSaving ? "저장 중..." : "스케줄 저장"}
-          </button>
-        </div>
-
-        {scheduleResult && (
-          <p
-            className={styles.opsPanelSuccess}
-            role="status"
-            aria-live="polite"
-          >
-            {scheduleResult}
-          </p>
-        )}
-        {scheduleError && !scheduleLoading && (
-          <p className={styles.opsPanelError} role="alert">
-            {scheduleError}
-          </p>
-        )}
-      </section>
-
-      <section className={`${styles.panel} ${styles.opsPanelWide}`}>
-        <div className={styles.panelHeader}>
-          <div>
-            <h2 className={styles.panelTitle}>FAB 마스코트</h2>
-          </div>
-        </div>
-
-        {brandingLoading ? (
-          <div
-            className={styles.analyticsLoading}
-            role="status"
-            aria-live="polite"
-          >
-            마스코트 설정을 불러오는 중...
-          </div>
-        ) : (
-          <div className={styles.opsScheduleRows}>
-            <label className={styles.fieldGroup}>
-              <span className={styles.fieldLabel}>설문 링크</span>
-              <input
-                className={styles.fieldInput}
-                type="url"
-                inputMode="url"
-                placeholder="https://forms.gle/... 또는 https://docs.google.com/forms/..."
-                value={branding.surveyFormUrl ?? ""}
-                onChange={(event) =>
-                  setBranding((current) => ({
-                    ...current,
-                    surveyFormUrl: event.target.value,
-                  }))
-                }
-                aria-label="설문 링크"
-              />
-            </label>
-            <div className={styles.fieldGroup}>
-              <span className={styles.fieldLabel}>외부 설문 노출</span>
-              {branding.externalSurveys.map((survey) => (
-                <div className={styles.actionRow} key={survey.id}>
-                  <input
-                    className={styles.fieldInput}
-                    aria-label={`${survey.label} 이름`}
-                    value={survey.label}
-                    onChange={(event) => {
-                      const label = event.target.value;
-                      setBranding((current) => ({
-                        ...current,
-                        externalSurveys: current.externalSurveys.map((item) =>
-                          item.id === survey.id ? { ...item, label } : item,
-                        ),
-                      }));
-                    }}
-                  />
-                  <input
-                    className={styles.fieldInput}
-                    aria-label={`${survey.label} 링크`}
-                    type="url"
-                    inputMode="url"
-                    value={survey.url ?? ""}
-                    onChange={(event) => {
-                      const url = event.target.value;
-                      setBranding((current) => ({
-                        ...current,
-                        externalSurveys: current.externalSurveys.map((item) =>
-                          item.id === survey.id ? { ...item, url } : item,
-                        ),
-                      }));
-                    }}
-                  />
-                  <label className={styles.fieldLabel}>
-                    <input
-                      type="checkbox"
-                      checked={survey.visible}
+              <div className="space-y-3 rounded-md border bg-card p-3">
+                <div>
+                  <h3 className="text-sm font-medium">외부 설문 노출</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    마이페이지에 보여줄 1차·2차·3차 Google 설문을 관리합니다.
+                  </p>
+                </div>
+                {branding.externalSurveys.map((survey) => (
+                  <div
+                    className="grid gap-2 md:grid-cols-[120px_1fr_auto]"
+                    key={survey.id}
+                  >
+                    <Input
+                      aria-label={`${survey.label} 이름`}
+                      value={survey.label}
                       onChange={(event) => {
-                        const visible = event.target.checked;
+                        const label = event.target.value;
                         setBranding((current) => ({
                           ...current,
-                          externalSurveys: current.externalSurveys.map((item) =>
-                            item.id === survey.id ? { ...item, visible } : item,
+                          externalSurveys: current.externalSurveys.map(
+                            (item) =>
+                              item.id === survey.id ? { ...item, label } : item,
                           ),
                         }));
                       }}
                     />
-                    보임
-                  </label>
-                </div>
-              ))}
-            </div>
-            <div className={styles.actionRow}>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                onClick={() => void handleSaveSurveyFormUrl()}
-                disabled={brandingSaving}
-                aria-busy={brandingSaving}
-              >
-                {brandingSaving ? "저장 중..." : "설문 링크 저장"}
-              </button>
-            </div>
-            <label className={styles.fieldGroup}>
-              <span className={styles.fieldLabel}>마스코트 업로드</span>
-              <input
-                className={styles.fieldInput}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (!file) return;
-                  void handleUploadMascot(file);
-                  event.currentTarget.value = "";
-                }}
-              />
-            </label>
-            {branding.mascotObjectPath ? (
-              <p className={styles.formHint}>
-                현재 파일:{" "}
-                {branding.mascotSourceFileName ?? branding.mascotObjectPath}
-              </p>
-            ) : (
-              <p className={styles.formHint}>
-                현재 설정된 FAB 마스코트가 없습니다.
-              </p>
-            )}
-            <p className={styles.formHint}>
-              마이페이지에서 설문 화면을 열 때 이 링크를 사용해요.
-            </p>
-
-            <div className={styles.panelHeader}>
-              <div>
-                <h3 className={styles.panelTitle}>간호사 캐릭터 cache</h3>
-              </div>
-            </div>
-            {characterImagesLoading ? (
-              <div
-                className={styles.analyticsLoading}
-                role="status"
-                aria-live="polite"
-              >
-                캐릭터 이미지를 불러오는 중...
-              </div>
-            ) : (
-              <div className={styles.opsScheduleRows}>
-                {CHARACTER_IMAGE_TONES.map(({ key, label }) => (
-                  <label className={styles.fieldGroup} key={key}>
-                    <span className={styles.fieldLabel}>
-                      {label} 이미지
-                    </span>
-                    <input
-                      className={styles.fieldInput}
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      aria-label={`${label} 이미지`}
-                      disabled={characterImagesSavingTone === key}
+                    <Input
+                      aria-label={`${survey.label} 링크`}
+                      type="url"
+                      inputMode="url"
+                      value={survey.url ?? ""}
                       onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (!file) return;
-                        void handleUploadCharacterImage(key, file);
-                        event.currentTarget.value = "";
+                        const url = event.target.value;
+                        setBranding((current) => ({
+                          ...current,
+                          externalSurveys: current.externalSurveys.map(
+                            (item) =>
+                              item.id === survey.id ? { ...item, url } : item,
+                          ),
+                        }));
                       }}
                     />
-                    <span className={styles.formHint}>
-                      {characterImages.images[key]}
-                    </span>
-                  </label>
-                ))}
-                <p className={styles.formHint}>
-                  앱은 시작할 때 version을 비교하고 바뀐 경우에만 이 cache를
-                  다시 받아요. 현재 version: {characterImages.version}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {brandingResult && (
-          <p
-            className={styles.opsPanelSuccess}
-            role="status"
-            aria-live="polite"
-          >
-            {brandingResult}
-          </p>
-        )}
-        {brandingError && (
-          <p className={styles.opsPanelError} role="alert">
-            {brandingError}
-          </p>
-        )}
-        {brandingSaving ? (
-          <p className={styles.formHint}>마스코트를 저장하는 중입니다.</p>
-        ) : null}
-      </section>
-
-      {/* Panel 6: Schift RAG 현황 */}
-      <section className={`${styles.panel} ${styles.opsPanelWide}`}>
-        <div className={styles.panelHeader}>
-          <div>
-            <h2 className={styles.panelTitle}>Schift RAG 현황</h2>
-          </div>
-        </div>
-
-        {schiftLoading ? (
-          <div className={styles.analyticsLoading} role="status" aria-live="polite">
-            Schift 상태를 불러오는 중...
-          </div>
-        ) : schiftError ? (
-          <p className={styles.opsPanelError} role="alert">{schiftError}</p>
-        ) : schiftStatus ? (
-          <>
-            {/* Collections */}
-            <div className={styles.opsScheduleRows}>
-              <p className={styles.fieldLabel} style={{ margin: 0 }}>컬렉션</p>
-              {schiftStatus.collections.map((col) => (
-                <div key={col.id} className={styles.opsScheduleRow}>
-                  <span className={styles.fieldLabel}>{col.name}</span>
-                  <span className={`${styles.statusBadge} ${styles.tagAccent}`}>
-                    {col.vector_count} vectors
-                  </span>
-                  <span className={styles.formHint} style={{ margin: 0 }}>
-                    {col.model} · dim {col.dimension}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Workflows */}
-            {schiftStatus.workflows.length > 0 && (
-              <div className={styles.opsScheduleRows} style={{ marginTop: 16 }}>
-                <p className={styles.fieldLabel} style={{ margin: 0 }}>워크플로우</p>
-                {schiftStatus.workflows.map((wf) => (
-                  <div key={wf.id} className={styles.opsScheduleRow} style={{ flexDirection: "column", alignItems: "stretch" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span className={styles.fieldLabel}>{wf.name}</span>
-                      <span className={`${styles.statusBadge} ${wf.status === "published" ? styles.tagAccent : ""}`}>
-                        {wf.status}
-                      </span>
-                      <span className={styles.formHint} style={{ margin: 0 }}>
-	                        {wf.block_count}블록 · {new Date(wf.updated_at).toLocaleDateString("ko-KR", {
-	                          timeZone: "Asia/Seoul",
-	                        })}
-                      </span>
-                    </div>
-                    {wf.description && (
-                      <p className={styles.formHint} style={{ margin: "4px 0 0" }}>{wf.description}</p>
-                    )}
-                    {wf.status === "published" && (
-                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                        <input
-                          type="text"
-                          className={styles.fieldInput}
-                          placeholder="테스트 질문 입력..."
-                          value={schiftQuery}
-                          onChange={(e) => setSchiftQuery(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !schiftRunning) void handleSchiftRun(wf.id);
-                          }}
-                          style={{ flex: 1 }}
-                        />
-                        <button
-                          type="button"
-                          className={styles.primaryButton}
-                          disabled={schiftRunning || !schiftQuery.trim()}
-                          aria-busy={schiftRunning}
-                          onClick={() => void handleSchiftRun(wf.id)}
-                        >
-                          {schiftRunning ? "실행 중..." : "테스트"}
-                        </button>
-                      </div>
-                    )}
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        aria-label={`${survey.label} 보임`}
+                        checked={survey.visible}
+                        onCheckedChange={(checked) => {
+                          setBranding((current) => ({
+                            ...current,
+                            externalSurveys: current.externalSurveys.map(
+                              (item) =>
+                                item.id === survey.id
+                                  ? { ...item, visible: checked === true }
+                                  : item,
+                            ),
+                          }));
+                        }}
+                      />
+                      보임
+                    </label>
                   </div>
                 ))}
               </div>
-            )}
 
-            {/* Run result */}
-            {schiftRunResult && (
-              <div style={{ marginTop: 12 }}>
-                <p className={styles.opsPanelSuccess} role="status">
-                  상태: {schiftRunResult.run.status}
-                  {schiftRunResult.run.run_id && ` · ${schiftRunResult.run.run_id.slice(0, 12)}...`}
-                </p>
-                {Object.keys(schiftRunResult.run.outputs).length > 0 && (
-                  <pre className={styles.formHint} style={{ margin: "8px 0 0", whiteSpace: "pre-wrap", fontSize: 13 }}>
-                    {JSON.stringify(schiftRunResult.run.outputs, null, 2)}
-                  </pre>
-                )}
-                {schiftRunResult.run.error && (
-                  <p className={styles.opsPanelError} role="alert">{schiftRunResult.run.error}</p>
-                )}
+              <Separator />
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                <BrandingImagePreview
+                  src={mascotPreviewUrl}
+                  alt="FAB 마스코트 미리보기"
+                  className="h-28 w-28"
+                />
+                <div className="min-w-0 flex flex-col gap-1.5">
+                  <Label htmlFor="mascot-upload">마스코트 업로드</Label>
+                  <AdminFileUpload
+                    id="mascot-upload"
+                    label="파일 선택"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    onFileSelect={(file) => {
+                      void handleUploadMascot(file);
+                    }}
+                  />
+                  {mascotPreviewUrl ? (
+                    <span className="break-all text-xs text-muted-foreground">
+                      {mascotPreviewUrl}
+                    </span>
+                  ) : null}
+                </div>
               </div>
-            )}
-            {schiftRunError && (
-              <p className={styles.opsPanelError} role="alert" style={{ marginTop: 12 }}>{schiftRunError}</p>
-            )}
-          </>
-        ) : null}
-      </section>
+              {branding.mascotObjectPath ? (
+                <p className="text-xs text-muted-foreground">
+                  현재 파일:{" "}
+                  {branding.mascotSourceFileName ?? branding.mascotObjectPath}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  현재 설정된 FAB 마스코트가 없습니다.
+                </p>
+              )}
 
-      {/* Panel: RAG Provider (bottom) */}
-      <section className={`${styles.panel} ${styles.opsPanelWide}`}>
-        <div className={styles.panelHeader}>
-          <div>
-            <h2 className={styles.panelTitle}>벡터 검색 설정</h2>
-          </div>
-          <span className={`${styles.statusBadge} ${styles.tagAccent}`}>
-            {ragProvider}
-          </span>
-        </div>
+              <Separator />
 
-        {ragLoading ? (
-          <div
-            className={styles.analyticsLoading}
-            role="status"
-            aria-live="polite"
-          >
-            설정을 불러오는 중...
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-medium">간호사 캐릭터 cache</h3>
+              </div>
+              {characterImagesLoading ? (
+                <div className="flex flex-col gap-2" aria-live="polite">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {CHARACTER_IMAGE_TONES.map(({ key, label }) => (
+                    <div
+                      className="flex gap-3 rounded-md border bg-card p-3"
+                      key={key}
+                    >
+                      <BrandingImagePreview
+                        src={characterImages.images[key]}
+                        alt={`${label} 이미지 미리보기`}
+                        className="h-20 w-20"
+                      />
+                      <div className="min-w-0 flex flex-1 flex-col gap-1.5">
+                        <Label htmlFor={`character-image-${key}`}>
+                          {label} 이미지
+                        </Label>
+                        <AdminFileUpload
+                          id={`character-image-${key}`}
+                          label="파일 선택"
+                          accept="image/png,image/jpeg,image/webp"
+                          disabled={characterImagesSavingTone === key}
+                          onFileSelect={(file) => {
+                            void handleUploadCharacterImage(key, file);
+                          }}
+                        />
+                        <span className="break-all text-xs text-muted-foreground">
+                          {characterImages.images[key]}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">
+                    앱은 시작할 때 version을 비교하고 바뀐 경우에만 이 cache를
+                    다시 받습니다. 현재 version: {characterImages.version}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+
+          {brandingResult && (
+            <Alert role="status" aria-live="polite">
+              <AlertDescription>{brandingResult}</AlertDescription>
+            </Alert>
+          )}
+          {brandingError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{brandingError}</AlertDescription>
+            </Alert>
+          )}
+          {brandingSaving ? (
+            <p className="text-xs text-muted-foreground">
+              마스코트를 저장하는 중입니다.
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {/* Schift RAG 현황 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm text-muted-foreground">
+              Schift RAG 현황
+            </CardTitle>
           </div>
-        ) : (
-          <div className={styles.opsScheduleRows}>
-            <div className={styles.opsToggleLabel}>
-              <span className={styles.fieldLabel}>Schift (벡터 DB)</span>
+          <CardDescription>
+            컬렉션과 워크플로우 상태를 확인하고 테스트 질문을 실행합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {schiftLoading ? (
+            <div className="flex flex-col gap-2" aria-live="polite">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
             </div>
+          ) : schiftError ? (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{schiftError}</AlertDescription>
+            </Alert>
+          ) : schiftStatus ? (
+            <>
+              <div className="flex flex-col gap-2">
+                <p className="text-sm font-medium">컬렉션</p>
+                {schiftStatus.collections.map((col) => (
+                  <div
+                    key={col.id}
+                    className="flex flex-wrap items-center gap-2 rounded-md border p-3"
+                  >
+                    <span className="text-sm font-medium">{col.name}</span>
+                    <Badge variant="secondary">
+                      {col.vector_count.toLocaleString("ko-KR")} vectors
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {col.model} · dim {col.dimension}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {schiftStatus.workflows.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-medium">워크플로우</p>
+                  {schiftStatus.workflows.map((wf) => (
+                    <div
+                      key={wf.id}
+                      className="flex flex-col gap-2 rounded-md border p-3"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium">{wf.name}</span>
+                        <Badge
+                          variant={
+                            wf.status === "published" ? "default" : "outline"
+                          }
+                        >
+                          {wf.status}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {wf.block_count}블록 ·{" "}
+                          {new Date(wf.updated_at).toLocaleDateString("ko-KR", {
+                            timeZone: "Asia/Seoul",
+                          })}
+                        </span>
+                      </div>
+                      {wf.description && (
+                        <p className="text-xs text-muted-foreground">
+                          {wf.description}
+                        </p>
+                      )}
+                      {wf.status === "published" && (
+                        <div className="flex gap-2">
+                          <Input
+                            type="text"
+                            className="flex-1"
+                            placeholder="테스트 질문 입력..."
+                            value={schiftQuery}
+                            onChange={(e) => setSchiftQuery(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !schiftRunning)
+                                void handleSchiftRun(wf.id);
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            disabled={schiftRunning || !schiftQuery.trim()}
+                            aria-busy={schiftRunning}
+                            onClick={() => void handleSchiftRun(wf.id)}
+                          >
+                            {schiftRunning ? "실행 중..." : "테스트"}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {schiftRunResult && (
+                <div className="flex flex-col gap-2">
+                  <Alert role="status">
+                    <AlertDescription>
+                      상태: {schiftRunResult.run.status}
+                      {schiftRunResult.run.run_id &&
+                        ` · ${schiftRunResult.run.run_id.slice(0, 12)}...`}
+                    </AlertDescription>
+                  </Alert>
+                  {Object.keys(schiftRunResult.run.outputs).length > 0 && (
+                    <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md border bg-muted p-3 text-xs">
+                      {JSON.stringify(schiftRunResult.run.outputs, null, 2)}
+                    </pre>
+                  )}
+                  {schiftRunResult.run.error && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        {schiftRunResult.run.error}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
+              {schiftRunError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{schiftRunError}</AlertDescription>
+                </Alert>
+              )}
+            </>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {/* 벡터 검색 설정 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm text-muted-foreground">
+                벡터 검색 설정
+              </CardTitle>
+            </div>
+            <Badge variant="secondary">{ragProvider}</Badge>
           </div>
-        )}
+          <CardDescription>
+            챗봇이 질문에 답할 때 사용하는 벡터 검색 제공자를 지정합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {ragLoading ? (
+            <Skeleton className="h-10 w-full" />
+          ) : (
+            <div className="flex items-center gap-2 rounded-md border p-3">
+              <span className="text-sm font-medium">Schift (벡터 DB)</span>
+            </div>
+          )}
 
-        <div className={styles.actionRow}>
-          <button
-            type="button"
-            className={styles.primaryButton}
-            disabled={ragSaving || ragLoading}
-            aria-busy={ragSaving}
-            onClick={async () => {
-              setRagSaving(true);
-              setRagResult(null);
-              setRagError(null);
-              try {
-                const res = await fetch("/api/admin/rag-provider", {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ ragProvider }),
-                });
-                if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
-                setRagResult("저장되었습니다.");
-              } catch (err) {
-                setRagError(
-                  err instanceof Error ? err.message : "저장에 실패했습니다.",
-                );
-              } finally {
-                setRagSaving(false);
-              }
-            }}
-          >
-            {ragSaving ? "저장 중..." : "저장"}
-          </button>
-        </div>
+          <div>
+            <Button
+              type="button"
+              disabled={ragSaving || ragLoading}
+              aria-busy={ragSaving}
+              onClick={async () => {
+                setRagSaving(true);
+                setRagResult(null);
+                setRagError(null);
+                try {
+                  const res = await fetch("/api/admin/rag-provider", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ragProvider }),
+                  });
+                  if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+                  setRagResult("저장되었습니다.");
+                } catch (err) {
+                  setRagError(
+                    err instanceof Error ? err.message : "저장에 실패했습니다.",
+                  );
+                } finally {
+                  setRagSaving(false);
+                }
+              }}
+            >
+              {ragSaving ? "저장 중..." : "저장"}
+            </Button>
+          </div>
 
-        {ragResult && (
-          <p className={styles.opsPanelSuccess} role="status">
-            {ragResult}
-          </p>
-        )}
-        {ragError && (
-          <p className={styles.opsPanelError} role="alert">
-            {ragError}
-          </p>
-        )}
-      </section>
+          {ragResult && (
+            <Alert role="status">
+              <AlertDescription>{ragResult}</AlertDescription>
+            </Alert>
+          )}
+          {ragError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{ragError}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

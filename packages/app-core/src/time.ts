@@ -73,6 +73,29 @@ export function calculatePregnancyPositionFromDayCount(
   };
 }
 
+export function getMobileDayInWeekFromContentDayNumber(
+  contentDayNumber: number,
+) {
+  if (!Number.isFinite(contentDayNumber)) return 0;
+  return Math.max(0, Math.min(6, Math.floor(contentDayNumber) - 1));
+}
+
+export function formatMobilePregnancyWeekDayLabel(
+  weekNumber: number,
+  contentDayNumber: number,
+) {
+  return `${weekNumber}주 ${getMobileDayInWeekFromContentDayNumber(contentDayNumber)}일`;
+}
+
+export function getMobilePregnancyDayCountFromContentDayNumber(
+  weekNumber: number,
+  contentDayNumber: number,
+) {
+  return (
+    weekNumber * 7 + getMobileDayInWeekFromContentDayNumber(contentDayNumber)
+  );
+}
+
 export function calculatePregnancyPositionFromDueDate(
   dueDate: string,
   targetIsoDate = createKoreanDateKey(),

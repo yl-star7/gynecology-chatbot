@@ -1,38 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createInitialConversationMessage } from "./PatientConversationInitialMessage.model.ts";
 import {
   resolveConversationDeepLinkAction,
   resolvePregnancyWeekFromDeepLink,
 } from "./PatientConversationDeepLink.model.ts";
 import { shouldKeepQuickReplyInComposer } from "./PatientConversationQuickReply.model.ts";
-
-test("initial conversation message starts the workflow with emotion choices", () => {
-  const message = createInitialConversationMessage();
-
-  assert.equal(message.role, "assistant");
-  assert.equal(message.characterTone, "calm");
-  assert.deepEqual(
-    message.parts.map((part) => part.type),
-    ["text", "quickReplies"],
-  );
-
-  const quickReplies = message.parts.find(
-    (part) => part.type === "quickReplies",
-  );
-  assert.deepEqual(
-    quickReplies?.type === "quickReplies"
-      ? quickReplies.choices.map((choice) => choice.label)
-      : [],
-    ["좋아요", "우울해요", "슬퍼요", "화나요", "직접 입력"],
-  );
-  assert.deepEqual(
-    quickReplies?.type === "quickReplies"
-      ? quickReplies.choices.map((choice) => choice.moodTone ?? null)
-      : [],
-    ["joyful", "sad", "sad", "anxious", null],
-  );
-});
 
 test("conversation deep links infer weekly encyclopedia targets from Korean week text", () => {
   assert.equal(

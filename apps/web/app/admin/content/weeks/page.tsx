@@ -1,17 +1,5 @@
-import AdminContentPage from "@/components/AdminContentPage";
+import { redirect } from "next/navigation";
 
-import { loadAdminPageData } from "../../_lib/load-admin-page-data";
-
-export default async function AdminContentWeeksRoute() {
-  const { admin, dashboard } = await loadAdminPageData();
-
-  return (
-    <AdminContentPage
-      adminDisplayName={admin.displayName}
-      dashboard={dashboard}
-      currentPath="/admin/content/weeks"
-      title="주차별 아기는요?"
-      view="weeks"
-    />
-  );
+export default function Page() {
+  redirect("/admin/assets/weeks");
 }
