@@ -20,18 +20,6 @@ jest.mock("@schift-io/sdk/workflow-editor", () => ({
 
 describe("AdminPoliciesSection", () => {
   const originalFetch = global.fetch;
-  const reflectionLoopPayload = {
-    reflectionLoop: {
-      minUserTurnsBeforeNext: 2,
-      maxUserTurnsPerQuestion: 5,
-      quickReplyMode: "hidden",
-      wrapUpMessage: "오늘 질문은 여기까지 담아도 충분해요.",
-      nextQuestionLabelTemplate: "다른 질문도 볼래요 ({{remainingCount}}개)",
-      nextQuestionMessage: "다음 질문으로 이어갈래요.",
-      exhaustedFreeChatMessage: "이제 자유롭게 얘기해보아요.",
-    },
-    storagePath: "gs://workflow/runtime.yaml",
-  };
 
   beforeEach(() => {
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
@@ -44,12 +32,6 @@ describe("AdminPoliciesSection", () => {
             headers: { "Content-Type": "application/json" },
           },
         );
-      }
-      if (url === "/api/admin/workflow-rules/chat-flow/reflection-loop") {
-        return new Response(JSON.stringify(reflectionLoopPayload), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
       }
 
       throw new Error(`Unexpected fetch: ${url}`);
@@ -95,7 +77,6 @@ describe("AdminPoliciesSection", () => {
       />,
     );
 
-    await screen.findByDisplayValue("2");
     await screen.findByText(
       "SCHIFT_API_KEY가 없어 노드 에디터를 열 수 없어요.",
     );
@@ -175,7 +156,6 @@ describe("AdminPoliciesSection", () => {
       />,
     );
 
-    await screen.findByDisplayValue("2");
     expect(
       screen.getByRole("button", { name: /모성간호 상담 응답 router/ }),
     ).toBeInTheDocument();
@@ -211,12 +191,6 @@ describe("AdminPoliciesSection", () => {
       const url = typeof input === "string" ? input : input.toString();
       if (url === "/api/admin/schift") {
         return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      if (url === "/api/admin/workflow-rules/chat-flow/reflection-loop") {
-        return new Response(JSON.stringify(reflectionLoopPayload), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -265,7 +239,6 @@ describe("AdminPoliciesSection", () => {
       />,
     );
 
-    await screen.findByDisplayValue("2");
     fireEvent.click(
       screen.getByRole("button", { name: /free text sub workflow/ }),
     );
@@ -278,12 +251,6 @@ describe("AdminPoliciesSection", () => {
       const url = typeof input === "string" ? input : input.toString();
       if (url === "/api/admin/schift") {
         return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      if (url === "/api/admin/workflow-rules/chat-flow/reflection-loop") {
-        return new Response(JSON.stringify(reflectionLoopPayload), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -331,7 +298,6 @@ describe("AdminPoliciesSection", () => {
       />,
     );
 
-    await screen.findByDisplayValue("2");
     fireEvent.click(
       screen.getByRole("button", { name: /free text sub workflow/ }),
     );
@@ -344,12 +310,6 @@ describe("AdminPoliciesSection", () => {
       const url = typeof input === "string" ? input : input.toString();
       if (url === "/api/admin/schift") {
         return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      if (url === "/api/admin/workflow-rules/chat-flow/reflection-loop") {
-        return new Response(JSON.stringify(reflectionLoopPayload), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -397,105 +357,10 @@ describe("AdminPoliciesSection", () => {
       />,
     );
 
-    await screen.findByDisplayValue("2");
     fireEvent.click(screen.getByRole("button", { name: /runtime YAML/ }));
 
     expect(
       await screen.findByText("워크플로우 빌더 monolith"),
-    ).toBeInTheDocument();
-  });
-
-  it("saves the question reflection loop policy from the settings panel", async () => {
-    const fetchMock = jest.fn(
-      async (
-        input: RequestInfo | URL,
-        init?: RequestInit,
-      ): Promise<Response> => {
-        const url = typeof input === "string" ? input : input.toString();
-        if (url === "/api/admin/schift") {
-          return new Response(JSON.stringify({ ok: true }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        if (url === "/api/admin/workflow-rules/chat-flow/reflection-loop") {
-          return new Response(JSON.stringify(reflectionLoopPayload), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-
-        throw new Error(`Unexpected fetch: ${url}`);
-      },
-    );
-    global.fetch = fetchMock as typeof fetch;
-
-    render(
-      <AdminPoliciesSection
-        workflowRules={[
-          {
-            id: "workflow-monolith",
-            name: "runtime YAML",
-            trigger: "mobile chat runtime",
-            retrievalScope: "상담",
-            modelName: "gemini-2.5-flash-lite",
-            status: "active",
-            source: "gcs-yaml",
-            workflowKind: "monolith",
-            sqlSlug: "maternal-nursing-monolith",
-            storagePath: "gs://workflow/runtime.yaml",
-          },
-        ]}
-        selectedWorkflowRuleId="workflow-monolith"
-        contentMessage={null}
-        workflowName="runtime YAML"
-        workflowTrigger="mobile chat runtime"
-        workflowRetrievalScope="상담"
-        workflowModelName="gemini-2.5-flash-lite"
-        workflowStatus="active"
-        isWorkflowSaving={false}
-        isWorkflowRunning={false}
-        isWorkflowDeleting={false}
-        onSelectWorkflowRule={() => {}}
-        onWorkflowNameChange={() => {}}
-        onWorkflowTriggerChange={() => {}}
-        onWorkflowRetrievalScopeChange={() => {}}
-        onWorkflowModelNameChange={() => {}}
-        onWorkflowStatusChange={() => {}}
-        onSaveWorkflowRule={async () => {}}
-        onRunWorkflowRule={async () => {}}
-        onDeleteWorkflowRule={async () => {}}
-      />,
-    );
-
-    const minTurnsInput = await screen.findByLabelText("다음 질문 버튼 노출");
-    fireEvent.change(minTurnsInput, { target: { value: "3" } });
-
-    fireEvent.click(screen.getByRole("button", { name: "루프 설정 저장" }));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/admin/workflow-rules/chat-flow/reflection-loop",
-        expect.objectContaining({ method: "PATCH" }),
-      );
-    });
-
-    const patchCall = fetchMock.mock.calls.find((call) => {
-      const [url, init] = call;
-      return (
-        url === "/api/admin/workflow-rules/chat-flow/reflection-loop" &&
-        init?.method === "PATCH"
-      );
-    });
-    expect(JSON.parse(String(patchCall?.[1]?.body))).toMatchObject({
-      reflectionLoop: {
-        minUserTurnsBeforeNext: 3,
-        maxUserTurnsPerQuestion: 5,
-        quickReplyMode: "hidden",
-      },
-    });
-    expect(
-      await screen.findByText("대화 루프 설정을 저장했습니다."),
     ).toBeInTheDocument();
   });
 });
