@@ -72,6 +72,67 @@ function removeOrderedItem<T extends OrderedItem>(items: T[], index: number) {
     }));
 }
 
+function createNextQuestionAsset(current: AdminWeekDetail): AdminWeekAsset {
+  const dayNumbers = current.days
+    .map((day) => day.dayNumber)
+    .filter((dayNumber): dayNumber is number => Number.isInteger(dayNumber))
+    .sort((left, right) => left - right);
+  const targetDayNumber = dayNumbers[0] ?? null;
+  const existingDayQuestions = current.assets.filter(
+    (asset) => asset.dayNumber === targetDayNumber,
+  );
+  const nextQuestionNumber = existingDayQuestions.length + 1;
+
+  return {
+    id: "",
+    dayNumber: targetDayNumber,
+    assetType: "text",
+    storagePath: "",
+    altText: null,
+    styleKey:
+      targetDayNumber === null
+        ? null
+        : `w${current.weekNumber}d${targetDayNumber}-question-${nextQuestionNumber}`,
+    displayOrder:
+      targetDayNumber === null
+        ? current.assets.length + 1
+        : targetDayNumber * 100 + nextQuestionNumber,
+    isRequired: true,
+    isActive: true,
+  };
+}
+
+function createNextChecklistSection(
+  current: AdminWeekDetail,
+): AdminWeekSection {
+  const dayNumbers = current.days
+    .map((day) => day.dayNumber)
+    .filter((dayNumber): dayNumber is number => Number.isInteger(dayNumber))
+    .sort((left, right) => left - right);
+  const targetDayNumber = dayNumbers[0] ?? null;
+  const existingDaySections = current.sections.filter(
+    (section) => section.dayNumber === targetDayNumber,
+  );
+  const nextSectionNumber = existingDaySections.length + 1;
+
+  return {
+    id: "",
+    dayNumber: targetDayNumber,
+    sectionKey:
+      targetDayNumber === null
+        ? `section_new_${current.sections.length + 1}`
+        : `w${current.weekNumber}d${targetDayNumber}-check-${nextSectionNumber}`,
+    title: "",
+    body: "",
+    displayOrder:
+      targetDayNumber === null
+        ? current.sections.length + 1
+        : targetDayNumber * 100 + nextSectionNumber,
+    isRequired: true,
+    isActive: true,
+  };
+}
+
 export function useAdminDashboardState(dashboard: AdminDashboardData) {
   const [managedUsers, setManagedUsers] = useState(dashboard.managedUsers);
   const [focusedUserId, setFocusedUserId] = useState(
@@ -485,39 +546,14 @@ export function useAdminDashboardState(dashboard: AdminDashboardData) {
   function handleAddWeekSection() {
     updateWeekDetail((current) => ({
       ...current,
-      sections: [
-        ...current.sections,
-        {
-          id: "",
-          dayNumber: current.days[0]?.dayNumber ?? null,
-          sectionKey: `section_new_${current.sections.length + 1}`,
-          title: "",
-          body: "",
-          displayOrder: current.sections.length + 1,
-          isRequired: false,
-          isActive: true,
-        },
-      ],
+      sections: [...current.sections, createNextChecklistSection(current)],
     }));
   }
 
   function handleAddWeekAsset() {
     updateWeekDetail((current) => ({
       ...current,
-      assets: [
-        ...current.assets,
-        {
-          id: "",
-          dayNumber: current.days[0]?.dayNumber ?? null,
-          assetType: "illustration",
-          storagePath: "",
-          altText: null,
-          styleKey: null,
-          displayOrder: current.assets.length + 1,
-          isRequired: false,
-          isActive: true,
-        },
-      ],
+      assets: [...current.assets, createNextQuestionAsset(current)],
     }));
   }
 

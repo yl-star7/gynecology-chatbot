@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type {
   AdminWeekAsset,
   AdminWeekDay,
@@ -8,7 +9,37 @@ import type {
   AdminWeekSection,
 } from "@gynecology-chatbot/app-core";
 
-import styles from "../AdminConsoleLayout.module.css";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+
+import { AdminFileUpload } from "../ui";
+import { AdminWeekOverlayKnowledgeTab } from "./AdminWeekOverlayKnowledgeTab";
 import { WeekImagePreview } from "./WeekImagePreview";
 
 export interface AdminWeekOverlayProps {
@@ -33,7 +64,6 @@ export interface AdminWeekOverlayProps {
       | "compareImagePath",
     value: string,
   ) => void;
-  onWeekStatusChange: (value: AdminWeekDetail["status"]) => void;
   onUploadWeekCoverImage: (
     field: "heroImagePath" | "compareImagePath",
     file: File,
@@ -72,7 +102,234 @@ export interface AdminWeekOverlayProps {
   onRemoveWeekAsset: (index: number) => void;
   onRemoveWeekMedia: (index: number) => void;
   onSaveWeek: () => Promise<void>;
-  onPublishWeek: () => Promise<void>;
+}
+
+function splitTextareaLines(value: string) {
+  return value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function formatUpdatedDate(value: string) {
+  const date = new Date(value);
+  return date.toLocaleDateString("ko-KR", {
+    month: "long",
+    day: "numeric",
+    timeZone: "Asia/Seoul",
+  });
+}
+
+function formatUpdatedTime(value: string) {
+  const date = new Date(value);
+  return date.toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Seoul",
+  });
+}
+
+function Field({
+  label,
+  description,
+  children,
+}: {
+  label: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      {children}
+      {description ? (
+        <p className="text-xs text-muted-foreground">{description}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function SectionCard({
+  title,
+  description,
+  action,
+  children,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <CardTitle className="text-base">{title}</CardTitle>
+          {description ? (
+            <CardDescription>{description}</CardDescription>
+          ) : null}
+        </div>
+        {action}
+      </CardHeader>
+      <CardContent className="space-y-4">{children}</CardContent>
+    </Card>
+  );
+}
+
+function BooleanSelect({
+  value,
+  trueLabel,
+  falseLabel,
+  onChange,
+}: {
+  value: boolean;
+  trueLabel: string;
+  falseLabel: string;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <Select
+      value={value ? "true" : "false"}
+      onValueChange={(nextValue) => onChange(nextValue === "true")}
+    >
+      <SelectTrigger>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="true">{trueLabel}</SelectItem>
+        <SelectItem value="false">{falseLabel}</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function EmptyEditorState({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-md border border-dashed bg-muted p-6 text-center text-sm text-muted-foreground">
+      {children}
+    </div>
+  );
+}
+
+function getChecklistNumber(section: AdminWeekSection, fallbackIndex: number) {
+  const codeMatch = section.sectionKey.match(/check-(\d+)$/);
+  if (codeMatch?.[1]) {
+    return Number(codeMatch[1]);
+  }
+
+  const displayRemainder = section.displayOrder % 100;
+  return displayRemainder > 0 ? displayRemainder : fallbackIndex + 1;
+}
+
+function groupChecklistSections(sections: AdminWeekSection[]) {
+  const groups = new Map<
+    string,
+    {
+      dayNumber: number | null;
+      label: string;
+      items: Array<{
+        section: AdminWeekSection;
+        sectionIndex: number;
+        checklistNumber: number;
+      }>;
+    }
+  >();
+
+  sections.forEach((section, sectionIndex) => {
+    const dayNumber = section.dayNumber ?? null;
+    const key = dayNumber === null ? "common" : String(dayNumber);
+    const group =
+      groups.get(key) ??
+      {
+        dayNumber,
+        label: dayNumber === null ? "공통 체크리스트" : `Day ${dayNumber}`,
+        items: [],
+      };
+
+    group.items.push({ section, sectionIndex, checklistNumber: 0 });
+    groups.set(key, group);
+  });
+
+  return Array.from(groups.values())
+    .sort(
+      (left, right) =>
+        (left.dayNumber ?? 99) - (right.dayNumber ?? 99) ||
+        left.label.localeCompare(right.label),
+    )
+    .map((group) => ({
+      ...group,
+      items: group.items
+        .sort(
+          (left, right) =>
+            left.section.displayOrder - right.section.displayOrder ||
+            left.sectionIndex - right.sectionIndex,
+        )
+        .map((item, itemIndex) => ({
+          ...item,
+          checklistNumber: getChecklistNumber(item.section, itemIndex),
+        })),
+    }));
+}
+
+function getQuestionNumber(asset: AdminWeekAsset, fallbackIndex: number) {
+  const code = asset.styleKey ?? "";
+  const codeMatch = code.match(/question-(\d+)$/);
+  if (codeMatch?.[1]) {
+    return Number(codeMatch[1]);
+  }
+
+  const displayRemainder = asset.displayOrder % 100;
+  return displayRemainder > 0 ? displayRemainder : fallbackIndex + 1;
+}
+
+function groupQuestionAssets(assets: AdminWeekAsset[]) {
+  const groups = new Map<
+    string,
+    {
+      dayNumber: number | null;
+      label: string;
+      items: Array<{
+        asset: AdminWeekAsset;
+        assetIndex: number;
+        questionNumber: number;
+      }>;
+    }
+  >();
+
+  assets.forEach((asset, assetIndex) => {
+    const dayNumber = asset.dayNumber ?? null;
+    const key = dayNumber === null ? "common" : String(dayNumber);
+    const group =
+      groups.get(key) ??
+      {
+        dayNumber,
+        label: dayNumber === null ? "공통 질문" : `Day ${dayNumber}`,
+        items: [],
+      };
+
+    group.items.push({ asset, assetIndex, questionNumber: 0 });
+    groups.set(key, group);
+  });
+
+  return Array.from(groups.values())
+    .sort(
+      (left, right) =>
+        (left.dayNumber ?? 99) - (right.dayNumber ?? 99) ||
+        left.label.localeCompare(right.label),
+    )
+    .map((group) => ({
+      ...group,
+      items: group.items
+        .sort(
+          (left, right) =>
+            left.asset.displayOrder - right.asset.displayOrder ||
+            left.assetIndex - right.assetIndex,
+        )
+        .map((item, itemIndex) => ({
+          ...item,
+          questionNumber: getQuestionNumber(item.asset, itemIndex),
+        })),
+    }));
 }
 
 export function AdminWeekOverlay({
@@ -83,31 +340,16 @@ export function AdminWeekOverlay({
   isWeekSaving,
   isLoadingWeeks,
   uploadingCoverField,
-  uploadingMediaIndex,
   selectedWeekHeroMedia,
   selectedWeekCompareMedia,
   onWeekFieldChange,
-  onWeekStatusChange,
   onUploadWeekCoverImage,
   onWeekDayChange,
   onWeekSectionChange,
   onWeekAssetChange,
-  onWeekMediaChange,
-  onUploadWeekMedia,
-  onAddWeekDay,
   onAddWeekSection,
   onAddWeekAsset,
-  onAddWeekMedia,
-  onMoveWeekDay,
-  onMoveWeekSection,
-  onMoveWeekAsset,
-  onMoveWeekMedia,
-  onRemoveWeekDay,
-  onRemoveWeekSection,
-  onRemoveWeekAsset,
-  onRemoveWeekMedia,
   onSaveWeek,
-  onPublishWeek,
 }: AdminWeekOverlayProps) {
   const publicStorageBaseUrl = (
     process.env.NEXT_PUBLIC_GCS_PUBLIC_BASE_URL ??
@@ -163,929 +405,554 @@ export function AdminWeekOverlay({
     const isUploading = uploadingCoverField === input.field;
 
     return (
-      <div className={styles.fieldGroup}>
-        <span className={styles.fieldLabel}>{input.label}</span>
-        <div className={styles.imageFieldCard}>
+      <Field label={input.label}>
+        <div className="grid gap-3 rounded-md border bg-muted p-3 md:grid-cols-[180px_minmax(0,1fr)]">
           <WeekImagePreview src={previewSrc} alt={input.label} />
-
-          <div className={styles.imageFieldActions}>
-            <label className={styles.secondaryButton}>
-              {isUploading ? "업로드 중" : "이미지 업로드"}
-              <input
-                className={styles.fileInput}
-                type="file"
-                accept="image/*"
-                disabled={isUploading}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) {
-                    void onUploadWeekCoverImage(input.field, file);
-                  }
-                  event.currentTarget.value = "";
-                }}
-              />
-            </label>
-            <button
-              className={styles.secondaryButton}
+          <div className="space-y-3">
+            <AdminFileUpload
+              id={`week-cover-${input.field}`}
+              label={isUploading ? "업로드 중" : "이미지 선택"}
+              accept="image/*"
+              disabled={isUploading}
+              onFileSelect={(file) => {
+                void onUploadWeekCoverImage(input.field, file);
+              }}
+            />
+            <Button
+              variant="outline"
               type="button"
               disabled={!input.value}
               onClick={() => onWeekFieldChange(input.field, "")}
             >
-              이미지 제거
-            </button>
+              {isUploading ? "업로드 중" : "이미지 제거"}
+            </Button>
           </div>
         </div>
-      </div>
+      </Field>
     );
   }
 
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <>
-      <button
-        aria-label="패널 닫기"
-        className={styles.overlayBackdrop}
-        type="button"
-        onClick={onClose}
-      />
-      <aside className={`${styles.overlayPanel} ${styles.overlayPanelWide}`}>
-        <div className={styles.overlayHeader}>
-          <div>
-            <h3 className={styles.panelTitle}>
-              {selectedWeekDetail
-                ? `${selectedWeekDetail.weekNumber}주차 편집`
-                : "주차 편집"}
-            </h3>
-          </div>
-          <button
-            className={styles.secondaryButton}
-            type="button"
-            onClick={onClose}
-          >
-            닫기
-          </button>
-        </div>
-        <div className={styles.overlayBody}>
+    <Sheet
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+    >
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col overflow-y-auto p-0 sm:max-w-6xl"
+      >
+        <SheetHeader className="border-b px-6 py-5">
+          <SheetTitle>
+            {selectedWeekDetail
+              ? `${selectedWeekDetail.weekNumber}주차 편집`
+              : "주차 편집"}
+          </SheetTitle>
+          <SheetDescription>
+            주차 요약, Day별 본문, 체크리스트, 질문, 이미지를 탭별로
+            관리합니다.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
           {contentMessage ? (
-            <p className={styles.formHint}>{contentMessage}</p>
+            <div className="rounded-md border bg-muted p-3 text-sm text-muted-foreground">
+              {contentMessage}
+            </div>
           ) : null}
+
           {selectedWeekDetail ? (
             <>
-              <div className={styles.detailGrid}>
-                <div className={styles.panelStat}>
-                  <span className={styles.metaLabel}>선택 주차</span>
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                <div className="rounded-md border bg-muted p-3">
+                  <p className="text-xs text-muted-foreground">선택 주차</p>
                   <strong>{selectedWeekDetail.weekNumber}주차</strong>
                 </div>
-                <div className={styles.panelStat}>
-                  <span className={styles.metaLabel}>상태</span>
-                  <select
-                    className={styles.fieldSelect}
-                    value={selectedWeekDetail.status}
-                    onChange={(event) =>
-                      onWeekStatusChange(
-                        event.target.value as AdminWeekDetail["status"],
-                      )
-                    }
-                    style={{ marginTop: 4, fontWeight: 600 }}
-                  >
-                    <option value="draft">초안</option>
-                    {selectedWeekDetail.status === "published" ? (
-                      <option value="published">게시됨</option>
-                    ) : null}
-                    <option value="archived">보관됨</option>
-                  </select>
-                  <small style={{ color: "var(--admin-text-soft)" }}>
-                    상태를 변경한 뒤 저장 버튼을 눌러주세요.
-                  </small>
-                </div>
-                <div className={styles.panelStat}>
-                  <span className={styles.metaLabel}>Day 수</span>
+                <div className="rounded-md border bg-muted p-3">
+                  <p className="text-xs text-muted-foreground">Day 수</p>
                   <strong>{selectedWeekDetail.days.length}</strong>
                 </div>
-                <div className={styles.panelStat}>
-                  <span className={styles.metaLabel}>최근 수정</span>
+                <div className="rounded-md border bg-muted p-3">
+                  <p className="text-xs text-muted-foreground">최근 수정</p>
                   <strong>
-	                    {(() => {
-	                      const d = new Date(selectedWeekDetail.updatedAt);
-	                      return d.toLocaleDateString("ko-KR", {
-	                        month: "long",
-	                        day: "numeric",
-	                        timeZone: "Asia/Seoul",
-	                      });
-	                    })()}
+                    {formatUpdatedDate(selectedWeekDetail.updatedAt)}
                   </strong>
-                  <small style={{ color: "var(--admin-text-soft)" }}>
-	                    {(() => {
-	                      const d = new Date(selectedWeekDetail.updatedAt);
-	                      return d.toLocaleTimeString("ko-KR", {
-	                        hour: "2-digit",
-	                        minute: "2-digit",
-	                        timeZone: "Asia/Seoul",
-	                      });
-	                    })()}
-                  </small>
-                </div>
-              </div>
-
-              <div className={styles.panelGrid}>
-                <label className={styles.fieldGroup}>
-                  <span className={styles.fieldLabel}>주차 제목</span>
-                  <input
-                    className={styles.fieldInput}
-                    value={selectedWeekDetail.title}
-                    onChange={(event) =>
-                      onWeekFieldChange("title", event.target.value)
-                    }
-                  />
-                </label>
-
-                <label className={styles.fieldGroup}>
-                  <span className={styles.fieldLabel}>아기 크기</span>
-                  <input
-                    className={styles.fieldInput}
-                    value={selectedWeekDetail.babySizeLabel ?? ""}
-                    onChange={(event) => {
-                      onWeekFieldChange("babySizeLabel", event.target.value);
-                      onWeekFieldChange(
-                        "babySizeCompareObject",
-                        event.target.value,
-                      );
-                    }}
-                  />
-                </label>
-              </div>
-
-              <label className={styles.fieldGroup}>
-                <span className={styles.fieldLabel}>아기 요약</span>
-                <textarea
-                  className={styles.fieldTextarea}
-                  value={selectedWeekDetail.babySummary}
-                  onChange={(event) =>
-                    onWeekFieldChange("babySummary", event.target.value)
-                  }
-                />
-              </label>
-
-              <label className={styles.fieldGroup}>
-                <span className={styles.fieldLabel}>산모 요약</span>
-                <textarea
-                  className={styles.fieldTextarea}
-                  value={selectedWeekDetail.motherSummary}
-                  onChange={(event) =>
-                    onWeekFieldChange("motherSummary", event.target.value)
-                  }
-                />
-              </label>
-
-              {renderWeekImageField({
-                field: "heroImagePath",
-                label: "주차 대표 이미지",
-                value: selectedWeekDetail.heroImagePath,
-                fallbackMedia: selectedWeekHeroMedia,
-              })}
-
-              {renderWeekImageField({
-                field: "compareImagePath",
-                label: "크기 비교 이미지",
-                value: selectedWeekDetail.compareImagePath,
-                fallbackMedia: selectedWeekCompareMedia,
-              })}
-
-              <div className={styles.panelHeader}>
-                <div>
-                  <h3 className={styles.panelTitle}>Day별 본문</h3>
-                </div>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  onClick={onAddWeekDay}
-                  aria-label="Day 추가"
-                >
-                  Day 추가
-                </button>
-              </div>
-
-              <div className={styles.list}>
-                {selectedWeekDetail.days.map((day, index) => (
-                  <div
-                    key={day.id || `new-day-${index}`}
-                    className={`${styles.listRow} ${styles.editorListRow}`}
-                  >
-                    <div className={styles.listDetail}>
-                      <h4 style={{ margin: 0 }}>Day {day.dayNumber}</h4>
-
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>
-                          아기 발달 항목
-                        </span>
-                        <textarea
-                          className={styles.fieldTextarea}
-                          value={day.babyDevelopmentItems.join("\n")}
-                          onChange={(event) =>
-                            onWeekDayChange(
-                              index,
-                              "babyDevelopmentItems",
-                              event.target.value
-                                .split("\n")
-                                .map((item) => item.trim())
-                                .filter(Boolean),
-                            )
-                          }
-                        />
-                      </label>
-
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>아기의 말</span>
-                        <textarea
-                          className={styles.fieldTextarea}
-                          value={day.babyMessage ?? ""}
-                          onChange={(event) =>
-                            onWeekDayChange(
-                              index,
-                              "babyMessage",
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
-
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>
-                          산모 변화 항목
-                        </span>
-                        <textarea
-                          className={styles.fieldTextarea}
-                          value={day.motherChangesItems.join("\n")}
-                          onChange={(event) =>
-                            onWeekDayChange(
-                              index,
-                              "motherChangesItems",
-                              event.target.value
-                                .split("\n")
-                                .map((item) => item.trim())
-                                .filter(Boolean),
-                            )
-                          }
-                        />
-                      </label>
-
-                      {(() => {
-                        const daySections = selectedWeekDetail.sections
-                          .map((section, sectionIndex) => ({
-                            section,
-                            sectionIndex,
-                          }))
-                          .filter(
-                            ({ section }) =>
-                              section.dayNumber === day.dayNumber,
-                          );
-                        if (daySections.length === 0) return null;
-                        return (
-                          <div className={styles.fieldGroup}>
-                            <span className={styles.fieldLabel}>
-                              체크리스트
-                            </span>
-                            {daySections.map(({ section, sectionIndex }, i) => (
-                              <input
-                                key={section.id || `section-${sectionIndex}`}
-                                className={styles.fieldInput}
-                                placeholder={`항목 ${i + 1}`}
-                                value={section.title}
-                                onChange={(event) =>
-                                  onWeekSectionChange(
-                                    sectionIndex,
-                                    "title",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            ))}
-                          </div>
-                        );
-                      })()}
-
-                      {(() => {
-                        const dayAssets = selectedWeekDetail.assets
-                          .map((asset, assetIndex) => ({ asset, assetIndex }))
-                          .filter(
-                            ({ asset }) => asset.dayNumber === day.dayNumber,
-                          );
-                        if (dayAssets.length === 0) return null;
-                        return (
-                          <div className={styles.fieldGroup}>
-                            <span className={styles.fieldLabel}>태교 질문</span>
-                            {dayAssets.map(({ asset, assetIndex }, i) => (
-                              <input
-                                key={asset.id || `asset-${assetIndex}`}
-                                className={styles.fieldInput}
-                                placeholder={`질문 ${i + 1}`}
-                                value={asset.storagePath}
-                                onChange={(event) =>
-                                  onWeekAssetChange(
-                                    assetIndex,
-                                    "storagePath",
-                                    event.target.value,
-                                  )
-                                }
-                              />
-                            ))}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className={styles.panelHeader}>
-                <div>
-                  <h3 className={styles.panelTitle}>체크리스트</h3>
-                  <p className={styles.panelDescription}>
-                    주차별로 여러 개의 체크리스트 항목을 정의합니다.
+                  <p className="text-xs text-muted-foreground">
+                    {formatUpdatedTime(selectedWeekDetail.updatedAt)}
                   </p>
                 </div>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  onClick={onAddWeekSection}
-                  aria-label="체크리스트 추가"
-                >
-                  체크리스트 추가
-                </button>
               </div>
 
-              <div className={styles.list}>
-                {selectedWeekDetail.sections.map((section, index) => (
-                  <div
-                    key={section.id || `new-section-${index}`}
-                    className={`${styles.listRow} ${styles.editorListRow}`}
-                  >
-                    <div className={styles.listDetail}>
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>Day 번호</span>
-                        <input
-                          className={styles.fieldInput}
-                          inputMode="numeric"
-                          value={section.dayNumber ?? ""}
-                          onChange={(event) =>
-                            onWeekSectionChange(
-                              index,
-                              "dayNumber",
-                              event.target.value
-                                ? Number(event.target.value) || 1
-                                : null,
-                            )
-                          }
-                        />
-                      </label>
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>
-                          체크리스트 코드
-                        </span>
-                        <input
-                          className={styles.fieldInput}
-                          value={section.sectionKey}
-                          onChange={(event) =>
-                            onWeekSectionChange(
-                              index,
-                              "sectionKey",
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>
-                          체크리스트 제목
-                        </span>
-                        <input
-                          className={styles.fieldInput}
-                          value={section.title}
-                          onChange={(event) =>
-                            onWeekSectionChange(
-                              index,
-                              "title",
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>설명</span>
-                        <textarea
-                          className={styles.fieldTextarea}
-                          value={section.body}
-                          onChange={(event) =>
-                            onWeekSectionChange(
-                              index,
-                              "body",
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
-                    </div>
-                    <div
-                      className={`${styles.listMetaGroup} ${styles.editorMetaGroup}`}
-                    >
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>순서</span>
-                        <input
-                          className={styles.fieldInput}
-                          inputMode="numeric"
-                          value={section.displayOrder}
-                          onChange={(event) =>
-                            onWeekSectionChange(
-                              index,
-                              "displayOrder",
-                              Number(event.target.value) || 0,
-                            )
-                          }
-                        />
-                      </label>
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>필수 여부</span>
-                        <select
-                          className={styles.fieldSelect}
-                          value={section.isRequired ? "required" : "optional"}
-                          onChange={(event) =>
-                            onWeekSectionChange(
-                              index,
-                              "isRequired",
-                              event.target.value === "required",
-                            )
-                          }
-                        >
-                          <option value="optional">optional</option>
-                          <option value="required">required</option>
-                        </select>
-                      </label>
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>활성 여부</span>
-                        <select
-                          className={styles.fieldSelect}
-                          value={section.isActive ? "active" : "inactive"}
-                          onChange={(event) =>
-                            onWeekSectionChange(
-                              index,
-                              "isActive",
-                              event.target.value === "active",
-                            )
-                          }
-                        >
-                          <option value="active">active</option>
-                          <option value="inactive">inactive</option>
-                        </select>
-                      </label>
-                      <div className={styles.rowActions}>
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          disabled={index === 0}
-                          onClick={() => onMoveWeekSection(index, -1)}
-                          aria-label="체크리스트 위로"
-                        >
-                          위로
-                        </button>
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          disabled={
-                            index === selectedWeekDetail.sections.length - 1
-                          }
-                          onClick={() => onMoveWeekSection(index, 1)}
-                          aria-label="체크리스트 아래로"
-                        >
-                          아래로
-                        </button>
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          onClick={() => onRemoveWeekSection(index)}
-                          aria-label="체크리스트 삭제"
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <Tabs defaultValue="basic" className="space-y-4">
+                <TabsList className="h-auto flex-wrap justify-start">
+                  <TabsTrigger value="basic">기본 정보</TabsTrigger>
+                  <TabsTrigger value="days">Day 본문</TabsTrigger>
+                  <TabsTrigger value="checklists">체크리스트</TabsTrigger>
+                  <TabsTrigger value="questions">질문</TabsTrigger>
+                  <TabsTrigger value="images">이미지</TabsTrigger>
+                  <TabsTrigger value="knowledge">노출본</TabsTrigger>
+                </TabsList>
 
-              <div className={styles.panelHeader}>
-                <div>
-                  <h3 className={styles.panelTitle}>질문</h3>
-                  <p className={styles.panelDescription}>
-                    주차별 질문 정의와 답변 유도 문구를 관리합니다.
-                  </p>
-                </div>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  onClick={onAddWeekAsset}
-                  aria-label="질문 추가"
-                >
-                  질문 추가
-                </button>
-              </div>
-
-              <div className={styles.list}>
-                {selectedWeekDetail.assets.map((asset, index) => (
-                  <div
-                    key={asset.id || `new-asset-${index}`}
-                    className={`${styles.listRow} ${styles.editorListRow}`}
-                  >
-                    <div className={styles.listDetail}>
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>Day 번호</span>
-                        <input
-                          className={styles.fieldInput}
-                          inputMode="numeric"
-                          value={asset.dayNumber ?? ""}
+                <TabsContent value="basic" className="mt-0 space-y-4">
+                  <SectionCard title="주차 기본 정보">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Field label="주차 제목">
+                        <Input
+                          value={selectedWeekDetail.title}
                           onChange={(event) =>
-                            onWeekAssetChange(
-                              index,
-                              "dayNumber",
-                              event.target.value
-                                ? Number(event.target.value) || 1
-                                : null,
-                            )
+                            onWeekFieldChange("title", event.target.value)
                           }
                         />
-                      </label>
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>질문 타입</span>
-                        <input
-                          className={styles.fieldInput}
-                          value={asset.assetType}
-                          onChange={(event) =>
-                            onWeekAssetChange(
-                              index,
-                              "assetType",
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>질문 문구</span>
-                        <input
-                          className={styles.fieldInput}
-                          value={asset.storagePath}
-                          onChange={(event) =>
-                            onWeekAssetChange(
-                              index,
-                              "storagePath",
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
-                    </div>
-                    <div
-                      className={`${styles.listMetaGroup} ${styles.editorMetaGroup}`}
-                    >
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>도움말</span>
-                        <input
-                          className={styles.fieldInput}
-                          value={asset.altText ?? ""}
-                          onChange={(event) =>
-                            onWeekAssetChange(
-                              index,
-                              "altText",
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>질문 코드</span>
-                        <input
-                          className={styles.fieldInput}
-                          value={asset.styleKey ?? ""}
-                          onChange={(event) =>
-                            onWeekAssetChange(
-                              index,
-                              "styleKey",
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>필수 여부</span>
-                        <select
-                          className={styles.fieldSelect}
-                          value={asset.isRequired ? "required" : "optional"}
-                          onChange={(event) =>
-                            onWeekAssetChange(
-                              index,
-                              "isRequired",
-                              event.target.value === "required",
-                            )
-                          }
-                        >
-                          <option value="optional">optional</option>
-                          <option value="required">required</option>
-                        </select>
-                      </label>
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>활성 여부</span>
-                        <select
-                          className={styles.fieldSelect}
-                          value={asset.isActive ? "active" : "inactive"}
-                          onChange={(event) =>
-                            onWeekAssetChange(
-                              index,
-                              "isActive",
-                              event.target.value === "active",
-                            )
-                          }
-                        >
-                          <option value="active">active</option>
-                          <option value="inactive">inactive</option>
-                        </select>
-                      </label>
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>순서</span>
-                        <input
-                          className={styles.fieldInput}
-                          inputMode="numeric"
-                          value={asset.displayOrder}
-                          onChange={(event) =>
-                            onWeekAssetChange(
-                              index,
-                              "displayOrder",
-                              Number(event.target.value) || 0,
-                            )
-                          }
-                        />
-                      </label>
-                      <div className={styles.rowActions}>
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          disabled={index === 0}
-                          onClick={() => onMoveWeekAsset(index, -1)}
-                          aria-label="질문 위로"
-                        >
-                          위로
-                        </button>
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          disabled={
-                            index === selectedWeekDetail.assets.length - 1
-                          }
-                          onClick={() => onMoveWeekAsset(index, 1)}
-                          aria-label="질문 아래로"
-                        >
-                          아래로
-                        </button>
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          onClick={() => onRemoveWeekAsset(index)}
-                          aria-label="질문 삭제"
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className={styles.panelHeader}>
-                <div>
-                  <h3 className={styles.panelTitle}>이미지 매핑</h3>
-                  <p className={styles.panelDescription}>
-                    Storage bucket/object path 기준으로 주차 또는 day 이미지를
-                    연결합니다.
-                  </p>
-                </div>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  onClick={onAddWeekMedia}
-                  aria-label="이미지 매핑 추가"
-                >
-                  이미지 추가
-                </button>
-              </div>
-
-              <div className={styles.list}>
-                {selectedWeekDetail.media.map((media, index) => (
-                  <div
-                    key={media.id || `new-media-${index}`}
-                    className={`${styles.listRow} ${styles.editorListRow}`}
-                  >
-                    <div className={styles.listDetail}>
-                      <div className={styles.panelGrid}>
-                        <label className={styles.fieldGroup}>
-                          <span className={styles.fieldLabel}>Scope</span>
-                          <select
-                            className={styles.fieldSelect}
-                            value={media.mediaScope}
-                            onChange={(event) =>
-                              onWeekMediaChange(
-                                index,
-                                "mediaScope",
-                                event.target.value,
-                              )
-                            }
-                          >
-                            <option value="week">week</option>
-                            <option value="day">day</option>
-                          </select>
-                        </label>
-                        <label className={styles.fieldGroup}>
-                          <span className={styles.fieldLabel}>Day 번호</span>
-                          <input
-                            className={styles.fieldInput}
-                            inputMode="numeric"
-                            value={media.dayNumber ?? ""}
-                            onChange={(event) =>
-                              onWeekMediaChange(
-                                index,
-                                "dayNumber",
-                                event.target.value
-                                  ? Number(event.target.value) || 1
-                                  : null,
-                              )
-                            }
-                          />
-                        </label>
-                      </div>
-
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>Bucket ID</span>
-                        <input
-                          className={styles.fieldInput}
-                          value={media.bucketId}
-                          onChange={(event) =>
-                            onWeekMediaChange(
-                              index,
-                              "bucketId",
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
-
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>Object Path</span>
-                        <input
-                          className={styles.fieldInput}
-                          value={media.objectPath}
-                          onChange={(event) =>
-                            onWeekMediaChange(
-                              index,
-                              "objectPath",
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
-
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>이미지 업로드</span>
-                        <input
-                          className={styles.fieldInput}
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp,image/gif"
+                      </Field>
+                      <Field label="아기 크기">
+                        <Input
+                          value={selectedWeekDetail.babySizeLabel ?? ""}
                           onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            if (!file) {
-                              return;
-                            }
-
-                            void onUploadWeekMedia(index, file);
-                            event.currentTarget.value = "";
+                            onWeekFieldChange(
+                              "babySizeLabel",
+                              event.target.value,
+                            );
+                            onWeekFieldChange(
+                              "babySizeCompareObject",
+                              event.target.value,
+                            );
                           }}
                         />
-                      </label>
-
-                      <div className={styles.panelGrid}>
-                        <label className={styles.fieldGroup}>
-                          <span className={styles.fieldLabel}>Media Role</span>
-                          <input
-                            className={styles.fieldInput}
-                            value={media.mediaRole}
-                            onChange={(event) =>
-                              onWeekMediaChange(
-                                index,
-                                "mediaRole",
-                                event.target.value,
-                              )
-                            }
-                          />
-                        </label>
-                        <label className={styles.fieldGroup}>
-                          <span className={styles.fieldLabel}>원본 파일명</span>
-                          <input
-                            className={styles.fieldInput}
-                            value={media.sourceFileName ?? ""}
-                            onChange={(event) =>
-                              onWeekMediaChange(
-                                index,
-                                "sourceFileName",
-                                event.target.value,
-                              )
-                            }
-                          />
-                        </label>
-                      </div>
-
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>대체 텍스트</span>
-                        <input
-                          className={styles.fieldInput}
-                          value={media.altText ?? ""}
-                          onChange={(event) =>
-                            onWeekMediaChange(
-                              index,
-                              "altText",
-                              event.target.value,
-                            )
-                          }
-                        />
-                      </label>
+                      </Field>
                     </div>
 
-                    <div
-                      className={`${styles.listMetaGroup} ${styles.editorMetaGroup}`}
-                    >
-                      <label className={styles.fieldGroup}>
-                        <span className={styles.fieldLabel}>순서</span>
-                        <input
-                          className={styles.fieldInput}
-                          inputMode="numeric"
-                          value={media.displayOrder}
-                          onChange={(event) =>
-                            onWeekMediaChange(
-                              index,
-                              "displayOrder",
-                              Number(event.target.value) || 0,
-                            )
-                          }
-                        />
-                      </label>
-                      {uploadingMediaIndex === index ? (
-                        <p className={styles.formHint}>
-                          이미지를 업로드하는 중입니다.
-                        </p>
-                      ) : null}
-                      <div className={styles.rowActions}>
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          disabled={index === 0}
-                          onClick={() => onMoveWeekMedia(index, -1)}
-                          aria-label="이미지 위로"
-                        >
-                          위로
-                        </button>
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          disabled={
-                            index === selectedWeekDetail.media.length - 1
-                          }
-                          onClick={() => onMoveWeekMedia(index, 1)}
-                          aria-label="이미지 아래로"
-                        >
-                          아래로
-                        </button>
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          onClick={() => onRemoveWeekMedia(index)}
-                          aria-label="이미지 삭제"
-                        >
-                          삭제
-                        </button>
+                    <Field label="아기 요약">
+                      <Textarea
+                        value={selectedWeekDetail.babySummary}
+                        className="min-h-28"
+                        onChange={(event) =>
+                          onWeekFieldChange("babySummary", event.target.value)
+                        }
+                      />
+                    </Field>
+
+                    <Field label="산모 요약">
+                      <Textarea
+                        value={selectedWeekDetail.motherSummary}
+                        className="min-h-28"
+                        onChange={(event) =>
+                          onWeekFieldChange("motherSummary", event.target.value)
+                        }
+                      />
+                    </Field>
+                  </SectionCard>
+                </TabsContent>
+
+                <TabsContent value="days" className="mt-0 space-y-4">
+                  <SectionCard title="Day별 본문">
+                    {selectedWeekDetail.days.length === 0 ? (
+                      <EmptyEditorState>
+                        등록된 Day 본문이 없습니다.
+                      </EmptyEditorState>
+                    ) : (
+                      <div className="space-y-4">
+                        {selectedWeekDetail.days.map((day, index) => (
+                          <div
+                            key={day.id || `new-day-${index}`}
+                            className="space-y-4 rounded-md border p-4"
+                          >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                <h4 className="font-semibold">
+                                  Day {day.dayNumber}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                  앱에 노출되는 일별 본문입니다.
+                                </p>
+                              </div>
+                            </div>
+
+                            <Field label="아기 발달 항목">
+                              <Textarea
+                                value={day.babyDevelopmentItems.join("\n")}
+                                className="min-h-28"
+                                onChange={(event) =>
+                                  onWeekDayChange(
+                                    index,
+                                    "babyDevelopmentItems",
+                                    splitTextareaLines(event.target.value),
+                                  )
+                                }
+                              />
+                            </Field>
+
+                            <Field label="아기의 말">
+                              <Textarea
+                                value={day.babyMessage ?? ""}
+                                className="min-h-24"
+                                onChange={(event) =>
+                                  onWeekDayChange(
+                                    index,
+                                    "babyMessage",
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </Field>
+
+                            <Field label="산모 변화 항목">
+                              <Textarea
+                                value={day.motherChangesItems.join("\n")}
+                                className="min-h-28"
+                                onChange={(event) =>
+                                  onWeekDayChange(
+                                    index,
+                                    "motherChangesItems",
+                                    splitTextareaLines(event.target.value),
+                                  )
+                                }
+                              />
+                            </Field>
+
+                            {(() => {
+                              const daySections = selectedWeekDetail.sections
+                                .map((section, sectionIndex) => ({
+                                  section,
+                                  sectionIndex,
+                                }))
+                                .filter(
+                                  ({ section }) =>
+                                    section.dayNumber === day.dayNumber,
+                                );
+                              if (daySections.length === 0) return null;
+                              return (
+                                <Field label="체크리스트">
+                                  <div className="space-y-2">
+                                    {daySections.map(
+                                      (
+                                        { section, sectionIndex },
+                                        itemIndex,
+                                      ) => (
+                                        <Input
+                                          key={
+                                            section.id ||
+                                            `section-${sectionIndex}`
+                                          }
+                                          placeholder={`항목 ${itemIndex + 1}`}
+                                          value={section.title}
+                                          onChange={(event) =>
+                                            onWeekSectionChange(
+                                              sectionIndex,
+                                              "title",
+                                              event.target.value,
+                                            )
+                                          }
+                                        />
+                                      ),
+                                    )}
+                                  </div>
+                                </Field>
+                              );
+                            })()}
+
+                            {(() => {
+                              const dayAssets = selectedWeekDetail.assets
+                                .map((asset, assetIndex) => ({
+                                  asset,
+                                  assetIndex,
+                                }))
+                                .filter(
+                                  ({ asset }) =>
+                                    asset.dayNumber === day.dayNumber,
+                                );
+                              if (dayAssets.length === 0) return null;
+                              return (
+                                <Field label="태교 질문">
+                                  <div className="space-y-2">
+                                    {dayAssets.map(
+                                      ({ asset, assetIndex }, itemIndex) => (
+                                        <Input
+                                          key={
+                                            asset.id || `asset-${assetIndex}`
+                                          }
+                                          placeholder={`질문 ${itemIndex + 1}`}
+                                          value={asset.storagePath}
+                                          onChange={(event) =>
+                                            onWeekAssetChange(
+                                              assetIndex,
+                                              "storagePath",
+                                              event.target.value,
+                                            )
+                                          }
+                                        />
+                                      ),
+                                    )}
+                                  </div>
+                                </Field>
+                              );
+                            })()}
+                          </div>
+                        ))}
                       </div>
+                    )}
+                  </SectionCard>
+                </TabsContent>
+
+                <TabsContent value="checklists" className="mt-0 space-y-4">
+                  <SectionCard
+                    title="체크리스트"
+                    description="앱에 노출할 체크리스트 문구를 관리합니다."
+                    action={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onAddWeekSection}
+                      >
+                        체크리스트 추가
+                      </Button>
+                    }
+                  >
+                    {selectedWeekDetail.sections.length === 0 ? (
+                      <EmptyEditorState>
+                        등록된 체크리스트 항목이 없습니다.
+                      </EmptyEditorState>
+                    ) : (
+                      <div className="space-y-6">
+                        {groupChecklistSections(
+                          selectedWeekDetail.sections,
+                        ).map((group) => (
+                          <section
+                            key={
+                              group.dayNumber === null
+                                ? "common-checklists"
+                                : `day-${group.dayNumber}-checklists`
+                            }
+                            className="space-y-3"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-2">
+                              <div>
+                                <h4 className="font-semibold">
+                                  {group.label}
+                                </h4>
+                                <p className="text-sm text-muted-foreground">
+                                  체크리스트 {group.items.length}개
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="space-y-3">
+                              {group.items.map(
+                                ({
+                                  section,
+                                  sectionIndex,
+                                  checklistNumber,
+                                }) => (
+                                  <div
+                                    key={
+                                      section.id ||
+                                      `new-section-${sectionIndex}`
+                                    }
+                                    className="space-y-4 rounded-md border bg-background p-4"
+                                  >
+                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                      <Badge variant="secondary">
+                                        항목 {checklistNumber}
+                                      </Badge>
+                                      <div className="w-full sm:w-44">
+                                        <Field label="앱 노출">
+                                          <BooleanSelect
+                                            value={section.isActive}
+                                            trueLabel="앱에 노출"
+                                            falseLabel="숨김"
+                                            onChange={(value) =>
+                                              onWeekSectionChange(
+                                                sectionIndex,
+                                                "isActive",
+                                                value,
+                                              )
+                                            }
+                                          />
+                                        </Field>
+                                      </div>
+                                    </div>
+
+                                    <Field label="체크리스트 문구">
+                                      <Input
+                                        value={section.title}
+                                        onChange={(event) =>
+                                          onWeekSectionChange(
+                                            sectionIndex,
+                                            "title",
+                                            event.target.value,
+                                          )
+                                        }
+                                      />
+                                    </Field>
+
+                                    <Field label="설명">
+                                      <Textarea
+                                        value={section.body}
+                                        className="min-h-24"
+                                        onChange={(event) =>
+                                          onWeekSectionChange(
+                                            sectionIndex,
+                                            "body",
+                                            event.target.value,
+                                          )
+                                        }
+                                      />
+                                    </Field>
+                                  </div>
+                                ),
+                              )}
+                            </div>
+                          </section>
+                        ))}
+                      </div>
+                    )}
+                  </SectionCard>
+                </TabsContent>
+
+                <TabsContent value="questions" className="mt-0 space-y-4">
+                  <SectionCard
+                    title="질문"
+                    description="앱에 노출할 태교 질문 문구를 관리합니다."
+                    action={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onAddWeekAsset}
+                      >
+                        질문 추가
+                      </Button>
+                    }
+                  >
+                    {selectedWeekDetail.assets.length === 0 ? (
+                      <EmptyEditorState>
+                        등록된 질문이 없습니다.
+                      </EmptyEditorState>
+                    ) : (
+                      <div className="space-y-6">
+                        {groupQuestionAssets(selectedWeekDetail.assets).map(
+                          (group) => (
+                            <section
+                              key={
+                                group.dayNumber === null
+                                  ? "common-questions"
+                                  : `day-${group.dayNumber}-questions`
+                              }
+                              className="space-y-3"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-2">
+                                <div>
+                                  <h4 className="font-semibold">
+                                    {group.label}
+                                  </h4>
+                                  <p className="text-sm text-muted-foreground">
+                                    질문 {group.items.length}개
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="space-y-3">
+                                {group.items.map(
+                                  ({
+                                    asset,
+                                    assetIndex,
+                                    questionNumber,
+                                  }) => (
+                                    <div
+                                      key={
+                                        asset.id ||
+                                        `new-asset-${assetIndex}`
+                                      }
+                                      className="space-y-4 rounded-md border bg-background p-4"
+                                    >
+                                      <div className="flex flex-wrap items-start justify-between gap-3">
+                                        <Badge variant="secondary">
+                                          질문 {questionNumber}
+                                        </Badge>
+                                        <div className="w-full sm:w-44">
+                                          <Field label="앱 노출">
+                                            <BooleanSelect
+                                              value={asset.isActive}
+                                              trueLabel="앱에 노출"
+                                              falseLabel="숨김"
+                                              onChange={(value) =>
+                                                onWeekAssetChange(
+                                                  assetIndex,
+                                                  "isActive",
+                                                  value,
+                                                )
+                                              }
+                                            />
+                                          </Field>
+                                        </div>
+                                      </div>
+
+                                      <Field label="질문 문구">
+                                        <Textarea
+                                          value={asset.storagePath}
+                                          className="min-h-24 resize-y"
+                                          onChange={(event) =>
+                                            onWeekAssetChange(
+                                              assetIndex,
+                                              "storagePath",
+                                              event.target.value,
+                                            )
+                                          }
+                                        />
+                                      </Field>
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+                            </section>
+                          ),
+                        )}
+                      </div>
+                    )}
+                  </SectionCard>
+                </TabsContent>
+
+                <TabsContent value="images" className="mt-0 space-y-4">
+                  <SectionCard title="대표 이미지">
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      {renderWeekImageField({
+                        field: "heroImagePath",
+                        label: "주차 대표 이미지",
+                        value: selectedWeekDetail.heroImagePath,
+                        fallbackMedia: selectedWeekHeroMedia,
+                      })}
+                      {renderWeekImageField({
+                        field: "compareImagePath",
+                        label: "크기 비교 이미지",
+                        value: selectedWeekDetail.compareImagePath,
+                        fallbackMedia: selectedWeekCompareMedia,
+                      })}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  </SectionCard>
+                </TabsContent>
+
+                <TabsContent value="knowledge" className="mt-0 space-y-4">
+                  <AdminWeekOverlayKnowledgeTab
+                    weekNumber={selectedWeekDetail.weekNumber}
+                  />
+                </TabsContent>
+              </Tabs>
             </>
           ) : (
-            <div className={styles.listEmpty}>
+            <EmptyEditorState>
               {isLoadingWeeks
                 ? "주차 상세를 불러오는 중입니다."
                 : "테이블에서 주차를 선택하면 편집 패널이 열립니다."}
-            </div>
+            </EmptyEditorState>
           )}
         </div>
-        <div className={styles.overlayFooter}>
-          <button
-            className={styles.primaryButton}
+
+        <SheetFooter className="border-t px-6 py-4">
+          <Button variant="outline" type="button" onClick={onClose}>
+            닫기
+          </Button>
+          <Button
             type="button"
             disabled={isWeekSaving || isLoadingWeeks || !selectedWeekDetail}
             onClick={async () => {
@@ -1094,9 +961,9 @@ export function AdminWeekOverlay({
             }}
           >
             저장
-          </button>
-        </div>
-      </aside>
-    </>
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

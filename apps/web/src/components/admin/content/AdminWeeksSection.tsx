@@ -11,16 +11,33 @@ import type {
   AdminWeekSummary,
 } from "@gynecology-chatbot/app-core";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 import {
   getWeekStatusBadge,
   getWeekStatusLabel,
 } from "../admin-dashboard-labels";
-import styles from "../AdminConsoleLayout.module.css";
 import { AdminWeekOverlay } from "./AdminWeekOverlay";
 import {
   getWeekPublishDayStatus,
   getWeekPublishReview,
 } from "./week-publish-review";
+import { getAdminVisibleWeeks } from "./admin-week-visibility";
 
 type AdminParaphraseItem = {
   id: string;
@@ -67,16 +84,39 @@ function getStaticWeekBabyImagePath(weekNumber: number) {
   return `/week-baby/week-baby-w${String(weekNumber).padStart(2, "0")}.png`;
 }
 
+function weekToneClass(status: string) {
+  const badge = getWeekStatusBadge(status as AdminWeekDetail["status"]);
+  if (badge === "statusSuccess")
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (badge === "statusWarning")
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-border bg-muted text-muted-foreground";
+}
+
+function publishDayToneClass(status: "complete" | "partial" | "empty") {
+  if (status === "complete")
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "partial")
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-border bg-muted text-muted-foreground";
+}
+
 function WeekBabyImage({ weekNumber }: { weekNumber: number }) {
   const imagePath = getStaticWeekBabyImagePath(weekNumber);
 
   return (
-    <div className={styles.weekBabyImageWrap}>
+    <div className="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
       {imagePath ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={imagePath} alt={`${weekNumber}주 아기 일러스트`} />
+        <img
+          src={imagePath}
+          alt={`${weekNumber}주 아기 일러스트`}
+          className="h-full w-full object-cover"
+        />
       ) : (
-        <span className={styles.weekBabyPlaceholder}>이미지 없음</span>
+        <span className="p-2 text-center text-xs text-muted-foreground">
+          이미지 없음
+        </span>
       )}
     </div>
   );
@@ -92,30 +132,36 @@ function ParaphraseCard({
   onActivate: (id: string) => void;
 }) {
   return (
-    <article className={styles.weekDayRow}>
-      <div className={styles.weekDayLead}>
+    <article className="rounded-lg border bg-muted p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h4>{getParaphraseCategoryLabel(item.category)}</h4>
-          <p className={styles.panelDescription}>
+          <h5 className="text-base font-semibold">
+            {getParaphraseCategoryLabel(item.category)}
+          </h5>
+          <p className="mt-1 text-sm text-muted-foreground">
             {getParaphraseScopeLabel(item.contentScope)}
             {item.dayNumber ? ` · Day ${item.dayNumber}` : ""}
             {item.sourceCode ? ` · ${item.sourceCode}` : ""}
           </p>
         </div>
-        <div className={styles.badgeRow}>
-          <span
-            className={`${styles.statusBadge} ${
-              item.status === "ready" ? styles.statusSuccess : styles.statusWarning
-            }`}
+        <div className="flex flex-wrap gap-2">
+          <Badge
+            variant="outline"
+            className={
+              item.status === "ready"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-amber-200 bg-amber-50 text-amber-700"
+            }
           >
             {item.isActive
-              ? "노출 중"
+              ? "반영됨"
               : item.status === "ready"
                 ? "승인됨"
                 : "검수 필요"}
-          </span>
-          <button
-            className={styles.secondaryButton}
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
             type="button"
             disabled={activatingParaphraseId === item.id || item.isActive}
             onClick={() => onActivate(item.id)}
@@ -125,10 +171,12 @@ function ParaphraseCard({
               : activatingParaphraseId === item.id
                 ? "승인 중"
                 : "노출본 승인"}
-          </button>
+          </Button>
         </div>
       </div>
-      <p className={styles.weekDayMessage}>{buildParaphrasePreview(item)}</p>
+      <p className="mt-3 rounded-md border bg-background p-3 text-sm leading-6 text-muted-foreground">
+        {buildParaphrasePreview(item)}
+      </p>
     </article>
   );
 }
@@ -154,7 +202,7 @@ export interface AdminWeeksSectionProps {
       | "compareImagePath",
     value: string,
   ) => void;
-  onWeekStatusChange: (value: AdminWeekDetail["status"]) => void;
+  onWeekStatusChange?: (value: AdminWeekDetail["status"]) => void;
   onUploadWeekCoverImage: (
     field: "heroImagePath" | "compareImagePath",
     file: File,
@@ -207,7 +255,6 @@ export function AdminWeeksSection({
   uploadingMediaIndex,
   onSelectWeek,
   onWeekFieldChange,
-  onWeekStatusChange,
   onUploadWeekCoverImage,
   onWeekDayChange,
   onWeekSectionChange,
@@ -230,7 +277,6 @@ export function AdminWeeksSection({
   onPublishWeek,
 }: AdminWeeksSectionProps) {
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
-  const [weekQuery, setWeekQuery] = useState("");
   const [weekStatusFilter, setWeekStatusFilter] = useState("all");
   const [paraphrases, setParaphrases] = useState<AdminParaphraseItem[]>([]);
   const [isLoadingParaphrases, setIsLoadingParaphrases] = useState(false);
@@ -345,17 +391,27 @@ export function AdminWeeksSection({
     }
   }
 
-  const filteredWeekSummaries = weekSummaries.filter((week) => {
-    const query = weekQuery.trim().toLowerCase();
-    const matchesQuery =
-      !query ||
-      `${week.weekNumber}주차`.toLowerCase().includes(query) ||
-      week.title.toLowerCase().includes(query) ||
-      (week.babySizeLabel ?? "").toLowerCase().includes(query);
-    const matchesStatus =
-      weekStatusFilter === "all" || week.status === weekStatusFilter;
-    return matchesQuery && matchesStatus;
-  });
+  const visibleWeekSummaries = getAdminVisibleWeeks(weekSummaries);
+  const weekStatusOptions = [
+    { value: "draft", label: "초안" },
+    { value: "published", label: "게시중" },
+    { value: "archived", label: "보관" },
+  ].filter((option) =>
+    visibleWeekSummaries.some((week) => week.status === option.value),
+  );
+  const shouldShowStatusFilter = weekStatusOptions.length > 1;
+  const selectedStatusAvailable = weekStatusOptions.some(
+    (option) => option.value === weekStatusFilter,
+  );
+  const effectiveWeekStatusFilter =
+    shouldShowStatusFilter && selectedStatusAvailable
+      ? weekStatusFilter
+      : "all";
+  const filteredWeekSummaries = visibleWeekSummaries.filter(
+    (week) =>
+      effectiveWeekStatusFilter === "all" ||
+      week.status === effectiveWeekStatusFilter,
+  );
 
   const selectedWeekOverview = selectedWeekDetail
     ? {
@@ -376,12 +432,6 @@ export function AdminWeeksSection({
           const questionCount = selectedWeekDetail.assets.filter(
             (asset) => asset.dayNumber === day.dayNumber,
           ).length;
-          const hasFetalCopy = day.babyDevelopmentItems.some((item) =>
-            item.trim(),
-          );
-          const hasMaternalCopy = day.motherChangesItems.some((item) =>
-            item.trim(),
-          );
           const status = getWeekPublishDayStatus(
             selectedWeekDetail,
             day.dayNumber,
@@ -390,7 +440,6 @@ export function AdminWeeksSection({
           return {
             id: day.id || `day-${day.dayNumber}`,
             dayNumber: day.dayNumber,
-            title: day.title?.trim() || `Day ${day.dayNumber}`,
             fetalCount: day.babyDevelopmentItems.filter((item) => item.trim())
               .length,
             maternalCount: day.motherChangesItems.filter((item) => item.trim())
@@ -428,324 +477,289 @@ export function AdminWeeksSection({
     : null;
 
   return (
-    <section className={styles.sectionStack}>
-      <section className={styles.weekWorkspace}>
-        <aside className={styles.weekRail}>
-          <section className={styles.panel}>
-            <div className={styles.tableToolbar}>
-              <label className={styles.fieldGroup}>
-                <span className={styles.fieldLabel}>주차 찾기</span>
-                <input
-                  className={styles.fieldInput}
-                  value={weekQuery}
-                  onChange={(event) => setWeekQuery(event.target.value)}
-                  placeholder="주차, 제목, 아기 크기"
-                />
-              </label>
-              <label className={styles.fieldGroup}>
-                <span className={styles.fieldLabel}>상태</span>
-                <select
-                  className={styles.fieldSelect}
-                  value={weekStatusFilter}
-                  onChange={(event) => setWeekStatusFilter(event.target.value)}
-                >
-                  <option value="all">전체</option>
-                  <option value="draft">초안</option>
-                  <option value="published">게시중</option>
-                  <option value="archived">보관</option>
-                </select>
-              </label>
-            </div>
-
-            <div className={styles.weekRegistry}>
-              {filteredWeekSummaries.map((week) => (
-                <button
-                  key={week.id}
-                  className={`${styles.weekRegistryRow} ${
-                    selectedWeekNumber === week.weekNumber
-                      ? styles.weekRegistryRowActive
-                      : ""
-                  }`}
-                  type="button"
-                  onClick={() => onSelectWeek(week.weekNumber)}
-                >
-                  <div className={styles.weekRegistryPrimary}>
-                    <strong>{week.weekNumber}주차</strong>
-                  </div>
-                  <div className={styles.weekRegistryMeta}>
-                    <small>최근수정일: {week.updatedAt.slice(0, 10)}</small>
-                  </div>
-                </button>
-              ))}
-              {filteredWeekSummaries.length === 0 ? (
-                <div className={styles.listEmpty}>
-                  {isLoadingWeeks
-                    ? "주차 목록을 불러오는 중입니다."
-                    : "조건에 맞는 주차가 없습니다."}
+    <section className="space-y-6">
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="min-w-0">
+          <Card className="sticky top-20 shadow-sm">
+            <CardContent className="space-y-3 p-4">
+              {shouldShowStatusFilter ? (
+                <div>
+                  <Select
+                    value={effectiveWeekStatusFilter}
+                    onValueChange={setWeekStatusFilter}
+                  >
+                    <SelectTrigger aria-label="상태">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">전체</SelectItem>
+                      {weekStatusOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               ) : null}
-            </div>
-          </section>
+
+              <div className="space-y-2">
+                {filteredWeekSummaries.map((week) => (
+                  <Button
+                    key={week.id}
+                    variant={
+                      selectedWeekNumber === week.weekNumber
+                        ? "secondary"
+                        : "outline"
+                    }
+                    type="button"
+                    className="h-auto w-full justify-between whitespace-normal px-3 py-3 text-left"
+                    onClick={() => onSelectWeek(week.weekNumber)}
+                  >
+                    <span className="font-semibold">{week.weekNumber}주차</span>
+                    <span className="text-xs text-muted-foreground">
+                      {week.updatedAt.slice(0, 10)}
+                    </span>
+                  </Button>
+                ))}
+                {filteredWeekSummaries.length === 0 ? (
+                  <p className="rounded-md border border-dashed bg-muted p-4 text-sm text-muted-foreground">
+                    {isLoadingWeeks
+                      ? "주차 목록을 불러오는 중입니다."
+                      : "조건에 맞는 주차가 없습니다."}
+                  </p>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
         </aside>
 
-        <div className={styles.weekWorkspaceMain}>
+        <div className="min-w-0 space-y-6">
           {selectedWeekDetail ? (
             <>
               {contentMessage ? (
-                <section className={styles.panel}>
-                  <p className={styles.formHint}>{contentMessage}</p>
-                </section>
+                <Card>
+                  <CardContent className="p-4 text-sm text-muted-foreground">
+                    {contentMessage}
+                  </CardContent>
+                </Card>
               ) : null}
-              <section className={styles.panel}>
-                <div className={styles.panelHeader}>
+              <Card className="shadow-sm">
+                <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <h3 className={styles.panelTitle}>
+                    <CardTitle className="text-lg">
                       {selectedWeekDetail.weekNumber}주차 개요
-                    </h3>
+                    </CardTitle>
                   </div>
-                  <div className={styles.topbarActions}>
-                    <button
-                      className={styles.primaryButton}
-                      type="button"
-                      onClick={() => setIsOverlayOpen(true)}
-                    >
-                      상세 편집 열기
-                    </button>
-                  </div>
-                </div>
-
-                <div className={styles.weekHeroGrid}>
-                  <WeekBabyImage weekNumber={selectedWeekDetail.weekNumber} />
-                  <div className={styles.weekHeroPrimary}>
-                    <div className={styles.weekHeroHeading}>
-                      <span className={styles.metaLabel}>선택 주차</span>
-                      <h4>{selectedWeekDetail.title}</h4>
-                    </div>
-                    <div className={styles.badgeRow}>
-                      <span
-                        className={`${styles.statusBadge} ${
-                          styles[
-                            getWeekStatusBadge(selectedWeekDetail.status)
-                          ] ?? ""
-                        }`}
-                      >
-                        {getWeekStatusLabel(selectedWeekDetail.status)}
-                      </span>
-                      <span className={styles.tag}>
-                        아기 크기 {selectedWeekDetail.babySizeLabel || "-"}
-                      </span>
-                      <span className={styles.tag}>
-                        비교 {selectedWeekDetail.babySizeCompareObject || "-"}
-                      </span>
-                    </div>
-                    <div className={styles.weekSummaryGrid}>
-                      <article className={styles.weekSummaryCard}>
-                        <span className={styles.metaLabel}>오늘 아기는요</span>
-                        <p>{selectedWeekDetail.babySummary}</p>
-                      </article>
-                      <article className={styles.weekSummaryCard}>
-                        <span className={styles.metaLabel}>오늘 엄마는요</span>
-                        <p>{selectedWeekDetail.motherSummary}</p>
-                      </article>
-                      <article className={styles.weekSummaryCard}>
-                        <span className={styles.metaLabel}>게시 게이트</span>
-                        <p>{publishReviewMessage}</p>
-                        {!publishReview?.isReady && publishReview ? (
-                          <small className={styles.panelDescription}>
-                            {publishReview.missingItems.slice(0, 3).join(", ")}
-                            {publishReview.missingItems.length > 3 ? " 외" : ""}
-                          </small>
-                        ) : null}
-                        {selectedWeekDetail.status !== "published" ? (
-                          <button
-                            type="button"
-                            className={styles.primaryButton}
-                            onClick={() => void onPublishWeek()}
-                          >
-                            검수 후 게시
-                          </button>
-                        ) : null}
-                      </article>
-                    </div>
-                  </div>
-
-                  <div className={styles.weekHeroMeta}>
-                    <div className={styles.panelStat}>
-                      <span className={styles.metaLabel}>Day 수</span>
-                      <strong>{selectedWeekOverview?.dayCount ?? 0}</strong>
-                    </div>
-                    <div className={styles.panelStat}>
-                      <span className={styles.metaLabel}>체크리스트</span>
-                      <strong>
-                        {selectedWeekOverview?.checklistCount ?? 0}
-                      </strong>
-                    </div>
-                    <div className={styles.panelStat}>
-                      <span className={styles.metaLabel}>질문</span>
-                      <strong>
-                        {selectedWeekOverview?.questionCount ?? 0}
-                      </strong>
-                    </div>
-                    <div className={styles.panelStat}>
-                      <span className={styles.metaLabel}>이미지</span>
-                      <strong>{selectedWeekOverview?.mediaCount ?? 0}</strong>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className={styles.panel}>
-                <div className={styles.panelHeader}>
-                  <div>
-                    <h3 className={styles.panelTitle}>사용자 노출본 검수</h3>
-                    <p className={styles.panelDescription}>
-                      Gemini paraphrase 결과를 확인하고 항목별로 앱 노출본을
-                      승인합니다.
-                    </p>
-                  </div>
-                </div>
-
-                {paraphraseMessage ? (
-                  <p className={styles.formHint}>{paraphraseMessage}</p>
-                ) : null}
-
-                {isLoadingParaphrases ? (
-                  <div className={styles.listEmpty}>
-                    Paraphrase 목록을 불러오는 중입니다.
-                  </div>
-                ) : paraphrases.length === 0 ? (
-                  <div className={styles.listEmpty}>
-                    아직 생성된 사용자 노출본이 없습니다.
-                  </div>
-                ) : (
-                  <div className={styles.weekDayList}>
-                    <details open>
-                      <summary className={styles.panelTitle}>
-                        주차 요약과 섹션
-                      </summary>
-                      <div className={styles.weekDayList}>
-                        {paraphrases
-                          .filter(
-                            (item) =>
-                              item.contentScope === "week_summary" ||
-                              item.contentScope === "section",
-                          )
-                          .map((item) => (
-                            <ParaphraseCard
-                              key={item.id}
-                              item={item}
-                              activatingParaphraseId={activatingParaphraseId}
-                              onActivate={(id) => void activateParaphrase(id)}
-                            />
-                          ))}
+                  <Button type="button" onClick={() => setIsOverlayOpen(true)}>
+                    상세 편집 열기
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="grid grid-cols-1 gap-5 xl:grid-cols-[auto_minmax(0,1fr)_160px]">
+                    <WeekBabyImage weekNumber={selectedWeekDetail.weekNumber} />
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          선택 주차
+                        </p>
+                        <h4 className="mt-1 text-lg font-semibold">
+                          {selectedWeekDetail.title}
+                        </h4>
                       </div>
-                    </details>
-
-                    <details>
-                      <summary className={styles.panelTitle}>
-                        체크리스트
-                      </summary>
-                      <div className={styles.weekDayList}>
-                        {paraphrases
-                          .filter((item) => item.contentScope === "checklist")
-                          .map((item) => (
-                            <ParaphraseCard
-                              key={item.id}
-                              item={item}
-                              activatingParaphraseId={activatingParaphraseId}
-                              onActivate={(id) => void activateParaphrase(id)}
-                            />
-                          ))}
+                      <div className="flex flex-wrap gap-2">
+                        <Badge
+                          variant="outline"
+                          className={weekToneClass(selectedWeekDetail.status)}
+                        >
+                          {getWeekStatusLabel(selectedWeekDetail.status)}
+                        </Badge>
+                        <Badge variant="outline">
+                          아기 크기 {selectedWeekDetail.babySizeLabel || "-"}
+                        </Badge>
+                        <Badge variant="outline">
+                          비교 {selectedWeekDetail.babySizeCompareObject || "-"}
+                        </Badge>
                       </div>
-                    </details>
-
-                    <details>
-                      <summary className={styles.panelTitle}>질문</summary>
-                      <div className={styles.weekDayList}>
-                        {paraphrases
-                          .filter((item) => item.contentScope === "question")
-                          .map((item) => (
-                            <ParaphraseCard
-                              key={item.id}
-                              item={item}
-                              activatingParaphraseId={activatingParaphraseId}
-                              onActivate={(id) => void activateParaphrase(id)}
-                            />
-                          ))}
-                      </div>
-                    </details>
-                  </div>
-                )}
-              </section>
-
-              <section className={styles.panel}>
-                <div className={styles.panelHeader}>
-                  <div>
-                    <h3 className={styles.panelTitle}>Day 1~7 검수</h3>
-                  </div>
-                </div>
-
-                <div className={styles.weekDayList}>
-                  {selectedWeekDayRows.map((day) => (
-                    <article key={day.id} className={styles.weekDayRow}>
-                      <div className={styles.weekDayLead}>
-                        <div>
-                          <h4>Day {day.dayNumber}</h4>
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <SummaryCard
+                          label="오늘 아기는요"
+                          value={selectedWeekDetail.babySummary}
+                        />
+                        <SummaryCard
+                          label="오늘 엄마는요"
+                          value={selectedWeekDetail.motherSummary}
+                        />
+                        <div className="space-y-3 rounded-lg border bg-muted p-4 md:col-span-2">
+                          <p className="text-sm font-semibold">게시 게이트</p>
+                          <div className="space-y-3">
+                            <p className="text-sm text-muted-foreground">
+                              {publishReviewMessage}
+                            </p>
+                            {!publishReview?.isReady && publishReview ? (
+                              <p className="text-xs text-muted-foreground">
+                                {publishReview.missingItems
+                                  .slice(0, 3)
+                                  .join(", ")}
+                                {publishReview.missingItems.length > 3
+                                  ? " 외"
+                                  : ""}
+                              </p>
+                            ) : null}
+                            {selectedWeekDetail.status !== "published" ? (
+                              <Button
+                                type="button"
+                                onClick={() => void onPublishWeek()}
+                              >
+                                검수 후 게시
+                              </Button>
+                            ) : null}
+                          </div>
                         </div>
-                        <span
-                          className={`${styles.statusBadge} ${
-                            day.status === "complete"
-                              ? styles.statusSuccess
-                              : day.status === "partial"
-                                ? styles.statusWarning
-                                : styles.statusMuted
-                          }`}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 xl:grid-cols-1">
+                      <StatCard
+                        label="Day 수"
+                        value={selectedWeekOverview?.dayCount ?? 0}
+                      />
+                      <StatCard
+                        label="체크리스트"
+                        value={selectedWeekOverview?.checklistCount ?? 0}
+                      />
+                      <StatCard
+                        label="질문"
+                        value={selectedWeekOverview?.questionCount ?? 0}
+                      />
+                      <StatCard
+                        label="이미지"
+                        value={selectedWeekOverview?.mediaCount ?? 0}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">사용자 노출본 검수</CardTitle>
+                  <CardDescription>
+                    Gemini paraphrase 결과를 확인하고 항목별로 앱 노출본을
+                    승인합니다.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {paraphraseMessage ? (
+                    <p className="text-sm text-muted-foreground">
+                      {paraphraseMessage}
+                    </p>
+                  ) : null}
+
+                  {isLoadingParaphrases ? (
+                    <p className="rounded-md border border-dashed bg-muted p-4 text-sm text-muted-foreground">
+                      Paraphrase 목록을 불러오는 중입니다.
+                    </p>
+                  ) : paraphrases.length === 0 ? (
+                    <p className="rounded-md border border-dashed bg-muted p-4 text-sm text-muted-foreground">
+                      아직 생성된 사용자 노출본이 없습니다.
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      <ParaphraseGroup
+                        title="주차 요약과 섹션"
+                        items={paraphrases.filter(
+                          (item) =>
+                            item.contentScope === "week_summary" ||
+                            item.contentScope === "section",
+                        )}
+                        activatingParaphraseId={activatingParaphraseId}
+                        onActivate={(id) => void activateParaphrase(id)}
+                      />
+                      <ParaphraseGroup
+                        title="체크리스트"
+                        items={paraphrases.filter(
+                          (item) => item.contentScope === "checklist",
+                        )}
+                        activatingParaphraseId={activatingParaphraseId}
+                        onActivate={(id) => void activateParaphrase(id)}
+                      />
+                      <ParaphraseGroup
+                        title="질문"
+                        items={paraphrases.filter(
+                          (item) => item.contentScope === "question",
+                        )}
+                        activatingParaphraseId={activatingParaphraseId}
+                        onActivate={(id) => void activateParaphrase(id)}
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg">Day 1~7 검수</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {selectedWeekDayRows.map((day) => (
+                    <article
+                      key={day.id}
+                      className="rounded-lg border bg-muted p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <h4 className="text-base font-semibold">
+                          Day {day.dayNumber}
+                        </h4>
+                        <Badge
+                          variant="outline"
+                          className={publishDayToneClass(day.status)}
                         >
                           {day.status === "complete"
                             ? "검수 가능"
                             : day.status === "partial"
                               ? "보완 필요"
                               : "미작성"}
-                        </span>
+                        </Badge>
                       </div>
-
-                      <div className={styles.weekDaySections}>
-                        <div className={styles.weekDaySectionCell}>
-                          <strong>태아 발달정보</strong>
-                          <span>{day.fetalCount}개 문단</span>
+                      <div className="mt-3 space-y-3">
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                          <StatCard
+                            label="태아 발달정보"
+                            value={`${day.fetalCount}개 문단`}
+                          />
+                          <StatCard
+                            label="모체 변화정보"
+                            value={`${day.maternalCount}개 문단`}
+                          />
+                          <StatCard
+                            label="생활 체크리스트"
+                            value={`${day.checklistCount}개 항목`}
+                          />
+                          <StatCard
+                            label="태교 질문"
+                            value={`${day.questionCount}개 항목`}
+                          />
                         </div>
-                        <div className={styles.weekDaySectionCell}>
-                          <strong>모체 변화정보</strong>
-                          <span>{day.maternalCount}개 문단</span>
-                        </div>
-                        <div className={styles.weekDaySectionCell}>
-                          <strong>생활 체크리스트</strong>
-                          <span>{day.checklistCount}개 항목</span>
-                        </div>
-                        <div className={styles.weekDaySectionCell}>
-                          <strong>태교 질문</strong>
-                          <span>{day.questionCount}개 항목</span>
-                        </div>
+                        {day.babyMessage ? (
+                          <p className="rounded-md border bg-muted p-3 text-sm leading-6 text-muted-foreground">
+                            {day.babyMessage}
+                          </p>
+                        ) : null}
                       </div>
-
-                      {day.babyMessage ? (
-                        <p className={styles.weekDayMessage}>
-                          {day.babyMessage}
-                        </p>
-                      ) : null}
                     </article>
                   ))}
-                </div>
-              </section>
+                </CardContent>
+              </Card>
             </>
           ) : (
-            <section className={styles.panel}>
-              <div className={styles.listEmpty}>
+            <Card>
+              <CardContent className="p-6 text-center text-sm text-muted-foreground">
                 {isLoadingWeeks
                   ? "주차 상세를 불러오는 중입니다."
                   : "왼쪽에서 주차를 선택하면 주차 개요와 Day 검수 보드가 열립니다."}
-              </div>
-            </section>
+              </CardContent>
+            </Card>
           )}
         </div>
       </section>
@@ -762,7 +776,6 @@ export function AdminWeeksSection({
         selectedWeekHeroMedia={selectedWeekHeroMedia}
         selectedWeekCompareMedia={selectedWeekCompareMedia}
         onWeekFieldChange={onWeekFieldChange}
-        onWeekStatusChange={onWeekStatusChange}
         onUploadWeekCoverImage={onUploadWeekCoverImage}
         onWeekDayChange={onWeekDayChange}
         onWeekSectionChange={onWeekSectionChange}
@@ -782,8 +795,59 @@ export function AdminWeeksSection({
         onRemoveWeekAsset={onRemoveWeekAsset}
         onRemoveWeekMedia={onRemoveWeekMedia}
         onSaveWeek={onSaveWeek}
-        onPublishWeek={onPublishWeek}
       />
+    </section>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border bg-muted p-4">
+      <p className="text-sm font-semibold">{label}</p>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{value}</p>
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-base font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function ParaphraseGroup({
+  title,
+  items,
+  activatingParaphraseId,
+  onActivate,
+}: {
+  title: string;
+  items: AdminParaphraseItem[];
+  activatingParaphraseId: string | null;
+  onActivate: (id: string) => void;
+}) {
+  return (
+    <section className="space-y-2">
+      <h4 className="text-base font-semibold">{title}</h4>
+      {items.length === 0 ? (
+        <p className="rounded-md border border-dashed bg-muted p-4 text-sm text-muted-foreground">
+          표시할 항목이 없습니다.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => (
+            <ParaphraseCard
+              key={item.id}
+              item={item}
+              activatingParaphraseId={activatingParaphraseId}
+              onActivate={onActivate}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
