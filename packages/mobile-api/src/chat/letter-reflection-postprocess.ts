@@ -25,13 +25,30 @@ export type LetterReflectionRecentMessage = {
   role?: "user" | "assistant" | "system" | string;
   text?: string;
 };
+export type LetterReflectionLoopPolicy = {
+  minUserTurnsBeforeNext: number;
+  maxUserTurnsPerQuestion: number;
+  quickReplyMode: LetterReflectionQuickReplyMode;
+  wrapUpMessage: string;
+  nextQuestionLabelTemplate: string;
+  nextQuestionMessage: string;
+  exhaustedFreeChatMessage: string;
+};
 
-export const LETTER_REFLECTION_NEXT_CHIP_MIN_TURNS_MIN = 2;
-export const LETTER_REFLECTION_NEXT_CHIP_MIN_TURNS_MAX = 2;
 export const QUESTION_EXHAUSTED_FREE_CHAT_MESSAGE =
   "오늘의 질문을 모두 답변하셨어요. 이제 자유롭게 얘기해보아요.";
 export const QUESTION_WRAP_UP_MESSAGE =
   "오늘 질문은 여기까지 담아도 충분해요. 이 마음을 기억해둘게요.";
+export const DEFAULT_LETTER_REFLECTION_LOOP_POLICY: LetterReflectionLoopPolicy =
+  {
+    minUserTurnsBeforeNext: 3,
+    maxUserTurnsPerQuestion: 5,
+    quickReplyMode: "hidden",
+    wrapUpMessage: QUESTION_WRAP_UP_MESSAGE,
+    nextQuestionLabelTemplate: "다른 질문도 볼래요 ({{remainingCount}}개)",
+    nextQuestionMessage: "다음 질문으로 이어갈래요.",
+    exhaustedFreeChatMessage: QUESTION_EXHAUSTED_FREE_CHAT_MESSAGE,
+  };
 
 type AssistantMessagePartLike = {
   type: string;
@@ -44,14 +61,90 @@ type AssistantMessageLike = {
   parts: AssistantMessagePartLike[];
 };
 
+function asPolicyRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function asPolicyString(value: unknown, fallback: string) {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function asPolicyInt(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+) {
+  const raw =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim()
+        ? Number(value)
+        : fallback;
+  const next = Number.isFinite(raw) ? Math.floor(raw) : fallback;
+  return Math.min(max, Math.max(min, next));
+}
+
+export function normalizeLetterReflectionLoopPolicy(
+  value: unknown,
+  base: LetterReflectionLoopPolicy = DEFAULT_LETTER_REFLECTION_LOOP_POLICY,
+): LetterReflectionLoopPolicy {
+  const record = asPolicyRecord(value) ?? {};
+  const minUserTurnsBeforeNext = asPolicyInt(
+    record.minUserTurnsBeforeNext ?? record.min_user_turns_before_next,
+    base.minUserTurnsBeforeNext,
+    1,
+    20,
+  );
+  const maxUserTurnsPerQuestion = asPolicyInt(
+    record.maxUserTurnsPerQuestion ?? record.max_user_turns_per_question,
+    base.maxUserTurnsPerQuestion,
+    minUserTurnsBeforeNext,
+    30,
+  );
+  const quickReplyModeValue = record.quickReplyMode ?? record.quick_reply_mode;
+  const quickReplyMode =
+    quickReplyModeValue === "assistive"
+      ? "assistive"
+      : quickReplyModeValue === "hidden"
+        ? "hidden"
+        : base.quickReplyMode;
+
+  return {
+    minUserTurnsBeforeNext,
+    maxUserTurnsPerQuestion,
+    quickReplyMode,
+    wrapUpMessage: asPolicyString(
+      record.wrapUpMessage ?? record.wrap_up_message,
+      base.wrapUpMessage,
+    ),
+    nextQuestionLabelTemplate: asPolicyString(
+      record.nextQuestionLabelTemplate ?? record.next_question_label_template,
+      base.nextQuestionLabelTemplate,
+    ),
+    nextQuestionMessage: asPolicyString(
+      record.nextQuestionMessage ?? record.next_question_message,
+      base.nextQuestionMessage,
+    ),
+    exhaustedFreeChatMessage: asPolicyString(
+      record.exhaustedFreeChatMessage ?? record.exhausted_free_chat_message,
+      base.exhaustedFreeChatMessage,
+    ),
+  };
+}
+
 export function resolveLetterReflectionNextChipMinTurns(
   currentAttachmentQuestionId: string | null,
+  policy: unknown = DEFAULT_LETTER_REFLECTION_LOOP_POLICY,
 ) {
+  const normalized = normalizeLetterReflectionLoopPolicy(policy);
   if (!currentAttachmentQuestionId) {
-    return LETTER_REFLECTION_NEXT_CHIP_MIN_TURNS_MAX;
+    return normalized.maxUserTurnsPerQuestion;
   }
 
-  return LETTER_REFLECTION_NEXT_CHIP_MIN_TURNS_MIN;
+  return normalized.minUserTurnsBeforeNext;
 }
 
 function countUserTurnsFromRecentMessages(
@@ -109,9 +202,9 @@ export function resolveLetterReflectionCurrentTurnCount(input: {
   return Math.max(recentUserTurns, nextQuestionId ? 1 : 0);
 }
 
-function wrapUpRepeatingQuestion(answer: unknown) {
+function wrapUpRepeatingQuestion(answer: unknown, wrapUpMessage: string) {
   if (typeof answer !== "string" || !answer.trim()) {
-    return QUESTION_WRAP_UP_MESSAGE;
+    return wrapUpMessage;
   }
 
   const sentences =
@@ -124,22 +217,23 @@ function wrapUpRepeatingQuestion(answer: unknown) {
     ? sentences.slice(0, -1).join(" ").trim()
     : answer.trim();
 
-  if (answerWithoutTrailingQuestion.includes(QUESTION_WRAP_UP_MESSAGE)) {
+  if (answerWithoutTrailingQuestion.includes(wrapUpMessage)) {
     return answerWithoutTrailingQuestion;
   }
 
   return answerWithoutTrailingQuestion
-    ? `${answerWithoutTrailingQuestion}\n\n${QUESTION_WRAP_UP_MESSAGE}`
-    : QUESTION_WRAP_UP_MESSAGE;
+    ? `${answerWithoutTrailingQuestion}\n\n${wrapUpMessage}`
+    : wrapUpMessage;
 }
 
 function transitionToFreeChat(
   payload: LetterReflectionPayload,
   answeredIds: string[],
+  answerText: string,
 ) {
   delete payload.quickReplies;
   payload.scenario = "general";
-  payload.answer = QUESTION_EXHAUSTED_FREE_CHAT_MESSAGE;
+  payload.answer = answerText;
   payload.nextSessionMemory = {
     ...(payload.nextSessionMemory ?? {}),
     workflowVersion: 2,
@@ -272,13 +366,15 @@ export function rewriteLetterReflectionQuickReplies(
   },
   options: {
     mode?: LetterReflectionQuickReplyMode;
+    loopPolicy?: unknown;
     quota?: number;
     candidateQuestionIds?: string[];
   } = {},
 ): LetterReflectionPayload {
   if (!payload) return payload;
+  const loopPolicy = normalizeLetterReflectionLoopPolicy(options.loopPolicy);
   const quota = options.quota ?? 3;
-  const mode = options.mode ?? "hidden";
+  const mode = options.mode ?? loopPolicy.quickReplyMode;
   const current = progress.currentAttachmentQuestionId;
   const answeredIdsAfterClose =
     current && !progress.answeredQuestionIds.includes(current)
@@ -293,13 +389,22 @@ export function rewriteLetterReflectionQuickReplies(
       : Math.max(0, quota - answeredAfterClose);
 
   if (remainingAfterClose === 0) {
-    transitionToFreeChat(payload, answeredIdsAfterClose);
+    transitionToFreeChat(
+      payload,
+      answeredIdsAfterClose,
+      loopPolicy.exhaustedFreeChatMessage,
+    );
     return payload;
   }
 
   const turnCount = progress.currentQuestionTurnCount ?? 0;
-  const nextChipMinTurns = resolveLetterReflectionNextChipMinTurns(current);
-  const allowNextChip = turnCount >= nextChipMinTurns;
+  const nextChipMinTurns = resolveLetterReflectionNextChipMinTurns(
+    current,
+    loopPolicy,
+  );
+  const allowNextChip =
+    turnCount >= nextChipMinTurns ||
+    turnCount >= loopPolicy.maxUserTurnsPerQuestion;
 
   preserveReflectionProgress(payload, progress, turnCount);
 
@@ -334,8 +439,11 @@ export function rewriteLetterReflectionQuickReplies(
 
   const nextButton = {
     id: "next",
-    label: `다른 질문도 볼래요 (${remainingAfterClose}개)`,
-    message: "다음 질문으로 이어갈래요.",
+    label: loopPolicy.nextQuestionLabelTemplate.replace(
+      /\{\{\s*remainingCount\s*\}\}/g,
+      String(remainingAfterClose),
+    ),
+    message: loopPolicy.nextQuestionMessage,
   };
 
   const existingNext = existingReplies.find((q) =>
@@ -343,7 +451,10 @@ export function rewriteLetterReflectionQuickReplies(
   );
 
   if (allowNextChip) {
-    payload.answer = wrapUpRepeatingQuestion(payload.answer);
+    payload.answer = wrapUpRepeatingQuestion(
+      payload.answer,
+      loopPolicy.wrapUpMessage,
+    );
   }
 
   payload.quickReplies = [
@@ -354,8 +465,8 @@ export function rewriteLetterReflectionQuickReplies(
             ? {
                 ...existingNext,
                 id: existingNext.id ?? "next",
-                label: `다른 질문도 볼래요 (${remainingAfterClose}개)`,
-                message: "다음 질문으로 이어갈래요.",
+                label: nextButton.label,
+                message: nextButton.message,
               }
             : nextButton,
         ]

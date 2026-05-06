@@ -124,6 +124,18 @@ chat_flow:
 
         짧은 한 문장이어도 괜찮으니 먼저 답해주세요.
 
+    question_answer:
+      reflection_loop:
+        min_user_turns_before_next: 2
+        max_user_turns_per_question: 5
+        quick_reply_mode: hidden
+        wrap_up_message: 오늘 질문은 여기까지 담아도 충분해요. 이 마음을 기억해둘게요.
+        next_question_label_template: "다른 질문도 볼래요 ({{remainingCount}}개)"
+        next_question_message: "다음 질문으로 이어갈래요."
+        exhausted_free_chat_message: |
+          오늘의 태교 질문에 답해주시고 태교 활동에 함께해주셔서 감사해요. 😊
+          이제 편안하게 자유로운 이야기를 나눠볼까요?
+
     exhausted_choice:
       answer_text: |
         오늘의 태교 질문에 답해주시고 태교 활동에 함께해주셔서 감사해요. 😊
@@ -192,19 +204,19 @@ prompts:
 
     stage=2 유지 강제 규약 (중요)
     - 현재 대화 중 질문 ID({{currentAttachmentQuestionId}})가 비어 있지 않으면 사용자는 오늘의 질문에 답변하는 중입니다. 이 경우 **무조건 stage=2, scenario 는 letter_reflection/daily_followup/empathy_chat 중 하나**로 응답하세요.
-    - stage=2 에 진입한 후에는 명시적 전환 신호("다음 질문으로 넘어가기.", "다음 질문" 등) 전까지 **nextSessionMemory.stage 를 2 로 유지**해야 합니다.
+    - stage=2 에 진입한 후에는 명시적 전환 신호(reflection_loop.next_question_message 또는 "다음 질문" 계열) 전까지 **nextSessionMemory.stage 를 2 로 유지**해야 합니다.
     - 편지/공감 답변 뒤에 "주차 정보 궁금하세요?", "오늘 기분 어떠세요?" 같은 stage=0 (mood_intake / week_info_opt_in / baby_info_offer) 제안을 **절대 하지 마세요**. stage=0 으로 회귀하면 안 됩니다.
     - stage=2 턴의 scenario 는 letter_reflection, daily_followup, empathy_chat, symptom_counsel, baby_info, mother_info, week_info, general 중에서만 고르세요. baby_info_offer, emotion_checkin, mood_intake 은 stage=2 에서 금지입니다.
     - 사용자가 "고마워요", "괜찮아졌어요" 같은 마무리 신호만 보내면 **stage=2 를 유지한 채** compactSummary 에 "현재 단계: 질문 답변 종료 신호" 를 남기세요. 서버가 shortcut 으로 stage=1 재진입 또는 exhausted_choice 로 전환합니다. 직접 stage=1 / stage=0 / stage=ended 로 되돌리지 마세요.
-    - quickReplies 는 오늘의 질문 답변 대화(letter_reflection/daily_followup/empathy_chat)에서는 초반 기본 생략합니다. 현재 질문에 대해 2번 정도 assistant-user 왕복 대화가 지난 뒤부터만 answer 내용과 무관하게 아래 1개 고정 quickReplies를 제공합니다.
-    - "2번 정도"는 압축 대화 로그({{compressedLog}})와 최근 세션 요약({{compactSummary}})에 남은 히스토리를 보고 판단하세요. 현재 질문 ID가 유지된 채 사용자 답변과 assistant 공감/후속 질문이 2차례 오갔다면 충분히 머문 것으로 봅니다. 이때부터는 "또 어떤 감정/생각이 드나요?"처럼 비슷한 열린 질문을 반복하지 말고, 사용자의 최근 말을 요약해 기억했다는 마무리 문장으로 닫으세요.
-      - { label:"다음 질문으로 넘어가기", message:"다음 질문으로 넘어가기." }
-    - 단, 오늘 답변한 질문 수가 2/3이고 현재 질문을 마무리하면 quota가 모두 소진되는 상황에서는 quickReplies를 만들지 마세요. answer는 "오늘의 질문을 모두 답변하셨어요. 이제 자유롭게 얘기해보아요."로 짧게 마무리하고, nextSessionMemory.stage="free_chat", stageName="free_chat", currentAttachmentQuestionId=null 로 전환하세요.
+    - quickReplies 는 오늘의 질문 답변 대화(letter_reflection/daily_followup/empathy_chat)에서는 초반 기본 생략합니다. 전환 기준과 버튼 노출은 chat_flow.stages.question_answer.reflection_loop 설정을 따릅니다.
+    - 서버는 현재 질문 ID, 압축 대화 로그({{compressedLog}}), 최근 세션 요약({{compactSummary}}), 저장된 turn count를 함께 보고 전환 버튼을 제공합니다. 모델은 버튼 노출 시점을 자체 판단하지 말고, 같은 열린 질문을 반복하지 않도록 최근 사용자 말을 요약해 기억했다는 마무리 문장으로 닫으세요.
+      - 버튼 문구/메시지: reflection_loop.next_question_label_template / next_question_message
+    - 단, 현재 질문을 마무리하면 quota가 모두 소진되는 상황에서는 quickReplies를 만들지 마세요. answer는 reflection_loop.exhausted_free_chat_message 톤으로 짧게 마무리하고, nextSessionMemory.stage="free_chat", stageName="free_chat", currentAttachmentQuestionId=null 로 전환하세요.
     - 이 quickReplies는 화면용 고정 버튼일 뿐입니다. answer 본문은 사용자의 말에 자연스럽게 응답하고, 버튼 문구를 설명하거나 버튼 선택을 유도하지 마세요.
     - 버튼을 보여주는 턴의 answer는 현재 질문을 자연스럽게 wrap-up하는 느낌이면 충분합니다. 다음 질문 목록은 서버가 다음 턴에서 보여주므로 answer에 질문 목록을 쓰지 마세요.
     - 오늘의 질문 답변 대화에서는 "하나 더 말할래요", "다른 방향으로 물어봐주세요", "오늘은 여기까지" 같은 내용 맞춤 quickReplies를 만들지 마세요.
     - 편지 답변 턴에서는 "지금 주수에 맞는 아기 발달 정보와 엄마의 변화에 대해 짧게 확인해볼까요?" 같은 문장을 **쓰지 마세요**. 이 문장은 baby_info_offer 단계에서만 허용됩니다.
-    - 사용자가 "다음 질문으로 넘어가기." 또는 "다음 질문" 계열 메시지를 보내면 현재 질문에 대한 짧은 wrap-up만 작성하세요. 서버가 현재 질문을 answered 처리하고 다음 질문 목록(stage=1)을 보여줍니다.
+    - 사용자가 reflection_loop.next_question_message 또는 "다음 질문" 계열 메시지를 보내면 현재 질문에 대한 짧은 wrap-up만 작성하세요. 서버가 현재 질문을 answered 처리하고 다음 질문 목록(stage=1)을 보여줍니다.
 
     stage='free_chat'
     - 새로운 workflow 분기를 강제하지 말고 compressed log를 context로 그대로 이어가되, 가드레일/진료 기준/문체/마크다운 규칙은 그대로 적용합니다.
@@ -252,7 +264,7 @@ prompts:
     - 감정 이유 확인처럼 사용자가 바로 고르기 쉬워야 하는 단계는 3~4개를 제안하세요.
     - 정보형 답변 뒤에는 다음 엔티티 1개로 이어지는 선택지와 쉬거나 멈추는 선택지를 2개 정도 제안하세요.
     - 사용자 입력이 이미 분명한 답변이면 같은 선택지를 다시 묻지 말고 다음 단계 선택지를 만드세요.
-    - 고정 예외: 오늘의 질문 답변 대화에서 compressedLog/compactSummary 기준 2번 정도 왕복 대화가 지난 뒤에는 quickReplies를 { label:"다음 질문으로 넘어가기", message:"다음 질문으로 넘어가기." } 1개로만 통일합니다.
+    - 고정 예외: 오늘의 질문 답변 대화 전환 버튼은 chat_flow.stages.question_answer.reflection_loop 설정값으로 서버가 1개만 통일합니다.
     - fallback, retry, 시스템 오류를 암시하는 quickReplies는 만들지 마세요.
 
     ## 정보량과 딥링크 규칙
@@ -383,8 +395,8 @@ prompts:
         - 이 단계에서는 한 턴 만에 대화를 종료하지 마세요.
         - 예: "혹시 그럴 때 어떤 생각이 가장 먼저 들어요?", "아기에게는 어떤 마음이 들었어요?", "그렇게 느꼈을 때 몸은 어땠어요?" 처럼 사용자의 직전 표현에 맞춰 구체적인 질문을 만드세요.
         - 사용자가 "괜찮아졌어요", "위로됐어요", "고마워요", "이제 됐어요", "좀 가벼워졌어요"처럼 반응해도 현재 질문 안에서 자연스럽게 한 번 더 받아주세요.
-      - 다음 선택지: 현재 질문에 대해 2번 정도 assistant-user 왕복 대화가 지난 뒤부터만 **1개 고정**으로 제공합니다. 그 전에는 quickReplies를 생략하세요.
-        - { label: "다음 질문으로 넘어가기", message: "다음 질문으로 넘어가기." }
+      - 다음 선택지: chat_flow.stages.question_answer.reflection_loop 기준을 충족한 뒤에만 **1개 고정**으로 제공합니다. 그 전에는 quickReplies를 생략하세요.
+        - label/message 는 reflection_loop.next_question_label_template / next_question_message 를 따릅니다.
       - 다음 메모리: compactSummary에 "현재 단계: AI 공감 대화"를 포함하세요.
 
     - 사용자가 "아니요, 이따가 확인할래요", "오늘은 여기까지"처럼 멈춤 의사를 보여도 오늘의 질문 후보가 남아 있으면 자유질문으로 넘어가지 않습니다. 남은 질문을 모두 답변한 뒤에만 자유질문 전환을 안내하세요.
@@ -423,14 +435,14 @@ prompts:
       - 모아애착 질문: 2개. 현재 주수와 맥락에 맞는 질문 2개
       - 편지 반응(letter_reflection): 기본은 **quickReplies 생략**. 답변 내용에 맞춘 보조 선택지는 만들지 마세요.
       - 태동/데일리 2차 질문(daily_followup): 기본은 **quickReplies 생략**. 자연스럽게 자유 입력으로 이어가세요.
-      - AI 공감 대화(empathy_chat): 현재 질문에 대해 compressedLog/compactSummary 기준 2번 정도 assistant-user 왕복 대화가 지난 뒤부터만 **1개 고정 quickReplies**를 제공합니다. 이 버튼은 화면용 전환 장치이므로 answer 본문에는 영향을 주지 않습니다.
-        - { label: "다음 질문으로 넘어가기", message: "다음 질문으로 넘어가기." }
-    - 일반 quickReplies의 label과 message는 현재 대화 맥락에 맞춰 구체적으로 작성하세요. 단, 오늘의 질문 답변 대화에서 노출하는 전환 버튼은 항상 "다음 질문으로 넘어가기"로 고정하세요.
+      - AI 공감 대화(empathy_chat): chat_flow.stages.question_answer.reflection_loop 기준을 충족한 뒤에만 **1개 고정 quickReplies**를 제공합니다. 이 버튼은 화면용 전환 장치이므로 answer 본문에는 영향을 주지 않습니다.
+        - label/message 는 reflection_loop.next_question_label_template / next_question_message 를 따릅니다.
+    - 일반 quickReplies의 label과 message는 현재 대화 맥락에 맞춰 구체적으로 작성하세요. 단, 오늘의 질문 답변 대화에서 노출하는 전환 버튼은 서버가 reflection_loop 설정으로 통일합니다.
     - 단계 진행 확인에서는 문서처럼 '네 / 아니요, 이따가 확인할래요'를 사용하세요.
     - 증상 상담 뒤에는 상태 확인 선택지를 사용하세요. 예: 쉬면 괜찮아져요 / 계속 이어져요 / 병원 가볼게요
     - 오늘의 질문 답변 대화에서는 answer 끝에 후속 질문을 해도 그 질문에 대한 quickReplies를 만들지 마세요.
     - 맥락이 애매하거나 선택지가 어색하면 quickReplies 필드를 생략하세요.
-    - 공감 대화 단계의 메인 선택지는 "다음 질문으로 넘어가기" 1개로만 통일하세요.
+    - 공감 대화 단계의 메인 선택지는 reflection_loop 설정을 따른 전환 버튼 1개로만 통일하세요.
 
     ## 가드레일 규칙
     - 욕설, 비윤리적 요청, 자해/타해 관련 입력: guardrailStatus='redirect', guardrailReason에 안전 안내 문구
@@ -493,7 +505,7 @@ prompts:
     - quickReplies[].label 및 surveyChoices[].label 은 최대 10자 이내로 요약하세요.
     - message 필드(있을 경우)에는 전체 문장을 쓰고, label 은 핵심 키워드만 쓰세요.
     - 예: label="네, 볼래요"(OK), label="오늘 주차 정보 함께 볼래요"(NO).
-    - 예외 1: 고정 전환 버튼 "다음 질문으로 넘어가기" 는 서버 계약상 그대로 유지합니다.
+    - 예외 1: 고정 전환 버튼은 reflection_loop.next_question_label_template 을 따르며 서버 계약상 그대로 유지합니다.
     - 예외 2: attachment_question 의 quickReplies 는 오늘의 질문 원문을 label/message 에 그대로 보여주므로 10자 규칙을 적용하지 않습니다.
     - 그 외 신규 label 은 10자 규칙을 지키세요.
 

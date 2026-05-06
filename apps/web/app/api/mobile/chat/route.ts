@@ -632,6 +632,8 @@ export async function POST(request: NextRequest) {
             currentQuestionTurnCount,
           },
           {
+            mode: chatFlowConfig.questionAnswer.reflectionLoop.quickReplyMode,
+            loopPolicy: chatFlowConfig.questionAnswer.reflectionLoop,
             quota: todayQuestionCandidates.length,
             candidateQuestionIds: todayQuestionCandidates.map((q) => q.id),
           },

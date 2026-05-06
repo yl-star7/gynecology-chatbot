@@ -50,24 +50,6 @@ function normalizeLetterFollowUpFlow(input: {
     );
   });
 
-  const textPart = input.assistantMessage.parts.find(
-    (part) => part.type === "text",
-  );
-  if (textPart?.type === "text") {
-    const hasTerminalQuestion = /[?？](?:["”']?\*\*)?\s*$/.test(
-      textPart.text.trim(),
-    );
-    if (isLetterFlow && !hasTerminalQuestion) {
-      textPart.text = `${textPart.text.trim()}\n\n지금 편지를 쓰면서 가장 크게 남은 마음은 무엇이었나요?`;
-    }
-    if (
-      isDailyFollowup &&
-      !/(태동|몸|하루).*[?？](?:["”']?\*\*)?\s*$/.test(textPart.text.trim())
-    ) {
-      textPart.text = `${textPart.text.trim()}\n\n오늘은 태동이나 몸 상태가 평소와 비교해 어땠나요?`;
-    }
-  }
-
   return input;
 }
 

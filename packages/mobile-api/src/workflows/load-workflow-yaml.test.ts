@@ -281,10 +281,10 @@ describe("maternal nursing workflow YAML", () => {
       expect.stringContaining("end는 summary를 트리거"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("2번 정도 assistant-user 왕복 대화"),
+      expect.stringContaining("chat_flow.stages.question_answer.reflection_loop"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("다음 질문으로 넘어가기"),
+      expect.stringContaining("reflection_loop.next_question_label_template"),
     );
   });
 });

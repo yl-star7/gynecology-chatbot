@@ -1,4 +1,5 @@
 import {
+  normalizeLetterReflectionLoopPolicy,
   QUESTION_WRAP_UP_MESSAGE,
   resolveLetterReflectionCurrentTurnCount,
   resolveLetterReflectionNextChipMinTurns,
@@ -46,10 +47,15 @@ describe("rewriteLetterReflectionQuickReplies", () => {
     ]);
   });
 
-  it("uses a stable two-turn threshold per question", () => {
-    expect(resolveLetterReflectionNextChipMinTurns("q1")).toBe(2);
-    expect(resolveLetterReflectionNextChipMinTurns("q2")).toBe(2);
-    expect(resolveLetterReflectionNextChipMinTurns("q1")).toBe(2);
+  it("uses the configured threshold per question", () => {
+    const policy = normalizeLetterReflectionLoopPolicy({
+      min_user_turns_before_next: 4,
+      max_user_turns_per_question: 6,
+    });
+
+    expect(resolveLetterReflectionNextChipMinTurns("q1", policy)).toBe(4);
+    expect(resolveLetterReflectionNextChipMinTurns("q2", policy)).toBe(4);
+    expect(resolveLetterReflectionNextChipMinTurns(null, policy)).toBe(6);
   });
 
   it("resolves the current turn count from persisted memory first", () => {
@@ -90,11 +96,22 @@ describe("rewriteLetterReflectionQuickReplies", () => {
         { label: "다른 질문도 볼래요", message: "." },
       ],
     };
-    const out = rewriteLetterReflectionQuickReplies(payload, {
-      answeredQuestionIds: [],
-      currentAttachmentQuestionId: "q1",
-      currentQuestionTurnCount: resolveLetterReflectionNextChipMinTurns("q1"),
+    const loopPolicy = normalizeLetterReflectionLoopPolicy({
+      min_user_turns_before_next: 2,
+      max_user_turns_per_question: 5,
     });
+    const out = rewriteLetterReflectionQuickReplies(
+      payload,
+      {
+        answeredQuestionIds: [],
+        currentAttachmentQuestionId: "q1",
+        currentQuestionTurnCount: resolveLetterReflectionNextChipMinTurns(
+          "q1",
+          loopPolicy,
+        ),
+      },
+      { loopPolicy },
+    );
     expect(out.quickReplies).toEqual([
       {
         label: "다른 질문도 볼래요 (2개)",
@@ -107,15 +124,24 @@ describe("rewriteLetterReflectionQuickReplies", () => {
     );
   });
 
-  it("hides the next-question button until the second reflection turn", () => {
+  it("hides the next-question button until the configured reflection turn", () => {
     const payload = {
       quickReplies: [{ label: "다른 질문도 볼래요", message: "." }],
     };
-    const out = rewriteLetterReflectionQuickReplies(payload, {
-      answeredQuestionIds: [],
-      currentAttachmentQuestionId: "q2",
-      currentQuestionTurnCount: 1,
-    });
+    const out = rewriteLetterReflectionQuickReplies(
+      payload,
+      {
+        answeredQuestionIds: [],
+        currentAttachmentQuestionId: "q2",
+        currentQuestionTurnCount: 1,
+      },
+      {
+        loopPolicy: {
+          min_user_turns_before_next: 2,
+          max_user_turns_per_question: 5,
+        },
+      },
+    );
     expect(out.quickReplies).toBeUndefined();
   });
 
@@ -203,14 +229,21 @@ describe("rewriteLetterReflectionQuickReplies", () => {
 
   it("keeps assistive buttons and adds the next button after threshold", () => {
     const payload = { quickReplies: [] };
+    const loopPolicy = normalizeLetterReflectionLoopPolicy({
+      min_user_turns_before_next: 2,
+      max_user_turns_per_question: 5,
+    });
     const out = rewriteLetterReflectionQuickReplies(
       payload,
       {
         answeredQuestionIds: [],
         currentAttachmentQuestionId: "q1",
-        currentQuestionTurnCount: resolveLetterReflectionNextChipMinTurns("q1"),
+        currentQuestionTurnCount: resolveLetterReflectionNextChipMinTurns(
+          "q1",
+          loopPolicy,
+        ),
       },
-      { mode: "assistive" },
+      { mode: "assistive", loopPolicy },
     );
 
     expect(out.quickReplies?.map((choice) => choice.label)).toEqual([
@@ -222,13 +255,58 @@ describe("rewriteLetterReflectionQuickReplies", () => {
 
   it("adds only the next-question button once the reflection turn threshold is reached", () => {
     const payload = { quickReplies: [] };
-    const out = rewriteLetterReflectionQuickReplies(payload, {
-      answeredQuestionIds: [],
-      currentAttachmentQuestionId: "q1",
-      currentQuestionTurnCount: resolveLetterReflectionNextChipMinTurns("q1"),
+    const loopPolicy = normalizeLetterReflectionLoopPolicy({
+      min_user_turns_before_next: 2,
+      max_user_turns_per_question: 5,
     });
+    const out = rewriteLetterReflectionQuickReplies(
+      payload,
+      {
+        answeredQuestionIds: [],
+        currentAttachmentQuestionId: "q1",
+        currentQuestionTurnCount: resolveLetterReflectionNextChipMinTurns(
+          "q1",
+          loopPolicy,
+        ),
+      },
+      { loopPolicy },
+    );
     expect(out.quickReplies).toHaveLength(1);
     expect(out.quickReplies![0].label).toBe("다른 질문도 볼래요 (2개)");
+  });
+
+  it("uses configured button text and wrap-up text", () => {
+    const payload = {
+      answer: "마음이 잘 전해졌어요. 또 떠오르는 마음이 있나요?",
+      quickReplies: [],
+    };
+
+    const out = rewriteLetterReflectionQuickReplies(
+      payload,
+      {
+        answeredQuestionIds: ["q1"],
+        currentAttachmentQuestionId: "q2",
+        currentQuestionTurnCount: 4,
+      },
+      {
+        loopPolicy: {
+          min_user_turns_before_next: 4,
+          max_user_turns_per_question: 6,
+          wrap_up_message: "여기서 잘 마무리해둘게요.",
+          next_question_label_template: "다음으로 (남은 {{remainingCount}}개)",
+          next_question_message: "다음 질문으로 갈게요.",
+        },
+      },
+    );
+
+    expect(out.answer).toBe("마음이 잘 전해졌어요.\n\n여기서 잘 마무리해둘게요.");
+    expect(out.quickReplies).toEqual([
+      {
+        id: "next",
+        label: "다음으로 (남은 1개)",
+        message: "다음 질문으로 갈게요.",
+      },
+    ]);
   });
 });
 

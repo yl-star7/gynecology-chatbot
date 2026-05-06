@@ -2,6 +2,10 @@ import {
   parseInitialMoodIntakeConfig,
   type InitialMoodPrompt,
 } from "./initial-workflow-message";
+import {
+  normalizeLetterReflectionLoopPolicy,
+  type LetterReflectionLoopPolicy,
+} from "./letter-reflection-postprocess";
 import type { CharacterTone } from "./workflow-payload";
 
 export type ChatFlowQuickReply = {
@@ -46,6 +50,9 @@ export type ChatFlowConfig = {
   };
   activeQuestionRequired: {
     answerTemplate: string;
+  };
+  questionAnswer: {
+    reflectionLoop: LetterReflectionLoopPolicy;
   };
   exhaustedChoice: {
     answerText: string;
@@ -201,6 +208,12 @@ export function parseChatFlowConfig(input: {
   const todayQuestionStage = asRecord(stages.today_question) ?? {};
   const questionSelectedStage = asRecord(stages.question_selected) ?? {};
   const activeQuestionStage = asRecord(stages.active_question_required) ?? {};
+  const questionAnswerStage =
+    asRecord(stages.question_answer ?? stages.questionAnswer) ?? {};
+  const reflectionLoopStage =
+    asRecord(
+      questionAnswerStage.reflection_loop ?? questionAnswerStage.reflectionLoop,
+    ) ?? {};
   const exhaustedStage = asRecord(stages.exhausted_choice) ?? {};
   const freeChatStage = asRecord(stages.free_chat_intro) ?? {};
   const endedStage = asRecord(stages.ended) ?? {};
@@ -282,6 +295,9 @@ export function parseChatFlowConfig(input: {
         activeQuestionStage.answer_template ?? activeQuestionStage.answerTemplate,
         '오늘의 질문이 아직 진행 중이에요. 자유질문은 오늘의 질문을 모두 답한 뒤에 열려요.\n\n**"{{questionText}}"**\n\n짧은 한 문장이어도 괜찮으니 먼저 답해주세요.',
       ),
+    },
+    questionAnswer: {
+      reflectionLoop: normalizeLetterReflectionLoopPolicy(reflectionLoopStage),
     },
     exhaustedChoice: {
       answerText: asString(

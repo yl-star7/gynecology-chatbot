@@ -55,6 +55,7 @@ import {
   type StageWorkflowMapping,
 } from "@gynecology-chatbot/mobile-api/chat/stage-workflow-selector";
 import {
+  normalizeLetterReflectionLoopPolicy,
   resolveLetterReflectionCurrentTurnCount,
   rewriteLetterReflectionQuickReplies,
   syncLetterReflectionPayloadToMessageParts,
@@ -78,23 +79,32 @@ const app = new Hono();
 const CHAT_FLOW_OPTIONS_KEY = "chat_flow_options";
 
 type ChatFlowOptions = {
-  letterReflectionQuickReplies: "hidden" | "assistive";
+  letterReflectionQuickReplies?: "hidden" | "assistive";
+  letterReflectionLoop?: unknown;
 };
 
-const DEFAULT_CHAT_FLOW_OPTIONS: ChatFlowOptions = {
-  letterReflectionQuickReplies: "hidden",
-};
+const DEFAULT_CHAT_FLOW_OPTIONS: ChatFlowOptions = {};
 
 function normalizeChatFlowOptions(value: unknown): ChatFlowOptions {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return DEFAULT_CHAT_FLOW_OPTIONS;
   }
   const record = value as Record<string, unknown>;
+  const letterReflectionQuickReplies =
+    record.letterReflectionQuickReplies === "assistive" ||
+    record.letter_reflection_quick_replies === "assistive"
+      ? "assistive"
+      : record.letterReflectionQuickReplies === "hidden" ||
+          record.letter_reflection_quick_replies === "hidden"
+        ? "hidden"
+        : undefined;
+  const letterReflectionLoop =
+    record.letterReflectionLoop ?? record.letter_reflection_loop;
   return {
-    letterReflectionQuickReplies:
-      record.letterReflectionQuickReplies === "assistive"
-        ? "assistive"
-        : "hidden",
+    ...(letterReflectionQuickReplies
+      ? { letterReflectionQuickReplies }
+      : {}),
+    ...(letterReflectionLoop ? { letterReflectionLoop } : {}),
   };
 }
 
@@ -754,7 +764,13 @@ app.post("/", async (c) => {
             currentQuestionTurnCount,
           },
           {
-            mode: chatFlowOptions.letterReflectionQuickReplies,
+            mode:
+              chatFlowOptions.letterReflectionQuickReplies ??
+              chatFlowConfig.questionAnswer.reflectionLoop.quickReplyMode,
+            loopPolicy: normalizeLetterReflectionLoopPolicy(
+              chatFlowOptions.letterReflectionLoop,
+              chatFlowConfig.questionAnswer.reflectionLoop,
+            ),
             quota: todayQuestionCandidates.length,
             candidateQuestionIds: todayQuestionCandidates.map((q) => q.id),
           },

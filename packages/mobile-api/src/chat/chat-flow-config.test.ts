@@ -61,6 +61,13 @@ describe("chat flow config", () => {
     });
     expect(config.todayQuestion.blockedText).toContain("태교 질문");
     expect(config.questionSelected.answerTemplate).toContain("{{questionText}}");
+    expect(config.questionAnswer.reflectionLoop).toMatchObject({
+      minUserTurnsBeforeNext: 2,
+      maxUserTurnsPerQuestion: 5,
+      quickReplyMode: "hidden",
+      nextQuestionLabelTemplate: "다른 질문도 볼래요 ({{remainingCount}}개)",
+      nextQuestionMessage: "다음 질문으로 이어갈래요.",
+    });
     expect(config.freeChatIntro.quickReplies.map((item) => item.id)).toEqual([
       "free-chat-topic-body",
       "free-chat-topic-feeling",
@@ -91,5 +98,9 @@ describe("chat flow config", () => {
       { label: "좋아요", message: "좋아요.", tone: "joyful" },
     ]);
     expect(config.weekInfoOptIn.answerVariations).toEqual(["주차 정보 볼까요?"]);
+    expect(config.questionAnswer.reflectionLoop).toMatchObject({
+      minUserTurnsBeforeNext: 3,
+      maxUserTurnsPerQuestion: 5,
+    });
   });
 });

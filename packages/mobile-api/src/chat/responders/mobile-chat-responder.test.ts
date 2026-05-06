@@ -790,7 +790,7 @@ describe("mobile chat responder", () => {
     );
     expect(textPart?.type).toBe("text");
     if (textPart?.type === "text") {
-      expect(textPart.text).toContain("가장 크게 남은 마음은 무엇이었나요?");
+      expect(textPart.text).toBe("아기에게 따뜻한 마음을 잘 전하셨어요.");
     }
   });
 
