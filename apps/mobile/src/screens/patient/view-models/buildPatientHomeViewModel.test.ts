@@ -21,10 +21,35 @@ test("home view model uses only today's message card", () => {
   assert.ok(viewModel.quote === null || viewModel.quote.length > 0);
   assert.equal(
     viewModel.babyMessage,
-    "우리 아기는 지금 1일차에요. 오늘도 엄마와 연결된 시간을 기다리고 있어요.",
+    "우리 아기는 지금 20주 1일이에요. 오늘도 엄마와 연결된 시간을 기다리고 있어요.",
   );
   assert.equal(viewModel.noteTitle, "오늘의 한마디");
   assert.ok(viewModel.noteBody.length > 0);
+});
+
+test("home view model keeps full pregnancy label in baby bubble", () => {
+  const viewModel = buildPatientHomeViewModel({
+    home: null,
+    profile: {
+      userId: "u14",
+      displayName: "테스터14",
+      phoneNumber: "01014141414",
+      babyNickname: "아기",
+      pregnancyWeekLabel: "14주 4일",
+      pregnancyDayCount: 102,
+      accountStatus: "active",
+      hasCompletedOnboarding: true,
+      tonePreference: "다정하게",
+    },
+    now: new Date("2026-03-30T09:00:00+09:00"),
+  });
+
+  assert.equal(viewModel.pregnancyWeekLabel, "14주 4일");
+  assert.equal(viewModel.pregnancyDayText, "임신 102일째");
+  assert.equal(
+    viewModel.babyMessage,
+    "아기는 지금 14주 4일이에요. 오늘도 엄마와 연결된 시간을 기다리고 있어요.",
+  );
 });
 
 test("home view model clamps due-date based label to minimum 1주 for pregnancy day 1", () => {

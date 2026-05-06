@@ -36,12 +36,10 @@ function buildBabyMessage(input: {
     return DEFAULT_BABY_MESSAGE;
   }
 
-  const dayMatch = input.pregnancyWeekLabel.match(/(\d{1,2})\s*일/);
-  const dayLabel = dayMatch
-    ? `${Number(dayMatch[1])}일차`
-    : input.pregnancyWeekLabel;
-
-  return `${input.babyName}는 지금 ${dayLabel}에요. 오늘도 엄마와 연결된 시간을 기다리고 있어요.`;
+  return (
+    `${input.babyName}는 지금 ${input.pregnancyWeekLabel}이에요. ` +
+    "오늘도 엄마와 연결된 시간을 기다리고 있어요."
+  );
 }
 
 function getDaysUntilDue(dueDate?: string | null, now?: Date): number | null {
@@ -125,14 +123,20 @@ export function buildPatientHomeViewModel({
     imageWeekLabel ? "default" : "unknown",
     `${quoteSeed}-hero`,
   );
+  const babyMessagePregnancyWeekLabel =
+    pregnancyWeekState.kind === "unknown"
+      ? null
+      : postDue
+        ? imageWeekLabel
+        : pregnancyWeekLabel;
   const babyMessage = babyCopyItem
     ? renderHomeCopyTemplate(babyCopyItem.body, {
         babyName: heroName,
-        pregnancyWeekLabel: imageWeekLabel,
+        pregnancyWeekLabel: babyMessagePregnancyWeekLabel,
       })
-    : imageWeekLabel
+    : babyMessagePregnancyWeekLabel
       ? buildBabyMessage({
-          pregnancyWeekLabel: imageWeekLabel,
+          pregnancyWeekLabel: babyMessagePregnancyWeekLabel,
           babyName: heroName,
         })
       : DEFAULT_BABY_MESSAGE;
