@@ -196,8 +196,16 @@ function stripMalformedEmbeddedPayload(value: string) {
       candidate.includes('"nextSessionMemory"'));
   if (!looksLikeWorkflowPayload) return value.trim();
 
-  const before = value.slice(0, start).trim();
-  const after = value.slice(end + 1).trim();
+  const before = value
+    .slice(0, start)
+    .trimEnd()
+    .replace(/```(?:json)?\s*$/i, "")
+    .trim();
+  const after = value
+    .slice(end + 1)
+    .trimStart()
+    .replace(/^```\s*/i, "")
+    .trim();
   return [before, after].filter(Boolean).join("\n\n").trim();
 }
 

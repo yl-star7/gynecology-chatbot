@@ -100,11 +100,13 @@ describe("workflow payload", () => {
         text: [
           "아기의 존재를 느끼는 순간이 신비롭고 따뜻하게 다가오시는군요.",
           "",
+          "```json",
           "{",
           ' "answer": "배를 쓰다듬으며 마음이 놓인다는 말씀이 참 좋아요.",',
           ' "scenario": "empathy_chat",',
           ' "guardrailStatus": "safe"',
           "}",
+          "```",
           "",
           "조금 더 이야기해주셔도 좋아요.",
         ].join("\n"),
