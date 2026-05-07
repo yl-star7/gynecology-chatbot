@@ -925,6 +925,75 @@ async function ensureSeedData() {
         now.toISOString(),
       ],
     );
+
+    const localQuestions = [
+      {
+        code: "weekly-change",
+        text: "이번 주 가장 뚜렷하게 느낀 변화는 무엇인가요?",
+        order: 1,
+      },
+      {
+        code: "baby-message",
+        text: "오늘 아기에게 들려주고 싶은 말은 무엇인가요?",
+        order: 2,
+      },
+      {
+        code: "next-week-heart",
+        text: "아기의 성장을 느끼며 다음 주를 어떤 마음으로 맞이하고 싶나요?",
+        order: 3,
+      },
+    ];
+
+    for (const question of localQuestions) {
+      await db.query(
+        `
+          INSERT INTO ${getQualifiedTable("content_week_questions")} (
+            id,
+            week_data_id,
+            day_number,
+            code,
+            question_text,
+            question_type,
+            help_text,
+            question_payload,
+            display_order,
+            is_required,
+            is_active,
+            created_at,
+            updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13)
+          ON CONFLICT (id) DO UPDATE
+          SET
+            week_data_id = EXCLUDED.week_data_id,
+            day_number = EXCLUDED.day_number,
+            code = EXCLUDED.code,
+            question_text = EXCLUDED.question_text,
+            question_type = EXCLUDED.question_type,
+            help_text = EXCLUDED.help_text,
+            question_payload = EXCLUDED.question_payload,
+            display_order = EXCLUDED.display_order,
+            is_required = EXCLUDED.is_required,
+            is_active = EXCLUDED.is_active,
+            updated_at = EXCLUDED.updated_at
+        `,
+        [
+          `week-question-${weekNumber}-general-${question.code}`,
+          `pregnancy-week-data-${weekNumber}`,
+          null,
+          question.code,
+          question.text,
+          "text",
+          null,
+          JSON.stringify({ source: "local-dev" }),
+          question.order,
+          true,
+          true,
+          now.toISOString(),
+          now.toISOString(),
+        ],
+      );
+    }
   }
 }
 
@@ -979,6 +1048,7 @@ export async function ensureLocalPostgresReady() {
         ALTER TABLE ${getQualifiedTable("calendar_logs")} ADD COLUMN IF NOT EXISTS payload jsonb NOT NULL DEFAULT '{}'::jsonb;
         ALTER TABLE ${getQualifiedTable("content_rag_files")} ADD COLUMN IF NOT EXISTS enabled boolean NOT NULL DEFAULT true;
         ALTER TABLE ${getQualifiedTable("pregnancy_profiles")} ADD COLUMN IF NOT EXISTS push_token text;
+        ALTER TABLE ${getQualifiedTable("user_question_events")} ADD COLUMN IF NOT EXISTS answer_text text;
       `);
 
       await ensureSeedData();

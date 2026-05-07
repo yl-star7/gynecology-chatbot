@@ -158,8 +158,8 @@ export function AdminChatSessionMessages({
                   {item.answerText?.trim() || "아직 답변이 없습니다."}
                 </p>
                 <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-                  앱 표시 요약:{" "}
-                  {item.appSummary?.trim() || "아직 요약이 없습니다."}
+                  앱 표시 답변/요약:{" "}
+                  {item.appSummary?.trim() || "아직 표시할 내용이 없습니다."}
                 </p>
               </div>
             ))

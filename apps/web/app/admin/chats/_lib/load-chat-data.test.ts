@@ -179,4 +179,47 @@ describe("fetchChatSessionMessages", () => {
       },
     ]);
   });
+
+  it("uses the same pending-answer display as the mobile record API", async () => {
+    const sessionId = "9bb8145c-937a-4f63-b9dd-68e666091c5a";
+    const questionId = "ecbc209d-b393-478f-a8da-18d9c51f9f35";
+
+    mockedPrisma.chat_sessions.findFirst.mockResolvedValue({
+      id: sessionId,
+      title: "오늘의 질문",
+    });
+    mockedPrisma.chat_messages.findMany.mockResolvedValue([]);
+    mockedPrisma.user_question_events.findMany.mockResolvedValue([
+      {
+        id: "event-1",
+        question_id: questionId,
+        status: "answered",
+        sent_at: new Date("2026-05-06T21:34:00.000Z"),
+        answered_at: new Date("2026-05-06T21:35:00.000Z"),
+        answer_text: "몸이 무거웠지만 아기가 잘 자란다고 생각했어요.",
+        content_week_questions: {
+          question_text: "이번 주 가장 뚜렷하게 느낀 변화는 무엇인가요?",
+        },
+      },
+    ]);
+    mockedPrisma.calendar_logs.findMany.mockResolvedValue([
+      {
+        title: "이번 주 가장 뚜렷하게 느낀 변화는 무엇인가요?",
+        summary: "질문 답변 대기 (q1)",
+        entry_type: "question_summary",
+        session_id: sessionId,
+        payload: {
+          source: "attachment_question_followup",
+          questionId,
+          compactSummary: "현재 단계: 질문 답변 대기 (q1)",
+        },
+      },
+    ]);
+
+    const result = await fetchChatSessionMessages(userId, sessionId);
+
+    expect(result?.questionAnswers[0]?.appSummary).toBe(
+      "몸이 무거웠지만 아기가 잘 자란다고 생각했어요.",
+    );
+  });
 });

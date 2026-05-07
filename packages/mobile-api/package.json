@@ -18,6 +18,7 @@
     "./push-sender": "./src/push-sender.ts",
     "./proactive-chat": "./src/proactive-chat.ts",
     "./record-day-questions": "./src/record-day-questions.ts",
+    "./records/record-day-route-helpers": "./src/records/record-day-route-helpers.ts",
     "./serializers": "./src/serializers.ts",
     "./user-action-log": "./src/user-action-log.ts",
     "./local-postgres": "./src/local-postgres.ts",

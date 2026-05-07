@@ -508,6 +508,7 @@ export function buildLocalPostgresBootstrapSql(schema: string) {
           status text NOT NULL DEFAULT 'sent',
           sent_at timestamptz,
           answered_at timestamptz,
+          answer_text text,
           created_at timestamptz NOT NULL DEFAULT now(),
           updated_at timestamptz NOT NULL DEFAULT now()
         );

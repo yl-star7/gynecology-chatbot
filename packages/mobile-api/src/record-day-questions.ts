@@ -25,7 +25,7 @@ export type RecordDayQuestionRecordRow = {
   } | null;
 };
 
-const QUESTION_WAITING_COPY = "답변을 기다리고 있어요.";
+export const QUESTION_WAITING_COPY = "답변을 기다리고 있어요.";
 const SESSION_QUESTION_GROUP_PREFIX = "session-question-group:";
 
 function mergeQuestionRows(
@@ -157,10 +157,18 @@ export function buildDailyQuestionSummaries(input: {
   ).map((question) => ({
     id: question.id,
     question: question.question_text,
-    answerSummary:
-      findQuestionAnswerSummary(input.records, question) ??
-      findAskedQuestionStatus(input.records, question),
+    answerSummary: resolveQuestionAnswerDisplay(input.records, question),
   }));
+}
+
+export function resolveQuestionAnswerDisplay(
+  records: RecordDayQuestionRecordRow[],
+  question: RecordDayQuestionRow,
+) {
+  return (
+    findQuestionAnswerSummary(records, question) ??
+    findAskedQuestionStatus(records, question)
+  );
 }
 
 function resolveQuestionSessionId(

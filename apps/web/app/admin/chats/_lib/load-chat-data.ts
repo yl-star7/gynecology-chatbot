@@ -1,4 +1,8 @@
 import { prisma } from "@gynecology-chatbot/db/prisma";
+import {
+  resolveQuestionAnswerDisplay,
+  type RecordDayQuestionRecordRow,
+} from "@gynecology-chatbot/mobile-api/record-day-questions";
 import { normalizePhoneNumberToE164 } from "@/lib/mobile/solapi-sms";
 import {
   computePhoneNumberBlindIndex,
@@ -414,24 +418,46 @@ export async function fetchChatSessionMessages(
           },
           orderBy: { created_at: "desc" },
           select: {
+            title: true,
             summary: true,
+            entry_type: true,
+            session_id: true,
             payload: true,
           },
         })
       : [];
-  const summaryByQuestionId = new Map<string, string>();
-  for (const record of summaryRecords) {
-    const payload =
-      record.payload &&
-      typeof record.payload === "object" &&
-      !Array.isArray(record.payload)
-        ? (record.payload as { questionId?: unknown })
-        : null;
-    const questionId =
-      typeof payload?.questionId === "string" ? payload.questionId : null;
-    if (!questionId || summaryByQuestionId.has(questionId)) continue;
-    summaryByQuestionId.set(questionId, record.summary ?? "");
-  }
+  const appDisplayRecords: RecordDayQuestionRecordRow[] = [
+    ...questionEventRecords.map(
+      (event): RecordDayQuestionRecordRow => ({
+        title: event.content_week_questions?.question_text ?? "오늘의 질문",
+        summary: event.answer_text,
+        entry_type: "survey_response",
+        session_id: sessionId,
+        payload: {
+          source: "user_question_events",
+          questionId: event.question_id,
+          question: event.content_week_questions?.question_text,
+          answer: event.answer_text ?? undefined,
+        },
+      }),
+    ),
+    ...summaryRecords.map((record): RecordDayQuestionRecordRow => {
+      const payload =
+        record.payload &&
+        typeof record.payload === "object" &&
+        !Array.isArray(record.payload)
+          ? (record.payload as RecordDayQuestionRecordRow["payload"])
+          : null;
+
+      return {
+        title: record.title ?? "오늘의 질문",
+        summary: record.summary,
+        entry_type: record.entry_type ?? "question_summary",
+        session_id: record.session_id,
+        payload,
+      };
+    }),
+  ];
 
   const questionAnswers: AdminChatQuestionAnswerRow[] =
     questionEventRecords.map((event) => ({
@@ -440,7 +466,12 @@ export async function fetchChatSessionMessages(
       questionText:
         event.content_week_questions?.question_text ?? "오늘의 질문",
       answerText: event.answer_text ?? null,
-      appSummary: summaryByQuestionId.get(event.question_id) ?? null,
+      appSummary: resolveQuestionAnswerDisplay(appDisplayRecords, {
+        id: event.question_id,
+        question_text:
+          event.content_week_questions?.question_text ?? "오늘의 질문",
+        day_number: null,
+      }),
       status: event.status,
       sentAt: toIso(event.sent_at),
       answeredAt: toIso(event.answered_at),

@@ -109,7 +109,9 @@ describe("ensureLocalPostgresReady", () => {
     await ensureLocalPostgresReady();
 
     const pregnancyProfileParams = queryMock.mock.calls.find(([sql]) =>
-      String(sql).includes('INSERT INTO "gynecology_local"."pregnancy_profiles"'),
+      String(sql).includes(
+        'INSERT INTO "gynecology_local"."pregnancy_profiles"',
+      ),
     )?.[1];
 
     expect(pregnancyProfileParams).toBeDefined();
@@ -200,7 +202,9 @@ describe("ensureLocalPostgresReady", () => {
     await ensureLocalPostgresReady();
 
     const weekUpsertSql = queryMock.mock.calls.find(([sql]) =>
-      String(sql).includes('INSERT INTO "gynecology_local"."content_pregnancy_week_data"'),
+      String(sql).includes(
+        'INSERT INTO "gynecology_local"."content_pregnancy_week_data"',
+      ),
     )?.[0];
 
     expect(String(weekUpsertSql)).toContain("status = EXCLUDED.status");
@@ -224,35 +228,60 @@ describe("ensureLocalPostgresReady", () => {
 
     const weekDataParams = queryMock.mock.calls.find(
       ([sql, params]) =>
-        String(sql).includes('INSERT INTO "gynecology_local"."content_pregnancy_week_data"') &&
+        String(sql).includes(
+          'INSERT INTO "gynecology_local"."content_pregnancy_week_data"',
+        ) &&
         Array.isArray(params) &&
         params[1] === 29,
     )?.[1];
     const dayContentParams = queryMock.mock.calls.find(
       ([sql, params]) =>
-        String(sql).includes('INSERT INTO "gynecology_local"."content_pregnancy_day_contents"') &&
+        String(sql).includes(
+          'INSERT INTO "gynecology_local"."content_pregnancy_day_contents"',
+        ) &&
         Array.isArray(params) &&
         params[1] === "pregnancy-week-data-29" &&
         params[2] === 4,
     )?.[1];
     const checklistParams = queryMock.mock.calls.find(
       ([sql, params]) =>
-        String(sql).includes('INSERT INTO "gynecology_local"."content_week_checklists"') &&
+        String(sql).includes(
+          'INSERT INTO "gynecology_local"."content_week_checklists"',
+        ) &&
         Array.isArray(params) &&
         params[1] === "pregnancy-week-data-29",
     )?.[1];
+    const questionParams = queryMock.mock.calls.find(
+      ([sql, params]) =>
+        String(sql).includes(
+          'INSERT INTO "gynecology_local"."content_week_questions"',
+        ) &&
+        Array.isArray(params) &&
+        params[1] === "pregnancy-week-data-29" &&
+        params[3] === "weekly-change",
+    )?.[1];
 
-    expect(weekDataParams?.[5]).toBe("29주 아기는 하루하루 힘을 키우며 바깥 세상을 만날 준비를 하고 있어요.");
-    expect(weekDataParams?.[6]).toBe("엄마 몸은 배뭉침과 피로를 더 자주 느낄 수 있어 쉬는 시간을 더 의식적으로 챙기는 게 좋아요.");
+    expect(weekDataParams?.[5]).toBe(
+      "29주 아기는 하루하루 힘을 키우며 바깥 세상을 만날 준비를 하고 있어요.",
+    );
+    expect(weekDataParams?.[6]).toBe(
+      "엄마 몸은 배뭉침과 피로를 더 자주 느낄 수 있어 쉬는 시간을 더 의식적으로 챙기는 게 좋아요.",
+    );
     expect(dayContentParams?.[4]).toBe(
       JSON.stringify({
-        items: ["29주 4일 아기는 감각을 더 또렷하게 느끼고, 잠과 깸의 리듬을 만들어가요."],
+        items: [
+          "29주 4일 아기는 감각을 더 또렷하게 느끼고, 잠과 깸의 리듬을 만들어가요.",
+        ],
       }),
     );
-    expect(dayContentParams?.[5]).toBe("아기의 움직임이 규칙적으로 느껴지는지 편안한 자세에서 천천히 살펴보세요.");
+    expect(dayContentParams?.[5]).toBe(
+      "아기의 움직임이 규칙적으로 느껴지는지 편안한 자세에서 천천히 살펴보세요.",
+    );
     expect(dayContentParams?.[6]).toBe(
       JSON.stringify({
-        items: ["엄마는 허리와 골반이 쉽게 뻐근할 수 있어 자세를 자주 바꿔주는 것이 도움이 돼요."],
+        items: [
+          "엄마는 허리와 골반이 쉽게 뻐근할 수 있어 자세를 자주 바꿔주는 것이 도움이 돼요.",
+        ],
       }),
     );
     expect(checklistParams).toEqual(
@@ -260,6 +289,13 @@ describe("ensureLocalPostgresReady", () => {
         "pregnancy-week-data-29",
         "hydration-rest",
         "물 자주 마시고 쉬는 시간 챙기기",
+      ]),
+    );
+    expect(questionParams).toEqual(
+      expect.arrayContaining([
+        "pregnancy-week-data-29",
+        "weekly-change",
+        "이번 주 가장 뚜렷하게 느낀 변화는 무엇인가요?",
       ]),
     );
   });
@@ -281,13 +317,19 @@ describe("ensureLocalPostgresReady", () => {
     await ensureLocalPostgresReady();
 
     const dayContentUpsertSql = queryMock.mock.calls.find(([sql]) =>
-      String(sql).includes('INSERT INTO "gynecology_local"."content_pregnancy_day_contents"'),
+      String(sql).includes(
+        'INSERT INTO "gynecology_local"."content_pregnancy_day_contents"',
+      ),
     )?.[0];
     const checklistUpsertSql = queryMock.mock.calls.find(([sql]) =>
-      String(sql).includes('INSERT INTO "gynecology_local"."content_week_checklists"'),
+      String(sql).includes(
+        'INSERT INTO "gynecology_local"."content_week_checklists"',
+      ),
     )?.[0];
 
-    expect(String(dayContentUpsertSql)).toContain("ON CONFLICT (week_data_id, day_number) DO UPDATE");
+    expect(String(dayContentUpsertSql)).toContain(
+      "ON CONFLICT (week_data_id, day_number) DO UPDATE",
+    );
     expect(String(dayContentUpsertSql)).toContain("id = EXCLUDED.id");
     expect(String(checklistUpsertSql)).toContain("ON CONFLICT (id) DO UPDATE");
     expect(String(checklistUpsertSql)).toContain("code = EXCLUDED.code");
@@ -311,11 +353,74 @@ describe("ensureLocalPostgresReady", () => {
 
     const genericChecklistUpsertSql = queryMock.mock.calls.find(
       ([sql, params]) =>
-        String(sql).includes('INSERT INTO "gynecology_local"."content_week_checklists"') &&
+        String(sql).includes(
+          'INSERT INTO "gynecology_local"."content_week_checklists"',
+        ) &&
         Array.isArray(params) &&
         params[0] === "week-checklist-29-general-symptom-log",
     )?.[0];
 
-    expect(String(genericChecklistUpsertSql)).toContain("ON CONFLICT (id) DO UPDATE");
+    expect(String(genericChecklistUpsertSql)).toContain(
+      "ON CONFLICT (id) DO UPDATE",
+    );
+  });
+
+  test("uses id-based upsert SQL for generic question rows with null day_number", async () => {
+    const queryMock = jest.fn().mockResolvedValue({ rows: [] });
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn().mockImplementation(() => ({
+        query: queryMock,
+      })),
+      types: {
+        setTypeParser: jest.fn(),
+      },
+    }));
+
+    const { ensureLocalPostgresReady } = await import("./local-postgres");
+
+    await ensureLocalPostgresReady();
+
+    const genericQuestionUpsertSql = queryMock.mock.calls.find(
+      ([sql, params]) =>
+        String(sql).includes(
+          'INSERT INTO "gynecology_local"."content_week_questions"',
+        ) &&
+        Array.isArray(params) &&
+        params[0] === "week-question-29-general-weekly-change",
+    )?.[0];
+
+    expect(String(genericQuestionUpsertSql)).toContain(
+      "ON CONFLICT (id) DO UPDATE",
+    );
+  });
+
+  test("keeps local question event schema aligned with saved answers", async () => {
+    const queryMock = jest.fn().mockResolvedValue({ rows: [] });
+
+    jest.doMock("pg", () => ({
+      Pool: jest.fn().mockImplementation(() => ({
+        query: queryMock,
+      })),
+      types: {
+        setTypeParser: jest.fn(),
+      },
+    }));
+
+    const { ensureLocalPostgresReady } = await import("./local-postgres");
+
+    await ensureLocalPostgresReady();
+
+    const bootstrapSql = queryMock.mock.calls
+      .map(([sql]) => String(sql))
+      .join("\n");
+
+    expect(bootstrapSql).toContain(
+      'CREATE TABLE IF NOT EXISTS "gynecology_local"."user_question_events"',
+    );
+    expect(bootstrapSql).toContain("answer_text text");
+    expect(bootstrapSql).toContain(
+      'ALTER TABLE "gynecology_local"."user_question_events" ADD COLUMN IF NOT EXISTS answer_text text',
+    );
   });
 });

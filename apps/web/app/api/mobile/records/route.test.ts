@@ -21,7 +21,7 @@ var adminDbInsertMock: jest.Mock;
 var adminDbSelectMock: jest.Mock;
 var adminDbUpdateMock: jest.Mock;
 
-jest.mock("@/lib/db/admin-client", () => {
+jest.mock("@gynecology-chatbot/mobile-api/db/admin-client", () => {
   adminDbInsertMock = jest.fn();
   adminDbSelectMock = jest.fn();
   adminDbUpdateMock = jest.fn();
@@ -34,7 +34,11 @@ jest.mock("@/lib/db/admin-client", () => {
 });
 
 import { requireMobileSession } from "@/lib/mobile/session-auth";
-import { dbInsert, dbSelect, dbUpdate } from "@/lib/db/admin-client";
+import {
+  dbInsert,
+  dbSelect,
+  dbUpdate,
+} from "@gynecology-chatbot/mobile-api/db/admin-client";
 import { GET, POST } from "./route";
 
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
@@ -368,6 +372,7 @@ describe("GET /api/mobile/records", () => {
       .mockResolvedValueOnce([
         { checklist_id: "check-due-date", status: "completed" },
       ] as never)
+      .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([
         {
