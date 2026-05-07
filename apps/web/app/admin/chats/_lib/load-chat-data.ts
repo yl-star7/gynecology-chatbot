@@ -3,6 +3,7 @@ import {
   resolveQuestionAnswerDisplay,
   type RecordDayQuestionRecordRow,
 } from "@gynecology-chatbot/mobile-api/record-day-questions";
+import { dbSelect } from "@/lib/db/admin-client";
 import { normalizePhoneNumberToE164 } from "@/lib/mobile/solapi-sms";
 import {
   computePhoneNumberBlindIndex,
@@ -27,8 +28,21 @@ export function isUuid(value: string): boolean {
   return UUID_REGEX.test(value);
 }
 
-function toIso(value: Date | null | undefined): string | null {
-  return value ? value.toISOString() : null;
+function toIso(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  return value instanceof Date ? value.toISOString() : value;
+}
+
+function toRequiredIso(value: Date | string): string {
+  return toIso(value) ?? "";
+}
+
+function eq(value: string) {
+  return encodeURIComponent(value);
+}
+
+function buildInFilter(values: string[]) {
+  return values.join(",");
 }
 
 function safePhoneLast4(
@@ -258,10 +272,100 @@ export interface ChatUserDetailResult {
   sessions: AdminChatSessionRow[];
 }
 
+type DbUserRow = {
+  id: string;
+  account_status: string;
+  phone_number_encrypted: string | null;
+  phone_number_last4: string | null;
+  created_at: string | Date;
+  last_login_at: string | Date | null;
+};
+
+type DbProfileRow = {
+  display_name: string | null;
+  pregnancy_week: number | null;
+  pregnancy_day_in_week: number | null;
+  week_override: number | null;
+  day_override: number | null;
+};
+
+type DbSessionRow = {
+  id: string;
+  title: string;
+  status: string;
+  last_message_at: string | Date | null;
+  created_at: string | Date;
+};
+
+async function fetchChatUserDetailFromDbClient(
+  userId: string,
+  sessionLimit: number,
+): Promise<ChatUserDetailResult | null> {
+  const [userRows, profileRows] = await Promise.all([
+    dbSelect<DbUserRow[]>(
+      `users?select=id,account_status,phone_number_encrypted,phone_number_last4,created_at,last_login_at&id=eq.${eq(userId)}&limit=1`,
+    ),
+    dbSelect<DbProfileRow[]>(
+      `pregnancy_profiles?select=display_name,pregnancy_week,pregnancy_day_in_week,week_override,day_override&user_id=eq.${eq(userId)}&limit=1`,
+    ),
+  ]);
+
+  const user = userRows[0] ?? null;
+  if (!user) return null;
+
+  const profile = profileRows[0] ?? null;
+  const week = profile?.week_override ?? profile?.pregnancy_week ?? null;
+  const day = profile?.day_override ?? profile?.pregnancy_day_in_week ?? null;
+  const sessionRecords = await dbSelect<DbSessionRow[]>(
+    `chat_sessions?select=id,title,status,last_message_at,created_at&user_id=eq.${eq(userId)}&order=last_message_at.desc.nullslast,created_at.desc&limit=${sessionLimit}`,
+  );
+  const sessionIds = sessionRecords.map((session) => session.id);
+  const messageRows = sessionIds.length
+    ? await dbSelect<Array<{ session_id: string }>>(
+        `chat_messages?select=session_id&session_id=in.(${buildInFilter(sessionIds)})`,
+      )
+    : [];
+  const messageCountBySessionId = new Map<string, number>();
+  for (const row of messageRows) {
+    messageCountBySessionId.set(
+      row.session_id,
+      (messageCountBySessionId.get(row.session_id) ?? 0) + 1,
+    );
+  }
+
+  return {
+    profile: {
+      userId: user.id,
+      displayName: profile?.display_name ?? null,
+      phoneLast4: safePhoneLast4(
+        user.phone_number_last4,
+        user.phone_number_encrypted,
+      ),
+      week,
+      day,
+      accountStatus: user.account_status,
+      createdAt: toIso(user.created_at),
+      lastLoginAt: toIso(user.last_login_at),
+    },
+    sessions: sessionRecords.map((session) => ({
+      sessionId: session.id,
+      title: session.title,
+      status: session.status,
+      lastMessageAt: toIso(session.last_message_at),
+      createdAt: toIso(session.created_at),
+      messageCount: messageCountBySessionId.get(session.id) ?? 0,
+    })),
+  };
+}
+
 export async function fetchChatUserDetail(
   userId: string,
   sessionLimit = 50,
 ): Promise<ChatUserDetailResult | null> {
+  if (!isUuid(userId)) {
+    return fetchChatUserDetailFromDbClient(userId, sessionLimit);
+  }
+
   const user = await prisma.users.findUnique({
     where: { id: userId },
     select: {
@@ -354,11 +458,154 @@ function summarizeParts(parts: unknown): string {
     .join(", ");
 }
 
+type DbMessageRow = {
+  id: string;
+  role: string;
+  plain_text: string;
+  parts: unknown;
+  model_name: string | null;
+  created_at: string | Date;
+};
+
+type DbQuestionEventRow = {
+  id: string;
+  question_id: string;
+  status: string;
+  sent_at: string | Date | null;
+  answered_at: string | Date | null;
+  answer_text: string | null;
+};
+
+type DbQuestionRow = {
+  id: string;
+  question_text: string;
+};
+
+type DbQuestionSummaryRow = {
+  title: string | null;
+  summary: string | null;
+  entry_type: string | null;
+  session_id: string | null;
+  payload: unknown;
+};
+
+async function fetchChatSessionMessagesFromDbClient(
+  userId: string,
+  sessionId: string,
+  limit: number,
+): Promise<ChatSessionMessagesResult | null> {
+  const session = (
+    await dbSelect<Array<{ id: string; title: string }>>(
+      `chat_sessions?select=id,title&id=eq.${eq(sessionId)}&user_id=eq.${eq(userId)}&limit=1`,
+    )
+  )[0];
+
+  if (!session) return null;
+
+  const [messageRecords, questionEventRecords] = await Promise.all([
+    dbSelect<DbMessageRow[]>(
+      `chat_messages?select=id,role,plain_text,parts,model_name,created_at&session_id=eq.${eq(sessionId)}&order=created_at.asc&limit=${limit}`,
+    ),
+    dbSelect<DbQuestionEventRow[]>(
+      `user_question_events?select=id,question_id,status,sent_at,answered_at,answer_text&user_id=eq.${eq(userId)}&session_id=eq.${eq(sessionId)}&order=sent_at.asc,created_at.asc`,
+    ),
+  ]);
+
+  const questionIds = Array.from(
+    new Set(questionEventRecords.map((event) => event.question_id)),
+  );
+  const [questionRows, summaryRecords] = await Promise.all([
+    questionIds.length
+      ? dbSelect<DbQuestionRow[]>(
+          `content_week_questions?select=id,question_text&id=in.(${buildInFilter(questionIds)})`,
+        )
+      : Promise.resolve([]),
+    questionIds.length
+      ? dbSelect<DbQuestionSummaryRow[]>(
+          `calendar_logs?select=title,summary,entry_type,session_id,payload&user_id=eq.${eq(userId)}&session_id=eq.${eq(sessionId)}&entry_type=eq.question_summary&order=created_at.desc`,
+        )
+      : Promise.resolve([]),
+  ]);
+  const questionTextById = new Map(
+    questionRows.map((question) => [question.id, question.question_text]),
+  );
+
+  const messages: AdminChatMessageRow[] = messageRecords.map((message) => ({
+    messageId: message.id,
+    role: message.role,
+    plainText: message.plain_text,
+    partsSummary: summarizeParts(message.parts),
+    modelName: message.model_name ?? null,
+    createdAt: toRequiredIso(message.created_at),
+  }));
+
+  const appDisplayRecords: RecordDayQuestionRecordRow[] = [
+    ...questionEventRecords.map((event): RecordDayQuestionRecordRow => {
+      const questionText =
+        questionTextById.get(event.question_id) ?? "오늘의 질문";
+      return {
+        title: questionText,
+        summary: event.answer_text,
+        entry_type: "survey_response",
+        session_id: sessionId,
+        payload: {
+          source: "user_question_events",
+          questionId: event.question_id,
+          question: questionText,
+          answer: event.answer_text ?? undefined,
+        },
+      };
+    }),
+    ...summaryRecords.map((record): RecordDayQuestionRecordRow => {
+      const payload =
+        record.payload &&
+        typeof record.payload === "object" &&
+        !Array.isArray(record.payload)
+          ? (record.payload as RecordDayQuestionRecordRow["payload"])
+          : null;
+
+      return {
+        title: record.title ?? "오늘의 질문",
+        summary: record.summary,
+        entry_type: record.entry_type ?? "question_summary",
+        session_id: record.session_id,
+        payload,
+      };
+    }),
+  ];
+
+  const questionAnswers: AdminChatQuestionAnswerRow[] =
+    questionEventRecords.map((event) => {
+      const questionText =
+        questionTextById.get(event.question_id) ?? "오늘의 질문";
+      return {
+        eventId: event.id,
+        questionId: event.question_id,
+        questionText,
+        answerText: event.answer_text ?? null,
+        appSummary: resolveQuestionAnswerDisplay(appDisplayRecords, {
+          id: event.question_id,
+          question_text: questionText,
+          day_number: null,
+        }),
+        status: event.status,
+        sentAt: toIso(event.sent_at),
+        answeredAt: toIso(event.answered_at),
+      };
+    });
+
+  return { sessionTitle: session.title, messages, questionAnswers };
+}
+
 export async function fetchChatSessionMessages(
   userId: string,
   sessionId: string,
   limit = 500,
 ): Promise<ChatSessionMessagesResult | null> {
+  if (!isUuid(userId) || !isUuid(sessionId)) {
+    return fetchChatSessionMessagesFromDbClient(userId, sessionId, limit);
+  }
+
   const session = await prisma.chat_sessions.findFirst({
     where: { id: sessionId, user_id: userId },
     select: { id: true, title: true },

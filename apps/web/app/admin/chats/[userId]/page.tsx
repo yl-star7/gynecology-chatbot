@@ -4,7 +4,7 @@ import { requireAdminSession } from "@/lib/admin/auth";
 import { AdminChatUserDetail } from "@/components/admin/AdminChatUserDetail";
 
 import ChatsPageClient from "../_components/ChatsPageClient";
-import { fetchChatUserDetail, isUuid } from "../_lib/load-chat-data";
+import { fetchChatUserDetail } from "../_lib/load-chat-data";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +15,6 @@ interface PageProps {
 export default async function AdminChatUserDetailPage({ params }: PageProps) {
   const admin = await requireAdminSession();
   const { userId } = await params;
-
-  if (!isUuid(userId)) {
-    notFound();
-  }
 
   const detail = await fetchChatUserDetail(userId);
   if (!detail) {
