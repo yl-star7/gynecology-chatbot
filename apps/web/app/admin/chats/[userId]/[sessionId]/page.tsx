@@ -45,6 +45,7 @@ export default async function AdminChatSessionDetailPage({
         sessionId={sessionId}
         sessionTitle={data.sessionTitle}
         messages={data.messages}
+        questionAnswers={data.questionAnswers}
       />
     </ChatsPageClient>
   );

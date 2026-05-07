@@ -16,11 +16,23 @@ export interface AdminChatMessageRow {
   createdAt: string;
 }
 
+export interface AdminChatQuestionAnswerRow {
+  eventId: string;
+  questionId: string;
+  questionText: string;
+  answerText: string | null;
+  appSummary: string | null;
+  status: string;
+  sentAt: string | null;
+  answeredAt: string | null;
+}
+
 interface AdminChatSessionMessagesProps {
   userId: string;
   sessionId: string;
   sessionTitle: string;
   messages: AdminChatMessageRow[];
+  questionAnswers: AdminChatQuestionAnswerRow[];
 }
 
 function formatDateTime(value: string) {
@@ -66,11 +78,27 @@ function roleClassName(role: string) {
   }
 }
 
+function questionStatusLabel(status: string) {
+  switch (status) {
+    case "sent":
+      return "전송";
+    case "opened":
+      return "열람";
+    case "answered":
+      return "답변 완료";
+    case "skipped":
+      return "건너뜀";
+    default:
+      return status;
+  }
+}
+
 export function AdminChatSessionMessages({
   userId,
   sessionId,
   sessionTitle,
   messages,
+  questionAnswers,
 }: AdminChatSessionMessagesProps) {
   return (
     <section className="space-y-4">
@@ -87,6 +115,56 @@ export function AdminChatSessionMessages({
             기록되었습니다.
           </p>
         </CardHeader>
+      </Card>
+
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg">
+            질문/답변 기록 ({questionAnswers.length})
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            오늘의 질문 선택과 답변 저장 상태를 user_question_events 기준으로
+            표시합니다.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {questionAnswers.length === 0 ? (
+            <div className="rounded-md border bg-muted p-4 text-sm text-muted-foreground">
+              이 세션에 저장된 질문/답변 이벤트가 없습니다.
+            </div>
+          ) : (
+            questionAnswers.map((item) => (
+              <div
+                key={item.eventId}
+                className="space-y-2 rounded-md border p-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <Badge variant="outline">
+                    {questionStatusLabel(item.status)}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {item.answeredAt
+                      ? `답변 ${formatDateTime(item.answeredAt)}`
+                      : item.sentAt
+                        ? `전송 ${formatDateTime(item.sentAt)}`
+                        : "시간 없음"}
+                  </span>
+                </div>
+                <p className="text-sm font-semibold leading-6">
+                  Q. {item.questionText}
+                </p>
+                <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                  원문 답변:{" "}
+                  {item.answerText?.trim() || "아직 답변이 없습니다."}
+                </p>
+                <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                  앱 표시 요약:{" "}
+                  {item.appSummary?.trim() || "아직 요약이 없습니다."}
+                </p>
+              </div>
+            ))
+          )}
+        </CardContent>
       </Card>
 
       <div className="space-y-3">

@@ -10,7 +10,10 @@ import type {
   AdminChatUserProfile,
   AdminChatSessionRow,
 } from "@/components/admin/AdminChatUserDetail";
-import type { AdminChatMessageRow } from "@/components/admin/AdminChatSessionMessages";
+import type {
+  AdminChatMessageRow,
+  AdminChatQuestionAnswerRow,
+} from "@/components/admin/AdminChatSessionMessages";
 import type { AdminChatActionRow } from "@/components/admin/AdminChatActionsFeed";
 
 const UUID_REGEX =
@@ -331,6 +334,7 @@ export async function fetchChatUserDetail(
 export interface ChatSessionMessagesResult {
   sessionTitle: string;
   messages: AdminChatMessageRow[];
+  questionAnswers: AdminChatQuestionAnswerRow[];
 }
 
 function summarizeParts(parts: unknown): string {
@@ -383,7 +387,66 @@ export async function fetchChatSessionMessages(
     createdAt: message.created_at.toISOString(),
   }));
 
-  return { sessionTitle: session.title, messages };
+  const questionEventRecords = await prisma.user_question_events.findMany({
+    where: { user_id: userId, session_id: sessionId },
+    orderBy: [{ sent_at: "asc" }, { created_at: "asc" }],
+    select: {
+      id: true,
+      question_id: true,
+      status: true,
+      sent_at: true,
+      answered_at: true,
+      answer_text: true,
+      content_week_questions: {
+        select: { question_text: true },
+      },
+    },
+  });
+
+  const questionIds = questionEventRecords.map((event) => event.question_id);
+  const summaryRecords =
+    questionIds.length > 0
+      ? await prisma.calendar_logs.findMany({
+          where: {
+            user_id: userId,
+            session_id: sessionId,
+            entry_type: "question_summary",
+          },
+          orderBy: { created_at: "desc" },
+          select: {
+            summary: true,
+            payload: true,
+          },
+        })
+      : [];
+  const summaryByQuestionId = new Map<string, string>();
+  for (const record of summaryRecords) {
+    const payload =
+      record.payload &&
+      typeof record.payload === "object" &&
+      !Array.isArray(record.payload)
+        ? (record.payload as { questionId?: unknown })
+        : null;
+    const questionId =
+      typeof payload?.questionId === "string" ? payload.questionId : null;
+    if (!questionId || summaryByQuestionId.has(questionId)) continue;
+    summaryByQuestionId.set(questionId, record.summary ?? "");
+  }
+
+  const questionAnswers: AdminChatQuestionAnswerRow[] =
+    questionEventRecords.map((event) => ({
+      eventId: event.id,
+      questionId: event.question_id,
+      questionText:
+        event.content_week_questions?.question_text ?? "오늘의 질문",
+      answerText: event.answer_text ?? null,
+      appSummary: summaryByQuestionId.get(event.question_id) ?? null,
+      status: event.status,
+      sentAt: toIso(event.sent_at),
+      answeredAt: toIso(event.answered_at),
+    }));
+
+  return { sessionTitle: session.title, messages, questionAnswers };
 }
 
 export interface ChatActionsResult {

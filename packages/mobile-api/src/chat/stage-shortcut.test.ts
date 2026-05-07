@@ -703,6 +703,44 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(r!.workflowMemoryPayload.nextSessionMemory?.stage).toBe("free_chat");
   });
 
+  it("excludes the memory current question after a next-question signal when SQL progress has no current question", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "다음 질문으로 이어갈래요.",
+      selectedMood: null,
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 2,
+          stageName: "choice_conversation",
+          compactSummary: "현재 단계: 질문 답변 중",
+          currentAttachmentQuestionId: "q1",
+        } as PromptContext["sessionMemory"],
+      }),
+      progress: {
+        answeredQuestionIds: [],
+        currentAttachmentQuestionId: null,
+      },
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+    });
+
+    expect(r).not.toBeNull();
+    const payload = r!.workflowMemoryPayload as Record<string, unknown>;
+    expect(payload.selectedQuestionIds).toEqual(["q1"]);
+    const quickReplies = r!.assistantMessage.parts.find(
+      (part) => part.type === "quickReplies",
+    );
+    expect(quickReplies?.type).toBe("quickReplies");
+    if (quickReplies?.type === "quickReplies") {
+      expect(quickReplies.choices.map((choice) => choice.id)).toEqual([
+        "q2",
+        "q3",
+      ]);
+    }
+  });
+
   it("keeps stage=2 on short gratitude (not explicit closing)", () => {
     // "고마워요" 같은 감사 표현은 closing 아님 — LLM 경로로 떨어져야 함
     const r = maybeShortCircuitStaticTurn({

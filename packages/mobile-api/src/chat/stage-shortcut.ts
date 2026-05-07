@@ -609,6 +609,14 @@ function buildEndedTurn(input?: StageShortcutInput): StageShortcutResult {
   };
 }
 
+function readMemoryCurrentAttachmentQuestionId(
+  memory: PromptContext["sessionMemory"] | null,
+): string | null {
+  const value = (memory as { currentAttachmentQuestionId?: unknown } | null)
+    ?.currentAttachmentQuestionId;
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
 // ────────────────────────────────────────────────────────────
 // 메인 엔트리
 // ────────────────────────────────────────────────────────────
@@ -788,16 +796,14 @@ export function maybeShortCircuitStaticTurn(
     }
     // 마무리 신호 → 현재 질문을 answered 에 push, 소진 여부 판단
     if (CLOSING_SIGNAL.test(input.userText)) {
+      const currentQuestionId =
+        progress.currentAttachmentQuestionId ??
+        readMemoryCurrentAttachmentQuestionId(memory);
       const updated: QuestionProgress = {
         answeredQuestionIds:
-          progress.currentAttachmentQuestionId &&
-          !progress.answeredQuestionIds.includes(
-            progress.currentAttachmentQuestionId,
-          )
-            ? [
-                ...progress.answeredQuestionIds,
-                progress.currentAttachmentQuestionId,
-              ]
+          currentQuestionId &&
+          !progress.answeredQuestionIds.includes(currentQuestionId)
+            ? [...progress.answeredQuestionIds, currentQuestionId]
             : progress.answeredQuestionIds,
         currentAttachmentQuestionId: null,
       };

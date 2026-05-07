@@ -5,6 +5,18 @@ jest.mock("@gynecology-chatbot/db/prisma", () => {
     users: {
       findMany: jest.fn(),
     },
+    chat_sessions: {
+      findFirst: jest.fn(),
+    },
+    chat_messages: {
+      findMany: jest.fn(),
+    },
+    user_question_events: {
+      findMany: jest.fn(),
+    },
+    calendar_logs: {
+      findMany: jest.fn(),
+    },
     user_action_logs: {
       findMany: jest.fn(),
     },
@@ -26,13 +38,17 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
   decryptPhoneNumber: jest.fn((value: string) => value.replace(/^enc:/, "")),
 }));
 
-import { fetchChatActions } from "./load-chat-data";
+import { fetchChatActions, fetchChatSessionMessages } from "./load-chat-data";
 
 const userId = "6e789ecc-d48a-4535-8ad9-1303dcddb8e5";
 
 describe("fetchChatActions", () => {
   afterEach(() => {
     mockedPrisma.users.findMany.mockReset();
+    mockedPrisma.chat_sessions.findFirst.mockReset();
+    mockedPrisma.chat_messages.findMany.mockReset();
+    mockedPrisma.user_question_events.findMany.mockReset();
+    mockedPrisma.calendar_logs.findMany.mockReset();
     mockedPrisma.user_action_logs.findMany.mockReset();
   });
 
@@ -90,6 +106,76 @@ describe("fetchChatActions", () => {
         actionType: "phone_verification_started",
         detail: '{"flow":"sign_in"}',
         occurredAt: "2026-04-29T00:17:00.000Z",
+      },
+    ]);
+  });
+});
+
+describe("fetchChatSessionMessages", () => {
+  afterEach(() => {
+    mockedPrisma.users.findMany.mockReset();
+    mockedPrisma.chat_sessions.findFirst.mockReset();
+    mockedPrisma.chat_messages.findMany.mockReset();
+    mockedPrisma.user_question_events.findMany.mockReset();
+    mockedPrisma.calendar_logs.findMany.mockReset();
+    mockedPrisma.user_action_logs.findMany.mockReset();
+  });
+
+  it("returns question answer events with message logs for the session", async () => {
+    const sessionId = "9bb8145c-937a-4f63-b9dd-68e666091c5a";
+    const questionId = "ecbc209d-b393-478f-a8da-18d9c51f9f35";
+
+    mockedPrisma.chat_sessions.findFirst.mockResolvedValue({
+      id: sessionId,
+      title: "오늘의 질문",
+    });
+    mockedPrisma.chat_messages.findMany.mockResolvedValue([
+      {
+        id: "message-1",
+        role: "user",
+        plain_text: "배가 무거워요.",
+        parts: [{ type: "text", text: "배가 무거워요." }],
+        model_name: null,
+        created_at: new Date("2026-05-06T21:35:00.000Z"),
+      },
+    ]);
+    mockedPrisma.user_question_events.findMany.mockResolvedValue([
+      {
+        id: "event-1",
+        question_id: questionId,
+        status: "answered",
+        sent_at: new Date("2026-05-06T21:34:00.000Z"),
+        answered_at: new Date("2026-05-06T21:35:00.000Z"),
+        answer_text: "배가 무거워요.",
+        content_week_questions: {
+          question_text: "이번 주 가장 뚜렷하게 느낀 변화는 무엇인가요?",
+        },
+      },
+    ]);
+    mockedPrisma.calendar_logs.findMany.mockResolvedValue([
+      {
+        summary: "배가 무거운 변화를 또렷하게 느꼈다고 요약됐어요.",
+        payload: { questionId },
+      },
+    ]);
+
+    const result = await fetchChatSessionMessages(userId, sessionId);
+
+    expect(mockedPrisma.user_question_events.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { user_id: userId, session_id: sessionId },
+      }),
+    );
+    expect(result?.questionAnswers).toEqual([
+      {
+        eventId: "event-1",
+        questionId,
+        questionText: "이번 주 가장 뚜렷하게 느낀 변화는 무엇인가요?",
+        answerText: "배가 무거워요.",
+        appSummary: "배가 무거운 변화를 또렷하게 느꼈다고 요약됐어요.",
+        status: "answered",
+        sentAt: "2026-05-06T21:34:00.000Z",
+        answeredAt: "2026-05-06T21:35:00.000Z",
       },
     ]);
   });
