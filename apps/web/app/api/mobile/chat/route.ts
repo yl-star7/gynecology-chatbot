@@ -27,6 +27,7 @@ import { buildChatOrchestrator } from "@/lib/mobile/chat/chat-orchestrator";
 import { createMobileChatResponder } from "@/lib/mobile/chat/responders/mobile-chat-responder";
 import {
   maybeShortCircuitStaticTurn,
+  resolveSelectedTodayQuestionId,
   type QuestionProgress,
 } from "@gynecology-chatbot/mobile-api/chat/stage-shortcut";
 import { parseChatFlowConfig } from "@gynecology-chatbot/mobile-api/chat/chat-flow-config";
@@ -386,9 +387,6 @@ export async function POST(request: NextRequest) {
       let progress: QuestionProgress;
       try {
         progress = await fetchAttachmentQuestionProgress({
-          prisma: prisma as unknown as Parameters<
-            typeof fetchAttachmentQuestionProgress
-          >[0]["prisma"],
           userId: input.userId,
           sessionId: input.normalizedSessionId,
         });
@@ -461,9 +459,10 @@ export async function POST(request: NextRequest) {
       const shortcut = maybeShortCircuitStaticTurn({
         userText: input.text,
         selectedMood,
-        selectedQuestionId: isUuid(input.selectedQuestionId ?? null)
-          ? (input.selectedQuestionId ?? null)
-          : null,
+        selectedQuestionId: resolveSelectedTodayQuestionId({
+          selectedQuestionId: input.selectedQuestionId,
+          todayQuestionCandidates,
+        }),
         transientWorkflowStage:
           selectedMoodEntry && rawStage === null ? 0 : null,
         currentWeek: input.currentWeek,
@@ -710,16 +709,9 @@ export async function POST(request: NextRequest) {
 
     // ── attachment_question 이벤트 동기화 ──
     // 1) 사용자가 질문 선택 (selectedQuestionId 입력) → user_question_events INSERT
-    if (
-      canUsePrismaUserSession &&
-      selectedQuestionId &&
-      isUuid(selectedQuestionId)
-    ) {
+    if (selectedQuestionId) {
       try {
         await recordQuestionSent({
-          prisma: prisma as unknown as Parameters<
-            typeof recordQuestionSent
-          >[0]["prisma"],
           userId,
           sessionId: result.sessionId,
           questionId: selectedQuestionId,
@@ -743,15 +735,19 @@ export async function POST(request: NextRequest) {
         } | null
       )?.currentAttachmentQuestionId ?? null;
     const nextCurrent = nextMem?.currentAttachmentQuestionId ?? null;
-    const priorCurrentQuestionId = isUuid(priorCurrent) ? priorCurrent : null;
-    const nextCurrentQuestionId = isUuid(nextCurrent) ? nextCurrent : null;
+    const priorCurrentQuestionId =
+      typeof priorCurrent === "string" && priorCurrent.trim()
+        ? priorCurrent
+        : null;
+    const nextCurrentQuestionId =
+      typeof nextCurrent === "string" && nextCurrent.trim()
+        ? nextCurrent
+        : null;
     const justClosedQuestionId =
       priorCurrentQuestionId && priorCurrentQuestionId !== nextCurrentQuestionId
         ? priorCurrentQuestionId
         : null;
-    const selectedQuestionIdForSummary = isUuid(selectedQuestionId)
-      ? selectedQuestionId
-      : null;
+    const selectedQuestionIdForSummary = selectedQuestionId || null;
     const activeQuestionId = resolveQuestionSummaryQuestionId({
       selectedQuestionId: selectedQuestionIdForSummary,
       currentAttachmentQuestionId: priorCurrentQuestionId,
@@ -766,12 +762,9 @@ export async function POST(request: NextRequest) {
             isQuestionAnswerText({ userAnswer: answerText })
           ? justClosedQuestionId
           : null;
-    if (canUsePrismaUserSession && answerQuestionId) {
+    if (answerQuestionId) {
       try {
         await markQuestionAnswered({
-          prisma: prisma as unknown as Parameters<
-            typeof markQuestionAnswered
-          >[0]["prisma"],
           userId,
           sessionId: result.sessionId,
           questionId: answerQuestionId,
@@ -783,16 +776,12 @@ export async function POST(request: NextRequest) {
     }
     if (
       justClosedQuestionId &&
-      canUsePrismaUserSession &&
       nextMem?.stage === "free_chat" &&
       nextMem.stageName === "question_session_deferred" &&
       !isQuestionAnswerText({ userAnswer: answerText })
     ) {
       try {
         await markQuestionSkipped({
-          prisma: prisma as unknown as Parameters<
-            typeof markQuestionSkipped
-          >[0]["prisma"],
           userId,
           sessionId: result.sessionId,
           questionId: justClosedQuestionId,

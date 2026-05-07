@@ -7,7 +7,7 @@ import {
   createKoreanDateKey,
   createKoreanMonthKey,
 } from "@gynecology-chatbot/app-core/time";
-import { prisma } from "@gynecology-chatbot/db/prisma";
+import { dbSelect } from "@gynecology-chatbot/mobile-api/db/admin-client";
 import { toHomeViewData } from "@gynecology-chatbot/mobile-api/serializers";
 import {
   mobileRouteErrorResponse,
@@ -21,6 +21,18 @@ type CalendarActivityRow = {
   date: string;
   summary: string | null;
   entry_type: string | null;
+};
+
+type ProfileRow = {
+  display_name: string | null;
+  pregnancy_day_count: number;
+  pregnancy_week: number | null;
+  pregnancy_day_in_week: number | null;
+  due_date: string | null;
+};
+
+type HomeCopyConfigRow = {
+  value: unknown;
 };
 
 function getMonth(raw: string | null) {
@@ -38,16 +50,16 @@ function getLastDayOfMonth(month: string) {
   return new Date(year, monthIndex + 1, 0).getDate();
 }
 
-function parseDateOnly(isoDate: string) {
-  return new Date(`${isoDate}T00:00:00.000Z`);
-}
+function formatDateOnly(value: Date | string | null | undefined) {
+  if (!value) {
+    return "";
+  }
 
-function formatDateOnly(value: Date | null | undefined) {
-  return value ? value.toISOString().slice(0, 10) : "";
+  return value instanceof Date ? value.toISOString().slice(0, 10) : value;
 }
 
 function shouldDeferTodaySessionSummary(row: {
-  date: Date | null;
+  date: Date | string | null;
   entry_type: string | null;
 }) {
   const entryType = row.entry_type ?? "";
@@ -67,36 +79,19 @@ app.get("/", async (c) => {
     const monthStart = `${month}-01`;
     const monthEnd = `${month}-${String(monthLastDay).padStart(2, "0")}`;
 
-    const [profile, calendarRows, homeCopyConfig] = await Promise.all([
-      prisma.pregnancy_profiles.findUnique({
-        where: { user_id: userId },
-        select: {
-          display_name: true,
-          pregnancy_day_count: true,
-          pregnancy_week: true,
-          pregnancy_day_in_week: true,
-          due_date: true,
-        },
-      }),
-      prisma.v_user_calendar_activity.findMany({
-        where: {
-          user_id: userId,
-          date: {
-            gte: parseDateOnly(monthStart),
-            lte: parseDateOnly(monthEnd),
-          },
-        },
-        select: {
-          date: true,
-          summary: true,
-          entry_type: true,
-        },
-      }),
-      prisma.system_config.findUnique({
-        where: { key: HOME_COPY_CONFIG_KEY },
-        select: { value: true },
-      }),
+    const [profileRows, calendarRows, homeCopyConfigRows] = await Promise.all([
+      dbSelect<ProfileRow[]>(
+        `pregnancy_profiles?select=display_name,pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date&user_id=eq.${userId}&limit=1`,
+      ),
+      dbSelect<CalendarActivityRow[]>(
+        `calendar_logs?select=date,summary,entry_type&user_id=eq.${userId}&date=gte.${monthStart}&date=lte.${monthEnd}&order=created_at.desc`,
+      ),
+      dbSelect<HomeCopyConfigRow[]>(
+        `system_config?select=value&key=eq.${HOME_COPY_CONFIG_KEY}&limit=1`,
+      ),
     ]);
+    const profile = profileRows[0] ?? null;
+    const homeCopyConfig = homeCopyConfigRows[0] ?? null;
 
     return noStoreJson(c, {
       home: toHomeViewData({
@@ -106,9 +101,7 @@ app.get("/", async (c) => {
               pregnancy_day_count: profile.pregnancy_day_count,
               pregnancy_week: profile.pregnancy_week,
               pregnancy_day_in_week: profile.pregnancy_day_in_week,
-              due_date: profile.due_date
-                ? profile.due_date.toISOString().slice(0, 10)
-                : null,
+              due_date: formatDateOnly(profile.due_date) || null,
             }
           : null,
         calendarRows: calendarRows.map(

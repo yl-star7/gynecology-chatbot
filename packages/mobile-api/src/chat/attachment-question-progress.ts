@@ -10,6 +10,7 @@
  */
 
 import type { QuestionProgress } from "./stage-shortcut";
+import { dbSelect } from "../db/admin-client";
 
 export type QuestionEventRow = {
   question_id: string;
@@ -72,71 +73,44 @@ export function computeProgressFromEvents(input: {
   };
 }
 
-function isUuid(value: string | null) {
-  return Boolean(
-    value?.match(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i,
-    ),
-  );
+function eq(value: string) {
+  return encodeURIComponent(value);
 }
 
 /**
- * DB 조회 wrapper. Prisma 사용. 호출자는 prisma client 주입.
+ * DB 조회 wrapper.
  */
 export async function fetchAttachmentQuestionProgress(deps: {
-  prisma: {
-    user_question_events: {
-      findMany: (args: {
-        where: Record<string, unknown>;
-        select: Record<string, true>;
-        orderBy?: Record<string, "asc" | "desc">;
-      }) => Promise<QuestionEventRow[]>;
-    };
-  };
   userId: string;
   sessionId: string | null;
   now?: Date;
 }): Promise<QuestionProgress> {
   const dayStartUtc = getKstDayStartUtc(deps.now);
-  if (!isUuid(deps.userId)) {
-    return computeProgressFromEvents({
-      rows: [],
-      sessionId: null,
-      dayStartUtc,
-    });
-  }
+  const answeredPath = [
+    "user_question_events?select=question_id,status,sent_at,answered_at",
+    `user_id=eq.${eq(deps.userId)}`,
+    "status=eq.answered",
+    `answered_at=gte.${eq(dayStartUtc.toISOString())}`,
+    "order=sent_at.desc",
+  ].join("&");
+  const sentPath = deps.sessionId
+    ? [
+        "user_question_events?select=question_id,status,sent_at,answered_at",
+        `user_id=eq.${eq(deps.userId)}`,
+        `session_id=eq.${eq(deps.sessionId)}`,
+        "status=eq.sent",
+        "answered_at=is.null",
+        "order=sent_at.desc",
+      ].join("&")
+    : null;
+  const [answeredRows, sentRows] = await Promise.all([
+    dbSelect<QuestionEventRow[]>(answeredPath),
+    sentPath ? dbSelect<QuestionEventRow[]>(sentPath) : Promise.resolve([]),
+  ]);
 
-  const sessionId = isUuid(deps.sessionId) ? deps.sessionId : null;
-  const rows = await deps.prisma.user_question_events.findMany({
-    where: {
-      user_id: deps.userId,
-      OR: [
-        // 오늘 answered
-        {
-          status: "answered",
-          answered_at: { gte: dayStartUtc },
-        },
-        // 현 세션에서 sent but not yet answered
-        sessionId
-          ? {
-              session_id: sessionId,
-              status: "sent",
-              answered_at: null,
-            }
-          : { id: "__none__" }, // noop
-      ],
-    },
-    select: {
-      question_id: true,
-      status: true,
-      sent_at: true,
-      answered_at: true,
-    },
-    orderBy: { sent_at: "desc" },
-  });
   return computeProgressFromEvents({
-    rows,
-    sessionId,
+    rows: [...answeredRows, ...sentRows],
+    sessionId: deps.sessionId,
     dayStartUtc,
   });
 }

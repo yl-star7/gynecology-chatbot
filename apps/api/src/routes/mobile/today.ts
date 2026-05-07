@@ -1,10 +1,14 @@
 import { Hono } from "hono";
-import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import {
   calculatePregnancyPositionFromDueDate,
   createKoreanDateKey,
 } from "@gynecology-chatbot/app-core/time";
 import { sanitizeInlineCitationMarkers } from "@gynecology-chatbot/mobile-api/chat/sanitizers";
+import {
+  dbInsert,
+  dbSelect,
+  dbUpdate,
+} from "@gynecology-chatbot/mobile-api/db/admin-client";
 import {
   mobileRouteErrorResponse,
   requireMobileSession,
@@ -43,9 +47,22 @@ type WeekRow = {
 };
 
 type DayContentRow = {
+  baby_development_payload: unknown;
+  baby_message: string | null;
+  mother_changes_payload: unknown;
+};
+
+type NormalizedDayContent = {
   baby_development_payload: { items?: string[] } | null;
   baby_message: string | null;
   mother_changes_payload: { items?: string[] } | null;
+};
+
+type ChecklistRow = {
+  id: string;
+  title: string | null;
+  description: string | null;
+  display_order: number | null;
 };
 
 type ChecklistEventRow = {
@@ -54,17 +71,15 @@ type ChecklistEventRow = {
   status: "sent" | "opened" | "completed" | "skipped";
 };
 
-function parseDateOnly(isoDate: string) {
-  return new Date(`${isoDate}T00:00:00.000Z`);
+function formatDateOnly(value: Date | string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  return value instanceof Date ? value.toISOString().slice(0, 10) : value;
 }
 
-function formatDateOnly(value: Date | null | undefined) {
-  return value ? value.toISOString().slice(0, 10) : null;
-}
-
-function asStringArrayPayload(
-  value: Prisma.JsonValue | null | undefined,
-): { items?: string[] } | null {
+function asStringArrayPayload(value: unknown): { items?: string[] } | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
@@ -98,14 +113,11 @@ app.get("/", async (c) => {
     const hintedUserId = c.req.query("userId") ?? null;
     const { userId } = await requireMobileSession(c, hintedUserId);
 
-    const profileRow = await prisma.pregnancy_profiles.findUnique({
-      where: { user_id: userId },
-      select: {
-        pregnancy_week: true,
-        pregnancy_day_in_week: true,
-        due_date: true,
-      },
-    });
+    const profileRow = (
+      await dbSelect<ProfileRow[]>(
+        `pregnancy_profiles?select=pregnancy_week,pregnancy_day_in_week,due_date&user_id=eq.${userId}&limit=1`,
+      )
+    )[0];
     const profile: ProfileRow | null = profileRow
       ? {
           pregnancy_week: profileRow.pregnancy_week,
@@ -139,17 +151,11 @@ app.get("/", async (c) => {
     }
 
     const dayNumber = (currentDayInWeek % 7) + 1;
-    const weekRow = await prisma.content_pregnancy_week_data.findFirst({
-      where: {
-        week_number: currentWeek,
-        status: "published",
-      },
-      select: {
-        id: true,
-        baby_summary: true,
-        mother_summary: true,
-      },
-    });
+    const weekRow = (
+      await dbSelect<WeekRow[]>(
+        `content_pregnancy_week_data?select=id,baby_summary,mother_summary&week_number=eq.${currentWeek}&status=eq.published&limit=1`,
+      )
+    )[0];
     const week: WeekRow | null = weekRow;
 
     if (!week) {
@@ -165,56 +171,21 @@ app.get("/", async (c) => {
     const todayDate = getKstDate();
     const [dayRow, datedChecklistRows, genericChecklistRows, infoViewRow] =
       await Promise.all([
-        prisma.content_pregnancy_day_contents.findFirst({
-          where: {
-            week_data_id: week.id,
-            day_number: dayNumber,
-          },
-          select: {
-            baby_development_payload: true,
-            baby_message: true,
-            mother_changes_payload: true,
-          },
-        }),
-        prisma.content_week_checklists.findMany({
-          where: {
-            week_data_id: week.id,
-            day_number: dayNumber,
-            is_active: true,
-          },
-          orderBy: { display_order: "asc" },
-          select: {
-            id: true,
-            title: true,
-            description: true,
-            display_order: true,
-          },
-        }),
-        prisma.content_week_checklists.findMany({
-          where: {
-            week_data_id: week.id,
-            day_number: null,
-            is_active: true,
-          },
-          orderBy: { display_order: "asc" },
-          select: {
-            id: true,
-            title: true,
-            description: true,
-            display_order: true,
-          },
-        }),
-        prisma.calendar_logs.findFirst({
-          where: {
-            user_id: userId,
-            date: parseDateOnly(todayDate),
-            entry_type: "today_info_view",
-          },
-          select: { id: true },
-        }),
+        dbSelect<DayContentRow[]>(
+          `content_pregnancy_day_contents?select=baby_development_payload,baby_message,mother_changes_payload&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&limit=1`,
+        ).then((rows) => rows[0] ?? null),
+        dbSelect<ChecklistRow[]>(
+          `content_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc`,
+        ),
+        dbSelect<ChecklistRow[]>(
+          `content_week_checklists?select=id,title,description,display_order&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc`,
+        ),
+        dbSelect<Array<{ id: string }>>(
+          `calendar_logs?select=id&user_id=eq.${userId}&date=eq.${todayDate}&entry_type=eq.today_info_view&limit=1`,
+        ).then((rows) => rows[0] ?? null),
       ]);
 
-    const day: DayContentRow | null = dayRow
+    const day: NormalizedDayContent | null = dayRow
       ? {
           baby_development_payload: asStringArrayPayload(
             dayRow.baby_development_payload,
@@ -228,21 +199,11 @@ app.get("/", async (c) => {
     const checklistRows = [...datedChecklistRows, ...genericChecklistRows];
     const checklistIds = checklistRows.map((row) => row.id);
     const checklistEvents = checklistIds.length
-      ? await prisma.user_checklist_events.findMany({
-          where: {
-            user_id: userId,
-            checklist_id: { in: checklistIds },
-          },
-          select: {
-            id: true,
-            checklist_id: true,
-            status: true,
-          },
-        })
+      ? await dbSelect<ChecklistEventRow[]>(
+          `user_checklist_events?select=id,checklist_id,status&user_id=eq.${userId}&checklist_id=in.(${checklistIds.join(",")})`,
+        )
       : [];
-    const completedByChecklistId = buildChecklistStatusMap(
-      checklistEvents as ChecklistEventRow[],
-    );
+    const completedByChecklistId = buildChecklistStatusMap(checklistEvents);
 
     return noStoreJson(c, {
       today: {
@@ -284,25 +245,20 @@ app.patch("/", async (c) => {
 
     if (action === "view_info") {
       const todayDate = getKstDate();
-      const existingInfoRow = await prisma.calendar_logs.findFirst({
-        where: {
-          user_id: userId,
-          date: parseDateOnly(todayDate),
-          entry_type: "today_info_view",
-        },
-        select: { id: true },
-      });
+      const existingInfoRow = (
+        await dbSelect<Array<{ id: string }>>(
+          `calendar_logs?select=id&user_id=eq.${userId}&date=eq.${todayDate}&entry_type=eq.today_info_view&limit=1`,
+        )
+      )[0];
 
       if (!existingInfoRow?.id) {
-        await prisma.calendar_logs.create({
-          data: {
-            user_id: userId,
-            date: parseDateOnly(todayDate),
-            entry_type: "today_info_view",
-            title: "오늘,우리 정보 확인",
-            summary: "오늘 아기와 엄마 정보를 확인했어요.",
-            payload: { viewedAt: new Date().toISOString() },
-          },
+        await dbInsert("calendar_logs", {
+          user_id: userId,
+          date: todayDate,
+          entry_type: "today_info_view",
+          title: "오늘,우리 정보 확인",
+          summary: "오늘 아기와 엄마 정보를 확인했어요.",
+          payload: { viewedAt: new Date().toISOString() },
         });
       }
 
@@ -313,36 +269,29 @@ app.patch("/", async (c) => {
       return c.json({ error: "checklistId is required" }, 400);
     }
 
-    const existingEvent = await prisma.user_checklist_events.findFirst({
-      where: {
-        user_id: userId,
-        checklist_id: checklistId,
-      },
-      select: { id: true },
-    });
+    const existingEvent = (
+      await dbSelect<Array<{ id: string }>>(
+        `user_checklist_events?select=id&user_id=eq.${userId}&checklist_id=eq.${checklistId}&limit=1`,
+      )
+    )[0];
 
-    const now = new Date();
+    const now = new Date().toISOString();
     const nextStatus = completed ? "completed" : "opened";
 
     if (existingEvent?.id) {
-      await prisma.user_checklist_events.update({
-        where: { id: existingEvent.id },
-        data: {
-          status: nextStatus,
-          completed_at: completed ? now : null,
-          updated_at: now,
-        },
+      await dbUpdate(`user_checklist_events?id=eq.${existingEvent.id}`, {
+        status: nextStatus,
+        completed_at: completed ? now : null,
+        updated_at: now,
       });
     } else {
-      await prisma.user_checklist_events.create({
-        data: {
-          user_id: userId,
-          checklist_id: checklistId,
-          status: nextStatus,
-          sent_at: now,
-          completed_at: completed ? now : null,
-          updated_at: now,
-        },
+      await dbInsert("user_checklist_events", {
+        user_id: userId,
+        checklist_id: checklistId,
+        status: nextStatus,
+        sent_at: now,
+        completed_at: completed ? now : null,
+        updated_at: now,
       });
     }
 

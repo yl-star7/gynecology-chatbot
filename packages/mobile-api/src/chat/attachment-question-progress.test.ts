@@ -4,6 +4,13 @@ import {
   getKstDayStartUtc,
   type QuestionEventRow,
 } from "./attachment-question-progress";
+import { dbSelect } from "../db/admin-client";
+
+jest.mock("../db/admin-client", () => ({
+  dbSelect: jest.fn(),
+}));
+
+const mockedDbSelect = jest.mocked(dbSelect);
 
 describe("getKstDayStartUtc", () => {
   it("returns KST midnight as UTC", () => {
@@ -16,25 +23,45 @@ describe("getKstDayStartUtc", () => {
 });
 
 describe("fetchAttachmentQuestionProgress", () => {
-  it("returns empty progress without querying Prisma when local user id is not UUID", async () => {
-    const findMany = jest.fn();
+  beforeEach(() => {
+    mockedDbSelect.mockReset();
+  });
+
+  it("queries the DB client for local text ids", async () => {
+    mockedDbSelect
+      .mockResolvedValueOnce([
+        {
+          question_id: "local-q1",
+          status: "answered",
+          sent_at: "2026-04-21T01:00:00.000Z",
+          answered_at: "2026-04-21T01:10:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          question_id: "local-q2",
+          status: "sent",
+          sent_at: "2026-04-21T02:00:00.000Z",
+          answered_at: null,
+        },
+      ]);
 
     const progress = await fetchAttachmentQuestionProgress({
-      prisma: {
-        user_question_events: {
-          findMany,
-        },
-      },
       userId: "local-user-demo",
-      sessionId: "11111111-1111-4111-8111-111111111111",
+      sessionId: "local-session-1",
       now: new Date("2026-04-21T06:30:00Z"),
     });
 
     expect(progress).toEqual({
-      answeredQuestionIds: [],
-      currentAttachmentQuestionId: null,
+      answeredQuestionIds: ["local-q1"],
+      currentAttachmentQuestionId: "local-q2",
     });
-    expect(findMany).not.toHaveBeenCalled();
+    expect(mockedDbSelect).toHaveBeenCalledWith(
+      expect.stringContaining("user_id=eq.local-user-demo"),
+    );
+    expect(mockedDbSelect).toHaveBeenCalledWith(
+      expect.stringContaining("session_id=eq.local-session-1"),
+    );
   });
 });
 

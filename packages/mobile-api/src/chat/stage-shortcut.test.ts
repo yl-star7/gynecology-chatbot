@@ -1,4 +1,7 @@
-import { maybeShortCircuitStaticTurn } from "./stage-shortcut";
+import {
+  maybeShortCircuitStaticTurn,
+  resolveSelectedTodayQuestionId,
+} from "./stage-shortcut";
 import type { PromptContext } from "./chat-repository";
 
 const moodPool = [
@@ -56,6 +59,26 @@ const longQuestions = [
     text: "몸이 힘들었던 순간도 있었나요? 그때 아기에게 어떤 마음이 전해졌을까요?",
   },
 ];
+
+describe("resolveSelectedTodayQuestionId", () => {
+  it("accepts a non-UUID question id when it is one of today's candidates", () => {
+    expect(
+      resolveSelectedTodayQuestionId({
+        selectedQuestionId: "q1",
+        todayQuestionCandidates: questions,
+      }),
+    ).toBe("q1");
+  });
+
+  it("rejects a question id that was not offered in today's candidates", () => {
+    expect(
+      resolveSelectedTodayQuestionId({
+        selectedQuestionId: "unknown-question",
+        todayQuestionCandidates: questions,
+      }),
+    ).toBeNull();
+  });
+});
 
 function baseContext(overrides?: Partial<PromptContext>): PromptContext {
   return {
@@ -668,7 +691,7 @@ describe("maybeShortCircuitStaticTurn", () => {
       r!.assistantMessage.parts.some((part) => part.type === "quickReplies"),
     ).toBe(false);
     const payload = r!.workflowMemoryPayload as Record<string, unknown>;
-    expect(payload.selectedQuestionIds).toEqual(["q1", "q2"]);
+    expect(payload.selectedQuestionIds).toEqual([]);
     expect(r!.workflowMemoryPayload.nextSessionMemory?.stage).toBe(2);
     expect(
       r!.workflowMemoryPayload.nextSessionMemory?.currentAttachmentQuestionId,
@@ -699,7 +722,7 @@ describe("maybeShortCircuitStaticTurn", () => {
 
     expect(r).not.toBeNull();
     const payload = r!.workflowMemoryPayload as Record<string, unknown>;
-    expect(payload.selectedQuestionIds).toEqual(["q1", "q2", "q3"]);
+    expect(payload.selectedQuestionIds).toEqual([]);
     expect(r!.workflowMemoryPayload.nextSessionMemory?.stage).toBe("free_chat");
   });
 
@@ -728,7 +751,7 @@ describe("maybeShortCircuitStaticTurn", () => {
 
     expect(r).not.toBeNull();
     const payload = r!.workflowMemoryPayload as Record<string, unknown>;
-    expect(payload.selectedQuestionIds).toEqual(["q1"]);
+    expect(payload.selectedQuestionIds).toEqual([]);
     const quickReplies = r!.assistantMessage.parts.find(
       (part) => part.type === "quickReplies",
     );
