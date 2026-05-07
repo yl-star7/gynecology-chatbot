@@ -47,22 +47,20 @@ describe("chat flow config", () => {
         "recent_history",
       ]),
     );
-    expect(config.moodIntake.moodPrompts.slice(0, 5).map((item) => item.label)).toEqual([
-      "좋아요",
-      "우울해요",
-      "슬퍼요",
-      "화나요",
-      "직접 입력",
-    ]);
+    expect(
+      config.moodIntake.moodPrompts.slice(0, 5).map((item) => item.label),
+    ).toEqual(["좋아요", "우울해요", "슬퍼요", "화나요", "직접 입력"]);
     expect(config.weekInfoOptIn.quickReplies.no).toEqual({
       id: "week-info-no",
       label: "아니요",
       message: "아니요, 태교 질문으로 넘어갈게요.",
     });
     expect(config.todayQuestion.blockedText).toContain("태교 질문");
-    expect(config.questionSelected.answerTemplate).toContain("{{questionText}}");
+    expect(config.questionSelected.answerTemplate).toContain(
+      "{{questionText}}",
+    );
     expect(config.questionAnswer.reflectionLoop).toMatchObject({
-      minUserTurnsBeforeNext: 1,
+      minUserTurnsBeforeNext: 3,
       maxUserTurnsPerQuestion: 5,
       quickReplyMode: "hidden",
       nextQuestionLabelTemplate: "다른 질문도 볼래요 ({{remainingCount}}개)",
@@ -97,9 +95,11 @@ describe("chat flow config", () => {
     expect(config.moodIntake.moodPrompts).toEqual([
       { label: "좋아요", message: "좋아요.", tone: "joyful" },
     ]);
-    expect(config.weekInfoOptIn.answerVariations).toEqual(["주차 정보 볼까요?"]);
+    expect(config.weekInfoOptIn.answerVariations).toEqual([
+      "주차 정보 볼까요?",
+    ]);
     expect(config.questionAnswer.reflectionLoop).toMatchObject({
-      minUserTurnsBeforeNext: 1,
+      minUserTurnsBeforeNext: 3,
       maxUserTurnsPerQuestion: 5,
     });
   });

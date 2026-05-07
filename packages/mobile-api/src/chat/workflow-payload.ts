@@ -180,6 +180,27 @@ function findLastJsonObjectCandidate(value: string): string | null {
   return null;
 }
 
+function stripMalformedEmbeddedPayload(value: string) {
+  const answerKeyIndex = value.indexOf('"answer"');
+  if (answerKeyIndex < 0) return value.trim();
+
+  const start = value.lastIndexOf("{", answerKeyIndex);
+  const end = value.lastIndexOf("}");
+  if (start < 0 || end <= start) return value.trim();
+
+  const candidate = value.slice(start, end + 1);
+  const looksLikeWorkflowPayload =
+    candidate.includes('"answer"') &&
+    (candidate.includes('"scenario"') ||
+      candidate.includes('"guardrailStatus"') ||
+      candidate.includes('"nextSessionMemory"'));
+  if (!looksLikeWorkflowPayload) return value.trim();
+
+  const before = value.slice(0, start).trim();
+  const after = value.slice(end + 1).trim();
+  return [before, after].filter(Boolean).join("\n\n").trim();
+}
+
 export function parseWorkflowAssistantPayload(
   outputs: Record<string, unknown> | undefined,
 ): WorkflowAssistantPayload | null {
@@ -324,12 +345,25 @@ export function parseWorkflowAssistantPayload(
     const payload = parseStructuredPayload(stripped);
     if (payload) return payload;
   } catch {
+    const answerWithoutEmbeddedPayload =
+      stripMalformedEmbeddedPayload(stripped);
     const embeddedJson = findLastJsonObjectCandidate(stripped);
     if (embeddedJson) {
       try {
         const payload = parseStructuredPayload(embeddedJson);
-        if (payload) return payload;
+        if (payload) {
+          return answerWithoutEmbeddedPayload &&
+            answerWithoutEmbeddedPayload !== stripped
+            ? { ...payload, answer: answerWithoutEmbeddedPayload }
+            : payload;
+        }
       } catch {
+        if (
+          answerWithoutEmbeddedPayload &&
+          answerWithoutEmbeddedPayload !== stripped
+        ) {
+          return { answer: answerWithoutEmbeddedPayload };
+        }
         // fall through to plain-answer handling below
       }
     }
@@ -344,7 +378,9 @@ export function parseWorkflowAssistantPayload(
       typeof outputs.text === "string" ||
       typeof outputs.result === "string" ||
       typeof nestedText === "string";
-    return isPlainAnswerOutput ? { answer: stripped } : null;
+    if (!isPlainAnswerOutput) return null;
+    const sanitized = stripMalformedEmbeddedPayload(stripped);
+    return sanitized ? { answer: sanitized } : null;
   }
 
   return null;

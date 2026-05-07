@@ -94,6 +94,33 @@ describe("workflow payload", () => {
     });
   });
 
+  it("removes malformed embedded workflow JSON from plain Schift result text", () => {
+    const payload = parseWorkflowAssistantPayload({
+      result: {
+        text: [
+          "아기의 존재를 느끼는 순간이 신비롭고 따뜻하게 다가오시는군요.",
+          "",
+          "{",
+          ' "answer": "배를 쓰다듬으며 마음이 놓인다는 말씀이 참 좋아요.",',
+          ' "scenario": "empathy_chat",',
+          ' "guardrailStatus": "safe"',
+          "}",
+          "",
+          "조금 더 이야기해주셔도 좋아요.",
+        ].join("\n"),
+      },
+    });
+
+    expect(payload).toEqual(
+      expect.objectContaining({
+        answer:
+          "아기의 존재를 느끼는 순간이 신비롭고 따뜻하게 다가오시는군요.\n\n조금 더 이야기해주셔도 좋아요.",
+        scenario: "empathy_chat",
+        guardrailStatus: "safe",
+      }),
+    );
+  });
+
   it("parses knowledge deep links from workflow payloads", () => {
     const payload = parseWorkflowAssistantPayload({
       answer: JSON.stringify({
@@ -165,7 +192,7 @@ describe("workflow payload", () => {
     expect(payload?.nextSessionMemory?.lastScenario).toBe("letter_reflection");
   });
 
-  it("extracts the structured payload when a workflow prepends plain prose", () => {
+  it("keeps visible prose while extracting embedded workflow metadata", () => {
     const payload = parseWorkflowAssistantPayload({
       result: {
         answer: [
@@ -193,7 +220,7 @@ describe("workflow payload", () => {
     expect(payload).toEqual(
       expect.objectContaining({
         answer:
-          "엄마의 계획이 비 때문에 틀어져서 속상하셨군요. 아기 덕분에 마음이 풀렸다는 말도 따뜻해요.",
+          '엄마의 계획이 비 때문에 틀어져서 속상하셨군요.\n\n**"아기에게 어떤 말을 해주고 싶으신가요?"**',
         scenario: "letter_reflection",
         characterTone: "calm",
       }),

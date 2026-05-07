@@ -135,7 +135,13 @@ describe("rewriteLetterReflectionQuickReplies", () => {
       {
         answeredQuestionIds: [],
         currentAttachmentQuestionId: "q1",
-        currentQuestionTurnCount: 1,
+        currentQuestionTurnCount: resolveLetterReflectionNextChipMinTurns(
+          "q1",
+          {
+            min_user_turns_before_next: 1,
+            max_user_turns_per_question: 5,
+          },
+        ),
       },
       {
         loopPolicy: {
@@ -238,6 +244,7 @@ describe("rewriteLetterReflectionQuickReplies", () => {
     const out = rewriteLetterReflectionQuickReplies(payload, {
       answeredQuestionIds: ["q1", "q2"],
       currentAttachmentQuestionId: "q3",
+      currentQuestionTurnCount: resolveLetterReflectionNextChipMinTurns("q3"),
     });
     expect(out.quickReplies).toBeUndefined();
     expect(out.answer).toBe(
@@ -302,7 +309,7 @@ describe("rewriteLetterReflectionQuickReplies", () => {
     expect(out.quickReplies![0].label).toBe("다른 질문도 볼래요 (2개)");
   });
 
-  it("offers the next question after the first answer by default", () => {
+  it("hides the next question after the first answer by default", () => {
     const payload = {
       answer: "그 마음을 잘 담아둘게요.",
       quickReplies: [],
@@ -314,13 +321,11 @@ describe("rewriteLetterReflectionQuickReplies", () => {
       currentQuestionTurnCount: 1,
     });
 
-    expect(out.quickReplies).toEqual([
-      {
-        id: "next",
-        label: "다른 질문도 볼래요 (2개)",
-        message: "다음 질문으로 이어갈래요.",
-      },
-    ]);
+    expect(out.quickReplies).toBeUndefined();
+    expect(out.nextSessionMemory).toMatchObject({
+      currentQuestionTurnCount: 1,
+      currentAttachmentQuestionId: "q1",
+    });
   });
 
   it("uses configured button text and wrap-up text", () => {
@@ -347,7 +352,9 @@ describe("rewriteLetterReflectionQuickReplies", () => {
       },
     );
 
-    expect(out.answer).toBe("마음이 잘 전해졌어요.\n\n여기서 잘 마무리해둘게요.");
+    expect(out.answer).toBe(
+      "마음이 잘 전해졌어요.\n\n여기서 잘 마무리해둘게요.",
+    );
     expect(out.quickReplies).toEqual([
       {
         id: "next",

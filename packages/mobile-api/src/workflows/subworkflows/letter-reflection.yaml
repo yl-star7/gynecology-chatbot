@@ -11,7 +11,7 @@ admin_metadata:
 
 config:
   reflection_loop:
-    min_user_turns_before_next: 1
+    min_user_turns_before_next: 3
     max_user_turns_per_question: 5
     quick_reply_mode: hidden
     wrap_up_message: 오늘 질문은 여기까지 담아도 충분해요. 이 마음을 기억해둘게요.

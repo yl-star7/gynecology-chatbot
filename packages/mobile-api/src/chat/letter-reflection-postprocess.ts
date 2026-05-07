@@ -39,9 +39,10 @@ export const QUESTION_EXHAUSTED_FREE_CHAT_MESSAGE =
   "오늘의 질문을 모두 답변하셨어요. 이제 자유롭게 얘기해보아요.";
 export const QUESTION_WRAP_UP_MESSAGE =
   "오늘 질문은 여기까지 담아도 충분해요. 이 마음을 기억해둘게요.";
+export const MIN_REFLECTION_USER_TURNS_BEFORE_NEXT = 3;
 export const DEFAULT_LETTER_REFLECTION_LOOP_POLICY: LetterReflectionLoopPolicy =
   {
-    minUserTurnsBeforeNext: 1,
+    minUserTurnsBeforeNext: MIN_REFLECTION_USER_TURNS_BEFORE_NEXT,
     maxUserTurnsPerQuestion: 5,
     quickReplyMode: "hidden",
     wrapUpMessage: QUESTION_WRAP_UP_MESSAGE,
@@ -95,7 +96,7 @@ export function normalizeLetterReflectionLoopPolicy(
   const minUserTurnsBeforeNext = asPolicyInt(
     record.minUserTurnsBeforeNext ?? record.min_user_turns_before_next,
     base.minUserTurnsBeforeNext,
-    1,
+    MIN_REFLECTION_USER_TURNS_BEFORE_NEXT,
     20,
   );
   const maxUserTurnsPerQuestion = asPolicyInt(
@@ -171,8 +172,7 @@ function countUserTurnsFromRecentMessages(
   const reflectionMessages =
     promptIndex >= 0 ? messages.slice(promptIndex + 1) : messages;
 
-  return reflectionMessages.filter((message) => message.role === "user")
-    .length;
+  return reflectionMessages.filter((message) => message.role === "user").length;
 }
 
 export function resolveLetterReflectionCurrentTurnCount(input: {
@@ -211,10 +211,7 @@ function wrapUpRepeatingQuestion(answer: unknown, wrapUpMessage: string) {
     ? answer.slice(0, answer.indexOf(wrapUpMessage)).trim()
     : answer.trim();
   const answerWithoutTrailingQuestion = answerBeforeWrapUp
-    .replace(
-      /(^|\s+)[^.!?。！？\n]*[?？]\s*[*_`"'”’)\]]*\s*$/u,
-      "",
-    )
+    .replace(/(^|\s+)[^.!?。！？\n]*[?？]\s*[*_`"'”’)\]]*\s*$/u, "")
     .trim();
 
   return answerWithoutTrailingQuestion
@@ -284,11 +281,11 @@ export function syncLetterReflectionPayloadToMessageParts(
   message: AssistantMessageLike,
   payload: LetterReflectionPayload,
 ) {
-  const answer = typeof payload.answer === "string" ? payload.answer.trim() : "";
+  const answer =
+    typeof payload.answer === "string" ? payload.answer.trim() : "";
   if (answer) {
     const textIndex = message.parts.findIndex((part) => part.type === "text");
-    const existingText =
-      textIndex >= 0 ? message.parts[textIndex] : undefined;
+    const existingText = textIndex >= 0 ? message.parts[textIndex] : undefined;
     const nextTextPart = {
       ...(existingText ?? {}),
       type: "text",
@@ -384,15 +381,6 @@ export function rewriteLetterReflectionQuickReplies(
           .length
       : Math.max(0, quota - answeredAfterClose);
 
-  if (remainingAfterClose === 0) {
-    transitionToFreeChat(
-      payload,
-      answeredIdsAfterClose,
-      loopPolicy.exhaustedFreeChatMessage,
-    );
-    return payload;
-  }
-
   const turnCount = progress.currentQuestionTurnCount ?? 0;
   const nextChipMinTurns = resolveLetterReflectionNextChipMinTurns(
     current,
@@ -406,6 +394,15 @@ export function rewriteLetterReflectionQuickReplies(
 
   if (!allowNextChip && mode === "hidden") {
     delete payload.quickReplies;
+    return payload;
+  }
+
+  if (allowNextChip && remainingAfterClose === 0) {
+    transitionToFreeChat(
+      payload,
+      answeredIdsAfterClose,
+      loopPolicy.exhaustedFreeChatMessage,
+    );
     return payload;
   }
 
