@@ -129,20 +129,6 @@ export type QuestionProgress = {
   currentAttachmentQuestionId: string | null;
 };
 
-export function resolveSelectedTodayQuestionId(input: {
-  selectedQuestionId?: string | null;
-  todayQuestionCandidates: Array<{ id: string }>;
-}) {
-  const selectedQuestionId = input.selectedQuestionId?.trim();
-  if (!selectedQuestionId) {
-    return null;
-  }
-
-  return input.todayQuestionCandidates.some((q) => q.id === selectedQuestionId)
-    ? selectedQuestionId
-    : null;
-}
-
 export type StageShortcutResult = {
   assistantMessage: ChatMessage;
   workflowMemoryPayload: WorkflowAssistantPayload;
@@ -299,7 +285,7 @@ function buildWeekInfoOptInTurn(
           yamlAcknowledgements && yamlAcknowledgements.length > 0
             ? yamlAcknowledgements
             : input.moodAcknowledgementPool &&
-                input.moodAcknowledgementPool.length > 0
+            input.moodAcknowledgementPool.length > 0
               ? input.moodAcknowledgementPool
               : MOOD_ACKNOWLEDGEMENTS[moodTone],
           input.rngSeed === undefined ? undefined : input.rngSeed + 1,
@@ -389,7 +375,8 @@ function buildTodayQuestionTurn(
       guardrailStatus: "safe",
       // 이번 턴에 "보여준" 후보들
       offeredQuestionIds: remaining.map((q) => q.id),
-      selectedQuestionIds: [],
+      // 누적 상태 그대로 유지
+      selectedQuestionIds: progress.answeredQuestionIds,
       currentAttachmentQuestionId: null,
       nextSessionMemory: {
         workflowVersion: 2,
@@ -441,7 +428,7 @@ function buildExhaustedChoiceTurn(
       scenario: "general",
       characterTone: "calm",
       guardrailStatus: "safe",
-      selectedQuestionIds: [],
+      selectedQuestionIds: progress.answeredQuestionIds,
       currentAttachmentQuestionId: null,
       nextSessionMemory: {
         workflowVersion: 2,
@@ -486,7 +473,7 @@ function buildBlockedTodayQuestionTurn(
       offeredQuestionIds: getRemainingQuestions(input, progress).map(
         (q) => q.id,
       ),
-      selectedQuestionIds: [],
+      selectedQuestionIds: progress.answeredQuestionIds,
       currentAttachmentQuestionId: null,
       nextSessionMemory: {
         workflowVersion: 2,
@@ -534,7 +521,7 @@ function buildDeferredWeekInfoQuestionTurn(
       characterTone: "calm",
       guardrailStatus: "safe",
       offeredQuestionIds: remaining.map((q) => q.id),
-      selectedQuestionIds: [],
+      selectedQuestionIds: progress.answeredQuestionIds,
       currentAttachmentQuestionId: null,
       nextSessionMemory: {
         workflowVersion: 2,
@@ -579,7 +566,7 @@ function buildActiveQuestionRequiredTurn(
       scenario: "attachment_question",
       characterTone: "calm",
       guardrailStatus: "safe",
-      selectedQuestionIds: [],
+      selectedQuestionIds: progress.answeredQuestionIds,
       currentAttachmentQuestionId: progress.currentAttachmentQuestionId,
       nextSessionMemory: {
         workflowVersion: 2,

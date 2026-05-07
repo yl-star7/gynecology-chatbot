@@ -1,9 +1,9 @@
 import { Hono } from "hono";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import {
   MobileChatSessionNotFoundError,
   summarizeMobileChatSession,
 } from "@gynecology-chatbot/mobile-api/chat/session-summary";
-import { dbSelect } from "@gynecology-chatbot/mobile-api/db/admin-client";
 import {
   resolveRecentChatPreview,
   toChatSession,
@@ -32,28 +32,11 @@ type SessionSummaryRow = {
   summary: string | null;
 };
 
-type SessionRow = {
-  id: string;
-  title: string;
-  last_message_at: string | null;
-};
-
-type MessageRow = {
-  id: string;
-  role: string;
-  parts: unknown;
-  created_at: string;
-};
-
-function toIsoString(value: Date | string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  return value instanceof Date ? value.toISOString() : value;
+function toIsoString(value: Date | null | undefined) {
+  return value?.toISOString() ?? null;
 }
 
-function asMessageParts(value: unknown): MessagePreviewRow["parts"] {
+function asMessageParts(value: Prisma.JsonValue): MessagePreviewRow["parts"] {
   return Array.isArray(value) ? (value as MessagePreviewRow["parts"]) : null;
 }
 
@@ -63,20 +46,43 @@ app.get("/", async (c) => {
     const hintedUserId = c.req.query("userId") ?? null;
     const { userId } = await requireMobileSession(c, hintedUserId);
 
-    const sessions = await dbSelect<SessionRow[]>(
-      `chat_sessions?select=id,title,last_message_at&user_id=eq.${userId}&order=last_message_at.desc`,
-    );
+    const sessions = await prisma.chat_sessions.findMany({
+      where: { user_id: userId },
+      orderBy: [{ last_message_at: "desc" }],
+      select: {
+        id: true,
+        title: true,
+        last_message_at: true,
+      },
+    });
 
     const sessionIds = sessions.map((session) => session.id);
     const [latestMessages, summaryRows] =
       sessionIds.length > 0
         ? await Promise.all([
-            dbSelect<MessagePreviewRow[]>(
-              `chat_messages?select=session_id,plain_text,parts&session_id=in.(${sessionIds.join(",")})&order=created_at.desc`,
-            ),
-            dbSelect<SessionSummaryRow[]>(
-              `calendar_logs?select=session_id,summary&user_id=eq.${userId}&session_id=in.(${sessionIds.join(",")})&entry_type=eq.ai_summary&order=created_at.desc`,
-            ),
+            prisma.chat_messages.findMany({
+              where: {
+                session_id: { in: sessionIds },
+              },
+              orderBy: [{ created_at: "desc" }],
+              select: {
+                session_id: true,
+                plain_text: true,
+                parts: true,
+              },
+            }),
+            prisma.calendar_logs.findMany({
+              where: {
+                user_id: userId,
+                session_id: { in: sessionIds },
+                entry_type: "ai_summary",
+              },
+              orderBy: [{ created_at: "desc" }],
+              select: {
+                session_id: true,
+                summary: true,
+              },
+            }),
           ])
         : [[], []];
 
@@ -133,12 +139,29 @@ app.get("/:sessionId", async (c) => {
     const { userId } = await requireMobileSession(c, hintedUserId);
 
     const [session, messages] = await Promise.all([
-      dbSelect<SessionRow[]>(
-        `chat_sessions?select=id,title,last_message_at&id=eq.${sessionId}&user_id=eq.${userId}&limit=1`,
-      ).then((rows) => rows[0] ?? null),
-      dbSelect<MessageRow[]>(
-        `chat_messages?select=id,role,parts,created_at&session_id=eq.${sessionId}&order=created_at.asc`,
-      ),
+      prisma.chat_sessions.findFirst({
+        where: {
+          id: sessionId,
+          user_id: userId,
+        },
+        select: {
+          id: true,
+          title: true,
+          last_message_at: true,
+        },
+      }),
+      prisma.chat_messages.findMany({
+        where: {
+          session_id: sessionId,
+        },
+        orderBy: [{ created_at: "asc" }],
+        select: {
+          id: true,
+          role: true,
+          parts: true,
+          created_at: true,
+        },
+      }),
     ]);
 
     if (!session) {
@@ -155,7 +178,7 @@ app.get("/:sessionId", async (c) => {
           id: message.id,
           role: message.role as "user" | "assistant" | "system",
           parts: (Array.isArray(message.parts) ? message.parts : []) as never[],
-          created_at: toIsoString(message.created_at) ?? "",
+          created_at: message.created_at.toISOString(),
         })),
       ),
     });

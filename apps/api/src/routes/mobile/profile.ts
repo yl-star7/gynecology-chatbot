@@ -9,11 +9,7 @@ import {
   hasCompletedProfileOnboarding,
   updateMobileProfile,
 } from "@gynecology-chatbot/mobile-api/auth";
-import {
-  dbInsert,
-  dbSelect,
-  dbUpdate,
-} from "@gynecology-chatbot/mobile-api/db/admin-client";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import { decryptPhoneNumber } from "@gynecology-chatbot/mobile-api/privacy/phone-crypto";
 import {
   mobileRouteErrorResponse,
@@ -140,26 +136,18 @@ function resolveQuestionChoices(question: QuestionRow) {
     .filter((choice) => choice.label.length > 0);
 }
 
-function asObject<T>(value: unknown): T | null {
+function asObject<T>(value: Prisma.JsonValue | null | undefined): T | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as T)
     : null;
 }
 
-function formatDateOnly(value: Date | string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  return value instanceof Date ? value.toISOString().slice(0, 10) : value;
+function formatDateOnly(value: Date | null | undefined) {
+  return value ? value.toISOString().slice(0, 10) : null;
 }
 
-function formatTimeOnly(value: Date | string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  return value instanceof Date ? value.toISOString().slice(11, 19) : value;
+function formatTimeOnly(value: Date | null | undefined) {
+  return value ? value.toISOString().slice(11, 19) : null;
 }
 
 function getKstDateKey() {
@@ -197,24 +185,38 @@ function formatPregnancyWeekLabel(profile: ProfileRow | null) {
   return position ? `${position.week}주 ${position.dayInWeek}일` : "정보 없음";
 }
 
+function parseDateOnly(isoDate: string) {
+  return new Date(`${isoDate}T00:00:00.000Z`);
+}
+
 app.get("/", async (c) => {
   try {
     const hintedUserId = c.req.query("userId") ?? null;
     const { userId } = await requireMobileSession(c, hintedUserId);
 
     const [userRecord, profileRecord] = await Promise.all([
-      dbSelect<UserRow[]>(
-        `users?select=id,phone_number_encrypted,account_status&id=eq.${userId}&limit=1`,
-      ).then((rows) => rows[0] ?? null),
-      dbSelect<
-        Array<
-          Omit<ProfileRow, "onboarding_payload"> & {
-            onboarding_payload: unknown;
-          }
-        >
-      >(
-        `pregnancy_profiles?select=display_name,pregnancy_day_count,pregnancy_week,pregnancy_day_in_week,due_date,onboarding_payload,baby_nickname,notification_time,theme_key&user_id=eq.${userId}&limit=1`,
-      ).then((rows) => rows[0] ?? null),
+      prisma.users.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          phone_number_encrypted: true,
+          account_status: true,
+        },
+      }),
+      prisma.pregnancy_profiles.findUnique({
+        where: { user_id: userId },
+        select: {
+          display_name: true,
+          pregnancy_day_count: true,
+          pregnancy_week: true,
+          pregnancy_day_in_week: true,
+          due_date: true,
+          onboarding_payload: true,
+          baby_nickname: true,
+          notification_time: true,
+          theme_key: true,
+        },
+      }),
     ]);
 
     if (!userRecord?.phone_number_encrypted) {
@@ -257,21 +259,53 @@ app.get("/", async (c) => {
     if (currentPregnancyPosition) {
       try {
         const dayNumber = (currentPregnancyPosition.dayInWeek % 7) + 1;
-        const weekRecord = (
-          await dbSelect<WeekRow[]>(
-            `content_pregnancy_week_data?select=id&week_number=eq.${currentPregnancyPosition.week}&status=eq.published&limit=1`,
-          )
-        )[0];
+        const weekRecord = await prisma.content_pregnancy_week_data.findFirst({
+          where: {
+            week_number: currentPregnancyPosition.week,
+            status: "published",
+          },
+          select: { id: true },
+        });
         const week: WeekRow | null = weekRecord;
 
         if (week) {
           const [datedQuestion, genericQuestion] = await Promise.all([
-            dbSelect<QuestionRow[]>(
-              `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=eq.${dayNumber}&is_active=eq.true&order=display_order.asc&limit=1`,
-            ).then((rows) => rows[0] ?? null),
-            dbSelect<QuestionRow[]>(
-              `content_week_questions?select=id,code,question_text,question_type,help_text,question_payload,display_order,is_required&week_data_id=eq.${week.id}&day_number=is.null&is_active=eq.true&order=display_order.asc&limit=1`,
-            ).then((rows) => rows[0] ?? null),
+            prisma.content_week_questions.findFirst({
+              where: {
+                week_data_id: week.id,
+                day_number: dayNumber,
+                is_active: true,
+              },
+              orderBy: { display_order: "asc" },
+              select: {
+                id: true,
+                code: true,
+                question_text: true,
+                question_type: true,
+                help_text: true,
+                question_payload: true,
+                display_order: true,
+                is_required: true,
+              },
+            }),
+            prisma.content_week_questions.findFirst({
+              where: {
+                week_data_id: week.id,
+                day_number: null,
+                is_active: true,
+              },
+              orderBy: { display_order: "asc" },
+              select: {
+                id: true,
+                code: true,
+                question_text: true,
+                question_type: true,
+                help_text: true,
+                question_payload: true,
+                display_order: true,
+                is_required: true,
+              },
+            }),
           ]);
 
           const questionRecord = datedQuestion ?? genericQuestion ?? null;
@@ -291,9 +325,17 @@ app.get("/", async (c) => {
               }
             : null;
           const questionEvents = question
-            ? await dbSelect<QuestionEventRow[]>(
-                `user_question_events?select=id,question_id,status&user_id=eq.${userId}&question_id=eq.${question.id}`,
-              )
+            ? await prisma.user_question_events.findMany({
+                where: {
+                  user_id: userId,
+                  question_id: question.id,
+                },
+                select: {
+                  id: true,
+                  question_id: true,
+                  status: true,
+                },
+              })
             : [];
           const answered = (questionEvents as QuestionEventRow[]).some(
             (event) => event.status === "answered",
@@ -422,19 +464,16 @@ app.post("/surveys", async (c) => {
 
     const { userId } = await requireMobileSession(c, hintedUserId);
 
-    const questionRecord = (
-      await dbSelect<
-        Array<{
-          id: string;
-          question_text: string;
-          question_type: string;
-          help_text: string | null;
-          question_payload: unknown;
-        }>
-      >(
-        `content_week_questions?select=id,question_text,question_type,help_text,question_payload&id=eq.${questionId}&limit=1`,
-      )
-    )[0];
+    const questionRecord = await prisma.content_week_questions.findUnique({
+      where: { id: questionId },
+      select: {
+        id: true,
+        question_text: true,
+        question_type: true,
+        help_text: true,
+        question_payload: true,
+      },
+    });
     const question = questionRecord
       ? {
           id: questionRecord.id,
@@ -449,49 +488,57 @@ app.post("/surveys", async (c) => {
       return c.json({ error: "question not found" }, 404);
     }
 
-    const now = new Date().toISOString();
+    const now = new Date();
 
-    await dbInsert("calendar_logs", {
-      user_id: userId,
-      session_id: null,
-      date: getKstDateKey(),
-      entry_type: "survey_response",
-      title: question.question_text,
-      summary: answer,
-      payload: {
-        questionId: question.id,
-        questionType: question.question_type,
-        answer,
-        source: "profile_survey",
+    await prisma.calendar_logs.create({
+      data: {
+        user_id: userId,
+        session_id: null,
+        date: parseDateOnly(getKstDateKey()),
+        entry_type: "survey_response",
+        title: question.question_text,
+        summary: answer,
+        payload: {
+          questionId: question.id,
+          questionType: question.question_type,
+          answer,
+          source: "profile_survey",
+        },
       },
     });
 
-    const existingEvent = (
-      await dbSelect<Array<{ id: string }>>(
-        `user_question_events?select=id&user_id=eq.${userId}&question_id=eq.${questionId}&order=updated_at.desc&limit=1`,
-      )
-    )[0];
-
-    if (existingEvent?.id) {
-      await dbUpdate(`user_question_events?id=eq.${existingEvent.id}`, {
-        status: "answered",
-        answer_message_id: null,
-        answer_text: answer,
-        answered_at: now,
-        updated_at: now,
-      });
-    } else {
-      await dbInsert("user_question_events", {
+    const existingEvent = await prisma.user_question_events.findFirst({
+      where: {
         user_id: userId,
         question_id: questionId,
-        session_id: null,
-        prompt_message_id: null,
-        answer_message_id: null,
-        status: "answered",
-        sent_at: now,
-        answer_text: answer,
-        answered_at: now,
-        updated_at: now,
+      },
+      orderBy: { updated_at: "desc" },
+      select: { id: true },
+    });
+
+    if (existingEvent?.id) {
+      await prisma.user_question_events.update({
+        where: { id: existingEvent.id },
+        data: {
+          status: "answered",
+          answer_message_id: null,
+          answered_at: now,
+          updated_at: now,
+        },
+      });
+    } else {
+      await prisma.user_question_events.create({
+        data: {
+          user_id: userId,
+          question_id: questionId,
+          session_id: null,
+          prompt_message_id: null,
+          answer_message_id: null,
+          status: "answered",
+          sent_at: now,
+          answered_at: now,
+          updated_at: now,
+        },
       });
     }
 

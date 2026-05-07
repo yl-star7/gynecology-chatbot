@@ -1,12 +1,11 @@
 import { Hono } from "hono";
+import { prisma } from "@gynecology-chatbot/db/prisma";
 import {
   buildMobileWeeksPayload,
   normalizeWeeklyEncyclopediaRows,
   parseWeekParam,
-  type RawWeeklyEncyclopediaRow,
   type SourceWeekRow,
 } from "@gynecology-chatbot/mobile-api/weeks/weekly-encyclopedia";
-import { dbSelect } from "@gynecology-chatbot/mobile-api/db/admin-client";
 import {
   mobileRouteErrorResponse,
   requireMobileSession,
@@ -48,11 +47,24 @@ function timeSync<T>(entries: TimingEntry[], name: string, run: () => T) {
 }
 
 async function loadWeeklyEncyclopediaRows(weekFilter: number | null) {
-  const rows = await dbSelect<RawWeeklyEncyclopediaRow[]>(
-    `v_weekly_encyclopedia?select=week_number,content_scope,category,title,summary,body,items${
-      typeof weekFilter === "number" ? `&week_number=eq.${weekFilter}` : ""
-    }&order=week_number.asc`,
-  );
+  const rows = await prisma.v_weekly_encyclopedia.findMany({
+    where:
+      typeof weekFilter === "number" ? { week_number: weekFilter } : undefined,
+    select: {
+      week_number: true,
+      content_scope: true,
+      category: true,
+      title: true,
+      summary: true,
+      body: true,
+      items: true,
+    },
+    orderBy: [
+      { week_number: "asc" },
+      { content_scope: "asc" },
+      { category: "asc" },
+    ],
+  });
 
   return normalizeWeeklyEncyclopediaRows(rows);
 }
@@ -69,36 +81,47 @@ app.get("/", async (c) => {
         loadWeeklyEncyclopediaRows(weekFilter),
       ),
       timeAsync(timings, "db_source_weeks", () =>
-        dbSelect<SourceWeekRow[]>(
-          `content_pregnancy_week_data?select=week_number,title,baby_size_label,baby_summary,mother_summary&status=eq.published${
-            typeof weekFilter === "number"
-              ? `&week_number=eq.${weekFilter}`
-              : ""
-          }&order=week_number.asc`,
-        ),
+        prisma.content_pregnancy_week_data.findMany({
+          where: {
+            status: "published",
+            ...(typeof weekFilter === "number"
+              ? { week_number: weekFilter }
+              : {}),
+          },
+          orderBy: { week_number: "asc" },
+          select: {
+            week_number: true,
+            title: true,
+            baby_size_label: true,
+            baby_summary: true,
+            mother_summary: true,
+          },
+        }),
       ),
       timeAsync(timings, "db_documents", () =>
-        dbSelect<Array<{ id: string; pregnancy_week: number | null }>>(
-          `content_pregnancy_documents?select=id,pregnancy_week${
+        prisma.content_pregnancy_documents.findMany({
+          where:
             typeof weekFilter === "number"
-              ? `&pregnancy_week=eq.${weekFilter}`
-              : ""
-          }&order=pregnancy_week.asc`,
-        ).then((rows) => rows.filter((row) => row.pregnancy_week !== null)),
+              ? { pregnancy_week: weekFilter }
+              : { pregnancy_week: { not: null } },
+          orderBy: [{ pregnancy_week: "asc" }, { updated_at: "desc" }],
+          select: {
+            id: true,
+            pregnancy_week: true,
+          },
+        }),
       ),
     ]);
 
     const payload = timeSync(timings, "build", () =>
       buildMobileWeeksPayload({
-        sourceWeeks: rows.map(
-          (row): SourceWeekRow => ({
-            week_number: row.week_number,
-            title: row.title,
-            baby_size_label: row.baby_size_label,
-            baby_summary: row.baby_summary,
-            mother_summary: row.mother_summary,
-          }),
-        ),
+        sourceWeeks: rows.map((row): SourceWeekRow => ({
+          week_number: row.week_number,
+          title: row.title,
+          baby_size_label: row.baby_size_label,
+          baby_summary: row.baby_summary,
+          mother_summary: row.mother_summary,
+        })),
         encyclopediaRows,
         documentLinks: documentLinkRows,
       }),
