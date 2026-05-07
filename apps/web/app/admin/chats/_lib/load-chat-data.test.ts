@@ -3,15 +3,12 @@ var mockedPrisma: any;
 jest.mock("@gynecology-chatbot/db/prisma", () => {
   mockedPrisma = {
     users: {
-      findUnique: jest.fn(),
       findMany: jest.fn(),
     },
     chat_sessions: {
       findFirst: jest.fn(),
-      findMany: jest.fn(),
     },
     chat_messages: {
-      groupBy: jest.fn(),
       findMany: jest.fn(),
     },
     user_question_events: {
@@ -41,33 +38,18 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
   decryptPhoneNumber: jest.fn((value: string) => value.replace(/^enc:/, "")),
 }));
 
-jest.mock("@/lib/db/admin-client", () => ({
-  dbSelect: jest.fn(),
-}));
-
-import { dbSelect } from "@/lib/db/admin-client";
-
-import {
-  fetchChatActions,
-  fetchChatSessionMessages,
-  fetchChatUserDetail,
-} from "./load-chat-data";
+import { fetchChatActions, fetchChatSessionMessages } from "./load-chat-data";
 
 const userId = "6e789ecc-d48a-4535-8ad9-1303dcddb8e5";
-const mockedDbSelect = jest.mocked(dbSelect);
 
 describe("fetchChatActions", () => {
   afterEach(() => {
-    mockedPrisma.users.findUnique.mockReset();
     mockedPrisma.users.findMany.mockReset();
     mockedPrisma.chat_sessions.findFirst.mockReset();
-    mockedPrisma.chat_sessions.findMany.mockReset();
-    mockedPrisma.chat_messages.groupBy.mockReset();
     mockedPrisma.chat_messages.findMany.mockReset();
     mockedPrisma.user_question_events.findMany.mockReset();
     mockedPrisma.calendar_logs.findMany.mockReset();
     mockedPrisma.user_action_logs.findMany.mockReset();
-    mockedDbSelect.mockReset();
   });
 
   it("resolves a phone number filter to action log user ids and returns phone display data", async () => {
@@ -129,81 +111,14 @@ describe("fetchChatActions", () => {
   });
 });
 
-describe("fetchChatUserDetail", () => {
-  afterEach(() => {
-    mockedPrisma.users.findUnique.mockReset();
-    mockedPrisma.chat_sessions.findMany.mockReset();
-    mockedPrisma.chat_messages.groupBy.mockReset();
-    mockedDbSelect.mockReset();
-  });
-
-  it("loads local text-id users through the DB client", async () => {
-    mockedDbSelect
-      .mockResolvedValueOnce([
-        {
-          id: "local-user-demo",
-          account_status: "active",
-          phone_number_encrypted: "enc:+821012345678",
-          phone_number_last4: "5678",
-          created_at: "2026-05-06T00:00:00.000Z",
-          last_login_at: "2026-05-07T00:00:00.000Z",
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          display_name: "김수연",
-          pregnancy_week: 32,
-          pregnancy_day_in_week: 1,
-          week_override: null,
-          day_override: null,
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: "local-session-1",
-          title: "오늘의 질문",
-          status: "active",
-          last_message_at: "2026-05-07T01:00:00.000Z",
-          created_at: "2026-05-07T00:30:00.000Z",
-        },
-      ])
-      .mockResolvedValueOnce([
-        { session_id: "local-session-1" },
-        { session_id: "local-session-1" },
-      ]);
-
-    const result = await fetchChatUserDetail("local-user-demo");
-
-    expect(mockedPrisma.users.findUnique).not.toHaveBeenCalled();
-    expect(mockedDbSelect).toHaveBeenCalledWith(
-      expect.stringContaining("users?select="),
-    );
-    expect(result?.profile.userId).toBe("local-user-demo");
-    expect(result?.sessions).toEqual([
-      {
-        sessionId: "local-session-1",
-        title: "오늘의 질문",
-        status: "active",
-        lastMessageAt: "2026-05-07T01:00:00.000Z",
-        createdAt: "2026-05-07T00:30:00.000Z",
-        messageCount: 2,
-      },
-    ]);
-  });
-});
-
 describe("fetchChatSessionMessages", () => {
   afterEach(() => {
-    mockedPrisma.users.findUnique.mockReset();
     mockedPrisma.users.findMany.mockReset();
     mockedPrisma.chat_sessions.findFirst.mockReset();
-    mockedPrisma.chat_sessions.findMany.mockReset();
-    mockedPrisma.chat_messages.groupBy.mockReset();
     mockedPrisma.chat_messages.findMany.mockReset();
     mockedPrisma.user_question_events.findMany.mockReset();
     mockedPrisma.calendar_logs.findMany.mockReset();
     mockedPrisma.user_action_logs.findMany.mockReset();
-    mockedDbSelect.mockReset();
   });
 
   it("returns question answer events with message logs for the session", async () => {
@@ -306,72 +221,5 @@ describe("fetchChatSessionMessages", () => {
     expect(result?.questionAnswers[0]?.appSummary).toBe(
       "몸이 무거웠지만 아기가 잘 자란다고 생각했어요.",
     );
-  });
-
-  it("loads local text-id chat sessions through the DB client", async () => {
-    mockedDbSelect
-      .mockResolvedValueOnce([
-        {
-          id: "local-session-1",
-          title: "오늘의 질문",
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: "message-1",
-          role: "user",
-          plain_text: "아기야 고마워.",
-          parts: [{ type: "text", text: "아기야 고마워." }],
-          model_name: null,
-          created_at: "2026-05-07T01:00:00.000Z",
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: "event-1",
-          question_id: "week-question-32-general-baby-message",
-          status: "answered",
-          sent_at: "2026-05-07T00:59:00.000Z",
-          answered_at: "2026-05-07T01:00:00.000Z",
-          answer_text: "아기야 고마워.",
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: "week-question-32-general-baby-message",
-          question_text: "오늘 아기에게 들려주고 싶은 말은 무엇인가요?",
-        },
-      ])
-      .mockResolvedValueOnce([]);
-
-    const result = await fetchChatSessionMessages(
-      "local-user-demo",
-      "local-session-1",
-    );
-
-    expect(mockedPrisma.chat_sessions.findFirst).not.toHaveBeenCalled();
-    expect(mockedDbSelect).toHaveBeenCalledWith(
-      expect.stringContaining("chat_sessions?select=id,title"),
-    );
-    expect(result?.messages).toEqual([
-      {
-        messageId: "message-1",
-        role: "user",
-        plainText: "아기야 고마워.",
-        partsSummary: "text",
-        modelName: null,
-        createdAt: "2026-05-07T01:00:00.000Z",
-      },
-    ]);
-    expect(result?.questionAnswers[0]).toEqual({
-      eventId: "event-1",
-      questionId: "week-question-32-general-baby-message",
-      questionText: "오늘 아기에게 들려주고 싶은 말은 무엇인가요?",
-      answerText: "아기야 고마워.",
-      appSummary: "아기야 고마워.",
-      status: "answered",
-      sentAt: "2026-05-07T00:59:00.000Z",
-      answeredAt: "2026-05-07T01:00:00.000Z",
-    });
   });
 });
