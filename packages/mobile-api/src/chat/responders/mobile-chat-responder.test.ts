@@ -770,30 +770,43 @@ describe("mobile chat responder", () => {
     );
   });
 
-  it("throws when workflow output is not structured chat JSON", async () => {
+  it("renders plain text workflow output instead of failing the chat turn", async () => {
     const responder = createMobileChatResponder({
       getSchiftClient: () => ({ workflows: { run: jest.fn() } }),
       runSchiftWorkflow: jest.fn().mockResolvedValue({
         run: {
           status: "completed",
-          outputs: { text: "SPECIAL INSTRUCTION" },
+          outputs: {
+            result: {
+              text: "배 당김이 규칙적으로 반복되거나 출혈이 있으면 바로 병원에 연락해주세요.",
+              sources: [],
+            },
+          },
         },
       }),
       extractSchiftWorkflowOutputs: (run) => run.outputs ?? {},
-      formatSchiftWorkflowRun: () => "답변: SPECIAL INSTRUCTION",
+      formatSchiftWorkflowRun: () =>
+        "답변: 배 당김이 규칙적으로 반복되거나 출혈이 있으면 바로 병원에 연락해주세요.",
       loadCharacterImages: async () => ({}),
     });
 
-    await expect(
-      responder({
-        promptContext: null,
-        currentWeek: 13,
-        normalizedSessionId: "session-1",
-        text: "오늘은 마음이 불안해요",
-        imageDataUris: [],
-        hardGuardrailReason: null,
-      }),
-    ).rejects.toThrow("Schift workflow returned unstructured output");
+    const result = await responder({
+      promptContext: null,
+      currentWeek: 13,
+      normalizedSessionId: "session-1",
+      text: "배가 당길 때는 언제 병원에 연락해야 하나요?",
+      imageDataUris: [],
+      hardGuardrailReason: null,
+    });
+
+    expect(result.assistantMessage.parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "text",
+          text: "배 당김이 규칙적으로 반복되거나 출혈이 있으면 바로 병원에 연락해주세요.",
+        }),
+      ]),
+    );
   });
 
   it("removes early closing quick replies during letter reflection flow", async () => {

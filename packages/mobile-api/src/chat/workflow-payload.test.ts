@@ -80,6 +80,20 @@ describe("workflow payload", () => {
     );
   });
 
+  it("keeps plain Schift result text as the assistant answer", () => {
+    const payload = parseWorkflowAssistantPayload({
+      result: {
+        text: "배 당김이 규칙적으로 반복되거나 출혈이 있으면 바로 병원에 연락해주세요.",
+        sources: [],
+      },
+    });
+
+    expect(payload).toEqual({
+      answer:
+        "배 당김이 규칙적으로 반복되거나 출혈이 있으면 바로 병원에 연락해주세요.",
+    });
+  });
+
   it("parses knowledge deep links from workflow payloads", () => {
     const payload = parseWorkflowAssistantPayload({
       answer: JSON.stringify({

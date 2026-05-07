@@ -204,9 +204,11 @@ export function parseWorkflowAssistantPayload(
       ? outputs.answer
       : typeof outputs.reply === "string"
         ? outputs.reply
-        : typeof outputs.result === "string"
-          ? outputs.result
-          : nestedText;
+        : typeof outputs.text === "string"
+          ? outputs.text
+          : typeof outputs.result === "string"
+            ? outputs.result
+            : nestedText;
 
   const directPayload = {
     answer:
@@ -214,9 +216,11 @@ export function parseWorkflowAssistantPayload(
         ? outputs.answer
         : typeof outputs.reply === "string"
           ? outputs.reply
-          : typeof outputs.result === "string"
-            ? outputs.result
-            : undefined,
+          : typeof outputs.text === "string"
+            ? outputs.text
+            : typeof outputs.result === "string"
+              ? outputs.result
+              : (nestedText ?? undefined),
     characterTone:
       typeof outputs.characterTone === "string"
         ? (outputs.characterTone as CharacterTone)
@@ -337,7 +341,9 @@ export function parseWorkflowAssistantPayload(
     const isPlainAnswerOutput =
       typeof outputs.answer === "string" ||
       typeof outputs.reply === "string" ||
-      typeof outputs.result === "string";
+      typeof outputs.text === "string" ||
+      typeof outputs.result === "string" ||
+      typeof nestedText === "string";
     return isPlainAnswerOutput ? { answer: stripped } : null;
   }
 
