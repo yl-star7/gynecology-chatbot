@@ -27,6 +27,7 @@ import { buildPromptFollowUpMessages } from "@gynecology-chatbot/mobile-api/chat
 import { buildChatOrchestrator } from "@gynecology-chatbot/mobile-api/chat/chat-orchestrator";
 import { createMobileChatResponder } from "@gynecology-chatbot/mobile-api/chat/responders/mobile-chat-responder";
 import {
+  mergeQuestionProgressWithMemory,
   maybeShortCircuitStaticTurn,
   type QuestionProgress,
 } from "@gynecology-chatbot/mobile-api/chat/stage-shortcut";
@@ -104,9 +105,7 @@ function normalizeChatFlowOptions(value: unknown): ChatFlowOptions {
   const letterReflectionLoop =
     record.letterReflectionLoop ?? record.letter_reflection_loop;
   return {
-    ...(letterReflectionQuickReplies
-      ? { letterReflectionQuickReplies }
-      : {}),
+    ...(letterReflectionQuickReplies ? { letterReflectionQuickReplies } : {}),
     ...(letterReflectionLoop ? { letterReflectionLoop } : {}),
   };
 }
@@ -540,6 +539,10 @@ app.post("/", async (c) => {
           currentAttachmentQuestionId: null,
         };
       }
+      progress = mergeQuestionProgressWithMemory(
+        progress,
+        input.promptContext?.sessionMemory ?? null,
+      );
 
       const todayQuestionCandidates = (
         input.promptContext?.questions ?? []
@@ -588,9 +591,7 @@ app.post("/", async (c) => {
       const shortcut = maybeShortCircuitStaticTurn({
         userText: input.text,
         selectedMood,
-        selectedQuestionId: isUuid(input.selectedQuestionId ?? null)
-          ? (input.selectedQuestionId ?? null)
-          : null,
+        selectedQuestionId: input.selectedQuestionId?.trim() || null,
         transientWorkflowStage:
           selectedMoodEntry && rawStage === null ? 0 : null,
         currentWeek: input.currentWeek,
@@ -840,6 +841,15 @@ app.post("/", async (c) => {
       hardGuardrailReason,
     });
     const canUsePrismaUserSession = isUuid(userId) && isUuid(result.sessionId);
+    const calendarSessionId = canUsePrismaUserSession
+      ? await prisma.chat_sessions
+          .findUnique({
+            where: { id: result.sessionId },
+            select: { id: true },
+          })
+          .then((session) => session?.id ?? null)
+          .catch(() => null)
+      : null;
 
     if (canUsePrismaUserSession && isUuid(selectedQuestionId)) {
       try {
@@ -869,15 +879,13 @@ app.post("/", async (c) => {
         } | null
       )?.currentAttachmentQuestionId ?? null;
     const nextCurrent = nextMem?.currentAttachmentQuestionId ?? null;
-    const priorCurrentQuestionId = isUuid(priorCurrent) ? priorCurrent : null;
-    const nextCurrentQuestionId = isUuid(nextCurrent) ? nextCurrent : null;
+    const priorCurrentQuestionId = priorCurrent?.trim() || null;
+    const nextCurrentQuestionId = nextCurrent?.trim() || null;
     const justClosedQuestionId =
       priorCurrentQuestionId && priorCurrentQuestionId !== nextCurrentQuestionId
         ? priorCurrentQuestionId
         : null;
-    const selectedQuestionIdForSummary = isUuid(selectedQuestionId)
-      ? selectedQuestionId
-      : null;
+    const selectedQuestionIdForSummary = selectedQuestionId?.trim() || null;
     const activeQuestionId = resolveQuestionSummaryQuestionId({
       selectedQuestionId: selectedQuestionIdForSummary,
       currentAttachmentQuestionId: priorCurrentQuestionId,
@@ -888,11 +896,15 @@ app.post("/", async (c) => {
       !selectedQuestionIdForSummary &&
       isQuestionAnswerText({ userAnswer: answerText })
         ? activeQuestionId
-        : justClosedQuestionId &&
-            isQuestionAnswerText({ userAnswer: answerText })
-          ? justClosedQuestionId
-          : null;
-    if (canUsePrismaUserSession && answerQuestionId) {
+        : justClosedQuestionId;
+    const questionEventAnswerText = isQuestionAnswerText({
+      userAnswer: answerText,
+    })
+      ? answerText
+      : "";
+    const persistableAnswerQuestionId =
+      answerQuestionId && isUuid(answerQuestionId) ? answerQuestionId : null;
+    if (canUsePrismaUserSession && persistableAnswerQuestionId) {
       try {
         await markQuestionAnswered({
           prisma: prisma as unknown as Parameters<
@@ -900,8 +912,8 @@ app.post("/", async (c) => {
           >[0]["prisma"],
           userId,
           sessionId: result.sessionId,
-          questionId: answerQuestionId,
-          answerText,
+          questionId: persistableAnswerQuestionId,
+          answerText: questionEventAnswerText,
         });
       } catch (error) {
         console.warn("markQuestionAnswered failed", error);
@@ -909,6 +921,7 @@ app.post("/", async (c) => {
     }
     if (
       justClosedQuestionId &&
+      isUuid(justClosedQuestionId) &&
       canUsePrismaUserSession &&
       nextMem?.stage === "free_chat" &&
       nextMem.stageName === "question_session_deferred" &&
@@ -996,24 +1009,32 @@ app.post("/", async (c) => {
         ) {
           throw new Error("skip_question_summary");
         }
-        const questionRow = await prisma.content_week_questions.findFirst({
-          where: { id: activeQuestionId },
-          select: { question_text: true },
-        });
+        const promptQuestions = result.promptContext?.questions ?? [];
+        const candidateQuestionText =
+          promptQuestions.find((q) => q.id === activeQuestionId)
+            ?.question_text ?? null;
+        const questionRow = isUuid(activeQuestionId)
+          ? await prisma.content_week_questions.findFirst({
+              where: { id: activeQuestionId },
+              select: { question_text: true },
+            })
+          : null;
+        const questionText =
+          candidateQuestionText ?? questionRow?.question_text ?? null;
         if (
           !isQuestionAnswerText({
             userAnswer: text,
-            questionText: questionRow?.question_text ?? null,
+            questionText,
           })
         ) {
           throw new Error("skip_question_summary");
         }
         const record = buildQuestionSummaryRecord({
           userId,
-          sessionId: result.sessionId,
+          sessionId: calendarSessionId,
           dateKey,
           questionId: activeQuestionId,
-          questionText: questionRow?.question_text ?? null,
+          questionText,
           userAnswer: text.trim(),
           assistantAnswer,
           compactSummary: nextMem?.compactSummary ?? null,
@@ -1056,7 +1077,7 @@ app.post("/", async (c) => {
           where: {
             user_id: userId,
             date: parseDateOnly(todayDate),
-            session_id: result.sessionId,
+            session_id: calendarSessionId,
             entry_type: "chat_saved",
           },
           select: { id: true },
@@ -1102,7 +1123,7 @@ app.post("/", async (c) => {
           await prisma.calendar_logs.create({
             data: {
               user_id: userId,
-              session_id: result.sessionId,
+              session_id: calendarSessionId,
               date: parseDateOnly(todayDate),
               entry_type: "chat_saved",
               title: text.slice(0, 40) || "아기와 대화",

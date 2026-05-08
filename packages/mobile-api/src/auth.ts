@@ -480,13 +480,9 @@ export async function getAuthenticatedUser(userId: string) {
   return toAuthenticatedUser(toDecryptedPhoneRow(mapUserRow(user)), profile);
 }
 
-async function createOrUpdateSession(userId: string) {
+async function createSession(userId: string) {
   const sessionToken = buildSessionToken();
   const currentTimestamp = new Date().toISOString();
-
-  await dbUpdate(`auth_sessions?user_id=eq.${userId}`, {
-    revoked_at: currentTimestamp,
-  });
 
   await dbInsert("auth_sessions", {
     user_id: userId,
@@ -626,7 +622,7 @@ export async function completePhoneSignIn(
     verification.to ?? normalizedPhoneNumber,
     null,
   );
-  const sessionToken = await createOrUpdateSession(userId);
+  const sessionToken = await createSession(userId);
 
   await recordUserAction({
     userId,

@@ -118,7 +118,9 @@ jest.mock("@gynecology-chatbot/db/prisma", () => {
     prisma: {
       auth_sessions: createDelegate("auth_sessions"),
       blocked_phone_numbers: createDelegate("blocked_phone_numbers"),
-      phone_verification_requests: createDelegate("phone_verification_requests"),
+      phone_verification_requests: createDelegate(
+        "phone_verification_requests",
+      ),
       pregnancy_profiles: createDelegate("pregnancy_profiles"),
       users: createDelegate("users"),
     },
@@ -152,11 +154,7 @@ import {
   completePhoneSignIn,
   completeUserOnboarding,
 } from "@/lib/mobile/auth";
-import {
-  dbInsert,
-  dbSelect,
-  dbUpdate,
-} from "@/lib/db/admin-client";
+import { dbInsert, dbSelect, dbUpdate } from "@/lib/db/admin-client";
 import { checkSmsVerification } from "@/lib/mobile/solapi-sms";
 
 const mockedDbInsert = jest.mocked(dbInsert);
@@ -330,6 +328,50 @@ describe("completePhoneSignIn", () => {
       3,
       expect.stringContaining("phone_number_blind_index=eq.idx:+821099998888"),
     );
+  });
+
+  test("keeps existing mobile sessions valid when creating a new login session", async () => {
+    mockedCheckSmsVerification.mockResolvedValue({
+      sid: "check-existing-session",
+      status: "approved",
+      to: "+821011112222",
+    });
+    mockedDbSelect
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "user-existing",
+          phone_number_encrypted: "enc:+821011112222",
+          phone_number_last4: "2222",
+          account_status: "active",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: "user-existing",
+          phone_number_encrypted: "enc:+821011112222",
+          phone_number_last4: "2222",
+          account_status: "active",
+          phone_verified_at: "2026-03-19T00:00:00.000Z",
+          last_login_at: "2026-03-19T00:00:00.000Z",
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    await completePhoneSignIn("01011112222", "1234");
+
+    expect(
+      mockedDbUpdate.mock.calls.some(([path]) =>
+        String(path).startsWith("auth_sessions?"),
+      ),
+    ).toBe(false);
+    expect(
+      mockedDbInsert.mock.calls.some(([table]) => table === "auth_sessions"),
+    ).toBe(true);
   });
 });
 

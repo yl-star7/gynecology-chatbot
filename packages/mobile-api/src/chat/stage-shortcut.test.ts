@@ -1,4 +1,7 @@
-import { maybeShortCircuitStaticTurn } from "./stage-shortcut";
+import {
+  maybeShortCircuitStaticTurn,
+  mergeQuestionProgressWithMemory,
+} from "./stage-shortcut";
 import type { PromptContext } from "./chat-repository";
 import type { ChatFlowConfig } from "./chat-flow-config";
 
@@ -49,8 +52,7 @@ const questions = [
 
 function flowConfigWithMoodPrompts(
   moodPrompts = moodPool,
-  directInputAcknowledgementText =
-    "오늘의 기분 나눠줘서 고마워요. 잘 기억해서 차근차근 더 이야기 해볼게요.",
+  directInputAcknowledgementText = "오늘의 기분 나눠줘서 고마워요. 잘 기억해서 차근차근 더 이야기 해볼게요.",
 ): ChatFlowConfig {
   return {
     dataSources: [],
@@ -88,7 +90,10 @@ function flowConfigWithMoodPrompts(
     activeQuestionRequired: { answerTemplate: "{{questionText}}" },
     questionAnswer: { reflectionLoop: {} },
     exhaustedChoice: { answerText: "오늘의 질문을 모두 답변하셨어요." },
-    freeChatIntro: { answerText: "편하게 이야기 이어갈게요.", quickReplies: [] },
+    freeChatIntro: {
+      answerText: "편하게 이야기 이어갈게요.",
+      quickReplies: [],
+    },
     ended: { answerText: "오늘 이야기해줘서 고마워요." },
   } as unknown as ChatFlowConfig;
 }
@@ -299,9 +304,7 @@ describe("maybeShortCircuitStaticTurn", () => {
     const text = r!.assistantMessage.parts.find((p) => p.type === "text");
     expect(text?.type).toBe("text");
     if (text?.type === "text") {
-      expect(text.text).toContain(
-        "관리자가 설정한 직접 입력 응답이에요.",
-      );
+      expect(text.text).toContain("관리자가 설정한 직접 입력 응답이에요.");
       expect(text.text).toContain(optInVariations[0]);
     }
   });
@@ -662,6 +665,11 @@ describe("maybeShortCircuitStaticTurn", () => {
       expect(textPart.text).not.toContain('""오늘 아기에게');
       expect(textPart.text).not.toContain('**"“');
     }
+    expect(r!.workflowMemoryPayload.nextSessionMemory).toMatchObject({
+      currentAttachmentQuestionId: "q1",
+      currentQuestionTurnCount: 0,
+      stage: 2,
+    });
   });
 
   it("falls through at stage=2 with selectedQuestionId (LLM needed)", () => {
@@ -753,6 +761,54 @@ describe("maybeShortCircuitStaticTurn", () => {
     const payload = r!.workflowMemoryPayload as Record<string, unknown>;
     expect(payload.selectedQuestionIds).toEqual(["q1", "q2", "q3"]);
     expect(r!.workflowMemoryPayload.nextSessionMemory?.stage).toBe("free_chat");
+  });
+
+  it("uses session memory answered questions when event progress has not caught up", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "다음 질문으로 이어갈래요.",
+      selectedMood: null,
+      selectedQuestionId: null,
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 2,
+          stageName: "choice_conversation",
+          compactSummary: "현재 단계: 질문 답변 종료",
+          answeredQuestionIds: ["q1"],
+          currentAttachmentQuestionId: "q2",
+        } as PromptContext["sessionMemory"],
+      }),
+      progress: {
+        answeredQuestionIds: [],
+        currentAttachmentQuestionId: null,
+      },
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions.slice(0, 2),
+    });
+
+    expect(r).not.toBeNull();
+    const payload = r!.workflowMemoryPayload as Record<string, unknown>;
+    expect(payload.selectedQuestionIds).toEqual(["q1", "q2"]);
+    expect(r!.workflowMemoryPayload.nextSessionMemory?.stage).toBe("free_chat");
+  });
+
+  it("prefers the current question from session memory when progress has a stale sent event", () => {
+    expect(
+      mergeQuestionProgressWithMemory(
+        {
+          answeredQuestionIds: [],
+          currentAttachmentQuestionId: "q1",
+        },
+        {
+          answeredQuestionIds: ["q1"],
+          currentAttachmentQuestionId: "q2",
+        } as PromptContext["sessionMemory"],
+      ),
+    ).toEqual({
+      answeredQuestionIds: ["q1"],
+      currentAttachmentQuestionId: "q2",
+    });
   });
 
   it("excludes the memory current question after a next-question signal when SQL progress has no current question", () => {

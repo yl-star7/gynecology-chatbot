@@ -17,63 +17,40 @@ jest.mock("@/lib/mobile/session-auth", () => ({
   ),
 }));
 
-var mockedPrisma: any;
-jest.mock("@gynecology-chatbot/db/prisma", () => {
-  mockedPrisma = {
-    chat_sessions: {
-      findMany: jest.fn(),
-    },
-    chat_messages: {
-      findMany: jest.fn(),
-    },
-    calendar_logs: {
-      findMany: jest.fn(),
-    },
-  };
-
-  return { prisma: mockedPrisma };
-});
+jest.mock("@gynecology-chatbot/mobile-api/chat/session-route-helpers", () => ({
+  loadMobileChatSessions: jest.fn(),
+}));
 
 import { requireMobileSession } from "@/lib/mobile/session-auth";
+import { loadMobileChatSessions } from "@gynecology-chatbot/mobile-api/chat/session-route-helpers";
 import { GET } from "./route";
 
 const mockedRequireMobileSession = requireMobileSession as jest.MockedFunction<
   typeof requireMobileSession
 >;
+const mockedLoadMobileChatSessions =
+  loadMobileChatSessions as jest.MockedFunction<typeof loadMobileChatSessions>;
 
 describe("GET /api/mobile/sessions", () => {
   beforeEach(() => {
     mockedRequireMobileSession.mockReset();
-    mockedPrisma.chat_sessions.findMany.mockReset();
-    mockedPrisma.chat_messages.findMany.mockReset();
-    mockedPrisma.calendar_logs.findMany.mockReset();
-    mockedPrisma.calendar_logs.findMany.mockResolvedValue([]);
+    mockedLoadMobileChatSessions.mockReset();
   });
 
-  it("structured quick replies preview를 event actions 요약으로 반환한다", async () => {
+  it("인증된 사용자의 채팅 세션 목록을 반환한다", async () => {
     mockedRequireMobileSession.mockResolvedValue({
       userId: "user-1",
       sessionToken: "token-1",
     } as never);
-    mockedPrisma.chat_sessions.findMany.mockResolvedValue([
+    mockedLoadMobileChatSessions.mockResolvedValue([
       {
         id: "session-1",
         title: "오늘 상담",
-        last_message_at: new Date("2026-04-13T10:00:00.000Z"),
+        preview: "event {actions(3)}",
+        updatedAtLabel: "오후 7:00",
+        updatedAtIso: "2026-04-13T10:00:00.000Z",
       },
-    ]);
-    mockedPrisma.chat_messages.findMany.mockResolvedValue([
-      {
-        session_id: "session-1",
-        plain_text: null,
-        parts: [
-          {
-            type: "quickReplies",
-            choices: [{}, {}, {}],
-          },
-        ],
-      },
-    ]);
+    ] as never);
 
     const request = new Request(
       "http://localhost:3000/api/mobile/sessions?userId=user-1",
@@ -83,6 +60,11 @@ describe("GET /api/mobile/sessions", () => {
     const response = await GET(request as never);
     const payload = await response.json();
 
+    expect(mockedRequireMobileSession).toHaveBeenCalledWith(
+      expect.any(Request),
+      "user-1",
+    );
+    expect(mockedLoadMobileChatSessions).toHaveBeenCalledWith("user-1");
     expect(payload.sessions).toEqual([
       expect.objectContaining({
         id: "session-1",
@@ -91,31 +73,20 @@ describe("GET /api/mobile/sessions", () => {
     ]);
   });
 
-  it("세션 닫힘 요약이 있으면 채팅 세션 preview에 우선 사용한다", async () => {
+  it("세션 닫힘 요약 preview를 그대로 전달한다", async () => {
     mockedRequireMobileSession.mockResolvedValue({
       userId: "user-1",
       sessionToken: "token-1",
     } as never);
-    mockedPrisma.chat_sessions.findMany.mockResolvedValue([
+    mockedLoadMobileChatSessions.mockResolvedValue([
       {
         id: "session-1",
         title: "오늘 상담",
-        last_message_at: new Date("2026-04-13T10:00:00.000Z"),
+        preview: "요통 걱정을 나누고 쉬는 자세를 안내받았어요.",
+        updatedAtLabel: "오후 7:00",
+        updatedAtIso: "2026-04-13T10:00:00.000Z",
       },
-    ]);
-    mockedPrisma.chat_messages.findMany.mockResolvedValue([
-      {
-        session_id: "session-1",
-        plain_text: "마지막 원문 메시지",
-        parts: null,
-      },
-    ]);
-    mockedPrisma.calendar_logs.findMany.mockResolvedValue([
-      {
-        session_id: "session-1",
-        summary: "요통 걱정을 나누고 쉬는 자세를 안내받았어요.",
-      },
-    ]);
+    ] as never);
 
     const request = new Request(
       "http://localhost:3000/api/mobile/sessions?userId=user-1",

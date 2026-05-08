@@ -300,19 +300,18 @@ function buildWeekInfoOptInTurn(
   const moodTone: CharacterTone = moodEntry?.tone ?? "calm";
   const yamlAcknowledgements =
     input.flowConfig?.moodIntake.acknowledgementsByTone[moodTone];
-  const acknowledgement =
-    isDirectMoodEntry(moodEntry)
-      ? (input.flowConfig?.moodIntake.directInputAcknowledgementText ??
-        DIRECT_INPUT_MOOD_ACKNOWLEDGEMENT_TEXT)
-      : pickRandom(
-          yamlAcknowledgements && yamlAcknowledgements.length > 0
-            ? yamlAcknowledgements
-            : input.moodAcknowledgementPool &&
-            input.moodAcknowledgementPool.length > 0
-              ? input.moodAcknowledgementPool
-              : MOOD_ACKNOWLEDGEMENTS[moodTone],
-          input.rngSeed === undefined ? undefined : input.rngSeed + 1,
-        );
+  const acknowledgement = isDirectMoodEntry(moodEntry)
+    ? (input.flowConfig?.moodIntake.directInputAcknowledgementText ??
+      DIRECT_INPUT_MOOD_ACKNOWLEDGEMENT_TEXT)
+    : pickRandom(
+        yamlAcknowledgements && yamlAcknowledgements.length > 0
+          ? yamlAcknowledgements
+          : input.moodAcknowledgementPool &&
+              input.moodAcknowledgementPool.length > 0
+            ? input.moodAcknowledgementPool
+            : MOOD_ACKNOWLEDGEMENTS[moodTone],
+        input.rngSeed === undefined ? undefined : input.rngSeed + 1,
+      );
   const quickReplies = input.flowConfig?.weekInfoOptIn.quickReplies;
 
   return {
@@ -410,6 +409,7 @@ function buildTodayQuestionTurn(
         lastCharacterTone: "calm",
         answeredQuestionIds: progress.answeredQuestionIds,
         currentAttachmentQuestionId: null,
+        currentQuestionTurnCount: 0,
       } as Record<string, unknown>,
     } as WorkflowAssistantPayload,
   };
@@ -462,6 +462,7 @@ function buildExhaustedChoiceTurn(
         lastCharacterTone: "calm",
         answeredQuestionIds: progress.answeredQuestionIds,
         currentAttachmentQuestionId: null,
+        currentQuestionTurnCount: 0,
       } as Record<string, unknown>,
     } as WorkflowAssistantPayload,
   };
@@ -507,6 +508,7 @@ function buildBlockedTodayQuestionTurn(
         lastCharacterTone: "calm",
         answeredQuestionIds: progress.answeredQuestionIds,
         currentAttachmentQuestionId: null,
+        currentQuestionTurnCount: 0,
       } as Record<string, unknown>,
     } as WorkflowAssistantPayload,
   };
@@ -555,6 +557,7 @@ function buildDeferredWeekInfoQuestionTurn(
         lastCharacterTone: "calm",
         answeredQuestionIds: progress.answeredQuestionIds,
         currentAttachmentQuestionId: null,
+        currentQuestionTurnCount: 0,
       } as Record<string, unknown>,
     } as WorkflowAssistantPayload,
   };
@@ -634,6 +637,47 @@ function readMemoryCurrentAttachmentQuestionId(
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+function readMemoryAnsweredQuestionIds(
+  memory: PromptContext["sessionMemory"] | null,
+): string[] {
+  const value = (memory as { answeredQuestionIds?: unknown } | null)
+    ?.answeredQuestionIds;
+  if (!Array.isArray(value)) return [];
+
+  return Array.from(
+    new Set(
+      value.filter(
+        (item): item is string =>
+          typeof item === "string" && item.trim() !== "",
+      ),
+    ),
+  );
+}
+
+export function mergeQuestionProgressWithMemory(
+  progress: QuestionProgress,
+  memory: PromptContext["sessionMemory"] | null,
+): QuestionProgress {
+  const answeredQuestionIds = Array.from(
+    new Set([
+      ...readMemoryAnsweredQuestionIds(memory),
+      ...progress.answeredQuestionIds,
+    ]),
+  );
+  const memoryCurrent = readMemoryCurrentAttachmentQuestionId(memory);
+  const currentCandidate =
+    memoryCurrent ?? progress.currentAttachmentQuestionId ?? null;
+  const currentAttachmentQuestionId =
+    currentCandidate && !answeredQuestionIds.includes(currentCandidate)
+      ? currentCandidate
+      : null;
+
+  return {
+    answeredQuestionIds,
+    currentAttachmentQuestionId,
+  };
+}
+
 // ────────────────────────────────────────────────────────────
 // 메인 엔트리
 // ────────────────────────────────────────────────────────────
@@ -645,10 +689,13 @@ export function maybeShortCircuitStaticTurn(
   const compactSummary = memory?.compactSummary ?? "";
   const lastScenario =
     memory?.lastScenario ?? input.transientLastScenario ?? "";
-  const progress: QuestionProgress = input.progress ?? {
-    answeredQuestionIds: [],
-    currentAttachmentQuestionId: null,
-  };
+  const progress: QuestionProgress = mergeQuestionProgressWithMemory(
+    input.progress ?? {
+      answeredQuestionIds: [],
+      currentAttachmentQuestionId: null,
+    },
+    memory,
+  );
 
   // SQL 기반 progress 가 진실 소스.
   const stage: number | string | null =
@@ -790,6 +837,7 @@ export function maybeShortCircuitStaticTurn(
           lastCharacterTone: "calm",
           answeredQuestionIds: progress.answeredQuestionIds,
           currentAttachmentQuestionId: input.selectedQuestionId,
+          currentQuestionTurnCount: 0,
         } as Record<string, unknown>,
       } as WorkflowAssistantPayload,
     };

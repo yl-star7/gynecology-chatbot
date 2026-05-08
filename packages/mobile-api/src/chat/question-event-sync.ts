@@ -63,6 +63,15 @@ export async function markQuestionAnswered(input: {
   answerText: string;
   answerMessageId?: string | null;
 }): Promise<number> {
+  const now = new Date();
+  const answerText = input.answerText.trim();
+  const data = {
+    status: "answered",
+    answered_at: now,
+    ...(answerText ? { answer_text: answerText.slice(0, 2000) } : {}),
+    answer_message_id: input.answerMessageId ?? undefined,
+    updated_at: now,
+  };
   const result = await input.prisma.user_question_events.updateMany({
     where: {
       user_id: input.userId,
@@ -71,15 +80,21 @@ export async function markQuestionAnswered(input: {
       status: "sent",
       answered_at: null,
     },
-    data: {
-      status: "answered",
-      answered_at: new Date(),
-      answer_text: input.answerText.slice(0, 2000),
-      answer_message_id: input.answerMessageId ?? undefined,
-      updated_at: new Date(),
-    },
+    data,
   });
-  return result.count;
+  if (result.count > 0 || !input.sessionId) return result.count;
+
+  const sessionAgnosticResult =
+    await input.prisma.user_question_events.updateMany({
+      where: {
+        user_id: input.userId,
+        question_id: input.questionId,
+        status: "sent",
+        answered_at: null,
+      },
+      data,
+    });
+  return sessionAgnosticResult.count;
 }
 
 export async function markQuestionSkipped(input: {
