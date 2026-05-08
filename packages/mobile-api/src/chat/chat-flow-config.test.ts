@@ -49,13 +49,24 @@ describe("chat flow config", () => {
     );
     expect(
       config.moodIntake.moodPrompts.slice(0, 5).map((item) => item.label),
-    ).toEqual(["좋아요", "우울해요", "슬퍼요", "화나요", "직접 입력"]);
+    ).toEqual([
+      "좋아요",
+      "우울해요",
+      "슬퍼요",
+      "화나요",
+      "직접 말하고 싶어요",
+    ]);
+    expect(config.moodIntake.directInputAcknowledgementText).toBe(
+      "오늘의 기분 나눠줘서 고마워요. 잘 기억해서 차근차근 더 이야기 해볼게요.",
+    );
     expect(config.weekInfoOptIn.quickReplies.no).toEqual({
       id: "week-info-no",
       label: "아니요",
       message: "아니요, 태교 질문으로 넘어갈게요.",
     });
-    expect(config.todayQuestion.blockedText).toContain("태교 질문");
+    expect(config.todayQuestion.blockedText).toBe(
+      "얘기해주셔서 감사해요. 😊\n오늘의 태교 질문에 먼저 답해주시면, 이후에는 편안한 자유 대화로 이어갈 수 있어요.",
+    );
     expect(config.questionSelected.answerTemplate).toContain(
       "{{questionText}}",
     );
@@ -91,9 +102,11 @@ describe("chat flow config", () => {
     });
 
     expect(config.moodIntake.promptText).toBe("기분을 골라주세요.");
-    expect(config.moodIntake.directInputAcknowledgementText).toBe("고마워요.");
+    expect(config.moodIntake.directInputAcknowledgementText).toBe(
+      "오늘의 기분 나눠줘서 고마워요. 잘 기억해서 차근차근 더 이야기 해볼게요.",
+    );
     expect(config.moodIntake.moodPrompts).toEqual([
-      { label: "좋아요", message: "좋아요.", tone: "joyful" },
+      { label: "좋아요", message: "오늘은 좋은 기분이에요.", tone: "joyful" },
     ]);
     expect(config.weekInfoOptIn.answerVariations).toEqual([
       "주차 정보 볼까요?",

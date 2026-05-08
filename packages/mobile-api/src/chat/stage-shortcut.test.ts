@@ -1,5 +1,6 @@
 import { maybeShortCircuitStaticTurn } from "./stage-shortcut";
 import type { PromptContext } from "./chat-repository";
+import type { ChatFlowConfig } from "./chat-flow-config";
 
 const moodPool = [
   {
@@ -19,7 +20,7 @@ const moodPool = [
     tone: "anxious" as const,
   },
   {
-    label: "직접 입력",
+    label: "직접 말하고 싶어요",
     message: "직접 말하고 싶어요.",
     tone: "calm" as const,
   },
@@ -45,6 +46,51 @@ const questions = [
   { id: "q2", text: "아기가 언제 엄마 마음을 느낄 것 같나요?" },
   { id: "q3", text: "오늘 기억에 남는 순간은?" },
 ];
+
+function flowConfigWithMoodPrompts(
+  moodPrompts = moodPool,
+): ChatFlowConfig {
+  return {
+    dataSources: [],
+    moodIntake: {
+      promptText: "오늘은 마음이 어떠세요?",
+      directInputAcknowledgementText:
+        "오늘의 기분 나눠줘서 고마워요. 잘 기억해서 차근차근 더 이야기 해볼게요.",
+      moodPrompts,
+      acknowledgementsByTone: {},
+    },
+    weekInfoOptIn: {
+      answerVariations: optInVariations,
+      quickReplies: {
+        yes: {
+          id: "week-info-yes",
+          label: "네",
+          message: "네, 오늘 주차 정보 볼래요.",
+        },
+        no: {
+          id: "week-info-no",
+          label: "나중에요",
+          message: "나중에 볼게요.",
+        },
+      },
+    },
+    todayQuestion: {
+      promptText: "아래 질문 중 하나를 골라 이어가요.",
+      blockedText:
+        "얘기해주셔서 감사해요. 😊\n오늘의 태교 질문에 먼저 답해주시면, 이후에는 편안한 자유 대화로 이어갈 수 있어요.",
+      deferredWeekInfoText:
+        "사전은 나중에 봐도 좋아요. 아래 질문 중 하나를 골라 이어가요.",
+      compactSummaryTemplate:
+        "현재 단계: 모아애착 질문 ({{answeredCount}}/{{quota}} 답변 완료)",
+    },
+    questionSelected: { answerTemplate: "{{questionText}}" },
+    activeQuestionRequired: { answerTemplate: "{{questionText}}" },
+    questionAnswer: { reflectionLoop: {} },
+    exhaustedChoice: { answerText: "오늘의 질문을 모두 답변하셨어요." },
+    freeChatIntro: { answerText: "편하게 이야기 이어갈게요.", quickReplies: [] },
+    ended: { answerText: "오늘 이야기해줘서 고마워요." },
+  } as unknown as ChatFlowConfig;
+}
 
 const longQuestions = [
   {
@@ -239,8 +285,7 @@ describe("maybeShortCircuitStaticTurn", () => {
         },
         ...moodPool,
       ],
-      directMoodAcknowledgementText:
-        "오늘의 기분 나눠줘서 고마워요. 잘 기억해서 차근차근 더 이야기 해볼게요.",
+      flowConfig: flowConfigWithMoodPrompts(moodPool),
       weekInfoOptInVariations: optInVariations,
       todayQuestionCandidates: questions,
       rngSeed: 0,
@@ -315,7 +360,7 @@ describe("maybeShortCircuitStaticTurn", () => {
     const text = r!.assistantMessage.parts.find((p) => p.type === "text");
     expect(text?.type).toBe("text");
     if (text?.type === "text") {
-      expect(text.text).toContain("오늘의 질문이 아직 남아 있어요.");
+      expect(text.text).toContain("얘기해주셔서 감사해요. 😊");
     }
     const quick = r!.assistantMessage.parts.find(
       (part) => part.type === "quickReplies",
@@ -395,7 +440,8 @@ describe("maybeShortCircuitStaticTurn", () => {
     const text = r!.assistantMessage.parts.find((p) => p.type === "text");
     expect(text?.type).toBe("text");
     if (text?.type === "text") {
-      expect(text.text).toContain("자유질문은 오늘의 질문을 모두 답한 뒤");
+      expect(text.text).toContain("얘기해주셔서 감사해요. 😊");
+      expect(text.text).toContain("오늘의 태교 질문에 먼저 답해주시면");
       expect(text.text).toContain("오늘 아기에게 들려주고 싶은 말은?");
     }
   });
@@ -576,7 +622,8 @@ describe("maybeShortCircuitStaticTurn", () => {
     const text = r!.assistantMessage.parts.find((p) => p.type === "text");
     expect(text?.type).toBe("text");
     if (text?.type === "text") {
-      expect(text.text).toContain("아래 질문 중 하나를 먼저 골라주세요.");
+      expect(text.text).toContain("얘기해주셔서 감사해요. 😊");
+      expect(text.text).toContain("오늘의 태교 질문에 먼저 답해주시면");
     }
   });
 
@@ -662,7 +709,8 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(r).not.toBeNull();
     const text = r!.assistantMessage.parts.find((p) => p.type === "text");
     if (text?.type === "text") {
-      expect(text.text).toContain("자유질문은 오늘의 질문을 모두 답한 뒤");
+      expect(text.text).toContain("얘기해주셔서 감사해요. 😊");
+      expect(text.text).toContain("오늘의 태교 질문에 먼저 답해주시면");
     }
     expect(
       r!.assistantMessage.parts.some((part) => part.type === "quickReplies"),
@@ -852,7 +900,8 @@ describe("maybeShortCircuitStaticTurn", () => {
     const text = r!.assistantMessage.parts.find((p) => p.type === "text");
     expect(text?.type).toBe("text");
     if (text?.type === "text") {
-      expect(text.text).toContain("아래 질문 중 하나를 먼저 골라주세요.");
+      expect(text.text).toContain("얘기해주셔서 감사해요. 😊");
+      expect(text.text).toContain("오늘의 태교 질문에 먼저 답해주시면");
     }
   });
 
@@ -887,7 +936,7 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(text?.type).toBe("text");
     if (text?.type === "text") {
       expect(text.text).toBe(
-        "오늘의 질문이 아직 남아 있어요. 아래 질문 중 하나를 먼저 골라주세요.",
+        "얘기해주셔서 감사해요. 😊\n오늘의 태교 질문에 먼저 답해주시면, 이후에는 편안한 자유 대화로 이어갈 수 있어요.",
       );
     }
     const quick = r!.assistantMessage.parts.find(
@@ -934,7 +983,7 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(text?.type).toBe("text");
     if (text?.type === "text") {
       expect(text.text).toContain(
-        "오늘의 질문이 아직 진행 중이에요. 자유질문은 오늘의 질문을 모두 답한 뒤에 열려요.",
+        "얘기해주셔서 감사해요. 😊\n오늘의 태교 질문에 먼저 답해주시면, 이후에는 편안한 자유 대화로 이어갈 수 있어요.",
       );
       expect(text.text).toContain("아기가 언제 엄마 마음을 느낄 것 같나요?");
     }

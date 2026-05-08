@@ -10,7 +10,17 @@
 
 import type { ChatMessage } from "@gynecology-chatbot/app-core";
 import type { PromptContext } from "./chat-repository";
-import type { ChatFlowConfig, ChatFlowQuickReply } from "./chat-flow-config";
+import {
+  ACTIVE_QUESTION_REQUIRED_TEMPLATE,
+  REQUIRED_TODAY_QUESTION_NOTICE_TEXT,
+  type ChatFlowConfig,
+  type ChatFlowQuickReply,
+} from "./chat-flow-config";
+import {
+  DIRECT_INPUT_MOOD_ACKNOWLEDGEMENT_TEXT,
+  DIRECT_INPUT_MOOD_LABEL,
+  DIRECT_INPUT_MOOD_MESSAGE,
+} from "./initial-workflow-message";
 import type {
   WorkflowAssistantPayload,
   WorkflowScenario,
@@ -58,7 +68,7 @@ const CLOSING_SIGNAL = /다음 질문/;
 const STOP_SIGNAL =
   /오늘은 여기까지|이만 마칠|마칠게요|여기까지 할|여기까지만|그만할게요|그만 할게요/;
 const POSITIVE_ACK = /^(네|응|예|좋아|보여|볼래|알려|확인할래요)/;
-const DIRECT_MOOD_ACKNOWLEDGEMENT_FALLBACK = "기분을 나눠줘서 고마워요.";
+const DIRECT_MOOD_LABELS = new Set(["직접 입력", DIRECT_INPUT_MOOD_LABEL]);
 
 const MOOD_ACKNOWLEDGEMENTS: Record<CharacterTone, string[]> = {
   joyful: [
@@ -102,7 +112,6 @@ export type StageShortcutInput = {
   promptContext: PromptContext | null;
   moodPool: Array<{ label: string; message: string; tone: CharacterTone }>;
   moodPromptText?: string;
-  directMoodAcknowledgementText?: string;
   moodAcknowledgementPool?: string[];
   weekInfoOptInVariations: string[];
   flowConfig?: ChatFlowConfig;
@@ -196,7 +205,22 @@ function formatQuestionTemplateValue(value: string) {
 }
 
 function getMoodPrompts(input: StageShortcutInput) {
-  return input.flowConfig?.moodIntake.moodPrompts ?? input.moodPool;
+  return input.moodPool.length > 0
+    ? input.moodPool
+    : (input.flowConfig?.moodIntake.moodPrompts ?? input.moodPool);
+}
+
+function isDirectMoodEntry(
+  entry: { label: string; message: string } | null,
+): boolean {
+  if (!entry) {
+    return false;
+  }
+
+  return (
+    DIRECT_MOOD_LABELS.has(entry.label) ||
+    entry.message.replace(/\s+/g, " ").trim() === DIRECT_INPUT_MOOD_MESSAGE
+  );
 }
 
 function getTodayQuestionCompactSummary(
@@ -277,10 +301,8 @@ function buildWeekInfoOptInTurn(
   const yamlAcknowledgements =
     input.flowConfig?.moodIntake.acknowledgementsByTone[moodTone];
   const acknowledgement =
-    moodEntry?.label === "직접 입력"
-      ? (input.flowConfig?.moodIntake.directInputAcknowledgementText ??
-        input.directMoodAcknowledgementText ??
-        DIRECT_MOOD_ACKNOWLEDGEMENT_FALLBACK)
+    isDirectMoodEntry(moodEntry)
+      ? DIRECT_INPUT_MOOD_ACKNOWLEDGEMENT_TEXT
       : pickRandom(
           yamlAcknowledgements && yamlAcknowledgements.length > 0
             ? yamlAcknowledgements
@@ -456,7 +478,7 @@ function buildBlockedTodayQuestionTurn(
     assistantMessage: assistantMessage([
       makeText(
         input.flowConfig?.todayQuestion.blockedText ??
-          "오늘의 질문이 아직 남아 있어요. 아래 질문 중 하나를 먼저 골라주세요.",
+          REQUIRED_TODAY_QUESTION_NOTICE_TEXT,
       ),
       makeQuickReplies(
         getRemainingQuestions(input, progress).map((q) => ({
@@ -551,13 +573,7 @@ function buildActiveQuestionRequiredTurn(
       makeText(
         renderTemplate(
           input.flowConfig?.activeQuestionRequired.answerTemplate ??
-            [
-              "오늘의 질문이 아직 진행 중이에요. 자유질문은 오늘의 질문을 모두 답한 뒤에 열려요.",
-              "",
-              formatAttachmentQuestionPrompt("{{questionText}}"),
-              "",
-              "짧은 한 문장이어도 괜찮으니 먼저 답해주세요.",
-            ].join("\n"),
+            ACTIVE_QUESTION_REQUIRED_TEMPLATE,
           { questionText: formatQuestionTemplateValue(questionText) },
         ),
       ),

@@ -113,7 +113,7 @@ export function isValidEmotionTone(value: string): value is EmotionTone {
 }
 
 export const DAY_CONVERSATION_SUMMARY_SOURCE = "daily_conversation_summary";
-const DAY_CONVERSATION_SUMMARY_MAX_CHARS = 170;
+const DAY_CONVERSATION_SUMMARY_MAX_CHARS = 320;
 const SESSION_CONVERSATION_SUMMARY_MAX_CHARS = 300;
 
 export function getKstDateKey() {
@@ -534,7 +534,6 @@ export async function loadRecordDayView(userId: string, isoDate: string) {
         )
       : [];
   const previewBySessionId = new Map<string, string>();
-  const summaryBySessionId = buildSessionSummaryById(records);
 
   for (const message of latestMessages) {
     if (previewBySessionId.has(message.session_id)) {
@@ -560,11 +559,8 @@ export async function loadRecordDayView(userId: string, isoDate: string) {
 
     orderedRelatedSessions.push({
       ...session,
-      last_message_preview:
-        summaryBySessionId.get(session.id) ??
-        previewBySessionId.get(session.id) ??
-        null,
-      summary: summaryBySessionId.get(session.id) ?? null,
+      last_message_preview: previewBySessionId.get(session.id) ?? null,
+      summary: null,
     });
   }
 

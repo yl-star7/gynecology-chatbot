@@ -340,8 +340,7 @@ export function PatientProfileDayModal({
                         이 날의 대화
                       </Text>
                       {relatedSessions.map((session) => {
-                        const sessionSummary =
-                          session.summary ?? session.preview;
+                        const sessionSummary = session.preview;
 
                         return (
                           <Pressable

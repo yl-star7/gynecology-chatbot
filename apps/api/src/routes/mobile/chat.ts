@@ -30,7 +30,10 @@ import {
   maybeShortCircuitStaticTurn,
   type QuestionProgress,
 } from "@gynecology-chatbot/mobile-api/chat/stage-shortcut";
-import { createInitialWorkflowMessageFromPrompt } from "@gynecology-chatbot/mobile-api/chat/initial-workflow-message";
+import {
+  createInitialWorkflowMessageFromPrompt,
+  resolveSelectedMoodEntry,
+} from "@gynecology-chatbot/mobile-api/chat/initial-workflow-message";
 import { parseChatFlowConfig } from "@gynecology-chatbot/mobile-api/chat/chat-flow-config";
 import { fetchAttachmentQuestionProgress } from "@gynecology-chatbot/mobile-api/chat/attachment-question-progress";
 import {
@@ -561,26 +564,13 @@ app.post("/", async (c) => {
         (rawStage === 0 || rawStage === null) &&
         !compactSummary.includes("태아 발달 확인 제안") &&
         !compactSummary.includes("주차 정보 안내");
-      const matchedMoodEntry = moodPool.find((m) => m.message === input.text);
-      const shouldInferFreeTextMood =
-        !selectedMoodTone && !matchedMoodEntry && canInferFreeTextMood;
-      const inferredFreeTextMood = shouldInferFreeTextMood
-        ? await classifyMoodToneWithLlm({ text: input.text })
-        : "unknown";
-      const selectedMoodEntry = selectedMoodTone
-        ? {
-            label: matchedMoodEntry?.label ?? input.text,
-            message: input.text,
-            tone: selectedMoodTone,
-          }
-        : (matchedMoodEntry ??
-          (inferredFreeTextMood !== "unknown"
-            ? {
-                label: "직접 입력",
-                message: input.text,
-                tone: inferredFreeTextMood,
-              }
-            : null));
+      const selectedMoodEntry = await resolveSelectedMoodEntry({
+        text: input.text,
+        selectedMoodTone,
+        canInferFreeTextMood,
+        moodPool,
+        classifyMoodTone: classifyMoodToneWithLlm,
+      });
       const effectiveMoodPool =
         selectedMoodEntry &&
         !moodPool.some((m) => m.message === selectedMoodEntry.message)
@@ -607,8 +597,6 @@ app.post("/", async (c) => {
         promptContext: input.promptContext,
         moodPool: effectiveMoodPool,
         moodPromptText: moodIntakeConfig.promptText,
-        directMoodAcknowledgementText:
-          moodIntakeConfig.directInputAcknowledgementText,
         moodAcknowledgementPool,
         weekInfoOptInVariations,
         flowConfig: chatFlowConfig,

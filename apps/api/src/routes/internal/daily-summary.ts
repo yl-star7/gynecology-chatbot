@@ -12,10 +12,10 @@ import {
 } from "@gynecology-chatbot/mobile-api/chat/question-summary";
 
 const app = new Hono();
-const DAY_SUMMARY_VERSION = "detailed_150_170_v3";
-const DAY_SUMMARY_MIN_CHARS = 150;
-const DAY_SUMMARY_MAX_CHARS = 170;
-const DAY_SUMMARY_MAX_OUTPUT_TOKENS = 240;
+const DAY_SUMMARY_VERSION = "detailed_240_320_v4";
+const DAY_SUMMARY_MIN_CHARS = 240;
+const DAY_SUMMARY_MAX_CHARS = 320;
+const DAY_SUMMARY_MAX_OUTPUT_TOKENS = 420;
 const QUESTION_SUMMARY_MAX_OUTPUT_TOKENS = 200;
 
 type UserDayData = {
@@ -276,8 +276,8 @@ function buildDaySummaryPrompt(data: UserDayData): string {
     "아래는 임산부 사용자의 하루 활동 기록이에요.",
     "그날의 모든 채팅과 활동을 하나의 전체 대화 요약으로 정리해 주세요.",
     `따뜻한 톤(-어요/-해요 체)으로 한글 자모/글자 기준 ${DAY_SUMMARY_MIN_CHARS}~${DAY_SUMMARY_MAX_CHARS}자 사이로 작성해 주세요.`,
-    "문장이 너무 짧아지지 않도록 3~4문장으로 자연스럽게 이어 주세요.",
-    "주요 고민, 사용자가 남긴 감정이나 질문, 안내받은 핵심 내용, 다음에 기억하면 좋은 점을 포함해 주세요.",
+    "문장이 너무 짧아지지 않도록 4~5문장으로 자연스럽게 이어 주세요.",
+    "주요 고민, 사용자가 남긴 감정이나 질문, 안내받은 핵심 내용, 다음에 기억하면 좋은 점을 구체적으로 포함해 주세요.",
     "체크리스트와 날짜 질문은 대화 맥락을 보완할 때만 자연스럽게 섞어 주세요.",
     "진단 표현, 의료 단정 표현은 쓰지 말고, '요약:' 같은 머리말 없이 본문만 작성하세요.",
     "",

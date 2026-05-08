@@ -179,7 +179,11 @@ describe("maternal nursing workflow YAML", () => {
         message: "오늘은 화나는 기분이에요.",
         tone: "anxious",
       },
-      { label: "직접 입력", message: "직접 말하고 싶어요.", tone: "calm" },
+      {
+        label: "직접 말하고 싶어요",
+        message: "직접 말하고 싶어요.",
+        tone: "calm",
+      },
     ]);
     expect(moodIntake.moodPrompts).toEqual(
       expect.arrayContaining([

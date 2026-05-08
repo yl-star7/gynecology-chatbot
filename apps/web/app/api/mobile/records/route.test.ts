@@ -193,7 +193,7 @@ describe("GET /api/mobile/records", () => {
   });
 
   it("전체 대화 요약과 채팅창 단위 요약을 분리해서 내려준다", async () => {
-    const longDailySummary = "가".repeat(200);
+    const longDailySummary = "가".repeat(400);
     mockedRequireMobileSession.mockResolvedValue({
       userId: "user-1",
       sessionToken: "token-1",
@@ -267,16 +267,16 @@ describe("GET /api/mobile/records", () => {
     const response = await GET(request as never);
     const payload = await response.json();
 
-    expect(payload.recordDay.conversationSummary).toBe("가".repeat(170));
-    expect(payload.recordDay.conversationSummary).toHaveLength(170);
+    expect(payload.recordDay.conversationSummary).toBe("가".repeat(320));
+    expect(payload.recordDay.conversationSummary).toHaveLength(320);
     expect(payload.recordDay.relatedSessions).toEqual([
       expect.objectContaining({
         id: "session-1",
-        preview: "기분과 날짜 질문 주제를 간략히 정리했어요.",
-        summary: "기분과 날짜 질문 주제를 간략히 정리했어요.",
+        preview: "마지막 원문 메시지",
         isReadOnly: true,
       }),
     ]);
+    expect(payload.recordDay.relatedSessions[0]).not.toHaveProperty("summary");
   });
 
   it("view 기반 오늘 대화 세션도 relatedSessions에 포함한다", async () => {

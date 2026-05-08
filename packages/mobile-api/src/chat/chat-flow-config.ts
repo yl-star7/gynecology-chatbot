@@ -1,4 +1,6 @@
 import {
+  DIRECT_INPUT_MOOD_ACKNOWLEDGEMENT_TEXT,
+  normalizeInitialMoodPrompts,
   parseInitialMoodIntakeConfig,
   type InitialMoodPrompt,
 } from "./initial-workflow-message";
@@ -70,6 +72,11 @@ const DEFAULT_WEEK_INFO_OPT_IN_VARIATIONS = [
   "오늘 주차의 산모/태아 정보가 궁금하세요?",
 ];
 
+export const REQUIRED_TODAY_QUESTION_NOTICE_TEXT =
+  "얘기해주셔서 감사해요. 😊\n오늘의 태교 질문에 먼저 답해주시면, 이후에는 편안한 자유 대화로 이어갈 수 있어요.";
+
+export const ACTIVE_QUESTION_REQUIRED_TEMPLATE = `${REQUIRED_TODAY_QUESTION_NOTICE_TEXT}\n\n**"{{questionText}}"**`;
+
 const DEFAULT_ACKNOWLEDGEMENTS: Record<CharacterTone, string[]> = {
   joyful: ["좋은 마음이 느껴져서 저도 반가워요."],
   sad: ["울적한 마음을 꺼내줘서 고마워요."],
@@ -139,11 +146,11 @@ function parseMoodPrompts(
   value: unknown,
   fallback: InitialMoodPrompt[],
 ): InitialMoodPrompt[] {
-  if (!Array.isArray(value)) return fallback;
+  if (!Array.isArray(value)) return normalizeInitialMoodPrompts(fallback);
   const parsed = parseInitialMoodIntakeConfig(
     JSON.stringify({ scenario: "mood_intake", moodPrompts: value }),
   ).moodPrompts;
-  return parsed.length > 0 ? parsed : fallback;
+  return parsed.length > 0 ? parsed : normalizeInitialMoodPrompts(fallback);
 }
 
 function parseAcknowledgements(
@@ -207,7 +214,6 @@ export function parseChatFlowConfig(input: {
   const weekInfoStage = asRecord(stages.week_info_opt_in) ?? {};
   const todayQuestionStage = asRecord(stages.today_question) ?? {};
   const questionSelectedStage = asRecord(stages.question_selected) ?? {};
-  const activeQuestionStage = asRecord(stages.active_question_required) ?? {};
   const questionAnswerStage =
     asRecord(stages.question_answer ?? stages.questionAnswer) ?? {};
   const reflectionLoopStage =
@@ -232,11 +238,7 @@ export function parseChatFlowConfig(input: {
         moodStage.prompt_text ?? moodStage.promptText,
         moodPromptFromPrompt.promptText,
       ),
-      directInputAcknowledgementText: asString(
-        moodStage.direct_input_acknowledgement_text ??
-          moodStage.directInputAcknowledgementText,
-        moodPromptFromPrompt.directInputAcknowledgementText,
-      ),
+      directInputAcknowledgementText: DIRECT_INPUT_MOOD_ACKNOWLEDGEMENT_TEXT,
       moodPrompts: parseMoodPrompts(
         moodStage.options ?? moodStage.moodPrompts,
         moodPromptFromPrompt.moodPrompts,
@@ -268,10 +270,7 @@ export function parseChatFlowConfig(input: {
         todayQuestionStage.prompt_text ?? todayQuestionStage.promptText,
         "아래 질문 중 하나를 골라 이어가요.",
       ),
-      blockedText: asString(
-        todayQuestionStage.blocked_text ?? todayQuestionStage.blockedText,
-        "오늘의 질문이 아직 남아 있어요. 아래 질문 중 하나를 먼저 골라주세요.",
-      ),
+      blockedText: REQUIRED_TODAY_QUESTION_NOTICE_TEXT,
       deferredWeekInfoText: asString(
         todayQuestionStage.deferred_week_info_text ??
           todayQuestionStage.deferredWeekInfoText,
@@ -291,10 +290,7 @@ export function parseChatFlowConfig(input: {
       ),
     },
     activeQuestionRequired: {
-      answerTemplate: asString(
-        activeQuestionStage.answer_template ?? activeQuestionStage.answerTemplate,
-        '오늘의 질문이 아직 진행 중이에요. 자유질문은 오늘의 질문을 모두 답한 뒤에 열려요.\n\n**"{{questionText}}"**\n\n짧은 한 문장이어도 괜찮으니 먼저 답해주세요.',
-      ),
+      answerTemplate: ACTIVE_QUESTION_REQUIRED_TEMPLATE,
     },
     questionAnswer: {
       reflectionLoop: normalizeLetterReflectionLoopPolicy(reflectionLoopStage),
