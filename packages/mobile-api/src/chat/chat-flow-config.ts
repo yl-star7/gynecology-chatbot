@@ -214,6 +214,7 @@ export function parseChatFlowConfig(input: {
   const weekInfoStage = asRecord(stages.week_info_opt_in) ?? {};
   const todayQuestionStage = asRecord(stages.today_question) ?? {};
   const questionSelectedStage = asRecord(stages.question_selected) ?? {};
+  const activeQuestionStage = asRecord(stages.active_question_required) ?? {};
   const questionAnswerStage =
     asRecord(stages.question_answer ?? stages.questionAnswer) ?? {};
   const reflectionLoopStage =
@@ -238,7 +239,12 @@ export function parseChatFlowConfig(input: {
         moodStage.prompt_text ?? moodStage.promptText,
         moodPromptFromPrompt.promptText,
       ),
-      directInputAcknowledgementText: DIRECT_INPUT_MOOD_ACKNOWLEDGEMENT_TEXT,
+      directInputAcknowledgementText: asString(
+        moodStage.direct_input_acknowledgement_text ??
+          moodStage.directInputAcknowledgementText,
+        moodPromptFromPrompt.directInputAcknowledgementText ||
+          DIRECT_INPUT_MOOD_ACKNOWLEDGEMENT_TEXT,
+      ),
       moodPrompts: parseMoodPrompts(
         moodStage.options ?? moodStage.moodPrompts,
         moodPromptFromPrompt.moodPrompts,
@@ -270,7 +276,10 @@ export function parseChatFlowConfig(input: {
         todayQuestionStage.prompt_text ?? todayQuestionStage.promptText,
         "아래 질문 중 하나를 골라 이어가요.",
       ),
-      blockedText: REQUIRED_TODAY_QUESTION_NOTICE_TEXT,
+      blockedText: asString(
+        todayQuestionStage.blocked_text ?? todayQuestionStage.blockedText,
+        REQUIRED_TODAY_QUESTION_NOTICE_TEXT,
+      ),
       deferredWeekInfoText: asString(
         todayQuestionStage.deferred_week_info_text ??
           todayQuestionStage.deferredWeekInfoText,
@@ -290,7 +299,10 @@ export function parseChatFlowConfig(input: {
       ),
     },
     activeQuestionRequired: {
-      answerTemplate: ACTIVE_QUESTION_REQUIRED_TEMPLATE,
+      answerTemplate: asString(
+        activeQuestionStage.answer_template ?? activeQuestionStage.answerTemplate,
+        ACTIVE_QUESTION_REQUIRED_TEMPLATE,
+      ),
     },
     questionAnswer: {
       reflectionLoop: normalizeLetterReflectionLoopPolicy(reflectionLoopStage),

@@ -302,7 +302,8 @@ function buildWeekInfoOptInTurn(
     input.flowConfig?.moodIntake.acknowledgementsByTone[moodTone];
   const acknowledgement =
     isDirectMoodEntry(moodEntry)
-      ? DIRECT_INPUT_MOOD_ACKNOWLEDGEMENT_TEXT
+      ? (input.flowConfig?.moodIntake.directInputAcknowledgementText ??
+        DIRECT_INPUT_MOOD_ACKNOWLEDGEMENT_TEXT)
       : pickRandom(
           yamlAcknowledgements && yamlAcknowledgements.length > 0
             ? yamlAcknowledgements

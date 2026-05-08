@@ -49,13 +49,14 @@ const questions = [
 
 function flowConfigWithMoodPrompts(
   moodPrompts = moodPool,
+  directInputAcknowledgementText =
+    "오늘의 기분 나눠줘서 고마워요. 잘 기억해서 차근차근 더 이야기 해볼게요.",
 ): ChatFlowConfig {
   return {
     dataSources: [],
     moodIntake: {
       promptText: "오늘은 마음이 어떠세요?",
-      directInputAcknowledgementText:
-        "오늘의 기분 나눠줘서 고마워요. 잘 기억해서 차근차근 더 이야기 해볼게요.",
+      directInputAcknowledgementText,
       moodPrompts,
       acknowledgementsByTone: {},
     },
@@ -264,7 +265,7 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(r).toBeNull();
   });
 
-  it("uses the fixed direct-input acknowledgement before offering week info", () => {
+  it("uses the configured direct-input acknowledgement before offering week info", () => {
     const r = maybeShortCircuitStaticTurn({
       userText: "막연히 복잡해요.",
       selectedMood: "막연히 복잡해요.",
@@ -285,7 +286,10 @@ describe("maybeShortCircuitStaticTurn", () => {
         },
         ...moodPool,
       ],
-      flowConfig: flowConfigWithMoodPrompts(moodPool),
+      flowConfig: flowConfigWithMoodPrompts(
+        moodPool,
+        "관리자가 설정한 직접 입력 응답이에요.",
+      ),
       weekInfoOptInVariations: optInVariations,
       todayQuestionCandidates: questions,
       rngSeed: 0,
@@ -296,7 +300,7 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(text?.type).toBe("text");
     if (text?.type === "text") {
       expect(text.text).toContain(
-        "오늘의 기분 나눠줘서 고마워요. 잘 기억해서 차근차근 더 이야기 해볼게요.",
+        "관리자가 설정한 직접 입력 응답이에요.",
       );
       expect(text.text).toContain(optInVariations[0]);
     }

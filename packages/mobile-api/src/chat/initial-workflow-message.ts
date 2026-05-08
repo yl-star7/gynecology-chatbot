@@ -169,6 +169,11 @@ export function parseInitialMoodIntakeConfig(
       typeof parsed.promptText === "string" && parsed.promptText.trim()
         ? parsed.promptText.trim()
         : DEFAULT_PROMPT_TEXT;
+    const directInputAcknowledgementText =
+      typeof parsed.directInputAcknowledgementText === "string" &&
+      parsed.directInputAcknowledgementText.trim()
+        ? parsed.directInputAcknowledgementText.trim()
+        : DIRECT_INPUT_MOOD_ACKNOWLEDGEMENT_TEXT;
     const moodPrompts = Array.isArray(parsed.moodPrompts)
       ? normalizeInitialMoodPrompts(
           parsed.moodPrompts
@@ -180,7 +185,7 @@ export function parseInitialMoodIntakeConfig(
     return {
       scenario: "mood_intake",
       promptText,
-      directInputAcknowledgementText: DIRECT_INPUT_MOOD_ACKNOWLEDGEMENT_TEXT,
+      directInputAcknowledgementText,
       moodPrompts,
     };
   } catch {

@@ -102,9 +102,7 @@ describe("chat flow config", () => {
     });
 
     expect(config.moodIntake.promptText).toBe("기분을 골라주세요.");
-    expect(config.moodIntake.directInputAcknowledgementText).toBe(
-      "오늘의 기분 나눠줘서 고마워요. 잘 기억해서 차근차근 더 이야기 해볼게요.",
-    );
+    expect(config.moodIntake.directInputAcknowledgementText).toBe("고마워요.");
     expect(config.moodIntake.moodPrompts).toEqual([
       { label: "좋아요", message: "오늘은 좋은 기분이에요.", tone: "joyful" },
     ]);

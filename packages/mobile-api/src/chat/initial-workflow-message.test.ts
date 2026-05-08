@@ -1,5 +1,6 @@
 import {
   createInitialWorkflowMessageFromPrompt,
+  parseInitialMoodIntakeConfig,
   resolveSelectedMoodEntry,
 } from "./initial-workflow-message";
 
@@ -154,5 +155,19 @@ describe("initial workflow message", () => {
       message: "오늘은 울적한 기분이에요.",
       tone: "sad",
     });
+  });
+
+  it("keeps direct input acknowledgement copy configurable from workflow JSON", () => {
+    const config = parseInitialMoodIntakeConfig(
+      JSON.stringify({
+        scenario: "mood_intake",
+        directInputAcknowledgementText: "관리자가 설정한 문구예요.",
+        moodPrompts: [],
+      }),
+    );
+
+    expect(config.directInputAcknowledgementText).toBe(
+      "관리자가 설정한 문구예요.",
+    );
   });
 });
