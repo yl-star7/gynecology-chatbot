@@ -143,12 +143,6 @@ fi
 if [[ "$DEPLOY" == "1" ]]; then
   echo "==> deploying to Cloud Run: ${SERVICE}"
 
-  # Optional secret injection (empty by default — stub server needs none).
-  SET_SECRETS_ARG=()
-  if [[ -n "${SET_SECRETS:-}" ]]; then
-    SET_SECRETS_ARG=(--set-secrets="${SET_SECRETS}")
-  fi
-
   # Env vars set on every deploy. Use --update-env-vars semantics (only these
   # keys touched, other env preserved) so we don't accidentally drop existing
   # env that was set via the console.
@@ -157,23 +151,29 @@ if [[ "$DEPLOY" == "1" ]]; then
     RUNTIME_ENV_VARS="${RUNTIME_ENV_VARS},${EXTRA_ENV_VARS}"
   fi
 
-  gcloud run deploy "${SERVICE}" \
-    --project "${PROJECT_ID}" \
-    --region "${REGION}" \
-    --image "${DEPLOY_IMAGE}" \
-    --platform managed \
-    --execution-environment gen2 \
-    --min-instances 0 \
-    --max-instances 10 \
-    --concurrency 80 \
-    --cpu 1 \
-    --memory 512Mi \
-    --port 8080 \
-    --timeout 60s \
-    --add-cloudsql-instances "${CLOUDSQL_INSTANCE}" \
-    --allow-unauthenticated \
-    --update-env-vars "${RUNTIME_ENV_VARS}" \
-    "${SET_SECRETS_ARG[@]}"
+  deploy_args=(
+    run deploy "${SERVICE}"
+    --project "${PROJECT_ID}"
+    --region "${REGION}"
+    --image "${DEPLOY_IMAGE}"
+    --platform managed
+    --execution-environment gen2
+    --min-instances 0
+    --max-instances 10
+    --concurrency 80
+    --cpu 1
+    --memory 512Mi
+    --port 8080
+    --timeout 60s
+    --add-cloudsql-instances "${CLOUDSQL_INSTANCE}"
+    --allow-unauthenticated
+    --update-env-vars "${RUNTIME_ENV_VARS}"
+  )
+  if [[ -n "${SET_SECRETS:-}" ]]; then
+    deploy_args+=(--set-secrets="${SET_SECRETS}")
+  fi
+
+  gcloud "${deploy_args[@]}"
 
   URL="$(gcloud run services describe "${SERVICE}" \
     --project "${PROJECT_ID}" \
