@@ -433,6 +433,14 @@ function hasRemainingRequiredQuestions(
   );
 }
 
+function resolveSelectedQuestionId(input: StageShortcutInput) {
+  const selected = input.selectedQuestionId?.trim();
+  if (!selected) return null;
+  return input.todayQuestionCandidates.some((q) => q.id === selected)
+    ? selected
+    : null;
+}
+
 // ────────────────────────────────────────────────────────────
 // 하루치 질문 소진 → 자유대화 / 종료 선택
 // ────────────────────────────────────────────────────────────
@@ -696,10 +704,11 @@ export function maybeShortCircuitStaticTurn(
     },
     memory,
   );
+  const selectedQuestionId = resolveSelectedQuestionId(input);
 
   // SQL 기반 progress 가 진실 소스.
   const stage: number | string | null =
-    progress.currentAttachmentQuestionId && !input.selectedQuestionId
+    progress.currentAttachmentQuestionId && !selectedQuestionId
       ? 2
       : rawStage;
 
@@ -722,14 +731,14 @@ export function maybeShortCircuitStaticTurn(
     compactSummary.includes("태아 발달 확인 제안") ||
     compactSummary.includes("주차 정보 안내");
   if (
-    !input.selectedQuestionId &&
+    !selectedQuestionId &&
     progress.currentAttachmentQuestionId &&
     isRefusal
   ) {
     return buildActiveQuestionRequiredTurn(input, progress);
   }
   if (
-    !input.selectedQuestionId &&
+    !selectedQuestionId &&
     !progress.currentAttachmentQuestionId &&
     isRefusal &&
     (lastScenario === "baby_info_offer" ||
@@ -740,7 +749,7 @@ export function maybeShortCircuitStaticTurn(
     return buildDeferredWeekInfoQuestionTurn(input, progress);
   }
   if (
-    !input.selectedQuestionId &&
+    !selectedQuestionId &&
     !progress.currentAttachmentQuestionId &&
     isRefusal &&
     (lastScenario === "baby_info" ||
@@ -752,7 +761,7 @@ export function maybeShortCircuitStaticTurn(
   }
 
   if (
-    !input.selectedQuestionId &&
+    !selectedQuestionId &&
     !progress.currentAttachmentQuestionId &&
     wantsQuestion &&
     (isInfoContext ||
@@ -795,7 +804,7 @@ export function maybeShortCircuitStaticTurn(
 
   if (stage === 1) {
     // 사용자가 질문 선택 안 했고 attachment_question 턴 재진입
-    if (!input.selectedQuestionId) {
+    if (!selectedQuestionId) {
       if (input.userText.trim()) {
         return buildBlockedTodayQuestionTurn(input, progress);
       }
@@ -804,7 +813,7 @@ export function maybeShortCircuitStaticTurn(
     // 질문 선택됨 → "이 질문에 대해 편지 써볼까요?" 전환 턴 (LLM 없이 즉시 응답)
     //  다음 턴에 사용자가 실제 편지를 쓰면 stage=2 LLM 로 letter_reflection 경로.
     const pickedQuestion = input.todayQuestionCandidates.find(
-      (q) => q.id === input.selectedQuestionId,
+      (q) => q.id === selectedQuestionId,
     );
     const questionText =
       (pickedQuestion?.text ?? input.userText.trim()) || "오늘의 질문";
@@ -826,17 +835,17 @@ export function maybeShortCircuitStaticTurn(
         scenario: "attachment_question",
         characterTone: "calm",
         guardrailStatus: "safe",
-        selectedQuestionIds: [input.selectedQuestionId],
-        currentAttachmentQuestionId: input.selectedQuestionId,
+        selectedQuestionIds: [selectedQuestionId],
+        currentAttachmentQuestionId: selectedQuestionId,
         nextSessionMemory: {
           workflowVersion: 2,
           stage: 2,
           stageName: "choice_conversation",
-          compactSummary: `현재 단계: 질문 답변 대기 (${input.selectedQuestionId})`,
+          compactSummary: `현재 단계: 질문 답변 대기 (${selectedQuestionId})`,
           lastScenario: "attachment_question",
           lastCharacterTone: "calm",
           answeredQuestionIds: progress.answeredQuestionIds,
-          currentAttachmentQuestionId: input.selectedQuestionId,
+          currentAttachmentQuestionId: selectedQuestionId,
           currentQuestionTurnCount: 0,
         } as Record<string, unknown>,
       } as WorkflowAssistantPayload,
@@ -933,7 +942,7 @@ export function maybeShortCircuitStaticTurn(
 
   if (stage === "free_chat") {
     if (
-      !input.selectedQuestionId &&
+      !selectedQuestionId &&
       hasRemainingRequiredQuestions(input, progress)
     ) {
       return buildTodayQuestionTurn(input, progress);

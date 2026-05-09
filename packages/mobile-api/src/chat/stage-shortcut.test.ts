@@ -565,6 +565,43 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(payload.offeredQuestionIds).toHaveLength(3);
   });
 
+  it("does not treat control quick reply ids as selected questions", () => {
+    const r = maybeShortCircuitStaticTurn({
+      userText: "오늘 질문을 하나 골라볼게요.",
+      selectedMood: null,
+      selectedQuestionId: "question-view-control",
+      currentWeek: 27,
+      promptContext: baseContext({
+        sessionMemory: {
+          stage: 1,
+          stageName: "today_question",
+          compactSummary: "현재 단계: 오늘의 질문 준비",
+          lastScenario: "baby_info",
+        } as PromptContext["sessionMemory"],
+      }),
+      moodPool,
+      weekInfoOptInVariations: optInVariations,
+      todayQuestionCandidates: questions,
+    });
+
+    expect(r).not.toBeNull();
+    expect(r!.workflowMemoryPayload.nextSessionMemory).toMatchObject({
+      stage: 1,
+      currentAttachmentQuestionId: null,
+    });
+    const quick = r!.assistantMessage.parts.find(
+      (part) => part.type === "quickReplies",
+    );
+    expect(quick?.type).toBe("quickReplies");
+    if (quick?.type === "quickReplies") {
+      expect(quick.choices.map((choice) => choice.id)).toEqual([
+        "q1",
+        "q2",
+        "q3",
+      ]);
+    }
+  });
+
   it("falls through (null) when stage=0 Y path — needs LLM", () => {
     const r = maybeShortCircuitStaticTurn({
       userText: "네, 오늘 주차 정보 볼래요.",
