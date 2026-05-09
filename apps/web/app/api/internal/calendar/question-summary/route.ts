@@ -28,7 +28,7 @@ import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import {
   buildQuestionSummaryRecord,
   isQuestionAnswerText,
-  isQuestionSummaryPendingText,
+  isUsableQuestionAnswerSummary,
   shouldSaveQuestionSummary,
 } from "@gynecology-chatbot/mobile-api/chat/question-summary";
 
@@ -111,15 +111,14 @@ export async function POST(request: NextRequest) {
       typeof existingPayload?.answer === "string"
         ? existingPayload.answer
         : existing?.summary;
-    const existingSummary =
-      typeof existingPayload?.compactSummary === "string"
-        ? existingPayload.compactSummary
-        : existing?.summary;
 
     const alreadyIds = new Set(
       existing?.id &&
         isQuestionAnswerText({ userAnswer: existingAnswer }) &&
-        !isQuestionSummaryPendingText(existingSummary)
+        isUsableQuestionAnswerSummary({
+          summary: existing.summary,
+          answer: existingAnswer,
+        })
         ? [selectedQuestionId as string]
         : [],
     );

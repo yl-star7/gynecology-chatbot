@@ -46,7 +46,7 @@ import {
 import {
   buildQuestionSummaryRecord,
   isQuestionAnswerText,
-  isQuestionSummaryPendingText,
+  isUsableQuestionAnswerSummary,
   resolveQuestionSummaryQuestionId,
   shouldSaveQuestionSummary,
 } from "@gynecology-chatbot/mobile-api/chat/question-summary";
@@ -850,13 +850,12 @@ export async function POST(request: NextRequest) {
           existingQuestionRowById.set(questionId, row);
           const storedAnswer =
             typeof payload?.answer === "string" ? payload.answer : row.summary;
-          const storedSummary =
-            typeof payload?.compactSummary === "string"
-              ? payload.compactSummary
-              : row.summary;
           if (
             isQuestionAnswerText({ userAnswer: storedAnswer }) &&
-            !isQuestionSummaryPendingText(storedSummary)
+            isUsableQuestionAnswerSummary({
+              summary: row.summary,
+              answer: storedAnswer,
+            })
           ) {
             alreadyPersistedQuestionIds.add(questionId);
           }

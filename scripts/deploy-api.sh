@@ -164,7 +164,7 @@ if [[ "$DEPLOY" == "1" ]]; then
     --cpu 1
     --memory 512Mi
     --port 8080
-    --timeout 60s
+    --timeout 300s
     --add-cloudsql-instances "${CLOUDSQL_INSTANCE}"
     --allow-unauthenticated
     --update-env-vars "${RUNTIME_ENV_VARS}"

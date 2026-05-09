@@ -4,62 +4,94 @@ import {
   buildQuestionSummaryRecord,
   buildSummaryText,
   buildTitle,
+  QUESTION_SUMMARY_PENDING_COPY,
   isQuestionAnswerText,
   isQuestionSummaryPendingText,
+  isUsableQuestionAnswerSummary,
   resolveQuestionSummaryQuestionId,
   shouldSaveQuestionSummary,
 } from "./question-summary";
 
 describe("buildSummaryText", () => {
-  it("prefers compactSummary without '현재 단계:' prefix", () => {
+  it("prefers a usable generated compactSummary without '현재 단계:' prefix", () => {
     expect(
       buildSummaryText({
-        compactSummary: "현재 단계: 편지 후속 질문. 아기에게 따뜻한 마음 전함",
+        compactSummary:
+          "현재 단계: 아기에게 따뜻한 마음을 전하고 싶다는 바람을 남겼어요. 편지를 쓰듯 마음을 건네며 오늘의 애정을 기록했어요.",
         userAnswer: "답변은 길어도 두번째 순위",
       }),
-    ).toBe("편지 후속 질문. 아기에게 따뜻한 마음 전함");
+    ).toBe(
+      "아기에게 따뜻한 마음을 전하고 싶다는 바람을 남겼어요. 편지를 쓰듯 마음을 건네며 오늘의 애정을 기록했어요.",
+    );
   });
 
-  it("falls back to userAnswer when compactSummary is too short", () => {
+  it("keeps a pending placeholder when compactSummary is too short", () => {
     expect(
       buildSummaryText({
         compactSummary: "짧음",
         userAnswer:
           "사용자 답변이 길게 들어온다면 이걸 요약으로 사용합니다 한참 적었어요",
       }),
-    ).toContain("사용자 답변이 길게");
+    ).toBe(QUESTION_SUMMARY_PENDING_COPY);
   });
 
-  it("falls back to userAnswer when compactSummary is only workflow state", () => {
+  it("keeps a pending placeholder when compactSummary is only workflow state", () => {
     const summary = buildSummaryText({
       compactSummary:
         "현재 단계: 질문 답변 대기 (a5d93e8b-02e8-428d-8ea8-c5ef9569691c)",
       userAnswer: "오늘은 아기에게 고맙다고 말하고 싶어요.",
     });
 
-    expect(summary).toContain("오늘은 아기에게 고맙다고 말하고 싶어요");
+    expect(summary).toBe(QUESTION_SUMMARY_PENDING_COPY);
     expect(summary).not.toContain("질문 답변 대기");
   });
 
-  it("falls back to userAnswer when compactSummary only says answer is in progress", () => {
+  it("keeps a pending placeholder when compactSummary only says answer is in progress", () => {
     const summary = buildSummaryText({
       compactSummary: "현재 단계: 질문 답변 중",
       userAnswer:
         "갑자기 마음이 아플 때는 숨을 고르고 괜찮다고 말해주고 싶어요.",
     });
 
-    expect(summary).toContain(
-      "갑자기 마음이 아플 때는 숨을 고르고 괜찮다고 말해주고 싶어요",
-    );
+    expect(summary).toBe(QUESTION_SUMMARY_PENDING_COPY);
     expect(summary).not.toContain("질문 답변 중");
   });
 
-  it("truncates to 220 chars", () => {
+  it("does not persist a raw short answer as the final summary", () => {
+    const summary = buildSummaryText({
+      compactSummary: "나도 잘 모르겠네",
+      questionText: "아기에게 사랑을 키우는 방법을 알려주세요.",
+      userAnswer: "나도 잘 모르겠네",
+    });
+
+    expect(summary).not.toBe("나도 잘 모르겠네");
+    expect(summary).toBe(QUESTION_SUMMARY_PENDING_COPY);
+  });
+
+  it("truncates to the answer summary character budget", () => {
     const summary = buildSummaryText({
       compactSummary: "현재 단계: " + "긴내용".repeat(100),
       userAnswer: "x",
     });
-    expect(summary.length).toBeLessThanOrEqual(220);
+    expect(summary.length).toBeLessThanOrEqual(280);
+  });
+});
+
+describe("isUsableQuestionAnswerSummary", () => {
+  it("distinguishes raw answers from generated summaries", () => {
+    expect(
+      isUsableQuestionAnswerSummary({
+        summary: "줄때",
+        answer: "줄때",
+      }),
+    ).toBe(false);
+    expect(
+      isUsableQuestionAnswerSummary({
+        summary:
+          "사랑을 받을 때보다 줄 때 더 행복하다고 느꼈어요. 아기에게 마음을 건네고 돌보는 순간에서 기쁨을 발견한 기록이에요.",
+        answer: "줄때",
+      }),
+    ).toBe(true);
   });
 });
 

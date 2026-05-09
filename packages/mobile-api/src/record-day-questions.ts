@@ -2,6 +2,7 @@ import type { DailyQuestionSummary } from "@gynecology-chatbot/app-core";
 import {
   isQuestionAnswerText,
   isQuestionSummaryPendingText,
+  isUsableQuestionAnswerSummary,
 } from "./chat/question-summary";
 
 export type RecordDayQuestionRow = {
@@ -26,6 +27,8 @@ export type RecordDayQuestionRecordRow = {
 };
 
 export const QUESTION_WAITING_COPY = "답변을 기다리고 있어요.";
+export const QUESTION_SUMMARY_PREPARING_COPY =
+  "답변 요약을 준비하고 있어요.";
 const SESSION_QUESTION_GROUP_PREFIX = "session-question-group:";
 
 function mergeQuestionRows(
@@ -55,20 +58,26 @@ function findQuestionAnswerSummary(
         record.title === question.question_text),
   );
   if (questionSummary?.summary) {
+    const storedAnswer = resolveStoredQuestionAnswer(
+      questionSummary.payload?.answer,
+      question,
+    );
     const summaryText =
       questionSummary.payload?.compactSummary ?? questionSummary.summary;
     const isUnfinalized =
       questionSummary.payload?.source === "attachment_question_followup" ||
-      isQuestionSummaryPendingText(summaryText);
-    if (isUnfinalized) {
-      const storedAnswer = resolveStoredQuestionAnswer(
-        questionSummary.payload?.answer,
-        question,
-      );
-      if (storedAnswer) return storedAnswer;
-    } else {
+      isQuestionSummaryPendingText(summaryText) ||
+      isQuestionSummaryPendingText(questionSummary.summary);
+    if (
+      !isUnfinalized &&
+      isUsableQuestionAnswerSummary({
+        summary: questionSummary.summary,
+        answer: storedAnswer,
+      })
+    ) {
       return questionSummary.summary;
     }
+    if (storedAnswer) return QUESTION_SUMMARY_PREPARING_COPY;
   }
 
   const surveyResponse = records.find(
@@ -78,7 +87,11 @@ function findQuestionAnswerSummary(
         record.title === question.question_text),
   );
 
-  return surveyResponse?.summary ?? surveyResponse?.payload?.answer ?? null;
+  const surveyAnswer = resolveStoredQuestionAnswer(
+    surveyResponse?.payload?.answer ?? surveyResponse?.summary,
+    question,
+  );
+  return surveyAnswer ? QUESTION_SUMMARY_PREPARING_COPY : null;
 }
 
 function normalizeQuestionAnswer(text: string | null | undefined) {
@@ -187,7 +200,9 @@ function resolveQuestionSessionId(
 
 function isAnsweredQuestionSummary(item: DailyQuestionSummary) {
   return Boolean(
-    item.answerSummary && item.answerSummary !== QUESTION_WAITING_COPY,
+    item.answerSummary &&
+      item.answerSummary !== QUESTION_WAITING_COPY &&
+      item.answerSummary !== QUESTION_SUMMARY_PREPARING_COPY,
   );
 }
 

@@ -40,9 +40,14 @@ export type QuestionSummaryRecord = {
   };
 };
 
+const QUESTION_ANSWER_SUMMARY_MAX_CHARS = 280;
+const MIN_QUESTION_ANSWER_SUMMARY_CHARS = 45;
+export const QUESTION_SUMMARY_PENDING_COPY =
+  "오늘 자정에 요약이 준비됩니다.";
+
 /**
- * 요약 문자열 생성 — compactSummary 우선, 없으면 사용자 답변 앞머리 사용.
- * LLM 재호출 없이 즉시 생성 (latency 0ms).
+ * 요약 문자열 생성 — workflow가 만든 요약이 충분히 완성된 문장일 때만 쓰고,
+ * 짧은 원문/상태값은 AI cron이 덮어쓸 pending 상태로 둔다.
  */
 export function buildSummaryText(
   input: Pick<QuestionSummaryInput, "compactSummary" | "userAnswer"> & {
@@ -50,22 +55,34 @@ export function buildSummaryText(
   },
 ): string {
   const compact = input.compactSummary?.replace(/^현재 단계:\s*/u, "").trim();
+  const answer = normalizeAnswerText(input.userAnswer);
   if (
     compact &&
-    compact.length >= 10 &&
-    !isQuestionSummaryPendingText(compact)
+    compact.length >= MIN_QUESTION_ANSWER_SUMMARY_CHARS &&
+    !isQuestionSummaryPendingText(compact) &&
+    compact !== answer
   ) {
-    return compact.slice(0, 220);
+    return compact.slice(0, QUESTION_ANSWER_SUMMARY_MAX_CHARS);
   }
-  return buildFallbackQuestionAnswerSummary({
-    questionText: input.questionText ?? null,
-    userAnswer: input.userAnswer,
-  }).slice(0, 220);
+  return QUESTION_SUMMARY_PENDING_COPY;
+}
+
+export function isUsableQuestionAnswerSummary(input: {
+  summary: string | null | undefined;
+  answer?: string | null | undefined;
+}) {
+  const summary = normalizeAnswerText(input.summary);
+  if (!summary) return false;
+  if (isQuestionSummaryPendingText(summary)) return false;
+  if (summary.length < MIN_QUESTION_ANSWER_SUMMARY_CHARS) return false;
+
+  const answer = normalizeAnswerText(input.answer);
+  return !answer || summary !== answer;
 }
 
 export function isQuestionSummaryPendingText(text: string | null | undefined) {
   const normalized = text?.replace(/^현재 단계:\s*/u, "").trim() ?? "";
-  return /오늘의 질문 준비|질문 답변 대기|질문 답변 중|질문 답변 종료 신호|자정에 요약이 준비|요약이 준비됩니다/.test(
+  return /오늘의 질문 준비|질문 답변 대기|질문 답변 중|질문 답변 종료 신호|자정에 요약이 준비|요약이 준비됩니다|답변 요약을 준비/.test(
     normalized,
   );
 }

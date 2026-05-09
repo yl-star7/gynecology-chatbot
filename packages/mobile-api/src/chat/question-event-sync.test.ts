@@ -68,4 +68,34 @@ describe("markQuestionAnswered", () => {
       }),
     );
   });
+
+  it("creates an answered event when no sent row exists", async () => {
+    const create = jest.fn().mockResolvedValue({});
+    const count = await markQuestionAnswered({
+      prisma: {
+        user_question_events: {
+          findFirst: jest.fn(),
+          create,
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+      },
+      userId: "user-1",
+      sessionId: "session-1",
+      questionId: "question-1",
+      answerText: "천천히 마음을 살피고 싶어요.",
+      answerMessageId: "message-1",
+    });
+
+    expect(count).toBe(1);
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        user_id: "user-1",
+        question_id: "question-1",
+        session_id: "session-1",
+        answer_message_id: "message-1",
+        status: "answered",
+        answer_text: "천천히 마음을 살피고 싶어요.",
+      }),
+    });
+  });
 });

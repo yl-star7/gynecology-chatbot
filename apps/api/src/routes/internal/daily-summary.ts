@@ -6,7 +6,6 @@ import {
 } from "@gynecology-chatbot/app-core/time";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import {
-  buildFallbackQuestionAnswerSummary,
   buildQuestionSummaryTitle,
   isQuestionAnswerText,
 } from "@gynecology-chatbot/mobile-api/chat/question-summary";
@@ -142,9 +141,10 @@ async function fetchUserDayData(targetDate: string): Promise<UserDayData[]> {
 
   for (const row of rawQuestions) {
     const user = ensureUser(row.user_id);
+    const question = row.content_week_questions?.question_text ?? "질문";
     user.questions.push({
       questionId: row.question_id,
-      question: row.content_week_questions?.question_text ?? "질문",
+      question,
       answer: row.answer_text,
       answered: row.status === "answered",
     });
@@ -317,22 +317,25 @@ function normalizeGeneratedQuestionSummary(input: {
   if (normalizedSummary === normalizedAnswer) return null;
   if (normalizedSummary.length < 45) return null;
 
-  return normalizedSummary.slice(0, 180);
+  return normalizedSummary.slice(0, 220);
 }
 
 async function buildQuestionAnswerSummary(input: {
   question: string;
   answer: string;
 }) {
-  const fallback = buildFallbackQuestionAnswerSummary({
-    questionText: input.question,
-    userAnswer: input.answer,
-  });
   const title = buildQuestionSummaryTitle(`${input.question}\n${input.answer}`);
   const prompt = [
-    "아래 질문에 대한 사용자의 답변을 기록 카드의 '답변 요약'에 들어갈 한 문장으로 요약해 주세요.",
-    "원문을 그대로 반복하지 말고, 사용자가 느낀 마음이나 생각과 질문 맥락을 자연스럽게 정리해 주세요.",
-    "한국어 -어요/-해요 체로 70~120자, 1~2문장으로 작성하고, 접두사나 따옴표는 쓰지 마세요.",
+    "아래 질문에 대한 사용자의 답변을 기록 카드의 '답변 요약'으로 자연스럽게 요약해 주세요.",
+    "원문을 그대로 반복하지 말고, 사용자가 느낀 마음/생각/하려던 방향을 질문 맥락과 함께 정리해 주세요.",
+    "한국어 -어요/-했어요 체로 90~150자, 2문장 안팎으로 작성하세요.",
+    "\"답변자\", \"사용자\" 같은 호칭은 쓰지 말고, 주어를 생략한 자연스러운 앱 문장으로 쓰세요.",
+    "\"것 같습니다\", \"아마도\"처럼 추측을 드러내는 표현은 쓰지 마세요.",
+    "\"이해됩니다\", \"해석됩니다\"처럼 분석 보고서체 표현은 쓰지 마세요.",
+    "답변이 짧거나 모르겠다는 내용이면, 새로운 의도를 만들지 말고 모르는 마음 자체를 다정하게 정리하세요.",
+    "\"기록이에요\", \"남겼어요\"처럼 템플릿처럼 보이는 끝맺음은 반복하지 마세요.",
+    "예: 답을 서두르기보다 천천히 마음을 살피려고 했어요.",
+    "접두사, 따옴표, 목록 기호는 쓰지 마세요.",
     "",
     `[질문]\n${input.question}`,
     "",
@@ -343,9 +346,13 @@ async function buildQuestionAnswerSummary(input: {
     generated: await callGemini(prompt),
     answer: input.answer,
   });
+  if (!generated) {
+    throw new Error("question answer summary generation failed");
+  }
+
   return {
     title,
-    summary: generated ?? fallback,
+    summary: generated,
   };
 }
 

@@ -28,7 +28,7 @@ describe("POST /api/internal/calendar/question-summary", () => {
     process.env.CALENDAR_SUMMARY_WEBHOOK_SECRET = originalSecret;
   });
 
-  it("replaces a stored midnight placeholder with the user's answer", async () => {
+  it("keeps a stored question answer pending for the AI cron summary", async () => {
     mockedPrisma.calendar_logs.findFirst.mockResolvedValue({
       id: "summary-1",
       summary: "오늘 자정에 요약이 준비됩니다.",
@@ -60,13 +60,14 @@ describe("POST /api/internal/calendar/question-summary", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockedPrisma.calendar_logs.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "summary-1" },
-        data: expect.objectContaining({
-          summary: "아기를 만나기 위해 몸과 마음을 준비하고 있어요.",
-        }),
-      }),
+    const updateInput = mockedPrisma.calendar_logs.update.mock.calls[0]?.[0];
+    expect(updateInput?.where).toEqual({ id: "summary-1" });
+    expect(updateInput?.data.summary).not.toBe(
+      "아기를 만나기 위해 몸과 마음을 준비하고 있어요.",
+    );
+    expect(updateInput?.data.summary).toBe("오늘 자정에 요약이 준비됩니다.");
+    expect(updateInput?.data.payload.answer).toBe(
+      "아기를 만나기 위해 몸과 마음을 준비하고 있어요.",
     );
     expect(mockedPrisma.calendar_logs.create).not.toHaveBeenCalled();
   });

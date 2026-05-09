@@ -94,7 +94,23 @@ export async function markQuestionAnswered(input: {
       },
       data,
     });
-  return sessionAgnosticResult.count;
+  if (sessionAgnosticResult.count > 0) return sessionAgnosticResult.count;
+  if (!answerText) return 0;
+
+  await input.prisma.user_question_events.create({
+    data: {
+      user_id: input.userId,
+      question_id: input.questionId,
+      session_id: input.sessionId,
+      answer_message_id: input.answerMessageId ?? null,
+      status: "answered",
+      sent_at: now,
+      answered_at: now,
+      answer_text: answerText.slice(0, 2000),
+      updated_at: now,
+    },
+  });
+  return 1;
 }
 
 export async function markQuestionSkipped(input: {
