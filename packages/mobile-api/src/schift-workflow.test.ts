@@ -1,4 +1,5 @@
 import {
+  clearSchiftWorkflowOutputBlockCacheForTests,
   extractSchiftWorkflowOutputs,
   resolveSchiftWorkflowId,
   runSchiftWorkflow,
@@ -54,6 +55,8 @@ describe("resolveSchiftWorkflowId", () => {
 describe("runSchiftWorkflow", () => {
   beforeEach(() => {
     mockedListSchiftWorkflows.mockReset();
+    clearSchiftWorkflowOutputBlockCacheForTests();
+    jest.restoreAllMocks();
   });
 
   it("requires an explicit workflow id", async () => {
@@ -80,6 +83,42 @@ describe("runSchiftWorkflow", () => {
 
     expect(get).toHaveBeenCalledWith("wf-missing");
     expect(mockedListSchiftWorkflows).not.toHaveBeenCalled();
+  });
+
+  it("reuses the workflow output block after metadata has been loaded once", async () => {
+    const get = jest.fn().mockResolvedValue({
+      id: "wf-cache",
+      graph: {
+        blocks: [
+          { id: "start", type: "input" },
+          { id: "json-answer", type: "answer", title: "JSON 응답" },
+        ],
+      },
+    });
+    const run = jest.fn();
+    const fetch = jest.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: "completed", outputs: { result: "ok" } }),
+    } as Response);
+
+    await runSchiftWorkflow({
+      schift: { workflows: { get, run } },
+      workflowId: "wf-cache",
+      inputs: { query: "첫 답변" },
+    } as never);
+    await runSchiftWorkflow({
+      schift: { workflows: { get, run } },
+      workflowId: "wf-cache",
+      inputs: { query: "두 번째 답변" },
+    } as never);
+
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(run).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({
+      inputs: { query: "첫 답변" },
+      output: "json-answer",
+    });
   });
 });
 

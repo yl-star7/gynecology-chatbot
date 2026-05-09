@@ -1,6 +1,12 @@
 import type { Schift, Workflow, WorkflowRun } from "@schift-io/sdk";
 import { listSchiftWorkflows } from "./schift-workflows-api";
 
+const WORKFLOW_OUTPUT_BLOCK_CACHE_TTL_MS = 5 * 60 * 1000;
+const workflowOutputBlockIdCache = new Map<
+  string,
+  { outputBlockId: string | null; expiresAt: number }
+>();
+
 function hasRunnableGraph(workflow: Workflow) {
   const graph = workflow.graph as Workflow["graph"] & {
     nodes?: Workflow["graph"]["blocks"];
@@ -60,8 +66,10 @@ export async function runSchiftWorkflow(input: {
     throw new Error("Schift workflow ID is required");
   }
 
-  const workflow = await input.schift.workflows.get(resolvedWorkflowId);
-  const outputBlockId = resolveWorkflowOutputBlockId(workflow);
+  const outputBlockId = await resolveCachedWorkflowOutputBlockId(
+    input.schift,
+    resolvedWorkflowId,
+  );
   const run = outputBlockId
     ? await runSchiftWorkflowWithOutput(
         resolvedWorkflowId,
@@ -74,6 +82,43 @@ export async function runSchiftWorkflow(input: {
     workflowId: resolvedWorkflowId,
     run,
   };
+}
+
+async function resolveCachedWorkflowOutputBlockId(
+  schift: Schift,
+  workflowId: string,
+) {
+  const cached = workflowOutputBlockIdCache.get(workflowId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.outputBlockId;
+  }
+
+  try {
+    const workflow = await schift.workflows.get(workflowId);
+    const outputBlockId = resolveWorkflowOutputBlockId(workflow) ?? null;
+    workflowOutputBlockIdCache.set(workflowId, {
+      outputBlockId,
+      expiresAt: Date.now() + WORKFLOW_OUTPUT_BLOCK_CACHE_TTL_MS,
+    });
+    return outputBlockId;
+  } catch (error) {
+    if (cached) {
+      console.warn(
+        "Schift workflow metadata refresh failed; using cached output block",
+        {
+          workflowId,
+          error,
+        },
+      );
+      return cached.outputBlockId;
+    }
+
+    throw error;
+  }
+}
+
+export function clearSchiftWorkflowOutputBlockCacheForTests() {
+  workflowOutputBlockIdCache.clear();
 }
 
 function resolveWorkflowOutputBlockId(workflow: Workflow) {
