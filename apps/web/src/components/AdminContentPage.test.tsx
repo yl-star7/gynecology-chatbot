@@ -362,7 +362,7 @@ describe("AdminContentPage", () => {
       <AdminContentPage
         adminDisplayName="운영자"
         dashboard={dashboard}
-        currentPath="/admin/content/weeks"
+        currentPath="/admin/assets/weeks"
         title="주차 데이터"
         view="weeks"
       />,
@@ -389,7 +389,7 @@ describe("AdminContentPage", () => {
       <AdminContentPage
         adminDisplayName="운영자"
         dashboard={dashboard}
-        currentPath="/admin/content/weeks"
+        currentPath="/admin/assets/weeks"
         title="주차 데이터"
         view="weeks"
       />,
@@ -406,7 +406,7 @@ describe("AdminContentPage", () => {
       <AdminContentPage
         adminDisplayName="운영자"
         dashboard={dashboard}
-        currentPath="/admin/content/weeks"
+        currentPath="/admin/assets/weeks"
         title="주차 데이터"
         view="weeks"
       />,
@@ -482,7 +482,7 @@ describe("AdminContentPage", () => {
       <AdminContentPage
         adminDisplayName="운영자"
         dashboard={dashboard}
-        currentPath="/admin/content/weeks"
+        currentPath="/admin/assets/weeks"
         title="주차 데이터"
         view="weeks"
       />,
@@ -519,7 +519,7 @@ describe("AdminContentPage", () => {
       <AdminContentPage
         adminDisplayName="운영자"
         dashboard={dashboard}
-        currentPath="/admin/content/weeks"
+        currentPath="/admin/assets/weeks"
         title="주차 데이터"
         view="weeks"
       />,
@@ -543,7 +543,7 @@ describe("AdminContentPage", () => {
       <AdminContentPage
         adminDisplayName="운영자"
         dashboard={dashboard}
-        currentPath="/admin/content/weeks"
+        currentPath="/admin/assets/weeks"
         title="주차 데이터"
         view="weeks"
       />,
@@ -572,7 +572,7 @@ describe("AdminContentPage", () => {
       <AdminContentPage
         adminDisplayName="운영자"
         dashboard={dashboard}
-        currentPath="/admin/content/weeks"
+        currentPath="/admin/assets/weeks"
         title="주차 데이터"
         view="weeks"
       />,
@@ -665,7 +665,7 @@ describe("AdminContentPage", () => {
       <AdminContentPage
         adminDisplayName="운영자"
         dashboard={dashboard}
-        currentPath="/admin/content/weeks"
+        currentPath="/admin/assets/weeks"
         title="주차 데이터"
         view="weeks"
       />,
@@ -715,7 +715,7 @@ describe("AdminContentPage", () => {
       <AdminContentPage
         adminDisplayName="운영자"
         dashboard={dashboard}
-        currentPath="/admin/content/weeks"
+        currentPath="/admin/assets/weeks"
         title="주차 데이터"
         view="weeks"
       />,

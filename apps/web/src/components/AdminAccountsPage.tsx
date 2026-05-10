@@ -19,7 +19,7 @@ export default function AdminAccountsPage({
   adminDisplayName,
   dashboard,
   title = "사용자 설정",
-  currentPath = "/admin/accounts",
+  currentPath = "/admin/ops/users",
 }: AdminAccountsPageProps) {
   const pathname = usePathname() ?? currentPath;
   const router = useRouter();

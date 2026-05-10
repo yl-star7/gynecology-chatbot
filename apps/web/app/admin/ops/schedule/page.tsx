@@ -1,10 +1,8 @@
 import {
   CANONICAL_ADMIN_ROUTES,
-  redirectToCanonicalAdminRoute,
+  createLegacyAdminRedirectPage,
 } from "../../_lib/legacy-admin-route";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminOpsScheduleRoute() {
-  redirectToCanonicalAdminRoute(CANONICAL_ADMIN_ROUTES.monitoring);
-}
+export default createLegacyAdminRedirectPage(CANONICAL_ADMIN_ROUTES.monitoring);

@@ -12,10 +12,6 @@ interface AdminContentPageProps {
   adminDisplayName: string;
   dashboard: AdminDashboardData;
   currentPath:
-    | "/admin/content/documents"
-    | "/admin/content/static"
-    | "/admin/content/weeks"
-    | "/admin/content/policies"
     | "/admin/assets/weeks"
     | "/admin/engine/copy"
     | "/admin/engine/workflows";

@@ -17,7 +17,7 @@ export default function AdminMonitoringPage({
   adminDisplayName,
   dashboard,
 }: AdminMonitoringPageProps) {
-  const pathname = usePathname() ?? "/admin/monitoring";
+  const pathname = usePathname() ?? "/admin/ops/monitoring";
   const router = useRouter();
   const searchParams = useSearchParams();
   const resolvedSearchParams = searchParams ?? new URLSearchParams();
@@ -70,7 +70,7 @@ export default function AdminMonitoringPage({
   return (
     <AdminPageFrame
       adminDisplayName={adminDisplayName}
-      currentPath="/admin/monitoring"
+      currentPath="/admin/ops/monitoring"
       title="모니터링"
     >
       <AdminMonitoringSection

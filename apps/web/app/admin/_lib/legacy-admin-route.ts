@@ -16,3 +16,11 @@ export function redirectToCanonicalAdminRoute(
 ): never {
   redirect(route);
 }
+
+export function createLegacyAdminRedirectPage(
+  route: (typeof CANONICAL_ADMIN_ROUTES)[keyof typeof CANONICAL_ADMIN_ROUTES],
+) {
+  return function LegacyAdminRedirectPage() {
+    redirectToCanonicalAdminRoute(route);
+  };
+}
