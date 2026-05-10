@@ -1,5 +1,8 @@
-import { redirect } from "next/navigation";
+import {
+  CANONICAL_ADMIN_ROUTES,
+  redirectToCanonicalAdminRoute,
+} from "../../_lib/legacy-admin-route";
 
 export default function Page() {
-  redirect("/admin/engine/workflows");
+  redirectToCanonicalAdminRoute(CANONICAL_ADMIN_ROUTES.workflows);
 }

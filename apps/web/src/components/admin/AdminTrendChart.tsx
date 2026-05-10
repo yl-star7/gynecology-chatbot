@@ -79,10 +79,9 @@ export function AdminTrendChart({ dailyTrend }: AdminTrendChartProps) {
         <svg
           viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
           width="100%"
-          height="auto"
           role="img"
           aria-label="주간 활동 추이 차트"
-          className="block max-w-[560px]"
+          className="block h-auto max-w-[560px]"
         >
           {yTicks.map((tick) => (
             <g key={tick}>
