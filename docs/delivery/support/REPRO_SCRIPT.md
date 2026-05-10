@@ -14,10 +14,10 @@
 - 대상 저장소: `/Users/jskang/Projects/si`
 - 검수 기준 문서
   - `docs/active/CONTRACT.html` (제7조 검수 기준)
-  - `docs/delivery/TECHNICAL_SPECIFICATION.md` (API/인증/배포 명세)
-  - `docs/delivery/ADMIN_OPERATIONS_MANUAL.md` (관리자 화면 운영 절차)
-  - `docs/delivery/MOBILE_RELEASE_GUIDE.md` (빌드/스토어/푸시 운영 절차)
-  - `docs/delivery/ACCEPTANCE_CHECKLIST.md` (AC-001~AC-007 판정 기준)
+  - `docs/delivery/support/TECHNICAL_SPECIFICATION.md` (API/인증/배포 명세)
+  - `docs/delivery/support/ADMIN_OPERATIONS_MANUAL.md` (관리자 화면 운영 절차)
+  - `docs/delivery/support/MOBILE_RELEASE_GUIDE.md` (빌드/스토어/푸시 운영 절차)
+  - `docs/delivery/support/ACCEPTANCE_CHECKLIST.md` (AC-001~AC-007 판정 기준)
 
 ### 2.2 화면/라우트 기준 (코드 근거)
 
@@ -142,7 +142,7 @@
 
 1. **운영 URL 실가동/SSL 상태** (AC-007)
 2. **스토어 제출/배포 결과** (TestFlight, Play Console)  
-   - 기준 문서: `docs/delivery/MOBILE_RELEASE_GUIDE.md`
+   - 기준 문서: `docs/delivery/support/MOBILE_RELEASE_GUIDE.md`
 3. **외부 계정 연동 항목** (실서비스 계정 필요)
    - OTP/SMS 발송(Twilio)
    - 푸시 발송 인프라(Expo/FCM/APNs)
@@ -191,6 +191,6 @@
 
 ### 5.5 판정 정리
 
-- 최종 판정은 `docs/delivery/ACCEPTANCE_CHECKLIST.md`의 AC-001~AC-007 표에 맞춰 기록합니다.
+- 최종 판정은 `docs/delivery/support/ACCEPTANCE_CHECKLIST.md`의 AC-001~AC-007 표에 맞춰 기록합니다.
 - 운영 증빙이 필요한 항목은 “확인 불가(저장소 기준)”와 “운영 검증 완료”를 분리하여 표기합니다.
 - 제출용 패키지에는 `Pass` 항목뿐 아니라 보완 필요 항목도 포함해, 검수자가 누락 없이 판단할 수 있게 합니다.

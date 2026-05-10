@@ -53,6 +53,7 @@ output/playwright/
 /.claude/worktrees/
 /.playwright-mcp/
 /admin-*.png
+/apps/mobile/*.png
 /tmp-*.png
 /tmp-*/
 /scripts/_tmp-*.mjs

@@ -1,8 +1,9 @@
 # Docs Index
 
-현재 상단에서 바로 보는 문서는 아래 2개입니다.
+현재 상단에서 바로 보는 문서는 아래 3개입니다.
 
 - `active/CONTRACT.html`: 서명용 단일 계약서
+- `delivery/`: 최종 납품·검수 문서
 - `reference/`: 현재 제품/구조 기준 문서
 
 나머지 문서는 성격별로 분리했습니다.
@@ -24,6 +25,17 @@
 - `RESEARCH_ACCOUNT_SETUP_GUIDE.md`
 - `DATA_READINESS_CHECKLIST.md`
 - `PREGNANCY_DOCX_IMPORT_COVERAGE.md`
+
+## `delivery/`
+
+최종 납품과 검수에 쓰는 문서입니다.
+
+- `아가야_앱_완료보고서.docx`
+- `아가야_관리자_완료보고서.docx`
+- `아가야_보안정보_전달문서.docx`
+- `support/`: 기술 명세, 운영 매뉴얼, 재현 절차, 검수 체크리스트
+- `evidence/screenshots/`: 화면 증빙 이미지
+- `archive_previous_docx/`: 최종 3개 문서로 통합되기 전의 개별 확인서 보관본
 
 ## `archive/`
 

@@ -5,10 +5,10 @@
 > 기준 문서:  
 > - `docs/active/CONTRACT.html`  
 > - `docs/archive/DEVELOPMENT_SOW.md`  
-> - `docs/delivery/ACCEPTANCE_CHECKLIST.md`  
-> - `docs/delivery/REPRO_SCRIPT.md`  
-> - `docs/delivery/TECHNICAL_SPECIFICATION.md`  
-> - `docs/delivery/MOBILE_RELEASE_GUIDE.md`  
+> - `docs/delivery/support/ACCEPTANCE_CHECKLIST.md`  
+> - `docs/delivery/support/REPRO_SCRIPT.md`  
+> - `docs/delivery/support/TECHNICAL_SPECIFICATION.md`  
+> - `docs/delivery/support/MOBILE_RELEASE_GUIDE.md`  
 > - `docs/active/2026-03-26-sow-prd-coverage.html`
 
 ---
