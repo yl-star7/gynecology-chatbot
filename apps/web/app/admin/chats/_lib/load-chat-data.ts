@@ -1,4 +1,4 @@
-import { prisma } from "@gynecology-chatbot/db/prisma";
+import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
 import {
   resolveQuestionAnswerDisplay,
   type RecordDayQuestionRecordRow,
@@ -23,8 +23,32 @@ import type { AdminChatActionRow } from "@/components/admin/AdminChatActionsFeed
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const HIDDEN_CHAT_USER_DISPLAY_NAME_FILTERS =
+  ["CodexQA", "테스트"].map(
+    (term): Prisma.pregnancy_profilesWhereInput => ({
+      display_name: { contains: term, mode: "insensitive" },
+    }),
+  );
+
 export function isUuid(value: string): boolean {
   return UUID_REGEX.test(value);
+}
+
+function createVisibleChatUsersWhere(
+  baseWhere: Prisma.usersWhereInput,
+): Prisma.usersWhereInput {
+  return {
+    AND: [
+      baseWhere,
+      {
+        NOT: {
+          pregnancy_profiles: {
+            is: { OR: HIDDEN_CHAT_USER_DISPLAY_NAME_FILTERS },
+          },
+        },
+      },
+    ],
+  };
 }
 
 function toIso(value: Date | null | undefined): string | null {
@@ -168,14 +192,14 @@ export async function fetchChatUsersList(
     for (const profile of profileMatches) userIdFilter.add(profile.user_id);
   }
 
-  const where = trimmed ? { id: { in: Array.from(userIdFilter) } } : undefined;
+  const where = createVisibleChatUsersWhere(
+    trimmed ? { id: { in: Array.from(userIdFilter) } } : { role: "user" },
+  );
 
   const [totalMatched, userRecords] = await Promise.all([
-    trimmed
-      ? userIdFilter.size
-      : prisma.users.count({ where: { role: "user" } }),
+    prisma.users.count({ where }),
     prisma.users.findMany({
-      where: trimmed ? where : { role: "user" },
+      where,
       select: {
         id: true,
         account_status: true,

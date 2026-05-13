@@ -3,13 +3,19 @@ var mockedPrisma: any;
 jest.mock("@gynecology-chatbot/db/prisma", () => {
   mockedPrisma = {
     users: {
+      count: jest.fn(),
+      findMany: jest.fn(),
+    },
+    pregnancy_profiles: {
       findMany: jest.fn(),
     },
     chat_sessions: {
       findFirst: jest.fn(),
+      groupBy: jest.fn(),
     },
     chat_messages: {
       findMany: jest.fn(),
+      groupBy: jest.fn(),
     },
     user_question_events: {
       findMany: jest.fn(),
@@ -38,15 +44,140 @@ jest.mock("@/lib/privacy/phone-crypto", () => ({
   decryptPhoneNumber: jest.fn((value: string) => value.replace(/^enc:/, "")),
 }));
 
-import { fetchChatActions, fetchChatSessionMessages } from "./load-chat-data";
+import {
+  fetchChatActions,
+  fetchChatSessionMessages,
+  fetchChatUsersList,
+} from "./load-chat-data";
 
 const userId = "6e789ecc-d48a-4535-8ad9-1303dcddb8e5";
 
+describe("fetchChatUsersList", () => {
+  afterEach(() => {
+    mockedPrisma.users.count.mockReset();
+    mockedPrisma.users.findMany.mockReset();
+    mockedPrisma.pregnancy_profiles.findMany.mockReset();
+    mockedPrisma.chat_sessions.groupBy.mockReset();
+    mockedPrisma.chat_messages.groupBy.mockReset();
+  });
+
+  it("excludes test display names from both the chat user count and rows", async () => {
+    mockedPrisma.users.count.mockResolvedValue(1);
+    mockedPrisma.users.findMany.mockResolvedValue([
+      {
+        id: userId,
+        account_status: "active",
+        phone_number_encrypted: "enc:+821012345678",
+        phone_number_last4: "5678",
+        pregnancy_profiles: {
+          display_name: "김수연",
+          pregnancy_week: 22,
+          pregnancy_day_in_week: 3,
+          week_override: null,
+          day_override: null,
+        },
+      },
+    ]);
+    mockedPrisma.chat_sessions.groupBy.mockResolvedValue([
+      {
+        user_id: userId,
+        _max: { last_message_at: new Date("2026-05-06T21:35:00.000Z") },
+      },
+    ]);
+    mockedPrisma.chat_messages.groupBy.mockResolvedValue([
+      { user_id: userId, _count: { _all: 3 } },
+    ]);
+
+    const result = await fetchChatUsersList("", 50);
+
+    const countWhere = mockedPrisma.users.count.mock.calls[0][0].where;
+    const listWhere = mockedPrisma.users.findMany.mock.calls[0][0].where;
+    expect(countWhere).toEqual(listWhere);
+    expect(countWhere).toEqual(
+      expect.objectContaining({
+        AND: expect.arrayContaining([expect.objectContaining({ role: "user" })]),
+      }),
+    );
+    expect(JSON.stringify(countWhere)).toContain("CodexQA");
+    expect(JSON.stringify(countWhere)).toContain("테스트");
+    expect(result).toEqual({
+      rows: [
+        {
+          userId,
+          displayName: "김수연",
+          phoneLast4: "5678",
+          week: 22,
+          day: 3,
+          lastMessageAt: "2026-05-06T21:35:00.000Z",
+          messageCount: 3,
+          accountStatus: "active",
+        },
+      ],
+      totalMatched: 1,
+      pageSize: 50,
+    });
+  });
+
+  it("uses the same hidden-user filter when counting search matches", async () => {
+    const hiddenUserId = "2b4db6e6-4ab4-48c3-831d-71ed742cfe0a";
+    mockedPrisma.pregnancy_profiles.findMany.mockResolvedValue([
+      { user_id: hiddenUserId },
+      { user_id: userId },
+    ]);
+    mockedPrisma.users.count.mockResolvedValue(1);
+    mockedPrisma.users.findMany.mockResolvedValue([
+      {
+        id: userId,
+        account_status: "active",
+        phone_number_encrypted: null,
+        phone_number_last4: null,
+        pregnancy_profiles: {
+          display_name: "김수연",
+          pregnancy_week: null,
+          pregnancy_day_in_week: null,
+          week_override: null,
+          day_override: null,
+        },
+      },
+    ]);
+    mockedPrisma.chat_sessions.groupBy.mockResolvedValue([]);
+    mockedPrisma.chat_messages.groupBy.mockResolvedValue([]);
+
+    const result = await fetchChatUsersList("CodexQA", 50);
+
+    const countWhere = mockedPrisma.users.count.mock.calls[0][0].where;
+    const listWhere = mockedPrisma.users.findMany.mock.calls[0][0].where;
+    expect(countWhere).toEqual(listWhere);
+    expect(countWhere.AND[0]).toEqual({
+      id: { in: [hiddenUserId, userId] },
+    });
+    expect(JSON.stringify(countWhere)).toContain("CodexQA");
+    expect(JSON.stringify(countWhere)).toContain("테스트");
+    expect(result.totalMatched).toBe(1);
+    expect(result.rows).toEqual([
+      {
+        userId,
+        displayName: "김수연",
+        phoneLast4: null,
+        week: null,
+        day: null,
+        lastMessageAt: null,
+        messageCount: 0,
+        accountStatus: "active",
+      },
+    ]);
+  });
+});
+
 describe("fetchChatActions", () => {
   afterEach(() => {
+    mockedPrisma.users.count.mockReset();
     mockedPrisma.users.findMany.mockReset();
+    mockedPrisma.pregnancy_profiles.findMany.mockReset();
     mockedPrisma.chat_sessions.findFirst.mockReset();
+    mockedPrisma.chat_sessions.groupBy.mockReset();
     mockedPrisma.chat_messages.findMany.mockReset();
+    mockedPrisma.chat_messages.groupBy.mockReset();
     mockedPrisma.user_question_events.findMany.mockReset();
     mockedPrisma.calendar_logs.findMany.mockReset();
     mockedPrisma.user_action_logs.findMany.mockReset();
@@ -113,9 +244,13 @@ describe("fetchChatActions", () => {
 
 describe("fetchChatSessionMessages", () => {
   afterEach(() => {
+    mockedPrisma.users.count.mockReset();
     mockedPrisma.users.findMany.mockReset();
+    mockedPrisma.pregnancy_profiles.findMany.mockReset();
     mockedPrisma.chat_sessions.findFirst.mockReset();
+    mockedPrisma.chat_sessions.groupBy.mockReset();
     mockedPrisma.chat_messages.findMany.mockReset();
+    mockedPrisma.chat_messages.groupBy.mockReset();
     mockedPrisma.user_question_events.findMany.mockReset();
     mockedPrisma.calendar_logs.findMany.mockReset();
     mockedPrisma.user_action_logs.findMany.mockReset();
@@ -154,7 +289,8 @@ describe("fetchChatSessionMessages", () => {
     ]);
     mockedPrisma.calendar_logs.findMany.mockResolvedValue([
       {
-        summary: "배가 무거운 변화를 또렷하게 느꼈다고 요약됐어요.",
+        summary:
+          "배가 무거운 변화를 또렷하게 느꼈고, 일상에서 몸의 신호를 더 자주 살피며 휴식을 챙기기로 했어요.",
         payload: { questionId },
       },
     ]);
@@ -172,7 +308,8 @@ describe("fetchChatSessionMessages", () => {
         questionId,
         questionText: "이번 주 가장 뚜렷하게 느낀 변화는 무엇인가요?",
         answerText: "배가 무거워요.",
-        appSummary: "배가 무거운 변화를 또렷하게 느꼈다고 요약됐어요.",
+        appSummary:
+          "배가 무거운 변화를 또렷하게 느꼈고, 일상에서 몸의 신호를 더 자주 살피며 휴식을 챙기기로 했어요.",
         status: "answered",
         sentAt: "2026-05-06T21:34:00.000Z",
         answeredAt: "2026-05-06T21:35:00.000Z",
@@ -219,7 +356,7 @@ describe("fetchChatSessionMessages", () => {
     const result = await fetchChatSessionMessages(userId, sessionId);
 
     expect(result?.questionAnswers[0]?.appSummary).toBe(
-      "몸이 무거웠지만 아기가 잘 자란다고 생각했어요.",
+      "답변 요약을 준비하고 있어요.",
     );
   });
 });
