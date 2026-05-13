@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Play, Route, Trash2 } from "lucide-react";
+import { Route, Trash2 } from "lucide-react";
 
 import type { AdminDashboardData } from "@gynecology-chatbot/app-core";
 
@@ -9,7 +9,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -50,13 +49,6 @@ function statusVariant(
   }
 }
 
-function workflowSourceLabel(rule: WorkflowRule) {
-  if (rule.storagePath && rule.source === "sql") return "SQL + GCS YAML";
-  if (rule.source === "gcs-yaml") return "GCS YAML";
-  if (rule.source === "schift") return "Schift";
-  return "SQL";
-}
-
 export interface AdminPoliciesSectionProps {
   workflowRules: AdminDashboardData["workflowRules"];
   selectedWorkflowRuleId: string;
@@ -90,23 +82,8 @@ type View =
 export function AdminPoliciesSection({
   workflowRules,
   selectedWorkflowRuleId,
-  contentMessage,
-  workflowName,
-  workflowTrigger,
-  workflowRetrievalScope,
-  workflowModelName,
-  workflowStatus,
-  isWorkflowSaving,
-  isWorkflowRunning,
   isWorkflowDeleting,
   onSelectWorkflowRule,
-  onWorkflowNameChange,
-  onWorkflowTriggerChange,
-  onWorkflowRetrievalScopeChange,
-  onWorkflowModelNameChange,
-  onWorkflowStatusChange,
-  onSaveWorkflowRule,
-  onRunWorkflowRule,
   onDeleteWorkflowRule,
   initialView = "list",
 }: AdminPoliciesSectionProps) {
@@ -124,7 +101,6 @@ export function AdminPoliciesSection({
   const [workflowEditorMessage, setWorkflowEditorMessage] = useState<
     string | null
   >(null);
-  const [testQuery, setTestQuery] = useState("산모 복통이 심해요");
   const selectedWorkflowRule = workflowRules.find(
     (rule) => rule.id === selectedWorkflowRuleId,
   );
@@ -232,10 +208,6 @@ export function AdminPoliciesSection({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">응답 워크플로우</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              SQL에 저장된 GCS YAML 위치 기준으로 라우터와 sub workflow를 함께
-              관리합니다. YAML 워크플로우 행을 누르면 시각 편집기로 열립니다.
-            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Input
@@ -306,7 +278,7 @@ export function AdminPoliciesSection({
           </div>
           <div className="rounded-md border bg-muted/30 p-3">
             <p className="text-xs font-medium text-muted-foreground">
-              Sub workflow 추정
+              세부 흐름
             </p>
             <p className="mt-1 text-2xl font-semibold">
               {workflowSummary.subWorkflowCount}
@@ -320,30 +292,6 @@ export function AdminPoliciesSection({
           </Alert>
         ) : null}
 
-        <div className="mt-4 flex flex-wrap items-end gap-3 rounded-md border border-dashed bg-muted p-3">
-          <div className="flex-1 min-w-[240px] space-y-1">
-            <Label htmlFor="workflow-test-query">테스트 질문</Label>
-            <Input
-              id="workflow-test-query"
-              value={testQuery}
-              onChange={(event) => setTestQuery(event.target.value)}
-              placeholder="워크플로우로 검증할 질문"
-            />
-          </div>
-          <Button
-            type="button"
-            disabled={
-              isWorkflowRunning ||
-              !selectedWorkflowRuleId ||
-              selectedWorkflowUsesYaml
-            }
-            onClick={() => void onRunWorkflowRule(testQuery)}
-          >
-            <Play className="mr-1 h-4 w-4" />
-            {isWorkflowRunning ? "실행 중…" : "테스트 실행"}
-          </Button>
-        </div>
-
         <div className="mt-4 overflow-hidden rounded-md border">
           <Table>
             <TableHeader>
@@ -351,7 +299,6 @@ export function AdminPoliciesSection({
                 <TableHead className="min-w-[200px]">워크플로우</TableHead>
                 <TableHead className="min-w-[140px]">트리거</TableHead>
                 <TableHead className="min-w-[140px]">모델</TableHead>
-                <TableHead className="min-w-[240px]">YAML 위치</TableHead>
                 <TableHead className="w-24">상태</TableHead>
               </TableRow>
             </TableHeader>
@@ -359,7 +306,7 @@ export function AdminPoliciesSection({
               {filteredWorkflowRules.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={4}
                     className="py-8 text-center text-muted-foreground"
                   >
                     조건에 맞는 워크플로우가 없습니다.
@@ -411,24 +358,12 @@ export function AdminPoliciesSection({
                           <Route className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
                           <span className="flex min-w-0 flex-col items-start gap-1">
                             <span className="truncate">{rule.name}</span>
-                            <span className="text-xs font-normal text-muted-foreground">
-                              {workflowSourceLabel(rule)}
-                            </span>
                           </span>
                         </Button>
                       </TableCell>
                       <TableCell>{rule.trigger}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {rule.modelName}
-                      </TableCell>
-                      <TableCell className="max-w-[360px] text-xs text-muted-foreground">
-                        {rule.storagePath ? (
-                          <code className="block truncate rounded bg-muted px-2 py-1">
-                            {rule.storagePath}
-                          </code>
-                        ) : (
-                          <span>-</span>
-                        )}
                       </TableCell>
                       <TableCell>
                         <Badge

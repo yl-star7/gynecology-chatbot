@@ -170,16 +170,16 @@ describe("AdminPoliciesSection", () => {
       .getByText("전체 워크플로우")
       .closest("div") as HTMLElement;
     const subSummary = screen
-      .getByText("Sub workflow 추정")
+      .getByText("세부 흐름")
       .closest("div") as HTMLElement;
 
     expect(within(totalSummary).getByText("3")).toBeInTheDocument();
     expect(within(subSummary).getByText("1")).toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.queryByText(
         "gs://agaya-workflow-config/subworkflows/free-chat.yaml",
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
 
     await screen.findByText(
       "SCHIFT_API_KEY가 없어 노드 에디터를 열 수 없어요.",
