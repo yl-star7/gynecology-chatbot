@@ -1,13 +1,13 @@
 version: 1
-name: 모성간호 letter_reflection (편지/공감 대화)
+name: 오늘 질문 공감 답변
 description: >
-  stage=2 전용. 사용자가 오늘의 질문에 답변 중. 편지형 공감 + 짧은 마무리.
+  사용자가 오늘의 질문에 답변 중일 때 편지형 공감과 짧은 마무리로 이어간다.
   stage=0 회귀 절대 금지.
 
 admin_metadata:
   stage: "2"
   scenario: letter_reflection
-  model_name: gemini-2.5-flash-lite
+  model_name: gemini-3.1-flash-lite
 
 config:
   reflection_loop:
@@ -87,24 +87,24 @@ prompts:
 blocks:
   - id: start
     type: start
-    title: 입력
+    title: 사용자 답변 받기
   - id: tmpl
     type: prompt_template
-    title: 프롬프트 렌더
+    title: 공감 문장 준비
     config:
       system_prompt: $prompts.system
       template: $prompts.template
   - id: llm
     type: llm
-    title: 공감 LLM
+    title: 공감 답변 만들기
     config:
-      model: gemini-2.5-flash-lite
+      model: gemini-3.1-flash-lite
       temperature: 0.3
       max_tokens: 500
       thinking_budget: 0
   - id: answer
     type: answer
-    title: JSON 출력
+    title: 앱에 답변 보내기
     config:
       format: text
       include_sources: false
@@ -113,8 +113,13 @@ blocks:
     title: 종료
 
 edges:
-  - { source: start,  target: tmpl,   source_handle: out,           target_handle: query }
-  - { source: tmpl,   target: llm,    source_handle: prompt,        target_handle: prompt }
-  - { source: tmpl,   target: llm,    source_handle: system_prompt, target_handle: system_prompt }
-  - { source: llm,    target: answer, source_handle: text,          target_handle: text }
-  - { source: answer, target: end,    source_handle: answer,        target_handle: in }
+  - { source: start, target: tmpl, source_handle: out, target_handle: query }
+  - { source: tmpl, target: llm, source_handle: prompt, target_handle: prompt }
+  - {
+      source: tmpl,
+      target: llm,
+      source_handle: system_prompt,
+      target_handle: system_prompt,
+    }
+  - { source: llm, target: answer, source_handle: text, target_handle: text }
+  - { source: answer, target: end, source_handle: answer, target_handle: in }

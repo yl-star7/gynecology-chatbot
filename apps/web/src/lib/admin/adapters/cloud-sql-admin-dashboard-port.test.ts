@@ -300,12 +300,12 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
         is_active: false,
         config: {
           trigger: "내부 데이터만 답변",
-          modelName: "gemini-2.5-flash-lite",
+          modelName: "gemini-3.1-flash-lite",
         },
         metadata: {
           trigger: "내부 데이터만 답변",
           retrievalScope: "pregnancy-knowledge 내부 자료",
-          modelName: "gemini-2.5-flash-lite",
+          modelName: "gemini-3.1-flash-lite",
         },
       },
     ] as never);
@@ -315,7 +315,7 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
         id: "schift-wf-2",
         name: "모성간호 상담 응답",
         description:
-          '<!-- si-admin-workflow:{"trigger":"내부 데이터만 답변","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-2.5-flash-lite"}-->\n기본 설명',
+          '<!-- si-admin-workflow:{"trigger":"내부 데이터만 답변","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-3.1-flash-lite"}-->\n기본 설명',
         status: "active",
         graph: { blocks: [], edges: [] },
         created_at: "2026-03-23T10:00:00.000Z",
@@ -344,13 +344,13 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
         provider: "flowise",
         is_active: true,
         config: {
-          modelName: "gemini-2.5-flash-lite",
+          modelName: "gemini-3.1-flash-lite",
           retrievalScope: "현재 주차 ±1주 + 공통 문서",
         },
         metadata: {
           trigger: "일반 채팅",
           retrievalScope: "현재 주차 ±1주 + 공통 문서",
-          modelName: "gemini-2.5-flash-lite",
+          modelName: "gemini-3.1-flash-lite",
         },
       },
       {
@@ -368,7 +368,7 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
         metadata: {
           trigger: "mobile chat runtime",
           retrievalScope: "모바일 채팅 런타임 YAML",
-          modelName: "gemini-2.5-flash-lite",
+          modelName: "gemini-3.1-flash-lite",
           workflowKind: "monolith",
         },
       },
@@ -384,12 +384,12 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
             "gs://agaya-workflow-config/maternal-nursing-router.yaml",
           gcsBucket: "agaya-workflow-config",
           gcsObject: "maternal-nursing-router.yaml",
-          modelName: "gemini-2.5-flash-lite",
+          modelName: "gemini-3.1-flash-lite",
         },
         metadata: {
           trigger: "stage router",
           retrievalScope: "stage 기반 subworkflow 라우팅",
-          modelName: "gemini-2.5-flash-lite",
+          modelName: "gemini-3.1-flash-lite",
           workflowKind: "router",
         },
       },
@@ -404,12 +404,12 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
           storagePath: "gs://agaya-workflow-config/subworkflows/free-chat.yaml",
           gcsBucket: "agaya-workflow-config",
           gcsObject: "subworkflows/free-chat.yaml",
-          modelName: "gemini-2.5-flash-lite",
+          modelName: "gemini-3.1-flash-lite",
         },
         metadata: {
           trigger: "stage=free_chat",
           retrievalScope: "자유 대화",
-          modelName: "gemini-2.5-flash-lite",
+          modelName: "gemini-3.1-flash-lite",
           workflowKind: "subworkflow",
         },
       },
@@ -420,7 +420,7 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
         id: "schift-wf-2",
         name: "모성간호 상담 응답",
         description:
-          '<!-- si-admin-workflow:{"trigger":"내부 데이터만 답변","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-2.5-flash-lite"}-->\n기본 설명',
+          '<!-- si-admin-workflow:{"trigger":"내부 데이터만 답변","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-3.1-flash-lite"}-->\n기본 설명',
         status: "active",
         graph: { blocks: [{ id: "start" }], edges: [] },
         created_at: "2026-03-23T10:00:00.000Z",
@@ -430,7 +430,7 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
         id: "schift-wf-3",
         name: "내부 데이터 응답",
         description:
-          '<!-- si-admin-workflow:{"trigger":"일반 채팅","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-2.5-flash-lite"}-->\n기본 설명',
+          '<!-- si-admin-workflow:{"trigger":"일반 채팅","retrievalScope":"pregnancy-knowledge 내부 자료","modelName":"gemini-3.1-flash-lite"}-->\n기본 설명',
         status: "active",
         graph: { blocks: [{ id: "start" }], edges: [] },
         created_at: "2026-03-23T10:00:00.000Z",
@@ -479,13 +479,13 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
         provider: "schift",
         is_active: true,
         config: {
-          modelName: "gemini-2.5-flash-lite",
+          modelName: "gemini-3.1-flash-lite",
           retrievalScope: "pregnancy-knowledge 내부 자료",
         },
         metadata: {
           trigger: "내부 데이터만 답변",
           retrievalScope: "pregnancy-knowledge 내부 자료",
-          modelName: "gemini-2.5-flash-lite",
+          modelName: "gemini-3.1-flash-lite",
         },
       },
     ] as never);
@@ -495,7 +495,7 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
         id: "schift-general",
         name: "모성간호 general (폴백)",
         description:
-          '<!-- si-admin-workflow:{"trigger":"fallback","retrievalScope":"pregnancy-knowledge","modelName":"gemini-2.5-flash-lite"}-->\n기본 설명',
+          '<!-- si-admin-workflow:{"trigger":"fallback","retrievalScope":"pregnancy-knowledge","modelName":"gemini-3.1-flash-lite"}-->\n기본 설명',
         status: "active",
         graph: { blocks: [{ id: "start" }], edges: [] },
         created_at: "2026-03-23T10:00:00.000Z",
@@ -505,7 +505,7 @@ describe("CloudSqlAdminDashboardPortAdapter", () => {
         id: "schift-letter",
         name: "모성간호 letter_reflection (편지/공감 대화)",
         description:
-          '<!-- si-admin-workflow:{"trigger":"stage=2","retrievalScope":"pregnancy-knowledge","modelName":"gemini-2.5-flash-lite"}-->\n기본 설명',
+          '<!-- si-admin-workflow:{"trigger":"stage=2","retrievalScope":"pregnancy-knowledge","modelName":"gemini-3.1-flash-lite"}-->\n기본 설명',
         status: "active",
         graph: { blocks: [{ id: "start" }], edges: [] },
         created_at: "2026-03-23T10:00:00.000Z",

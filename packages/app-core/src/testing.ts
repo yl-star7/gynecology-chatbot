@@ -349,7 +349,7 @@ let mockWorkflowRules: AdminWorkflowRule[] = [
     name: "모성간호 상담 응답",
     trigger: "내부 데이터만 답변",
     retrievalScope: "pregnancy-knowledge 내부 자료",
-    modelName: "gemini-3.1-flash-lite-preview",
+    modelName: "gemini-3.1-flash-lite",
     status: "active",
     blocks: [
       { id: "start", type: "start", config: {} },
@@ -362,7 +362,7 @@ let mockWorkflowRules: AdminWorkflowRule[] = [
       {
         id: "llm",
         type: "llm",
-        config: { model: "gemini-3.1-flash-lite-preview" },
+        config: { model: "gemini-3.1-flash-lite" },
       },
       { id: "answer", type: "answer", config: { format: "json" } },
       { id: "end", type: "end", config: {} },
@@ -373,7 +373,7 @@ let mockWorkflowRules: AdminWorkflowRule[] = [
     name: "내부 데이터 응답",
     trigger: "일반 채팅",
     retrievalScope: "pregnancy-knowledge 내부 자료",
-    modelName: "gemini-3.1-flash-lite-preview",
+    modelName: "gemini-3.1-flash-lite",
     status: "active",
     blocks: [
       {
@@ -384,7 +384,7 @@ let mockWorkflowRules: AdminWorkflowRule[] = [
       {
         id: "b2",
         type: "llm",
-        config: { model: "gemini-3.1-flash-lite-preview" },
+        config: { model: "gemini-3.1-flash-lite" },
       },
     ],
   },

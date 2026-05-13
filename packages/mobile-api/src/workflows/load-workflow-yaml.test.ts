@@ -94,7 +94,8 @@ describe("maternal nursing workflow YAML", () => {
         slug: "maternal-nursing-router",
         config: {
           workflowKind: "router",
-          storagePath: "gs://agaya-workflow-config/maternal-nursing-router.yaml",
+          storagePath:
+            "gs://agaya-workflow-config/maternal-nursing-router.yaml",
         },
         metadata: {},
         updated_at: "2026-05-06T10:00:00.000Z",
@@ -265,7 +266,7 @@ describe("maternal nursing workflow YAML", () => {
       expect.objectContaining({
         collection: "pregnancy-knowledge",
         top_k: 5,
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-3.1-flash-lite",
         thinking_budget: 0,
       }),
     );
@@ -356,7 +357,9 @@ describe("maternal nursing workflow YAML", () => {
       expect.stringContaining("end는 summary를 트리거"),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
-      expect.stringContaining("chat_flow.stages.question_answer.reflection_loop"),
+      expect.stringContaining(
+        "chat_flow.stages.question_answer.reflection_loop",
+      ),
     );
     expect(tmpl?.config?.system_prompt).toEqual(
       expect.stringContaining("reflection_loop.next_question_label_template"),

@@ -1,6 +1,7 @@
 import type { AdminWorkflowRule } from "./domain";
 
 export const DEFAULT_WORKFLOW_YAML_BUCKET = "agaya-workflow-config";
+export const ADMIN_WORKFLOW_MODEL_NAME = "gemini-3.1-flash-lite";
 
 export type AdminWorkflowYamlCatalogEntry = {
   slug: string;
@@ -16,51 +17,51 @@ export type AdminWorkflowYamlCatalogEntry = {
 export const ADMIN_WORKFLOW_YAML_CATALOG: AdminWorkflowYamlCatalogEntry[] = [
   {
     slug: "maternal-nursing-router",
-    name: "모성간호 router (stage 분기)",
+    name: "대화 단계 분류",
     kind: "router",
-    trigger: "stage router",
-    retrievalScope: "stage 기반 subworkflow 라우팅",
-    modelName: "gemini-2.5-flash-lite",
+    trigger: "대화 단계 선택",
+    retrievalScope: "주차 정보, 공감 대화, 자유 상담 분기",
+    modelName: ADMIN_WORKFLOW_MODEL_NAME,
     gcsObject: "maternal-nursing-router.yaml",
     status: "active",
   },
   {
     slug: "maternal-nursing-baby-info",
-    name: "모성간호 baby_info (주차 정보 요약)",
+    name: "주차 정보 답변",
     kind: "subworkflow",
-    trigger: "stage=0 baby_info",
+    trigger: "주차 정보 요청",
     retrievalScope: "임신백과 주차 정보",
-    modelName: "gemini-2.5-flash-lite",
+    modelName: ADMIN_WORKFLOW_MODEL_NAME,
     gcsObject: "subworkflows/baby-info.yaml",
     status: "active",
   },
   {
     slug: "maternal-nursing-letter-reflection",
-    name: "모성간호 letter_reflection (편지/공감 대화)",
+    name: "오늘 질문 공감 답변",
     kind: "subworkflow",
-    trigger: "stage=2 letter_reflection",
-    retrievalScope: "오늘 질문 답변 맥락",
-    modelName: "gemini-2.5-flash-lite",
+    trigger: "오늘 질문 답변 중",
+    retrievalScope: "질문 답변과 대화 맥락",
+    modelName: ADMIN_WORKFLOW_MODEL_NAME,
     gcsObject: "subworkflows/letter-reflection.yaml",
     status: "active",
   },
   {
     slug: "maternal-nursing-free-chat",
-    name: "모성간호 free_chat (자유 대화)",
+    name: "자유 상담",
     kind: "subworkflow",
-    trigger: "stage=free_chat",
-    retrievalScope: "자유 대화",
-    modelName: "gemini-2.5-flash-lite",
+    trigger: "질문 완료 후 자유 대화",
+    retrievalScope: "최근 대화 맥락",
+    modelName: ADMIN_WORKFLOW_MODEL_NAME,
     gcsObject: "subworkflows/free-chat.yaml",
     status: "active",
   },
   {
     slug: "maternal-nursing-general",
-    name: "모성간호 general (폴백)",
+    name: "기본 안내/응급 신호",
     kind: "subworkflow",
-    trigger: "fallback/general",
-    retrievalScope: "일반 상담 폴백",
-    modelName: "gemini-2.5-flash-lite",
+    trigger: "분류가 애매한 질문",
+    retrievalScope: "일반 상담 안전장치",
+    modelName: ADMIN_WORKFLOW_MODEL_NAME,
     gcsObject: "subworkflows/general.yaml",
     status: "active",
   },
@@ -68,11 +69,11 @@ export const ADMIN_WORKFLOW_YAML_CATALOG: AdminWorkflowYamlCatalogEntry[] = [
 
 export const RUNTIME_WORKFLOW_YAML_ENTRY: AdminWorkflowYamlCatalogEntry = {
   slug: "maternal-nursing-monolith",
-  name: "모성간호 monolith (채팅 런타임)",
+  name: "기본 상담 흐름",
   kind: "monolith",
-  trigger: "mobile chat runtime",
-  retrievalScope: "모바일 채팅 런타임 YAML",
-  modelName: "gemini-2.5-flash-lite",
+  trigger: "앱 채팅 시작",
+  retrievalScope: "모바일 채팅 전체 흐름",
+  modelName: ADMIN_WORKFLOW_MODEL_NAME,
   gcsObject: "maternal-nursing.yaml",
   status: "active",
 };

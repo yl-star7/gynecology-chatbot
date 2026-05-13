@@ -51,7 +51,7 @@ describe("AdminPoliciesSection", () => {
             name: "내부 응답",
             trigger: "복통",
             retrievalScope: "내부 문서",
-            modelName: "gemini-2.5-flash-lite",
+            modelName: "gemini-3.1-flash-lite",
             status: "active",
           },
         ]}
@@ -60,7 +60,7 @@ describe("AdminPoliciesSection", () => {
         workflowName="내부 응답"
         workflowTrigger="복통"
         workflowRetrievalScope="내부 문서"
-        workflowModelName="gemini-2.5-flash-lite"
+        workflowModelName="gemini-3.1-flash-lite"
         workflowStatus="active"
         isWorkflowSaving={false}
         isWorkflowRunning={false}
@@ -83,7 +83,7 @@ describe("AdminPoliciesSection", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: "노드 에디터" }),
+        screen.getByRole("button", { name: /고급 노드 편집/ }),
       ).toBeDisabled();
     });
 
@@ -104,7 +104,7 @@ describe("AdminPoliciesSection", () => {
             name: "모성간호 상담 응답 router",
             trigger: "stage=router",
             retrievalScope: "전체",
-            modelName: "gemini-2.5-flash-lite",
+            modelName: "gemini-3.1-flash-lite",
             status: "active",
             source: "sql",
             workflowKind: "router",
@@ -116,7 +116,7 @@ describe("AdminPoliciesSection", () => {
             name: "free text sub workflow",
             trigger: "free-text",
             retrievalScope: "상담",
-            modelName: "gemini-2.5-flash-lite",
+            modelName: "gemini-3.1-flash-lite",
             status: "active",
             source: "sql",
             workflowKind: "subworkflow",
@@ -128,7 +128,7 @@ describe("AdminPoliciesSection", () => {
             name: "calendar 요약 기록",
             trigger: "calendar",
             retrievalScope: "캘린더",
-            modelName: "gemini-2.5-flash-lite",
+            modelName: "gemini-3.1-flash-lite",
             status: "review",
             source: "sql",
             workflowKind: "managed",
@@ -139,7 +139,7 @@ describe("AdminPoliciesSection", () => {
         workflowName="모성간호 상담 응답 router"
         workflowTrigger="stage=router"
         workflowRetrievalScope="전체"
-        workflowModelName="gemini-2.5-flash-lite"
+        workflowModelName="gemini-3.1-flash-lite"
         workflowStatus="active"
         isWorkflowSaving={false}
         isWorkflowRunning={false}
@@ -167,14 +167,17 @@ describe("AdminPoliciesSection", () => {
     ).toBeInTheDocument();
 
     const totalSummary = screen
-      .getByText("전체 워크플로우")
+      .getByText("전체 상담 단계")
       .closest("div") as HTMLElement;
     const subSummary = screen
-      .getByText("세부 흐름")
+      .getByText("단계별 흐름")
       .closest("div") as HTMLElement;
 
     expect(within(totalSummary).getByText("3")).toBeInTheDocument();
     expect(within(subSummary).getByText("1")).toBeInTheDocument();
+    expect(screen.getByText("시작/분기")).toBeInTheDocument();
+    expect(screen.getByText("자유 상담")).toBeInTheDocument();
+    expect(screen.getByText("기타")).toBeInTheDocument();
     expect(
       screen.queryByText(
         "gs://agaya-workflow-config/subworkflows/free-chat.yaml",
@@ -207,7 +210,7 @@ describe("AdminPoliciesSection", () => {
             name: "free text sub workflow",
             trigger: "free-text",
             retrievalScope: "상담",
-            modelName: "gemini-2.5-flash-lite",
+            modelName: "gemini-3.1-flash-lite",
             status: "active",
             source: "gcs-yaml",
             workflowKind: "subworkflow",
@@ -222,7 +225,7 @@ describe("AdminPoliciesSection", () => {
         workflowName="free text sub workflow"
         workflowTrigger="free-text"
         workflowRetrievalScope="상담"
-        workflowModelName="gemini-2.5-flash-lite"
+        workflowModelName="gemini-3.1-flash-lite"
         workflowStatus="active"
         isWorkflowSaving={false}
         isWorkflowRunning={false}
@@ -267,7 +270,7 @@ describe("AdminPoliciesSection", () => {
             name: "free text sub workflow",
             trigger: "free-text",
             retrievalScope: "상담",
-            modelName: "gemini-2.5-flash-lite",
+            modelName: "gemini-3.1-flash-lite",
             status: "active",
             source: "gcs-yaml",
             workflowKind: "subworkflow",
@@ -281,7 +284,7 @@ describe("AdminPoliciesSection", () => {
         workflowName="free text sub workflow"
         workflowTrigger="free-text"
         workflowRetrievalScope="상담"
-        workflowModelName="gemini-2.5-flash-lite"
+        workflowModelName="gemini-3.1-flash-lite"
         workflowStatus="active"
         isWorkflowSaving={false}
         isWorkflowRunning={false}
@@ -326,7 +329,7 @@ describe("AdminPoliciesSection", () => {
             name: "runtime YAML",
             trigger: "mobile chat runtime",
             retrievalScope: "상담",
-            modelName: "gemini-2.5-flash-lite",
+            modelName: "gemini-3.1-flash-lite",
             status: "active",
             source: "gcs-yaml",
             workflowKind: "monolith",
@@ -340,7 +343,7 @@ describe("AdminPoliciesSection", () => {
         workflowName="runtime YAML"
         workflowTrigger="mobile chat runtime"
         workflowRetrievalScope="상담"
-        workflowModelName="gemini-2.5-flash-lite"
+        workflowModelName="gemini-3.1-flash-lite"
         workflowStatus="active"
         isWorkflowSaving={false}
         isWorkflowRunning={false}

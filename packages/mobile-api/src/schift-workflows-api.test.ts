@@ -45,7 +45,7 @@ jest.mock("@schift-io/sdk", () => {
       workflows: {
         create: jest.fn(async () => ({
           id: "wf-1",
-          name: "모성간호 상담 응답",
+          name: "기본 상담 흐름",
           graph: { blocks: [], edges: [] },
         })),
         addBlock: jest.fn(async (_wfId: string, block: MockBlock) => ({
@@ -61,11 +61,7 @@ jest.mock("@schift-io/sdk", () => {
   };
 });
 
-import {
-  dbInsert,
-  dbSelect,
-  dbUpdate,
-} from "@/lib/db/admin-client";
+import { dbInsert, dbSelect, dbUpdate } from "@/lib/db/admin-client";
 import { createDefaultInternalAnswerWorkflow } from "./schift-workflows-api";
 
 describe("createDefaultInternalAnswerWorkflow", () => {
@@ -90,7 +86,7 @@ describe("createDefaultInternalAnswerWorkflow", () => {
           ok: true,
           json: async () => ({
             id: "wf-1",
-            name: "모성간호 상담 응답",
+            name: "기본 상담 흐름",
             description: "updated",
             graph: { blocks: [{ id: "start" }], edges: [] },
             status: "published",
@@ -107,9 +103,7 @@ describe("createDefaultInternalAnswerWorkflow", () => {
   });
 
   it("uses provider-aware wrappers when persisting workflow definitions", async () => {
-    (dbSelect as jest.Mock)
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
+    (dbSelect as jest.Mock).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
     (dbInsert as jest.Mock).mockResolvedValueOnce([]);
 
     await createDefaultInternalAnswerWorkflow();
@@ -150,7 +144,7 @@ describe("createDefaultInternalAnswerWorkflow", () => {
             json: async () => [
               {
                 id: "wf-broken",
-                name: "모성간호 상담 응답",
+                name: "기본 상담 흐름",
                 status: "published",
                 graph: {
                   nodes: [],
@@ -175,7 +169,7 @@ describe("createDefaultInternalAnswerWorkflow", () => {
             ok: true,
             json: async () => ({
               id: "wf-1",
-              name: "모성간호 상담 응답",
+              name: "기본 상담 흐름",
               description: "updated",
               graph: { blocks: [{ id: "start" }], edges: [] },
               status: "published",
@@ -186,9 +180,7 @@ describe("createDefaultInternalAnswerWorkflow", () => {
       },
     ) as typeof fetch;
 
-    (dbSelect as jest.Mock)
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
+    (dbSelect as jest.Mock).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
     (dbInsert as jest.Mock).mockResolvedValueOnce([]);
 
     await createDefaultInternalAnswerWorkflow();
@@ -233,7 +225,7 @@ describe("createDefaultInternalAnswerWorkflow", () => {
           json: async () => [
             {
               id: "wf-existing",
-              name: "모성간호 상담 응답",
+              name: "기본 상담 흐름",
               status: "published",
               graph: {
                 nodes: [{ id: "start" }],
@@ -249,7 +241,7 @@ describe("createDefaultInternalAnswerWorkflow", () => {
           ok: true,
           json: async () => ({
             id: "wf-existing",
-            name: "모성간호 상담 응답",
+            name: "기본 상담 흐름",
             description: "updated",
             graph: { blocks: [{ id: "start" }], edges: [] },
             status: "published",
@@ -259,9 +251,7 @@ describe("createDefaultInternalAnswerWorkflow", () => {
       throw new Error(`unexpected fetch: ${url}`);
     }) as typeof fetch;
 
-    (dbSelect as jest.Mock)
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([]);
+    (dbSelect as jest.Mock).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
     (dbInsert as jest.Mock).mockResolvedValueOnce([]);
 
     await createDefaultInternalAnswerWorkflow();

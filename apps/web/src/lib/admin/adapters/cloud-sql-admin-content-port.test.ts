@@ -811,7 +811,7 @@ describe("CloudSqlAdminContentPortAdapter", () => {
         provider: "flowise",
         status: "published",
         is_active: true,
-        config: { modelName: "gemini-2.5-flash-lite" },
+        config: { modelName: "gemini-3.1-flash-lite" },
         metadata: { trigger: "일반 채팅" },
         updated_at: "2026-03-18T10:00:00.000Z",
       },
@@ -878,7 +878,7 @@ describe("CloudSqlAdminContentPortAdapter", () => {
       id: "schift-wf-1",
       name: "Schift 응답",
       description:
-        '<!-- si-admin-workflow:{"trigger":"야간 알림","retrievalScope":"주차별 문서","modelName":"gemini-2.5-flash-lite"}-->',
+        '<!-- si-admin-workflow:{"trigger":"야간 알림","retrievalScope":"주차별 문서","modelName":"gemini-3.1-flash-lite"}-->',
       status: "active",
       graph: { blocks: [], edges: [] },
       created_at: "2026-03-23T10:00:00.000Z",
@@ -889,7 +889,7 @@ describe("CloudSqlAdminContentPortAdapter", () => {
       name: "Schift 응답",
       trigger: "야간 알림",
       retrievalScope: "주차별 문서",
-      modelName: "gemini-2.5-flash-lite",
+      modelName: "gemini-3.1-flash-lite",
       status: "active",
     });
 
@@ -906,7 +906,7 @@ describe("CloudSqlAdminContentPortAdapter", () => {
       name: "Schift 응답",
       trigger: "야간 알림",
       retrievalScope: "주차별 문서",
-      modelName: "gemini-2.5-flash-lite",
+      modelName: "gemini-3.1-flash-lite",
       status: "active",
     });
   });

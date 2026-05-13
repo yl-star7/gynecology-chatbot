@@ -1,13 +1,13 @@
 version: 2
-name: 모성간호 router (stage 분기)
+name: 대화 단계 분류
 description: >
   보존용 router workflow. 실제 모바일 서버는 DB system_config.workflow_stage_mapping과
   workflow_definitions의 GCS 위치를 기준으로 실행한다.
   deterministic 단계 문구와 선택지는 maternal-nursing.yaml의 chat_flow가 담당한다.
 
 admin_metadata:
-  trigger: stage router
-  model_name: gemini-2.5-flash-lite
+  trigger: 대화 단계 선택
+  model_name: gemini-3.1-flash-lite
 
 # ─────────────────────────────────────
 # 전역 설정
@@ -26,11 +26,11 @@ config:
 blocks:
   - id: start
     type: start
-    title: 사용자 질문 입력
+    title: 사용자 질문 받기
 
   - id: stage_router
     type: router
-    title: stage 기반 분기
+    title: 대화 목적 고르기
     config:
       routes: [baby_info, letter, free_chat, fallback]
       expression: |
@@ -41,7 +41,7 @@ blocks:
 
   - id: sub_baby_info
     type: subworkflow
-    title: baby_info (주차 정보 요약)
+    title: 주차 정보 답변으로 보내기
     config:
       workflow_id: $config.wf_baby_info
       input_mapping:
@@ -53,7 +53,7 @@ blocks:
 
   - id: sub_letter
     type: subworkflow
-    title: letter (편지/공감 대화)
+    title: 오늘 질문 공감 답변으로 보내기
     config:
       workflow_id: $config.wf_letter
       input_mapping:
@@ -67,7 +67,7 @@ blocks:
 
   - id: sub_free_chat
     type: subworkflow
-    title: free_chat (자유 대화)
+    title: 자유 상담으로 보내기
     config:
       workflow_id: $config.wf_free_chat
       input_mapping:
@@ -78,7 +78,7 @@ blocks:
 
   - id: sub_general
     type: subworkflow
-    title: general (폴백)
+    title: 기본 안내로 보내기
     config:
       workflow_id: $config.wf_general
       input_mapping:
@@ -92,7 +92,7 @@ blocks:
 
   - id: merge
     type: merge
-    title: 분기 결과 병합
+    title: 답변 하나로 모으기
     config:
       strategy: first_non_null
 
@@ -110,20 +110,70 @@ blocks:
     title: 종료
 
 edges:
-  - { source: start,         target: stage_router, source_handle: out,        target_handle: in }
+  - {
+      source: start,
+      target: stage_router,
+      source_handle: out,
+      target_handle: in,
+    }
 
   # router → 각 subworkflow
-  - { source: stage_router,  target: sub_baby_info,  source_handle: baby_info,  target_handle: in }
-  - { source: stage_router,  target: sub_letter,     source_handle: letter,     target_handle: in }
-  - { source: stage_router,  target: sub_free_chat,  source_handle: free_chat,  target_handle: in }
-  - { source: stage_router,  target: sub_general,    source_handle: fallback,   target_handle: in }
+  - {
+      source: stage_router,
+      target: sub_baby_info,
+      source_handle: baby_info,
+      target_handle: in,
+    }
+  - {
+      source: stage_router,
+      target: sub_letter,
+      source_handle: letter,
+      target_handle: in,
+    }
+  - {
+      source: stage_router,
+      target: sub_free_chat,
+      source_handle: free_chat,
+      target_handle: in,
+    }
+  - {
+      source: stage_router,
+      target: sub_general,
+      source_handle: fallback,
+      target_handle: in,
+    }
 
   # 각 subworkflow → merge
-  - { source: sub_baby_info,  target: merge, source_handle: out, target_handle: in_0 }
-  - { source: sub_letter,     target: merge, source_handle: out, target_handle: in_1 }
-  - { source: sub_free_chat,  target: merge, source_handle: out, target_handle: in_2 }
-  - { source: sub_general,    target: merge, source_handle: out, target_handle: in_3 }
+  - {
+      source: sub_baby_info,
+      target: merge,
+      source_handle: out,
+      target_handle: in_0,
+    }
+  - {
+      source: sub_letter,
+      target: merge,
+      source_handle: out,
+      target_handle: in_1,
+    }
+  - {
+      source: sub_free_chat,
+      target: merge,
+      source_handle: out,
+      target_handle: in_2,
+    }
+  - {
+      source: sub_general,
+      target: merge,
+      source_handle: out,
+      target_handle: in_3,
+    }
 
   # merge → outbound webhook + end (fanout)
-  - { source: merge, target: summary_webhook, source_handle: out, target_handle: body }
-  - { source: merge, target: end,             source_handle: out, target_handle: in }
+  - {
+      source: merge,
+      target: summary_webhook,
+      source_handle: out,
+      target_handle: body,
+    }
+  - { source: merge, target: end, source_handle: out, target_handle: in }

@@ -1,11 +1,11 @@
 version: 1
-name: 모성간호 free_chat (자유 대화)
-description: stage='free_chat' 전용. 가드레일 + 문체 규칙만 적용, 제한 없는 대화.
+name: 자유 상담
+description: 오늘 질문을 모두 마친 뒤 이어지는 자유 대화 답변을 만든다.
 
 admin_metadata:
   stage: "free_chat"
   scenario: general
-  model_name: gemini-2.5-flash-lite
+  model_name: gemini-3.1-flash-lite
 
 prompts:
   system: |
@@ -63,24 +63,24 @@ prompts:
 blocks:
   - id: start
     type: start
-    title: 입력
+    title: 사용자 질문 받기
   - id: tmpl
     type: prompt_template
-    title: 프롬프트 렌더
+    title: 상담 문장 준비
     config:
       system_prompt: $prompts.system
       template: $prompts.template
   - id: llm
     type: llm
-    title: 자유 대화 LLM
+    title: 자유 상담 답변 만들기
     config:
-      model: gemini-2.5-flash-lite
+      model: gemini-3.1-flash-lite
       temperature: 0.4
       max_tokens: 800
       thinking_budget: 0
   - id: answer
     type: answer
-    title: JSON 출력
+    title: 앱에 답변 보내기
     config:
       format: text
       include_sources: false
@@ -89,8 +89,13 @@ blocks:
     title: 종료
 
 edges:
-  - { source: start,  target: tmpl,   source_handle: out,           target_handle: query }
-  - { source: tmpl,   target: llm,    source_handle: prompt,        target_handle: prompt }
-  - { source: tmpl,   target: llm,    source_handle: system_prompt, target_handle: system_prompt }
-  - { source: llm,    target: answer, source_handle: text,          target_handle: text }
-  - { source: answer, target: end,    source_handle: answer,        target_handle: in }
+  - { source: start, target: tmpl, source_handle: out, target_handle: query }
+  - { source: tmpl, target: llm, source_handle: prompt, target_handle: prompt }
+  - {
+      source: tmpl,
+      target: llm,
+      source_handle: system_prompt,
+      target_handle: system_prompt,
+    }
+  - { source: llm, target: answer, source_handle: text, target_handle: text }
+  - { source: answer, target: end, source_handle: answer, target_handle: in }

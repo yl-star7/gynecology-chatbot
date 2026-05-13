@@ -1,5 +1,5 @@
 version: 2
-name: 모성간호 상담 응답
+name: 기본 상담 흐름
 description: >
   모성간호 교수자 감수 기반 RAG 워크플로우입니다.
   임신 주차별 내부 데이터만 바탕으로 답하고,
@@ -7,9 +7,9 @@ description: >
   다음 턴용 메모리를 함께 반환합니다.
 
 admin_metadata:
-  trigger: 내부 데이터만 답변
+  trigger: 앱 채팅 시작
   retrieval_scope: pregnancy-knowledge 내부 자료
-  model_name: gemini-2.5-flash-lite
+  model_name: gemini-3.1-flash-lite
 
 # ─────────────────────────────────────
 # 전역 설정 ($config.KEY 로 블록 config 안에서 참조)
@@ -28,25 +28,46 @@ chat_flow:
     pregnancy_profile:
       source: rdb
       table: pregnancy_profiles
-      fields: [pregnancy_week, pregnancy_day_count, due_date, baby_nickname, onboarding_payload]
+      fields:
+        [
+          pregnancy_week,
+          pregnancy_day_count,
+          due_date,
+          baby_nickname,
+          onboarding_payload,
+        ]
       used_by: [chat_start, mood_intake, week_info, question_answer, free_chat]
       description: 현재 주수, 태명, 말투 선호와 프로필 메모리
     week_content:
       source: rdb
       table: content_pregnancy_week_data
-      fields: [week_number, baby_summary, mother_summary, warning_signs, recommended_actions]
+      fields:
+        [
+          week_number,
+          baby_summary,
+          mother_summary,
+          warning_signs,
+          recommended_actions,
+        ]
       used_by: [week_info, question_answer]
       description: 주차별 태아 발달과 산모 변화의 기본 근거
     day_content:
       source: rdb
       table: content_pregnancy_day_contents
-      fields: [day_number, baby_development_payload, baby_message, mother_changes_payload]
+      fields:
+        [
+          day_number,
+          baby_development_payload,
+          baby_message,
+          mother_changes_payload,
+        ]
       used_by: [week_info]
       description: 오늘 일자에 맞춘 세부 발달/변화 정보
     today_questions:
       source: rdb
       table: content_week_questions
-      fields: [id, code, question_text, question_type, display_order, is_required]
+      fields:
+        [id, code, question_text, question_type, display_order, is_required]
       used_by: [today_question, question_answer]
       description: 관리자 설정 태교 질문 세트
     question_progress:
@@ -86,13 +107,28 @@ chat_flow:
         - { label: 우울해요, message: 오늘은 우울한 기분이에요., tone: sad }
         - { label: 슬퍼요, message: 오늘은 슬픈 기분이에요., tone: sad }
         - { label: 화나요, message: 오늘은 화나는 기분이에요., tone: anxious }
-        - { label: 직접 말하고 싶어요, message: 직접 말하고 싶어요., tone: calm }
+        - {
+            label: 직접 말하고 싶어요,
+            message: 직접 말하고 싶어요.,
+            tone: calm,
+          }
       acknowledgements_by_tone:
-        joyful: [좋은 마음이 느껴져서 저도 반가워요., 그 밝은 기분을 오늘 안에서 잘 간직해봐요.]
+        joyful:
+          [
+            좋은 마음이 느껴져서 저도 반가워요.,
+            그 밝은 기분을 오늘 안에서 잘 간직해봐요.,
+          ]
         sad: [울적한 마음을 꺼내줘서 고마워요., 슬픈 마음이 올라온 하루였군요.]
-        anxious: [마음이 조금 긴장되어 있었군요., 걱정되는 마음을 말해줘서 고마워요.]
-        tired: [몸과 마음이 많이 지친 날이군요., 오늘은 속도를 조금 늦춰도 괜찮아요.]
-        calm: [차분하게 지금 마음을 살펴보고 계시군요., 좋아요, 지금의 마음을 조용히 함께 기억해둘게요.]
+        anxious:
+          [마음이 조금 긴장되어 있었군요., 걱정되는 마음을 말해줘서 고마워요.]
+        tired:
+          [몸과 마음이 많이 지친 날이군요., 오늘은 속도를 조금 늦춰도 괜찮아요.]
+        calm:
+          [
+            차분하게 지금 마음을 살펴보고 계시군요.,
+            좋아요,
+            지금의 마음을 조용히 함께 기억해둘게요.,
+          ]
 
     week_info_opt_in:
       answer_variations:
@@ -101,8 +137,18 @@ chat_flow:
         - 오늘 주차 기준으로 산모 몸 변화와 태아 발달을 확인해볼까요?
         - 이번 주 산모와 태아에게 어떤 변화가 있는지 궁금하세요?
       quick_replies:
-        yes: { id: week-info-yes, label: 네, message: "네, 오늘 주차 정보 볼래요." }
-        no: { id: week-info-no, label: 아니요, message: "아니요, 태교 질문으로 넘어갈게요." }
+        yes:
+          {
+            id: week-info-yes,
+            label: 네,
+            message: "네, 오늘 주차 정보 볼래요.",
+          }
+        no:
+          {
+            id: week-info-no,
+            label: 아니요,
+            message: "아니요, 태교 질문으로 넘어갈게요.",
+          }
 
     today_question:
       prompt_text: 아래 질문 중 하나를 골라 이어가요.
@@ -145,9 +191,21 @@ chat_flow:
     free_chat_intro:
       answer_text: 편하게 이야기 이어갈게요. 오늘 나누고 싶은 이야기가 있으세요?
       quick_replies:
-        - { id: free-chat-topic-body, label: 몸 상태 이야기, message: "요즘 몸 상태가 어떤지 이야기하고 싶어요." }
-        - { id: free-chat-topic-feeling, label: 오늘 기분, message: "오늘 기분을 조금 더 나누고 싶어요." }
-        - { id: end-session, label: 여기까지 할래요, message: 오늘은 여기까지 할게요. }
+        - {
+            id: free-chat-topic-body,
+            label: 몸 상태 이야기,
+            message: "요즘 몸 상태가 어떤지 이야기하고 싶어요.",
+          }
+        - {
+            id: free-chat-topic-feeling,
+            label: 오늘 기분,
+            message: "오늘 기분을 조금 더 나누고 싶어요.",
+          }
+        - {
+            id: end-session,
+            label: 여기까지 할래요,
+            message: 오늘은 여기까지 할게요.,
+          }
 
     ended:
       answer_text: 오늘 이야기해줘서 고마워요. 또 만나요.
@@ -680,14 +738,14 @@ static_responses:
 blocks:
   - id: start
     type: start
-    title: 사용자 질문 입력
+    title: 사용자 질문 받기
 
   # 통합 RAG 블록: retrieval + rerank + prompt_template + LLM + answer 포맷 한 번에.
   # inputs: { query } (+ bucket/collection/filter/tags/top_k/response_schema override 가능)
   # outputs: { answer, text, data, sources, results, usage }
   - id: rag
     type: rag
-    title: pregnancy-knowledge RAG + Gemini 응답
+    title: 내부 지식으로 답변 만들기
     config:
       # ── Retrieval ──
       collection: pregnancy-knowledge
@@ -695,7 +753,7 @@ blocks:
       mode: vector
       rerank: false
       # ── LLM ──
-      model: gemini-2.5-flash-lite
+      model: gemini-3.1-flash-lite
       temperature: 0.1
       max_tokens: 1024
       thinking_budget: 0
