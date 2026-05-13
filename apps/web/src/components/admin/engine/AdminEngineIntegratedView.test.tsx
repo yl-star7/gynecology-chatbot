@@ -29,14 +29,17 @@ describe("AdminEngineIntegratedView", () => {
     expect(screen.getByText("통합 흐름")).toBeInTheDocument();
     expect(screen.getByText("기준일")).toBeInTheDocument();
     expect(screen.getByText("실제 흐름")).toBeInTheDocument();
-    expect(screen.getByText("참조 trace")).toBeInTheDocument();
+    expect(screen.getByText("참조")).toBeInTheDocument();
     expect(screen.getByText("앱 미리보기")).toBeInTheDocument();
-    expect(screen.getByText("수정 위치")).toBeInTheDocument();
-    expect(screen.getByText("대화 엔진 > 기분별 변주")).toBeInTheDocument();
-    expect(screen.getByText("대화 엔진 > 워크플로우")).toBeInTheDocument();
+    expect(screen.getByText("편집")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("문구 · 프롬프트 · 참조").length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText(/fallback/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/mood_intake/)).not.toBeInTheDocument();
   });
 
-  it("updates the preview and trace when a mood button is selected", () => {
+  it("updates the preview and selection state when a mood button is selected", () => {
     render(<AdminEngineIntegratedView adminDisplayName="운영자" />);
 
     fireEvent.click(screen.getByRole("button", { name: "짜증나요" }));
@@ -44,7 +47,8 @@ describe("AdminEngineIntegratedView", () => {
     expect(
       screen.getByText(/많이 답답하고 예민해진 상황이었나 봐요/),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("mood_intake.angry").length).toBeGreaterThan(0);
+    expect(screen.getByText("짜증나요 · 기분 문구")).toBeInTheDocument();
+    expect(screen.queryByText(/mood_intake/)).not.toBeInTheDocument();
   });
 
   it("edits the selected mood copy in a modal", async () => {
@@ -83,7 +87,10 @@ describe("AdminEngineIntegratedView", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "좋아요 문구 수정" }));
-    fireEvent.change(screen.getByLabelText("기분 문구 내용"), {
+    expect(screen.getByText("좋아요 선택 뒤 말풍선")).toBeInTheDocument();
+    expect(screen.queryByText(/mood_intake/)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("앱 말풍선"), {
       target: { value: "새로 저장한 문구예요." },
     });
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
@@ -97,5 +104,34 @@ describe("AdminEngineIntegratedView", () => {
     );
 
     fetchMock.mockRestore();
+  });
+
+  it("edits prompt text and adds references inside a flow modal", () => {
+    render(<AdminEngineIntegratedView adminDisplayName="운영자" />);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "참조 자료 문구 · 프롬프트 · 참조",
+      }),
+    );
+    fireEvent.change(screen.getByLabelText("프롬프트 내용"), {
+      target: { value: "새 참조 규칙" },
+    });
+    fireEvent.change(screen.getByLabelText("참조 추가"), {
+      target: { value: "새 자료" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "추가" }));
+    expect(screen.getByText("새 자료")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "반영" }));
+
+    expect(screen.getByText("화면에 반영되었습니다.")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "참조 자료 문구 · 프롬프트 · 참조",
+      }),
+    );
+    expect(screen.getByDisplayValue("새 참조 규칙")).toBeInTheDocument();
+    expect(screen.getByText("새 자료")).toBeInTheDocument();
   });
 });
