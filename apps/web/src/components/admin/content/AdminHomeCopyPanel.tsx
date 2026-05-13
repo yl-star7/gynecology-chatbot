@@ -92,9 +92,13 @@ export function AdminHomeCopyPanel({
   const [query, setQuery] = useState("");
   const [slotFilter, setSlotFilter] = useState<HomeCopySlot | "all">("all");
 
+  const visibleHomeCopyItems = homeCopyItems.filter(
+    (item) => item.slot !== "encouragement_quote",
+  );
   const selectedItem =
-    homeCopyItems.find((item) => item.id === selectedHomeCopyItemId) ?? null;
-  const filteredItems = homeCopyItems.filter((item) => {
+    visibleHomeCopyItems.find((item) => item.id === selectedHomeCopyItemId) ??
+    null;
+  const filteredItems = visibleHomeCopyItems.filter((item) => {
     const normalizedQuery = query.trim().toLowerCase();
     const matchesQuery =
       !normalizedQuery ||
@@ -113,7 +117,7 @@ export function AdminHomeCopyPanel({
             앱 메인 문구
           </h2>
           <p className="text-sm text-muted-foreground">
-            홈 화면 말풍선, 오늘의 한마디, 응원 문구를 관리합니다.
+            홈 화면 말풍선과 오늘의 한마디를 관리합니다.
           </p>
         </div>
         <Button
@@ -155,9 +159,6 @@ export function AdminHomeCopyPanel({
               </SelectItem>
               <SelectItem value="daily_note">
                 {SLOT_LABELS.daily_note}
-              </SelectItem>
-              <SelectItem value="encouragement_quote">
-                {SLOT_LABELS.encouragement_quote}
               </SelectItem>
             </SelectContent>
           </Select>
@@ -257,9 +258,6 @@ export function AdminHomeCopyPanel({
                   </SelectItem>
                   <SelectItem value="daily_note">
                     {SLOT_LABELS.daily_note}
-                  </SelectItem>
-                  <SelectItem value="encouragement_quote">
-                    {SLOT_LABELS.encouragement_quote}
                   </SelectItem>
                 </SelectContent>
               </Select>

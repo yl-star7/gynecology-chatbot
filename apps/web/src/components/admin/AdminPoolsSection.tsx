@@ -179,6 +179,10 @@ function HomeCopyPoolPanel() {
     void loadItems();
   }, [loadItems]);
 
+  const visibleItems = items.filter(
+    (item) => item.slot !== "encouragement_quote",
+  );
+
   function resetDraft() {
     setDraft({
       id: null,
@@ -305,7 +309,7 @@ function HomeCopyPoolPanel() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.length === 0 ? (
+              {visibleItems.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={6}
@@ -315,7 +319,7 @@ function HomeCopyPoolPanel() {
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((item) => (
+                visibleItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
                       <div className="font-medium">{item.title}</div>
@@ -376,7 +380,6 @@ function HomeCopyPoolPanel() {
                 <SelectContent>
                   <SelectItem value="hero_bubble">아기 말풍선</SelectItem>
                   <SelectItem value="daily_note">오늘의 한마디</SelectItem>
-                  <SelectItem value="encouragement_quote">응원 문구</SelectItem>
                 </SelectContent>
               </Select>
             </div>
