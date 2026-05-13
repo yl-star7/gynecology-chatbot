@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -99,6 +100,148 @@ function findFallbackItem(
 function truncate(value: string, length = 24): string {
   if (value.length <= length) return value;
   return `${value.slice(0, length)}...`;
+}
+
+type MoodVariantScenarioOption = (typeof MOOD_VARIANT_SCENARIOS)[number];
+type MoodVariantMoodOption = (typeof MOOD_VARIANT_MOODS)[number];
+
+const IMMEDIATE_OUTPUT_SCENARIOS = MOOD_VARIANT_SCENARIOS.filter(
+  (scenario) => scenario.value === "mood_intake",
+);
+
+const PROMPT_GUIDANCE_SCENARIOS = MOOD_VARIANT_SCENARIOS.filter(
+  (scenario) => scenario.value !== "mood_intake",
+);
+
+function getScenarioLabel(value: MoodVariantScenario) {
+  return (
+    MOOD_VARIANT_SCENARIOS.find((scenario) => scenario.value === value)
+      ?.label ?? value
+  );
+}
+
+function getMoodLabel(value: MoodVariantMood) {
+  const mood = MOOD_VARIANT_MOODS.find((item) => item.value === value);
+  return mood?.label ?? value;
+}
+
+function MoodColumnHeader({ mood }: { mood: MoodVariantMoodOption }) {
+  return <TableHead key={mood.value}>{mood.label}</TableHead>;
+}
+
+function MoodVariantCellButton({
+  item,
+  fallback,
+  onClick,
+}: {
+  item: MoodVariantItem | null;
+  fallback: MoodVariantFallbackItem | null;
+  onClick: () => void;
+}) {
+  return (
+    <TableCell>
+      <Button
+        type="button"
+        variant="outline"
+        className="h-auto w-full justify-start whitespace-normal text-left"
+        onClick={onClick}
+      >
+        {item ? (
+          <span>
+            {truncate(item.prompt_suffix)}
+            {!item.active ? (
+              <Badge variant="outline" className="ml-2">
+                비활성
+              </Badge>
+            ) : null}
+          </span>
+        ) : fallback ? (
+          <span>
+            {truncate(fallback.prompt_suffix)}
+            <Badge variant="outline" className="ml-2">
+              YAML 기본
+            </Badge>
+          </span>
+        ) : (
+          <span className="text-muted-foreground">추가</span>
+        )}
+      </Button>
+    </TableCell>
+  );
+}
+
+function MoodVariantMatrixCard({
+  eyebrow,
+  title,
+  description,
+  scenarios,
+  items,
+  fallbackItems,
+  onOpenCell,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  scenarios: MoodVariantScenarioOption[];
+  items: MoodVariantItem[];
+  fallbackItems: MoodVariantFallbackItem[];
+  onOpenCell: (scenario: MoodVariantScenario, mood: MoodVariantMood) => void;
+}) {
+  return (
+    <Card className="shadow-sm">
+      <CardHeader>
+        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          {eyebrow}
+        </p>
+        <CardTitle className="text-lg">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-hidden rounded-md border">
+          <Table className="min-w-[720px] table-fixed">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-40">시나리오</TableHead>
+                {MOOD_VARIANT_MOODS.map((mood) => (
+                  <MoodColumnHeader key={mood.value} mood={mood} />
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {scenarios.map((scenario) => (
+                <TableRow key={scenario.value}>
+                  <TableCell>
+                    <strong>{scenario.label}</strong>
+                    <div className="text-xs text-muted-foreground">
+                      {scenario.value}
+                    </div>
+                  </TableCell>
+                  {MOOD_VARIANT_MOODS.map((mood) => {
+                    const item = findItem(items, scenario.value, mood.value);
+                    const fallback = item
+                      ? null
+                      : findFallbackItem(
+                          fallbackItems,
+                          scenario.value,
+                          mood.value,
+                        );
+                    return (
+                      <MoodVariantCellButton
+                        key={`${scenario.value}-${mood.value}`}
+                        item={item}
+                        fallback={fallback}
+                        onClick={() => onOpenCell(scenario.value, mood.value)}
+                      />
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function AdminMoodVariantsSection({
@@ -226,11 +369,9 @@ export default function AdminMoodVariantsSection({
             <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
               대화 엔진 · 기분별 변주
             </p>
-            <CardTitle className="text-lg">응답 문구 적용 매트릭스</CardTitle>
+            <CardTitle className="text-lg">앱과 같은 기분 이름</CardTitle>
             <CardDescription>
-              버튼으로 이미 기분이 정해진 경우에는 LLM 감정 분류를 다시 타지
-              않고, 해당 기분의 문구를 바로 사용합니다. 자유 입력처럼 기분이
-              정해지지 않은 문장만 감정 분류 후 이 매트릭스의 문구를 참조합니다.
+              표의 기분 이름은 사용자가 앱에서 보는 버튼 이름 그대로 표시합니다.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -242,87 +383,34 @@ export default function AdminMoodVariantsSection({
 
             <Alert>
               <AlertDescription>
-                <strong>mood_intake</strong>는 감정 선택 직후 사용자에게 바로
-                보여주는 짧은 공감 문장 후보입니다. 한 줄에 한 문장씩 넣으면
-                안정된 seed로 하나를 고릅니다. 다른 시나리오는 LLM 응답을 만들
-                때 붙는 보조 지침으로 사용됩니다.
+                <strong>앱에 바로 보이는 문구</strong>는 사용자가
+                버튼을 누른 직후 바로 나가고,{" "}
+                <strong>프롬프트에 붙는 보조 지침</strong>은 모델 답변을
+                만들 때만 참고됩니다.
               </AlertDescription>
             </Alert>
-
-            <div className="overflow-hidden rounded-md border">
-              <Table className="min-w-[720px] table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-40">시나리오</TableHead>
-                    {MOOD_VARIANT_MOODS.map((mood) => (
-                      <TableHead key={mood.value}>{mood.label}</TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {MOOD_VARIANT_SCENARIOS.map((scenario) => (
-                    <TableRow key={scenario.value}>
-                      <TableCell>
-                        <strong>{scenario.label}</strong>
-                        <div className="text-xs text-muted-foreground">
-                          {scenario.value}
-                        </div>
-                      </TableCell>
-                      {MOOD_VARIANT_MOODS.map((mood) => {
-                        const item = findItem(
-                          items,
-                          scenario.value,
-                          mood.value,
-                        );
-                        const fallback = item
-                          ? null
-                          : findFallbackItem(
-                              fallbackItems,
-                              scenario.value,
-                              mood.value,
-                            );
-                        return (
-                          <TableCell key={`${scenario.value}-${mood.value}`}>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="h-auto w-full justify-start whitespace-normal text-left"
-                              onClick={() =>
-                                openCell(scenario.value, mood.value)
-                              }
-                            >
-                              {item ? (
-                                <span>
-                                  {truncate(item.prompt_suffix)}
-                                  {!item.active ? (
-                                    <Badge variant="outline" className="ml-2">
-                                      비활성
-                                    </Badge>
-                                  ) : null}
-                                </span>
-                              ) : fallback ? (
-                                <span>
-                                  {truncate(fallback.prompt_suffix)}
-                                  <Badge variant="outline" className="ml-2">
-                                    YAML 기본
-                                  </Badge>
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">
-                                  추가
-                                </span>
-                              )}
-                            </Button>
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
           </CardContent>
         </Card>
+
+        <MoodVariantMatrixCard
+          eyebrow="바로 반영"
+          title="앱에 바로 보이는 문구"
+          description="감정 버튼을 누른 직후 사용자에게 표시되는 짧은 공감 문장입니다. 한 줄에 한 문장씩 넣으면 안정된 seed로 하나를 고릅니다."
+          scenarios={IMMEDIATE_OUTPUT_SCENARIOS}
+          items={items}
+          fallbackItems={fallbackItems}
+          onOpenCell={openCell}
+        />
+
+        <MoodVariantMatrixCard
+          eyebrow="수정 주의"
+          title="프롬프트에 붙는 보조 지침"
+          description="아래 시나리오는 앱에 문구가 그대로 찍히는 영역이 아니라, 모델 응답을 만들 때 감정 맞춤 안내로 붙는 지침입니다. 문장 스타일이나 정책을 바꾸면 실제 답변 톤이 달라질 수 있습니다."
+          scenarios={PROMPT_GUIDANCE_SCENARIOS}
+          items={items}
+          fallbackItems={fallbackItems}
+          onOpenCell={openCell}
+        />
       </div>
 
       <Dialog
@@ -339,12 +427,22 @@ export default function AdminMoodVariantsSection({
                   변주 편집
                 </p>
                 <DialogTitle>
-                  {editor.scenario} · {editor.mood}
+                  {getScenarioLabel(editor.scenario)} ·{" "}
+                  {getMoodLabel(editor.mood)}
                 </DialogTitle>
+                <DialogDescription>
+                  {editor.scenario === "mood_intake"
+                    ? "저장하면 감정 버튼을 누른 직후 앱에 바로 보이는 문구로 사용됩니다."
+                    : "저장하면 모델 답변을 만들 때 참고하는 보조 지침으로 사용됩니다."}
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="prompt-suffix-input">실제 반영 문구</Label>
+                  <Label htmlFor="prompt-suffix-input">
+                    {editor.scenario === "mood_intake"
+                      ? "앱에 바로 보이는 문구"
+                      : "프롬프트 보조 지침"}
+                  </Label>
                   <Textarea
                     id="prompt-suffix-input"
                     rows={8}

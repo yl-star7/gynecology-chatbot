@@ -26,11 +26,11 @@ export type MoodVariantScenario =
   (typeof MOOD_VARIANT_SCENARIOS)[number]["value"];
 
 export const MOOD_VARIANT_MOODS = [
-  { value: "calm", label: "평온" },
-  { value: "joyful", label: "기쁨" },
-  { value: "anxious", label: "불안" },
-  { value: "tired", label: "지침" },
-  { value: "sad", label: "슬픔" },
+  { value: "calm", label: "직접 말하고 싶어요" },
+  { value: "joyful", label: "좋아요" },
+  { value: "anxious", label: "짜증나요" },
+  { value: "tired", label: "피곤해요" },
+  { value: "sad", label: "울적해요 / 슬퍼요" },
 ] as const;
 
 export type MoodVariantMood = (typeof MOOD_VARIANT_MOODS)[number]["value"];
