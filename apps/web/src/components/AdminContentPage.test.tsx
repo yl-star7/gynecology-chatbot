@@ -421,6 +421,12 @@ describe("AdminContentPage", () => {
     });
     expect(await screen.findByText("주차 대표 이미지")).toBeInTheDocument();
     expect(screen.getByText("크기 비교 이미지")).toBeInTheDocument();
+    expect(screen.getByAltText("주차 대표 이미지")).toHaveAttribute(
+      "src",
+      "/week-baby/week-baby-w06.png",
+    );
+    expect(screen.getByText("크기 비교 이미지가 아직 없어요.")).toBeInTheDocument();
+    expect(screen.queryByText("이미지를 불러오지 못했어요.")).not.toBeInTheDocument();
 
     const fileInputs = document.querySelectorAll('input[type="file"]');
     expect(fileInputs.length).toBeGreaterThanOrEqual(2);
@@ -475,7 +481,62 @@ describe("AdminContentPage", () => {
     );
   });
 
-  it("publishes a review-ready week through the explicit publish gate", async () => {
+  it("removes citation markers and line breaks from daily body and checklist copy", async () => {
+    currentWeekDetail = createEditableWeekDetail();
+    currentWeekDetail.days[0] = {
+      ...currentWeekDetail.days[0]!,
+      babyDevelopmentItems: ["아기의 심장이\n움직이기 시작해요. (1)(2)"],
+      motherChangesItems: [
+        "어지러움이 나타날 수 있어요.\n몸 신호를 살펴보세요. (3)",
+      ],
+    };
+    currentWeekDetail.sections[0] = {
+      ...currentWeekDetail.sections[0]!,
+      title: "태동 패턴을\n기록해 보기. (3)(5)",
+      body: "평소와 다른 점을\n적어두면 좋아요. (1)",
+    };
+
+    render(
+      <AdminContentPage
+        adminDisplayName="운영자"
+        dashboard={dashboard}
+        currentPath="/admin/assets/weeks"
+        title="주차 데이터"
+        view="weeks"
+      />,
+    );
+
+    await screen.findByText("6주차 개요");
+    fireEvent.click(screen.getByRole("button", { name: "상세 편집 열기" }));
+    await screen.findByRole("heading", { name: "6주차 편집" });
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/admin/content/weeks/6",
+        expect.objectContaining({ method: "PATCH" }),
+      ),
+    );
+
+    const patchCall = (global.fetch as jest.Mock).mock.calls.find(
+      ([url, init]) =>
+        url === "/api/admin/content/weeks/6" && init?.method === "PATCH",
+    );
+    const body = JSON.parse(
+      String(patchCall?.[1]?.body),
+    ) as AdminWeekUpdateInput;
+
+    expect(body.days[0]?.babyDevelopmentItems).toEqual([
+      "아기의 심장이 움직이기 시작해요.",
+    ]);
+    expect(body.days[0]?.motherChangesItems).toEqual([
+      "어지러움이 나타날 수 있어요. 몸 신호를 살펴보세요.",
+    ]);
+    expect(body.sections[0]?.title).toBe("태동 패턴을 기록해 보기.");
+    expect(body.sections[0]?.body).toBe("평소와 다른 점을 적어두면 좋아요.");
+  });
+
+  it("hides publish gate and exposure review controls from the week workspace", async () => {
     currentWeekDetail = createPublishReadyWeekDetail();
 
     render(
@@ -489,48 +550,16 @@ describe("AdminContentPage", () => {
     );
 
     await screen.findByText("6주차 개요");
-    fireEvent.click(screen.getByRole("button", { name: "검수 후 게시" }));
+    expect(screen.queryByText("게시 게이트")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "검수 후 게시" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("사용자 노출본 검수")).not.toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/admin/content/weeks/6",
-        expect.objectContaining({
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: expect.any(String),
-        }),
-      );
-    });
+    fireEvent.click(screen.getByRole("button", { name: "상세 편집 열기" }));
+    await screen.findByRole("heading", { name: "6주차 편집" });
+    expect(screen.queryByRole("tab", { name: "노출본" })).not.toBeInTheDocument();
 
-    const patchCall = (global.fetch as jest.Mock).mock.calls.find(
-      ([url, init]) =>
-        url === "/api/admin/content/weeks/6" && init?.method === "PATCH",
-    );
-
-    expect(patchCall).toBeDefined();
-    expect(JSON.parse(String(patchCall?.[1]?.body))).toEqual(
-      expect.objectContaining({ status: "published" }),
-    );
-    await screen.findByText("6주차를 검수 후 게시했습니다.");
-  });
-
-  it("blocks publishing when the week is not review-ready", async () => {
-    render(
-      <AdminContentPage
-        adminDisplayName="운영자"
-        dashboard={dashboard}
-        currentPath="/admin/assets/weeks"
-        title="주차 데이터"
-        view="weeks"
-      />,
-    );
-
-    await screen.findByText("6주차 개요");
-    fireEvent.click(screen.getByRole("button", { name: "검수 후 게시" }));
-
-    await screen.findByText(
-      "게시 전에 검수 보드의 빈 항목을 먼저 채워 주세요.",
-    );
     const patchCalls = (global.fetch as jest.Mock).mock.calls.filter(
       ([url, init]) =>
         url === "/api/admin/content/weeks/6" && init?.method === "PATCH",

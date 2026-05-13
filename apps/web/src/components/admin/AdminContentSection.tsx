@@ -162,7 +162,6 @@ export interface AdminContentSectionProps {
   onRemoveWeekAsset: (index: number) => void;
   onRemoveWeekMedia: (index: number) => void;
   onSaveWeek: () => Promise<void>;
-  onPublishWeek: () => Promise<void>;
   view?: "all" | "documents" | "static" | "weeks" | "policies";
   policiesInitialView?: "list" | "editor";
 }
@@ -276,7 +275,6 @@ export function AdminContentSection({
   onRemoveWeekAsset,
   onRemoveWeekMedia,
   onSaveWeek,
-  onPublishWeek,
   view = "all",
   policiesInitialView = "list",
 }: AdminContentSectionProps) {
@@ -416,7 +414,6 @@ export function AdminContentSection({
         onRemoveWeekAsset={onRemoveWeekAsset}
         onRemoveWeekMedia={onRemoveWeekMedia}
         onSaveWeek={onSaveWeek}
-        onPublishWeek={onPublishWeek}
       />
     );
   }

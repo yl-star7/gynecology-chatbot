@@ -148,7 +148,6 @@ export default function AdminContentPage({
         onRemoveWeekAsset={state.handleRemoveWeekAsset}
         onRemoveWeekMedia={state.handleRemoveWeekMedia}
         onSaveWeek={state.handleSaveWeek}
-        onPublishWeek={state.handlePublishWeek}
         view={view}
         policiesInitialView={policiesInitialView}
       />

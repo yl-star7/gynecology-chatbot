@@ -19,7 +19,6 @@ import type {
 
 import type { RagFileItem } from "./content/AdminDocumentsSection";
 import { getAdminVisibleWeeks } from "./content/admin-week-visibility";
-import { getWeekPublishReview } from "./content/week-publish-review";
 
 type OrderedItem = { displayOrder: number };
 
@@ -76,6 +75,40 @@ function removeOrderedItem<T extends OrderedItem>(items: T[], index: number) {
       ...item,
       displayOrder: nextIndex + 1,
     }));
+}
+
+function normalizeInlineContentText(value: string | null | undefined) {
+  return (value ?? "")
+    .replace(/\(\s*\d+\s*\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeInlineContentItems(items: string[]) {
+  const normalized = normalizeInlineContentText(items.join(" "));
+  return normalized ? [normalized] : [];
+}
+
+function normalizeWeekDetailInlineContent(
+  week: AdminWeekDetail,
+): AdminWeekDetail {
+  return {
+    ...week,
+    days: sortOrderedItems(week.days).map((day) => ({
+      ...day,
+      babyDevelopmentItems: normalizeInlineContentItems(
+        day.babyDevelopmentItems,
+      ),
+      motherChangesItems: normalizeInlineContentItems(day.motherChangesItems),
+    })),
+    sections: sortOrderedItems(week.sections).map((section) => ({
+      ...section,
+      title: normalizeInlineContentText(section.title),
+      body: normalizeInlineContentText(section.body),
+    })),
+    assets: sortOrderedItems(week.assets),
+    media: sortOrderedItems(week.media),
+  };
 }
 
 function createNextQuestionAsset(current: AdminWeekDetail): AdminWeekAsset {
@@ -536,13 +569,7 @@ export function useAdminContentState(
       }
 
       setSelectedWeekNumber(weekNumber);
-      setSelectedWeekDetail({
-        ...payload.week,
-        days: sortOrderedItems(payload.week.days),
-        sections: sortOrderedItems(payload.week.sections),
-        assets: sortOrderedItems(payload.week.assets),
-        media: sortOrderedItems(payload.week.media),
-      });
+      setSelectedWeekDetail(normalizeWeekDetailInlineContent(payload.week));
       setContentMessage(null);
     } catch (error) {
       if (!cancelled) {
@@ -653,10 +680,15 @@ export function useAdminContentState(
     field: keyof AdminWeekSection,
     value: string | number | boolean | null,
   ) {
+    const nextValue =
+      (field === "title" || field === "body") && typeof value === "string"
+        ? normalizeInlineContentText(value)
+        : value;
+
     updateWeekDetail((current) => ({
       ...current,
       sections: current.sections.map((section, currentIndex) =>
-        currentIndex === index ? { ...section, [field]: value } : section,
+        currentIndex === index ? { ...section, [field]: nextValue } : section,
       ),
     }));
   }
@@ -679,10 +711,16 @@ export function useAdminContentState(
     field: keyof AdminWeekDay,
     value: string | number | string[] | null,
   ) {
+    const nextValue =
+      (field === "babyDevelopmentItems" || field === "motherChangesItems") &&
+      Array.isArray(value)
+        ? normalizeInlineContentItems(value)
+        : value;
+
     updateWeekDetail((current) => ({
       ...current,
       days: current.days.map((day, currentIndex) =>
-        currentIndex === index ? { ...day, [field]: value } : day,
+        currentIndex === index ? { ...day, [field]: nextValue } : day,
       ),
     }));
   }
@@ -885,6 +923,8 @@ export function useAdminContentState(
     setIsWeekSaving(true);
     setContentMessage(null);
 
+    const normalizedWeek = normalizeWeekDetailInlineContent(selectedWeekDetail);
+
     const response = await fetch(
       `/api/admin/content/weeks/${selectedWeekNumber}`,
       {
@@ -899,7 +939,7 @@ export function useAdminContentState(
           heroImagePath: selectedWeekDetail.heroImagePath,
           compareImagePath: selectedWeekDetail.compareImagePath,
           status: statusOverride ?? selectedWeekDetail.status,
-          days: sortOrderedItems(selectedWeekDetail.days).map((day) => ({
+          days: normalizedWeek.days.map((day) => ({
             id: day.id,
             dayNumber: day.dayNumber,
             title: day.title,
@@ -908,7 +948,7 @@ export function useAdminContentState(
             motherChangesItems: day.motherChangesItems,
             displayOrder: day.displayOrder,
           })),
-          sections: sortOrderedItems(selectedWeekDetail.sections).map(
+          sections: normalizedWeek.sections.map(
             (section) => ({
               id: section.id,
               dayNumber: section.dayNumber,
@@ -956,13 +996,7 @@ export function useAdminContentState(
       return;
     }
 
-    setSelectedWeekDetail({
-      ...payload.week,
-      days: sortOrderedItems(payload.week.days),
-      sections: sortOrderedItems(payload.week.sections),
-      assets: sortOrderedItems(payload.week.assets),
-      media: sortOrderedItems(payload.week.media),
-    });
+    setSelectedWeekDetail(normalizeWeekDetailInlineContent(payload.week));
     setWeekSummaries((current) => {
       const nextSummary = mapDetailToSummary(payload.week as AdminWeekDetail);
       return current.map((week) =>
@@ -973,24 +1007,6 @@ export function useAdminContentState(
       successMessage ?? `${payload.week.weekNumber}주차 데이터를 저장했습니다.`,
     );
     setIsWeekSaving(false);
-  }
-
-  async function handlePublishWeek() {
-    if (!selectedWeekDetail) {
-      setContentMessage("먼저 주차를 선택해 주세요.");
-      return;
-    }
-
-    const review = getWeekPublishReview(selectedWeekDetail);
-    if (!review.isReady) {
-      setContentMessage("게시 전에 검수 보드의 빈 항목을 먼저 채워 주세요.");
-      return;
-    }
-
-    await saveWeekWithStatus(
-      "published",
-      `${selectedWeekDetail.weekNumber}주차를 검수 후 게시했습니다.`,
-    );
   }
 
   function syncSelectedHomeCopyItem(id: string) {
@@ -1803,6 +1819,5 @@ export function useAdminContentState(
     handleRemoveWeekAsset,
     handleRemoveWeekMedia,
     handleSaveWeek,
-    handlePublishWeek,
   };
 }

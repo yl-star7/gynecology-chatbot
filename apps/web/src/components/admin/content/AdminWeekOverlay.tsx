@@ -43,7 +43,6 @@ import {
   formatMobileWeekDayLabel,
   formatMobileWeekDayRangeLabel,
 } from "./admin-week-day-labels";
-import { AdminWeekOverlayKnowledgeTab } from "./AdminWeekOverlayKnowledgeTab";
 import { WeekImagePreview } from "./WeekImagePreview";
 
 export interface AdminWeekOverlayProps {
@@ -108,11 +107,17 @@ export interface AdminWeekOverlayProps {
   onSaveWeek: () => Promise<void>;
 }
 
-function splitTextareaLines(value: string) {
-  return value
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
+function toSingleTextareaItem(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized ? [normalized] : [];
+}
+
+function getStaticWeekBabyImagePath(weekNumber: number) {
+  if (weekNumber < 5 || weekNumber > 40) {
+    return null;
+  }
+
+  return `/week-baby/week-baby-w${String(weekNumber).padStart(2, "0")}.png`;
 }
 
 function formatUpdatedDate(value: string) {
@@ -415,12 +420,21 @@ export function AdminWeekOverlay({
     const previewSrc = resolveImagePreviewSrc(
       input.value ?? fallbackStoragePath,
     );
+    const staticWeekImageSrc =
+      input.field === "heroImagePath" && selectedWeekDetail
+        ? getStaticWeekBabyImagePath(selectedWeekDetail.weekNumber)
+        : null;
     const isUploading = uploadingCoverField === input.field;
 
     return (
       <Field label={input.label}>
         <div className="grid gap-3 rounded-md border bg-muted p-3 md:grid-cols-[180px_minmax(0,1fr)]">
-          <WeekImagePreview src={previewSrc} alt={input.label} />
+          <WeekImagePreview
+            src={previewSrc}
+            fallbackSrc={staticWeekImageSrc}
+            alt={input.label}
+            emptyLabel={`${input.label}가 아직 없어요.`}
+          />
           <div className="space-y-3">
             <AdminFileUpload
               id={`week-cover-${input.field}`}
@@ -506,7 +520,6 @@ export function AdminWeekOverlay({
                   <TabsTrigger value="checklists">체크리스트</TabsTrigger>
                   <TabsTrigger value="questions">질문</TabsTrigger>
                   <TabsTrigger value="images">이미지</TabsTrigger>
-                  <TabsTrigger value="knowledge">노출본</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="basic" className="mt-0 space-y-4">
@@ -602,13 +615,13 @@ export function AdminWeekOverlay({
 
                             <Field label="아기 발달 항목">
                               <Textarea
-                                value={day.babyDevelopmentItems.join("\n")}
+                                value={day.babyDevelopmentItems.join(" ")}
                                 className="min-h-28"
                                 onChange={(event) =>
                                   onWeekDayChange(
                                     index,
                                     "babyDevelopmentItems",
-                                    splitTextareaLines(event.target.value),
+                                    toSingleTextareaItem(event.target.value),
                                   )
                                 }
                               />
@@ -616,13 +629,13 @@ export function AdminWeekOverlay({
 
                             <Field label="산모 변화 항목">
                               <Textarea
-                                value={day.motherChangesItems.join("\n")}
+                                value={day.motherChangesItems.join(" ")}
                                 className="min-h-28"
                                 onChange={(event) =>
                                   onWeekDayChange(
                                     index,
                                     "motherChangesItems",
-                                    splitTextareaLines(event.target.value),
+                                    toSingleTextareaItem(event.target.value),
                                   )
                                 }
                               />
@@ -951,11 +964,6 @@ export function AdminWeekOverlay({
                   </SectionCard>
                 </TabsContent>
 
-                <TabsContent value="knowledge" className="mt-0 space-y-4">
-                  <AdminWeekOverlayKnowledgeTab
-                    weekNumber={selectedWeekDetail.weekNumber}
-                  />
-                </TabsContent>
               </Tabs>
             </>
           ) : (
