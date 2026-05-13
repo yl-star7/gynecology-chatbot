@@ -52,9 +52,16 @@ export interface MoodVariantItem {
   updated_at: string;
 }
 
+export interface MoodVariantFallbackItem {
+  scenario: string;
+  mood: string;
+  prompt_suffix: string;
+}
+
 interface AdminMoodVariantsSectionProps {
   adminDisplayName: string;
   initialItems: MoodVariantItem[];
+  initialFallbackItems?: MoodVariantFallbackItem[];
   dashboard: AdminDashboardData;
 }
 
@@ -78,6 +85,17 @@ function findItem(
   );
 }
 
+function findFallbackItem(
+  items: MoodVariantFallbackItem[],
+  scenario: string,
+  mood: string,
+): MoodVariantFallbackItem | null {
+  return (
+    items.find((item) => item.scenario === scenario && item.mood === mood) ??
+    null
+  );
+}
+
 function truncate(value: string, length = 24): string {
   if (value.length <= length) return value;
   return `${value.slice(0, length)}...`;
@@ -86,20 +104,26 @@ function truncate(value: string, length = 24): string {
 export default function AdminMoodVariantsSection({
   adminDisplayName,
   initialItems,
+  initialFallbackItems = [],
   dashboard: _dashboard,
 }: AdminMoodVariantsSectionProps) {
   const [items, setItems] = useState<MoodVariantItem[]>(initialItems);
+  const [fallbackItems] =
+    useState<MoodVariantFallbackItem[]>(initialFallbackItems);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   function openCell(scenario: MoodVariantScenario, mood: MoodVariantMood) {
     const existing = findItem(items, scenario, mood);
+    const fallback = existing
+      ? null
+      : findFallbackItem(fallbackItems, scenario, mood);
     setEditor({
       scenario,
       mood,
       id: existing?.id ?? null,
-      prompt_suffix: existing?.prompt_suffix ?? "",
+      prompt_suffix: existing?.prompt_suffix ?? fallback?.prompt_suffix ?? "",
       tone: existing?.tone ?? "",
       active: existing ? existing.active : true,
     });
@@ -206,8 +230,7 @@ export default function AdminMoodVariantsSection({
             <CardDescription>
               버튼으로 이미 기분이 정해진 경우에는 LLM 감정 분류를 다시 타지
               않고, 해당 기분의 문구를 바로 사용합니다. 자유 입력처럼 기분이
-              정해지지 않은 문장만 감정 분류 후 이 매트릭스의 문구를
-              참조합니다.
+              정해지지 않은 문장만 감정 분류 후 이 매트릭스의 문구를 참조합니다.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -251,6 +274,13 @@ export default function AdminMoodVariantsSection({
                           scenario.value,
                           mood.value,
                         );
+                        const fallback = item
+                          ? null
+                          : findFallbackItem(
+                              fallbackItems,
+                              scenario.value,
+                              mood.value,
+                            );
                         return (
                           <TableCell key={`${scenario.value}-${mood.value}`}>
                             <Button
@@ -269,6 +299,13 @@ export default function AdminMoodVariantsSection({
                                       비활성
                                     </Badge>
                                   ) : null}
+                                </span>
+                              ) : fallback ? (
+                                <span>
+                                  {truncate(fallback.prompt_suffix)}
+                                  <Badge variant="outline" className="ml-2">
+                                    YAML 기본
+                                  </Badge>
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground">
@@ -307,9 +344,7 @@ export default function AdminMoodVariantsSection({
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="prompt-suffix-input">
-                    실제 반영 문구
-                  </Label>
+                  <Label htmlFor="prompt-suffix-input">실제 반영 문구</Label>
                   <Textarea
                     id="prompt-suffix-input"
                     rows={8}

@@ -221,6 +221,11 @@ describe("maybeShortCircuitStaticTurn", () => {
   });
 
   it("uses an admin-managed mood acknowledgement pool when provided", () => {
+    const flowConfig = flowConfigWithMoodPrompts();
+    flowConfig.moodIntake.acknowledgementsByTone = {
+      joyful: ["YAML 첫 문장", "YAML 둘째 문장"],
+    };
+
     const r = maybeShortCircuitStaticTurn({
       userText: "오늘은 좋은 기분이에요.",
       selectedMood: "오늘은 좋은 기분이에요.",
@@ -238,6 +243,7 @@ describe("maybeShortCircuitStaticTurn", () => {
         "관리자가 정한 첫 문장",
         "관리자가 정한 둘째 문장",
       ],
+      flowConfig,
       weekInfoOptInVariations: optInVariations,
       todayQuestionCandidates: questions,
       rngSeed: 0,
@@ -247,6 +253,7 @@ describe("maybeShortCircuitStaticTurn", () => {
     expect(text?.type).toBe("text");
     if (text?.type === "text") {
       expect(text.text).toContain("관리자가 정한 둘째 문장");
+      expect(text.text).not.toContain("YAML 둘째 문장");
     }
   });
 

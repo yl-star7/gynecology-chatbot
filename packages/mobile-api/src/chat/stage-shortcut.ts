@@ -298,18 +298,20 @@ function buildWeekInfoOptInTurn(
   const moodPool = getMoodPrompts(input);
   const moodEntry = moodPool.find((m) => m.message === mood) ?? null;
   const moodTone: CharacterTone = moodEntry?.tone ?? "calm";
+  const managedAcknowledgements =
+    input.moodAcknowledgementPool && input.moodAcknowledgementPool.length > 0
+      ? input.moodAcknowledgementPool
+      : null;
   const yamlAcknowledgements =
     input.flowConfig?.moodIntake.acknowledgementsByTone[moodTone];
   const acknowledgement = isDirectMoodEntry(moodEntry)
     ? (input.flowConfig?.moodIntake.directInputAcknowledgementText ??
       DIRECT_INPUT_MOOD_ACKNOWLEDGEMENT_TEXT)
     : pickRandom(
-        yamlAcknowledgements && yamlAcknowledgements.length > 0
-          ? yamlAcknowledgements
-          : input.moodAcknowledgementPool &&
-              input.moodAcknowledgementPool.length > 0
-            ? input.moodAcknowledgementPool
-            : MOOD_ACKNOWLEDGEMENTS[moodTone],
+        managedAcknowledgements ??
+          (yamlAcknowledgements && yamlAcknowledgements.length > 0
+            ? yamlAcknowledgements
+            : MOOD_ACKNOWLEDGEMENTS[moodTone]),
         input.rngSeed === undefined ? undefined : input.rngSeed + 1,
       );
   const quickReplies = input.flowConfig?.weekInfoOptIn.quickReplies;
@@ -708,9 +710,7 @@ export function maybeShortCircuitStaticTurn(
 
   // SQL 기반 progress 가 진실 소스.
   const stage: number | string | null =
-    progress.currentAttachmentQuestionId && !selectedQuestionId
-      ? 2
-      : rawStage;
+    progress.currentAttachmentQuestionId && !selectedQuestionId ? 2 : rawStage;
 
   // ── 공통 우선 규칙: 사용자가 "아니요/이따가/나중/싫어요" 로 거절하면
   //    오늘의 질문을 바로 띄우지 않고 짧게 마무리한다.
@@ -941,10 +941,7 @@ export function maybeShortCircuitStaticTurn(
   }
 
   if (stage === "free_chat") {
-    if (
-      !selectedQuestionId &&
-      hasRemainingRequiredQuestions(input, progress)
-    ) {
+    if (!selectedQuestionId && hasRemainingRequiredQuestions(input, progress)) {
       return buildTodayQuestionTurn(input, progress);
     }
     // 자유대화 중 명시적 종료 신호만 가로채고, 나머지는 LLM
