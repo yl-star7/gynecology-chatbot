@@ -57,6 +57,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: Bot,
     children: [
       { href: "/admin/engine/workflows", label: "워크플로우" },
+      { href: "/admin/engine/flow", label: "통합 뷰" },
       { href: "/admin/engine/moods", label: "기분별 변주" },
     ],
   },

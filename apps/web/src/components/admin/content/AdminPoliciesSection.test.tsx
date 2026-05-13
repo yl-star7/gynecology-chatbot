@@ -9,6 +9,7 @@ import {
 import { AdminPoliciesSection } from "./AdminPoliciesSection";
 
 jest.mock("@schift-io/sdk/workflow-editor", () => ({
+  BLOCK_TYPES: [],
   WorkflowEditorProvider: ({ children }: { children: React.ReactNode }) =>
     children,
   WorkflowBuilder: ({
