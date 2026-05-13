@@ -26,15 +26,11 @@ describe("AdminEngineIntegratedView", () => {
     render(<AdminEngineIntegratedView adminDisplayName="운영자" />);
 
     expect(screen.getByText("대화 엔진 통합 뷰")).toBeInTheDocument();
-    expect(screen.getByText("통합 흐름")).toBeInTheDocument();
-    expect(screen.getByText("기준일")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /기준일/ })).toBeInTheDocument();
     expect(screen.getByText("실제 흐름")).toBeInTheDocument();
     expect(screen.getByText("참조")).toBeInTheDocument();
     expect(screen.getByText("앱 미리보기")).toBeInTheDocument();
     expect(screen.getByText("편집")).toBeInTheDocument();
-    expect(
-      screen.getAllByText("문구 · 프롬프트 · 참조").length,
-    ).toBeGreaterThan(0);
     expect(screen.queryByText(/fallback/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/mood_intake/)).not.toBeInTheDocument();
   });
@@ -47,7 +43,10 @@ describe("AdminEngineIntegratedView", () => {
     expect(
       screen.getByText(/많이 답답하고 예민해진 상황이었나 봐요/),
     ).toBeInTheDocument();
-    expect(screen.getByText("짜증나요 · 기분 문구")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "짜증나요" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(screen.queryByText(/mood_intake/)).not.toBeInTheDocument();
   });
 
@@ -87,7 +86,8 @@ describe("AdminEngineIntegratedView", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "좋아요 문구 수정" }));
-    expect(screen.getByText("좋아요 선택 뒤 말풍선")).toBeInTheDocument();
+    expect(screen.getByText("좋아요 문구")).toBeInTheDocument();
+    expect(screen.getByText("말풍선")).toBeInTheDocument();
     expect(screen.queryByText(/mood_intake/)).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("앱 말풍선"), {
@@ -111,7 +111,7 @@ describe("AdminEngineIntegratedView", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "참조 자료 문구 · 프롬프트 · 참조",
+        name: "편집: 참조 자료",
       }),
     );
     fireEvent.change(screen.getByLabelText("프롬프트 내용"), {
@@ -128,7 +128,7 @@ describe("AdminEngineIntegratedView", () => {
     expect(screen.getByText("화면에 반영되었습니다.")).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", {
-        name: "참조 자료 문구 · 프롬프트 · 참조",
+        name: "편집: 참조 자료",
       }),
     );
     expect(screen.getByDisplayValue("새 참조 규칙")).toBeInTheDocument();

@@ -114,7 +114,7 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "문구",
     title: "기분 문구",
     body: "앱 말풍선",
-    promptLabel: "앱 말풍선",
+    promptLabel: "프롬프트",
     promptText: "선택한 기분에 맞춰 바로 나가는 문구",
     references: ["기분별 변주", "앱 미리보기"],
   },
@@ -123,7 +123,7 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "기준일",
     title: "주차 계산",
     body: "예정일 / 보정일",
-    promptLabel: "계산 기준",
+    promptLabel: "기준",
     promptText: "예정일과 보정일을 기준으로 현재 주차를 계산합니다.",
     references: ["사용자 상세", "운영 화면"],
   },
@@ -132,7 +132,7 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "자료",
     title: "참조 자료",
     body: "주차 + 사전",
-    promptLabel: "참조 규칙",
+    promptLabel: "규칙",
     promptText: "현재 주차와 질문 의도에 맞는 자료만 붙입니다.",
     references: ["주차 콘텐츠", "사전 자료", "공통 풀"],
   },
@@ -141,7 +141,7 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "답변",
     title: "답변 지침",
     body: "프롬프트 + 자료",
-    promptLabel: "답변 프롬프트",
+    promptLabel: "프롬프트",
     promptText: "앱 문구와 참조 자료를 바탕으로 최종 답변을 만듭니다.",
     references: ["기본 답변 톤", "참조 자료", "안전 안내"],
   },
@@ -305,31 +305,6 @@ export function AdminEngineIntegratedView({
       title="대화 엔진 통합 뷰"
     >
       <div className="space-y-4">
-        <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-muted-foreground">
-                대화 엔진
-              </p>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
-                통합 흐름
-              </h2>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {flowSteps.map((step) => (
-                <button
-                  key={step.id}
-                  type="button"
-                  onClick={() => openStepEditor(step.id)}
-                  className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-bold text-foreground transition hover:border-slate-400"
-                >
-                  {step.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_420px]">
           <main className="space-y-4">
             <FlowMap
@@ -420,12 +395,6 @@ function FlowMap({
           </button>
         ))}
       </div>
-      <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-        <p className="text-xs font-semibold text-slate-500">선택 상태</p>
-        <p className="mt-1 text-sm font-bold text-slate-950">
-          {selected.label} · 기분 문구
-        </p>
-      </div>
     </section>
   );
 }
@@ -457,12 +426,12 @@ function SourceTrace({
             step.id === "app_buttons"
               ? selected.label
               : (step.references[0] ?? step.title);
-          const detail = step.id === "app_buttons" ? selected.tone : step.body;
 
           return (
             <button
               key={step.id}
               type="button"
+              aria-label={`${step.title} 참조`}
               onClick={() => onOpenStepEditor(step.id)}
               className="grid grid-cols-[36px_1fr] gap-3 rounded-lg border border-border bg-background p-3 text-left transition hover:border-slate-400 hover:bg-muted"
             >
@@ -475,9 +444,6 @@ function SourceTrace({
                 </p>
                 <p className="mt-1 truncate text-sm font-bold text-foreground">
                   {value}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  {detail}
                 </p>
               </div>
             </button>
@@ -587,13 +553,11 @@ function QuickEditPanel({
           <button
             key={step.id}
             type="button"
+            aria-label={`편집: ${step.title}`}
             onClick={() => onOpenStepEditor(step.id)}
-            className="block w-full rounded-lg border border-border bg-background p-3 text-left transition hover:border-slate-400 hover:bg-muted"
+            className="block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-left transition hover:border-slate-400 hover:bg-muted"
           >
             <p className="text-sm font-bold text-foreground">{step.title}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              문구 · 프롬프트 · 참조
-            </p>
           </button>
         ))}
       </div>
@@ -641,16 +605,16 @@ function EngineEditDialog({
     >
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{editingStep?.title}</DialogTitle>
-          <DialogDescription>문구 · 프롬프트 · 참조</DialogDescription>
+          <DialogTitle>
+            {isMoodEditor ? `${selectedChoice.label} 문구` : editingStep?.title}
+          </DialogTitle>
+          <DialogDescription className="sr-only">편집</DialogDescription>
         </DialogHeader>
         {editingStep ? (
           <div className="space-y-4">
             {isMoodEditor ? (
               <section className="space-y-2">
-                <p className="text-sm font-bold text-foreground">
-                  {selectedChoice.label} 선택 뒤 말풍선
-                </p>
+                <p className="text-sm font-bold text-foreground">말풍선</p>
                 <Textarea
                   aria-label="앱 말풍선"
                   className="min-h-28"
