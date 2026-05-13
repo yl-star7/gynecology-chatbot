@@ -65,7 +65,7 @@ const DEFAULT_EXTERNAL_SURVEYS: ExternalSurveyConfig[] = [
 ];
 
 const DEFAULT_BRANDING: BrandingConfig = {
-  mascotBucketId: null,
+  mascotBucketId: "pregnancy-content",
   mascotObjectPath: "assets/penguin-nurse/app/neutral.png",
   mascotSourceFileName: "neutral.png",
   mascotAltText: "펭귄 간호사",

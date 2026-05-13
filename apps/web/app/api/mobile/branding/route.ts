@@ -37,6 +37,18 @@ type CharacterImagesConfig = {
   images: Record<CharacterImageTone, string>;
 };
 
+const DEFAULT_MASCOT_BUCKET_ID = "pregnancy-content";
+const DEFAULT_MASCOT_OBJECT_PATH = "assets/penguin-nurse/app/neutral.png";
+const DEFAULT_MASCOT_ALT_TEXT = "펭귄 간호사";
+
+const DEFAULT_BRANDING: BrandingConfig = {
+  mascotBucketId: DEFAULT_MASCOT_BUCKET_ID,
+  mascotObjectPath: DEFAULT_MASCOT_OBJECT_PATH,
+  mascotSourceFileName: "neutral.png",
+  mascotAltText: DEFAULT_MASCOT_ALT_TEXT,
+  surveyFormUrl: null,
+};
+
 function buildDefaultCharacterImageUrl(tone: CharacterImageTone) {
   return `https://storage.googleapis.com/pregnancy-content/assets/penguin-nurse/app/${tone}.png`;
 }
@@ -63,6 +75,43 @@ function visibleExternalSurveys(branding: BrandingConfig | null) {
   return Array.isArray(branding?.externalSurveys)
     ? branding.externalSurveys.filter((survey) => survey.visible && survey.url)
     : [];
+}
+
+function resolveMascotConfig(
+  branding: BrandingConfig | null,
+): { bucketId: string; objectPath: string; altText: string } {
+  const bucketId = branding?.mascotBucketId?.trim();
+  const objectPath = branding?.mascotObjectPath?.trim();
+  const altText = branding?.mascotAltText?.trim();
+
+  return {
+    bucketId: bucketId || DEFAULT_MASCOT_BUCKET_ID,
+    objectPath: objectPath || DEFAULT_MASCOT_OBJECT_PATH,
+    altText: altText || DEFAULT_MASCOT_ALT_TEXT,
+  };
+}
+
+function buildPublicGcsImageUrl(bucketId: string, objectPath: string) {
+  return encodeURI(
+    `https://storage.googleapis.com/${bucketId}/${objectPath.replace(/^\/+/, "")}`,
+  );
+}
+
+async function createMascotImageUrl(input: {
+  bucketId: string;
+  objectPath: string;
+}) {
+  try {
+    const { signedUrl } = await createSignedReadUrl({
+      bucketId: input.bucketId,
+      objectPath: input.objectPath,
+      expiresMs: 60 * 60 * 24 * 7 * 1000,
+    });
+    return signedUrl;
+  } catch (error) {
+    console.warn("mobile branding mascot signed url fallback", error);
+    return buildPublicGcsImageUrl(input.bucketId, input.objectPath);
+  }
 }
 
 function isValidHttpsUrl(input: unknown) {
@@ -125,26 +174,12 @@ export async function GET() {
     const characterImages = asCharacterImagesConfig(characterImagesRow?.value);
     const externalSurveys = visibleExternalSurveys(branding);
     const surveyFormUrl = externalSurveys[0]?.url ?? null;
-
-    if (!branding?.mascotBucketId || !branding?.mascotObjectPath) {
-      return NextResponse.json({
-        mascotImageUrl: null,
-        mascotAltText: null,
-        surveyFormUrl,
-        externalSurveys,
-        characterImages,
-      });
-    }
-
-    const { signedUrl } = await createSignedReadUrl({
-      bucketId: branding.mascotBucketId,
-      objectPath: branding.mascotObjectPath,
-      expiresMs: 60 * 60 * 24 * 7 * 1000,
-    });
+    const mascot = resolveMascotConfig(branding);
+    const mascotImageUrl = await createMascotImageUrl(mascot);
 
     return NextResponse.json({
-      mascotImageUrl: signedUrl,
-      mascotAltText: branding.mascotAltText ?? "마스코트",
+      mascotImageUrl,
+      mascotAltText: mascot.altText,
       surveyFormUrl,
       externalSurveys,
       characterImages,
