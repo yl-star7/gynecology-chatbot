@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 const DEFAULT_PUBLIC_ASSET_BUCKET = "pregnancy-content";
 
 function cx(...classes: Array<string | null | undefined | false>) {
@@ -34,6 +36,8 @@ export function buildPublicGcsImageUrl(
 interface BrandingImagePreviewProps {
   src: string | null | undefined;
   alt: string;
+  fallbackSrc?: string | null | undefined;
+  fallbackAlt?: string;
   className?: string;
   imageClassName?: string;
 }
@@ -41,10 +45,20 @@ interface BrandingImagePreviewProps {
 export function BrandingImagePreview({
   src,
   alt,
+  fallbackSrc,
+  fallbackAlt,
   className,
   imageClassName,
 }: BrandingImagePreviewProps) {
-  if (!src) {
+  const [activeSrc, setActiveSrc] = useState(src ?? null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setActiveSrc(src ?? null);
+    setFailed(false);
+  }, [fallbackSrc, src]);
+
+  if (!activeSrc || failed) {
     return (
       <div
         className={cx(
@@ -52,10 +66,14 @@ export function BrandingImagePreview({
           className,
         )}
       >
-        없음
+        {activeSrc ? "이미지 확인 필요" : "없음"}
       </div>
     );
   }
+
+  const showingFallback = Boolean(
+    fallbackSrc && activeSrc === fallbackSrc && src !== fallbackSrc,
+  );
 
   return (
     <div
@@ -66,10 +84,17 @@ export function BrandingImagePreview({
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src}
-        alt={alt}
+        src={activeSrc}
+        alt={showingFallback && fallbackAlt ? fallbackAlt : alt}
         loading="lazy"
         referrerPolicy="no-referrer"
+        onError={() => {
+          if (fallbackSrc && activeSrc !== fallbackSrc) {
+            setActiveSrc(fallbackSrc);
+            return;
+          }
+          setFailed(true);
+        }}
         className={cx("h-full w-full object-contain", imageClassName)}
       />
     </div>

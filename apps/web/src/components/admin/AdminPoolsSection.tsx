@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { BrandingImagePreview } from "./BrandingImagePreview";
 import { AdminFileUpload } from "./ui";
 
 type MoodTag = "calm" | "joyful" | "anxious" | "tired" | "sad";
@@ -90,9 +91,10 @@ interface CharacterImagesData {
 }
 
 type TabKey = "home-copy" | "baby-comfort" | "character";
+const SHOW_BABY_COMFORT_POOL = false;
 
 export function AdminPoolsSection() {
-  const [activeTab, setActiveTab] = useState<TabKey>("baby-comfort");
+  const [activeTab, setActiveTab] = useState<TabKey>("home-copy");
 
   return (
     <section className="rounded-lg border bg-card p-4 shadow-sm">
@@ -109,16 +111,20 @@ export function AdminPoolsSection() {
       >
         <TabsList>
           <TabsTrigger value="home-copy">홈 위안 풀</TabsTrigger>
-          <TabsTrigger value="baby-comfort">아기 위안 풀</TabsTrigger>
+          {SHOW_BABY_COMFORT_POOL ? (
+            <TabsTrigger value="baby-comfort">아기 위안 풀</TabsTrigger>
+          ) : null}
           <TabsTrigger value="character">캐릭터 이미지</TabsTrigger>
         </TabsList>
 
         <TabsContent value="home-copy" className="mt-4">
           <HomeCopyPoolPanel />
         </TabsContent>
-        <TabsContent value="baby-comfort" className="mt-4">
-          <BabyComfortPoolPanel />
-        </TabsContent>
+        {SHOW_BABY_COMFORT_POOL ? (
+          <TabsContent value="baby-comfort" className="mt-4">
+            <BabyComfortPoolPanel />
+          </TabsContent>
+        ) : null}
         <TabsContent value="character" className="mt-4">
           <CharacterImagePoolPanel />
         </TabsContent>
@@ -1157,20 +1163,27 @@ function CharacterImagePoolPanel() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {CHARACTER_IMAGE_TONES.map(({ key, label }) => (
-            <div key={key} className="rounded-md border bg-card p-3 space-y-2">
-              <Label htmlFor={`character-${key}`}>{label} 이미지</Label>
-              <AdminFileUpload
-                id={`character-${key}`}
-                label="파일 선택"
-                accept="image/png,image/jpeg,image/webp"
-                disabled={savingTone === key}
-                onFileSelect={(file) => {
-                  void upload(key, file);
-                }}
+            <div key={key} className="flex gap-3 rounded-md border bg-card p-3">
+              <BrandingImagePreview
+                src={images.images[key]}
+                alt={`${label} 이미지 미리보기`}
+                className="h-24 w-24"
               />
-              <p className="truncate text-xs text-muted-foreground">
-                {images.images[key]}
-              </p>
+              <div className="min-w-0 flex-1 space-y-2">
+                <Label htmlFor={`character-${key}`}>{label} 이미지</Label>
+                <AdminFileUpload
+                  id={`character-${key}`}
+                  label="파일 선택"
+                  accept="image/png,image/jpeg,image/webp"
+                  disabled={savingTone === key}
+                  onFileSelect={(file) => {
+                    void upload(key, file);
+                  }}
+                />
+                <p className="break-all text-xs text-muted-foreground">
+                  {images.images[key]}
+                </p>
+              </div>
             </div>
           ))}
         </div>

@@ -103,6 +103,36 @@ const DEFAULT_CHARACTER_IMAGES: CharacterImagesData = {
   ) as Record<CharacterImageTone, string>,
 };
 
+const MAX_BRANDING_IMAGE_BYTES = 2 * 1024 * 1024;
+const BRANDING_IMAGE_SIZE_LABEL = "2MB";
+const BASE_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+function sanitizeObjectPathPart(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function validateBrandingImageFile(file: File, options?: { allowGif?: boolean }) {
+  const allowedTypes = options?.allowGif
+    ? [...BASE_IMAGE_TYPES, "image/gif"]
+    : BASE_IMAGE_TYPES;
+
+  if (!allowedTypes.includes(file.type)) {
+    return options?.allowGif
+      ? "PNG, JPG, WebP, GIF 이미지만 올릴 수 있습니다."
+      : "PNG, JPG, WebP 이미지만 올릴 수 있습니다.";
+  }
+
+  if (file.size > MAX_BRANDING_IMAGE_BYTES) {
+    return `이미지는 ${BRANDING_IMAGE_SIZE_LABEL} 이하로 올려주세요.`;
+  }
+
+  return null;
+}
+
 function normalizeBrandingData(data: Partial<BrandingData>): BrandingData {
   const surveysById = new Map(
     Array.isArray(data.externalSurveys)
@@ -181,6 +211,13 @@ export function AdminOpsBrandingPanel() {
     setBrandingResult(null);
     setBrandingError(null);
     try {
+      const validationError = validateBrandingImageFile(file, {
+        allowGif: true,
+      });
+      if (validationError) {
+        throw new Error(validationError);
+      }
+
       const formData = new FormData();
       formData.set("file", file);
       formData.set("bucketId", "pregnancy-content");
@@ -256,6 +293,42 @@ export function AdminOpsBrandingPanel() {
     }
   }
 
+  async function handleRestoreDefaultMascot() {
+    setBrandingSaving(true);
+    setBrandingResult(null);
+    setBrandingError(null);
+    try {
+      const nextBranding: BrandingData = {
+        ...branding,
+        mascotBucketId: DEFAULT_BRANDING.mascotBucketId,
+        mascotObjectPath: DEFAULT_BRANDING.mascotObjectPath,
+        mascotSourceFileName: DEFAULT_BRANDING.mascotSourceFileName,
+        mascotAltText: DEFAULT_BRANDING.mascotAltText,
+      };
+
+      const saveRes = await fetch("/api/admin/branding", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextBranding),
+      });
+      const savePayload = (await saveRes.json()) as { error?: string };
+      if (!saveRes.ok) {
+        throw new Error(savePayload.error ?? "기본 마스코트 저장에 실패했습니다.");
+      }
+
+      setBranding(nextBranding);
+      setBrandingResult("마스코트를 기본 이미지로 되돌렸습니다.");
+    } catch (error) {
+      setBrandingError(
+        error instanceof Error
+          ? error.message
+          : "기본 마스코트 저장에 실패했습니다.",
+      );
+    } finally {
+      setBrandingSaving(false);
+    }
+  }
+
   async function handleUploadCharacterImage(
     tone: CharacterImageTone,
     file: File,
@@ -264,7 +337,14 @@ export function AdminOpsBrandingPanel() {
     setBrandingResult(null);
     setBrandingError(null);
     try {
-      const objectPath = `assets/penguin-nurse/app/${tone}.png`;
+      const validationError = validateBrandingImageFile(file);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+
+      const safeFileName =
+        sanitizeObjectPathPart(file.name) || `${tone}-${Date.now()}.png`;
+      const objectPath = `assets/penguin-nurse/custom/${tone}-${Date.now()}-${safeFileName}`;
       const formData = new FormData();
       formData.set("file", file);
       formData.set("bucketId", "pregnancy-content");
@@ -339,6 +419,43 @@ export function AdminOpsBrandingPanel() {
     }
   }
 
+  async function handleRestoreDefaultCharacterImage(tone: CharacterImageTone) {
+    setCharacterImagesSavingTone(tone);
+    setBrandingResult(null);
+    setBrandingError(null);
+    try {
+      const nextImages = {
+        ...characterImages.images,
+        [tone]: DEFAULT_CHARACTER_IMAGES.images[tone],
+      };
+      const saveRes = await fetch("/api/admin/branding/character-images", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: nextImages }),
+      });
+      const savePayload = (await saveRes.json()) as {
+        error?: string;
+        config?: CharacterImagesData;
+      };
+      if (!saveRes.ok || !savePayload.config) {
+        throw new Error(
+          savePayload.error ?? "기본 캐릭터 이미지 저장에 실패했습니다.",
+        );
+      }
+
+      setCharacterImages(savePayload.config);
+      setBrandingResult("캐릭터 이미지를 기본 이미지로 되돌렸습니다.");
+    } catch (error) {
+      setBrandingError(
+        error instanceof Error
+          ? error.message
+          : "기본 캐릭터 이미지 저장에 실패했습니다.",
+      );
+    } finally {
+      setCharacterImagesSavingTone(null);
+    }
+  }
+
   async function handleSaveSurveyFormUrl() {
     setBrandingSaving(true);
     setBrandingResult(null);
@@ -386,6 +503,10 @@ export function AdminOpsBrandingPanel() {
   const mascotPreviewUrl = buildPublicGcsImageUrl(
     branding.mascotBucketId,
     branding.mascotObjectPath,
+  );
+  const defaultMascotPreviewUrl = buildPublicGcsImageUrl(
+    DEFAULT_BRANDING.mascotBucketId,
+    DEFAULT_BRANDING.mascotObjectPath,
   );
 
   return (
@@ -489,10 +610,15 @@ export function AdminOpsBrandingPanel() {
 
             <Separator />
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <div
+              className="flex flex-col gap-3 sm:flex-row sm:items-start"
+              data-testid="mascot-image-card"
+            >
               <BrandingImagePreview
                 src={mascotPreviewUrl}
                 alt="FAB 마스코트 미리보기"
+                fallbackSrc={defaultMascotPreviewUrl}
+                fallbackAlt="기본 FAB 마스코트 미리보기"
                 className="h-28 w-28"
               />
               <div className="min-w-0 space-y-1.5">
@@ -505,6 +631,18 @@ export function AdminOpsBrandingPanel() {
                     void handleUploadMascot(file);
                   }}
                 />
+                <p className="text-xs text-muted-foreground">
+                  PNG, JPG, WebP, GIF · {BRANDING_IMAGE_SIZE_LABEL} 이하
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleRestoreDefaultMascot()}
+                  disabled={brandingSaving}
+                >
+                  기본 이미지로 설정
+                </Button>
                 {mascotPreviewUrl ? (
                   <p className="break-all text-xs text-muted-foreground">
                     {mascotPreviewUrl}
@@ -544,11 +682,14 @@ export function AdminOpsBrandingPanel() {
                 {CHARACTER_IMAGE_TONES.map(({ key, label }) => (
                   <div
                     className="flex gap-3 rounded-md border bg-card p-3"
+                    data-testid={`character-image-card-${key}`}
                     key={key}
                   >
                     <BrandingImagePreview
                       src={characterImages.images[key]}
                       alt={`${label} 이미지 미리보기`}
+                      fallbackSrc={DEFAULT_CHARACTER_IMAGES.images[key]}
+                      fallbackAlt={`기본 ${label} 이미지 미리보기`}
                       className="h-20 w-20"
                     />
                     <div className="min-w-0 flex-1 space-y-1.5">
@@ -564,6 +705,21 @@ export function AdminOpsBrandingPanel() {
                           void handleUploadCharacterImage(key, file);
                         }}
                       />
+                      <p className="text-xs text-muted-foreground">
+                        PNG, JPG, WebP · {BRANDING_IMAGE_SIZE_LABEL} 이하
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-fit"
+                        disabled={characterImagesSavingTone === key}
+                        onClick={() =>
+                          void handleRestoreDefaultCharacterImage(key)
+                        }
+                      >
+                        기본 이미지로 설정
+                      </Button>
                       <p className="break-all text-xs text-muted-foreground">
                         {characterImages.images[key]}
                       </p>

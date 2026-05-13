@@ -400,128 +400,27 @@ describe("AdminOperationsPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("uploads mascot files through signed URLs before saving branding", async () => {
+  it("keeps branding and vector controls out of settings", async () => {
     render(<AdminOperationsPanel />);
 
-    const input = await screen.findByLabelText("마스코트 업로드");
-    const file = new File(["image"], "mascot.png", { type: "image/png" });
-    fireEvent.change(input, { target: { files: [file] } });
+    expect(
+      await screen.findByText("현재 모드: 관리자 확인 후 사용"),
+    ).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "https://upload.example.test/signed",
-        expect.objectContaining({
-          method: "PUT",
-          body: file,
-        }),
-      );
-    });
+    expect(screen.queryByText("Schift RAG 현황")).not.toBeInTheDocument();
+    expect(screen.queryByText("벡터 검색 설정")).not.toBeInTheDocument();
+    expect(screen.queryByText("FAB 마스코트")).not.toBeInTheDocument();
+    expect(screen.queryByText("간호사 캐릭터 cache")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("마스코트 업로드")).not.toBeInTheDocument();
 
-    const brandingSaveCall = (global.fetch as jest.Mock).mock.calls.find(
-      ([url, init]) => url === "/api/admin/branding" && init?.method === "PUT",
+    const requestedUrls = (global.fetch as jest.Mock).mock.calls.map(
+      ([url]) => url,
     );
-    expect(brandingSaveCall).toBeTruthy();
-    expect(JSON.parse(String(brandingSaveCall?.[1]?.body))).toEqual({
-      mascotBucketId: "pregnancy-content",
-      mascotObjectPath: "weeks/00/123-mascot.png",
-      mascotSourceFileName: "mascot.png",
-      mascotAltText: "마스코트",
-      surveyFormUrl: "https://forms.gle/ZoLxWPdwid1F94FE8",
-      externalSurveys,
-    });
-  });
-
-  it("saves the survey form url through branding settings", async () => {
-    render(<AdminOperationsPanel />);
-
-    const input = await screen.findByLabelText("설문 링크");
-    fireEvent.change(input, {
-      target: { value: "https://docs.google.com/forms/d/e/example/viewform" },
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "설문 링크 저장" }));
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/admin/branding",
-        expect.objectContaining({
-          method: "PUT",
-          body: JSON.stringify({
-            mascotBucketId: null,
-            mascotObjectPath: null,
-            mascotSourceFileName: null,
-            mascotAltText: "마스코트",
-            surveyFormUrl: "https://docs.google.com/forms/d/e/example/viewform",
-            externalSurveys,
-          }),
-        }),
-      );
-    });
-  });
-
-  it("saves survey visibility changes through branding settings", async () => {
-    render(<AdminOperationsPanel />);
-
-    const survey2Visible = await screen.findByLabelText("2차 설문지 보임");
-    fireEvent.click(survey2Visible);
-    fireEvent.click(screen.getByRole("button", { name: "설문 링크 저장" }));
-
-    await waitFor(() => {
-      const brandingSaveCall = (global.fetch as jest.Mock).mock.calls.find(
-        ([url, init]) =>
-          url === "/api/admin/branding" && init?.method === "PUT",
-      );
-      expect(brandingSaveCall).toBeTruthy();
-      expect(JSON.parse(String(brandingSaveCall?.[1]?.body))).toEqual({
-        mascotBucketId: null,
-        mascotObjectPath: null,
-        mascotSourceFileName: null,
-        mascotAltText: "마스코트",
-        surveyFormUrl: "https://forms.gle/ZoLxWPdwid1F94FE8",
-        externalSurveys: [
-          externalSurveys[0],
-          { ...externalSurveys[1], visible: false },
-          externalSurveys[2],
-        ],
-      });
-    });
-  });
-
-  it("uploads a nurse character tone into the shared image cache", async () => {
-    render(<AdminOperationsPanel />);
-
-    const input = await screen.findByLabelText("차분 이미지");
-    const file = new File(["image"], "calm.png", { type: "image/png" });
-    fireEvent.change(input, { target: { files: [file] } });
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "https://upload.example.test/signed",
-        expect.objectContaining({
-          method: "PUT",
-          body: file,
-        }),
-      );
-    });
-
-    const uploadCall = (global.fetch as jest.Mock).mock.calls.find(
-      ([url, init]) =>
-        url === "/api/admin/content/media/upload" && init?.method === "POST",
-    );
-    const formData = uploadCall?.[1]?.body as FormData;
-    expect(formData.get("mediaScope")).toBe("asset");
-    expect(formData.get("objectPath")).toBe(
-      "assets/penguin-nurse/app/calm.png",
-    );
-
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(requestedUrls).not.toContain("/api/admin/rag-provider");
+    expect(requestedUrls).not.toContain("/api/admin/schift");
+    expect(requestedUrls).not.toContain("/api/admin/branding");
+    expect(requestedUrls).not.toContain(
       "/api/admin/branding/character-images",
-      expect.objectContaining({
-        method: "PUT",
-        body: expect.stringContaining(
-          "https://storage.googleapis.com/pregnancy-content/weeks/00/123-mascot.png",
-        ),
-      }),
     );
   });
 });
