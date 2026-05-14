@@ -47,6 +47,9 @@ type FlowStep = {
   label: string;
   title: string;
   body: string;
+  fixed: string;
+  editable: string;
+  impact: string;
   promptLabel: string;
   promptText: string;
   references: string[];
@@ -105,6 +108,9 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "앱 버튼",
     title: "감정 선택",
     body: "좋아요 · 울적해요 · 슬퍼요 · 짜증나요",
+    fixed: "흐름 순서",
+    editable: "버튼 문구",
+    impact: "앱 첫 질문",
     promptLabel: "버튼 문구",
     promptText: "직접 말하고 싶어요\n좋아요\n울적해요\n슬퍼요\n짜증나요",
     references: ["앱 첫 질문", "기분 선택 버튼"],
@@ -114,6 +120,9 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "문구",
     title: "기분 문구",
     body: "앱 말풍선",
+    fixed: "기분 값",
+    editable: "말풍선",
+    impact: "앱 답장",
     promptLabel: "프롬프트",
     promptText: "선택한 기분에 맞춰 바로 나가는 문구",
     references: ["기분별 변주", "앱 미리보기"],
@@ -123,6 +132,9 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "기준일",
     title: "주차 계산",
     body: "예정일 / 보정일",
+    fixed: "계산 단계",
+    editable: "기준/보정",
+    impact: "주차 판단",
     promptLabel: "기준",
     promptText: "예정일과 보정일을 기준으로 현재 주차를 계산합니다.",
     references: ["사용자 상세", "운영 화면"],
@@ -132,6 +144,9 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "자료",
     title: "참조 자료",
     body: "주차 + 사전",
+    fixed: "자료 단계",
+    editable: "참조 규칙",
+    impact: "답변 자료",
     promptLabel: "규칙",
     promptText: "현재 주차와 질문 의도에 맞는 자료만 붙입니다.",
     references: ["주차 콘텐츠", "사전 자료", "공통 풀"],
@@ -141,6 +156,9 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "답변",
     title: "답변 지침",
     body: "프롬프트 + 자료",
+    fixed: "답변 단계",
+    editable: "프롬프트",
+    impact: "최종 답변",
     promptLabel: "프롬프트",
     promptText: "앱 문구와 참조 자료를 바탕으로 최종 답변을 만듭니다.",
     references: ["기본 답변 톤", "참조 자료", "안전 안내"],
@@ -307,14 +325,9 @@ export function AdminEngineIntegratedView({
       <div className="space-y-4">
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_420px]">
           <main className="space-y-4">
-            <FlowMap
-              flowSteps={flowSteps}
-              selected={selected}
-              onOpenStepEditor={openStepEditor}
-            />
+            <FlowMap flowSteps={flowSteps} onOpenStepEditor={openStepEditor} />
             <SourceTrace
               flowSteps={flowSteps}
-              selected={selected}
               onOpenStepEditor={openStepEditor}
             />
           </main>
@@ -359,11 +372,9 @@ export function AdminEngineIntegratedView({
 
 function FlowMap({
   flowSteps,
-  selected,
   onOpenStepEditor,
 }: {
   flowSteps: FlowStep[];
-  selected: MoodChoice;
   onOpenStepEditor: (stepId: FlowStepId) => void;
 }) {
   return (
@@ -392,6 +403,7 @@ function FlowMap({
             <p className="mt-2 text-xs leading-5 text-muted-foreground">
               {step.body}
             </p>
+            <BoundaryRows step={step} />
           </button>
         ))}
       </div>
@@ -401,11 +413,9 @@ function FlowMap({
 
 function SourceTrace({
   flowSteps,
-  selected,
   onOpenStepEditor,
 }: {
   flowSteps: FlowStep[];
-  selected: MoodChoice;
   onOpenStepEditor: (stepId: FlowStepId) => void;
 }) {
   const iconByStep: Record<FlowStepId, typeof MessageCircle> = {
@@ -418,14 +428,10 @@ function SourceTrace({
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <h3 className="text-lg font-bold text-foreground">참조</h3>
+      <h3 className="text-lg font-bold text-foreground">반영 위치</h3>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {flowSteps.map((step) => {
           const Icon = iconByStep[step.id];
-          const value =
-            step.id === "app_buttons"
-              ? selected.label
-              : (step.references[0] ?? step.title);
 
           return (
             <button
@@ -443,7 +449,10 @@ function SourceTrace({
                   {step.title}
                 </p>
                 <p className="mt-1 truncate text-sm font-bold text-foreground">
-                  {value}
+                  {step.impact}
+                </p>
+                <p className="mt-1 truncate text-xs font-semibold text-muted-foreground">
+                  수정: {step.editable}
                 </p>
               </div>
             </button>
@@ -612,6 +621,7 @@ function EngineEditDialog({
         </DialogHeader>
         {editingStep ? (
           <div className="space-y-4">
+            <BoundarySummary step={editingStep} />
             {isMoodEditor ? (
               <section className="space-y-2">
                 <p className="text-sm font-bold text-foreground">말풍선</p>
@@ -692,6 +702,44 @@ function EngineEditDialog({
         ) : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function BoundaryRows({ step }: { step: FlowStep }) {
+  return (
+    <div className="mt-3 space-y-1 rounded-md bg-slate-50 p-2 text-[11px] leading-4">
+      <BoundaryLine label="고정" value={step.fixed} />
+      <BoundaryLine label="수정" value={step.editable} />
+      <BoundaryLine label="반영" value={step.impact} />
+    </div>
+  );
+}
+
+function BoundarySummary({ step }: { step: FlowStep }) {
+  return (
+    <div className="grid gap-2 rounded-lg border border-border bg-muted p-2 text-xs sm:grid-cols-3">
+      <BoundaryBox label="고정" value={step.fixed} />
+      <BoundaryBox label="수정" value={step.editable} />
+      <BoundaryBox label="반영" value={step.impact} />
+    </div>
+  );
+}
+
+function BoundaryLine({ label, value }: { label: string; value: string }) {
+  return (
+    <p className="grid grid-cols-[32px_1fr] gap-1">
+      <span className="font-bold text-slate-500">{label}</span>
+      <span className="truncate font-semibold text-slate-900">{value}</span>
+    </p>
+  );
+}
+
+function BoundaryBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-background px-3 py-2">
+      <p className="font-bold text-muted-foreground">{label}</p>
+      <p className="mt-1 font-bold text-foreground">{value}</p>
+    </div>
   );
 }
 
