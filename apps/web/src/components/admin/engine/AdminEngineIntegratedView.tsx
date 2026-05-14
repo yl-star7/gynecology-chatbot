@@ -47,7 +47,6 @@ type FlowStep = {
   label: string;
   title: string;
   body: string;
-  fixed: string;
   editable: string;
   impact: string;
   promptLabel: string;
@@ -108,7 +107,6 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "앱 버튼",
     title: "감정 선택",
     body: "좋아요 · 울적해요 · 슬퍼요 · 짜증나요",
-    fixed: "흐름 순서",
     editable: "버튼 문구",
     impact: "앱 첫 질문",
     promptLabel: "버튼 문구",
@@ -120,7 +118,6 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "문구",
     title: "기분 문구",
     body: "앱 말풍선",
-    fixed: "기분 값",
     editable: "말풍선",
     impact: "앱 답장",
     promptLabel: "프롬프트",
@@ -132,7 +129,6 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "기준일",
     title: "주차 계산",
     body: "예정일 / 보정일",
-    fixed: "계산 단계",
     editable: "기준/보정",
     impact: "주차 판단",
     promptLabel: "기준",
@@ -144,7 +140,6 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "자료",
     title: "참조 자료",
     body: "주차 + 사전",
-    fixed: "자료 단계",
     editable: "참조 규칙",
     impact: "답변 자료",
     promptLabel: "규칙",
@@ -156,7 +151,6 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     label: "답변",
     title: "답변 지침",
     body: "프롬프트 + 자료",
-    fixed: "답변 단계",
     editable: "프롬프트",
     impact: "최종 답변",
     promptLabel: "프롬프트",
@@ -403,7 +397,7 @@ function FlowMap({
             <p className="mt-2 text-xs leading-5 text-muted-foreground">
               {step.body}
             </p>
-            <BoundaryRows step={step} />
+            <EditImpactRows step={step} />
           </button>
         ))}
       </div>
@@ -621,7 +615,7 @@ function EngineEditDialog({
         </DialogHeader>
         {editingStep ? (
           <div className="space-y-4">
-            <BoundarySummary step={editingStep} />
+            <EditImpactSummary step={editingStep} />
             {isMoodEditor ? (
               <section className="space-y-2">
                 <p className="text-sm font-bold text-foreground">말풍선</p>
@@ -705,27 +699,25 @@ function EngineEditDialog({
   );
 }
 
-function BoundaryRows({ step }: { step: FlowStep }) {
+function EditImpactRows({ step }: { step: FlowStep }) {
   return (
     <div className="mt-3 space-y-1 rounded-md bg-slate-50 p-2 text-[11px] leading-4">
-      <BoundaryLine label="고정" value={step.fixed} />
-      <BoundaryLine label="수정" value={step.editable} />
-      <BoundaryLine label="반영" value={step.impact} />
+      <EditImpactLine label="수정" value={step.editable} />
+      <EditImpactLine label="반영" value={step.impact} />
     </div>
   );
 }
 
-function BoundarySummary({ step }: { step: FlowStep }) {
+function EditImpactSummary({ step }: { step: FlowStep }) {
   return (
-    <div className="grid gap-2 rounded-lg border border-border bg-muted p-2 text-xs sm:grid-cols-3">
-      <BoundaryBox label="고정" value={step.fixed} />
-      <BoundaryBox label="수정" value={step.editable} />
-      <BoundaryBox label="반영" value={step.impact} />
+    <div className="grid gap-2 rounded-lg border border-border bg-muted p-2 text-xs sm:grid-cols-2">
+      <EditImpactBox label="수정" value={step.editable} />
+      <EditImpactBox label="반영" value={step.impact} />
     </div>
   );
 }
 
-function BoundaryLine({ label, value }: { label: string; value: string }) {
+function EditImpactLine({ label, value }: { label: string; value: string }) {
   return (
     <p className="grid grid-cols-[32px_1fr] gap-1">
       <span className="font-bold text-slate-500">{label}</span>
@@ -734,7 +726,7 @@ function BoundaryLine({ label, value }: { label: string; value: string }) {
   );
 }
 
-function BoundaryBox({ label, value }: { label: string; value: string }) {
+function EditImpactBox({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-background px-3 py-2">
       <p className="font-bold text-muted-foreground">{label}</p>

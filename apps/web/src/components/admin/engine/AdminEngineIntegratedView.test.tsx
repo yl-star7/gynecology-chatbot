@@ -31,11 +31,11 @@ describe("AdminEngineIntegratedView", () => {
     expect(screen.getByText("반영 위치")).toBeInTheDocument();
     expect(screen.getByText("앱 미리보기")).toBeInTheDocument();
     expect(screen.getByText("편집")).toBeInTheDocument();
-    expect(screen.getAllByText("고정").length).toBeGreaterThan(0);
     expect(screen.getAllByText("수정").length).toBeGreaterThan(0);
     expect(screen.getAllByText("반영").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("흐름 순서").length).toBeGreaterThan(0);
     expect(screen.getAllByText("앱 첫 질문").length).toBeGreaterThan(0);
+    expect(screen.queryByText("고정")).not.toBeInTheDocument();
+    expect(screen.queryByText("흐름 순서")).not.toBeInTheDocument();
     expect(screen.queryByText(/fallback/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/mood_intake/)).not.toBeInTheDocument();
   });
@@ -93,8 +93,8 @@ describe("AdminEngineIntegratedView", () => {
     fireEvent.click(screen.getByRole("button", { name: "좋아요 문구 수정" }));
     expect(screen.getByText("좋아요 문구")).toBeInTheDocument();
     expect(screen.getAllByText("말풍선").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("기분 값").length).toBeGreaterThan(0);
     expect(screen.getAllByText("앱 답장").length).toBeGreaterThan(0);
+    expect(screen.queryByText("기분 값")).not.toBeInTheDocument();
     expect(screen.queryByText(/mood_intake/)).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("앱 말풍선"), {
