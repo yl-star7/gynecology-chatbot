@@ -28,12 +28,24 @@ export type MoodVariantScenario =
 export const MOOD_VARIANT_MOODS = [
   { value: "calm", label: "직접 말하고 싶어요" },
   { value: "joyful", label: "좋아요" },
-  { value: "anxious", label: "짜증나요" },
+  { value: "anxious", label: "화나요" },
   { value: "tired", label: "피곤해요" },
-  { value: "sad", label: "울적해요 / 슬퍼요" },
+  { value: "sad", label: "슬퍼요" },
 ] as const;
 
 export type MoodVariantMood = (typeof MOOD_VARIANT_MOODS)[number]["value"];
+
+export const MOOD_VARIANT_APP_BUTTON_COLUMNS: ReadonlyArray<{
+  id: string;
+  value: MoodVariantMood;
+  label: string;
+}> = [
+  { id: "joyful", value: "joyful", label: "좋아요" },
+  { id: "depressed", value: "sad", label: "우울해요" },
+  { id: "sad", value: "sad", label: "슬퍼요" },
+  { id: "angry", value: "anxious", label: "화나요" },
+  { id: "direct", value: "calm", label: "직접 말하고 싶어요" },
+];
 
 const SCENARIO_SET = new Set<string>(
   MOOD_VARIANT_SCENARIOS.map((item) => item.value),

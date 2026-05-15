@@ -43,12 +43,12 @@ describe("AdminEngineIntegratedView", () => {
   it("updates the preview and selection state when a mood button is selected", () => {
     render(<AdminEngineIntegratedView adminDisplayName="운영자" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "짜증나요" }));
+    fireEvent.click(screen.getByRole("button", { name: "화나요" }));
 
     expect(
       screen.getByText(/많이 답답하고 예민해진 상황이었나 봐요/),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "짜증나요" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "화나요" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );

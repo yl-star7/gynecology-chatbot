@@ -31,8 +31,25 @@ describe("AdminMoodVariantsSection", () => {
       screen.getAllByRole("columnheader", { name: "좋아요" }),
     ).toHaveLength(2);
     expect(
-      screen.getAllByRole("columnheader", { name: "울적해요 / 슬퍼요" }),
+      screen.getAllByRole("columnheader", { name: "우울해요" }),
     ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("columnheader", { name: "슬퍼요" }),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("columnheader", { name: "화나요" }),
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByRole("columnheader", {
+        name: "직접 말하고 싶어요",
+      }),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByRole("columnheader", { name: "짜증나요" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("columnheader", { name: "피곤해요" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("columnheader", { name: "기쁨" }),
     ).not.toBeInTheDocument();
@@ -78,7 +95,7 @@ describe("AdminMoodVariantsSection", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "아기 정보 제안 · 짜증나요" }),
+      screen.getByRole("heading", { name: "아기 정보 제안 · 화나요" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("프롬프트 보조 지침")).toHaveValue(
       "사용자의 짜증을 먼저 짧게 인정하세요.",

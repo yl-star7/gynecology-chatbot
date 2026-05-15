@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  MOOD_VARIANT_APP_BUTTON_COLUMNS,
   MOOD_VARIANT_MOODS,
   MOOD_VARIANT_SCENARIOS,
   type MoodVariantMood,
@@ -69,6 +70,7 @@ interface AdminMoodVariantsSectionProps {
 interface EditorState {
   scenario: MoodVariantScenario;
   mood: MoodVariantMood;
+  moodLabel: string;
   id: string | null;
   prompt_suffix: string;
   tone: string;
@@ -103,7 +105,7 @@ function truncate(value: string, length = 24): string {
 }
 
 type MoodVariantScenarioOption = (typeof MOOD_VARIANT_SCENARIOS)[number];
-type MoodVariantMoodOption = (typeof MOOD_VARIANT_MOODS)[number];
+type MoodVariantMoodColumn = (typeof MOOD_VARIANT_APP_BUTTON_COLUMNS)[number];
 
 const IMMEDIATE_OUTPUT_SCENARIOS = MOOD_VARIANT_SCENARIOS.filter(
   (scenario) => scenario.value === "mood_intake",
@@ -113,19 +115,19 @@ const PROMPT_GUIDANCE_SCENARIOS = MOOD_VARIANT_SCENARIOS.filter(
   (scenario) => scenario.value !== "mood_intake",
 );
 
-function getScenarioLabel(value: MoodVariantScenario) {
+function getScenarioLabel(value: MoodVariantScenario): string {
   return (
     MOOD_VARIANT_SCENARIOS.find((scenario) => scenario.value === value)
       ?.label ?? value
   );
 }
 
-function getMoodLabel(value: MoodVariantMood) {
+function getMoodLabel(value: MoodVariantMood): string {
   const mood = MOOD_VARIANT_MOODS.find((item) => item.value === value);
   return mood?.label ?? value;
 }
 
-function MoodColumnHeader({ mood }: { mood: MoodVariantMoodOption }) {
+function MoodColumnHeader({ mood }: { mood: MoodVariantMoodColumn }) {
   return <TableHead key={mood.value}>{mood.label}</TableHead>;
 }
 
@@ -185,7 +187,11 @@ function MoodVariantMatrixCard({
   scenarios: MoodVariantScenarioOption[];
   items: MoodVariantItem[];
   fallbackItems: MoodVariantFallbackItem[];
-  onOpenCell: (scenario: MoodVariantScenario, mood: MoodVariantMood) => void;
+  onOpenCell: (
+    scenario: MoodVariantScenario,
+    mood: MoodVariantMood,
+    moodLabel: string,
+  ) => void;
 }) {
   return (
     <Card className="shadow-sm">
@@ -202,8 +208,8 @@ function MoodVariantMatrixCard({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-40">시나리오</TableHead>
-                {MOOD_VARIANT_MOODS.map((mood) => (
-                  <MoodColumnHeader key={mood.value} mood={mood} />
+                {MOOD_VARIANT_APP_BUTTON_COLUMNS.map((mood) => (
+                  <MoodColumnHeader key={mood.id} mood={mood} />
                 ))}
               </TableRow>
             </TableHeader>
@@ -216,7 +222,7 @@ function MoodVariantMatrixCard({
                       {scenario.value}
                     </div>
                   </TableCell>
-                  {MOOD_VARIANT_MOODS.map((mood) => {
+                  {MOOD_VARIANT_APP_BUTTON_COLUMNS.map((mood) => {
                     const item = findItem(items, scenario.value, mood.value);
                     const fallback = item
                       ? null
@@ -227,10 +233,12 @@ function MoodVariantMatrixCard({
                         );
                     return (
                       <MoodVariantCellButton
-                        key={`${scenario.value}-${mood.value}`}
+                        key={`${scenario.value}-${mood.id}`}
                         item={item}
                         fallback={fallback}
-                        onClick={() => onOpenCell(scenario.value, mood.value)}
+                        onClick={() =>
+                          onOpenCell(scenario.value, mood.value, mood.label)
+                        }
                       />
                     );
                   })}
@@ -257,7 +265,11 @@ export default function AdminMoodVariantsSection({
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  function openCell(scenario: MoodVariantScenario, mood: MoodVariantMood) {
+  function openCell(
+    scenario: MoodVariantScenario,
+    mood: MoodVariantMood,
+    moodLabel = getMoodLabel(mood),
+  ) {
     const existing = findItem(items, scenario, mood);
     const fallback = existing
       ? null
@@ -265,6 +277,7 @@ export default function AdminMoodVariantsSection({
     setEditor({
       scenario,
       mood,
+      moodLabel,
       id: existing?.id ?? null,
       prompt_suffix: existing?.prompt_suffix ?? fallback?.prompt_suffix ?? "",
       tone: existing?.tone ?? "",
@@ -427,8 +440,7 @@ export default function AdminMoodVariantsSection({
                   변주 편집
                 </p>
                 <DialogTitle>
-                  {getScenarioLabel(editor.scenario)} ·{" "}
-                  {getMoodLabel(editor.mood)}
+                  {getScenarioLabel(editor.scenario)} · {editor.moodLabel}
                 </DialogTitle>
                 <DialogDescription>
                   {editor.scenario === "mood_intake"

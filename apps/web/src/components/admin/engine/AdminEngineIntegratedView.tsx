@@ -56,14 +56,6 @@ type FlowStep = {
 
 const MOOD_CHOICES: MoodChoice[] = [
   {
-    id: "direct",
-    label: "직접 말하고 싶어요",
-    moodKey: "calm",
-    tone: "직접 입력",
-    userMessage: "직접 말하고 싶어요",
-    assistantMessage: "나눠주신 감정 잘 들었어요. 천천히 이야기해도 괜찮아요.",
-  },
-  {
     id: "joyful",
     label: "좋아요",
     moodKey: "joyful",
@@ -73,11 +65,11 @@ const MOOD_CHOICES: MoodChoice[] = [
       "오늘 마음이 밝아서 다행이에요. 이 기분을 편하게 이어가봐요.",
   },
   {
-    id: "gloomy",
-    label: "울적해요",
+    id: "depressed",
+    label: "우울해요",
     moodKey: "sad",
-    tone: "울적함",
-    userMessage: "울적해요",
+    tone: "우울함",
+    userMessage: "우울해요",
     assistantMessage:
       "마음이 많이 가라앉은 느낌이네요. 천천히 같이 살펴볼게요.",
   },
@@ -92,12 +84,20 @@ const MOOD_CHOICES: MoodChoice[] = [
   },
   {
     id: "angry",
-    label: "짜증나요",
+    label: "화나요",
     moodKey: "anxious",
-    tone: "짜증",
-    userMessage: "짜증나요",
+    tone: "화남",
+    userMessage: "화나요",
     assistantMessage:
       "많이 답답하고 예민해진 상황이었나 봐요. 오늘은 부담을 조금 덜어내도 괜찮아요.",
+  },
+  {
+    id: "direct",
+    label: "직접 말하고 싶어요",
+    moodKey: "calm",
+    tone: "직접 입력",
+    userMessage: "직접 말하고 싶어요",
+    assistantMessage: "나눠주신 감정 잘 들었어요. 천천히 이야기해도 괜찮아요.",
   },
 ];
 
@@ -106,11 +106,11 @@ const INITIAL_FLOW_STEPS: FlowStep[] = [
     id: "app_buttons",
     label: "앱 버튼",
     title: "감정 선택",
-    body: "좋아요 · 울적해요 · 슬퍼요 · 짜증나요",
+    body: "좋아요 · 우울해요 · 슬퍼요 · 화나요 · 직접 말하고 싶어요",
     editable: "버튼 문구",
     impact: "앱 첫 질문",
     promptLabel: "버튼 문구",
-    promptText: "직접 말하고 싶어요\n좋아요\n울적해요\n슬퍼요\n짜증나요",
+    promptText: "좋아요\n우울해요\n슬퍼요\n화나요\n직접 말하고 싶어요",
     references: ["앱 첫 질문", "기분 선택 버튼"],
   },
   {
