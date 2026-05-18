@@ -29,6 +29,12 @@
 - [ ] `SCHIFT_API_KEY` 유효값 재설정 및 workflow 기반 채팅 응답 실검
 - [ ] Expo push notification 인증서 설정 (docs/PUSH_SETUP.md 참조)
 - [ ] pg_cron에 proactive trigger URL 교체 (내재화된 `/api/admin/proactive/trigger` 사용)
+- [ ] App Store 심사용 로그인 정보 준비
+  - App Store Connect > App Review Information에 전화번호 `01012345678`, 인증번호 `000000` 입력
+  - Review Notes에 "전화번호 인증 기반 앱이며, 심사용 번호는 SMS 없이 고정 인증번호로 로그인 가능" 안내
+  - 운영/심사용 백엔드 환경에 `GOOGLE_PLAY_REVIEW_PHONE_NUMBER=01012345678`, `GOOGLE_PLAY_REVIEW_CODE=000000` 설정 확인
+  - iOS production 빌드에서 전화번호 입력 → 인증번호 입력 → 시작하기 경로로 실제 로그인 smoke 확인
+  - 테스트 계정 정보는 `Info.plist`에 넣지 않는다. App Store Connect 심사 정보와 서버 bypass 환경값으로 관리한다.
 
 ## P2 — 메인 워크플로우 관리 (현황 확인)
 
