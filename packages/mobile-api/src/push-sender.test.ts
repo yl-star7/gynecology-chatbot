@@ -101,6 +101,45 @@ describe("sendDailyPushNotifications", () => {
     });
   });
 
+  test("uses due date as the push pregnancy week source of truth", async () => {
+    (Expo as unknown as { isExpoPushToken: jest.Mock }).isExpoPushToken =
+      jest.fn(() => true);
+    const expoInstance = (Expo as unknown as jest.Mock).mock.results.at(-1)
+      ?.value as {
+      sendPushNotificationsAsync: jest.Mock;
+    };
+    (dbSelect as jest.Mock).mockResolvedValue([
+      {
+        user_id: "user-1",
+        push_token: "ExponentPushToken[abc]",
+        due_date: "2026-08-01",
+        pregnancy_day_count: 195,
+        pregnancy_week: 27,
+        display_name: "김수연",
+        notification_time: "08:30",
+      },
+    ]);
+
+    const result = await sendDailyPushNotifications({
+      now: new Date("2026-05-27T00:00:00.000Z"),
+      timeZone: "Asia/Seoul",
+    });
+
+    expect(expoInstance.sendPushNotificationsAsync).toHaveBeenCalledWith([
+      expect.objectContaining({
+        body: "임신 30주차 오늘의 정보가 준비됐어요.",
+        data: { type: "daily_tip", pregnancyWeek: 30 },
+      }),
+    ]);
+    expect(result).toEqual({
+      sent: 1,
+      total: 1,
+      pushSent: 1,
+      smsSent: 0,
+      smsMocked: 0,
+    });
+  });
+
   test("sends scheduled pushes only to users whose notification time is due in Korea", async () => {
     (Expo as unknown as { isExpoPushToken: jest.Mock }).isExpoPushToken =
       jest.fn(() => true);

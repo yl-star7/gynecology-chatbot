@@ -2,7 +2,7 @@ import {
   addCalendarDays,
   createKoreanDateKey,
   createKoreanDateTime,
-} from "@gynecology-chatbot/app-core";
+} from "@gynecology-chatbot/app-core/time";
 
 const DEFAULT_NOTIFICATION_TIME = "08:30";
 const DEFAULT_ROLLING_NOTIFICATION_DAYS = 14;
@@ -170,6 +170,11 @@ function resolvePregnancyDayCount(input: {
   pregnancyDayCount?: number | null;
   pregnancyWeekLabel?: string | null;
 }) {
+  const parsed = parsePregnancyWeekParts(input.pregnancyWeekLabel);
+  if (parsed) {
+    return parsed.week * 7 + parsed.day;
+  }
+
   if (
     typeof input.pregnancyDayCount === "number" &&
     Number.isFinite(input.pregnancyDayCount) &&
@@ -178,8 +183,7 @@ function resolvePregnancyDayCount(input: {
     return input.pregnancyDayCount;
   }
 
-  const parsed = parsePregnancyWeekParts(input.pregnancyWeekLabel);
-  return parsed ? parsed.week * 7 + parsed.day : null;
+  return null;
 }
 
 function buildNextNotificationDate(input: {

@@ -1,4 +1,8 @@
 import Expo from "expo-server-sdk";
+import {
+  calculatePregnancyPositionFromDueDate,
+  createKoreanDateKey,
+} from "@gynecology-chatbot/app-core/time";
 import { dbSelect } from "./db/admin-client";
 import { decryptPhoneNumber } from "./privacy/phone-crypto";
 import { sendSmsMessage } from "./solapi-sms";
@@ -10,6 +14,8 @@ const DEFAULT_NOTIFICATION_TIME_ZONE = "Asia/Seoul";
 type PushTargetRow = {
   user_id: string;
   push_token: string | null;
+  due_date: string | Date | null;
+  pregnancy_day_count: number | null;
   pregnancy_week: number | null;
   display_name: string | null;
   notification_time: string | null;
@@ -69,17 +75,53 @@ function filterTargetsForScheduledDelivery(
   );
 }
 
+function readDateKey(value: string | Date | null) {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  const match = value.match(/^\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : null;
+}
+
+function resolveTargetPregnancyWeek(target: PushTargetRow, now: Date) {
+  const dueDate = readDateKey(target.due_date);
+  if (dueDate) {
+    return calculatePregnancyPositionFromDueDate(
+      dueDate,
+      createKoreanDateKey(now),
+    ).weekNumber;
+  }
+
+  if (
+    typeof target.pregnancy_day_count === "number" &&
+    Number.isFinite(target.pregnancy_day_count) &&
+    target.pregnancy_day_count > 0
+  ) {
+    return Math.max(1, Math.floor(target.pregnancy_day_count / 7));
+  }
+
+  return target.pregnancy_week;
+}
+
 export async function sendDailyPushNotifications(
   options: SendDailyPushNotificationsOptions = {},
 ) {
+  const now = options.now ?? new Date();
   // 1. Query notification-enabled targets.
   const allTargets = (
     await dbSelect<PushTargetRow[]>(
-      "pregnancy_profiles?select=user_id,push_token,pregnancy_week,display_name,notification_time&notification_enabled=eq.true",
+      "pregnancy_profiles?select=user_id,push_token,due_date,pregnancy_day_count,pregnancy_week,display_name,notification_time&notification_enabled=eq.true",
     )
   ).map((target) => ({
     user_id: target.user_id,
     push_token: target.push_token,
+    due_date: target.due_date,
+    pregnancy_day_count: target.pregnancy_day_count,
     pregnancy_week: target.pregnancy_week,
     display_name: target.display_name,
     notification_time: target.notification_time
@@ -94,17 +136,20 @@ export async function sendDailyPushNotifications(
   const pushTargets = targets.filter(
     (target) => target.push_token && Expo.isExpoPushToken(target.push_token),
   );
-  const messages = pushTargets.map((target) => ({
-    to: target.push_token!,
-    sound: "default" as const,
-    title: target.display_name
-      ? `${target.display_name}님, 오늘도 좋은 하루 보내세요`
-      : "오늘도 좋은 하루 보내세요",
-    body: target.pregnancy_week
-      ? `임신 ${target.pregnancy_week}주차 오늘의 정보가 준비됐어요.`
-      : "오늘의 임신 정보를 확인해보세요.",
-    data: { type: "daily_tip", pregnancyWeek: target.pregnancy_week },
-  }));
+  const messages = pushTargets.map((target) => {
+    const pregnancyWeek = resolveTargetPregnancyWeek(target, now);
+    return {
+      to: target.push_token!,
+      sound: "default" as const,
+      title: target.display_name
+        ? `${target.display_name}님, 오늘도 좋은 하루 보내세요`
+        : "오늘도 좋은 하루 보내세요",
+      body: pregnancyWeek
+        ? `임신 ${pregnancyWeek}주차 오늘의 정보가 준비됐어요.`
+        : "오늘의 임신 정보를 확인해보세요.",
+      data: { type: "daily_tip", pregnancyWeek },
+    };
+  });
 
   // 3. Send push notifications in chunks.
   const chunks = expo.chunkPushNotifications(messages);
@@ -148,8 +193,9 @@ export async function sendDailyPushNotifications(
       }
 
       try {
-        const body = target.pregnancy_week
-          ? `임신 ${target.pregnancy_week}주차 오늘의 정보가 준비됐어요. 앱에서 확인해주세요.`
+        const pregnancyWeek = resolveTargetPregnancyWeek(target, now);
+        const body = pregnancyWeek
+          ? `임신 ${pregnancyWeek}주차 오늘의 정보가 준비됐어요. 앱에서 확인해주세요.`
           : "오늘의 임신 정보를 확인해보세요.";
         const smsResult = await sendSmsMessage(phoneNumber, body);
         if (smsResult.sid.startsWith("mock-")) {

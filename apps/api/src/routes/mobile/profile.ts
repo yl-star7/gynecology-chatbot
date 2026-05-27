@@ -3,6 +3,8 @@ import {
   calculatePregnancyPositionFromDueDate,
   DEFAULT_MOBILE_THEME_KEY,
   createKoreanDateKey,
+  diffCalendarDays,
+  PREGNANCY_TERM_DAYS,
   resolveMobileThemeKey,
 } from "@gynecology-chatbot/app-core";
 import {
@@ -178,6 +180,21 @@ function resolveCurrentPregnancyPosition(profile: ProfileRow | null) {
     week: profile.pregnancy_week,
     dayInWeek: profile.pregnancy_day_in_week ?? 0,
   };
+}
+
+function resolveCurrentPregnancyDayCount(profile: ProfileRow | null) {
+  if (profile?.due_date) {
+    const pregnancyDayCount =
+      PREGNANCY_TERM_DAYS - diffCalendarDays(profile.due_date, getKstDateKey());
+    return Math.max(0, Math.min(PREGNANCY_TERM_DAYS, pregnancyDayCount));
+  }
+
+  const position = resolveCurrentPregnancyPosition(profile);
+  if (position) {
+    return position.week * 7 + position.dayInWeek;
+  }
+
+  return profile?.pregnancy_day_count ?? 0;
 }
 
 function formatPregnancyWeekLabel(profile: ProfileRow | null) {
@@ -367,7 +384,7 @@ app.get("/", async (c) => {
         displayName: profile?.display_name ?? "사용자",
         phoneNumber: decryptPhoneNumber(user.phone_number_encrypted),
         pregnancyWeekLabel: formatPregnancyWeekLabel(profile),
-        pregnancyDayCount: profile?.pregnancy_day_count ?? 0,
+        pregnancyDayCount: resolveCurrentPregnancyDayCount(profile),
         accountStatus: user.account_status,
         hasCompletedOnboarding: hasCompletedProfileOnboarding(profile),
         dueDate: profile?.due_date ?? null,

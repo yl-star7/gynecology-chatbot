@@ -321,6 +321,7 @@ describe("GET /api/mobile/profile", () => {
       profile: {
         userId: "user-1",
         pregnancyWeekLabel: "27주 3일",
+        pregnancyDayCount: 192,
         pendingSurveys: [
           {
             id: "question-27",

@@ -103,6 +103,21 @@ test("buildRollingDailyLocalNotificationRequests can derive day count from a wee
   );
 });
 
+test("buildRollingDailyLocalNotificationRequests prefers the current week label over a stale day count", () => {
+  const requests = buildRollingDailyLocalNotificationRequests({
+    notificationTime: "09:00",
+    pregnancyWeekLabel: "30주 1일",
+    pregnancyDayCount: 195,
+    now: new Date(2026, 3, 15, 10, 0),
+    days: 2,
+  });
+
+  assert.deepEqual(
+    requests.map((request) => request.title),
+    ["[30주차] 오늘은 어때요?", "[30주차] 오늘은 어때요?"],
+  );
+});
+
 test("buildRollingDailyLocalNotificationRequests keeps early pregnancy at week one", () => {
   const requests = buildRollingDailyLocalNotificationRequests({
     notificationTime: "09:00",
