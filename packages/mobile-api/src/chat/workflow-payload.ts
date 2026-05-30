@@ -209,6 +209,18 @@ function stripMalformedEmbeddedPayload(value: string) {
   return [before, after].filter(Boolean).join("\n\n").trim();
 }
 
+function stringifyObjectPayload(value: unknown): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return null;
+  }
+}
+
 export function parseWorkflowAssistantPayload(
   outputs: Record<string, unknown> | undefined,
 ): WorkflowAssistantPayload | null {
@@ -226,7 +238,7 @@ export function parseWorkflowAssistantPayload(
       ? nestedResult.text
       : typeof nestedResult?.answer === "string"
         ? nestedResult.answer
-        : null;
+        : stringifyObjectPayload(nestedResult?.answer);
 
   const directAnswer =
     typeof outputs.answer === "string"

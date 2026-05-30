@@ -80,6 +80,63 @@ describe("workflow payload", () => {
     );
   });
 
+  it("unwraps direct Schift result answer workflow payloads", () => {
+    const payload = parseWorkflowAssistantPayload({
+      result: {
+        answer: JSON.stringify({
+          answer: "몸에게 조금만 기다려 달라고 말해주고 싶으시군요.",
+          characterTone: "calm",
+          scenario: "empathy_chat",
+          guardrailStatus: "safe",
+          nextSessionMemory: {
+            stage: 2,
+            stageName: "choice_conversation",
+            compactSummary: "현재 단계: 편지 공감 대화",
+            lastScenario: "empathy_chat",
+            lastCharacterTone: "calm",
+            currentAttachmentQuestionId:
+              "d208761a-e24f-40e0-a00b-237ec161a362",
+          },
+        }),
+      },
+    });
+
+    expect(payload).toEqual(
+      expect.objectContaining({
+        answer: "몸에게 조금만 기다려 달라고 말해주고 싶으시군요.",
+        characterTone: "calm",
+        scenario: "empathy_chat",
+        guardrailStatus: "safe",
+      }),
+    );
+    expect(payload?.nextSessionMemory).toMatchObject({
+      stage: 2,
+      currentAttachmentQuestionId: "d208761a-e24f-40e0-a00b-237ec161a362",
+    });
+  });
+
+  it("unwraps pre-parsed Schift result answer objects", () => {
+    const payload = parseWorkflowAssistantPayload({
+      result: {
+        answer: {
+          answer: "조금 더 기다려 달라는 마음을 들려주고 싶으시군요.",
+          characterTone: "calm",
+          scenario: "empathy_chat",
+          guardrailStatus: "safe",
+        },
+      },
+    });
+
+    expect(payload).toEqual(
+      expect.objectContaining({
+        answer: "조금 더 기다려 달라는 마음을 들려주고 싶으시군요.",
+        characterTone: "calm",
+        scenario: "empathy_chat",
+        guardrailStatus: "safe",
+      }),
+    );
+  });
+
   it("keeps plain Schift result text as the assistant answer", () => {
     const payload = parseWorkflowAssistantPayload({
       result: {
