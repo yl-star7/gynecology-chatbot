@@ -289,7 +289,7 @@ export async function summarizeMobileChatSession(input: {
 
   const text = await generateGoogleText({
     apiKey: getGoogleApiKey(),
-    model: "gemini-2.5-flash-lite",
+    model: "gemini-3.1-flash-lite",
     maxOutputTokens: SESSION_SUMMARY_MAX_CHARS,
     prompt: [
       "아래는 임산부와 아가야(간호사 캐릭터)의 대화예요.",

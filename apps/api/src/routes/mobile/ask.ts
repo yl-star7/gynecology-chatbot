@@ -15,7 +15,7 @@ const SCHIFT_COLLECTION = "pregnancy-knowledge";
 const SCHIFT_TOP_K = 10;
 const CONTEXT_LIMIT = 5;
 const SCHIFT_TIMEOUT_MS = 5_000;
-const GEMINI_MODEL = "gemini-2.5-flash-lite";
+const GEMINI_MODEL = "gemini-3.1-flash-lite";
 const MAX_QUERY_LENGTH = 1_000;
 
 type AskSource = {

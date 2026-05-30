@@ -82,7 +82,7 @@ export async function runProactiveChatForEligibleUsers(): Promise<{
       // 3. Generate personalized message via Gemini
       const text = await generateGoogleText({
         apiKey: getGoogleApiKey(),
-        model: "gemini-2.0-flash",
+        model: "gemini-3.1-flash-lite",
         prompt: [
           `당신은 임산부 돌봄 어시스턴트입니다.`,
           `사용자의 임신 ${pregnancyWeek}주차에 맞는 짧은 안부 메시지를 한국어로 작성하세요.`,

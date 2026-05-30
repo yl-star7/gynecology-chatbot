@@ -7,7 +7,7 @@ import {
 } from "./content-paraphrase-sync.mjs";
 
 const artifact = {
-  model: "gemini-3.1-flash-lite-preview",
+  model: "gemini-3.1-flash-lite",
   usageMetadata: {
     promptTokenCount: 1000,
     candidatesTokenCount: 2000,
@@ -58,7 +58,7 @@ test("buildParaphraseRows maps Gemini output to run and item rows", () => {
     promptVersion: "weekly-encyclopedia-v1",
   });
 
-  assert.equal(rows.run.model, "gemini-3.1-flash-lite-preview");
+  assert.equal(rows.run.model, "gemini-3.1-flash-lite");
   assert.equal(rows.run.promptVersion, "weekly-encyclopedia-v1");
   assert.equal(rows.run.targetWeekNumber, 19);
   assert.equal(rows.run.status, "completed");

@@ -1,5 +1,5 @@
 /**
- * 가톨릭 SI 간호학 교재 v3 ingest — gemini-2.5-flash-lite vision OCR 로 깨끗하게 추출.
+ * 가톨릭 SI 간호학 교재 v3 ingest — gemini-3.1-flash-lite vision OCR 로 깨끗하게 추출.
  *
  * 배경:
  * - v1 (ODL): 한글 spacing 손실, 그러나 column 흐름은 정상
@@ -141,7 +141,7 @@ async function ocrPage(imagePath: string): Promise<string> {
   const genai = await genaiPromise;
 
   const response = await genai.models.generateContent({
-    model: "gemini-2.5-flash-lite",
+    model: "gemini-3.1-flash-lite",
     contents: [
       VISION_PROMPT,
       {
@@ -245,7 +245,7 @@ async function uploadChapter(
     pages: c.pages,
     unit: c.unit,
     section: c.section,
-    extractor: "gemini-2.5-flash-lite",
+    extractor: "gemini-3.1-flash-lite",
     page_count: String(pageCount),
     lang: "ko",
   };

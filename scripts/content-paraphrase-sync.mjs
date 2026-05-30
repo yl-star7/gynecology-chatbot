@@ -39,7 +39,7 @@ function makeBaseItem(artifact, options) {
     sourceWeekNumber: output.week_number,
     status: output.status ?? "needs_review",
     isActive: false,
-    model: artifact.model ?? "gemini-3.1-flash-lite-preview",
+    model: artifact.model ?? "gemini-3.1-flash-lite",
     promptVersion: options.promptVersion,
   };
 }
@@ -53,7 +53,7 @@ export function buildParaphraseRows(
   const items = [];
 
   const run = {
-    model: artifact.model ?? "gemini-3.1-flash-lite-preview",
+    model: artifact.model ?? "gemini-3.1-flash-lite",
     promptVersion: options.promptVersion,
     scope: "week",
     targetWeekNumber: output.week_number,

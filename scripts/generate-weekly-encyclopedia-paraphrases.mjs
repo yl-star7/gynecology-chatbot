@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { Client } from "pg";
 
-const MODEL = "gemini-3.1-flash-lite-preview";
+const MODEL = "gemini-3.1-flash-lite";
 const PROMPT_VERSION = "weekly-encyclopedia-v2.1";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const INPUT_USD_PER_MILLION = 0.1;

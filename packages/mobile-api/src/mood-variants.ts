@@ -111,7 +111,7 @@ export async function classifyMoodToneWithLlm(input: {
   try {
     const result = await (input.generate ?? generateGoogleText)({
       apiKey,
-      model: "gemini-2.5-flash-lite",
+      model: "gemini-3.1-flash-lite",
       prompt: [
         "임산부 앱의 감정 확인 단계입니다.",
         "사용자 문장을 아래 라벨 중 하나로만 분류하세요.",

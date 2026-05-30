@@ -104,7 +104,7 @@ def batch_rewrite(messages: list[dict], batch_size: int = 25) -> list[dict]:
 
         try:
             response = client.models.generate_content(
-                model="gemini-3.1-flash-lite-preview",
+                model="gemini-3.1-flash-lite",
                 contents=SYSTEM_PROMPT + "\n\n" + user_prompt,
                 config=types.GenerateContentConfig(
                     temperature=0.3,

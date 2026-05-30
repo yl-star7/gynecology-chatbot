@@ -689,7 +689,7 @@ describe("chat repository", () => {
       expect.arrayContaining([
         expect.objectContaining({
           role: "assistant",
-          model_name: "gemini-2.5-flash-lite",
+          model_name: "gemini-3.1-flash-lite",
         }),
       ]),
     );

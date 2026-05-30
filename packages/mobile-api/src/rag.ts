@@ -11,12 +11,12 @@ const ACTIVE_TEXTBOOK_SOURCE = "catholic_si_textbook_v3";
 
 /**
  * Query rewriting 활성화 여부. RAG_QUERY_REWRITE=1 로 켜면 사용자 query 를 임상/학술
- * 용어로 확장한 뒤 retrieval. 비용은 호출당 약 $0.0001 (gemini-2.5-flash-lite).
+ * 용어로 확장한 뒤 retrieval. 비용은 호출당 약 $0.0001 (gemini-3.1-flash-lite).
  * GEMINI_API_KEY 가 없거나 호출 실패시 원본 query 그대로 사용 (graceful fallback).
  */
 const QUERY_REWRITE_ENABLED = process.env.RAG_QUERY_REWRITE === "1";
 const QUERY_REWRITE_TIMEOUT_MS = 1500;
-const QUERY_REWRITE_MODEL = "gemini-2.5-flash-lite";
+const QUERY_REWRITE_MODEL = "gemini-3.1-flash-lite";
 const SCHIFT_EMBEDDINGS_URL =
   process.env.SCHIFT_EMBEDDINGS_URL ?? "https://embed.schift.io/embeddings";
 
