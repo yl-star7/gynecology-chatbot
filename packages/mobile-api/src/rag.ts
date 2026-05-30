@@ -1,4 +1,4 @@
-import { dbSelect } from "./db/admin-client";
+import { dbRpc, dbSelect } from "./db/admin-client";
 import { getSchiftClient } from "./schift-client";
 
 type DisabledFileRow = { id: string };
@@ -69,6 +69,7 @@ export class RagSearchError extends Error {
 
 const PGVECTOR_DIMENSION = 1024;
 const FILE_RAG_TIMEOUT_MS = 5000;
+const FILE_RAG_CONTEXT_LIMIT = 700;
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
@@ -149,6 +150,70 @@ function normalizeSchiftSearchResults(response: unknown): SchiftSearchResult[] {
   }
 
   return [];
+}
+
+function mapDbDocumentRow(row: RagDocumentRow): RagDocumentRow {
+  return {
+    id: row.id,
+    title: row.title,
+    content: applyOcrTypoFixes(row.content ?? ""),
+    pregnancy_week: row.pregnancy_week,
+    category: row.category,
+    metadata: row.metadata ?? null,
+    similarity:
+      typeof row.similarity === "number" && Number.isFinite(row.similarity)
+        ? row.similarity
+        : 0,
+  };
+}
+
+async function searchDbPregnancyDocuments(input: {
+  currentWeek: number | null;
+  matchCount: number;
+}): Promise<RagDocumentRow[]> {
+  const rows = await dbRpc<RagDocumentRow[]>("match_pregnancy_documents", {
+    current_week: input.currentWeek,
+    match_count: input.matchCount,
+  });
+  return rows.map(mapDbDocumentRow);
+}
+
+function formatFileRagFromDocuments(documents: RagDocumentRow[]): RagSearchResult {
+  const filtered = documents.filter((document) => document.content.trim());
+  if (filtered.length === 0) return { context: "", sources: [] };
+
+  const sources: RagSource[] = filtered.map((document) => ({
+    fileId: document.id,
+    filename:
+      typeof document.metadata?.source === "string"
+        ? document.metadata.source
+        : typeof document.metadata?.filename === "string"
+          ? document.metadata.filename
+          : "content_pregnancy_documents",
+    chunkTitle: document.title || document.category || document.id,
+    similarity: document.similarity,
+  }));
+
+  const context = filtered
+    .map((document, index) =>
+      [
+        `[참고 ${index + 1}] ${document.title || document.category || document.id}`,
+        `출처: ${sources[index]?.filename ?? "content_pregnancy_documents"}`,
+        `유사도: ${document.similarity.toFixed(3)}`,
+        document.content.slice(0, FILE_RAG_CONTEXT_LIMIT),
+      ].join("\n"),
+    )
+    .join("\n\n");
+
+  return { context, sources };
+}
+
+export async function searchDbFileRag(input: {
+  currentWeek: number | null;
+  matchCount: number;
+}): Promise<RagSearchResult> {
+  const documents = await searchDbPregnancyDocuments(input);
+  return formatFileRagFromDocuments(documents);
 }
 
 function parseWeekFromFilename(name: string | undefined): number | null {
@@ -369,14 +434,36 @@ export async function retrievePregnancyContext(input: {
   const count = input.matchCount ?? 7;
 
   try {
-    return await searchViaSchift(input.query, input.currentWeek, count);
+    const documents = await searchViaSchift(input.query, input.currentWeek, count);
+    if (documents.length > 0) return documents;
   } catch (error) {
+    const documents = await searchDbPregnancyDocuments({
+      currentWeek: input.currentWeek,
+      matchCount: count,
+    });
+    if (documents.length > 0) {
+      console.info(
+        JSON.stringify({
+          event: "schift_rag_db_recovery",
+          reason: getErrorMessage(error),
+          currentWeek: input.currentWeek,
+          count: documents.length,
+        }),
+      );
+      return documents;
+    }
+
     console.warn("Schift RAG search failed:", error);
     throw new RagSearchError(
       `Schift RAG search failed: ${getErrorMessage(error)}`,
       { cause: error },
     );
   }
+
+  return searchDbPregnancyDocuments({
+    currentWeek: input.currentWeek,
+    matchCount: count,
+  });
 }
 
 export async function embedPregnancyDocument(
@@ -438,10 +525,13 @@ export async function searchFileRag(input: {
   if (!input.query.trim()) return { context: "", sources: [] };
 
   const schift = getSchiftClient();
-  if (!schift) throw new Error("Schift client not configured");
 
   const count = input.matchCount ?? 7;
   const currentWeek = input.currentWeek ?? null;
+
+  if (!schift) {
+    return searchDbFileRag({ currentWeek, matchCount: count });
+  }
 
   try {
     // Step 1: query rewriting (env-gated).
@@ -503,7 +593,9 @@ export async function searchFileRag(input: {
       .filter((r) => !isResultFromDisabledFile(r, disabledIds))
       .slice(0, count);
 
-    if (filtered.length === 0) return { context: "", sources: [] };
+    if (filtered.length === 0) {
+      return searchDbFileRag({ currentWeek, matchCount: count });
+    }
 
     const sources: RagSource[] = filtered.map((r) => ({
       fileId: typeof r.metadata?.fileId === "string" ? r.metadata.fileId : r.id,
@@ -541,13 +633,26 @@ export async function searchFileRag(input: {
           `[참고 ${i + 1}] ${title}`,
           `출처: ${filename}`,
           `유사도: ${r.score.toFixed(3)}`,
-          content.slice(0, 700),
+          content.slice(0, FILE_RAG_CONTEXT_LIMIT),
         ].join("\n");
       })
       .join("\n\n");
 
     return { context, sources };
   } catch (error) {
+    const dbResult = await searchDbFileRag({ currentWeek, matchCount: count });
+    if (dbResult.context.trim()) {
+      console.info(
+        JSON.stringify({
+          event: "file_rag_db_recovery",
+          reason: getErrorMessage(error),
+          currentWeek,
+          contextCount: dbResult.sources.length,
+        }),
+      );
+      return dbResult;
+    }
+
     console.warn("File RAG search failed:", error);
     throw new RagSearchError(
       `File RAG search failed: ${getErrorMessage(error)}`,

@@ -1,8 +1,13 @@
 const generateGoogleTextMock = jest.fn();
 const schiftSearchMock = jest.fn();
+const searchDbFileRagMock = jest.fn();
 
 jest.mock("@gynecology-chatbot/mobile-api/text-generation", () => ({
   generateGoogleText: (...args: unknown[]) => generateGoogleTextMock(...args),
+}));
+
+jest.mock("@gynecology-chatbot/mobile-api/rag", () => ({
+  searchDbFileRag: (...args: unknown[]) => searchDbFileRagMock(...args),
 }));
 
 jest.mock("@/lib/mobile/schift-client", () => ({
@@ -84,6 +89,10 @@ beforeEach(() => {
       },
     ],
   });
+  searchDbFileRagMock.mockResolvedValue({
+    context: "",
+    sources: [],
+  });
   generateGoogleTextMock.mockResolvedValue(
     "## 답변\n20주차에는 태동이 점점 또렷해져요.\n- 하루 한 번 태동을 기록해보세요.",
   );
@@ -150,10 +159,22 @@ describe("POST /api/mobile/ask", () => {
     expect(generateGoogleTextMock).not.toHaveBeenCalled();
   });
 
-  test("still answers when Schift returns nothing", async () => {
+  test("uses database RAG context when Schift returns nothing", async () => {
     schiftSearchMock.mockResolvedValueOnce({ results: [] });
+    searchDbFileRagMock.mockResolvedValueOnce({
+      context:
+        "[참고 1] 태동 기록 안내\n출처: db\n유사도: 0.980\n태동이 평소보다 줄거나 달라졌다면 병원에 문의해요.\n\n빈 줄이 있어도 같은 자료예요.",
+      sources: [
+        {
+          fileId: "db-doc-1",
+          filename: "db",
+          chunkTitle: "태동 기록 안내",
+          similarity: 0.98,
+        },
+      ],
+    });
     generateGoogleTextMock.mockResolvedValueOnce(
-      "자료가 부족해요. 가까운 병원이나 전문가와 상담해 보시는 걸 권해요.",
+      "태동이 평소보다 줄거나 달라졌다면 병원에 문의해요.",
     );
 
     const response = await POST(
@@ -167,7 +188,16 @@ describe("POST /api/mobile/ask", () => {
       answer: string;
       sources: unknown[];
     };
-    expect(payload.answer).toContain("병원");
-    expect(payload.sources).toEqual([]);
+    expect(payload.answer).toContain("태동");
+    expect(payload.sources).toEqual([
+      expect.objectContaining({
+        title: "태동 기록 안내",
+        snippet: expect.stringContaining("태동이 평소보다 줄거나"),
+      }),
+    ]);
+    expect(searchDbFileRagMock).toHaveBeenCalledWith({
+      currentWeek: null,
+      matchCount: 5,
+    });
   });
 });

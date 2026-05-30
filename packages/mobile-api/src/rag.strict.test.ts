@@ -4,6 +4,7 @@ const mockDbSelect = jest.fn(
     { key: "rag_provider", value: { ragProvider: "schift" } },
   ],
 );
+const mockDbRpc = jest.fn(async () => []);
 
 jest.mock("./schift-client", () => ({
   getSchiftClient: () => ({ search: mockSearch }),
@@ -12,7 +13,7 @@ jest.mock("./schift-client", () => ({
 jest.mock("@/lib/db/admin-client", () => ({
   dbSelect: (path: string, options?: unknown) =>
     mockDbSelect(path, options),
-  dbRpc: jest.fn(),
+  dbRpc: (fn: string, payload: unknown) => mockDbRpc(fn, payload),
 }));
 import { retrievePregnancyContext, searchFileRag } from "./rag";
 
@@ -26,6 +27,8 @@ describe("retrievePregnancyContext strict configuration", () => {
     mockDbSelect.mockResolvedValue([
       { key: "rag_provider", value: { ragProvider: "schift" } },
     ]);
+    mockDbRpc.mockReset();
+    mockDbRpc.mockResolvedValue([]);
 
     if (originalGemini === undefined) {
       delete process.env.GEMINI_API_KEY;
@@ -124,22 +127,90 @@ describe("retrievePregnancyContext strict configuration", () => {
     });
   });
 
-  it("surfaces Schift retrieval failures instead of returning empty context", async () => {
+  it("uses database pregnancy documents when Schift retrieval fails", async () => {
     mockSearch.mockRejectedValue(new Error("Bucket search failed"));
+    mockDbRpc.mockResolvedValue([
+      {
+        id: "db-doc-1",
+        title: "조산 위험 신호",
+        content: "태동 감소와 양수 유출 의심은 의료기관 상담이 필요해요.",
+        pregnancy_week: null,
+        category: "warning-signs",
+        metadata: { source: "db" },
+        similarity: 0.78,
+      },
+    ]);
 
     await expect(
       retrievePregnancyContext({
         query: "입덧이 심해요",
         currentWeek: 10,
       }),
-    ).rejects.toThrow("Bucket search failed");
+    ).resolves.toEqual([
+      expect.objectContaining({
+        id: "db-doc-1",
+        content: "태동 감소와 양수 유출 의심은 의료기관 상담이 필요해요.",
+      }),
+    ]);
   });
 
-  it("surfaces file RAG failures instead of falling back to empty context", async () => {
-    mockSearch.mockRejectedValue(new Error("Bucket search failed"));
+  it("uses database file RAG context when Schift search returns no results", async () => {
+    mockSearch.mockResolvedValue({
+      collection: "pregnancy-knowledge",
+      results: [],
+    });
+    mockDbSelect.mockResolvedValue([]);
+    mockDbRpc.mockResolvedValue([
+      {
+        id: "db-doc-2",
+        title: "37주차 태동",
+        content: "37주차에도 태동의 양상과 빈도를 살피는 것이 좋아요.",
+        pregnancy_week: 37,
+        category: "week-guide",
+        metadata: { source: "db" },
+        similarity: 0.98,
+      },
+    ]);
 
-    await expect(searchFileRag({ query: "오심과 구토" })).rejects.toThrow(
-      "Bucket search failed",
-    );
+    await expect(
+      searchFileRag({ query: "태동이 강해요", currentWeek: 37 }),
+    ).resolves.toEqual({
+      context: expect.stringContaining("37주차에도 태동"),
+      sources: [
+        expect.objectContaining({
+          fileId: "db-doc-2",
+          filename: "db",
+          chunkTitle: "37주차 태동",
+          similarity: 0.98,
+        }),
+      ],
+    });
+  });
+
+  it("uses database file RAG context when Schift search fails", async () => {
+    mockSearch.mockRejectedValue(new Error("Bucket search failed"));
+    mockDbRpc.mockResolvedValue([
+      {
+        id: "db-doc-3",
+        title: "오심과 구토",
+        content: "오심과 구토가 심하면 탈수 여부를 확인해야 해요.",
+        pregnancy_week: 10,
+        category: "symptom-guide",
+        metadata: { source: "db" },
+        similarity: 0.98,
+      },
+    ]);
+
+    await expect(searchFileRag({ query: "오심과 구토" })).resolves.toEqual({
+      context: expect.stringContaining(
+        "오심과 구토가 심하면 탈수 여부를 확인해야 해요.",
+      ),
+      sources: [
+        expect.objectContaining({
+          fileId: "db-doc-3",
+          filename: "db",
+        }),
+      ],
+    });
   });
 });

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 
 import { getSchiftClient } from "@gynecology-chatbot/mobile-api/schift-client";
 import { checkRateLimit } from "@gynecology-chatbot/mobile-api/rate-limit";
+import { searchDbFileRag } from "@gynecology-chatbot/mobile-api/rag";
 import { generateGoogleText } from "@gynecology-chatbot/mobile-api/text-generation";
 import {
   mobileRouteErrorResponse,
@@ -90,6 +91,25 @@ function snippetFromText(text: string, limit = 220) {
   const normalized = text.replace(/\s+/g, " ").trim();
   if (normalized.length <= limit) return normalized;
   return `${normalized.slice(0, limit).trim()}…`;
+}
+
+function buildContextBlocksFromDbRag(context: string) {
+  return context
+    .split(/(?=^\[참고\s+\d+\]\s*)/m)
+    .map((block, index) => {
+      const lines = block
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const title =
+        lines[0]?.replace(/^\[참고\s+\d+\]\s*/, "").trim() ||
+        `참고 자료 ${index + 1}`;
+      return {
+        title,
+        text: lines.join("\n"),
+      };
+    })
+    .filter((block) => block.text.length > 0);
 }
 
 async function searchKnowledge(
@@ -232,9 +252,31 @@ app.post("/", async (c) => {
     const searchStartMs = Date.now();
     const results = await searchKnowledge(query, currentWeek);
     const searchDurationMs = Date.now() - searchStartMs;
-    const contextBlocks = results
+    let contextBlocks = results
       .map((result) => pickTextFromMetadata(result.metadata))
       .filter((block) => block.text.length > 0);
+
+    if (contextBlocks.length === 0) {
+      try {
+        const dbRag = await searchDbFileRag({
+          currentWeek,
+          matchCount: CONTEXT_LIMIT,
+        });
+        contextBlocks = buildContextBlocksFromDbRag(dbRag.context);
+        if (contextBlocks.length > 0) {
+          console.info(
+            JSON.stringify({
+              event: "mobile_ask_db_rag_recovery",
+              userId,
+              currentWeek,
+              sourceCount: dbRag.sources.length,
+            }),
+          );
+        }
+      } catch (error) {
+        console.warn("ask route: DB RAG recovery failed", error);
+      }
+    }
 
     console.info(
       JSON.stringify({
