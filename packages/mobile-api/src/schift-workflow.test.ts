@@ -53,10 +53,37 @@ describe("resolveSchiftWorkflowId", () => {
 });
 
 describe("runSchiftWorkflow", () => {
+  const originalSchiftApiKey = process.env.SCHIFT_API_KEY;
+  const originalPollInterval = process.env.SCHIFT_WORKFLOW_POLL_INTERVAL_MS;
+  const originalRunTimeout = process.env.SCHIFT_WORKFLOW_RUN_TIMEOUT_MS;
+
   beforeEach(() => {
     mockedListSchiftWorkflows.mockReset();
     clearSchiftWorkflowOutputBlockCacheForTests();
     jest.restoreAllMocks();
+    process.env.SCHIFT_API_KEY = "test-key";
+    process.env.SCHIFT_WORKFLOW_POLL_INTERVAL_MS = "0";
+    process.env.SCHIFT_WORKFLOW_RUN_TIMEOUT_MS = "1000";
+  });
+
+  afterEach(() => {
+    if (originalSchiftApiKey === undefined) {
+      delete process.env.SCHIFT_API_KEY;
+    } else {
+      process.env.SCHIFT_API_KEY = originalSchiftApiKey;
+    }
+
+    if (originalPollInterval === undefined) {
+      delete process.env.SCHIFT_WORKFLOW_POLL_INTERVAL_MS;
+    } else {
+      process.env.SCHIFT_WORKFLOW_POLL_INTERVAL_MS = originalPollInterval;
+    }
+
+    if (originalRunTimeout === undefined) {
+      delete process.env.SCHIFT_WORKFLOW_RUN_TIMEOUT_MS;
+    } else {
+      process.env.SCHIFT_WORKFLOW_RUN_TIMEOUT_MS = originalRunTimeout;
+    }
   });
 
   it("requires an explicit workflow id", async () => {
@@ -119,6 +146,93 @@ describe("runSchiftWorkflow", () => {
       inputs: { query: "첫 답변" },
       output: "json-answer",
     });
+  });
+
+  it("waits for an output-block workflow run that starts pending", async () => {
+    const get = jest.fn().mockResolvedValue({
+      id: "wf-output",
+      graph: {
+        blocks: [
+          { id: "start", type: "input" },
+          { id: "json-answer", type: "answer", title: "JSON 응답" },
+        ],
+      },
+    });
+    const getRun = jest.fn().mockResolvedValue({
+      id: "run-pending",
+      workflow_id: "wf-output",
+      status: "completed",
+      outputs: { answer: "완료된 답변" },
+      block_states: {},
+      started_at: "2026-05-30T00:00:00.000Z",
+    });
+    jest.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "run-pending",
+        workflow_id: "wf-output",
+        status: "pending",
+        outputs: {},
+        block_states: {},
+        started_at: "2026-05-30T00:00:00.000Z",
+      }),
+    } as Response);
+
+    const result = await runSchiftWorkflow({
+      schift: { workflows: { get, getRun } },
+      workflowId: "wf-output",
+      inputs: { query: "오늘 주차 정보 볼래요." },
+    } as never);
+
+    expect(result.run).toEqual(
+      expect.objectContaining({
+        status: "completed",
+        outputs: { answer: "완료된 답변" },
+      }),
+    );
+    expect(getRun).toHaveBeenCalledWith("wf-output", "run-pending");
+  });
+
+  it("waits for a pending SDK workflow run when no output block is available", async () => {
+    const get = jest.fn().mockResolvedValue({
+      id: "wf-sdk",
+      graph: {
+        blocks: [{ id: "start", type: "input" }],
+      },
+    });
+    const run = jest.fn().mockResolvedValue({
+      id: "run-sdk",
+      workflow_id: "wf-sdk",
+      status: "running",
+      outputs: {},
+      block_states: {},
+      started_at: "2026-05-30T00:00:00.000Z",
+    });
+    const getRun = jest.fn().mockResolvedValue({
+      id: "run-sdk",
+      workflow_id: "wf-sdk",
+      status: "completed",
+      outputs: { answer: "SDK 완료 답변" },
+      block_states: {},
+      started_at: "2026-05-30T00:00:00.000Z",
+    });
+
+    const result = await runSchiftWorkflow({
+      schift: { workflows: { get, run, getRun } },
+      workflowId: "wf-sdk",
+      inputs: { query: "좋은 기분이에요." },
+    } as never);
+
+    expect(result.run).toEqual(
+      expect.objectContaining({
+        status: "completed",
+        outputs: { answer: "SDK 완료 답변" },
+      }),
+    );
+    expect(run).toHaveBeenCalledWith("wf-sdk", {
+      query: "좋은 기분이에요.",
+    });
+    expect(getRun).toHaveBeenCalledWith("wf-sdk", "run-sdk");
   });
 });
 

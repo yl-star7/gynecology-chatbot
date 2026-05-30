@@ -2,6 +2,9 @@ import type { Schift, Workflow, WorkflowRun } from "@schift-io/sdk";
 import { listSchiftWorkflows } from "./schift-workflows-api";
 
 const WORKFLOW_OUTPUT_BLOCK_CACHE_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_WORKFLOW_RUN_POLL_INTERVAL_MS = 1_000;
+const DEFAULT_WORKFLOW_RUN_TIMEOUT_MS = 55_000;
+const IN_PROGRESS_WORKFLOW_RUN_STATUSES = new Set(["pending", "running"]);
 const workflowOutputBlockIdCache = new Map<
   string,
   { outputBlockId: string | null; expiresAt: number }
@@ -77,10 +80,15 @@ export async function runSchiftWorkflow(input: {
         outputBlockId,
       )
     : await input.schift.workflows.run(resolvedWorkflowId, input.inputs);
+  const completedRun = await waitForSchiftWorkflowRun({
+    workflowId: resolvedWorkflowId,
+    run,
+    getRun: (runId) => input.schift.workflows.getRun(resolvedWorkflowId, runId),
+  });
 
   return {
     workflowId: resolvedWorkflowId,
-    run,
+    run: completedRun,
   };
 }
 
@@ -165,6 +173,88 @@ async function runSchiftWorkflowWithOutput(
   }
 
   return (await response.json()) as WorkflowRun;
+}
+
+function readNumberEnv(name: string, fallback: number) {
+  const rawValue = process.env[name];
+  if (!rawValue) {
+    return fallback;
+  }
+
+  const value = Number(rawValue);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isInProgressWorkflowRun(run: WorkflowRun) {
+  return IN_PROGRESS_WORKFLOW_RUN_STATUSES.has(String(run.status));
+}
+
+async function fetchSchiftWorkflowRun(workflowId: string, runId: string) {
+  const apiKey = process.env.SCHIFT_API_KEY;
+  if (!apiKey) {
+    throw new Error("SCHIFT_API_KEY not configured");
+  }
+
+  const response = await fetch(
+    `https://api.schift.io/v1/workflows/${workflowId}/runs/${runId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      text || `Schift workflow run fetch failed: ${response.status}`,
+    );
+  }
+
+  return (await response.json()) as WorkflowRun;
+}
+
+async function waitForSchiftWorkflowRun(input: {
+  workflowId: string;
+  run: WorkflowRun;
+  getRun?: (runId: string) => Promise<WorkflowRun | null>;
+}) {
+  let latestRun = input.run;
+  if (!isInProgressWorkflowRun(latestRun)) {
+    return latestRun;
+  }
+
+  const intervalMs = readNumberEnv(
+    "SCHIFT_WORKFLOW_POLL_INTERVAL_MS",
+    DEFAULT_WORKFLOW_RUN_POLL_INTERVAL_MS,
+  );
+  const timeoutMs = readNumberEnv(
+    "SCHIFT_WORKFLOW_RUN_TIMEOUT_MS",
+    DEFAULT_WORKFLOW_RUN_TIMEOUT_MS,
+  );
+  const deadline = Date.now() + timeoutMs;
+
+  while (isInProgressWorkflowRun(latestRun)) {
+    if (Date.now() >= deadline) {
+      throw new Error(`Schift workflow run timed out: ${latestRun.status}`);
+    }
+
+    if (intervalMs > 0) {
+      await sleep(intervalMs);
+    }
+
+    const refreshedRun =
+      (await input.getRun?.(latestRun.id)) ??
+      (await fetchSchiftWorkflowRun(input.workflowId, latestRun.id));
+    latestRun = refreshedRun;
+  }
+
+  return latestRun;
 }
 
 type WorkflowRunLike = {
