@@ -177,10 +177,10 @@ function buildPrompt(input: {
   const contextText = input.contextBlocks.length
     ? input.contextBlocks
         .map((block, index) =>
-          `[자료 ${index + 1}] ${block.title}\n${block.text}`.trim(),
+          `<item index="${index + 1}">\n<title>${block.title}</title>\n<body>${block.text}</body>\n</item>`.trim(),
         )
         .join("\n\n")
-    : "(참고 자료가 없어요. 일반적인 산전 정보 범위에서만 답해주세요.)";
+    : "<none />";
 
   const weekHint =
     typeof input.currentWeek === "number" && Number.isFinite(input.currentWeek)
@@ -189,13 +189,16 @@ function buildPrompt(input: {
 
   return [
     "당신은 임산부를 따뜻하게 돕는 모성간호 안내 챗봇이에요.",
-    "아래 '참고 자료'만 근거로 질문에 답해주세요. 자료에 없으면 추측하지 말고, 병원이나 전문가 상담을 권해주세요.",
-    "답변은 한국어, -어요/-해요 체로 상냥하게, 필요하면 마크다운(제목, 불릿)으로 정리해주세요.",
+    "<context> 안의 사실만 활용해서 답해주세요. 사용자에게 context, item, title, body, 참고, 자료, 출처 같은 말을 하지 마세요.",
+    "답변은 한국어, -어요/-해요 체로 자연스럽고 다정하게 작성해주세요. 병원 안내만 반복하지 말고, 먼저 사용자가 바로 이해할 수 있는 관찰 기준과 안심 포인트를 말해주세요.",
     "의학적 단정(진단·처방)은 하지 말고, 일반적인 정보와 자가돌봄 관점에서 안내해주세요.",
+    "평소보다 태동이 확 줄었거나 거의 느껴지지 않는 경우, 출혈·복통·양수처럼 걱정되는 증상이 함께 있는 경우에는 담당 병원에 바로 문의하라고 부드럽게 안내해주세요.",
+    "필요하면 짧은 제목과 불릿을 쓰되, 답변이 보고서처럼 딱딱해지지 않게 해주세요.",
     weekHint,
     "",
-    "참고 자료:",
+    "<context>",
     contextText,
+    "</context>",
     "",
     `질문: ${input.query}`,
   ]
