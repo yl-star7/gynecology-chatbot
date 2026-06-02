@@ -22,14 +22,8 @@ const SCHIFT_TIMEOUT_MS = 5_000;
 const GEMINI_MODEL = "gemini-3.1-flash-lite";
 const MAX_QUERY_LENGTH = 1_000;
 
-export type AskSource = {
-  title: string;
-  snippet: string;
-};
-
 export type AskResponseBody = {
   answer: string;
-  sources: AskSource[];
 };
 
 type SchiftSearchResult = {
@@ -92,13 +86,6 @@ function pickTextFromMetadata(
     title: String(titleCandidate).trim() || "참고 자료",
     text: String(textCandidate).trim(),
   };
-}
-
-function snippetFromText(text: string, limit = 220) {
-  if (!text) return "";
-  const normalized = text.replace(/\s+/g, " ").trim();
-  if (normalized.length <= limit) return normalized;
-  return `${normalized.slice(0, limit).trim()}…`;
 }
 
 function buildContextBlocksFromDbRag(context: string) {
@@ -319,16 +306,10 @@ export async function POST(request: NextRequest) {
 
     const answerText = await generateAnswer(prompt);
 
-    const sources: AskSource[] = contextBlocks.map((block) => ({
-      title: block.title,
-      snippet: snippetFromText(block.text),
-    }));
-
     const payload: AskResponseBody = {
       answer:
         answerText ||
         "죄송해요, 지금은 답을 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
-      sources,
     };
 
     return mobileNoStoreJson(payload);

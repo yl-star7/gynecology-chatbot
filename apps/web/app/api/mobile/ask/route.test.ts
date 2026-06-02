@@ -99,7 +99,7 @@ beforeEach(() => {
 });
 
 describe("POST /api/mobile/ask", () => {
-  test("happy path: returns markdown answer and sources", async () => {
+  test("returns markdown answer without exposing source materials", async () => {
     const response = await POST(
       buildRequest(
         { query: "20주차 태동은 어떻게 느껴져요?", currentWeek: 20 },
@@ -108,16 +108,10 @@ describe("POST /api/mobile/ask", () => {
     );
     expect(response.status).toBe(200);
 
-    const payload = (await response.json()) as {
-      answer: string;
-      sources: Array<{ title: string; snippet: string }>;
-    };
+    const payload = (await response.json()) as { answer: string };
 
     expect(payload.answer).toContain("20주차");
-    expect(payload.sources.length).toBeGreaterThan(0);
-    expect(payload.sources[0]).toEqual(
-      expect.objectContaining({ title: expect.any(String) }),
-    );
+    expect(payload).not.toHaveProperty("sources");
     expect(schiftSearchMock).toHaveBeenCalledTimes(1);
     expect(generateGoogleTextMock).toHaveBeenCalledTimes(1);
   });
@@ -184,17 +178,9 @@ describe("POST /api/mobile/ask", () => {
       ),
     );
     expect(response.status).toBe(200);
-    const payload = (await response.json()) as {
-      answer: string;
-      sources: unknown[];
-    };
+    const payload = (await response.json()) as { answer: string };
     expect(payload.answer).toContain("태동");
-    expect(payload.sources).toEqual([
-      expect.objectContaining({
-        title: "태동 기록 안내",
-        snippet: expect.stringContaining("태동이 평소보다 줄거나"),
-      }),
-    ]);
+    expect(payload).not.toHaveProperty("sources");
     expect(searchDbFileRagMock).toHaveBeenCalledWith({
       currentWeek: null,
       matchCount: 5,
