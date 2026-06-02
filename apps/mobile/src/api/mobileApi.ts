@@ -17,6 +17,7 @@ import {
   readNativeSessionToken,
   readNativeUserId,
 } from "../core/nativeSessionStorage.ts";
+import { sanitizeChatMessage, sanitizeChatSession } from "./mobileApi.model.ts";
 
 export class SessionExpiredError extends Error {
   constructor(message: string) {
@@ -425,7 +426,8 @@ export function createMobileApiClient(
           headers: sessionHeaders,
         },
       );
-      return parseJson<{ message: ChatMessage }>(response);
+      const payload = await parseJson<{ message: ChatMessage }>(response);
+      return { message: sanitizeChatMessage(payload.message) };
     },
 
     async fetchRecordDay(isoDate) {
@@ -445,7 +447,8 @@ export function createMobileApiClient(
           headers: buildMobileSessionHeaders(),
         },
       );
-      return parseJson<{ session: ChatSession }>(response);
+      const payload = await parseJson<{ session: ChatSession }>(response);
+      return { session: sanitizeChatSession(payload.session) };
     },
 
     async fetchContentItems(section) {
@@ -537,10 +540,14 @@ export function createMobileApiClient(
           }),
           signal: controller.signal,
         });
-        return parseJson<{
+        const payload = await parseJson<{
           assistantMessage: ChatMessage;
           assistantMessages?: ChatMessage[];
         }>(response);
+        return {
+          assistantMessage: sanitizeChatMessage(payload.assistantMessage),
+          assistantMessages: payload.assistantMessages?.map(sanitizeChatMessage),
+        };
       } finally {
         clearTimeout(timeoutId);
       }

@@ -197,14 +197,14 @@ test("conversation message list filters placeholder-only assistant messages from
 test("conversation message list hides unsupported assistant parts from the rendered thread", () => {
   const messages = [
     {
-      id: "internal-sources",
+      id: "internal-part",
       role: "assistant",
       createdAtLabel: "방금 전",
       parts: [
         {
-          id: "rag-sources",
-          type: "_rag_sources",
-          sources: [{ title: "32주차 문서" }],
+          id: "internal-diagnostic",
+          type: "_internal_diagnostic",
+          value: "debug-only",
         } as never,
       ],
     },
