@@ -160,6 +160,40 @@ describe("AdminOperationsPanel", () => {
           );
         }
 
+        if (url === "/api/admin/ask-prompt" && !init?.method) {
+          return new Response(
+            JSON.stringify({
+              tonePrompt: "먼저 산모가 안심할 수 있는 말로 시작합니다.",
+              forbiddenTerms: [
+                "context",
+                "item",
+                "title",
+                "body",
+                "참고",
+                "자료",
+                "출처",
+              ],
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (url === "/api/admin/ask-prompt" && init?.method === "PUT") {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              ...JSON.parse(String(init.body)),
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
         if (url === "/api/admin/branding" && !init?.method) {
           return new Response(
             JSON.stringify({
@@ -340,6 +374,33 @@ describe("AdminOperationsPanel", () => {
     });
     expect(
       await screen.findByText("알림 스케줄을 저장했습니다."),
+    ).toBeInTheDocument();
+  });
+
+  it("saves the patient answer tone for free ask responses", async () => {
+    render(<AdminOperationsPanel />);
+
+    const promptInput = await screen.findByLabelText(
+      "무엇이든 물어보세요 답변 작성 원칙",
+    );
+    fireEvent.change(promptInput, {
+      target: { value: "태동 질문에는 먼저 관찰 기준부터 말합니다." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "답변 톤 저장" }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/admin/ask-prompt",
+        expect.objectContaining({
+          method: "PUT",
+          body: expect.stringContaining(
+            "태동 질문에는 먼저 관찰 기준부터 말합니다.",
+          ),
+        }),
+      );
+    });
+    expect(
+      await screen.findByText("무엇이든 물어보세요 답변 톤을 저장했습니다."),
     ).toBeInTheDocument();
   });
 

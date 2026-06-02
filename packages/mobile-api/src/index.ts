@@ -1,4 +1,5 @@
 export * from "./rate-limit";
+export * as askPrompt from "./ask-prompt";
 export * as auth from "./auth";
 export * as rag from "./rag";
 export * as solapi from "./solapi-sms";

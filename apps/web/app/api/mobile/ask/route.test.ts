@@ -1,6 +1,7 @@
 const generateGoogleTextMock = jest.fn();
 const schiftSearchMock = jest.fn();
 const searchDbFileRagMock = jest.fn();
+const dbSelectMock = jest.fn();
 
 jest.mock("@gynecology-chatbot/mobile-api/text-generation", () => ({
   generateGoogleText: (...args: unknown[]) => generateGoogleTextMock(...args),
@@ -8,6 +9,10 @@ jest.mock("@gynecology-chatbot/mobile-api/text-generation", () => ({
 
 jest.mock("@gynecology-chatbot/mobile-api/rag", () => ({
   searchDbFileRag: (...args: unknown[]) => searchDbFileRagMock(...args),
+}));
+
+jest.mock("@gynecology-chatbot/mobile-api/db/admin-client", () => ({
+  dbSelect: (...args: unknown[]) => dbSelectMock(...args),
 }));
 
 jest.mock("@/lib/mobile/schift-client", () => ({
@@ -59,6 +64,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   process.env.GEMINI_API_KEY = "test-key";
 
+  dbSelectMock.mockResolvedValue([]);
   requireMobileSessionMock.mockResolvedValue({ userId: "user-123" });
   (checkRateLimit as jest.Mock).mockReturnValue({
     allowed: true,
@@ -185,5 +191,34 @@ describe("POST /api/mobile/ask", () => {
       currentWeek: null,
       matchCount: 5,
     });
+  });
+
+  test("uses administrator controlled answer tone prompt", async () => {
+    dbSelectMock.mockResolvedValueOnce([
+      {
+        value: {
+          tonePrompt: "처음 문장은 산모가 불안하지 않게 짧게 시작해요.",
+          forbiddenTerms: ["참고", "자료"],
+        },
+      },
+    ]);
+
+    const response = await POST(
+      buildRequest(
+        { query: "20주차 태동은 어떻게 느껴져요?", currentWeek: 20 },
+        { authorization: "Bearer test-token" },
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    const generatedInput = generateGoogleTextMock.mock.calls[0]?.[0] as {
+      prompt?: string;
+    };
+    expect(generatedInput.prompt).toContain(
+      "처음 문장은 산모가 불안하지 않게 짧게 시작해요.",
+    );
+    expect(generatedInput.prompt).toContain(
+      "사용자에게 참고, 자료 같은 말을 하지 마세요.",
+    );
   });
 });

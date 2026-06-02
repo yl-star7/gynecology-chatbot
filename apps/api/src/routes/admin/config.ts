@@ -1,5 +1,11 @@
 import { Hono } from "hono";
 import { prisma, type Prisma } from "@gynecology-chatbot/db/prisma";
+import {
+  DEFAULT_MOBILE_ASK_PROMPT_CONFIG,
+  MOBILE_ASK_PROMPT_KEY,
+  normalizeMobileAskPromptConfig,
+  type MobileAskPromptConfig,
+} from "@gynecology-chatbot/mobile-api/ask-prompt";
 
 import { requireAdminProxy, type AdminProxyVariables } from "./auth.js";
 
@@ -203,6 +209,10 @@ function asApprovalPolicyConfig(value: Prisma.JsonValue | null | undefined) {
         ? (value as { requireApproval: boolean }).requireApproval
         : DEFAULT_APPROVAL_POLICY.requireApproval,
   } satisfies ApprovalPolicyConfig;
+}
+
+function asMobileAskPromptConfig(value: Prisma.JsonValue | null | undefined) {
+  return normalizeMobileAskPromptConfig(value);
 }
 
 function normalizeSurveyFormUrl(input: unknown) {
@@ -480,6 +490,41 @@ app.put("/approval-policy", async (c) => {
   } catch (error) {
     console.error("admin api approval-policy PUT error", error);
     return c.json({ error: "failed to save approval policy" }, 500);
+  }
+});
+
+app.get("/ask-prompt", async (c) => {
+  try {
+    const row = await prisma.system_config.findUnique({
+      where: { key: MOBILE_ASK_PROMPT_KEY },
+      select: { value: true },
+    });
+
+    return c.json(
+      asMobileAskPromptConfig(row?.value) ?? DEFAULT_MOBILE_ASK_PROMPT_CONFIG,
+    );
+  } catch (error) {
+    console.error("admin api ask-prompt GET error", error);
+    return c.json({ error: "failed to load ask prompt" }, 500);
+  }
+});
+
+app.put("/ask-prompt", async (c) => {
+  try {
+    const body = (await c.req.json()) as Partial<MobileAskPromptConfig>;
+    if (typeof body.tonePrompt !== "string" || !body.tonePrompt.trim()) {
+      return c.json({ error: "tonePrompt is required" }, 400);
+    }
+
+    const config = normalizeMobileAskPromptConfig(body);
+    await upsertSystemConfig(
+      MOBILE_ASK_PROMPT_KEY,
+      config as Prisma.InputJsonValue,
+    );
+    return c.json({ ok: true, ...config });
+  } catch (error) {
+    console.error("admin api ask-prompt PUT error", error);
+    return c.json({ error: "failed to save ask prompt" }, 500);
   }
 });
 

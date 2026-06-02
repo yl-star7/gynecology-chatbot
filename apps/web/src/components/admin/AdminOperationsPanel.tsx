@@ -44,6 +44,11 @@ interface ScheduleConfig {
   checkupReminderTime: string;
 }
 
+interface AskPromptConfig {
+  tonePrompt: string;
+  forbiddenTerms: string[];
+}
+
 type OperationKey = "refresh-yaml" | "push-send" | "proactive";
 
 const DEFAULT_SCHEDULE: ScheduleConfig = {
@@ -66,6 +71,17 @@ const WEEKDAY_OPTIONS = [
   { value: "6", label: "토요일" },
 ];
 
+const DEFAULT_ASK_PROMPT: AskPromptConfig = {
+  tonePrompt: [
+    "당신은 임산부를 따뜻하게 돕는 모성간호 안내 챗봇이에요.",
+    "답변은 한국어, -어요/-해요 체로 자연스럽게 작성해주세요.",
+    "첫 문장은 공감 한 문장으로 짧게 시작하고, 과한 축하·감탄·태담 권유는 쓰지 마세요.",
+    "병원 안내만 반복하지 말고, 먼저 사용자가 바로 이해할 수 있는 관찰 기준과 안심 포인트를 말해주세요.",
+    "제목은 필요한 경우에만 쓰고, 불릿은 4개 이하로 짧게 유지해주세요.",
+  ].join("\n"),
+  forbiddenTerms: ["context", "item", "title", "body", "참고", "자료", "출처"],
+};
+
 export function AdminOperationsPanel() {
   const [requireApproval, setRequireApproval] = useState(true);
   const [approvalPolicyLoading, setApprovalPolicyLoading] = useState(true);
@@ -82,6 +98,13 @@ export function AdminOperationsPanel() {
   const [scheduleSaving, setScheduleSaving] = useState(false);
   const [scheduleResult, setScheduleResult] = useState<string | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+
+  const [askPrompt, setAskPrompt] =
+    useState<AskPromptConfig>(DEFAULT_ASK_PROMPT);
+  const [askPromptLoading, setAskPromptLoading] = useState(true);
+  const [askPromptSaving, setAskPromptSaving] = useState(false);
+  const [askPromptResult, setAskPromptResult] = useState<string | null>(null);
+  const [askPromptError, setAskPromptError] = useState<string | null>(null);
 
   const [stageMappingJson, setStageMappingJson] = useState("{}");
   const [stageMappingLoading, setStageMappingLoading] = useState(true);
@@ -143,6 +166,27 @@ export function AdminOperationsPanel() {
       }
     }
 
+    async function fetchAskPrompt() {
+      setAskPromptLoading(true);
+      setAskPromptError(null);
+      try {
+        const res = await fetch("/api/admin/ask-prompt");
+        if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+        const data = (await res.json()) as Partial<AskPromptConfig>;
+        if (!cancelled) setAskPrompt({ ...DEFAULT_ASK_PROMPT, ...data });
+      } catch (err) {
+        if (!cancelled) {
+          setAskPromptError(
+            err instanceof Error
+              ? err.message
+              : "답변 톤을 불러오지 못했습니다.",
+          );
+        }
+      } finally {
+        if (!cancelled) setAskPromptLoading(false);
+      }
+    }
+
     async function fetchStageMapping() {
       setStageMappingLoading(true);
       setStageMappingError(null);
@@ -168,6 +212,7 @@ export function AdminOperationsPanel() {
 
     void fetchApprovalPolicy();
     void fetchSchedule();
+    void fetchAskPrompt();
     void fetchStageMapping();
     return () => {
       cancelled = true;
@@ -233,6 +278,34 @@ export function AdminOperationsPanel() {
       );
     } finally {
       setScheduleSaving(false);
+    }
+  }
+
+  async function handleSaveAskPrompt() {
+    setAskPromptSaving(true);
+    setAskPromptResult(null);
+    setAskPromptError(null);
+    try {
+      const res = await fetch("/api/admin/ask-prompt", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(askPrompt),
+      });
+      const payload = (await res.json()) as Partial<AskPromptConfig> & {
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(payload.error ?? `서버 오류 (${res.status})`);
+      }
+
+      setAskPrompt({ ...DEFAULT_ASK_PROMPT, ...payload });
+      setAskPromptResult("무엇이든 물어보세요 답변 톤을 저장했습니다.");
+    } catch (err) {
+      setAskPromptError(
+        err instanceof Error ? err.message : "답변 톤 저장에 실패했습니다.",
+      );
+    } finally {
+      setAskPromptSaving(false);
     }
   }
 
@@ -371,6 +444,69 @@ export function AdminOperationsPanel() {
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>{approvalPolicyError}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 무엇이든 물어보세요 답변 톤 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm text-muted-foreground">
+              무엇이든 물어보세요 답변 톤
+            </CardTitle>
+          </div>
+          <CardDescription>
+            앱에서 산모에게 보이는 답변의 말투와 구성 방식을 관리합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {askPromptLoading ? (
+            <Skeleton className="h-40 w-full" />
+          ) : (
+            <>
+              <div>
+                <Label htmlFor="ask-prompt-tone">답변 작성 원칙</Label>
+                <Textarea
+                  id="ask-prompt-tone"
+                  value={askPrompt.tonePrompt}
+                  rows={8}
+                  aria-label="무엇이든 물어보세요 답변 작성 원칙"
+                  onChange={(event) =>
+                    setAskPrompt((current) => ({
+                      ...current,
+                      tonePrompt: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                진단·처방 금지와 위험 신호 안내는 안전 장치로 항상 함께
+                적용됩니다.
+              </p>
+              <Button
+                type="button"
+                className="w-fit"
+                disabled={askPromptSaving || !askPrompt.tonePrompt.trim()}
+                aria-busy={askPromptSaving}
+                onClick={() => void handleSaveAskPrompt()}
+              >
+                {askPromptSaving ? "저장 중..." : "답변 톤 저장"}
+              </Button>
+            </>
+          )}
+
+          {askPromptResult && (
+            <Alert role="status" aria-live="polite">
+              <AlertDescription>{askPromptResult}</AlertDescription>
+            </Alert>
+          )}
+          {askPromptError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{askPromptError}</AlertDescription>
             </Alert>
           )}
         </CardContent>
