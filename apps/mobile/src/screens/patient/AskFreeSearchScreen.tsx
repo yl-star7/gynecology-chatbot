@@ -36,14 +36,9 @@ import {
   resolveKeyboardHeightFromCoordinates,
 } from "./patientScreenLayout.model";
 
-type AskSource = {
-  title: string;
-  snippet: string;
-};
-
 type AskMessage =
   | { id: string; role: "user"; text: string }
-  | { id: string; role: "assistant"; text: string; sources: AskSource[] }
+  | { id: string; role: "assistant"; text: string }
   | { id: string; role: "loading" }
   | { id: string; role: "error"; text: string };
 
@@ -57,7 +52,7 @@ function resolveApiBaseUrl() {
 async function requestAnswer(input: {
   query: string;
   currentWeek: number | null;
-}): Promise<{ answer: string; sources: AskSource[] }> {
+}): Promise<{ answer: string }> {
   const token = readCurrentMobileSessionToken();
   if (!token) {
     throw new SessionExpiredError("세션이 만료되었어요. 다시 로그인해 주세요.");
@@ -79,7 +74,6 @@ async function requestAnswer(input: {
 
   const payload = (await response.json().catch(() => ({}))) as Partial<{
     answer: string;
-    sources: AskSource[];
     error: string;
   }>;
 
@@ -97,14 +91,6 @@ async function requestAnswer(input: {
 
   return {
     answer: typeof payload.answer === "string" ? payload.answer : "",
-    sources: Array.isArray(payload.sources)
-      ? payload.sources.filter(
-          (source): source is AskSource =>
-            !!source &&
-            typeof source.title === "string" &&
-            typeof source.snippet === "string",
-        )
-      : [],
   };
 }
 
@@ -209,36 +195,6 @@ function MarkdownAnswer({ text }: { text: string }) {
   return <View style={styles.mdRoot}>{blocks}</View>;
 }
 
-function SourcesSection({ sources }: { sources: AskSource[] }) {
-  const [expanded, setExpanded] = useState(false);
-  if (!sources || sources.length === 0) return null;
-
-  return (
-    <View style={styles.sourcesBlock}>
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => setExpanded((v) => !v)}
-        style={styles.sourcesHeader}
-      >
-        <Text style={styles.sourcesTitle}>참고 자료 ({sources.length}개)</Text>
-        <Text style={styles.sourcesChevron}>{expanded ? "▾" : "▸"}</Text>
-      </Pressable>
-      {expanded ? (
-        <View style={styles.sourcesList}>
-          {sources.map((source, index) => (
-            <View key={`${source.title}-${index}`} style={styles.sourceItem}>
-              <Text style={styles.sourceTitle}>{source.title}</Text>
-              {source.snippet ? (
-                <Text style={styles.sourceSnippet}>{source.snippet}</Text>
-              ) : null}
-            </View>
-          ))}
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
 function makeMessageId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -335,7 +291,6 @@ export function AskFreeSearchScreen() {
             text:
               data.answer ||
               "죄송해요, 지금은 답을 만들지 못했어요. 다른 방식으로 질문해 보세요.",
-            sources: data.sources,
           }),
       );
     } catch (error) {
@@ -425,7 +380,7 @@ export function AskFreeSearchScreen() {
                     <View style={styles.loadingRow}>
                       <ActivityIndicator color={palette.accent} size="small" />
                       <Text style={styles.loadingText}>
-                        참고 자료를 찾고 있어요...
+                        답변을 준비하고 있어요...
                       </Text>
                     </View>
                   </View>
@@ -446,7 +401,6 @@ export function AskFreeSearchScreen() {
               <View key={message.id} style={styles.assistantRow}>
                 <View style={styles.assistantBubble}>
                   <MarkdownAnswer text={message.text} />
-                  <SourcesSection sources={message.sources} />
                 </View>
               </View>
             );
@@ -626,40 +580,6 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.4,
-  },
-  sourcesBlock: {
-    marginTop: space.sm,
-    paddingTop: space.sm,
-    borderTopWidth: 1,
-    borderTopColor: surface.strokeSubtle,
-  },
-  sourcesHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  sourcesTitle: {
-    ...typo.label,
-    color: surface.textPrimary,
-  },
-  sourcesChevron: {
-    ...typo.label,
-    color: surface.textSecondary,
-  },
-  sourcesList: {
-    gap: space.md,
-    marginTop: space.sm,
-  },
-  sourceItem: {
-    gap: space.xs,
-  },
-  sourceTitle: {
-    ...typo.label,
-    color: surface.textPrimary,
-  },
-  sourceSnippet: {
-    ...typo.caption,
-    color: surface.textSecondary,
   },
   mdRoot: {
     gap: space.sm,

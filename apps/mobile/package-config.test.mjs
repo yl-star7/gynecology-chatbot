@@ -206,3 +206,22 @@ test("native mobile source keeps admin shadcn and Tailwind patterns out", () => 
     "apps/mobile must keep the native RN design system separate from admin shadcn/Tailwind UI",
   );
 });
+
+test("ask free search screen does not expose source materials to patients", () => {
+  const askFreeSearchSource = readFileSync(
+    new URL("./src/screens/patient/AskFreeSearchScreen.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.doesNotMatch(
+    askFreeSearchSource,
+    /참고\s*자료/,
+    "무엇이든 물어보세요 화면은 환자에게 참고자료 목록을 노출하지 않아야 합니다.",
+  );
+
+  assert.doesNotMatch(
+    askFreeSearchSource,
+    /SourcesSection|sourceSnippet|sourcesBlock/,
+    "무엇이든 물어보세요 화면에 참고자료 렌더링 컴포넌트를 되살리면 안 됩니다.",
+  );
+});
